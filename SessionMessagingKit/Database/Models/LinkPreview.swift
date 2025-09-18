@@ -69,7 +69,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
     ) {
         self.url = url
         self.timestamp = (timestamp ?? LinkPreview.timestampFor(
-            sentTimestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs()  // Default to now
+            sentTimestampMs: dependencies.networkOffsetTimestampMs()  // Default to now
         ))
         self.variant = variant
         self.title = title

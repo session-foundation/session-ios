@@ -64,7 +64,7 @@ extension MessageReceiver {
             .filter(blindedThreadIds.contains(SessionThread.Columns.id))
             .select(max(SessionThread.Columns.creationDateTimestamp))
             .fetchOne(db))
-            .defaulting(to: (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000))
+            .defaulting(to: (dependencies.networkOffsetTimestampMs() / 1000))
         
         // Prep the unblinded thread
         let unblindedThread: SessionThread = try SessionThread.upsert(
@@ -167,7 +167,7 @@ extension MessageReceiver {
                 variant: .infoMessageRequestAccepted,
                 timestampMs: (
                     message.sentTimestampMs.map { Int64($0) } ??
-                    dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                    dependencies.networkOffsetTimestampMs()
                 ),
                 using: dependencies
             ).inserted(db)

@@ -52,7 +52,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         
         // The first 32 bytes of a 64 byte ed25519 private key are the seed which can be used
         // to generate the KeyPair so extract those and send along with the promotion message
-        let sentTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
         let message: GroupUpdatePromoteMessage = GroupUpdatePromoteMessage(
             groupIdentitySeed: groupInfo.groupIdentityPrivateKey.prefix(32),
             groupName: groupInfo.name,

@@ -247,20 +247,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                 .thenReturn([:])
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
             
-            try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
-            try await mockNetwork
-                .when {
-                    $0.send(
-                        endpoint: MockEndpoint.any,
-                        destination: .any,
-                        body: .any,
-                        category: .any,
-                        requestTimeout: .any,
-                        overallTimeout: .any
-                    )
-                }
-                .thenReturn(MockNetwork.errorResponse())
-            try await mockNetwork.when { $0.syncState }.thenReturn(NetworkSyncState(isSuspended: false))
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
             dependencies.set(singleton: .network, to: mockNetwork)
         }
         

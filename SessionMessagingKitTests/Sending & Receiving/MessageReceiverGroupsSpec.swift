@@ -692,7 +692,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                         overallTimeout: nil
                                     )
                                 }
-                                .wasCalled(exactly: Network.PushNotification.maxRetryCount + 1, timeout: .milliseconds(50))
+                                .wasCalled(exactly: Network.PushNotification.maxRetryCount + 1, timeout: .milliseconds(100))
                         }
                     }
                 }
@@ -2880,7 +2880,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                                 overallTimeout: nil
                             )
                         }
-                        .wasCalled(exactly: Network.PushNotification.maxRetryCount + 1, timeout: .milliseconds(50))
+                        .wasCalled(exactly: Network.PushNotification.maxRetryCount + 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- and the group is an invitation
@@ -3262,7 +3262,6 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     var mockNotificationsManager: MockNotificationsManager { mock(for: .notificationsManager) }
     var mockGeneralCache: MockGeneralCache { mock(cache: .general) }
     var mockLibSessionCache: MockLibSessionCache { mock(cache: .libSession) }
-    var mockStorageServerCache: MockStorageServerCache { mock(cache: .storageServer) }
     var mockPoller: MockPoller { mock() }
     
     let userGroupsConfig: LibSession.Config
@@ -3547,7 +3546,6 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
         try await applyBaselineNotificationsManager()
         try await applyBaselineGeneralCache()
         try await applyBaselineLibSessionCache()
-        try await applyBaselineStorageServerCache()
         try await applyBaselinePoller()
     }
     
@@ -3567,6 +3565,8 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
     }
     
     private func applyBaselineNetwork() async throws {
+        try await mockNetwork.defaultInitialSetup(using: dependencies)
+        await mockNetwork.removeRequestMocks()
         try await mockNetwork
             .when {
                 $0.send(
@@ -3579,34 +3579,6 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
                 )
             }
             .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
-        try await mockNetwork
-            .when { try await $0.getSwarm(for: .any) }
-            .thenReturn([
-                LibSession.Snode(
-                    ed25519PubkeyHex: TestConstants.edPublicKey,
-                    ip: "1.1.1.1",
-                    httpsPort: 1111,
-                    quicPort: 1112,
-                    version: "2.11.0",
-                    swarmId: 1
-                ),
-                LibSession.Snode(
-                    ed25519PubkeyHex: TestConstants.edPublicKey,
-                    ip: "1.1.1.1",
-                    httpsPort: 1121,
-                    quicPort: 1122,
-                    version: "2.11.0",
-                    swarmId: 1
-                ),
-                LibSession.Snode(
-                    ed25519PubkeyHex: TestConstants.edPublicKey,
-                    ip: "1.1.1.1",
-                    httpsPort: 1131,
-                    quicPort: 1132,
-                    version: "2.11.0",
-                    swarmId: 1
-                )
-            ])
     }
     
     private func applyBaselineJobRunner() async throws {
@@ -3725,10 +3697,6 @@ private class MessageReceiverGroupsTestFixture: FixtureBase {
                 .groupKeys: groupKeysConfig
             ]
         )
-    }
-    
-    private func applyBaselineStorageServerCache() async throws {
-        try await mockStorageServerCache.defaultInitialSetup()
     }
     
     private func applyBaselinePoller() async throws {

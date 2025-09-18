@@ -84,9 +84,9 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
         /// member was originally removed whereas the `messageSendTimestamp` is the time it will be uploaded to the swarm
         let targetChangeTimestampMs: Int64 = (
             details.changeTimestampMs ??
-            dependencies[cache: .storageServer].currentOffsetTimestampMs()
+            dependencies.networkOffsetTimestampMs()
         )
-        let messageSendTimestamp: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        let messageSendTimestamp: Int64 = dependencies.networkOffsetTimestampMs()
         let memberIdsToRemoveContent: Set<String> = pendingRemovals
             .filter { _, status -> Bool in status == GROUP_MEMBER_STATUS_REMOVED_MEMBER_AND_MESSAGES }
             .map { memberId, _ -> String in memberId }

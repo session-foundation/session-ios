@@ -19,6 +19,10 @@ public extension Singleton {
 
 public protocol NetworkType {
     var isSuspended: Bool { get async }
+    var hardfork: Int { get async }
+    var softfork: Int { get async }
+    var networkTimeOffsetMs: Int64 { get async }
+    
     nonisolated var networkStatus: AsyncStream<NetworkStatus> { get }
     @available(*, deprecated, message: "Should try to refactor the code to use proper async/await")
     nonisolated var syncState: NetworkSyncState { get }
@@ -50,6 +54,7 @@ public protocol NetworkType {
     
     func resetNetworkStatus() async
     func setNetworkStatus(status: NetworkStatus) async
+    func setNetworkInfo(networkTimeOffsetMs: Int64, hardfork: Int, softfork: Int) async
     func suspendNetworkAccess() async
     func resumeNetworkAccess(autoReconnect: Bool) async
     func finishCurrentObservations() async
@@ -69,15 +74,45 @@ public extension NetworkType {
 /// We manually handle thread-safety using the `NSLock` so can ensure this is `Sendable`
 public final class NetworkSyncState: @unchecked Sendable {
     private let lock = NSLock()
+    private let _dependencies: Dependencies
+    private var _hardfork: Int
+    private var _softfork: Int
+    private var _networkTimeOffsetMs: Int64
     private var _isSuspended: Bool
     
-    public init(isSuspended: Bool = false) {
+    public init(
+        hardfork: Int,
+        softfork: Int,
+        networkTimeOffsetMs: Int64 = 0,
+        isSuspended: Bool = false,
+        using dependencies: Dependencies
+    ) {
+        self._dependencies = dependencies
+        self._hardfork = hardfork
+        self._softfork = softfork
+        self._networkTimeOffsetMs = networkTimeOffsetMs
         self._isSuspended = isSuspended
     }
     
+    internal var dependencies: Dependencies { lock.withLock { _dependencies } }
+    public var hardfork: Int { lock.withLock { _hardfork } }
+    public var softfork: Int { lock.withLock { _softfork } }
+    public var networkTimeOffsetMs: Int64 { lock.withLock { _networkTimeOffsetMs } }
     public var isSuspended: Bool { lock.withLock { _isSuspended } }
 
-    func update(isSuspended: Bool) { lock.withLock { self._isSuspended = isSuspended } }
+    func update(
+        hardfork: Int? = nil,
+        softfork: Int? = nil,
+        networkTimeOffsetMs: Int64? = nil,
+        isSuspended: Bool? = nil
+    ) {
+        lock.withLock {
+            self._hardfork = (hardfork ?? self._hardfork)
+            self._softfork = (softfork ?? self._softfork)
+            self._networkTimeOffsetMs = (networkTimeOffsetMs ?? self._networkTimeOffsetMs)
+            self._isSuspended = (isSuspended ?? self._isSuspended)
+        }
+    }
 }
 
 // MARK: - Network Constants

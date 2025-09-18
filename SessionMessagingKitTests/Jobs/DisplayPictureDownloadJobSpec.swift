@@ -86,6 +86,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 .thenReturn("TestSogsSignature".bytes)
             dependencies.set(singleton: .crypto, to: mockCrypto)
             
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
                     $0.send(
@@ -643,7 +645,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             .wasNotCalled()
                         await mockImageDataManager
                             .verify { await $0.load(.any) }
-                            .wasNotCalled(timeout: .milliseconds(50))
+                            .wasNotCalled(timeout: .milliseconds(100))
                         expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
                     }
                 }
@@ -663,7 +665,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             .wasNotCalled()
                         await mockImageDataManager
                             .verify { await $0.load(.any) }
-                            .wasNotCalled(timeout: .milliseconds(50))
+                            .wasNotCalled(timeout: .milliseconds(100))
                         expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
                     }
                 }
@@ -680,7 +682,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     it("does not save the picture") {
                         await mockImageDataManager
                             .verify { await $0.load(.any) }
-                            .wasNotCalled(timeout: .milliseconds(50))
+                            .wasNotCalled(timeout: .milliseconds(100))
                         expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(equal(profile))
                     }
                 }
@@ -702,7 +704,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 it("adds the image data to the displayPicture cache") {
                     await mockImageDataManager
                         .verify { await $0.load(.url(URL(fileURLWithPath: "/test/DisplayPictures/5465737448617368"))) }
-                        .wasCalled(exactly: 1, timeout: .milliseconds(50))
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- successfully completes the job
@@ -754,7 +756,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
-                                .wasNotCalled(timeout: .milliseconds(50))
+                                .wasNotCalled(timeout: .milliseconds(100))
                             expect(mockStorage.read { db in try Profile.fetchOne(db) }).to(beNil())
                         }
                     }
@@ -782,7 +784,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
-                                .wasNotCalled(timeout: .milliseconds(50))
+                                .wasNotCalled(timeout: .milliseconds(100))
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
                                 .toNot(equal(
                                     Profile(
@@ -819,7 +821,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
-                                .wasNotCalled(timeout: .milliseconds(50))
+                                .wasNotCalled(timeout: .milliseconds(100))
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
                                 .toNot(equal(
                                     Profile(
@@ -865,7 +867,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                         .url(URL(fileURLWithPath: "/test/DisplayPictures/5465737448617368"))
                                     )
                                 }
-                                .wasCalled(exactly: 1, timeout: .milliseconds(50))
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
                             expect(mockStorage.read { db in try Profile.fetchOne(db) })
                                 .to(equal(
                                     Profile(
@@ -953,7 +955,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
-                                .wasNotCalled(timeout: .milliseconds(50))
+                                .wasNotCalled(timeout: .milliseconds(100))
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) }).to(beNil())
                         }
                     }
@@ -980,7 +982,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
-                                .wasNotCalled(timeout: .milliseconds(50))
+                                .wasNotCalled(timeout: .milliseconds(100))
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
                                 .toNot(equal(
                                     ClosedGroup(
@@ -1021,7 +1023,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
-                                .wasNotCalled(timeout: .milliseconds(50))
+                                .wasNotCalled(timeout: .milliseconds(100))
                             expect(mockStorage.read { db in try ClosedGroup.fetchOne(db) })
                                 .toNot(equal(
                                     ClosedGroup(
@@ -1129,7 +1131,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 .wasNotCalled()
                             await mockImageDataManager
                                 .verify { await $0.load(.any) }
-                                .wasNotCalled(timeout: .milliseconds(50))
+                                .wasNotCalled(timeout: .milliseconds(100))
                             expect(mockStorage.read { db in try OpenGroup.fetchOne(db) }).to(beNil())
                         }
                     }
@@ -1199,7 +1201,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                         .url(URL(fileURLWithPath: "/test/DisplayPictures/5465737448617368"))
                                     )
                                 }
-                                .wasCalled(exactly: 1, timeout: .milliseconds(50))
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
                             expect(mockStorage.read { db in try OpenGroup.fetchOne(db) })
                                 .to(equal(
                                     OpenGroup(

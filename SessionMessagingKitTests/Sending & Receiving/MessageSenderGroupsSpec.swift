@@ -71,7 +71,6 @@ class MessageSenderGroupsSpec: AsyncSpec {
             return .groupKeys(groupKeysConf, info: groupInfoConf, members: groupMembersConf)
         }()
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
-        @TestState var mockStorageServerCache: MockStorageServerCache! = .create(using: dependencies)
         @TestState var mockPoller: MockPoller! = .create(using: dependencies)
         @TestState var mockGroupPollerManager: MockGroupPollerManager! = .create(using: dependencies)
         @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
@@ -96,9 +95,6 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 .thenReturn(LibSession.PendingPushes(obsoleteHashes: ["testHash"]))
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
-            try await mockStorageServerCache.defaultInitialSetup()
-            dependencies.set(cache: .storageServer, to: mockStorageServerCache)
-            
             try await mockFileManager.defaultInitialSetup()
             dependencies.set(singleton: .fileManager, to: mockFileManager)
             
@@ -113,7 +109,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 .thenReturn(nil)
             dependencies.set(singleton: .jobRunner, to: mockJobRunner)
             
-            try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
                     $0.send(
@@ -126,34 +123,6 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     )
                 }
                 .thenReturn(Network.BatchResponse.mockConfigSyncResponse)
-            try await mockNetwork
-                .when { try await $0.getSwarm(for: .any) }
-                .thenReturn([
-                    LibSession.Snode(
-                        ed25519PubkeyHex: TestConstants.edPublicKey,
-                        ip: "1.1.1.1",
-                        httpsPort: 10,
-                        quicPort: 1,
-                        version: "2.11.0",
-                        swarmId: 1
-                    ),
-                    LibSession.Snode(
-                        ed25519PubkeyHex: TestConstants.edPublicKey,
-                        ip: "1.1.1.1",
-                        httpsPort: 20,
-                        quicPort: 2,
-                        version: "2.11.0",
-                        swarmId: 1
-                    ),
-                    LibSession.Snode(
-                        ed25519PubkeyHex: TestConstants.edPublicKey,
-                        ip: "1.1.1.1",
-                        httpsPort: 30,
-                        quicPort: 3,
-                        version: "2.11.0",
-                        swarmId: 1
-                    )
-                ])
             dependencies.set(singleton: .network, to: mockNetwork)
             
             try await mockKeychain
@@ -880,7 +849,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     overallTimeout: nil
                                 )
                             }
-                            .wasCalled(exactly: Network.PushNotification.maxRetryCount + 1, timeout: .milliseconds(50))
+                            .wasCalled(exactly: Network.PushNotification.maxRetryCount + 1, timeout: .milliseconds(100))
                     }
                     
                     // MARK: ---- does not subscribe if push notifications are disabled

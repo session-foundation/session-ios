@@ -87,7 +87,7 @@ public enum ConfigurationSyncJob: JobExecutor {
         }
         
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let messageSendTimestamp: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        let messageSendTimestamp: Int64 = dependencies.networkOffsetTimestampMs()
         let additionalTransientData: AdditionalTransientData? = (job.transientData as? AdditionalTransientData)
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingPushes.pushData.count), old hashes: \(pendingPushes.obsoleteHashes.count)")
         

@@ -187,7 +187,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 let updatedAttachment: Attachment = try attachment
                     .with(
                         state: .downloaded,
-                        creationTimestamp: (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000),
+                        creationTimestamp: (dependencies.networkOffsetTimestampMs() / 1000),
                         using: dependencies
                     )
                     .upserted(db)

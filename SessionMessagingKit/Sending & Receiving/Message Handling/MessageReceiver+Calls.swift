@@ -368,7 +368,7 @@ extension MessageReceiver {
         
         let messageSentTimestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
-            dependencies[cache: .storageServer].currentOffsetTimestampMs()
+            dependencies.networkOffsetTimestampMs()
         )
         let interaction: Interaction = try Interaction(
             serverHash: message.serverHash,
@@ -476,7 +476,7 @@ extension MessageReceiver {
         )
         let timestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
-            dependencies[cache: .storageServer].currentOffsetTimestampMs()
+            dependencies.networkOffsetTimestampMs()
         )
         
         guard let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) else {

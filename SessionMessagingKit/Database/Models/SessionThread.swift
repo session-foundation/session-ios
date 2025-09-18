@@ -354,7 +354,7 @@ public extension SessionThread {
                     variant: variant,
                     creationDateTimestamp: (
                         values.creationDateTimestamp.valueOrNull ??
-                        (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000)
+                        (dependencies.networkOffsetTimestampMs() / 1000)
                     ),
                     shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
                     mutedUntilTimestamp: nil,

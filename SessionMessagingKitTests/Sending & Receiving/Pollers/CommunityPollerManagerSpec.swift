@@ -158,8 +158,8 @@ private class CommunityPollerManagerTestFixture: FixtureBase {
     }
     
     private func applyBaselineNetwork() async throws {
-        try await mockNetwork.when { await $0.isSuspended }.thenReturn(false)
-        try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
+        try await mockNetwork.defaultInitialSetup(using: dependencies)
+        await mockNetwork.removeRequestMocks()
         
         /// Delay for 10 seconds because we don't want the Poller to get stuck in a recursive loop
         try await mockNetwork

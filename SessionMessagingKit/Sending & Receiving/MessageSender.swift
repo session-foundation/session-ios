@@ -51,7 +51,7 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Message> {
         // Common logic for all destinations
-        let messageSendTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        let messageSendTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
         let updatedMessage: Message = message
         
         // Set the message 'sentTimestamp' (Visible messages will already have their sent timestamp set)
@@ -200,7 +200,7 @@ public final class MessageSender {
             ttl: Message.getSpecifiedTTL(message: message, destination: destination, using: dependencies),
             /// **Note:** This timestamp is for the request being sent rather than when the message was created so it should always
             /// be the current offset timestamp (otherwise the storage server could reject the request for the clock being too far out)
-            timestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs(),
+            timestampMs: dependencies.networkOffsetTimestampMs(),
             authMethod: authMethod
         )
         
@@ -213,7 +213,7 @@ public final class MessageSender {
                 using: dependencies
             )
             .map { _, response in
-                let expirationTimestampMs: Int64 = (dependencies[cache: .storageServer].currentOffsetTimestampMs() + Network.StorageServer.Message.defaultExpirationMs)
+                let expirationTimestampMs: Int64 = (dependencies.networkOffsetTimestampMs() + Network.StorageServer.Message.defaultExpirationMs)
                 let updatedMessage: Message = message
                 updatedMessage.serverHash = response.hash
                 

@@ -51,7 +51,7 @@ class DisappearingMessageTimerView: UIView {
             return
         }
         
-        let timestampMs: Double = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        let timestampMs: Double = dependencies.networkOffsetTimestampMs()
         let secondsLeft: Double = max((self.expirationTimestampMs - timestampMs) / 1000, 0)
         let progressRatio: Double = self.initialDurationSeconds > 0 ? secondsLeft / self.initialDurationSeconds : 0
         

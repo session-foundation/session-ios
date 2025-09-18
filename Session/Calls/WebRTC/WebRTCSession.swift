@@ -196,7 +196,7 @@ public final class WebRTCSession: NSObject, RTCPeerConnectionDelegate {
                                     uuid: uuid,
                                     kind: .offer,
                                     sdps: [ sdp.sdp ],
-                                    sentTimestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                                    sentTimestampMs: dependencies.networkOffsetTimestampMs()
                                 )
                                 .with(disappearingMessagesConfiguration?.forcedWithDisappearAfterReadIfNeeded()),
                                 to: .contact(publicKey: thread.id),

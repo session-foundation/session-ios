@@ -41,11 +41,12 @@ public extension Network.SessionNetwork {
             let staleTimestampMs: Int64 = (try? await dependencies[singleton: .storage]
                 .readAsync { db in db[.staleTimestampMs] })
                 .defaulting(to: 0)
+            let currentTimestampMs: Int64 = await dependencies.networkOffsetTimestampMs()
             
-            guard staleTimestampMs < dependencies[cache: .storageServer].currentOffsetTimestampMs() else {
+            guard staleTimestampMs < currentTimestampMs else {
                 try? await Task.sleep(for: .milliseconds(500))
-                try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
-                    db[.lastUpdatedTimestampMs] = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                try await dependencies[singleton: .storage].writeAsync { db in
+                    db[.lastUpdatedTimestampMs] = currentTimestampMs
                 }
                 
                 return true
@@ -58,7 +59,7 @@ public extension Network.SessionNetwork {
                 
                 try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
                     // Token info
-                    db[.lastUpdatedTimestampMs] = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                    db[.lastUpdatedTimestampMs] = dependencies.networkOffsetTimestampMs()
                     db[.tokenUsd] = info.price?.tokenUsd
                     db[.marketCapUsd] = info.price?.marketCapUsd
                     if let priceTimestamp = info.price?.priceTimestamp {

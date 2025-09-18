@@ -41,7 +41,7 @@ public enum GroupInviteMemberJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        let sentTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
         let adminProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
         /// Perform the actual message sending

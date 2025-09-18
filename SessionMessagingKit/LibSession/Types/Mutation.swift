@@ -34,7 +34,7 @@ public extension LibSession {
                         config: $0,
                         for: $0.variant,
                         sessionId: sessionId,
-                        timestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                        timestampMs: dependencies.networkOffsetTimestampMs()
                     )
                 }
             )

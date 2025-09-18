@@ -34,6 +34,18 @@ public extension Dependencies {
         }
     }
     
+    nonisolated func networkOffsetTimestampMs<T: Numeric>() -> T {
+        return timestampNowMsWithOffset(
+            offsetMs: self[singleton: .network].syncState.networkTimeOffsetMs
+        )
+    }
+    
+    func networkOffsetTimestampMs<T: Numeric>() async -> T {
+        return await timestampNowMsWithOffset(
+            offsetMs: self[singleton: .network].networkTimeOffsetMs
+        )
+    }
+    
     /// Asynchronously waits until the network status is `connected`.
     ///
     /// If the `network` instance is replaced (eg. switching from Onion Requests to Lokinet) then simply observing the `networkStatus`

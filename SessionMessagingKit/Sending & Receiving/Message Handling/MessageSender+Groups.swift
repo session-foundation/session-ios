@@ -263,7 +263,7 @@ extension MessageSender {
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let changeTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -370,7 +370,7 @@ extension MessageSender {
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let changeTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -471,7 +471,7 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let currentOffsetTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                let currentOffsetTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
             
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -569,7 +569,7 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let changeTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
                 
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
@@ -799,7 +799,7 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let changeTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
                 
                 /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
@@ -964,7 +964,7 @@ extension MessageSender {
         
         let targetChangeTimestampMs: Int64 = (
             changeTimestampMs ??
-            dependencies[cache: .storageServer].currentOffsetTimestampMs()
+            dependencies.networkOffsetTimestampMs()
         )
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -1165,7 +1165,7 @@ extension MessageSender {
                 /// that are getting promotions re-sent to them - we only want to send an admin changed message if there
                 /// is a newly promoted member
                 if !isResend && !membersReceivingPromotions.isEmpty {
-                    let changeTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                    let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                     let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: groupSessionId.hexString)
                     
                     _ = try Interaction(
@@ -1270,7 +1270,7 @@ extension MessageSender {
             authorId: userSessionId.hexString,
             variant: .infoGroupCurrentUserLeaving,
             body: "leaving".localized(),
-            timestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs(),
+            timestampMs: dependencies.networkOffsetTimestampMs(),
             using: dependencies
         ).inserted(db)
         

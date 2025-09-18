@@ -63,7 +63,7 @@ public extension Network.PushNotification {
                                 ),
                                 notificationsEncryptionKey: notificationsEncryptionKey,
                                 authMethod: authMethod,
-                                timestamp: (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000) // Seconds
+                                timestamp: (dependencies.networkOffsetTimestampMs() / 1000) // Seconds
                             )
                         }
                     ),
@@ -108,7 +108,7 @@ public extension Network.PushNotification {
                                     token: token.toHexString()
                                 ),
                                 authMethod: authMethod,
-                                timestamp: (dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000) // Seconds
+                                timestamp: (dependencies.networkOffsetTimestampMs() / 1000) // Seconds
                             )
                         }
                     ),

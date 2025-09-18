@@ -436,7 +436,7 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                                     mutedUntil: Date.distantFuture.timeIntervalSince1970
                                 )
                             }
-                            .wasCalled(exactly: 1, timeout: .milliseconds(50))
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                 }
             }

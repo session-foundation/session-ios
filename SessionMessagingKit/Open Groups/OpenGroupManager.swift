@@ -505,7 +505,7 @@ public actor OpenGroupManager: OpenGroupManagerType {
                             roomToken: openGroup.roomToken,
                             server: openGroup.server
                         ),
-                        timestamp: (syncState.dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000)
+                        timestamp: (syncState.dependencies.networkOffsetTimestampMs() / 1000)
                     )
                 ),
                 canStartJob: true

@@ -222,7 +222,7 @@ public final class SessionCall: CurrentCallProtocol, WebRTCSessionDelegate {
         else { return }
         
         let webRTCSession: WebRTCSession = self.webRTCSession
-        let timestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        let timestampMs: Int64 = dependencies.networkOffsetTimestampMs()
         let disappearingMessagesConfiguration = try? thread.disappearingMessagesConfiguration.fetchOne(db)?.forcedWithDisappearAfterReadIfNeeded()
         let message: CallMessage = CallMessage(
             uuid: self.uuid,

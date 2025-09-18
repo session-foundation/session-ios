@@ -129,7 +129,6 @@ public class SessionApp: SessionAppType {
     public func resetData(onReset: (() async -> ())) async {
         homeViewController = nil
         dependencies.remove(cache: .general)
-        dependencies.remove(cache: .storageServer)
         dependencies.remove(cache: .libSession)
         await dependencies[singleton: .network].suspendNetworkAccess()
         await dependencies[singleton: .network].clearCache()

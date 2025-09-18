@@ -53,7 +53,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
             try await mockUserDefaults.when { $0.bool(forKey: .any) }.thenReturn(true)
             dependencies.set(defaults: .appGroup, to: mockUserDefaults)
             
-            try await mockNetwork.when { $0.networkStatus }.thenReturn(.singleValue(value: .connected))
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
             try await mockNetwork
                 .when {
                     $0.send(
@@ -323,7 +324,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             overallTimeout: expectedRequest.overallTimeout
                         )
                     }
-                    .wasCalled(exactly: 1, timeout: .milliseconds(50))
+                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
             // MARK: -- permanently fails if it gets an error

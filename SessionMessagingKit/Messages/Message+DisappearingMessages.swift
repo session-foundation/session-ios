@@ -40,7 +40,7 @@ extension Message {
                 return nil
             }
             
-            let nowMs: Double = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+            let nowMs: Double = dependencies.networkOffsetTimestampMs()
             let serverExpirationTimestampMs: Double = serverExpirationTimestamp * 1000
             let expiresInMs: Double = expiresInSeconds * 1000
             
@@ -86,7 +86,7 @@ extension Message {
                 threadId: threadId,
                 details: GetExpirationJob.Details(
                     expirationInfo: [serverHash: expireInSeconds],
-                    startedAtTimestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                    startedAtTimestampMs: dependencies.networkOffsetTimestampMs()
                 )
             ),
             canStartJob: true

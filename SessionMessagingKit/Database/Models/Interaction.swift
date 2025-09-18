@@ -345,7 +345,7 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         self.receivedAtTimestampMs = {
             switch variant {
                 case .standardIncoming, .standardOutgoing:
-                    return dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                    return dependencies.networkOffsetTimestampMs()
 
                 /// For TSInteractions which are not `standardIncoming` and `standardOutgoing` use the `timestampMs` value
                 default: return timestampMs
@@ -836,7 +836,7 @@ public extension Interaction {
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
                     interactionIds: interactionInfo.map { $0.id },
-                    startedAtMs: dependencies[cache: .storageServer].currentOffsetTimestampMs(),
+                    startedAtMs: dependencies.networkOffsetTimestampMs(),
                     threadId: threadId,
                     using: dependencies
                 ),

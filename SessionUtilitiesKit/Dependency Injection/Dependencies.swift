@@ -37,6 +37,17 @@ public class Dependencies: FeatureStorageType {
     public var fixedTime: Int { 0 }
     public var forceSynchronous: Bool { false }
     
+    public func timestampNowMsWithOffset<T: Numeric>(offsetMs: Int64) -> T {
+        let timestampNowMs: Int64 = (Int64(floor(dateNow.timeIntervalSince1970 * 1000)) + offsetMs)
+        
+        guard let convertedTimestampNowMs: T = T(exactly: timestampNowMs) else {
+            Log.critical("Failed to convert the timestamp to the desired type: \(type(of: T.self)).")
+            return 0
+        }
+        
+        return convertedTimestampNowMs
+    }
+    
     // MARK: - Initialization
     
     public static func createEmpty() -> Dependencies { return Dependencies() }

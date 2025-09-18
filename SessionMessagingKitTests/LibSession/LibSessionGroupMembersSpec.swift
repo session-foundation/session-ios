@@ -34,6 +34,22 @@ class LibSessionGroupMembersSpec: AsyncSpec {
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
             
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
+            dependencies.set(singleton: .network, to: mockNetwork)
+            
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -77,20 +93,6 @@ class LibSessionGroupMembersSpec: AsyncSpec {
                 ]
             )
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
-            
-            try await mockNetwork
-                .when {
-                    $0.send(
-                        endpoint: MockEndpoint.any,
-                        destination: .any,
-                        body: .any,
-                        category: .any,
-                        requestTimeout: .any,
-                        overallTimeout: .any
-                    )
-                }
-                .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
-            dependencies.set(singleton: .network, to: mockNetwork)
         }
         
         // MARK: - LibSessionGroupMembers

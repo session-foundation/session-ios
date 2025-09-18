@@ -205,7 +205,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 serverHash: info.metadata.hash,
                 serverTimestampMs: info.metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
-                    (TimeInterval(dependencies[cache: .storageServer].currentOffsetTimestampMs() + Network.StorageServer.Message.defaultExpirationMs) / 1000)
+                    (TimeInterval(dependencies.networkOffsetTimestampMs() + Network.StorageServer.Message.defaultExpirationMs) / 1000)
                 )
             ),
             using: dependencies

@@ -220,17 +220,13 @@ final class NukeDataModal: Modal {
                             return result
                         }
                         
-                        /// Get the latest network time before deleting all messages (to reduce the chance that the call will fail
-                        /// due to the network being out of sync)
+                        /// Get the latest network time before sending (to reduce the chance that the request will fail due to the
+                        /// device clock being out of sync with the network)
                         let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
                             .getSwarm(for: dependencies[cache: .general].sessionId.hexString)
                         let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
                             .selectNextNode()
-                        let networkTimeRequest: Network.PreparedRequest<UInt64> = try Network.StorageServer.preparedGetNetworkTime(
-                            from: snode,
-                            using: dependencies
-                        )
-                        let timestampMs: UInt64 = try await networkTimeRequest.send(using: dependencies)
+                        try await Network.StorageServer.getNetworkTime(from: snode, using: dependencies)
                         
                         /// Clear the users swarm
                         let userAuth: AuthenticationMethod = try Authentication.with(

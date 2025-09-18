@@ -71,6 +71,7 @@ class SOGSAPISpec: AsyncSpec {
                 .thenReturn(Array(Data(hex: TestConstants.privateKey)))
             dependencies.set(singleton: .crypto, to: mockCrypto)
             
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
             dependencies.set(singleton: .network, to: mockNetwork)
         }
         

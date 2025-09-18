@@ -999,7 +999,7 @@ extension MessageReceiver {
                     db,
                     message: GroupUpdateInviteResponseMessage(
                         isApproved: true,
-                        sentTimestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                        sentTimestampMs: dependencies.networkOffsetTimestampMs()
                     ),
                     interactionId: nil,
                     threadId: groupSessionId.hexString,
@@ -1015,7 +1015,7 @@ extension MessageReceiver {
                     variant: .group,
                     values: SessionThread.TargetValues(
                         creationDateTimestamp: .useExistingOrSetTo(
-                            dependencies[cache: .storageServer].currentOffsetTimestampMs() / 1000
+                            dependencies.networkOffsetTimestampMs() / 1000
                         ),
                         shouldBeVisible: .useExisting
                     ),

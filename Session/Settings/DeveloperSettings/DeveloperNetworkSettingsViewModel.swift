@@ -1020,7 +1020,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
             await dependencies[singleton: .network].clearCache()
         }
         
-        dependencies.set(singleton: .network, to: LibSession.NoopNetwork())
+        dependencies.set(singleton: .network, to: LibSession.NoopNetwork(using: dependencies))
         
         /// Unsubscribe from push notifications (do this after resetting the network as they are server requests so aren't dependant on a service
         /// layer and we don't want these to be cancelled)
@@ -1032,9 +1032,6 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
                 )
             }
         }
-        
-        /// Clear the snodeAPI  caches
-        dependencies.remove(cache: .storageServer)
         
         /// Remove the libSession state (store the profile locally to maintain the name between environments)
         let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
@@ -1129,7 +1126,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
             await dependencies[singleton: .network].finishCurrentObservations()
         }
         
-        dependencies.set(singleton: .network, to: LibSession.NoopNetwork())
+        dependencies.set(singleton: .network, to: LibSession.NoopNetwork(using: dependencies))
         
         /// Update to the new `Router`
         dependencies.set(feature: .router, to: router)

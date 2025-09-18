@@ -87,7 +87,7 @@ extension SwarmPollerType {
                 )?.hash
             }
         }
-        let request: Network.PreparedRequest<Network.StorageServer.PollResponse> = try Network.StorageServer.preparedPoll(
+        let response: Network.StorageServer.PollResponse = try await Network.StorageServer.poll(
             namespaces: namespaces,
             lastHashes: lastHashes,
             refreshingConfigHashes: activeHashes,
@@ -95,7 +95,6 @@ extension SwarmPollerType {
             authMethod: authMethod,
             using: dependencies
         )
-        let response: Network.StorageServer.PollResponse = try await request.send(using: dependencies)
         
         /// Get all of the messages and sort them by their required `processingOrder`
         typealias MessageData = (namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)

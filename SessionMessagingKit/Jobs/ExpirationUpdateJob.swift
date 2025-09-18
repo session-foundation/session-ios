@@ -24,48 +24,25 @@ public enum ExpirationUpdateJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        AnyPublisher
-            .lazy {
-                let authMethod: AuthenticationMethod = try Authentication.with(
-                    swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                    using: dependencies
-                )
-                
-                return try Network.StorageServer.preparedUpdateExpiry(
+        Task {
+            do {
+                let response: [String: Network.StorageServer.UpdateExpiryResponseResult] = try await Network.StorageServer.updateExpiry(
                     serverHashes: details.serverHashes,
                     updatedExpiryMs: details.expirationTimestampMs,
                     shortenOnly: true,
-                    authMethod: authMethod,
+                    authMethod: try Authentication.with(
+                        swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                        using: dependencies
+                    ),
                     using: dependencies
                 )
-            }
-            .flatMap { $0.send(using: dependencies) }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .map { _, response -> [UInt64: [String]] in
-                guard
-                    let results: [Network.StorageServer.UpdateExpiryResponseResult] = response
-                        .compactMap({ _, value in value.didError ? nil : value })
-                        .nullIfEmpty,
-                    let unchangedMessages: [UInt64: [String]] = results
-                        .reduce([:], { result, next in result.updated(with: next.unchanged) })
-                        .groupedByValue()
-                        .nullIfEmpty
-                else { return [:] }
+                let unchangedMessages: [UInt64: [String]] = response
+                    .compactMap { _, value in value.didError ? nil : value }
+                    .reduce([:], { result, next in result.updated(with: next.unchanged) })
+                    .groupedByValue()
                 
-                return unchangedMessages
-            }
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .finished: success(job, false)
-                        case .failure(let error): failure(job, error, true)
-                    }
-                },
-                receiveValue: { unchangedMessages in
-                    guard !unchangedMessages.isEmpty else { return }
-                    
-                    dependencies[singleton: .storage].writeAsync { db in
+                if !unchangedMessages.isEmpty {
+                    try? await dependencies[singleton: .storage].writeAsync { db in
                         unchangedMessages.forEach { updatedExpiry, hashes in
                             hashes.forEach { hash in
                                 guard
@@ -91,7 +68,17 @@ public enum ExpirationUpdateJob: JobExecutor {
                         }
                     }
                 }
-            )
+                
+                scheduler.schedule {
+                    success(job, false)
+                }
+            }
+            catch {
+                scheduler.schedule {
+                    failure(job, error, true)
+                }
+            }
+        }
     }
 }
 

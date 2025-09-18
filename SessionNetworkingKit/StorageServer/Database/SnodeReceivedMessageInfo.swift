@@ -79,7 +79,7 @@ public extension SnodeReceivedMessageInfo {
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> SnodeReceivedMessageInfo? {
-        let currentOffsetTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        let currentOffsetTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
 
         return try SnodeReceivedMessageInfo
             .filter(SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid == false)

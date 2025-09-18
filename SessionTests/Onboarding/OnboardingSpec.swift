@@ -33,7 +33,6 @@ class OnboardingSpec: AsyncSpec {
         @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
         @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockExtensionHelper: MockExtensionHelper! = .create(using: dependencies)
-        @TestState var mockStorageServerCache: MockStorageServerCache! = .create(using: dependencies)
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var manager: Onboarding.Manager!
         
@@ -53,9 +52,6 @@ class OnboardingSpec: AsyncSpec {
                 }
                 .thenReturn(nil)
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
-            
-            try await mockStorageServerCache.defaultInitialSetup()
-            dependencies.set(cache: .storageServer, to: mockStorageServerCache)
             
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             dependencies.set(singleton: .storage, to: mockStorage)
@@ -90,17 +86,6 @@ class OnboardingSpec: AsyncSpec {
                 .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
             dependencies.set(singleton: .crypto, to: mockCrypto)
             
-            try await mockNetwork.when { try await $0.getSwarm(for: .any) }.thenReturn([
-                LibSession.Snode(
-                    ed25519PubkeyHex: "1234",
-                    ip: "1.2.3.4",
-                    httpsPort: 1233,
-                    quicPort: 1234,
-                    version: "2.11.0",
-                    swarmId: 1
-                )
-            ])
-            
             let pendingPushes: LibSession.PendingPushes? = {
                 let cache: LibSession.Cache = LibSession.Cache(
                     userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
@@ -117,6 +102,19 @@ class OnboardingSpec: AsyncSpec {
                 return try? cache.pendingPushes(swarmPublicKey: cache.userSessionId.hexString)
             }()
             
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
+            await mockNetwork.removeMocksFor { try await $0.getSwarm(for: .any) }
+            try await mockNetwork.when { try await $0.getSwarm(for: .any) }.thenReturn([
+                LibSession.Snode(
+                    ed25519PubkeyHex: "1234",
+                    ip: "1.2.3.4",
+                    httpsPort: 1233,
+                    quicPort: 1234,
+                    version: "2.11.0",
+                    swarmId: 1
+                )
+            ])
             try await mockNetwork
                 .when {
                     try await $0.send(
@@ -505,26 +503,6 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- polls for the userProfile config
             it("polls for the userProfile config") {
-                let preparedRequest: Network.PreparedRequest<Network.StorageServer.PollResponse> = try Network.StorageServer.preparedPoll(
-                    namespaces: [.configUserProfile],
-                    lastHashes: [:],
-                    refreshingConfigHashes: [],
-                    from: LibSession.Snode(
-                        ed25519PubkeyHex: "1234",
-                        ip: "1.2.3.4",
-                        httpsPort: 1233,
-                        quicPort: 1234,
-                        version: "2.11.0",
-                        swarmId: 1
-                    ),
-                    authMethod: Authentication.standard(
-                        sessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                        ed25519PublicKey: Array(Data(hex: TestConstants.edPublicKey)),
-                        ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
-                    ),
-                    using: dependencies
-                )
-                
                 await mockNetwork
                     .verify {
                         try await $0.send(
@@ -540,13 +518,38 @@ class OnboardingSpec: AsyncSpec {
                                 ),
                                 swarmPublicKey: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"
                             ),
-                            body: preparedRequest.body,
+                            body: try JSONEncoder(using: dependencies).encode(
+                                Network.BatchRequest(
+                                    requestsKey: .requests,
+                                    requests: [
+                                        try Network.StorageServer.preparedGetMessages(
+                                            namespace: .configUserProfile,
+                                            snode: LibSession.Snode(
+                                                ed25519PubkeyHex: "1234",
+                                                ip: "1.2.3.4",
+                                                httpsPort: 1233,
+                                                quicPort: 1234,
+                                                version: "2.11.0",
+                                                swarmId: 1
+                                            ),
+                                            lastHash: nil,
+                                            maxSize: 1,
+                                            authMethod: Authentication.standard(
+                                                sessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                                ed25519PublicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                                                ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey))
+                                            ),
+                                            using: dependencies
+                                        )
+                                    ]
+                                )
+                            ),
                             category: .standard,
                             requestTimeout: 10,
                             overallTimeout: nil
                         )
                     }
-                    .wasCalled(exactly: 1, timeout: .milliseconds(50))
+                    .wasCalled(exactly: 1, timeout: .milliseconds(100))
             }
             
             // MARK: -- the display name stream to output the correct value

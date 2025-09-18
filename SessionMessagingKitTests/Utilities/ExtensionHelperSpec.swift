@@ -2195,7 +2195,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     dependencies[feature: .forceSlowDatabaseQueries] = true
                     
                     await expect {
-                        await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(50))
+                        await extensionHelper.waitUntilMessagesAreLoaded(timeout: .milliseconds(100))
                     }.toEventually(beFalse())
                 }
             }

@@ -596,8 +596,6 @@
 		FD3559462CC1FF200088F2A9 /* _034_AddMissingWhisperFlag.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3559452CC1FF140088F2A9 /* _034_AddMissingWhisperFlag.swift */; };
 		FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
-		FD3765DF2AD8F03100DC1489 /* MockStorageServerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockStorageServerCache.swift */; };
-		FD3765E02AD8F05100DC1489 /* MockStorageServerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockStorageServerCache.swift */; };
 		FD3765E22AD8F53B00DC1489 /* Mocked+SNK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */; };
 		FD3765E32AD8F56200DC1489 /* Mocked+SNK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */; };
 		FD3765EA2ADE37B400DC1489 /* Authentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD47E0AA2AA68EEA00A55E41 /* Authentication.swift */; };
@@ -661,7 +659,6 @@
 		FD481A992CB4CAAA00ECC4CF /* MockLibSessionCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5B2CAA28CF00C0B51B /* MockLibSessionCache.swift */; };
 		FD481A9A2CB4CAE500ECC4CF /* Mocked+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F562CAA28CF00C0B51B /* Mocked+SMK.swift */; };
 		FD481A9B2CB4CAF100ECC4CF /* ArgumentDescribing+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* ArgumentDescribing+SMK.swift */; };
-		FD481A9C2CB4D58300ECC4CF /* MockStorageServerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockStorageServerCache.swift */; };
 		FD481AA32CB889AE00ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD481AA22CB889A400ECC4CF /* RetrieveDefaultOpenGroupRoomsJobSpec.swift */; };
 		FD49E2462B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
 		FD49E2472B05C1D500FFBBB5 /* MockKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */; };
@@ -1980,7 +1977,6 @@
 		FD3559452CC1FF140088F2A9 /* _034_AddMissingWhisperFlag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _034_AddMissingWhisperFlag.swift; sourceTree = "<group>"; };
 		FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _026_AddFTSIfNeeded.swift; sourceTree = "<group>"; };
 		FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Utilities.swift"; sourceTree = "<group>"; };
-		FD3765DE2AD8F03100DC1489 /* MockStorageServerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockStorageServerCache.swift; sourceTree = "<group>"; };
 		FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mocked+SNK.swift"; sourceTree = "<group>"; };
 		FD3765F32ADE5A0800DC1489 /* AuthenticatedRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticatedRequest.swift; sourceTree = "<group>"; };
 		FD3765F52ADE5BA500DC1489 /* ServiceInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceInfo.swift; sourceTree = "<group>"; };
@@ -4281,7 +4277,6 @@
 			isa = PBXGroup;
 			children = (
 				FD23CE312A67C38D0000B97C /* MockNetwork.swift */,
-				FD3765DE2AD8F03100DC1489 /* MockStorageServerCache.swift */,
 				FD3765E12AD8F53B00DC1489 /* Mocked+SNK.swift */,
 			);
 			path = _TestUtilities;
@@ -7230,7 +7225,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FDE521A62E0E6C8C00061B8E /* MockNotificationsManager.swift in Sources */,
-				FD481A9C2CB4D58300ECC4CF /* MockStorageServerCache.swift in Sources */,
 				FD52CB5A2E12166F00A4DA70 /* OnboardingSpec.swift in Sources */,
 				FD71161728D00DA400B47552 /* ThreadSettingsViewModelSpec.swift in Sources */,
 				FD6B92852E77821E004463B5 /* NimbleExtensions.swift in Sources */,
@@ -7308,7 +7302,6 @@
 				FD3765E22AD8F53B00DC1489 /* Mocked+SNK.swift in Sources */,
 				FD0150382CA24328005B08A1 /* MockJobRunner.swift in Sources */,
 				FD481A952CAE0AE000ECC4CF /* MockAppContext.swift in Sources */,
-				FD3765DF2AD8F03100DC1489 /* MockStorageServerCache.swift in Sources */,
 				FDB11A582DD17D0600BEF49F /* MockLogger.swift in Sources */,
 				FDB5DB092A981F8D002C8721 /* MockCrypto.swift in Sources */,
 				FD65318C2AA025C500DFEEAA /* TestDependencies.swift in Sources */,
@@ -7372,7 +7365,6 @@
 				FD336F682CAA28CF00C0B51B /* MockPoller.swift in Sources */,
 				FD336F692CAA28CF00C0B51B /* MockLibSessionCache.swift in Sources */,
 				FD0150462CA243BB005B08A1 /* LibSessionSpec.swift in Sources */,
-				FD3765E02AD8F05100DC1489 /* MockStorageServerCache.swift in Sources */,
 				FDE754AA2C9B964D002A2623 /* MessageSenderSpec.swift in Sources */,
 				FD83B9C027CF2294005E1583 /* TestConstants.swift in Sources */,
 				FDE71B112E7A1D1C0023F5F9 /* CommunityPollerManagerSpec.swift in Sources */,

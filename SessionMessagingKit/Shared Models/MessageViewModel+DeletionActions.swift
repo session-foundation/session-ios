@@ -536,7 +536,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                 message: GroupUpdateDeleteMemberContentMessage(
                                     memberSessionIds: [],
                                     messageHashes: Array(serverHashes),
-                                    sentTimestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs(),
+                                    sentTimestampMs: dependencies.networkOffsetTimestampMs(),
                                     authMethod: nil,
                                     using: dependencies
                                 ),
@@ -592,7 +592,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                 message: GroupUpdateDeleteMemberContentMessage(
                                     memberSessionIds: [],
                                     messageHashes: Array(serverHashes),
-                                    sentTimestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs(),
+                                    sentTimestampMs: dependencies.networkOffsetTimestampMs(),
                                     authMethod: Authentication.groupAdmin(
                                         groupSessionId: SessionId(.group, hex: threadData.threadId),
                                         ed25519SecretKey: ed25519SecretKey

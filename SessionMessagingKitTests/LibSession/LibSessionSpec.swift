@@ -25,6 +25,7 @@ class LibSessionSpec: AsyncSpec {
             customWriter: try! DatabaseQueue(),
             using: dependencies
         )
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
         @TestState var createGroupOutput: LibSession.CreatedGroupInfo!
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
@@ -33,6 +34,9 @@ class LibSessionSpec: AsyncSpec {
         beforeEach {
             try await mockGeneralCache.defaultInitialSetup()
             dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            dependencies.set(singleton: .network, to: mockNetwork)
             
             try await mockCrypto
                 .when { $0.generate(.ed25519KeyPair()) }

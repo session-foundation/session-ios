@@ -181,7 +181,7 @@ public enum MessageReceiver {
         message.serverHash = serverHash
         message.sentTimestampMs = sentTimestampMs
         message.sigTimestampMs = (proto.hasSigTimestamp ? proto.sigTimestamp : nil)
-        message.receivedTimestampMs = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        message.receivedTimestampMs = dependencies.networkOffsetTimestampMs()
         message.openGroupServerMessageId = openGroupServerMessageId
         message.openGroupWhisper = openGroupWhisper
         message.openGroupWhisperMods = openGroupWhisperMods
@@ -572,7 +572,7 @@ public enum MessageReceiver {
                 threadVariant: threadVariant,
                 changeTimestampMs: message.sentTimestampMs
                     .map { Int64($0) }
-                    .defaulting(to: dependencies[cache: .storageServer].currentOffsetTimestampMs())
+                    .defaulting(to: dependencies.networkOffsetTimestampMs())
             )
             
             switch (conversationInConfig, canPerformConfigChange) {

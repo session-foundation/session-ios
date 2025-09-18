@@ -38,6 +38,7 @@ class PreparedRequestSendingSpec: AsyncSpec {
                 using: dependencies
             )
             
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
             dependencies.set(singleton: .network, to: mockNetwork)
         }
         

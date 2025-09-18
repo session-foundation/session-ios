@@ -16,39 +16,37 @@ public extension Network.StorageServer {
     
     typealias PollResponse = [Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)]
     
-    static func preparedPoll(
+    static func poll(
         namespaces: [Namespace],
         lastHashes: [Namespace: String],
         refreshingConfigHashes: [String] = [],
         from snode: LibSession.Snode,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<PollResponse> {
-        // Determine the maxSize each namespace in the request should take up
+    ) async throws -> PollResponse {
+        /// Determine the maxSize each namespace in the request should take up
         var requests: [any ErasedPreparedRequest] = []
         let namespaceMaxSizeMap: [Namespace: Int64] = Namespace.maxSizeMap(for: namespaces)
         let fallbackSize: Int64 = (namespaceMaxSizeMap.values.min() ?? 1)
         
-        // If we have any config hashes to refresh TTLs then add those requests first
+        /// If we have any config hashes to refresh TTLs then add those requests first
         if !refreshingConfigHashes.isEmpty {
-            let updatedExpiryMS: Int64 = (
-                dependencies[cache: .storageServer].currentOffsetTimestampMs() +
+            let updatedExpiryMs: Int64 = await (
+                dependencies.networkOffsetTimestampMs() +
                 (30 * 24 * 60 * 60 * 1000) // 30 days
             )
             requests.append(
-                try StorageServer.preparedUpdateExpiry(
+                try StorageServer.prepareUpdateExpiryRequest(
                     serverHashes: refreshingConfigHashes,
-                    updatedExpiryMs: updatedExpiryMS,
+                    updatedExpiryMs: updatedExpiryMs,
                     extendOnly: true,
-                    ignoreValidationFailure: true,
-                    explicitTargetNode: snode,
                     authMethod: authMethod,
                     using: dependencies
                 )
             )
         }
         
-        // Add the various 'getMessages' requests
+        /// Add the various `getMessages` requests
         requests.append(
             contentsOf: try namespaces.map { namespace -> any ErasedPreparedRequest in
                 try StorageServer.preparedGetMessages(
@@ -63,23 +61,41 @@ public extension Network.StorageServer {
             }
         )
         
-        return try preparedBatch(
+        /// Send the request
+        let request: Network.PreparedRequest<Network.BatchResponse> = try StorageServer.preparedBatch(
             requests: requests,
             requireAllBatchResponses: true,
-            snode: snode,
             swarmPublicKey: try authMethod.swarmPublicKey,
             using: dependencies
         )
-        .map { (_: ResponseInfoType, batchResponse: Network.BatchResponse) -> [Namespace: (info: ResponseInfoType, data: PreparedGetMessagesResponse?)] in
-            let messageResponses: [Network.BatchSubResponse<PreparedGetMessagesResponse>] = batchResponse
-                .compactMap { $0 as? Network.BatchSubResponse<PreparedGetMessagesResponse> }
+        let batchResponse: Network.BatchResponse = try await request.send(using: dependencies)
+        
+        /// Process the `updateExpiry` response first
+        let maybeUpdateExpiryResponse: UpdateExpiryResponse? = batchResponse
+            .compactMap { $0 as? Network.BatchSubResponse<UpdateExpiryResponse> }
+            .filter { !$0.failedToParseBody }
+            .compactMap { $0.body }
+            .first
+        
+        if let response: UpdateExpiryResponse = maybeUpdateExpiryResponse {
+            try await StorageServer.processUpdateExpiryResponse(
+                response: response,
+                serverHashes: refreshingConfigHashes,
+                ignoreValidationFailure: true,
+                explicitTargetNode: snode,
+                authMethod: authMethod,
+                using: dependencies
+            )
+        }
+        
+        /// Then extract and return the message responses
+        let messageResponses: [Network.BatchSubResponse<PreparedGetMessagesResponse>] = batchResponse
+            .compactMap { $0 as? Network.BatchSubResponse<PreparedGetMessagesResponse> }
+        
+        return zip(namespaces, messageResponses).reduce(into: [:]) { result, next in
+            guard let messageResponse: PreparedGetMessagesResponse = next.1.body else { return }
             
-            return zip(namespaces, messageResponses)
-                .reduce(into: [:]) { result, next in
-                    guard let messageResponse: PreparedGetMessagesResponse = next.1.body else { return }
-                    
-                    result[next.0] = (next.1, messageResponse)
-                }
+            result[next.0] = (next.1, messageResponse)
         }
     }
     
@@ -92,11 +108,11 @@ public extension Network.StorageServer {
         overallTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponse> {
-        return try StorageServer.prepareRequest(
+        return try Network.PreparedRequest(
             request: {
                 switch snode {
                     case .none:
-                        return Request(
+                        return Request<Network.BatchRequest, Endpoint>(
                             endpoint: .batch,
                             swarmPublicKey: swarmPublicKey,
                             body: Network.BatchRequest(requestsKey: .requests, requests: requests),
@@ -105,7 +121,7 @@ public extension Network.StorageServer {
                         )
                         
                     case .some(let snode):
-                        return Request(
+                        return Request<Network.BatchRequest, Endpoint>(
                             endpoint: .batch,
                             snode: snode,
                             swarmPublicKey: swarmPublicKey,
@@ -129,8 +145,8 @@ public extension Network.StorageServer {
         overallTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponse> {
-        return try StorageServer.prepareRequest(
-            request: Request(
+        return try Network.PreparedRequest(
+            request: Request<Network.BatchRequest, Endpoint>(
                 endpoint: .sequence,
                 swarmPublicKey: swarmPublicKey,
                 body: Network.BatchRequest(requestsKey: .requests, requests: requests),
@@ -155,15 +171,15 @@ public extension Network.StorageServer {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<PreparedGetMessagesResponse> {
-        let preparedRequest: Network.PreparedRequest<GetMessagesResponse> = try StorageServer.prepareRequest(
-            request: Request(
+        let preparedRequest: Network.PreparedRequest<GetMessagesResponse> = try Network.PreparedRequest(
+            request: Request<GetMessagesRequest, Endpoint>(
                 endpoint: .getMessages,
                 swarmPublicKey: try authMethod.swarmPublicKey,
                 body: GetMessagesRequest(
                     lastHash: (lastHash ?? ""),
                     namespace: namespace,
                     maxSize: maxSize,
-                    timestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs(),
+                    timestampMs: dependencies.networkOffsetTimestampMs(),
                     authMethod: authMethod
                 )
             ),
@@ -210,8 +226,8 @@ public extension Network.StorageServer {
         let results: [String] = try await withThrowingTaskGroup { [dependencies] group in
             for node in nodes {
                 group.addTask { [dependencies] in
-                    let request: Network.PreparedRequest<ONSResolveResponse> = try StorageServer.prepareRequest(
-                        request: Request(
+                    let request: Network.PreparedRequest<ONSResolveResponse> = try Network.PreparedRequest(
+                        request: Request<OxenDaemonRPCRequest, Endpoint>(
                             endpoint: .oxenDaemonRPCCall,
                             snode: node,
                             body: OxenDaemonRPCRequest(
@@ -225,7 +241,6 @@ public extension Network.StorageServer {
                         responseType: ONSResolveResponse.self,
                         using: dependencies
                     )
-                    
                     let response: ONSResolveResponse = try await request.send(using: dependencies)
                     
                     return try dependencies[singleton: .crypto].tryGenerate(
@@ -249,13 +264,13 @@ public extension Network.StorageServer {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<GetExpiriesResponse> {
-        return try StorageServer.prepareRequest(
-            request: Request(
+        return try Network.PreparedRequest(
+            request: Request<GetExpiriesRequest, Endpoint>(
                 endpoint: .getExpiries,
                 swarmPublicKey: try authMethod.swarmPublicKey,
                 body: GetExpiriesRequest(
                     messageHashes: serverHashes,
-                    timestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs(),
+                    timestampMs: dependencies.networkOffsetTimestampMs(),
                     authMethod: authMethod
                 )
             ),
@@ -270,8 +285,8 @@ public extension Network.StorageServer {
         request: SendMessageRequest,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendMessagesResponse> {
-        let preparedRequest: Network.PreparedRequest<SendMessagesResponse> = try StorageServer.prepareRequest(
-            request: Request(
+        let preparedRequest: Network.PreparedRequest<SendMessagesResponse> = try Network.PreparedRequest(
+            request: Request<SendMessageRequest, Endpoint>(
                 endpoint: .sendMessage,
                 swarmPublicKey: try request.authMethod.swarmPublicKey,
                 body: request,
@@ -293,7 +308,92 @@ public extension Network.StorageServer {
     
     // MARK: - Edit
     
-    static func preparedUpdateExpiry(
+    private static func prepareUpdateExpiryRequest(
+        serverHashes: [String],
+        updatedExpiryMs: Int64,
+        shortenOnly: Bool? = nil,
+        extendOnly: Bool? = nil,
+        authMethod: AuthenticationMethod,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<UpdateExpiryResponse> {
+        // ShortenOnly and extendOnly cannot be true at the same time
+        guard shortenOnly == nil || extendOnly == nil else { throw NetworkError.invalidPreparedRequest }
+        
+        return try Network.PreparedRequest(
+            request: Request<UpdateExpiryRequest, Endpoint>(
+                endpoint: .expire,
+                swarmPublicKey: try authMethod.swarmPublicKey,
+                body: UpdateExpiryRequest(
+                    messageHashes: serverHashes,
+                    expiryMs: UInt64(updatedExpiryMs),
+                    shorten: shortenOnly,
+                    extend: extendOnly,
+                    authMethod: authMethod
+                )
+            ),
+            responseType: UpdateExpiryResponse.self,
+            using: dependencies
+        )
+    }
+    
+    @discardableResult private static func processUpdateExpiryResponse(
+        response: UpdateExpiryResponse,
+        serverHashes: [String],
+        ignoreValidationFailure: Bool = false,
+        explicitTargetNode: LibSession.Snode? = nil,
+        authMethod: AuthenticationMethod,
+        using dependencies: Dependencies
+    ) async throws -> [String: UpdateExpiryResponseResult] {
+        let result: [String: UpdateExpiryResponseResult] = try {
+            do {
+                return try response.validResultMap(
+                    swarmPublicKey: try authMethod.swarmPublicKey,
+                    validationData: serverHashes,
+                    using: dependencies
+                )
+            }
+            catch {
+                guard ignoreValidationFailure else { throw error }
+                
+                return [:]
+            }
+        }()
+        
+        /// Since we have updated the TTL we need to make sure we also update the local
+        /// `SnodeReceivedMessageInfo.expirationDateMs` values so they match the updated swarm, if
+        /// we had a specific `snode` we we're sending the request to then we should use those values, otherwise
+        /// we can just grab the first value from the response and use that
+        let maybeTargetResult: UpdateExpiryResponseResult? = {
+            guard let snode: LibSession.Snode = explicitTargetNode else {
+                return result.first?.value
+            }
+            
+            return result[snode.ed25519PubkeyHex]
+        }()
+        guard
+            let targetResult: UpdateExpiryResponseResult = maybeTargetResult,
+            let groupedExpiryResult: [UInt64: [String]] = targetResult.changed
+                .updated(with: targetResult.unchanged)
+                .groupedByValue()
+                .nullIfEmpty
+        else { return result }
+        
+        try? await dependencies[singleton: .storage].writeAsync { db in
+            try groupedExpiryResult.forEach { updatedExpiry, hashes in
+                try SnodeReceivedMessageInfo
+                    .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
+                    .updateAll(
+                        db,
+                        SnodeReceivedMessageInfo.Columns.expirationDateMs
+                            .set(to: updatedExpiry)
+                    )
+            }
+        }
+        
+        return result
+    }
+    
+    static func updateExpiry(
         serverHashes: [String],
         updatedExpiryMs: Int64,
         shortenOnly: Bool? = nil,
@@ -302,74 +402,21 @@ public extension Network.StorageServer {
         explicitTargetNode: LibSession.Snode? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<[String: UpdateExpiryResponseResult]> {
-        // ShortenOnly and extendOnly cannot be true at the same time
-        guard shortenOnly == nil || extendOnly == nil else { throw NetworkError.invalidPreparedRequest }
+    ) async throws -> [String: UpdateExpiryResponseResult] {
+        let request: Network.PreparedRequest<UpdateExpiryResponse> = try prepareUpdateExpiryRequest(
+            serverHashes: serverHashes,
+            updatedExpiryMs: updatedExpiryMs,
+            authMethod: authMethod,
+            using: dependencies
+        )
+        let response: UpdateExpiryResponse = try await request.send(using: dependencies)
         
-        return try StorageServer
-            .prepareRequest(
-                request: Request(
-                    endpoint: .expire,
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    body: UpdateExpiryRequest(
-                        messageHashes: serverHashes,
-                        expiryMs: UInt64(updatedExpiryMs),
-                        shorten: shortenOnly,
-                        extend: extendOnly,
-                        authMethod: authMethod
-                    )
-                ),
-                responseType: UpdateExpiryResponse.self,
-                using: dependencies
-            )
-            .tryMap { _, response -> [String: UpdateExpiryResponseResult] in
-                do {
-                    return try response.validResultMap(
-                        swarmPublicKey: try authMethod.swarmPublicKey,
-                        validationData: serverHashes,
-                        using: dependencies
-                    )
-                }
-                catch {
-                    guard ignoreValidationFailure else { throw error }
-                    
-                    return [:]
-                }
-            }
-            .handleEvents(
-                receiveOutput: { _, result in
-                    /// Since we have updated the TTL we need to make sure we also update the local
-                    /// `SnodeReceivedMessageInfo.expirationDateMs` values so they match the updated swarm, if
-                    /// we had a specific `snode` we we're sending the request to then we should use those values, otherwise
-                    /// we can just grab the first value from the response and use that
-                    let maybeTargetResult: UpdateExpiryResponseResult? = {
-                        guard let snode: LibSession.Snode = explicitTargetNode else {
-                            return result.first?.value
-                        }
-                        
-                        return result[snode.ed25519PubkeyHex]
-                    }()
-                    guard
-                        let targetResult: UpdateExpiryResponseResult = maybeTargetResult,
-                        let groupedExpiryResult: [UInt64: [String]] = targetResult.changed
-                            .updated(with: targetResult.unchanged)
-                            .groupedByValue()
-                            .nullIfEmpty
-                    else { return }
-                    
-                    dependencies[singleton: .storage].writeAsync { db in
-                        try groupedExpiryResult.forEach { updatedExpiry, hashes in
-                            try SnodeReceivedMessageInfo
-                                .filter(hashes.contains(SnodeReceivedMessageInfo.Columns.hash))
-                                .updateAll(
-                                    db,
-                                    SnodeReceivedMessageInfo.Columns.expirationDateMs
-                                        .set(to: updatedExpiry)
-                                )
-                        }
-                    }
-                }
-            )
+        return try await processUpdateExpiryResponse(
+            response: response,
+            serverHashes: serverHashes,
+            authMethod: authMethod,
+            using: dependencies
+        )
     }
     
     static func preparedRevokeSubaccounts(
@@ -377,31 +424,30 @@ public extension Network.StorageServer {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Void> {
-        let timestampMs: UInt64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
+        let preparedRequest: Network.PreparedRequest<RevokeSubaccountResponse> = try Network.PreparedRequest(
+            request: Request<RevokeSubaccountRequest, Endpoint>(
+                endpoint: .revokeSubaccount,
+                swarmPublicKey: try authMethod.swarmPublicKey,
+                body: RevokeSubaccountRequest(
+                    subaccountsToRevoke: subaccountsToRevoke,
+                    timestampMs: timestampMs,
+                    authMethod: authMethod
+                )
+            ),
+            responseType: RevokeSubaccountResponse.self,
+            using: dependencies
+        )
         
-        return try StorageServer
-            .prepareRequest(
-                request: Request(
-                    endpoint: .revokeSubaccount,
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    body: RevokeSubaccountRequest(
-                        subaccountsToRevoke: subaccountsToRevoke,
-                        timestampMs: timestampMs,
-                        authMethod: authMethod
-                    )
-                ),
-                responseType: RevokeSubaccountResponse.self,
+        return preparedRequest.tryMap { _, response -> Void in
+            try response.validateResultMap(
+                swarmPublicKey: try authMethod.swarmPublicKey,
+                validationData: (subaccountsToRevoke, timestampMs),
                 using: dependencies
             )
-            .tryMap { _, response -> Void in
-                try response.validateResultMap(
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    validationData: (subaccountsToRevoke, timestampMs),
-                    using: dependencies
-                )
-                
-                return ()
-            }
+            
+            return ()
+        }
     }
     
     static func preparedUnrevokeSubaccounts(
@@ -409,31 +455,30 @@ public extension Network.StorageServer {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Void> {
-        let timestampMs: UInt64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
+        let preparedRequest: Network.PreparedRequest<UnrevokeSubaccountResponse> = try Network.PreparedRequest(
+            request: Request<UnrevokeSubaccountRequest, Endpoint>(
+                endpoint: .unrevokeSubaccount,
+                swarmPublicKey: try authMethod.swarmPublicKey,
+                body: UnrevokeSubaccountRequest(
+                    subaccountsToUnrevoke: subaccountsToUnrevoke,
+                    timestampMs: timestampMs,
+                    authMethod: authMethod
+                )
+            ),
+            responseType: UnrevokeSubaccountResponse.self,
+            using: dependencies
+        )
         
-        return try StorageServer
-            .prepareRequest(
-                request: Request(
-                    endpoint: .unrevokeSubaccount,
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    body: UnrevokeSubaccountRequest(
-                        subaccountsToUnrevoke: subaccountsToUnrevoke,
-                        timestampMs: timestampMs,
-                        authMethod: authMethod
-                    )
-                ),
-                responseType: UnrevokeSubaccountResponse.self,
+        return preparedRequest.tryMap { _, response -> Void in
+            try response.validateResultMap(
+                swarmPublicKey: try authMethod.swarmPublicKey,
+                validationData: (subaccountsToUnrevoke, timestampMs),
                 using: dependencies
             )
-            .tryMap { _, response -> Void in
-                try response.validateResultMap(
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    validationData: (subaccountsToUnrevoke, timestampMs),
-                    using: dependencies
-                )
-                
-                return ()
-            }
+            
+            return ()
+        }
     }
     
     // MARK: - Delete
@@ -444,40 +489,40 @@ public extension Network.StorageServer {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[String: Bool]> {
-        return try StorageServer
-            .prepareRequest(
-                request: Request(
-                    endpoint: .deleteMessages,
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    body: DeleteMessagesRequest(
-                        messageHashes: serverHashes,
-                        requireSuccessfulDeletion: requireSuccessfulDeletion,
-                        authMethod: authMethod
-                    )
-                ),
-                responseType: DeleteMessagesResponse.self,
+        let preparedRequest: Network.PreparedRequest<DeleteMessagesResponse> = try Network.PreparedRequest(
+            request: Request<DeleteMessagesRequest, Endpoint>(
+                endpoint: .deleteMessages,
+                swarmPublicKey: try authMethod.swarmPublicKey,
+                body: DeleteMessagesRequest(
+                    messageHashes: serverHashes,
+                    requireSuccessfulDeletion: requireSuccessfulDeletion,
+                    authMethod: authMethod
+                )
+            ),
+            responseType: DeleteMessagesResponse.self,
+            using: dependencies
+        )
+        
+        return preparedRequest.tryMap { _, response -> [String: Bool] in
+            let validResultMap: [String: Bool] = try response.validResultMap(
+                swarmPublicKey: try authMethod.swarmPublicKey,
+                validationData: serverHashes,
                 using: dependencies
             )
-            .tryMap { _, response -> [String: Bool] in
-                let validResultMap: [String: Bool] = try response.validResultMap(
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    validationData: serverHashes,
-                    using: dependencies
+            
+            // If `validResultMap` didn't throw then at least one service node
+            // deleted successfully so we should mark the hash as invalid so we
+            // don't try to fetch updates using that hash going forward (if we
+            // do we would end up re-fetching all old messages)
+            dependencies[singleton: .storage].writeAsync { db in
+                try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
+                    db,
+                    potentiallyInvalidHashes: serverHashes
                 )
-                
-                // If `validResultMap` didn't throw then at least one service node
-                // deleted successfully so we should mark the hash as invalid so we
-                // don't try to fetch updates using that hash going forward (if we
-                // do we would end up re-fetching all old messages)
-                dependencies[singleton: .storage].writeAsync { db in
-                    try? SnodeReceivedMessageInfo.handlePotentialDeletedOrInvalidHash(
-                        db,
-                        potentiallyInvalidHashes: serverHashes
-                    )
-                }
-                
-                return validResultMap
             }
+            
+            return validResultMap
+        }
     }
     
     /// Clears all the user's data from their swarm. Returns a dictionary of snode public key to deletion confirmation.
@@ -489,103 +534,51 @@ public extension Network.StorageServer {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[String: Bool]> {
-        let timestampMs: UInt64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
-        
-        return try StorageServer
-            .prepareRequest(
-                request: Request(
-                    endpoint: .deleteAll,
-                    snode: snode,
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    body: DeleteAllMessagesRequest(
-                        namespace: namespace,
-                        timestampMs: dependencies[cache: .storageServer].currentOffsetTimestampMs(),
-                        authMethod: authMethod
-                    ),
-                    requestTimeout: requestTimeout,
-                    overallTimeout: overallTimeout
+        let timestampMs: UInt64 = dependencies.networkOffsetTimestampMs()
+        let preparedRequest: Network.PreparedRequest<DeleteAllMessagesResponse> = try Network.PreparedRequest(
+            request: Request<DeleteAllMessagesRequest, Endpoint>(
+                endpoint: .deleteAll,
+                snode: snode,
+                swarmPublicKey: try authMethod.swarmPublicKey,
+                body: DeleteAllMessagesRequest(
+                    namespace: namespace,
+                    timestampMs: dependencies.networkOffsetTimestampMs(),
+                    authMethod: authMethod
                 ),
-                responseType: DeleteAllMessagesResponse.self,
+                requestTimeout: requestTimeout,
+                overallTimeout: overallTimeout
+            ),
+            responseType: DeleteAllMessagesResponse.self,
+            using: dependencies
+        )
+        
+        return preparedRequest.tryMap { info, response -> [String: Bool] in
+            return try response.validResultMap(
+                swarmPublicKey: try authMethod.swarmPublicKey,
+                validationData: timestampMs,
                 using: dependencies
             )
-            .tryMap { info, response -> [String: Bool] in
-                return try response.validResultMap(
-                    swarmPublicKey: try authMethod.swarmPublicKey,
-                    validationData: timestampMs,
-                    using: dependencies
-                )
-            }
+        }
     }
     
     // MARK: - Internal API
     
-    static func preparedGetNetworkTime(
+    @discardableResult static func getNetworkTime(
         from snode: LibSession.Snode,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<UInt64> {
-        return try StorageServer
-            .prepareRequest(
-                request: Request<[String: String], Endpoint>(
-                    endpoint: .getInfo,
-                    snode: snode,
-                    body: [:]
-                ),
-                responseType: GetNetworkTimestampResponse.self,
-                using: dependencies
-            )
-            .map { _, response in
-                // Assume we've fetched the networkTime in order to send a message to the specified snode, in
-                // which case we want to update the 'clockOffsetMs' value for subsequent requests
-                let offset = (Int64(response.timestamp) - Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)))
-                dependencies.mutate(cache: .storageServer) { $0.setClockOffsetMs(offset) }
-                
-                return response.timestamp
-            }
-    }
-    
-    // MARK: - Convenience
-    
-    private static func prepareRequest<T: Encodable, R: Decodable>(
-        request: Request<T, Endpoint>,
-        responseType: R.Type,
-        requireAllBatchResponses: Bool = true,
-        using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<R> {
-        return try Network.PreparedRequest<R>(
-            request: request,
-            responseType: responseType,
-            requireAllBatchResponses: requireAllBatchResponses,
+    ) async throws -> GetNetworkTimestampResponse {
+        let request: Network.PreparedRequest<GetNetworkTimestampResponse> = try Network.PreparedRequest(
+            request: Request<[String: String], Endpoint>(
+                endpoint: .getInfo,
+                snode: snode,
+                body: [:]
+            ),
+            responseType: GetNetworkTimestampResponse.self,
             using: dependencies
         )
-        .handleEvents(
-            receiveOutput: { _, response in
-                switch response {
-                    case let baseResponse as BaseResponse:
-                        // Update the network offset based on the response so subsequent requests have
-                        // the correct network offset time
-                        let offset = (Int64(baseResponse.timeOffset) - Int64(floor(dependencies.dateNow.timeIntervalSince1970 * 1000)))
-                        dependencies.mutate(cache: .storageServer) {
-                            $0.setClockOffsetMs(offset)
-                            
-                            // Extract and store hard fork information if returned
-                            guard baseResponse.hardForkVersion.count > 1 else { return }
-                            
-                            if baseResponse.hardForkVersion[1] > $0.softfork {
-                                $0.softfork = baseResponse.hardForkVersion[1]
-                                dependencies[defaults: .standard, key: .softfork] = $0.softfork
-                            }
-                            
-                            if baseResponse.hardForkVersion[0] > $0.hardfork {
-                                $0.hardfork = baseResponse.hardForkVersion[0]
-                                dependencies[defaults: .standard, key: .hardfork] = $0.hardfork
-                                $0.softfork = baseResponse.hardForkVersion[1]
-                                dependencies[defaults: .standard, key: .softfork] = $0.softfork
-                            }
-                        }
-                        
-                    default: break
-                }
-            }
-        )
+        
+        /// **Note:** We have a hook setup in `LibSession+Networking` which gets called during every request that contains
+        /// the timestamp and fork version info that will cache the values for use, so no need to manually cache the values here
+        return try await request.send(using: dependencies)
     }
 }

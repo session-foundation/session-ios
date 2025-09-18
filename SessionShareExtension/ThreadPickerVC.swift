@@ -266,10 +266,6 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         shareNavController?.dismiss(animated: true, completion: nil)
         
         ModalActivityIndicatorViewController.present(fromViewController: shareNavController!, canCancel: false, message: "sending".localized()) { [weak self, dependencies = viewModel.dependencies] activityIndicator in
-            /// When we prepare the message we set the timestamp to be the `dependencies[cache: .storageServer].currentOffsetTimestampMs()`
-            /// but won't actually have a value because the share extension won't have talked to a service node yet which can cause
-            /// issues with Disappearing Messages, as a result we need to explicitly `getNetworkTime` in order to ensure it's accurate
-            /// before we create the interaction
             var sharedInteractionId: Int64?
             Task { [weak self] in
                 dependencies[singleton: .storage].resumeDatabaseAccess()
@@ -284,14 +280,14 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         preparedUploads: [Network.PreparedRequest<(attachment: Attachment, fileId: String)>]
                     )
                     
-                    let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network].getSwarm(for: swarmPublicKey)
-                    guard let randomSnode: LibSession.Snode = dependencies.randomElement(swarm) else {
-                        throw StorageServerError.insufficientSnodes
-                    }
+                    /// Get the latest network time before sending (to reduce the chance that the request will fail due to the device clock
+                    /// being out of sync with the network, or Disappearing Messages will have issues due to the discrepancy)
+                    let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
+                        .getSwarm(for: swarmPublicKey)
+                    let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
+                        .selectNextNode()
+                    try await Network.StorageServer.getNetworkTime(from: snode, using: dependencies)
                     
-                    let networkTime: UInt64 = try await Network.StorageServer
-                        .preparedGetNetworkTime(from: randomSnode, using: dependencies)
-                        .send(using: dependencies)
                     let data: MessageData = try await dependencies[singleton: .storage].writeAsync { db in
                         guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                             throw MessageSenderError.noThread
@@ -309,7 +305,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         }
                         
                         // Create the interaction
-                        let sentTimestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                        let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                         let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
                             .filter(id: threadId)
                             .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)

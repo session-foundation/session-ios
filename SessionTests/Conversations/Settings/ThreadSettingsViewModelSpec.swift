@@ -26,6 +26,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
         @TestState var communityId: String! = "testserver.testRoom"
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies[singleton: .scheduler] = .immediate
+            dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
         @TestState var mockStorage: Storage! = SynchronousStorage(
@@ -36,7 +37,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
         @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
         @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
-        @TestState var mockStorageServerCache: MockStorageServerCache! = .create(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var threadVariant: SessionThread.Variant! = .contact
         @TestState var didTriggerSearchCallbackTriggered: Bool! = false
         @TestState var viewModel: ThreadSettingsViewModel!
@@ -78,19 +79,6 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
             try await mockLibSessionCache.defaultInitialSetup()
             dependencies.set(cache: .libSession, to: mockLibSessionCache)
             
-            var timestampMs: Int64 = 1234567890000
-            try await mockStorageServerCache.when { $0.clockOffsetMs }.thenReturn(0)
-            try await mockStorageServerCache
-                .when { $0.currentOffsetTimestampMs() }
-                .thenReturn { _ in
-                    /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
-                    /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
-                    /// being identical between different interactions
-                    timestampMs += 1
-                    return timestampMs
-                }
-            dependencies.set(cache: .storageServer, to: mockStorageServerCache)
-            
             try await mockStorage.perform(migrations: SNMessagingKit.migrations)
             try await mockStorage.writeAsync { db in
                 try Identity(
@@ -117,6 +105,29 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                 .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
             dependencies.set(singleton: .crypto, to: mockCrypto)
+            
+            var networkOffset: Int64 = 0
+            try await mockNetwork.when { await $0.networkTimeOffsetMs }.thenReturn { _ in
+                /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
+                /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
+                /// being identical between different interactions
+                networkOffset += 1
+                return networkOffset
+            }
+            try await mockNetwork.when { $0.syncState }.thenReturn { _ in
+                /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
+                /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
+                /// being identical between different interactions
+                networkOffset += 1
+                
+                return NetworkSyncState(
+                    hardfork: 2,
+                    softfork: 11,
+                    networkTimeOffsetMs: networkOffset,
+                    using: dependencies
+                )
+            }
+            dependencies.set(singleton: .network, to: mockNetwork)
         }
 
         // MARK: - a ThreadSettingsViewModel
@@ -770,7 +781,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                         canStartJob: false
                                     )
                                 }
-                                .wasCalled(exactly: 1)
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
                         }
                         
                         // MARK: -------- triggers a libSession change

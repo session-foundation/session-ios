@@ -510,7 +510,7 @@ public extension Message {
                 )
                 
                 let count: Int64 = (next.value.you ? next.value.count - 1 : next.value.count)
-                let timestampMs: Int64 = dependencies[cache: .storageServer].currentOffsetTimestampMs()
+                let timestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 let maxLength: Int = shouldAddSelfReaction ? 4 : 5
                 let desiredReactorIds: [String] = reactors
                     .filter { !currentUserSessionIds.contains($0) } // Remove current user for now, will add back if needed

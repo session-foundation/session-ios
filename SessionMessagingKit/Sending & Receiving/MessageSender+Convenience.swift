@@ -214,8 +214,8 @@ extension MessageSender {
                         // from the correct time.
                         var scheduledTimestampForDeletion: Double? {
                             guard interaction.isExpiringMessage else { return nil }
-                            let sentTimestampMs: Double = dependencies[cache: .storageServer].currentOffsetTimestampMs()
-                            return sentTimestampMs
+                            
+                            return dependencies.networkOffsetTimestampMs()
                         }
                     
                         // Update the interaction so we have the correct `expiresStartedAtMs` value

@@ -28,27 +28,52 @@ actor LibSessionNetwork: NetworkType {
     
     private let dependencies: Dependencies
     private let dependenciesPtr: UnsafeMutableRawPointer
-    private var network: UnsafeMutablePointer<network_object_v2>? = nil
+    private var network: UnsafeMutablePointer<network_object>? = nil
     nonisolated private let internalNetworkStatus: CurrentValueAsyncStream<NetworkStatus> = CurrentValueAsyncStream(.unknown)
     private let singlePathMode: Bool
     
     public private(set) var isSuspended: Bool = false
+    public var hardfork: Int {
+        get async {
+            guard let network = try? await getOrCreateNetwork() else { return 0 }
+            
+            return Int(session_network_hardfork(network))
+        }
+    }
+    public var softfork: Int {
+        get async {
+            guard let network = try? await getOrCreateNetwork() else { return 0 }
+            
+            return Int(session_network_softfork(network))
+        }
+    }
+    public var networkTimeOffsetMs: Int64 {
+        get async {
+            guard let network = try? await getOrCreateNetwork() else { return 0 }
+            
+            return Int64(session_network_time_offset(network))
+        }
+    }
+    
     nonisolated public var networkStatus: AsyncStream<NetworkStatus> { internalNetworkStatus.stream }
-    nonisolated public let syncState: NetworkSyncState = NetworkSyncState()
+    
+    @available(*, deprecated, message: "Should try to refactor the code to use proper async/await")
+    nonisolated public let syncState: NetworkSyncState
     
     @available(*, deprecated, message: "We want to shift from Combine to Async/Await when possible")
-    private let networkInstance: CurrentValueSubject<UnsafeMutablePointer<network_object_v2>?, Error> = CurrentValueSubject(nil)
-    
-    @available(*, deprecated, message: "This probably isn't needed but in order to isolate the async from sync states I've added it")
-    nonisolated private let syncDependencies: Dependencies
+    private let networkInstance: CurrentValueSubject<UnsafeMutablePointer<network_object>?, Error> = CurrentValueSubject(nil)
     
     // MARK: - Initialization
     
     init(singlePathMode: Bool, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.dependenciesPtr = Unmanaged.passRetained(dependencies).toOpaque()
+        self.syncState = NetworkSyncState(
+            hardfork: dependencies[defaults: .standard, key: .hardfork],
+            softfork: dependencies[defaults: .standard, key: .hardfork],
+            using: dependencies
+        )
         self.singlePathMode = singlePathMode
-        self.syncDependencies = dependencies
         
         /// Create the network object
         Task { [self] in
@@ -81,6 +106,7 @@ actor LibSessionNetwork: NetworkType {
             case .none: break
             case .some(let network):
                 session_network_set_status_changed_callback(network, nil, nil)
+                session_network_set_network_info_changed_callback(network, nil, nil)
                 session_network_free(network)
         }
         
@@ -204,7 +230,7 @@ actor LibSessionNetwork: NetworkType {
         overallTimeout: TimeInterval?
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         typealias FinalRequestInfo = (
-            network: UnsafeMutablePointer<network_object_v2>,
+            network: UnsafeMutablePointer<network_object>,
             body: Data?,
             destination: Network.Destination
         )
@@ -216,7 +242,7 @@ actor LibSessionNetwork: NetworkType {
                 .eraseToAnyPublisher()
         }
         
-        guard !syncDependencies[feature: .forceOffline] else {
+        guard !syncState.dependencies[feature: .forceOffline] else {
             return Fail(error: NetworkError.serviceUnavailable)
                 .delay(for: .seconds(1), scheduler: DispatchQueue.global(qos: .userInitiated))
                 .eraseToAnyPublisher()
@@ -425,6 +451,35 @@ actor LibSessionNetwork: NetworkType {
         await internalNetworkStatus.send(status)
     }
     
+    public func setNetworkInfo(networkTimeOffsetMs: Int64, hardfork: Int, softfork: Int) async {
+        var targetHardfork: Int?
+        var targetSoftfork: Int?
+        
+        /// Check if the version info is newer than the current stored values and update them if so
+        if hardfork > 1 {
+            let oldHardfork: Int = dependencies[defaults: .standard, key: .hardfork]
+            let oldSoftfork: Int = dependencies[defaults: .standard, key: .softfork]
+            
+            if (hardfork > oldHardfork) {
+                targetHardfork = hardfork
+                targetSoftfork = softfork
+                dependencies[defaults: .standard, key: .hardfork] = hardfork
+                dependencies[defaults: .standard, key: .softfork] = softfork
+            }
+            else if softfork > oldSoftfork {
+                targetSoftfork = softfork
+                dependencies[defaults: .standard, key: .softfork] = softfork
+            }
+        }
+        
+        /// Update the cached synchronous state
+        syncState.update(
+            hardfork: targetHardfork,
+            softfork: targetSoftfork,
+            networkTimeOffsetMs: networkTimeOffsetMs
+        )
+    }
+    
     public func suspendNetworkAccess() async {
         Log.info(.network, "Network access suspended.")
         isSuspended = true
@@ -461,7 +516,7 @@ actor LibSessionNetwork: NetworkType {
     
     // MARK: - Internal Functions
     
-    private func getOrCreateNetwork() async throws -> UnsafeMutablePointer<network_object_v2> {
+    private func getOrCreateNetwork() async throws -> UnsafeMutablePointer<network_object> {
         guard !isSuspended else {
             Log.warn(.network, "Attempted to access suspended network.")
             throw NetworkError.suspended
@@ -481,7 +536,7 @@ actor LibSessionNetwork: NetworkType {
                 }
                 
                 var error: [CChar] = [CChar](repeating: 0, count: 256)
-                var network: UnsafeMutablePointer<network_object_v2>?
+                var network: UnsafeMutablePointer<network_object>?
                 var cDevnetNodes: [network_service_node] = []
                 var config: session_network_config = session_network_config_default()
                 config.cache_refresh_using_legacy_endpoint = true
@@ -521,7 +576,15 @@ actor LibSessionNetwork: NetworkType {
                         }
                         
                         guard session_network_init(&network, &config, &error) else {
-                            Log.error(.network, "Unable to create network object: \(String(cString: error))")
+                            let errorString: String = String(cString: error)
+                            
+#if targetEnvironment(simulator)
+                            if errorString == "Address already in use" {
+                                Log.critical(.network, "Failed to create network object, if you are using Lokinet then it's possible another simulator instance is running and using the same port. Please close any other simulator instances and try again.")
+                            }
+#endif
+                            
+                            Log.error(.network, "Unable to create network object: \(errorString)")
                             throw NetworkError.invalidState
                         }
                     }
@@ -540,6 +603,21 @@ actor LibSessionNetwork: NetworkType {
                     // Kick off a task so we don't hold up the libSession thread that triggered the update
                     Task { [network = dependencies[singleton: .network]] in
                         await network.setNetworkStatus(status: status)
+                    }
+                }, dependenciesPtr)
+                
+                session_network_set_network_info_changed_callback(network, { timeOffsetMs, hardfork, softfork, ctx in
+                    guard let ctx: UnsafeMutableRawPointer = ctx else { return }
+                    
+                    let dependencies: Dependencies = Unmanaged<Dependencies>.fromOpaque(ctx).takeUnretainedValue()
+                    
+                    // Kick off a task so we don't hold up the libSession thread that triggered the update
+                    Task { [network = dependencies[singleton: .network]] in
+                        await network.setNetworkInfo(
+                            networkTimeOffsetMs: Int64(timeOffsetMs),
+                            hardfork: Int(hardfork),
+                            softfork: Int(softfork)
+                        )
                     }
                 }, dependenciesPtr)
                 
@@ -1043,7 +1121,7 @@ private extension LibSessionNetwork {
 }
 
 private extension Network.Destination.ServerInfo {
-    func withServerInfoPointer<Result>(_ body: (UnsafePointer<network_v2_server_destination>) -> Result) throws -> Result {
+    func withServerInfoPointer<Result>(_ body: (UnsafePointer<network_server_destination>) -> Result) throws -> Result {
         let x25519PublicKey: String = String(x25519PublicKey.suffix(64)) // Quick way to drop '05' prefix if present
         
         guard let host: String = self.host else { throw NetworkError.invalidURL }
@@ -1061,7 +1139,7 @@ private extension Network.Destination.ServerInfo {
                 try host.withCString { cHostPtr in
                     try x25519PublicKey.withCString { cX25519PubkeyPtr in
                         try headersArray.withUnsafeCStrArray { headersArrayPtr in
-                            let cServerDest = network_v2_server_destination(
+                            let cServerDest = network_server_destination(
                                 method: cMethodPtr,
                                 protocol: cTargetSchemePtr,
                                 host: cHostPtr,
@@ -1098,10 +1176,20 @@ private extension LibSessionNetwork {
 public extension LibSession {
     actor NoopNetwork: NetworkType {
         public let isSuspended: Bool = false
-        nonisolated public let networkStatus: AsyncStream<NetworkStatus> = .makeStream().stream
-        nonisolated public let syncState: NetworkSyncState = NetworkSyncState()
+        public let hardfork: Int = 0
+        public let softfork: Int = 0
+        public let networkTimeOffsetMs: Int64 = 0
         
-        public init() {}
+        nonisolated public let networkStatus: AsyncStream<NetworkStatus> = .makeStream().stream
+        nonisolated public let syncState: NetworkSyncState
+        
+        public init(using dependencies: Dependencies) {
+            syncState = NetworkSyncState(
+                hardfork: 0,
+                softfork: 0,
+                using: dependencies
+            )
+        }
         
         public func getActivePaths() async throws -> [LibSession.Path] { return [] }
         public func getSwarm(for swarmPublicKey: String) async throws -> Set<LibSession.Snode> { return [] }
@@ -1145,6 +1233,7 @@ public extension LibSession {
         
         public func resetNetworkStatus() async {}
         public func setNetworkStatus(status: NetworkStatus) async {}
+        public func setNetworkInfo(networkTimeOffsetMs: Int64, hardfork: Int, softfork: Int) async {}
         public func suspendNetworkAccess() async {}
         public func resumeNetworkAccess(autoReconnect: Bool) async {}
         public func finishCurrentObservations() async {}
