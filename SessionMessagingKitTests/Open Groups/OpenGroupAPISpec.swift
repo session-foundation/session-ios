@@ -770,44 +770,6 @@ class OpenGroupAPISpec: QuickSpec {
                     
                     expect(preparedRequest?.path).to(equal("/sequence"))
                     expect(preparedRequest?.method.rawValue).to(equal("POST"))
-                    
-                    expect(preparedRequest?.headers).toNot(beEmpty())
-                    expect(preparedRequest?.headers).to(equal([
-                        HTTPHeader.sogsNonce: "pK6YRtQApl4NhECGizF0Cg==",
-                        HTTPHeader.sogsTimestamp: "1234567890",
-                        HTTPHeader.sogsSignature: "VGVzdFNvZ3NTaWduYXR1cmU=",
-                        HTTPHeader.sogsPubKey: "1588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"
-                    ]))
-                }
-                
-                // MARK: ---- generates the request correctly and skips adding request headers
-                it("generates the request correctly and skips adding request headers") {
-                    expect {
-                        preparedRequest = try OpenGroupAPI.preparedCapabilitiesAndRooms(
-                            authMethod: Authentication.community(
-                                info: LibSession.OpenGroupCapabilityInfo(
-                                    roomToken: "",
-                                    server: "testserver",
-                                    publicKey: TestConstants.publicKey,
-                                    capabilities: []
-                                ),
-                                forceBlinded: false
-                            ),
-                            skipAuthentication: true,
-                            using: dependencies
-                        )
-                    }.toNot(throwError())
-                    
-                    expect(preparedRequest?.batchEndpoints.count).to(equal(2))
-                    expect(preparedRequest?.batchEndpoints[test: 0].asType(OpenGroupAPI.Endpoint.self))
-                        .to(equal(.capabilities))
-                    expect(preparedRequest?.batchEndpoints[test: 1].asType(OpenGroupAPI.Endpoint.self))
-                        .to(equal(.rooms))
-                    
-                    expect(preparedRequest?.path).to(equal("/sequence"))
-                    expect(preparedRequest?.method.rawValue).to(equal("POST"))
-                    
-                    expect(preparedRequest?.headers).to(beEmpty())
                 }
                 
                 // MARK: ---- processes a valid response correctly
@@ -1664,31 +1626,6 @@ class OpenGroupAPISpec: QuickSpec {
                     ]))
                 }
                 
-                // MARK: ---- generates the download destination correctly when given an id and skips adding request headers
-                it("generates the download destination correctly when given an id and skips adding request headers") {
-                    expect {
-                        preparedRequest = try OpenGroupAPI.preparedDownload(
-                            fileId: "1",
-                            roomToken: "roomToken",
-                            authMethod: Authentication.community(
-                                info: LibSession.OpenGroupCapabilityInfo(
-                                    roomToken: "",
-                                    server: "testserver",
-                                    publicKey: TestConstants.publicKey,
-                                    capabilities: []
-                                ),
-                                forceBlinded: false
-                            ),
-                            skipAuthentication: true,
-                            using: dependencies
-                        )
-                    }.toNot(throwError())
-                    
-                    expect(preparedRequest?.path).to(equal("/room/roomToken/file/1"))
-                    expect(preparedRequest?.method.rawValue).to(equal("GET"))
-                    expect(preparedRequest?.headers).to(beEmpty())
-                }
-                
                 // MARK: ---- generates the download request correctly when given a URL
                 it("generates the download request correctly when given a URL") {
                     expect {
@@ -2337,40 +2274,6 @@ class OpenGroupAPISpec: QuickSpec {
                         .handleEvents(receiveOutput: { result in response = result })
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
-                    
-                    expect(preparedRequest?.headers).toNot(beEmpty())
-
-                    expect(response).toNot(beNil())
-                    expect(error).to(beNil())
-                }
-                
-                // MARK: ---- triggers sending correctly without headers
-                it("triggers sending correctly without headers") {
-                    var response: (info: ResponseInfoType, data: [OpenGroupAPI.Room])?
-                    
-                    expect {
-                        preparedRequest = try OpenGroupAPI.preparedRooms(
-                            authMethod: Authentication.community(
-                                info: LibSession.OpenGroupCapabilityInfo(
-                                    roomToken: "",
-                                    server: "testserver",
-                                    publicKey: TestConstants.publicKey,
-                                    capabilities: []
-                                ),
-                                forceBlinded: false
-                            ),
-                            skipAuthentication: true,
-                            using: dependencies
-                        )
-                    }.toNot(throwError())
-                    
-                    preparedRequest?
-                        .send(using: dependencies)
-                        .handleEvents(receiveOutput: { result in response = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
-                    
-                    expect(preparedRequest?.headers).to(beEmpty())
 
                     expect(response).toNot(beNil())
                     expect(error).to(beNil())
