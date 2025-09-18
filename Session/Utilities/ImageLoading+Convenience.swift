@@ -69,10 +69,11 @@ public extension ImageDataManager.DataSource {
 // MARK: - ImageDataManagerType Convenience
 
 public extension ImageDataManagerType {
+    @MainActor
     func loadImage(
         attachment: Attachment,
         using dependencies: Dependencies,
-        onComplete: @escaping (ImageDataManager.ProcessedImageData?) -> Void = { _ in }
+        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void = { _ in }
     ) {
         guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.from(
             attachment: attachment,
@@ -82,11 +83,12 @@ public extension ImageDataManagerType {
         load(source, onComplete: onComplete)
     }
     
+    @MainActor
     func loadThumbnail(
         size: ImageDataManager.ThumbnailSize,
         attachment: Attachment,
         using dependencies: Dependencies,
-        onComplete: @escaping (ImageDataManager.ProcessedImageData?) -> Void = { _ in }
+        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void = { _ in }
     ) {
         guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.thumbnailFrom(
             attachment: attachment,
@@ -102,7 +104,7 @@ public extension ImageDataManagerType {
 
 public extension SessionImageView {
     @MainActor
-    func loadImage(from path: String, onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
+    func loadImage(from path: String, onComplete: (@MainActor (ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
         loadImage(.url(URL(fileURLWithPath: path)), onComplete: onComplete)
     }
     
@@ -110,7 +112,7 @@ public extension SessionImageView {
     func loadImage(
         attachment: Attachment,
         using dependencies: Dependencies,
-        onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil
+        onComplete: (@MainActor (ImageDataManager.ProcessedImageData?) -> Void)? = nil
     ) {
         guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.from(
             attachment: attachment,
@@ -128,7 +130,7 @@ public extension SessionImageView {
         size: ImageDataManager.ThumbnailSize,
         attachment: Attachment,
         using dependencies: Dependencies,
-        onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil
+        onComplete: (@MainActor (ImageDataManager.ProcessedImageData?) -> Void)? = nil
     ) {
         guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.thumbnailFrom(
             attachment: attachment,
@@ -143,7 +145,7 @@ public extension SessionImageView {
     }
     
     @MainActor
-    func loadPlaceholder(seed: String, text: String, size: CGFloat, onComplete: ((ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
+    func loadPlaceholder(seed: String, text: String, size: CGFloat, onComplete: (@MainActor (ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
         loadImage(.placeholderIcon(seed: seed, text: text, size: size), onComplete: onComplete)
     }
 }
