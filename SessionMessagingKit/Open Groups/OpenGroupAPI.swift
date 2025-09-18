@@ -165,10 +165,9 @@ public enum OpenGroupAPI {
     private static func preparedSequence(
         requests: [any ErasedPreparedRequest],
         authMethod: AuthenticationMethod,
-        skipAuthentication: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Network.BatchResponseMap<Endpoint>> {
-        let preparedRequest = try Network.PreparedRequest(
+        return try Network.PreparedRequest(
             request: Request(
                 method: .post,
                 endpoint: Endpoint.sequence,
@@ -179,7 +178,7 @@ public enum OpenGroupAPI {
             additionalSignatureData: AdditionalSigningData(authMethod),
             using: dependencies
         )
-        return skipAuthentication ? preparedRequest : try preparedRequest.signed(with: OpenGroupAPI.signRequest, using: dependencies)
+        .signed(with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Capabilities
@@ -193,10 +192,9 @@ public enum OpenGroupAPI {
     /// could return: `{"capabilities": ["sogs", "batch"], "missing": ["magic"]}`
     public static func preparedCapabilities(
         authMethod: AuthenticationMethod,
-        skipAuthentication: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Capabilities> {
-        let preparedRequest = try Network.PreparedRequest(
+        return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .capabilities,
                 authMethod: authMethod
@@ -205,7 +203,7 @@ public enum OpenGroupAPI {
             additionalSignatureData: AdditionalSigningData(authMethod),
             using: dependencies
         )
-        return skipAuthentication ? preparedRequest : try preparedRequest.signed(with: OpenGroupAPI.signRequest, using: dependencies)
+        .signed(with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Room
@@ -215,10 +213,9 @@ public enum OpenGroupAPI {
     /// Rooms to which the user does not have access (e.g. because they are banned, or the room has restricted access permissions) are not included
     public static func preparedRooms(
         authMethod: AuthenticationMethod,
-        skipAuthentication: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<[Room]> {
-        let preparedRequest = try Network.PreparedRequest(
+        return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .rooms,
                 authMethod: authMethod
@@ -227,7 +224,7 @@ public enum OpenGroupAPI {
             additionalSignatureData: AdditionalSigningData(authMethod),
             using: dependencies
         )
-        return skipAuthentication ? preparedRequest : try preparedRequest.signed(with: OpenGroupAPI.signRequest, using: dependencies)
+        .signed(with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     /// Returns the details of a single room
@@ -329,25 +326,20 @@ public enum OpenGroupAPI {
     /// methods for the documented behaviour of each method
     public static func preparedCapabilitiesAndRooms(
         authMethod: AuthenticationMethod,
-        skipAuthentication: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<CapabilitiesAndRoomsResponse> {
-        let preparedRequest = try OpenGroupAPI
+        return try OpenGroupAPI
             .preparedSequence(
                 requests: [
                     // Get the latest capabilities for the server (in case it's a new server or the
                     // cached ones are stale)
-                    preparedCapabilities(authMethod: authMethod, skipAuthentication: skipAuthentication, using: dependencies),
-                    preparedRooms(authMethod: authMethod, skipAuthentication: skipAuthentication, using: dependencies)
+                    preparedCapabilities(authMethod: authMethod, using: dependencies),
+                    preparedRooms(authMethod: authMethod, using: dependencies)
                 ],
                 authMethod: authMethod,
-                skipAuthentication: skipAuthentication,
                 using: dependencies
             )
-
-        let finalRequest = skipAuthentication ? preparedRequest : try preparedRequest.signed(with: OpenGroupAPI.signRequest, using: dependencies)
-        
-        return finalRequest
+            .signed(with: OpenGroupAPI.signRequest, using: dependencies)
             .tryMap { (info: ResponseInfoType, response: Network.BatchResponseMap<Endpoint>) -> CapabilitiesAndRoomsResponse in
                 let maybeCapabilities: Network.BatchSubResponse<Capabilities>? = (response[.capabilities] as? Network.BatchSubResponse<Capabilities>)
                 let maybeRooms: Network.BatchSubResponse<[Room]>? = response.data
@@ -850,10 +842,9 @@ public enum OpenGroupAPI {
         fileId: String,
         roomToken: String,
         authMethod: AuthenticationMethod,
-        skipAuthentication: Bool = false,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<Data> {
-        let preparedRequest = try Network.PreparedRequest(
+        return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .roomFileIndividual(roomToken, fileId),
                 authMethod: authMethod
@@ -863,8 +854,7 @@ public enum OpenGroupAPI {
             requestTimeout: Network.fileDownloadTimeout,
             using: dependencies
         )
-        
-        return skipAuthentication ? preparedRequest : try preparedRequest.signed(with: OpenGroupAPI.signRequest, using: dependencies)
+        .signed(with: OpenGroupAPI.signRequest, using: dependencies)
     }
     
     // MARK: - Inbox/Outbox (Message Requests)

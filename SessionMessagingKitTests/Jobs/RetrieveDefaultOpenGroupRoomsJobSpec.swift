@@ -263,7 +263,6 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                             ),
                             forceBlinded: false
                         ),
-                        skipAuthentication: true,
                         using: dependencies
                     )
                 }
@@ -285,8 +284,6 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                             requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                         )
                     })
-                
-                expect(expectedRequest?.headers).to(beEmpty())
             }
             
             // MARK: -- will retry 8 times before it fails
@@ -441,8 +438,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                                     target: .community(
                                         imageId: "12",
                                         roomToken: "testRoom2",
-                                        server: OpenGroupAPI.defaultServer,
-                                        skipAuthentication: true
+                                        server: OpenGroupAPI.defaultServer
                                     ),
                                     timestamp: 1234567890
                                 )
@@ -489,8 +485,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                                     target: .community(
                                         imageId: "12",
                                         roomToken: "testRoom2",
-                                        server: OpenGroupAPI.defaultServer,
-                                        skipAuthentication: true
+                                        server: OpenGroupAPI.defaultServer
                                     ),
                                     timestamp: 1234567890
                                 )
