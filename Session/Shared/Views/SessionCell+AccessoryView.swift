@@ -73,7 +73,6 @@ extension SessionCell {
             
             if let newView: UIView = maybeView {
                 addSubview(newView)
-                newView.pin(to: self)
                 layout(view: newView, accessory: accessory)
             }
             
@@ -188,14 +187,24 @@ extension SessionCell {
                     return nil
             }
         }
-        
+ 
         private func layout(view: UIView?, accessory: Accessory) {
             switch accessory {
                 case let accessory as SessionCell.AccessoryConfig.Icon:
-                    layoutIconView(view, iconSize: accessory.iconSize, shouldFill: accessory.shouldFill)
+                    layoutIconView(
+                        view,
+                        iconSize: accessory.iconSize,
+                        shouldFill: accessory.shouldFill,
+                        pin: accessory.pinEdges
+                    )
                     
                 case let accessory as SessionCell.AccessoryConfig.IconAsync:
-                    layoutIconView(view, iconSize: accessory.iconSize, shouldFill: accessory.shouldFill)
+                    layoutIconView(
+                        view,
+                        iconSize: accessory.iconSize,
+                        shouldFill: accessory.shouldFill,
+                        pin: accessory.pinEdges
+                    )
                     
                 case is SessionCell.AccessoryConfig.Toggle: layoutToggleView(view)
                 case is SessionCell.AccessoryConfig.DropDown: layoutDropDownView(view)
@@ -288,13 +297,25 @@ extension SessionCell {
             return result
         }
         
-        private func layoutIconView(_ view: UIView?, iconSize: IconSize, shouldFill: Bool) {
+        private func layoutIconView(_ view: UIView?, iconSize: IconSize, shouldFill: Bool, pin edges: [UIView.HorizontalEdge]) {
             guard let imageView: SessionImageView = view as? SessionImageView else { return }
             
             imageView.set(.width, to: iconSize.size)
             imageView.set(.height, to: iconSize.size)
-            imageView.pin(.leading, to: .leading, of: self, withInset: (shouldFill ? 0 : Values.smallSpacing))
-            imageView.pin(.trailing, to: .trailing, of: self, withInset: (shouldFill ? 0 : -Values.smallSpacing))
+            imageView.pin(.top, to: .top, of: self)
+            imageView.pin(.bottom, to: .bottom, of: self)
+
+            let shouldInvertPadding: [UIView.HorizontalEdge] = [.left, .trailing]
+   
+            for edge in edges {
+                let inset: CGFloat = (
+                    (shouldFill ? 0 : Values.smallSpacing) *
+                    (shouldInvertPadding.contains(edge) ? -1 : 1)
+                )
+                
+                imageView.pin(edge, to: edge, of: self, withInset: inset)
+            }
+            
             fixedWidthConstraint.isActive = (iconSize.size <= fixedWidthConstraint.constant)
             minWidthConstraint.isActive = !fixedWidthConstraint.isActive
         }
@@ -306,7 +327,7 @@ extension SessionCell {
             imageView.accessibilityLabel = accessory.accessibility?.label
             imageView.themeTintColor = (accessory.customTint ?? tintColor)
             imageView.contentMode = (accessory.shouldFill ? .scaleAspectFill : .scaleAspectFit)
-            
+
             switch (accessory.icon, accessory.image) {
                 case (.some(let icon), _):
                     imageView.image = Lucide
@@ -560,6 +581,8 @@ extension SessionCell {
                 let radioView: UIView = radioBorderView.subviews.first
             else { return }
             
+            label.pin(to: self)
+            
             label.pin(.top, to: .top, of: self)
             label.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
             label.pin(.trailing, to: .leading, of: radioBorderView, withInset: -Values.smallSpacing)
@@ -755,6 +778,8 @@ extension SessionCell {
                     minWidthConstraint.isActive = true
             }
             
+            view.pin(.top, to: .top, of: self)
+            view.pin(.bottom, to: .bottom, of: self)
             view.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
             view.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
         }
