@@ -351,13 +351,7 @@ public extension NotificationsManagerType {
             threadId: threadId,
             threadVariant: threadVariant
         )
-        
-        var groupingIdentifier: NotificationGroupingType? {
-            // Currently only supported custom notification grouping is `messageRequest`
-            // others are grouped using `threadId`
-            isMessageRequest ? .messageRequest : nil
-        }
-        
+
         /// Ensure we should be showing a notification for the thread
         try ensureWeShouldShowNotification(
             message: message,
@@ -389,7 +383,10 @@ public extension NotificationsManagerType {
                     }
                 }(),
                 category: .incomingMessage,
-                groupingIdentifier: groupingIdentifier,
+                groupingIdentifier: (isMessageRequest ?
+                    .messageRequest :
+                    .threadId(threadId)
+                ),
                 title: try notificationTitle(
                     cat: cat,
                     message: message,
