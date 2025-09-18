@@ -7,7 +7,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate, MediaDetailViewControllerDelegate, InteractivelyDismissableViewController {
     class DynamicallySizedView: UIView {

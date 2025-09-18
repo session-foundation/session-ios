@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public enum SendReadReceiptsJob: JobExecutor {

@@ -285,8 +285,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     title: SessionCell.TextInfo(
                         state.profile.displayName(),
                         font: .titleLarge,
-                        alignment: .center,
-                        interaction: .editable
+                        alignment: .center
                     ),
                     trailingAccessory: .icon(
                         .pencil,

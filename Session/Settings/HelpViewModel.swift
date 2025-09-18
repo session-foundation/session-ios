@@ -75,7 +75,8 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                         .localized(),
                     trailingAccessory: .icon(
                         .squareArrowUpRight,
-                        size: .small
+                        size: .small,
+                        pinEdges: [.right]
                     ),
                     onTap: {
                         guard let url: URL = URL(string: "https://getsession.org/translate") else {
@@ -95,7 +96,8 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     title: "helpWedLoveYourFeedback".localized(),
                     trailingAccessory: .icon(
                         .squareArrowUpRight,
-                        size: .small
+                        size: .small,
+                        pinEdges: [.right]
                     ),
                     onTap: {
                         guard let url: URL = URL(string: "https://getsession.org/survey") else {
@@ -115,7 +117,8 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     title: "helpFAQ".localized(),
                     trailingAccessory: .icon(
                         .squareArrowUpRight,
-                        size: .small
+                        size: .small,
+                        pinEdges: [.right]
                     ),
                     onTap: {
                         guard let url: URL = URL(string: "https://getsession.org/faq") else {
@@ -135,7 +138,8 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                     title: "helpSupport".localized(),
                     trailingAccessory: .icon(
                         .squareArrowUpRight,
-                        size: .small
+                        size: .small,
+                        pinEdges: [.right]
                     ),
                     onTap: {
                         guard let url: URL = URL(string: "https://sessionapp.zendesk.com/hc/en-us") else {

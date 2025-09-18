@@ -167,10 +167,6 @@ public extension PersistableRecord {
     func upsert(_ db: ObservingDatabase) throws {
         return try self.upsert(db.originalDb)
     }
-    
-    func save(_ db: ObservingDatabase, onConflict conflictResolution: Database.ConflictResolution? = nil) throws {
-        try self.save(db.originalDb, onConflict: conflictResolution)
-    }
 }
 
 public extension SQLRequest {
@@ -194,14 +190,6 @@ public extension MutablePersistableRecord {
     
     func update(_ db: ObservingDatabase, onConflict conflictResolution: Database.ConflictResolution? = nil) throws {
         try self.update(db.originalDb, onConflict: conflictResolution)
-    }
-    
-    mutating func save(_ db: ObservingDatabase, onConflict conflictResolution: Database.ConflictResolution? = nil) throws {
-        try self.save(db.originalDb, onConflict: conflictResolution)
-    }
-    
-    func saved(_ db: ObservingDatabase, onConflict conflictResolution: Database.ConflictResolution? = nil) throws -> Self {
-        return try self.saved(db.originalDb, onConflict: conflictResolution)
     }
     
     @discardableResult

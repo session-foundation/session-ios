@@ -5,7 +5,7 @@ import CallKit
 import UserNotifications
 import SessionUIKit
 import SessionMessagingKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -157,7 +157,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     // MARK: - Notification Handling
     
     private func extractNotificationInfo(_ info: NotificationInfo) throws -> NotificationInfo {
-        let (maybeData, metadata, result) = PushNotificationAPI.processNotification(
+        let (maybeData, metadata, result) = Network.PushNotification.processNotification(
             notificationContent: info.content,
             using: dependencies
         )
@@ -279,7 +279,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func handleConfigMessage(
         _ notification: ProcessedNotification,
         swarmPublicKey: String,
-        namespace: SnodeAPI.Namespace,
+        namespace: Network.SnodeAPI.Namespace,
         serverHash: String,
         serverTimestampMs: Int64,
         data: Data
@@ -806,7 +806,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
 //            // TODO: [Database Relocation] Need to de-database the 'preparedSubscribe' call for this to work (neeeds the AuthMethod logic to be de-databased)
 //            /// Since this is an API call we need to wait for it to complete before we trigger the `completeSilently` logic
 //            Log.info(.cat, "Group invitation was auto-approved, attempting to subscribe for PNs.")
-//            try? PushNotificationAPI
+//            try? Network.PushNotification
 //                .preparedSubscribe(
 //                    db,
 //                    token: Data(hex: token),
@@ -1284,7 +1284,7 @@ private extension NotificationServiceExtension {
         let content: UNMutableNotificationContent
         let requestId: String
         let contentHandler: ((UNNotificationContent) -> Void)
-        let metadata: PushNotificationAPI.NotificationMetadata
+        let metadata: Network.PushNotification.NotificationMetadata
         let data: Data
         let mainAppUnreadCount: Int
         
@@ -1292,7 +1292,7 @@ private extension NotificationServiceExtension {
             requestId: String? = nil,
             content: UNMutableNotificationContent? = nil,
             contentHandler: ((UNNotificationContent) -> Void)? = nil,
-            metadata: PushNotificationAPI.NotificationMetadata? = nil,
+            metadata: Network.PushNotification.NotificationMetadata? = nil,
             mainAppUnreadCount: Int? = nil
         ) -> NotificationInfo {
             return NotificationInfo(
@@ -1316,8 +1316,8 @@ private extension NotificationServiceExtension {
     
     enum NotificationError: Error {
         case notReadyForExtension
-        case processingErrorWithFallback(PushNotificationAPI.ProcessResult, PushNotificationAPI.NotificationMetadata)
-        case processingError(PushNotificationAPI.ProcessResult, PushNotificationAPI.NotificationMetadata)
+        case processingErrorWithFallback(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata)
+        case processingError(Network.PushNotification.ProcessResult, Network.PushNotification.NotificationMetadata)
         case timeout
     }
 }

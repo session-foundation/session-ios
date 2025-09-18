@@ -672,7 +672,7 @@ public extension UIContextualAction {
                                 guard !isMessageRequest else {
                                     switch threadViewModel.threadVariant {
                                         case .group: return ThemedAttributedString(string: "groupInviteDelete".localized())
-                                        default: return ThemedAttributedString(string: "messageRequestsDelete".localized())
+                                        default: return ThemedAttributedString(string: "messageRequestsContactDelete".localized())
                                     }
                                 }
                                 
@@ -715,7 +715,7 @@ public extension UIContextualAction {
                                                     return .deleteGroupAndContent
                                                 case (.group, _, _): return .leaveGroupAsync
                                                 
-                                                case (.contact, _, _): return .deleteContactConversationAndMarkHidden
+                                                case (.contact, _, _): return .deleteContactConversationAndContact
                                             }
                                         }()
                                         
