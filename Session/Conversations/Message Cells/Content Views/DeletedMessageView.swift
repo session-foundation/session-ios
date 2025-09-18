@@ -44,7 +44,6 @@ final class DeletedMessageView: UIView {
         // Body label
         let titleLabel = UILabel()
         titleLabel.setContentHuggingPriority(.required, for: .vertical)
-        titleLabel.preferredMaxLayoutWidth = maxWidth - 6   // `6` for the `stackView.layoutMargins`
         titleLabel.font = .italicSystemFont(ofSize: Values.mediumFontSize)
         titleLabel.text = {
             switch variant {
@@ -78,6 +77,6 @@ final class DeletedMessageView: UIView {
         stackView.pin(.trailing, to: .trailing, of: self, withInset: -Self.horizontalInset)
         stackView.pin(.bottom, to: .bottom, of: self, withInset: -Self.verticalInset)
         
-        stackView.set(.height, to: calculatedSize.height)
+        stackView.set(.height, greaterThanOrEqualTo: calculatedSize.height)
     }
 }

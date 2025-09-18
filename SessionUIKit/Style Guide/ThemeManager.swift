@@ -63,7 +63,13 @@ public enum ThemeManager {
         
         // If the theme was changed then trigger a UI update and the callback for the theme settings
         // change (so it gets persisted)
-        guard themeChanged || matchSystemChanged else { return }
+        guard themeChanged || matchSystemChanged else {
+            if !hasSetInitialSystemTrait {
+                updateAllUI()
+            }
+            
+            return
+        }
         
         if !hasSetInitialSystemTrait || themeChanged {
             updateAllUI()
