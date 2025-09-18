@@ -53,10 +53,6 @@ public enum ThemeManager {
         _primaryColor = targetPrimaryColor
         _hasLoadedTheme = true
         
-        if !hasSetInitialSystemTrait || themeChanged {
-            updateAllUI()
-        }
-        
         if matchSystemChanged {
             _matchSystemNightModeSetting = targetMatchSystemNightModeSetting
             
@@ -65,8 +61,19 @@ public enum ThemeManager {
             SNUIKit.mainWindow?.overrideUserInterfaceStyle = .unspecified
         }
         
-        // If the theme was changed then trigger the callback for the theme settings change (so it gets persisted)
-        guard themeChanged || matchSystemChanged else { return }
+        // If the theme was changed then trigger a UI update and the callback for the theme settings
+        // change (so it gets persisted)
+        guard themeChanged || matchSystemChanged else {
+            if !hasSetInitialSystemTrait {
+                updateAllUI()
+            }
+            
+            return
+        }
+        
+        if !hasSetInitialSystemTrait || themeChanged {
+            updateAllUI()
+        }
         
         SNUIKit.themeSettingsChanged(targetTheme, targetPrimaryColor, targetMatchSystemNightModeSetting)
     }
@@ -82,10 +89,10 @@ public enum ThemeManager {
         
         // Swap to the appropriate light/dark mode
         switch (currentUserInterfaceStyle, ThemeManager.currentTheme) {
-            case (.light, .classicDark): updateThemeState(theme: .classicLight)
-            case (.light, .oceanDark): updateThemeState(theme: .oceanLight)
-            case (.dark, .classicLight): updateThemeState(theme: .classicDark)
-            case (.dark, .oceanLight): updateThemeState(theme: .oceanDark)
+            case (.light, .classicDark): updateThemeState(theme: .classicLight, primaryColor: _primaryColor)
+            case (.light, .oceanDark): updateThemeState(theme: .oceanLight, primaryColor: _primaryColor)
+            case (.dark, .classicLight): updateThemeState(theme: .classicDark, primaryColor: _primaryColor)
+            case (.dark, .oceanLight): updateThemeState(theme: .oceanDark, primaryColor: _primaryColor)
             default: break
         }
     }
