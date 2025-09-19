@@ -704,23 +704,27 @@ public extension LibSession {
         // MARK: - Functions
         
         public func suspendNetworkAccess() {
-            Log.info(.network, "Network access suspended.")
             isSuspended = true
+            Log.info(.network, "Network access suspended.")
             
             switch network {
                 case .none: break
                 case .some(let network): network_suspend(network)
             }
+            
+            dependencies.notifyAsync(key: .networkLifecycle(.suspended))
         }
         
         public func resumeNetworkAccess() {
             isSuspended = false
-            Log.info(.network, "Network access resumed.")
             
             switch network {
                 case .none: break
                 case .some(let network): network_resume(network)
             }
+            
+            Log.info(.network, "Network access resumed.")
+            dependencies.notifyAsync(key: .networkLifecycle(.resumed))
         }
         
         public func getOrCreateNetwork() -> AnyPublisher<UnsafeMutablePointer<network_object>?, Error> {

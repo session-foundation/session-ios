@@ -386,6 +386,16 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         return result
     }()
+    
+    // Handle taps outside of tableview cell
+    private lazy var tableViewTapGesture: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer()
+        result.delegate = self
+        result.addTarget(self, action: #selector(dismissKeyboardOnTap))
+        result.cancelsTouchesInView = false
+        
+        return result
+    }()
 
     // MARK: - Settings
     
@@ -537,6 +547,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 object: nil
             )
         }
+        
+        // Gesture
+        view.addGestureRecognizer(tableViewTapGesture)
 
         self.viewModel.navigatableState.setupBindings(viewController: self, disposables: &self.viewModel.disposables)
         
@@ -1580,7 +1593,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         // value will break things)
         let tableViewBottom: CGFloat = (tableView.contentSize.height - tableView.bounds.height + tableView.contentInset.bottom)
         
-        if tableView.contentOffset.y < (tableViewBottom - 5) {
+        // Added `insetDifference > 0` to remove sudden table collapse and overscroll
+        if tableView.contentOffset.y < (tableViewBottom - 5) && insetDifference > 0 {
             tableView.contentOffset.y += insetDifference
         }
         
