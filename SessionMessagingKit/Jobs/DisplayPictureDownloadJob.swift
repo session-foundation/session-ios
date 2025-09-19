@@ -264,7 +264,7 @@ extension DisplayPictureDownloadJob {
     
     public struct Details: Codable, Hashable {
         public let target: Target
-        public let timestamp: TimeInterval
+        public let timestamp: TimeInterval?
         
         // MARK: - Hashable
         
@@ -277,7 +277,7 @@ extension DisplayPictureDownloadJob {
         
         // MARK: - Initialization
         
-        public init?(target: Target, timestamp: TimeInterval) {
+        public init?(target: Target, timestamp: TimeInterval?) {
             guard target.isValid else { return nil }
             
             self.target = {
@@ -348,11 +348,16 @@ extension DisplayPictureDownloadJob {
                 case .profile(let id, let url, let encryptionKey):
                     guard let latestProfile: Profile = try? Profile.fetchOne(db, id: id) else { return false }
                     
+                    /// If the data matches what is stored in the database then we should be fine to consider it valid (it may be that
+                    /// we are re-downloading a profile due to some invalid state)
+                    let dataMatches: Bool = (
+                        encryptionKey == latestProfile.displayPictureEncryptionKey &&
+                        url == latestProfile.displayPictureUrl
+                    )
+                    
                     return (
-                        timestamp >= (latestProfile.profileLastUpdated ?? 0) || (
-                            encryptionKey == latestProfile.displayPictureEncryptionKey &&
-                            url == latestProfile.displayPictureUrl
-                        )
+                        Profile.shouldUpdateProfile(timestamp, profile: latestProfile, using: dependencies) ||
+                        dataMatches
                     )
                     
                 case .group(let id, let url,_):

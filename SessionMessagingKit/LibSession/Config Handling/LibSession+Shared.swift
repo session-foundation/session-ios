@@ -761,7 +761,7 @@ public extension LibSession.Cache {
         let displayNameInMessage: String? = (visibleMessage?.sender != contactId ? nil :
             visibleMessage?.profile?.displayName?.nullIfEmpty
         )
-        let profileLastUpdatedInMessage: TimeInterval? = visibleMessage?.profile?.updateTimestampMs.map { TimeInterval($0 / 1000) }
+        let profileLastUpdatedInMessage: TimeInterval? = visibleMessage?.profile?.updateTimestampSeconds
         let fallbackProfile: Profile? = displayNameInMessage.map { Profile(id: contactId, name: $0) }
         
         guard var cContactId: [CChar] = contactId.cString(using: .utf8) else {

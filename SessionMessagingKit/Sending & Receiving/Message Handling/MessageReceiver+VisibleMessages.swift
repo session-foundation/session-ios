@@ -38,14 +38,13 @@ extension MessageReceiver {
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)
         if let profile = message.profile {
-            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? messageSentTimestampMs) / 1000)
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                profileUpdateTimestamp: profileUpdateTimestamp,
+                profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
         }
