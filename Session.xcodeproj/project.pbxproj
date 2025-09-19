@@ -1040,11 +1040,11 @@
 		FDE521A22E0D23AB00061B8E /* ObservableKey+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521A12E0D23A200061B8E /* ObservableKey+SessionMessagingKit.swift */; };
 		FDE521A62E0E6C8C00061B8E /* MockNotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */; };
 		FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE6E99729F8E63A00F93C5D /* Accessibility.swift */; };
+		FDE71B052E77E1AA0023F5F9 /* ObservableKey+SessionNetworkingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B042E77E1A00023F5F9 /* ObservableKey+SessionNetworkingKit.swift */; };
 		FDE71B0B2E79352D0023F5F9 /* DeveloperSettingsGroupsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B0A2E7935250023F5F9 /* DeveloperSettingsGroupsViewModel.swift */; };
 		FDE71B0D2E793B250023F5F9 /* DeveloperSettingsProViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B0C2E793B1F0023F5F9 /* DeveloperSettingsProViewModel.swift */; };
 		FDE71B0F2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit in Resources */ = {isa = PBXBuildFile; fileRef = FDE71B0E2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit */; };
 		FDE71B5F2E7A73570023F5F9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDE71B5E2E7A73560023F5F9 /* StoreKit.framework */; };
-		FDE71B052E77E1AA0023F5F9 /* ObservableKey+SessionNetworkingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B042E77E1A00023F5F9 /* ObservableKey+SessionNetworkingKit.swift */; };
 		FDE7549B2C940108002A2623 /* MessageViewModel+DeletionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549A2C940108002A2623 /* MessageViewModel+DeletionActions.swift */; };
 		FDE7549D2C9961A4002A2623 /* CommunityPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549C2C9961A4002A2623 /* CommunityPoller.swift */; };
 		FDE754A12C9A60A6002A2623 /* Crypto+OpenGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE754A02C9A60A6002A2623 /* Crypto+OpenGroup.swift */; };
@@ -2310,11 +2310,11 @@
 		FDE5219F2E0D22FD00061B8E /* ObservationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationManager.swift; sourceTree = "<group>"; };
 		FDE521A12E0D23A200061B8E /* ObservableKey+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ObservableKey+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FDE6E99729F8E63A00F93C5D /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
+		FDE71B042E77E1A00023F5F9 /* ObservableKey+SessionNetworkingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ObservableKey+SessionNetworkingKit.swift"; sourceTree = "<group>"; };
 		FDE71B0A2E7935250023F5F9 /* DeveloperSettingsGroupsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsGroupsViewModel.swift; sourceTree = "<group>"; };
 		FDE71B0C2E793B1F0023F5F9 /* DeveloperSettingsProViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsProViewModel.swift; sourceTree = "<group>"; };
 		FDE71B0E2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Session - Anonymous Messenger.storekit"; sourceTree = "<group>"; };
 		FDE71B5E2E7A73560023F5F9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
-		FDE71B042E77E1A00023F5F9 /* ObservableKey+SessionNetworkingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ObservableKey+SessionNetworkingKit.swift"; sourceTree = "<group>"; };
 		FDE7214F287E50D50093DF33 /* ProtoWrappers.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ProtoWrappers.py; sourceTree = "<group>"; };
 		FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LintLocalizableStrings.swift; sourceTree = "<group>"; };
 		FDE7549A2C940108002A2623 /* MessageViewModel+DeletionActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MessageViewModel+DeletionActions.swift"; sourceTree = "<group>"; };
@@ -8320,7 +8320,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 632;
+				CURRENT_PROJECT_VERSION = 633;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8401,7 +8401,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 632;
+				CURRENT_PROJECT_VERSION = 633;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8882,7 +8882,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 632;
+				CURRENT_PROJECT_VERSION = 633;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -9469,7 +9469,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 632;
+				CURRENT_PROJECT_VERSION = 633;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;

@@ -26,13 +26,14 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
     case duplicatedCall
     case missingRequiredAdminPrivileges
     case deprecatedMessage
+    case failedToProcess
 
     public var isRetryable: Bool {
         switch self {
             case .duplicateMessage, .invalidMessage, .unknownMessage, .unknownEnvelopeType,
                 .invalidSignature, .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed,
                 .invalidConfigMessageHandling, .outdatedMessage, .ignorableMessage, .ignorableMessageRequestMessage,
-                .missingRequiredAdminPrivileges:
+                .missingRequiredAdminPrivileges, .failedToProcess:
                 return false
                 
             default: return true
@@ -112,6 +113,7 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
             case .duplicatedCall: return "Duplicate call."
             case .missingRequiredAdminPrivileges: return "Handling this message requires admin privileges which the current user does not have."
             case .deprecatedMessage: return "This message type has been deprecated."
+            case .failedToProcess: return "Failed to process."
         }
     }
 }
