@@ -6,7 +6,7 @@ import Quick
 import Nimble
 import SessionUtil
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 @testable import Session
 @testable import SessionMessagingKit
@@ -38,14 +38,7 @@ class DatabaseSpec: QuickSpec {
         @TestState var initialResult: Result<Void, Error>! = nil
         @TestState var finalResult: Result<Void, Error>! = nil
         
-        let allMigrations: [Storage.KeyedMigration] = SynchronousStorage.sortedMigrationInfo(
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self,
-                DeprecatedUIKitMigrationTarget.self
-            ]
-        )
+        let allMigrations: [Migration.Type] = SNMessagingKit.migrations
         let dynamicTests: [MigrationTest] = MigrationTest.extractTests(allMigrations)
         let allTableTypes: [(TableRecord & FetchableRecord).Type] = MigrationTest.extractDatabaseTypes(allMigrations)
         MigrationTest.explicitValues = [
@@ -75,12 +68,7 @@ class DatabaseSpec: QuickSpec {
             // MARK: -- can be created from an empty state
             it("can be created from an empty state") {
                 mockStorage.perform(
-                    migrationTargets: [
-                        SNUtilitiesKit.self,
-                        SNSnodeKit.self,
-                        SNMessagingKit.self,
-                        DeprecatedUIKitMigrationTarget.self
-                    ],
+                    migrations: allMigrations,
                     async: false,
                     onProgressUpdate: nil,
                     onComplete: { result in initialResult = result }
@@ -92,7 +80,7 @@ class DatabaseSpec: QuickSpec {
             // MARK: -- can still parse the database table types
             it("can still parse the database table types") {
                 mockStorage.perform(
-                    sortedMigrations: allMigrations,
+                    migrations: allMigrations,
                     async: false,
                     onProgressUpdate: nil,
                     onComplete: { result in initialResult = result }
@@ -115,7 +103,7 @@ class DatabaseSpec: QuickSpec {
             // MARK: -- can still parse the database types setting null where possible
             it("can still parse the database types setting null where possible") {
                 mockStorage.perform(
-                    sortedMigrations: allMigrations,
+                    migrations: allMigrations,
                     async: false,
                     onProgressUpdate: nil,
                     onComplete: { result in initialResult = result }
@@ -137,9 +125,9 @@ class DatabaseSpec: QuickSpec {
             
             // MARK: -- can migrate from X to Y
             dynamicTests.forEach { test in
-                it("can migrate from \(test.initialMigrationKey) to \(test.finalMigrationKey)") {
+                it("can migrate from \(test.initialMigrationIdentifier) to \(test.finalMigrationIdentifier)") {
                     let initialStateResult: Result<DatabaseQueue, Error> = {
-                        if let cachedResult: Result<DatabaseQueue, Error> = snapshotCache[test.initialMigrationKey] {
+                        if let cachedResult: Result<DatabaseQueue, Error> = snapshotCache[test.initialMigrationIdentifier] {
                             return cachedResult
                         }
                         
@@ -153,7 +141,7 @@ class DatabaseSpec: QuickSpec {
                             // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
                             var initialResult: Result<Void, Error>!
                             storage.perform(
-                                sortedMigrations: test.initialMigrations,
+                                migrations: test.initialMigrations,
                                 async: false,
                                 onProgressUpdate: nil,
                                 onComplete: { result in initialResult = result }
@@ -163,10 +151,10 @@ class DatabaseSpec: QuickSpec {
                             // Generate dummy data (otherwise structural issues or invalid foreign keys won't error)
                             try MigrationTest.generateDummyData(storage, nullsWherePossible: false)
                             
-                            snapshotCache[test.initialMigrationKey] = .success(dbQueue)
+                            snapshotCache[test.initialMigrationIdentifier] = .success(dbQueue)
                             return .success(dbQueue)
                         } catch {
-                            snapshotCache[test.initialMigrationKey] = .failure(error)
+                            snapshotCache[test.initialMigrationIdentifier] = .failure(error)
                             return .failure(error)
                         }
                     }()
@@ -175,7 +163,7 @@ class DatabaseSpec: QuickSpec {
                     switch initialStateResult {
                         case .success(let db): sourceDb = db
                         case .failure(let error):
-                            fail("Failed to prepare the initial state for '\(test.initialMigrationKey)'. Error: \(error)")
+                            fail("Failed to prepare the initial state for '\(test.initialMigrationIdentifier)'. Error: \(error)")
                             return
                     }
                     
@@ -186,7 +174,7 @@ class DatabaseSpec: QuickSpec {
 
                     // Peform the target migrations to ensure the migrations themselves worked correctly
                     mockStorage.perform(
-                        sortedMigrations: test.migrationsToTest,
+                        migrations: test.migrationsToTest,
                         async: false,
                         onProgressUpdate: nil,
                         onComplete: { result in finalResult = result }
@@ -195,11 +183,67 @@ class DatabaseSpec: QuickSpec {
                     switch finalResult {
                         case .success: break
                         case .failure(let error):
-                            fail("Failed to migrate from '\(test.initialMigrationKey)' to '\(test.finalMigrationKey)'. Error: \(error)")
+                            fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: \(error)")
                         case .none:
-                            fail("Failed to migrate from '\(test.initialMigrationKey)' to '\(test.finalMigrationKey)'. Error: No result")
+                            fail("Failed to migrate from '\(test.initialMigrationIdentifier)' to '\(test.finalMigrationIdentifier)'. Error: No result")
                     }
                 }
+            }
+            
+            // MARK: -- migration order hasn't changed
+            it("migration order hasn't changed") {
+                expect(SNMessagingKit.migrations.map { $0.identifier }).to(equal([
+                    "utilitiesKit.initialSetup",
+                    "utilitiesKit.SetupStandardJobs",
+                    "utilitiesKit.YDBToGRDBMigration",
+                    "snodeKit.initialSetup",
+                    "snodeKit.SetupStandardJobs",
+                    "messagingKit.initialSetup",
+                    "messagingKit.SetupStandardJobs",
+                    "snodeKit.YDBToGRDBMigration",
+                    "messagingKit.YDBToGRDBMigration",
+                    "snodeKit.FlagMessageHashAsDeletedOrInvalid",
+                    "messagingKit.RemoveLegacyYDB",
+                    "utilitiesKit.AddJobPriority",
+                    "messagingKit.FixDeletedMessageReadState",
+                    "messagingKit.FixHiddenModAdminSupport",
+                    "messagingKit.HomeQueryOptimisationIndexes",
+                    "uiKit.ThemePreferences",
+                    "messagingKit.EmojiReacts",
+                    "messagingKit.OpenGroupPermission",
+                    "messagingKit.AddThreadIdToFTS",
+                    "utilitiesKit.AddJobUniqueHash",
+                    "snodeKit.AddSnodeReveivedMessageInfoPrimaryKey",
+                    "snodeKit.DropSnodeCache",
+                    "snodeKit.SplitSnodeReceivedMessageInfo",
+                    "snodeKit.ResetUserConfigLastHashes",
+                    "messagingKit.AddPendingReadReceipts",
+                    "messagingKit.AddFTSIfNeeded",
+                    "messagingKit.SessionUtilChanges",
+                    "messagingKit.GenerateInitialUserConfigDumps",
+                    "messagingKit.BlockCommunityMessageRequests",
+                    "messagingKit.MakeBrokenProfileTimestampsNullable",
+                    "messagingKit.RebuildFTSIfNeeded_2_4_5",
+                    "messagingKit.DisappearingMessagesWithTypes",
+                    "messagingKit.ScheduleAppUpdateCheckJob",
+                    "messagingKit.AddMissingWhisperFlag",
+                    "messagingKit.ReworkRecipientState",
+                    "messagingKit.GroupsRebuildChanges",
+                    "messagingKit.GroupsExpiredFlag",
+                    "messagingKit.FixBustedInteractionVariant",
+                    "messagingKit.DropLegacyClosedGroupKeyPairTable",
+                    "messagingKit.MessageDeduplicationTable",
+                    "utilitiesKit.RenameTableSettingToKeyValueStore",
+                    "messagingKit.MoveSettingsToLibSession",
+                    "messagingKit.RenameAttachments",
+                    "messagingKit.AddProMessageFlag"
+                ]))
+            }
+            
+            // MARK: -- there are no duplicate migration names
+            it("there are no duplicate migration names") {
+                expect(Set(SNMessagingKit.migrations.map { $0.identifier }).sorted())
+                    .to(equal(SNMessagingKit.migrations.map { $0.identifier }.sorted()))
             }
         }
     }
@@ -236,15 +280,15 @@ private struct TableColumn: Hashable {
 private class MigrationTest {
     static var explicitValues: [TableColumn: (any DatabaseValueConvertible)] = [:]
     
-    let initialMigrations: [Storage.KeyedMigration]
-    let migrationsToTest: [Storage.KeyedMigration]
+    let initialMigrations: [Migration.Type]
+    let migrationsToTest: [Migration.Type]
     
-    var initialMigrationKey: String { return (initialMigrations.last?.key ?? "an empty database") }
-    var finalMigrationKey: String { return (migrationsToTest.last?.key ?? "invalid") }
+    var initialMigrationIdentifier: String { return (initialMigrations.last?.identifier ?? "an empty database") }
+    var finalMigrationIdentifier: String { return (migrationsToTest.last?.identifier ?? "invalid") }
 
     private init(
-        initialMigrations: [Storage.KeyedMigration],
-        migrationsToTest: [Storage.KeyedMigration]
+        initialMigrations: [Migration.Type],
+        migrationsToTest: [Migration.Type]
     ) {
         self.initialMigrations = initialMigrations
         self.migrationsToTest = migrationsToTest
@@ -252,7 +296,7 @@ private class MigrationTest {
     
     // MARK: - Test Data
     
-    static func extractTests(_ allMigrations: [Storage.KeyedMigration]) -> [MigrationTest] {
+    static func extractTests(_ allMigrations: [Migration.Type]) -> [MigrationTest] {
         return (0..<(allMigrations.count - 1))
             .flatMap { index -> [MigrationTest] in
                 ((index + 1)..<allMigrations.count).map { targetMigrationIndex -> MigrationTest in
@@ -264,10 +308,10 @@ private class MigrationTest {
             }
     }
     
-    static func extractDatabaseTypes(_ allMigrations: [Storage.KeyedMigration]) -> [(TableRecord & FetchableRecord).Type] {
+    static func extractDatabaseTypes(_ allMigrations: [Migration.Type]) -> [(TableRecord & FetchableRecord).Type] {
         return Array(allMigrations
             .reduce(into: [:]) { result, next in
-                next.migration.createdTables.forEach { table in
+                next.createdTables.forEach { table in
                     result[ObjectIdentifier(table).hashValue] = table
                 }
             }
@@ -391,70 +435,4 @@ private class MigrationTest {
             }
         }
     }
-}
-
-enum TestAllMigrationRequirementsReversedMigratableTarget: MigratableTarget { // Just to make the external API nice
-    public static func migrations() -> TargetMigrations {
-        return TargetMigrations(
-            identifier: .session,
-            migrations: [
-                [
-                    TestRequiresAllMigrationRequirementsReversedMigration.self
-                ]
-            ]
-        )
-    }
-}
-
-enum TestRequiresLibSessionStateMigratableTarget: MigratableTarget { // Just to make the external API nice
-    public static func migrations() -> TargetMigrations {
-        return TargetMigrations(
-            identifier: .session,
-            migrations: [
-                [
-                    TestRequiresLibSessionStateMigration.self
-                ]
-            ]
-        )
-    }
-}
-
-enum TestRequiresSessionIdCachedMigratableTarget: MigratableTarget { // Just to make the external API nice
-    public static func migrations() -> TargetMigrations {
-        return TargetMigrations(
-            identifier: .session,
-            migrations: [
-                [
-                    TestRequiresSessionIdCachedMigration.self
-                ]
-            ]
-        )
-    }
-}
-
-enum TestRequiresAllMigrationRequirementsReversedMigration: Migration {
-    static let target: TargetMigrations.Identifier = .session
-    static let identifier: String = "test" // stringlint:ignore
-    static let minExpectedRunDuration: TimeInterval = 0.1
-    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
-    
-    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {}
-}
-
-enum TestRequiresLibSessionStateMigration: Migration {
-    static let target: TargetMigrations.Identifier = .session
-    static let identifier: String = "test" // stringlint:ignore
-    static let minExpectedRunDuration: TimeInterval = 0.1
-    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
-    
-    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {}
-}
-
-enum TestRequiresSessionIdCachedMigration: Migration {
-    static let target: TargetMigrations.Identifier = .session
-    static let identifier: String = "test" // stringlint:ignore
-    static let minExpectedRunDuration: TimeInterval = 0.1
-    static let createdTables: [(TableRecord & FetchableRecord).Type] = []
-    
-    static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {}
 }

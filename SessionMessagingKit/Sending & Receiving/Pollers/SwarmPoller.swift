@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - SwarmPollerType
@@ -41,7 +41,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     public var lastPollStart: TimeInterval = 0
     public var cancellable: AnyCancellable?
     
-    private let namespaces: [SnodeAPI.Namespace]
+    private let namespaces: [Network.SnodeAPI.Namespace]
     private let customAuthMethod: AuthenticationMethod?
     private let shouldStoreMessages: Bool
     private let receivedPollResponseSubject: PassthroughSubject<PollResponse, Never> = PassthroughSubject()
@@ -53,7 +53,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         pollerQueue: DispatchQueue,
         pollerDestination: PollerDestination,
         pollerDrainBehaviour: ThreadSafeObject<SwarmDrainBehaviour>,
-        namespaces: [SnodeAPI.Namespace],
+        namespaces: [Network.SnodeAPI.Namespace],
         failureCount: Int = 0,
         shouldStoreMessages: Bool,
         logStartAndStopCalls: Bool,
@@ -108,8 +108,8 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         /// Fetch the messages
         return dependencies[singleton: .network]
             .getSwarm(for: pollerDestination.target)
-            .tryFlatMapWithRandomSnode(drainBehaviour: _pollerDrainBehaviour, using: dependencies) { [pollerDestination, customAuthMethod, namespaces, dependencies] snode -> AnyPublisher<(LibSession.Snode, Network.PreparedRequest<SnodeAPI.PollResponse>), Error> in
-                dependencies[singleton: .storage].readPublisher { db -> (LibSession.Snode, Network.PreparedRequest<SnodeAPI.PollResponse>) in
+            .tryFlatMapWithRandomSnode(drainBehaviour: _pollerDrainBehaviour, using: dependencies) { [pollerDestination, customAuthMethod, namespaces, dependencies] snode -> AnyPublisher<(LibSession.Snode, Network.PreparedRequest<Network.SnodeAPI.PollResponse>), Error> in
+                dependencies[singleton: .storage].readPublisher { db -> (LibSession.Snode, Network.PreparedRequest<Network.SnodeAPI.PollResponse>) in
                     let authMethod: AuthenticationMethod = try (customAuthMethod ?? Authentication.with(
                         db,
                         swarmPublicKey: pollerDestination.target,
@@ -118,7 +118,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     
                     return (
                         snode,
-                        try SnodeAPI.preparedPoll(
+                        try Network.SnodeAPI.preparedPoll(
                             db,
                             namespaces: namespaces,
                             refreshingConfigHashes: activeHashes,
@@ -134,10 +134,10 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     .map { _, response in (snode, response) }
             }
             .flatMapStorageWritePublisher(using: dependencies, updates: { [pollerDestination, shouldStoreMessages, forceSynchronousProcessing, dependencies] db, info -> ([Job], [Job], PollResult) in
-                let (snode, namespacedResults): (LibSession.Snode, SnodeAPI.PollResponse) = info
+                let (snode, namespacedResults): (LibSession.Snode, Network.SnodeAPI.PollResponse) = info
                 
                 /// Get all of the messages and sort them by their required `processingOrder`
-                typealias MessageData = (namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+                typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
                 let sortedMessages: [MessageData] = namespacedResults
                     .compactMap { namespace, result -> MessageData? in
                         (result.data?.messages).map { (namespace, $0, result.data?.lastHash) }
@@ -233,7 +233,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         shouldStoreMessages: Bool,
         ignoreDedupeFiles: Bool,
         forceSynchronousProcessing: Bool,
-        sortedMessages: [(namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)],
+        sortedMessages: [(namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)],
         using dependencies: Dependencies
     ) -> ([Job], [Job], PollResult) {
         /// No need to do anything if there are no messages
@@ -386,16 +386,17 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     }
                 }
                 
-                /// Make sure to add any synchronously processed messages to the `finalProcessedMessages`
-                /// as otherwise they wouldn't be emitted by the `receivedPollResponseSubject`
+                /// Make sure to add any synchronously processed messages to the `finalProcessedMessages` as otherwise
+                /// they wouldn't be emitted by the `receivedPollResponseSubject`, also need to add the count to
+                /// `messageCount` to ensure it's not incorrect
                 finalProcessedMessages += processedMessages
+                messageCount += processedMessages.count
                 return nil
             }
             .flatMap { $0 }
         
         /// If we don't want to store the messages then no need to continue (don't want to create message receive jobs or mess with cached hashes)
         guard shouldStoreMessages && !forceSynchronousProcessing else {
-            messageCount += allProcessedMessages.count
             finalProcessedMessages += allProcessedMessages
             return ([], [], (finalProcessedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
         }

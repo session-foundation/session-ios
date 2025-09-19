@@ -3,7 +3,7 @@
 // stringlint:disable
 
 import Foundation
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -43,7 +43,7 @@ public final class MessageSender {
     public static func preparedSend(
         message: Message,
         to destination: Message.Destination,
-        namespace: SnodeAPI.Namespace?,
+        namespace: Network.SnodeAPI.Namespace?,
         interactionId: Int64?,
         attachments: [(attachment: Attachment, fileId: String)]?,
         authMethod: AuthenticationMethod,
@@ -138,7 +138,7 @@ public final class MessageSender {
     private static func preparedSendToSnodeDestination(
         message: Message,
         to destination: Message.Destination,
-        namespace: SnodeAPI.Namespace?,
+        namespace: Network.SnodeAPI.Namespace?,
         interactionId: Int64?,
         attachments: [(attachment: Attachment, fileId: String)]?,
         messageSendTimestampMs: Int64,
@@ -146,7 +146,9 @@ public final class MessageSender {
         onEvent: ((Event) -> Void)?,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendResponse> {
-        guard let namespace: SnodeAPI.Namespace = namespace else { throw MessageSenderError.invalidMessage }
+        guard let namespace: Network.SnodeAPI.Namespace = namespace else {
+            throw MessageSenderError.invalidMessage
+        }
         
         /// Set the sender/recipient info (needed to be valid)
         ///
@@ -201,7 +203,7 @@ public final class MessageSender {
         // Perform any pre-send actions
         onEvent?(.willSend(message, destination, interactionId: interactionId))
         
-        return try SnodeAPI
+        return try Network.SnodeAPI
             .preparedSendMessage(
                 message: snodeMessage,
                 in: namespace,
@@ -287,7 +289,7 @@ public final class MessageSender {
         // Perform any pre-send actions
         onEvent?(.willSend(message, destination, interactionId: interactionId))
         
-        return try OpenGroupAPI
+        return try Network.SOGS
             .preparedSend(
                 plaintext: plaintext,
                 roomToken: roomToken,
@@ -352,7 +354,7 @@ public final class MessageSender {
         // Perform any pre-send actions
         onEvent?(.willSend(message, destination, interactionId: interactionId))
         
-        return try OpenGroupAPI
+        return try Network.SOGS
             .preparedSend(
                 ciphertext: ciphertext,
                 toInboxFor: recipientBlindedPublicKey,
@@ -371,7 +373,7 @@ public final class MessageSender {
     // MARK: - Message Wrapping
     
     public static func encodeMessageForSending(
-        namespace: SnodeAPI.Namespace,
+        namespace: Network.SnodeAPI.Namespace,
         destination: Message.Destination,
         message: Message,
         attachments: [(attachment: Attachment, fileId: String)]?,

@@ -4,6 +4,7 @@
 
 import Foundation
 import GRDB
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
@@ -40,7 +41,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
             self.rawValue = rawValue
         }
         
-        public init(roomInfo: OpenGroupAPI.RoomPollInfo) {
+        public init(roomInfo: Network.SOGS.RoomPollInfo) {
             var permissions: Permissions = []
             
             if roomInfo.read { permissions.insert(.read) }

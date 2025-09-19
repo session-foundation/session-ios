@@ -1,7 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Singleton
@@ -738,7 +738,7 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func loadMessages() async throws {
-        typealias MessageData = (namespace: SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
         
         /// Retrieve all conversation file paths
         ///
@@ -781,7 +781,7 @@ public class ExtensionHelper: ExtensionHelperType {
                 
                 do {
                     let sortedMessages: [MessageData] = try configMessageHashes
-                        .reduce([SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [SnodeAPI.Namespace: [SnodeReceivedMessage]], hash: String) in
+                        .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [Network.SnodeAPI.Namespace: [SnodeReceivedMessage]], hash: String) in
                             let path: String = URL(fileURLWithPath: this.conversationsPath)
                                 .appendingPathComponent(conversationHash)
                                 .appendingPathComponent(this.conversationConfigDir)
@@ -865,29 +865,58 @@ public class ExtensionHelper: ExtensionHelperType {
                     }
                 )
                 
-                allMessagePaths.forEach { path in
-                    do {
-                        let plaintext: Data = try this.read(from: path)
-                        let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
-                            .decode(SnodeReceivedMessage.self, from: plaintext)
-                        
-                        SwarmPoller.processPollResponse(
+                let sortedMessages: [MessageData] = allMessagePaths
+                    .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [Network.SnodeAPI.Namespace: [SnodeReceivedMessage]], path: String) in
+                        do {
+                            let plaintext: Data = try this.read(from: path)
+                            let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
+                                .decode(SnodeReceivedMessage.self, from: plaintext)
+                            
+                            return result.appending(message, toArrayOn: message.namespace)
+                        }
+                        catch {
+                            failureStandardCount += 1
+                            Log.error(.cat, "Discarding standard message due to error: \(error)")
+                            return result
+                        }
+                    }
+                    .map { namespace, messages -> MessageData in
+                        /// We need to sort the messages as we don't know what order they were read from disk in and some
+                        /// messages (eg. a `VisibleMessage` and it's corresponding `UnsendRequest`) need to be
+                        /// processed in a particular order or they won't behave correctly, luckily the `SnodeReceivedMessage.timestampMs`
+                        /// is the "network offset" timestamp when the message was sent to the storage server (rather than the
+                        /// "sent timestamp" on the message, which for an `UnsendRequest` will match it's associate message)
+                        /// so we can just sort by that
+                        (
+                            namespace,
+                            messages.sorted { $0.timestampMs < $1.timestampMs },
+                            nil
+                        )
+                    }
+                    .sorted { lhs, rhs in lhs.namespace.processingOrder < rhs.namespace.processingOrder }
+                
+                /// Process the message (inserting into the database if needed (messages are processed per conversaiton so
+                /// all have the same `swarmPublicKey`)
+                switch sortedMessages.first?.messages.first?.swarmPublicKey {
+                    case .none: break
+                    case .some(let swarmPublicKey):
+                        let (_, _, result) = SwarmPoller.processPollResponse(
                             db,
                             cat: .cat,
                             source: .pushNotification,
-                            swarmPublicKey: message.swarmPublicKey,
+                            swarmPublicKey: swarmPublicKey,
                             shouldStoreMessages: true,
                             ignoreDedupeFiles: true,
                             forceSynchronousProcessing: true,
-                            sortedMessages: [(message.namespace, [message], nil)],
+                            sortedMessages: sortedMessages,
                             using: dependencies
                         )
-                        successStandardCount += 1
-                    }
-                    catch {
-                        failureStandardCount += 1
-                        Log.error(.cat, "Discarding standard message due to error: \(error)")
-                    }
+                        successStandardCount += result.validMessageCount
+                        
+                        if result.validMessageCount != result.rawMessageCount {
+                            failureStandardCount += (result.rawMessageCount - result.validMessageCount)
+                            Log.error(.cat, "Discarding some standard messages due to error: \(MessageReceiverError.failedToProcess)")
+                        }
                 }
                 
                 /// Remove the standard message files now that they are processed

@@ -2,7 +2,7 @@
 
 import Foundation
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 /// Abstract base class for `VisibleMessage` and `ControlMessage`.
@@ -83,7 +83,7 @@ public class Message: Codable {
             case (false, .some(let sigTimestampMs), .some):
                 let delta: TimeInterval = (TimeInterval(max(sigTimestampMs, sentTimestampMs) - min(sigTimestampMs, sentTimestampMs)) / 1000)
                 
-                return delta < OpenGroupAPI.validTimestampVarianceThreshold
+                return delta < Network.SOGS.validTimestampVarianceThreshold
                 
             // FIXME: We want to remove support for this case in a future release
             case (_, .none, _): return true
@@ -174,7 +174,7 @@ public enum ProcessedMessage {
     )
     case config(
         publicKey: String,
-        namespace: SnodeAPI.Namespace,
+        namespace: Network.SnodeAPI.Namespace,
         serverHash: String,
         serverTimestampMs: Int64,
         data: Data,
@@ -190,7 +190,7 @@ public enum ProcessedMessage {
         }
     }
     
-    var namespace: SnodeAPI.Namespace {
+    var namespace: Network.SnodeAPI.Namespace {
         switch self {
             case .standard(_, let threadVariant, _, _, _):
                 switch threadVariant {
@@ -432,12 +432,12 @@ public extension Message {
     static func processRawReceivedReactions(
         _ db: ObservingDatabase,
         openGroupId: String,
-        message: OpenGroupAPI.Message,
-        associatedPendingChanges: [OpenGroupAPI.PendingChange],
+        message: Network.SOGS.Message,
+        associatedPendingChanges: [OpenGroupManager.PendingChange],
         using dependencies: Dependencies
     ) -> [Reaction] {
         guard
-            let reactions: [String: OpenGroupAPI.Message.Reaction] = message.reactions,
+            let reactions: [String: Network.SOGS.Message.Reaction] = message.reactions,
             let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
                 .fetchOne(db, id: openGroupId)
         else { return [] }
@@ -483,7 +483,7 @@ public extension Message {
                 let pendingChangeSelfReaction: Bool? = {
                     // Find the newest 'PendingChange' entry with a matching emoji, if one exists, and
                     // set the "self reaction" value based on it's action
-                    let maybePendingChange: OpenGroupAPI.PendingChange? = associatedPendingChanges
+                    let maybePendingChange: OpenGroupManager.PendingChange? = associatedPendingChanges
                         .sorted(by: { lhs, rhs -> Bool in (lhs.seqNo ?? Int64.max) >= (rhs.seqNo ?? Int64.max) })
                         .first { pendingChange in
                             if case .reaction(_, let emoji, _) = pendingChange.metadata {
@@ -495,7 +495,7 @@ public extension Message {
                     
                     // If there is no pending change for this reaction then return nil
                     guard
-                        let pendingChange: OpenGroupAPI.PendingChange = maybePendingChange,
+                        let pendingChange: OpenGroupManager.PendingChange = maybePendingChange,
                         case .reaction(_, _, let action) = pendingChange.metadata
                     else { return nil }
 

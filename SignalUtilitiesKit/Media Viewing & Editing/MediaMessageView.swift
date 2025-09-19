@@ -406,12 +406,7 @@ public class MediaMessageView: UIView {
                 ) :
                 stackView.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor)
             ),
-            
-            imageView.widthAnchor.constraint(
-                equalTo: imageView.heightAnchor,
-                multiplier: clampedRatio
-            ),
-            
+
             (maybeImageSize != nil ?
                 imageView.widthAnchor.constraint(equalToConstant: imageSize) :
                 imageView.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor)
@@ -426,17 +421,25 @@ public class MediaMessageView: UIView {
                 equalTo: imageView.centerYAnchor,
                 constant: ceil(imageSize * 0.15)
             ),
-            fileTypeImageView.widthAnchor.constraint(
-                equalTo: fileTypeImageView.heightAnchor,
-                multiplier: ((fileTypeImageView.image?.size.width ?? 1) / (fileTypeImageView.image?.size.height ?? 1))
-            ),
-            fileTypeImageView.widthAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: 0.5),
+            
+            fileTypeImageView.widthAnchor.constraint(equalToConstant: imageSize * 0.5),
+            fileTypeImageView.heightAnchor.constraint(equalToConstant: imageSize * 0.5),
 
             loadingView.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
             loadingView.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
             loadingView.widthAnchor.constraint(equalToConstant: ceil(imageSize / 3)),
             loadingView.heightAnchor.constraint(equalToConstant: ceil(imageSize / 3))
         ])
+        
+        if imageView.image?.size == nil {
+            // Handle `clampedRatio` ratio when image is from data
+            NSLayoutConstraint.activate([
+                imageView.widthAnchor.constraint(
+                    equalTo: imageView.heightAnchor,
+                    multiplier: clampedRatio
+                )
+            ])
+        }
         
         // No inset for the text for URLs but there is for all other layouts
         if !attachment.isUrl {

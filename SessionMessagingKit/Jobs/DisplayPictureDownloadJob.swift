@@ -6,7 +6,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 // MARK: - Log.Category
 
@@ -39,7 +39,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 switch details.target {
                     case .profile(_, let url, _), .group(_, let url, _):
                         guard
-                            let fileId: String = Attachment.fileId(for: url),
+                            let fileId: String = Network.FileServer.fileId(for: url),
                             let downloadUrl: URL = URL(string: Network.FileServer.downloadUrlString(for: url, fileId: fileId))
                         else { throw NetworkError.invalidURL }
                         
@@ -48,16 +48,17 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             using: dependencies
                         )
                         
-                    case .community(let fileId, let roomToken, let server):
+                    case .community(let fileId, let roomToken, let server, let skipAuthentication):
                         guard
                             let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
                                 .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
                         else { throw JobRunnerError.missingRequiredDetails }
                         
-                        return try OpenGroupAPI.preparedDownload(
+                        return try Network.SOGS.preparedDownload(
                             fileId: fileId,
                             roomToken: roomToken,
                             authMethod: Authentication.community(info: info),
+                            skipAuthentication: skipAuthentication,
                             using: dependencies
                         )
                 }
@@ -206,7 +207,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
                 
-            case .community(_, let roomToken, let server):
+            case .community(_, let roomToken, let server, _):
                 _ = try? OpenGroup
                     .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
                     .updateAllAndConfig(
@@ -228,18 +229,18 @@ extension DisplayPictureDownloadJob {
     public enum Target: Codable, Hashable, CustomStringConvertible {
         case profile(id: String, url: String, encryptionKey: Data)
         case group(id: String, url: String, encryptionKey: Data)
-        case community(imageId: String, roomToken: String, server: String)
+        case community(imageId: String, roomToken: String, server: String, skipAuthentication: Bool = false)
         
         var isValid: Bool {
             switch self {
                 case .profile(_, let url, let encryptionKey), .group(_, let url, let encryptionKey):
                     return (
                         !url.isEmpty &&
-                        Attachment.fileId(for: url) != nil &&
+                        Network.FileServer.fileId(for: url) != nil &&
                         encryptionKey.count == DisplayPictureManager.aes256KeyByteLength
                     )
                     
-                case .community(let imageId, _, _): return !imageId.isEmpty
+                case .community(let imageId, _, _, _): return !imageId.isEmpty
             }
         }
         
@@ -249,7 +250,7 @@ extension DisplayPictureDownloadJob {
             switch self {
                 case .profile(let id, _, _): return "profile: \(id)"
                 case .group(let id, _, _): return "group: \(id)"
-                case .community(_, let roomToken, let server): return "room: \(roomToken) on server: \(server)"
+                case .community(_, let roomToken, let server, _): return "room: \(roomToken) on server: \(server)"
             }
         }
     }
@@ -274,11 +275,12 @@ extension DisplayPictureDownloadJob {
             
             self.target = {
                 switch target {
-                    case .community(let imageId, let roomToken, let server):
+                    case .community(let imageId, let roomToken, let server, let skipAuthentication):
                         return .community(
                             imageId: imageId,
                             roomToken: roomToken,
-                            server: server.lowercased()   // Always in lowercase on `OpenGroup`
+                            server: server.lowercased(),   // Always in lowercase on `OpenGroup`
+                            skipAuthentication: skipAuthentication
                         )
                         
                     default: return target
@@ -358,7 +360,7 @@ extension DisplayPictureDownloadJob {
                     
                     return (url == latestDisplayPictureUrl)
                     
-                case .community(let imageId, let roomToken, let server):
+                case .community(let imageId, let roomToken, let server, _):
                     guard
                         let latestImageId: String = try? OpenGroup
                             .select(.imageId)
