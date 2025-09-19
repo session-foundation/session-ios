@@ -172,7 +172,7 @@ public extension Profile {
         }
         
         if let profileLastUpdated: TimeInterval = profileLastUpdated {
-            profileProto.setProfileUpdateTimestamp(UInt64(profileLastUpdated))
+            profileProto.setLastUpdateSeconds(UInt64(profileLastUpdated))
         }
         
         do {
