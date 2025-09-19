@@ -380,6 +380,15 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                 UIView.animate(withDuration: 0.25) {
                     let remoteVideoView: RemoteVideoView = self.floatingViewVideoSource == .remote ? self.floatingRemoteVideoView : self.fullScreenRemoteVideoView
                     remoteVideoView.alpha = isEnabled ? 1 : 0
+
+                    // Retain floating view visibility if either of the feeds are enabled
+                    var hideFloatingContainer: Bool {
+                        !(isEnabled || self.call.isVideoEnabled)
+                    }
+                    
+                    // Shows floating camera to allow user to switch to fullscreen or floating
+                    // even if the other party has not yet turned on their video feed.
+                    self.floatingViewContainer.isHidden = hideFloatingContainer
                 }
                 
                 if self.callInfoLabelStackView.alpha < 0.5 {
@@ -722,7 +731,13 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     
     @objc private func operateCamera() {
         if (call.isVideoEnabled) {
-            floatingViewContainer.isHidden = true
+            // Hides local video feed
+            (floatingViewVideoSource == .local
+             ? floatingLocalVideoView
+             : fullScreenLocalVideoView).alpha = 0
+            
+            floatingViewContainer.isHidden = !call.isRemoteVideoEnabled
+
             cameraManager.stop()
             videoButton.themeTintColor = .textPrimary
             videoButton.themeBackgroundColor = .backgroundSecondary
