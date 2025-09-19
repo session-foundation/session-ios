@@ -565,7 +565,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         guard info.isEnabled else { return }
         
         // Get the view that was tapped (for presenting on iPad)
-        let tappedView: UIView? = {
+        let tappedView: UIView? = { () -> UIView? in
             guard let cell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell else {
                 return nil
             }
@@ -575,7 +575,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             cell.lastTouchLocation = nil
             
             if
-                info.title?.textTailing != nil,
+                info.title?.trailingImage != nil,
                 let localPoint: CGPoint = touchLocation?.location(in: cell.titleLabel),
                 cell.titleLabel.bounds.contains(localPoint),
                 cell.titleLabel.isPointOnTrailingAttachment(localPoint) == true

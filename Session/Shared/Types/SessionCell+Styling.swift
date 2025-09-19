@@ -18,7 +18,7 @@ public extension SessionCell {
         let editingPlaceholder: String?
         let interaction: Interaction
         let accessibility: Accessibility?
-        let textTailing: UIImage?
+        let trailingImage: (id: String, image: UIImage)?
         let extraViewGenerator: (() -> UIView)?
         
         private let fontStyle: FontStyle
@@ -31,7 +31,7 @@ public extension SessionCell {
             editingPlaceholder: String? = nil,
             interaction: Interaction = .none,
             accessibility: Accessibility? = nil,
-            textTailing: UIImage? = nil,
+            trailingImage: (id: String, image: UIImage)? = nil,
             extraViewGenerator: (() -> UIView)? = nil
         ) {
             self.text = text
@@ -40,7 +40,7 @@ public extension SessionCell {
             self.editingPlaceholder = editingPlaceholder
             self.interaction = interaction
             self.accessibility = accessibility
-            self.textTailing = textTailing
+            self.trailingImage = trailingImage
             self.extraViewGenerator = extraViewGenerator
         }
         
@@ -53,6 +53,7 @@ public extension SessionCell {
             interaction.hash(into: &hasher)
             editingPlaceholder.hash(into: &hasher)
             accessibility.hash(into: &hasher)
+            trailingImage?.id.hash(into: &hasher)
         }
         
         public static func == (lhs: TextInfo, rhs: TextInfo) -> Bool {
@@ -62,7 +63,8 @@ public extension SessionCell {
                 lhs.textAlignment == rhs.textAlignment &&
                 lhs.interaction == rhs.interaction &&
                 lhs.editingPlaceholder == rhs.editingPlaceholder &&
-                lhs.accessibility == rhs.accessibility
+                lhs.accessibility == rhs.accessibility &&
+                lhs.trailingImage?.id == rhs.trailingImage?.id
             )
         }
     }

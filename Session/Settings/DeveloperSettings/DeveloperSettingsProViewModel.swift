@@ -75,7 +75,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case restoreProSubscription
         
         case proStatus
-        case proIncomingMessages
+        case allUsersSessionPro
         
         // MARK: - Conformance
         
@@ -90,7 +90,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .restoreProSubscription: return "restoreProSubscription"
                     
                 case .proStatus: return "proStatus"
-                case .proIncomingMessages: return "proIncomingMessages"
+                case .allUsersSessionPro: return "allUsersSessionPro"
             }
         }
         
@@ -108,7 +108,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .restoreProSubscription: result.append(.restoreProSubscription); fallthrough
                     
                 case .proStatus: result.append(.proStatus); fallthrough
-                case .proIncomingMessages: result.append(.proIncomingMessages)
+                case .allUsersSessionPro: result.append(.allUsersSessionPro)
             }
             
             return result
@@ -131,7 +131,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let purchaseTransactionId: String?
         
         let mockCurrentUserSessionPro: Bool
-        let treatAllIncomingMessagesAsProMessages: Bool
+        let allUsersSessionPro: Bool
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -145,7 +145,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.sessionProEnabled),
             .updateScreen(DeveloperSettingsProViewModel.self),
             .feature(.mockCurrentUserSessionPro),
-            .feature(.treatAllIncomingMessagesAsProMessages)
+            .feature(.allUsersSessionPro)
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
@@ -159,7 +159,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 purchaseTransactionId: nil,
                 
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-                treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+                allUsersSessionPro: dependencies[feature: .allUsersSessionPro]
             )
         }
     }
@@ -199,7 +199,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             purchaseStatus: purchaseStatus,
             purchaseTransactionId: purchaseTransactionId,
             mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-            treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+            allUsersSessionPro: dependencies[feature: .allUsersSessionPro]
         )
     }
     
@@ -312,19 +312,20 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     }
                 ),
                 SessionCell.Info(
-                    id: .proIncomingMessages,
-                    title: "All Pro Incoming Messages",
+                    id: .allUsersSessionPro,
+                    title: "Everyone is a Pro",
                     subtitle: """
                     Treat all incoming messages as Pro messages.
+                    Treat all contacts, groups as Session Pro.
                     """,
                     trailingAccessory: .toggle(
-                        state.treatAllIncomingMessagesAsProMessages,
-                        oldValue: previousState.treatAllIncomingMessagesAsProMessages
+                        state.allUsersSessionPro,
+                        oldValue: previousState.allUsersSessionPro
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
-                            feature: .treatAllIncomingMessagesAsProMessages,
-                            to: !state.treatAllIncomingMessagesAsProMessages
+                            feature: .allUsersSessionPro,
+                            to: !state.allUsersSessionPro
                         )
                     }
                 )
@@ -340,7 +341,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let features: [FeatureConfig<Bool>] = [
             .sessionProEnabled,
             .mockCurrentUserSessionPro,
-            .treatAllIncomingMessagesAsProMessages
+            .allUsersSessionPro
         ]
         
         features.forEach { feature in
@@ -357,8 +358,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             dependencies.set(feature: .mockCurrentUserSessionPro, to: nil)
         }
         
-        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
-            dependencies.set(feature: .treatAllIncomingMessagesAsProMessages, to: nil)
+        if dependencies.hasSet(feature: .allUsersSessionPro) {
+            dependencies.set(feature: .allUsersSessionPro, to: nil)
         }
     }
     

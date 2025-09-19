@@ -302,10 +302,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         threadViewModel.displayName,
                         font: .titleLarge,
                         alignment: .center,
-                        textTailing: (
+                        trailingImage: (
                             (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) ?
-                            SessionProBadge(size: .medium).toImage() :
-                                nil
+                            ("ProBadge", SessionProBadge(size: .medium).toImage()) :
+                            nil
                         )
                     ),
                     styling: SessionCell.StyleInfo(

@@ -269,9 +269,11 @@ public struct ProCTAModal: View {
                         }
                         
                         if
-                            case .groupLimit(_, let isSessionProActivated) = variant, isSessionProActivated,
-                            let proBadgeImage: UIImage = SessionProBadge(size: .small).toImage()
+                            case .groupLimit(_, let isSessionProActivated) = variant,
+                            isSessionProActivated
                         {
+                            let proBadgeImage: UIImage = SessionProBadge(size: .small).toImage()
+                            
                             (Text(variant.subtitle) + Text(" \(Image(uiImage: proBadgeImage))").baselineOffset(-2))
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textSecondary)
