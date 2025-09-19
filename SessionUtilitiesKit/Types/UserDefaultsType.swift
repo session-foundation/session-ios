@@ -231,6 +231,9 @@ public extension UserDefaults.StringKey {
     
     /// The id of the thread that a message was just shared to
     static let lastSharedThreadId: UserDefaults.StringKey = "lastSharedThreadId"
+    
+    /// The app-icon name of the previously selected app icon disguise
+    static let lastSelectedAppIconDisguise: UserDefaults.StringKey = "lastSelectedAppIconDisguise"
 }
 
 // MARK: - Keys

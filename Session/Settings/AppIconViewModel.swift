@@ -152,9 +152,11 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
                                 oldValue: (previous != nil)
                             ),
                             onTap: { [weak self] in
+                                let lastSelected: String? = dependencies[defaults: .standard, key: .lastSelectedAppIconDisguise]
+                                
                                 switch current {
                                     case .some: self?.updateAppIcon(nil)
-                                    case .none: self?.updateAppIcon(.weather)
+                                    case .none: self?.updateAppIcon(lastSelected.map { AppIcon(name: $0) } ?? .weather)
                                 }
                             }
                         )
@@ -188,5 +190,11 @@ class AppIconViewModel: SessionTableViewModel, NavigatableStateHolder, Observabl
         }
         
         selectedOptionsSubject.send(icon?.rawValue)
+        
+        // Only store custom icons
+        if let currentIconName = icon?.rawValue {
+            // Save latest app icon disguise selected
+            dependencies[defaults: .standard, key: .lastSelectedAppIconDisguise] = currentIconName
+        }
     }
 }

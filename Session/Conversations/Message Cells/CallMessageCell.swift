@@ -10,11 +10,20 @@ final class CallMessageCell: MessageCell {
     private static let iconSize: CGFloat = 16
     private static let timerViewSize: CGFloat = 16
     private static let inset = Values.mediumSpacing
+    private static let verticalInset = Values.smallSpacing
+    private static let horizontalInset = Values.mediumSmallSpacing
     private static let margin = UIScreen.main.bounds.width * 0.1
     
     private var isHandlingLongPress: Bool = false
     
     override var contextSnapshotView: UIView? { return container }
+    
+    override var allowedGestureRecognizers: Set<GestureRecognizerType> {
+        return [
+            .longPress,
+            .tap
+        ]
+    }
     
     // MARK: - UI
     
@@ -48,7 +57,7 @@ final class CallMessageCell: MessageCell {
     
     private lazy var label: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .boldSystemFont(ofSize: Values.smallFontSize)
+        result.font = .systemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
@@ -63,28 +72,28 @@ final class CallMessageCell: MessageCell {
         result.layer.cornerRadius = 18
         result.addSubview(label)
         
-        label.pin(.top, to: .top, of: result, withInset: CallMessageCell.inset)
+        label.pin(.top, to: .top, of: result, withInset: CallMessageCell.verticalInset)
         label.pin(
             .left,
             to: .left,
             of: result,
-            withInset: ((CallMessageCell.inset * 2) + infoImageView.bounds.size.width)
+            withInset: ((CallMessageCell.horizontalInset * 2) + infoImageView.bounds.size.width)
         )
         label.pin(
             .right,
             to: .right,
             of: result,
-            withInset: -((CallMessageCell.inset * 2) + infoImageView.bounds.size.width)
+            withInset: -((CallMessageCell.horizontalInset * 2) + infoImageView.bounds.size.width)
         )
-        label.pin(.bottom, to: .bottom, of: result, withInset: -CallMessageCell.inset)
+        label.pin(.bottom, to: .bottom, of: result, withInset: -CallMessageCell.verticalInset)
         
         result.addSubview(iconImageView)
         iconImageView.center(.vertical, in: result)
-        iconImageView.pin(.left, to: .left, of: result, withInset: CallMessageCell.inset)
+        iconImageView.pin(.left, to: .left, of: result, withInset: CallMessageCell.horizontalInset)
         
         result.addSubview(infoImageView)
         infoImageView.center(.vertical, in: result)
-        infoImageView.pin(.right, to: .right, of: result, withInset: -CallMessageCell.inset)
+        infoImageView.pin(.right, to: .right, of: result, withInset: -CallMessageCell.horizontalInset)
         
         return result
     }()
@@ -111,15 +120,6 @@ final class CallMessageCell: MessageCell {
         mainStackView.pin(.left, to: .left, of: self, withInset: CallMessageCell.margin)
         mainStackView.pin(.right, to: .right, of: self, withInset: -CallMessageCell.margin)
         mainStackView.pin(.bottom, to: .bottom, of: self, withInset: -CallMessageCell.inset)
-    }
-    
-    override func setUpGestureRecognizers() {
-        let longPressRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
-        addGestureRecognizer(longPressRecognizer)
-        
-        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        tapGestureRecognizer.numberOfTapsRequired = 1
-        addGestureRecognizer(tapGestureRecognizer)
     }
     
     // MARK: - Updating
@@ -205,7 +205,7 @@ final class CallMessageCell: MessageCell {
     
     // MARK: - Interaction
     
-    @objc func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {
+    override func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
         if [ .ended, .cancelled, .failed ].contains(gestureRecognizer.state) {
             isHandlingLongPress = false
             return
@@ -216,7 +216,7 @@ final class CallMessageCell: MessageCell {
         isHandlingLongPress = true
     }
     
-    @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+    override func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard
             let dependencies: Dependencies = self.dependencies,
             let cellViewModel: MessageViewModel = self.viewModel,

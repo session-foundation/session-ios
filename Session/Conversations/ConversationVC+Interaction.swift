@@ -22,7 +22,8 @@ extension ConversationVC:
     ContextMenuActionDelegate,
     SendMediaNavDelegate,
     AttachmentApprovalViewControllerDelegate,
-    GifPickerViewControllerDelegate
+    GifPickerViewControllerDelegate,
+    UIGestureRecognizerDelegate
 {
     // MARK: - Open Settings
     
@@ -31,6 +32,11 @@ extension ConversationVC:
         guard viewModel.threadData.threadRequiresApproval == false else { return }
 
         openSettingsFromTitleView()
+    }
+    
+    // Handle taps outside of tableview cell to dismiss keyboard
+    @MainActor @objc func dismissKeyboardOnTap() {
+        _ = self.snInputView.resignFirstResponder()
     }
     
     @MainActor func openSettingsFromTitleView() {
@@ -252,6 +258,11 @@ extension ConversationVC:
         )
         present(sessionProModal, animated: true, completion: nil)
         
+        return true
+    }
+    
+    // MARK: - UIGestureRecognizerDelegate
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
     }
 
@@ -861,6 +872,9 @@ extension ConversationVC:
     }
 
     func showLinkPreviewSuggestionModal() {
+        // Hides accessory view while link preview confirmation is presented
+        hideInputAccessoryView()
+        
         let linkPreviewModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "linkPreviewsEnable".localized(),
@@ -871,12 +885,17 @@ extension ConversationVC:
                 ),
                 confirmTitle: "enable".localized(),
                 confirmStyle: .danger,
-                cancelStyle: .alert_text
-            ) { [weak self, dependencies = viewModel.dependencies] _ in
-                dependencies.setAsync(.areLinkPreviewsEnabled, true) {
-                    self?.snInputView.autoGenerateLinkPreview()
+                cancelStyle: .alert_text,
+                onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
+                    dependencies.setAsync(.areLinkPreviewsEnabled, true) {
+                        self?.snInputView.autoGenerateLinkPreview()
+                    }
+                },
+                afterClosed: { [weak self] in
+                    // Bring back accessory view after confirmation action
+                    self?.showInputAccessoryView()
                 }
-            }
+            )
         )
         
         present(linkPreviewModal, animated: true, completion: nil)
@@ -1056,7 +1075,7 @@ extension ConversationVC:
     }
 
     // MARK: MessageCellDelegate
-
+    
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
         // Show the unblock modal if needed
         guard self.viewModel.threadData.threadIsBlocked != true else {
@@ -2251,10 +2270,26 @@ extension ConversationVC:
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
         
-        if isShowingSearchUI { willManuallyCancelSearchUI() }
+        // If the `MessageInfoViewController` is visible then we want to show the keyboard after
+        // the pop transition completes (and don't want to delay triggering the completion closure)
+        let messageInfoScreenVisible: Bool = (self.navigationController?.viewControllers.last is MessageInfoViewController)
+
+        guard !messageInfoScreenVisible else {
+            if self.isShowingSearchUI == true { self.willManuallyCancelSearchUI() }
+            self.hasPendingInputKeyboardPresentationEvent = true
+            completion?()
+            return
+        }
         
-        _ = snInputView.becomeFirstResponder()
-        completion?()
+        // Add delay before doing any ui updates
+        // Delay added to give time for long press actions to dismiss
+        let delay = completion == nil ? 0 : ContextMenuVC.dismissDuration
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            if self?.isShowingSearchUI == true { self?.willManuallyCancelSearchUI() }
+            _ = self?.snInputView.becomeFirstResponder()
+            completion?()
+        }
     }
 
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {

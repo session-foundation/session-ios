@@ -48,7 +48,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             using: dependencies
                         )
                         
-                    case .community(let fileId, let roomToken, let server):
+                    case .community(let fileId, let roomToken, let server, let skipAuthentication):
                         guard
                             let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
                                 .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
@@ -58,6 +58,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             fileId: fileId,
                             roomToken: roomToken,
                             authMethod: Authentication.community(info: info),
+                            skipAuthentication: skipAuthentication,
                             using: dependencies
                         )
                 }
@@ -213,7 +214,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
                 
-            case .community(_, let roomToken, let server):
+            case .community(_, let roomToken, let server, _):
                 _ = try? OpenGroup
                     .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
                     .updateAllAndConfig(
@@ -235,7 +236,7 @@ extension DisplayPictureDownloadJob {
     public enum Target: Codable, Hashable, CustomStringConvertible {
         case profile(id: String, url: String, encryptionKey: Data)
         case group(id: String, url: String, encryptionKey: Data)
-        case community(imageId: String, roomToken: String, server: String)
+        case community(imageId: String, roomToken: String, server: String, skipAuthentication: Bool = false)
         
         var isValid: Bool {
             switch self {
@@ -246,7 +247,7 @@ extension DisplayPictureDownloadJob {
                         encryptionKey.count == DisplayPictureManager.aes256KeyByteLength
                     )
                     
-                case .community(let imageId, _, _): return !imageId.isEmpty
+                case .community(let imageId, _, _, _): return !imageId.isEmpty
             }
         }
         
@@ -256,7 +257,7 @@ extension DisplayPictureDownloadJob {
             switch self {
                 case .profile(let id, _, _): return "profile: \(id)"
                 case .group(let id, _, _): return "group: \(id)"
-                case .community(_, let roomToken, let server): return "room: \(roomToken) on server: \(server)"
+                case .community(_, let roomToken, let server, _): return "room: \(roomToken) on server: \(server)"
             }
         }
     }
@@ -281,11 +282,12 @@ extension DisplayPictureDownloadJob {
             
             self.target = {
                 switch target {
-                    case .community(let imageId, let roomToken, let server):
+                    case .community(let imageId, let roomToken, let server, let skipAuthentication):
                         return .community(
                             imageId: imageId,
                             roomToken: roomToken,
-                            server: server.lowercased()   // Always in lowercase on `OpenGroup`
+                            server: server.lowercased(),   // Always in lowercase on `OpenGroup`
+                            skipAuthentication: skipAuthentication
                         )
                         
                     default: return target
@@ -365,7 +367,7 @@ extension DisplayPictureDownloadJob {
                     
                     return (url == latestDisplayPictureUrl)
                     
-                case .community(let imageId, let roomToken, let server):
+                case .community(let imageId, let roomToken, let server, _):
                     guard
                         let latestImageId: String = try? OpenGroup
                             .select(.imageId)
