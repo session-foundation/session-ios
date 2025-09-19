@@ -20,6 +20,9 @@ public extension ThemedAttributedString {
         case strikethrough = "s"
         case primaryTheme = "span"
         case icon = "icon"
+        case warningTheme = "warn"
+        case dangerTheme = "error"
+        case disabledTheme = "disabled"
 
         // MARK: - Functions
 
@@ -53,6 +56,9 @@ public extension ThemedAttributedString {
                 case .strikethrough: return [.strikethroughStyle: NSUnderlineStyle.single.rawValue]
                 case .primaryTheme: return [.themeForegroundColor: ThemeValue.sessionButton_text]
                 case .icon: return Lucide.attributes(for: font)
+                case .warningTheme: return [.themeForegroundColor: ThemeValue.warning]
+                case .dangerTheme: return [.themeForegroundColor: ThemeValue.danger]
+                case .disabledTheme: return [.themeForegroundColor: ThemeValue.disabled]
             }
         }
     }
@@ -184,6 +190,9 @@ private extension Collection where Element == ThemedAttributedString.HTMLTag {
                 case .icon:
                     result[.font] = fontWith(Lucide.font(ofSize: (font.pointSize + 1)), traits: [])
                     result[.baselineOffset] = Lucide.defaultBaselineOffset
+                case .warningTheme: result[.themeForegroundColor] = ThemeValue.warning
+                case .dangerTheme: result[.themeForegroundColor] = ThemeValue.danger
+                case .disabledTheme: result[.themeForegroundColor] = ThemeValue.disabled
             }
         }
     }

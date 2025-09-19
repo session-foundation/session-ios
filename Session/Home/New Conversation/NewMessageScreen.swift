@@ -5,7 +5,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 struct NewMessageScreen: View {
     @EnvironmentObject var host: HostWrapper
@@ -87,7 +87,7 @@ struct NewMessageScreen: View {
         // This could be an ONS name
         ModalActivityIndicatorViewController
             .present(fromViewController: self.host.controller?.navigationController!, canCancel: false) { modalActivityIndicator in
-            SnodeAPI
+            Network.SnodeAPI
                 .getSessionID(for: accountIdOrONS, using: dependencies)
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .receive(on: DispatchQueue.main)

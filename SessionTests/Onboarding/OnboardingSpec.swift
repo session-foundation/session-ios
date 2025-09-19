@@ -9,7 +9,7 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 @testable import Session
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 
 class OnboardingSpec: AsyncSpec {
@@ -24,12 +24,7 @@ class OnboardingSpec: AsyncSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNSnodeKit.self,
-                SNMessagingKit.self,
-                DeprecatedUIKitMigrationTarget.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -126,7 +121,7 @@ class OnboardingSpec: AsyncSpec {
                     .thenReturn(MockNetwork.batchResponseData(
                         with: [
                             (
-                                SnodeAPI.Endpoint.getMessages,
+                                Network.SnodeAPI.Endpoint.getMessages,
                                 GetMessagesResponse(
                                     messages: (pendingPushes?
                                         .pushData
@@ -666,16 +661,36 @@ class OnboardingSpec: AsyncSpec {
                 let result: [ConfigDump]? = mockStorage.read { db in
                     try ConfigDump.fetchAll(db)
                 }
-                let expectedData: Data? = Data(base64Encoded: "ZDE6IWkxZTE6JDEwNDpkMTojaTFlMTomZDE6K2ktMWUxOm4xNjpUZXN0Q29tcGxldGVOYW1lZTE6PGxsaTBlMzI66hc7V77KivGMNRmnu/acPnoF0cBJ+pVYNB2Ou0iwyWVkZWVlMTo9ZDE6KzA6MTpuMDplZTE6KGxlMTopbGUxOipkZTE6K2RlZQ==")
+                try require(result).to(haveCount(1))
                 
-                expect(result).to(equal([
+                /// Since the `UserProfile` data is not deterministic then the best we can do is compare the `ConfigDump`
+                /// without it's data to ensure everything else is correct, then check that the dump data contains expected values
+                let resultData: Data = result![0].data
+                let resultWithoutData: ConfigDump = ConfigDump(
+                    variant: result![0].variant,
+                    sessionId: result![0].sessionId.hexString,
+                    data: Data(),
+                    timestampMs: result![0].timestampMs
+                )
+                var resultDataString: String = ""
+                
+                for i in (0..<resultData.count) {
+                    guard let value: String = String(data: resultData.prefix(i), encoding: .ascii) else {
+                        break
+                    }
+                    
+                    resultDataString = value
+                }
+                
+                expect(resultWithoutData).to(equal(
                     ConfigDump(
                         variant: .userProfile,
                         sessionId: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
-                        data: (expectedData ?? Data()),
+                        data: Data(),
                         timestampMs: 1234567890000
                     )
-                ]))
+                ))
+                expect(resultDataString).to(contain(["TestCompleteName1"]))
             }
             
             // MARK: -- updates the onboarding state to 'completed'

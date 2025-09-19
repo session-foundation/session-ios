@@ -17,8 +17,7 @@ struct AppReviewPromptModel {
 
 extension AppReviewPromptModel {
     // Base version where app review prompt became available
-    // TODO: Update this once a version to include app review prompt is decided
-    static private let reviewPromptAvailabilityVersion = "2.14.1" // stringlint:ignore
+    static private let reviewPromptAvailabilityVersion = "2.14.2" // stringlint:ignore
     
     /// Determines the initial state of the app review prompt.
     static func loadInitialAppReviewPromptState(using dependencies: Dependencies) -> AppReviewPromptState?  {

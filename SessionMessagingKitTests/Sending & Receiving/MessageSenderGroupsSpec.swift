@@ -10,7 +10,7 @@ import Quick
 import Nimble
 
 @testable import SessionMessagingKit
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 
 class MessageSenderGroupsSpec: QuickSpec {
     override class func spec() {
@@ -29,10 +29,7 @@ class MessageSenderGroupsSpec: QuickSpec {
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -162,7 +159,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                     .thenReturn(Data([1, 2, 3]))
                 keychain
                     .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
-                    .thenReturn(Data((0..<PushNotificationAPI.encryptionKeyLength).map { _ in 1 }))
+                    .thenReturn(Data((0..<Network.PushNotification.encryptionKeyLength).map { _ in 1 }))
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
@@ -447,9 +444,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                             invited: nil
                         ).upsert(db)
                         
-                        let preparedRequest: Network.PreparedRequest<Network.BatchResponse> = try SnodeAPI.preparedSequence(
+                        let preparedRequest: Network.PreparedRequest<Network.BatchResponse> = try Network.SnodeAPI.preparedSequence(
                             requests: [
-                                try SnodeAPI
+                                try Network.SnodeAPI
                                     .preparedSendMessage(
                                         message: SnodeMessage(
                                             recipient: groupId.hexString,
@@ -734,7 +731,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                 
                 // MARK: ------ and trying to subscribe for push notifications
                 context("and trying to subscribe for push notifications") {
-                    @TestState var expectedRequest: Network.PreparedRequest<PushNotificationAPI.SubscribeResponse>!
+                    @TestState var expectedRequest: Network.PreparedRequest<Network.PushNotification.SubscribeResponse>!
                     
                     beforeEach {
                         // Need to set `isUsingFullAPNs` to true to generate the `expectedRequest`
@@ -763,10 +760,17 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 groupIdentityPrivateKey: groupSecretKey,
                                 invited: nil
                             ).upsert(db)
-                            let result = try PushNotificationAPI.preparedSubscribe(
-                                db,
+                            let result = try Network.PushNotification.preparedSubscribe(
                                 token: Data([5, 4, 3, 2, 1]),
-                                sessionIds: [groupId],
+                                swarms: [
+                                    (
+                                        groupId,
+                                        Authentication.groupAdmin(
+                                            groupSessionId: groupId,
+                                            ed25519SecretKey: Array(groupSecretKey)
+                                        )
+                                    )
+                                ],
                                 using: dependencies
                             )
                             
@@ -1027,9 +1031,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                             "LPczVOFKOPs+rrB3aUpMsNUnJHOEhW9g6zi/UPjuCWTnnvpxlMTpHaTFlMTp+NjQ6dKi86jZJ" +
                             "l3oiJEA5h5pBE5oOJHQNvtF8GOcsYwrIFTZKnI7AGkBSu1TxP0xLWwTUzjOGMgmKvlIgkQ6e9" +
                             "r3JBmU="
-                        let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = try SnodeAPI.preparedSequence(
+                        let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = try Network.SnodeAPI.preparedSequence(
                             requests: []
-                                .appending(try SnodeAPI.preparedUnrevokeSubaccounts(
+                                .appending(try Network.SnodeAPI.preparedUnrevokeSubaccounts(
                                     subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
                                     authMethod: Authentication.groupAdmin(
                                         groupSessionId: groupId,
@@ -1037,7 +1041,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                     ),
                                     using: dependencies
                                 ))
-                                .appending(try SnodeAPI.preparedSendMessage(
+                                .appending(try Network.SnodeAPI.preparedSendMessage(
                                     message: SnodeMessage(
                                         recipient: groupId.hexString,
                                         data: Data(base64Encoded: requestDataString)!,
@@ -1051,7 +1055,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                     ),
                                     using: dependencies
                                 ))
-                                .appending(try SnodeAPI.preparedDeleteMessages(
+                                .appending(try Network.SnodeAPI.preparedDeleteMessages(
                                     serverHashes: ["testHash"],
                                     requireSuccessfulDeletion: false,
                                     authMethod: Authentication.groupAdmin(
@@ -1242,9 +1246,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                 
                 // MARK: ---- includes the unrevoke subaccounts as part of the config sync sequence
                 it("includes the unrevoke subaccounts as part of the config sync sequence") {
-                    let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = try SnodeAPI.preparedSequence(
+                    let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = try Network.SnodeAPI.preparedSequence(
                         requests: []
-                            .appending(try SnodeAPI
+                            .appending(try Network.SnodeAPI
                                 .preparedUnrevokeSubaccounts(
                                     subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
                                     authMethod: Authentication.groupAdmin(
@@ -1254,7 +1258,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                     using: dependencies
                                 )
                             )
-                            .appending(try SnodeAPI.preparedDeleteMessages(
+                            .appending(try Network.SnodeAPI.preparedDeleteMessages(
                                 serverHashes: ["testHash"],
                                 requireSuccessfulDeletion: false,
                                 authMethod: Authentication.groupAdmin(
@@ -1475,25 +1479,25 @@ extension Network.BatchResponse {
     
     fileprivate static let mockConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
     fileprivate static let mockAddMemberConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (Network.SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
     fileprivate static let mockAddMemberHistoricConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (Network.SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
+            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
 }

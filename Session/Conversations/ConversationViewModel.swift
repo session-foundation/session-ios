@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 import Lucide
 import GRDB
 import DifferenceKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SessionUIKit

@@ -246,8 +246,6 @@ open class Storage {
     
     // MARK: - Migrations
     
-    public typealias KeyedMigration = (key: String, identifier: TargetMigrations.Identifier, migration: Migration.Type)
-    
     public static func appliedMigrationIdentifiers(_ db: ObservingDatabase) -> Set<String> {
         let migrator: DatabaseMigrator = DatabaseMigrator()
         
@@ -255,45 +253,9 @@ open class Storage {
             .defaulting(to: [])
     }
     
-    public static func sortedMigrationInfo(migrationTargets: [MigratableTarget.Type]) -> [KeyedMigration] {
-        typealias MigrationInfo = (identifier: TargetMigrations.Identifier, migrations: TargetMigrations.MigrationSet)
-        
-        return migrationTargets
-            .map { target -> TargetMigrations in target.migrations() }
-            .sorted()
-            .reduce(into: [[MigrationInfo]]()) { result, next in
-                next.migrations.enumerated().forEach { index, migrationSet in
-                    if result.count <= index {
-                        result.append([])
-                    }
-
-                    result[index] = (result[index] + [(next.identifier, migrationSet)])
-                }
-            }
-            .reduce(into: []) { result, next in
-                next.forEach { identifier, migrations in
-                    result.append(contentsOf: migrations.map { (identifier.key(with: $0), identifier, $0) })
-                }
-            }
-    }
-    
     public func perform(
-        migrationTargets: [MigratableTarget.Type],
+        migrations: [Migration.Type],
         async: Bool = true,
-        onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
-        onComplete: @escaping (Result<Void, Error>) -> ()
-    ) {
-        perform(
-            sortedMigrations: Storage.sortedMigrationInfo(migrationTargets: migrationTargets),
-            async: async,
-            onProgressUpdate: onProgressUpdate,
-            onComplete: onComplete
-        )
-    }
-    
-    internal func perform(
-        sortedMigrations: [KeyedMigration],
-        async: Bool,
         onProgressUpdate: ((CGFloat, TimeInterval) -> ())?,
         onComplete: @escaping (Result<Void, Error>) -> ()
     ) {
@@ -306,36 +268,33 @@ open class Storage {
         
         // Setup and run any required migrations
         var migrator: DatabaseMigrator = DatabaseMigrator()
-        sortedMigrations.forEach { _, identifier, migration in
-            migrator.registerMigration(
-                self,
-                targetIdentifier: identifier,
-                migration: migration,
-                using: dependencies
-            )
+        migrations.forEach { migration in
+            migrator.registerMigration(migration.identifier) { [dependencies] db in
+                let migration = migration.loggedMigrate(using: dependencies)
+                try migration(ObservingDatabase.create(db, using: dependencies))
+            }
         }
         
         // Determine which migrations need to be performed and gather the relevant settings needed to
         // inform the app of progress/states
         let completedMigrations: [String] = (try? dbWriter.read { db in try migrator.completedMigrations(db) })
             .defaulting(to: [])
-        let unperformedMigrations: [KeyedMigration] = sortedMigrations
+        let unperformedMigrations: [Migration.Type] = migrations
             .reduce(into: []) { result, next in
-                guard !completedMigrations.contains(next.key) else { return }
+                guard !completedMigrations.contains(next.identifier) else { return }
                 
                 result.append(next)
             }
         let migrationToDurationMap: [String: TimeInterval] = unperformedMigrations
             .reduce(into: [:]) { result, next in
-                result[next.key] = next.migration.minExpectedRunDuration
+                result[next.identifier] = next.minExpectedRunDuration
             }
-        let unperformedMigrationDurations: [TimeInterval] = unperformedMigrations
-            .map { _, _, migration in migration.minExpectedRunDuration }
+        let unperformedMigrationDurations: [TimeInterval] = unperformedMigrations.map { $0.minExpectedRunDuration }
         let totalMinExpectedDuration: TimeInterval = migrationToDurationMap.values.reduce(0, +)
         
         // Store the logic to handle migration progress and completion
         let progressUpdater: (String, CGFloat) -> Void = { (targetKey: String, progress: CGFloat) in
-            guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { key, _, _ in key == targetKey }) else {
+            guard let migrationIndex: Int = unperformedMigrations.firstIndex(where: { $0.identifier == targetKey }) else {
                 return
             }
             
@@ -352,8 +311,8 @@ open class Storage {
         let migrationCompleted: (Result<Void, Error>) -> () = { [weak self, migrator, dbWriter, dependencies] result in
             // Make sure to transition the progress updater to 100% for the final migration (just
             // in case the migration itself didn't update to 100% itself)
-            if let lastMigrationKey: String = unperformedMigrations.last?.key {
-                MigrationExecution.current?.progressUpdater(lastMigrationKey, 1)
+            if let lastMigrationIdentifier: String = unperformedMigrations.last?.identifier {
+                MigrationExecution.current?.progressUpdater(lastMigrationIdentifier, 1)
             }
             
             self?.hasCompletedMigrations = true
@@ -401,8 +360,8 @@ open class Storage {
         let migrationContext: MigrationExecution.Context = MigrationExecution.Context(progressUpdater: progressUpdater)
         
         // If we have an unperformed migration then trigger the progress updater immediately
-        if let firstMigrationKey: String = unperformedMigrations.first?.key {
-            migrationContext.progressUpdater(firstMigrationKey, 0)
+        if let firstMigrationIdentifier: String = unperformedMigrations.first?.identifier {
+            migrationContext.progressUpdater(firstMigrationIdentifier, 0)
         }
         
         MigrationExecution.$current.withValue(migrationContext) {
@@ -494,6 +453,8 @@ open class Storage {
                 .defaulting(to: "N/A")
             Log.verbose(.storage, "Database suspended successfully for \(id) (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
         }
+        
+        dependencies.notifyAsync(key: .databaseLifecycle(.suspended))
     }
     
     /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
@@ -503,6 +464,7 @@ open class Storage {
         
         isSuspended = false
         Log.info(.storage, "Database access resumed.")
+        dependencies.notifyAsync(key: .databaseLifecycle(.resumed))
     }
     
     public func checkpoint(_ mode: Database.CheckpointMode) throws {

@@ -2,7 +2,7 @@
 
 import Foundation
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension Message {
@@ -39,7 +39,7 @@ public extension Message {
             }
         }
         
-        public var defaultNamespace: SnodeAPI.Namespace? {
+        public var defaultNamespace: Network.SnodeAPI.Namespace? {
             switch self {
                 case .contact, .syncMessage: return .`default`
                 case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
@@ -61,7 +61,7 @@ public extension Message {
                     
                     if prefix == .blinded15 || prefix == .blinded25 {
                         guard let lookup: BlindedIdLookup = try? BlindedIdLookup.fetchOne(db, id: threadId) else {
-                            throw OpenGroupAPIError.blindedLookupMissingCommunityInfo
+                            throw SOGSError.blindedLookupMissingCommunityInfo
                         }
                         
                         return .openGroupInbox(
