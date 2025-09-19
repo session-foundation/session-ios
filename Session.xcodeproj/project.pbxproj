@@ -1040,6 +1040,10 @@
 		FDE521A22E0D23AB00061B8E /* ObservableKey+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521A12E0D23A200061B8E /* ObservableKey+SessionMessagingKit.swift */; };
 		FDE521A62E0E6C8C00061B8E /* MockNotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */; };
 		FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE6E99729F8E63A00F93C5D /* Accessibility.swift */; };
+		FDE71B0B2E79352D0023F5F9 /* DeveloperSettingsGroupsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B0A2E7935250023F5F9 /* DeveloperSettingsGroupsViewModel.swift */; };
+		FDE71B0D2E793B250023F5F9 /* DeveloperSettingsProViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B0C2E793B1F0023F5F9 /* DeveloperSettingsProViewModel.swift */; };
+		FDE71B0F2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit in Resources */ = {isa = PBXBuildFile; fileRef = FDE71B0E2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit */; };
+		FDE71B5F2E7A73570023F5F9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDE71B5E2E7A73560023F5F9 /* StoreKit.framework */; };
 		FDE71B052E77E1AA0023F5F9 /* ObservableKey+SessionNetworkingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B042E77E1A00023F5F9 /* ObservableKey+SessionNetworkingKit.swift */; };
 		FDE7549B2C940108002A2623 /* MessageViewModel+DeletionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549A2C940108002A2623 /* MessageViewModel+DeletionActions.swift */; };
 		FDE7549D2C9961A4002A2623 /* CommunityPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE7549C2C9961A4002A2623 /* CommunityPoller.swift */; };
@@ -2306,6 +2310,10 @@
 		FDE5219F2E0D22FD00061B8E /* ObservationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationManager.swift; sourceTree = "<group>"; };
 		FDE521A12E0D23A200061B8E /* ObservableKey+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ObservableKey+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FDE6E99729F8E63A00F93C5D /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
+		FDE71B0A2E7935250023F5F9 /* DeveloperSettingsGroupsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsGroupsViewModel.swift; sourceTree = "<group>"; };
+		FDE71B0C2E793B1F0023F5F9 /* DeveloperSettingsProViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsProViewModel.swift; sourceTree = "<group>"; };
+		FDE71B0E2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Session - Anonymous Messenger.storekit"; sourceTree = "<group>"; };
+		FDE71B5E2E7A73560023F5F9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		FDE71B042E77E1A00023F5F9 /* ObservableKey+SessionNetworkingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ObservableKey+SessionNetworkingKit.swift"; sourceTree = "<group>"; };
 		FDE7214F287E50D50093DF33 /* ProtoWrappers.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = ProtoWrappers.py; sourceTree = "<group>"; };
 		FDE72150287E50D50093DF33 /* LintLocalizableStrings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LintLocalizableStrings.swift; sourceTree = "<group>"; };
@@ -2560,6 +2568,7 @@
 				A1C32D5117A06544000A904E /* AddressBook.framework in Frameworks */,
 				FD6DA9CF2D015B440092085A /* Lucide in Frameworks */,
 				A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */,
+				FDE71B5F2E7A73570023F5F9 /* StoreKit.framework in Frameworks */,
 				D2AEACDC16C426DA00C364C0 /* CFNetwork.framework in Frameworks */,
 				C331FF222558F9D300070591 /* SessionUIKit.framework in Frameworks */,
 				D2179CFE16BB0B480006F3AB /* SystemConfiguration.framework in Frameworks */,
@@ -3456,6 +3465,7 @@
 		C360969125AD1765008B62B2 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				FDE71B092E7934DC0023F5F9 /* DeveloperSettings */,
 				FD8A5B002DBEFBF9004C689B /* SessionNetworkScreen */,
 				FD37E9CD28A1E682003AE748 /* Views */,
 				9422569A2C23F8F000C0FDBF /* QRCodeScreen.swift */,
@@ -3471,8 +3481,6 @@
 				FD860CB72D66BC9500BBE29C /* AppIconViewModel.swift */,
 				FD37EA0228A9FDCC003AE748 /* HelpViewModel.swift */,
 				B86BD08523399CEF000F5AE3 /* SeedModal.swift */,
-				FDC1BD672CFE6EEA002CDC71 /* DeveloperSettingsViewModel.swift */,
-				FD860CBD2D6E7DA000BBE29C /* DeveloperSettingsViewModel+Testing.swift */,
 				B894D0742339EDCF00B4D94D /* NukeDataModal.swift */,
 				FDF848F229413DB0007DCAE5 /* ImagePickerHandler.swift */,
 			);
@@ -3851,6 +3859,7 @@
 				FDE125222A837E4E002DA685 /* MainAppContext.swift */,
 				C3CA3AA0255CDA7000F4C6D4 /* Mnemonic */,
 				FD86FDA22BC5020600EC251B /* PrivacyInfo.xcprivacy */,
+				FDE71B0E2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit */,
 				B67EBF5C19194AC60084CCFD /* Settings.bundle */,
 				B657DDC91911A40500F45B0C /* Signal.entitlements */,
 				FDF2220A2818F38D000A4995 /* SessionApp.swift */,
@@ -3907,6 +3916,7 @@
 		D221A08C169C9E5E00537ABF /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				FDE71B5E2E7A73560023F5F9 /* StoreKit.framework */,
 				FDB6A87B2AD75B7F002D4F96 /* PhotosUI.framework */,
 				3496955F21A2FC8100DCFE74 /* CloudKit.framework */,
 				455A16DB1F1FEA0000F86704 /* Metal.framework */,
@@ -5059,6 +5069,17 @@
 			path = JobRunner;
 			sourceTree = "<group>";
 		};
+		FDE71B092E7934DC0023F5F9 /* DeveloperSettings */ = {
+			isa = PBXGroup;
+			children = (
+				FDC1BD672CFE6EEA002CDC71 /* DeveloperSettingsViewModel.swift */,
+				FD860CBD2D6E7DA000BBE29C /* DeveloperSettingsViewModel+Testing.swift */,
+				FDE71B0A2E7935250023F5F9 /* DeveloperSettingsGroupsViewModel.swift */,
+				FDE71B0C2E793B1F0023F5F9 /* DeveloperSettingsProViewModel.swift */,
+			);
+			path = DeveloperSettings;
+			sourceTree = "<group>";
+		};
 		FDE7214E287E50D50093DF33 /* Scripts */ = {
 			isa = PBXGroup;
 			children = (
@@ -5852,6 +5873,7 @@
 				C34C8F7423A7830B00D82669 /* SpaceMono-Bold.ttf in Resources */,
 				FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */,
 				B8D07405265C683300F77E07 /* ElegantIcons.ttf in Resources */,
+				FDE71B0F2E7A195B0023F5F9 /* Session - Anonymous Messenger.storekit in Resources */,
 				45B74A7E2044AAB600CD42F8 /* complete.aifc in Resources */,
 				9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */,
 				B8CCF6352396005F0091D419 /* SpaceMono-Regular.ttf in Resources */,
@@ -6922,6 +6944,7 @@
 				FDC498B92AC15FE300EDD897 /* AppNotificationAction.swift in Sources */,
 				FD7443402D07A25C00862443 /* PushRegistrationManager.swift in Sources */,
 				7BA6890D27325CCC00EFC32F /* SessionCallManager+CXCallController.swift in Sources */,
+				FDE71B0B2E79352D0023F5F9 /* DeveloperSettingsGroupsViewModel.swift in Sources */,
 				7B71A98F2925E2A600E54854 /* SessionFooterView.swift in Sources */,
 				C374EEEB25DA3CA70073A857 /* ConversationTitleView.swift in Sources */,
 				FDE754E52C9BB012002A2623 /* BezierPathView.swift in Sources */,
@@ -6989,6 +7012,7 @@
 				45F32C232057297A00A300D5 /* MediaPageViewController.swift in Sources */,
 				7B81FB5A2AB01B17002FB267 /* LoadingIndicatorView.swift in Sources */,
 				7B9F71D42852EEE2006DFE7B /* Emoji+Name.swift in Sources */,
+				FDE71B0D2E793B250023F5F9 /* DeveloperSettingsProViewModel.swift in Sources */,
 				4CA46F4C219CCC630038ABDE /* CaptionView.swift in Sources */,
 				C328253025CA55370062D0A7 /* ContextMenuWindow.swift in Sources */,
 				9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */,
