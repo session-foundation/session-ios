@@ -59,9 +59,10 @@ public actor ImageDataManager: ImageDataManagerType {
         return processedData
     }
     
-    nonisolated public func load(
+    @MainActor
+    public func load(
         _ source: ImageDataManager.DataSource,
-        onComplete: @escaping (ImageDataManager.ProcessedImageData?) -> Void
+        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void
     ) {
         Task { [weak self] in
             let result: ImageDataManager.ProcessedImageData? = await self?.load(source)
@@ -863,9 +864,11 @@ public extension ImageDataManager {
 
 public protocol ImageDataManagerType {
     @discardableResult func load(_ source: ImageDataManager.DataSource) async -> ImageDataManager.ProcessedImageData?
-    nonisolated func load(
+    
+    @MainActor
+    func load(
         _ source: ImageDataManager.DataSource,
-        onComplete: @escaping (ImageDataManager.ProcessedImageData?) -> Void
+        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void
     )
     
     func cachedImage(identifier: String) async -> ImageDataManager.ProcessedImageData?
