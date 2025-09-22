@@ -106,7 +106,7 @@ public extension DisappearingMessagesJob {
         
         /// The `expiresStartedAtMs` timestamp is now based on the `dependencies.networkOffsetTimestampMs()`
         /// value so we need to make sure offset the `nextRunTimestamp` accordingly to ensure it runs at the correct local time
-        let clockOffsetMs: Int64 = dependencies.networkOffsetTimestampMs()
+        let clockOffsetMs: Int64 = dependencies[singleton: .network].syncState.networkTimeOffsetMs
         
         Log.info(.cat, "Scheduled future message expiration")
         return try? Job

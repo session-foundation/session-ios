@@ -429,7 +429,7 @@ class DeveloperNetworkSettingsViewModel: SessionTableViewModel, NavigatableState
                             ConfirmationModal.Info.Body.RadioOptionInfo(
                                 title: router.title,
                                 descriptionText: router.subtitle.map { ThemedAttributedString(string: $0) },
-                                enabled: (router != .direct),
+                                enabled: true,
                                 selected: pendingState.router == router
                             )
                         }

@@ -37,7 +37,7 @@ public enum Router: Int, Sendable, FeatureOption, CaseIterable {
         switch self {
             case .onionRequests: return "Requests will be encrypted in multiple layers and send via multiple hops in the network before going to their destination."
             case .lokinet: return "Request will be sent via Lokinet."
-            case .direct: return "Requests will be sent directly to their destination (This option is not currently supported)."
+            case .direct: return "Requests will be sent directly to their destination."
         }
     }
 }
