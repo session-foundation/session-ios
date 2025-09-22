@@ -381,14 +381,12 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                     let remoteVideoView: RemoteVideoView = self.floatingViewVideoSource == .remote ? self.floatingRemoteVideoView : self.fullScreenRemoteVideoView
                     remoteVideoView.alpha = isEnabled ? 1 : 0
 
-                    // Retain floating view visibility if either of the feeds are enabled
-                    var hideFloatingContainer: Bool {
-                        !(isEnabled || self.call.isVideoEnabled)
-                    }
+                    // Retain floating view visibility if any of the video feeds are enabled
+                    let isAnyVideoFeedEnabled: Bool = (isEnabled || self.call.isVideoEnabled)
                     
                     // Shows floating camera to allow user to switch to fullscreen or floating
                     // even if the other party has not yet turned on their video feed.
-                    self.floatingViewContainer.isHidden = hideFloatingContainer
+                    self.floatingViewContainer.isHidden = !isAnyVideoFeedEnabled
                 }
                 
                 if self.callInfoLabelStackView.alpha < 0.5 {
