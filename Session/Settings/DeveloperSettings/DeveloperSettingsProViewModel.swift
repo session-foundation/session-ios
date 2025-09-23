@@ -368,7 +368,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             
             guard let product: Product = products.first else {
                 Log.error("[DevSettings] Unable to purchase subscription due to error: No products found")
-                dependencies.notifyAsync(
+                await dependencies.notify(
                     key: .updateScreen(DeveloperSettingsProViewModel.self),
                     value: DeveloperSettingsProEvent.purchasedProduct([], nil, "No products found", nil, nil)
                 )
@@ -379,26 +379,26 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             switch result {
                 case .success(let verificationResult):
                     let transaction = try verificationResult.payloadValue
-                    dependencies.notifyAsync(
+                    await dependencies.notify(
                         key: .updateScreen(DeveloperSettingsProViewModel.self),
                         value: DeveloperSettingsProEvent.purchasedProduct(products, product, nil, "Successful", transaction.id)
                     )
                     await transaction.finish()
                     
                 case .pending:
-                    dependencies.notifyAsync(
+                    await dependencies.notify(
                         key: .updateScreen(DeveloperSettingsProViewModel.self),
                         value: DeveloperSettingsProEvent.purchasedProduct(products, product, nil, "Pending approval", nil)
                     )
                 
                 case .userCancelled:
-                    dependencies.notifyAsync(
+                    await dependencies.notify(
                         key: .updateScreen(DeveloperSettingsProViewModel.self),
                         value: DeveloperSettingsProEvent.purchasedProduct(products, product, nil, "User cancelled", nil)
                     )
                     
                 @unknown default:
-                    dependencies.notifyAsync(
+                    await dependencies.notify(
                         key: .updateScreen(DeveloperSettingsProViewModel.self),
                         value: DeveloperSettingsProEvent.purchasedProduct(products, product, "Unknown Error", nil, nil)
                     )
@@ -407,7 +407,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
         catch {
             Log.error("[DevSettings] Unable to purchase subscription due to error: \(error)")
-            dependencies.notifyAsync(
+            await dependencies.notify(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
                 value: DeveloperSettingsProEvent.purchasedProduct([], nil, "Failed: \(error)", nil, nil)
             )
@@ -421,7 +421,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         do {
             try await AppStore.showManageSubscriptions(in: scene)
-            print("AS")
         }
         catch {
             Log.error("[DevSettings] Unable to show manage subscriptions: \(error)")

@@ -868,6 +868,7 @@
 		FD78EA0D2DDFEDE200D55B50 /* LibSession+Local.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD78EA0C2DDFEDDF00D55B50 /* LibSession+Local.swift */; };
 		FD7F745B2BAAA35E006DDFD8 /* LibSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7F745A2BAAA35E006DDFD8 /* LibSession.swift */; };
 		FD7F745F2BAAA3B4006DDFD8 /* TypeConversion+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7F745E2BAAA3B4006DDFD8 /* TypeConversion+Utilities.swift */; };
+		FD7FAAFA2E823166008D9BDA /* Mocked+SMK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE71B652E821E230023F5F9 /* Mocked+SMK.swift */; };
 		FD83B9B327CF200A005E1583 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; platformFilter = ios; };
 		FD83B9BB27CF20AF005E1583 /* SessionIdSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9BA27CF20AF005E1583 /* SessionIdSpec.swift */; };
 		FD83B9BF27CF2294005E1583 /* TestConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9BD27CF2243005E1583 /* TestConstants.swift */; };
@@ -7247,6 +7248,7 @@
 				FD481A972CAE0AE000ECC4CF /* MockAppContext.swift in Sources */,
 				FD2AAAF028ED57B500A49611 /* SynchronousStorage.swift in Sources */,
 				FD23CE292A6775650000B97C /* MockCrypto.swift in Sources */,
+				FD7FAAFA2E823166008D9BDA /* Mocked+SMK.swift in Sources */,
 				FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */,
 				FD23CE332A67C4D90000B97C /* MockNetwork.swift in Sources */,
 				FD71161528D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift in Sources */,
@@ -8502,7 +8504,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 633;
+				CURRENT_PROJECT_VERSION = 634;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8584,7 +8586,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 633;
+				CURRENT_PROJECT_VERSION = 634;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -9323,7 +9325,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 633;
+				CURRENT_PROJECT_VERSION = 634;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -9913,7 +9915,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 633;
+				CURRENT_PROJECT_VERSION = 634;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;

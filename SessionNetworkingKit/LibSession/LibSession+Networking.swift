@@ -485,6 +485,7 @@ actor LibSessionNetwork: NetworkType {
         isSuspended = true
         syncState.update(isSuspended: true)
         await setNetworkStatus(status: .disconnected)
+        await dependencies.notify(key: .networkLifecycle(.suspended))
         
         switch network {
             case .none: break
@@ -496,6 +497,7 @@ actor LibSessionNetwork: NetworkType {
         isSuspended = false
         syncState.update(isSuspended: false)
         Log.info(.network, "Network access resumed.")
+        await dependencies.notify(key: .networkLifecycle(.resumed))
         
         switch network {
             case .none: break

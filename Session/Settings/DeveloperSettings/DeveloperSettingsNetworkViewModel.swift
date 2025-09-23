@@ -360,7 +360,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         return [general, devnetConfig]
     }
     
-    // MARK: - Functions
+    // MARK: - Internal Functions
     
     private func showEnvironmentModal(pendingState: State.NetworkState) {
         self.transitionToScreen(
@@ -771,6 +771,66 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         )
     }
     
+    // MARK: - Reverting
+    
+    public static func disableDeveloperMode(using dependencies: Dependencies) async {
+        /// First determine if any changes need to be made to the environment
+        var needsEnvironmentUpdate: Bool = false
+        var needsRouterUpdate: Bool = false
+        var needsPushServiceUpdate: Bool = false
+        
+        for feature in TableItem.allCases {
+            switch feature {
+                case .devnetPubkey, .devnetIp, .devnetHttpPort, .devnetOmqPort: break
+                case .environment: needsEnvironmentUpdate = (dependencies[feature: .serviceNetwork] != .mainnet)
+                case .router: needsRouterUpdate = (dependencies[feature: .router] != .onionRequests)
+                case .pushNotificationService:
+                    needsPushServiceUpdate = (dependencies[feature: .pushNotificationService] != .apns)
+                
+                case .forceOffline:
+                    guard dependencies.hasSet(feature: .forceOffline) else { break }
+                    
+                    dependencies.set(feature: .forceOffline, to: nil)
+            }
+        }
+        
+        /// Then make the changes needed
+        switch (needsEnvironmentUpdate, needsRouterUpdate) {
+            case (true, true):
+                /// If we are updating both the environment and the router then swap the router over first and trigger the environment
+                /// update (as that resets the state anyway, also calling `updateRouter` would be inefficient in this case)
+                dependencies.set(feature: .router, to: .onionRequests)
+                
+                await DeveloperSettingsNetworkViewModel.updateEnvironment(
+                    serviceNetwork: .mainnet,
+                    devnetConfig: nil,
+                    using: dependencies
+                )
+                
+            case (true, false):
+                await DeveloperSettingsNetworkViewModel.updateEnvironment(
+                    serviceNetwork: .mainnet,
+                    devnetConfig: nil,
+                    using: dependencies
+                )
+                
+            case (false, true):
+                await DeveloperSettingsNetworkViewModel.updateRouter(
+                    router: .onionRequests,
+                    using: dependencies
+                )
+                
+            default: break
+        }
+        
+        if needsPushServiceUpdate {
+            await DeveloperSettingsNetworkViewModel.updatePushNotificationService(
+                service: .apns,
+                using: dependencies
+            )
+        }
+    }
+    
     // MARK: - Saving
     
     @MainActor private func saveChanges(hasConfirmed: Bool = false) async {
@@ -902,6 +962,12 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         if networkEnvironmentChanged {
             let state: State.NetworkState = internalState.pendingState
             
+            /// If the router was also changed then just update it directly (calling `updateEnvironment` will reset the rest of the
+            /// state so we just need to ensure the new router is set first)
+            if routerChanged {
+                dependencies.set(feature: .router, to: state.router)
+            }
+            
             await DeveloperSettingsNetworkViewModel.updateEnvironment(
                 serviceNetwork: state.environment,
                 devnetConfig: (state.environment == .devnet && state.devnetConfig.isValid ?
@@ -913,7 +979,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         }
         
         /// If the router changed then we need to recreate the `network` instance, but updating the environment does the same so
-        /// no need to do it again in that case
+        /// no need to do it again in that case (we will have already updated the `router` feature value above in this case)
         if routerChanged && !networkEnvironmentChanged {
             let state: State.NetworkState = internalState.pendingState
             
@@ -926,24 +992,12 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// Now that any environment changes have been made (which may result in rebuilding the network state, and likely clearing the
         /// database) we can trigger the push service change
         if pushServiceChanged && dependencies[defaults: .standard, key: .isUsingFullAPNs] {
-            /// Disable push notifications to trigger the unsubscribe, then re-enable them after updating the feature setting
-            dependencies[defaults: .standard, key: .isUsingFullAPNs] = false
+            let state: State.NetworkState = internalState.pendingState
             
-            SyncPushTokensJob
-                .run(uploadOnlyIfStale: false, using: dependencies)
-                .handleEvents(
-                    receiveOutput: { [state = internalState.pendingState, dependencies] _ in
-                        dependencies.set(
-                            feature: .pushNotificationService,
-                            to: state.pushNotificationService
-                        )
-                        dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
-                    }
-                )
-                .flatMap { [dependencies] _ in
-                    SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
-                }
-                .sinkUntilComplete()
+            await DeveloperSettingsNetworkViewModel.updatePushNotificationService(
+                service: state.pushNotificationService,
+                using: dependencies
+            )
         }
         
         /// Changes have been saved so we can dismiss the screen
@@ -1145,5 +1199,28 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         }
         
         Log.info("[DevSettings] Completed swap to \(String(describing: router))")
+    }
+    
+    internal static func updatePushNotificationService(
+        service: Network.PushNotification.Service,
+        using dependencies: Dependencies
+    ) async {
+        guard dependencies[defaults: .standard, key: .isUsingFullAPNs] else { return }
+        
+        /// Disable push notifications to trigger the unsubscribe, then re-enable them after updating the feature setting
+        dependencies[defaults: .standard, key: .isUsingFullAPNs] = false
+        
+        SyncPushTokensJob
+            .run(uploadOnlyIfStale: false, using: dependencies)
+            .handleEvents(
+                receiveOutput: { [dependencies] _ in
+                    dependencies.set(feature: .pushNotificationService, to: service)
+                    dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
+                }
+            )
+            .flatMap { [dependencies] _ in
+                SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies)
+            }
+            .sinkUntilComplete()
     }
 }

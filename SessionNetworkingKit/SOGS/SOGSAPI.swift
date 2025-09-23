@@ -167,7 +167,7 @@ public extension Network.SOGS {
                 authMethod: authMethod
             ),
             responseType: Network.BatchResponseMap<Endpoint>.self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
 
@@ -197,7 +197,7 @@ public extension Network.SOGS {
                 authMethod: authMethod
             ),
             responseType: CapabilitiesResponse.self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
 
@@ -223,7 +223,7 @@ public extension Network.SOGS {
                 authMethod: authMethod
             ),
             responseType: [Room].self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
 
@@ -869,7 +869,7 @@ public extension Network.SOGS {
                 requestTimeout: Network.fileDownloadTimeout
             ),
             responseType: Data.self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
         

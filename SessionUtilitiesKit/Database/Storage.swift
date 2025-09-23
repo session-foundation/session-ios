@@ -592,8 +592,10 @@ open class Storage {
                     try await dbWriter.read(trackedOperation)
                 )
                 
-                /// Trigger the observations
-                dependencies.notifyAsync(events: output.events)
+                /// Trigger the observations in a detached task so we don't block
+                Task.detached { [dependencies] in
+                    await dependencies.notify(events: output.events)
+                }
                 
                 return (output.result, output.postCommitActions)
             }

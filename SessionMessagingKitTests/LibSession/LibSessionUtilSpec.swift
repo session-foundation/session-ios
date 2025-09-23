@@ -881,12 +881,20 @@ fileprivate extension LibSessionUtilSpec {
                 expect(pushData5.pointee.seqno).to(equal(3))
                 expect(pushData6.pointee.seqno).to(equal(3))
                 
-                // They should have resolved the conflict to the same thing:
-                expect(String(cString: user_profile_get_name(conf)!)).to(equal("Nibbler"))
-                expect(String(cString: user_profile_get_name(conf2)!)).to(equal("Nibbler"))
-                // (Note that they could have also both resolved to "Raz" here, but the hash of the serialized
-                // message just happens to have a higher hash -- and thus gets priority -- for this particular
-                // test).
+                // They should have resolved the conflict to the same thing - since the configs set
+                // a timestamp to the current time when modifying the profile (and we don't have a
+                // mechanism via the C API to set it directly, we can do this directly in the C++ but
+                // not here) we don't actually know whether "Nibbler" or "Raz" will win here so instead
+                // the best we can do is insure they match each other, and that they match one of the options
+                let confNamePtr: UnsafePointer<CChar>? = user_profile_get_name(conf)
+                let conf2NamePtr: UnsafePointer<CChar>? = user_profile_get_name(conf2)
+                try require(confNamePtr).toNot(beNil())
+                try require(conf2NamePtr).toNot(beNil())
+                let confName: String = String(cString: confNamePtr!)
+                let conf2Name: String = String(cString: conf2NamePtr!)
+                expect(Set(["Nibbler", "Raz"])).to(contain(confName))
+                expect(Set(["Nibbler", "Raz"])).to(contain(conf2Name))
+                expect(confName).to(equal(conf2Name))
                 
                 // Since only one of them set a profile pic there should be no conflict there:
                 let pic3: user_profile_pic = user_profile_get_pic(conf)

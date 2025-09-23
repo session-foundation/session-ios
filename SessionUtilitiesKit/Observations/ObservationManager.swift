@@ -35,7 +35,9 @@ public actor ObservationManager {
             
             result.append(
                 NotificationCenter.default.addObserver(forName: next.key, object: nil, queue: .current) { [dependencies] _ in
-                    dependencies.notifyAsync(key: .appLifecycle(value))
+                    Task { [dependencies] in
+                        await dependencies.notify(key: .appLifecycle(value))
+                    }
                 }
             )
         }
@@ -100,14 +102,38 @@ public extension ObservationManager {
 // MARK: - Convenience
 
 public extension Dependencies {
+    func notify(
+        priority: ObservationManager.Priority = .standard,
+        events: [ObservedEvent?]
+    ) async {
+        guard let events: [ObservedEvent] = events.compactMap({ $0 }).nullIfEmpty else { return }
+        
+        await self[singleton: .observationManager].notify(priority: priority, events: events)
+    }
+    
+    func notify<T: Hashable>(
+        priority: ObservationManager.Priority = .standard,
+        key: ObservableKey?,
+        value: T?
+    ) async {
+        guard let event: ObservedEvent = key.map({ ObservedEvent(key: $0, value: value) }) else { return }
+        
+        await notify(priority: priority, events: [event])
+    }
+    
+    func notify(
+        priority: ObservationManager.Priority = .standard,
+        key: ObservableKey
+    ) async {
+        await notify(priority: priority, events: [ObservedEvent(key: key, value: nil)])
+    }
+    
     @discardableResult func notifyAsync(
         priority: ObservationManager.Priority = .standard,
         events: [ObservedEvent?]
     ) -> Task<Void, Never> {
-        guard let events: [ObservedEvent] = events.compactMap({ $0 }).nullIfEmpty else { return Task {} }
-        
-        return Task(priority: priority.taskPriority) { [observationManager = self[singleton: .observationManager]] in
-            await observationManager.notify(priority: priority, events: events)
+        return Task(priority: priority.taskPriority) { [weak self] in
+            await self?.notify(priority: priority, events: events)
         }
     }
     
@@ -116,9 +142,7 @@ public extension Dependencies {
         key: ObservableKey?,
         value: T?
     ) -> Task<Void, Never> {
-        guard let event: ObservedEvent = key.map({ ObservedEvent(key: $0, value: value) }) else { return Task {} }
-        
-        return notifyAsync(priority: priority, events: [event])
+        return notifyAsync(priority: priority, events: [key.map { ObservedEvent(key: $0, value: value) }])
     }
     
     @discardableResult func notifyAsync(

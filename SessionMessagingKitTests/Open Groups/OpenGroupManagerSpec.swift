@@ -2514,31 +2514,56 @@ class OpenGroupManagerSpec: AsyncSpec {
                         )
                         .insert(db)
                     }
-                    let expectedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
-                        try Network.SOGS.preparedCapabilitiesAndRooms(
-                            authMethod: Authentication.community(
-                                info: LibSession.OpenGroupCapabilityInfo(
-                                    roomToken: "",
-                                    server: Network.SOGS.defaultServer,
-                                    publicKey: Network.SOGS.defaultServerPublicKey,
-                                    capabilities: []
-                                ),
-                                forceBlinded: false
-                            ),
-                            using: dependencies
-                        )
-                    }
                     _ = await openGroupManager.defaultRooms.first()
                     
                     await mockNetwork
                         .verify {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: Network.SOGS.Endpoint.sequence,
-                                destination: expectedRequest.destination,
-                                body: expectedRequest.body,
+                                destination: .server(
+                                    method: .post,
+                                    server: Network.SOGS.defaultServer,
+                                    queryParameters: [:],
+                                    headers: [:],
+                                    x25519PublicKey: Network.SOGS.defaultServerPublicKey
+                                ),
+                                body: try JSONEncoder(using: dependencies).encode(
+                                    Network.BatchRequest(requests: [
+                                        try Network.PreparedRequest<Network.SOGS.CapabilitiesResponse>(
+                                            request: Request<NoBody, Network.SOGS.Endpoint>(
+                                                endpoint: .capabilities,
+                                                authMethod: Authentication.community(
+                                                    roomToken: "",
+                                                    server: Network.SOGS.defaultServer,
+                                                    publicKey: Network.SOGS.defaultServerPublicKey,
+                                                    hasCapabilities: false,
+                                                    supportsBlinding: true,
+                                                    forceBlinded: false
+                                                )
+                                            ),
+                                            responseType: Network.SOGS.CapabilitiesResponse.self,
+                                            using: dependencies
+                                        ),
+                                        try Network.PreparedRequest<[Network.SOGS.Room]>(
+                                            request: Request<NoBody, Network.SOGS.Endpoint>(
+                                                endpoint: .rooms,
+                                                authMethod: Authentication.community(
+                                                    roomToken: "",
+                                                    server: Network.SOGS.defaultServer,
+                                                    publicKey: Network.SOGS.defaultServerPublicKey,
+                                                    hasCapabilities: false,
+                                                    supportsBlinding: true,
+                                                    forceBlinded: false
+                                                )
+                                            ),
+                                            responseType: [Network.SOGS.Room].self,
+                                            using: dependencies
+                                        )
+                                    ])
+                                ),
                                 category: .standard,
-                                requestTimeout: expectedRequest.requestTimeout,
-                                overallTimeout: expectedRequest.overallTimeout
+                                requestTimeout: Network.defaultTimeout,
+                                overallTimeout: nil
                             )
                         }
                         .wasCalled(exactly: 1, timeout: .milliseconds(100))
@@ -2554,7 +2579,7 @@ class OpenGroupManagerSpec: AsyncSpec {
                     
                     await mockNetwork
                         .verify {
-                            $0.send(
+                            try await $0.send(
                                 endpoint: MockEndpoint.any,
                                 destination: .any,
                                 body: .any,

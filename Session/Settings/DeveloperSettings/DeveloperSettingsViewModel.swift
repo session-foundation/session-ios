@@ -270,7 +270,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     onTap: { [weak self] in
                         guard current.developerMode else { return }
                         
-                        self?.disableDeveloperMode()
+                        Task { [weak self] in await self?.disableDeveloperMode() }
                     }
                 )
             ]
@@ -698,37 +698,39 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     // MARK: - Functions
     
-    private func disableDeveloperMode() {
+    private func disableDeveloperMode() async {
         /// Loop through all of the sections and reset the features back to default for each one as needed (this way if a new section is added
         /// then we will get a compile error if it doesn't get resetting instructions added)
-        TableItem.allCases.forEach { item in
+        for item in TableItem.allCases {
             switch item {
                 case .developerMode, .versionBlindedID, .scheduleLocalNotification, .copyDocumentsPath,
                     .copyAppGroupPath, .resetSnodeCache, .createMockContacts, .exportDatabase,
                     .importDatabase, .advancedLogging, .resetAppReviewPrompt:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
                     
-                case .networkConfig: DeveloperSettingsNetworkViewModel.disableDeveloperMode(using: dependencies)
+                case .networkConfig:
+                    await DeveloperSettingsNetworkViewModel.disableDeveloperMode(using: dependencies)
+                    
                 case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)
                 case .proConfig: DeveloperSettingsProViewModel.disableDeveloperMode(using: dependencies)
                 
                 case .animationsEnabled:
-                    guard dependencies.hasSet(feature: .animationsEnabled) else { return }
+                    guard dependencies.hasSet(feature: .animationsEnabled) else { break }
                     
                     updateFlag(for: .animationsEnabled, to: nil)
                     
                 case .showStringKeys:
-                    guard dependencies.hasSet(feature: .showStringKeys) else { return }
+                    guard dependencies.hasSet(feature: .showStringKeys) else { break }
                     
                     updateFlag(for: .showStringKeys, to: nil)
                     
                 case .truncatePubkeysInLogs:
-                    guard dependencies.hasSet(feature: .truncatePubkeysInLogs) else { return }
+                    guard dependencies.hasSet(feature: .truncatePubkeysInLogs) else { break }
                     
                     updateFlag(for: .truncatePubkeysInLogs, to: nil)
                     
                 case .simulateAppReviewLimit:
-                    guard dependencies.hasSet(feature: .simulateAppReviewLimit) else { return }
+                    guard dependencies.hasSet(feature: .simulateAppReviewLimit) else { break }
                     
                     updateFlag(for: .simulateAppReviewLimit, to: nil)
                     
@@ -736,18 +738,18 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .loggingCategory: resetLoggingCategories()         // Always reset
                 
                 case .debugDisappearingMessageDurations:
-                    guard dependencies.hasSet(feature: .debugDisappearingMessageDurations) else { return }
+                    guard dependencies.hasSet(feature: .debugDisappearingMessageDurations) else { break }
                     
                     updateFlag(for: .debugDisappearingMessageDurations, to: nil)
 
                 case .communityPollLimit:
-                    guard dependencies.hasSet(feature: .communityPollLimit) else { return }
+                    guard dependencies.hasSet(feature: .communityPollLimit) else { break }
                     
                     dependencies.set(feature: .communityPollLimit, to: nil)
                     forceRefresh(type: .databaseQuery)
                     
                 case .forceSlowDatabaseQueries:
-                    guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { return }
+                    guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { break }
                     
                     updateFlag(for: .forceSlowDatabaseQueries, to: nil)
             }
