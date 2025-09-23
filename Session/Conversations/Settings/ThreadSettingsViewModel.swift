@@ -1678,7 +1678,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         },
                         icon: .rightPlus,
                         style: .circular,
-                        showPro: false,
+                        description: nil,
                         accessibility: Accessibility(
                             identifier: "Image picker",
                             label: "Image picker"
