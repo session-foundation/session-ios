@@ -40,7 +40,7 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                 case .themes: return "appearanceThemes".localized()
                 case .primaryColor: return "appearancePrimaryColor".localized()
                 case .primaryColorSelection: return nil
-                case .autoDarkMode: return "appearanceAutoDarkMode".localized()
+                case .autoDarkMode: return "darkMode".localized()
                 case .appIcon: return "appIcon".localized()
             }
         }
@@ -213,16 +213,16 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                     elements: [
                         SessionCell.Info(
                             id: .darkModeMatchSystemSettings,
-                            title: SessionCell.TextInfo(
-                                "followSystemSettings".localized(),
-                                font: .titleRegular
-                            ),
+                            title: "appearanceAutoDarkMode".localized(),
+                            subtitle: "followSystemSettings".localized(),
                             trailingAccessory: .toggle(
                                 state.autoDarkModeEnabled,
                                 oldValue: previousState.autoDarkModeEnabled
                             ),
                             onTap: {
                                 ThemeManager.updateThemeState(
+                                    theme: state.theme,                 /// Keep the current value
+                                    primaryColor: state.primaryColor,   /// Keep the current value
                                     matchSystemNightModeSetting: !state.autoDarkModeEnabled
                                 )
                             }
@@ -238,7 +238,10 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                                 "appIconSelect".localized(),
                                 font: .titleRegular
                             ),
-                            trailingAccessory: .icon(.chevronRight),
+                            trailingAccessory: .icon(
+                                .chevronRight,
+                                pinEdges: [.right]
+                            ),
                             onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                 viewModel?.transitionToScreen(
                                     SessionTableViewController(

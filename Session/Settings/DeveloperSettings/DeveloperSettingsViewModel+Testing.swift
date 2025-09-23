@@ -240,7 +240,7 @@ extension DeveloperSettingsViewModel {
                         }
                     }()
                     
-                    await DeveloperNetworkSettingsViewModel.updateEnvironment(
+                    await DeveloperSettingsNetworkViewModel.updateEnvironment(
                         serviceNetwork: network,
                         devnetConfig: devnetConfig,
                         using: dependencies

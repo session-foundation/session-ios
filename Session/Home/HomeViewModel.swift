@@ -105,6 +105,8 @@ public class HomeViewModel: NavigatableStateHolder {
         
         public var observedKeys: Set<ObservableKey> {
             var result: Set<ObservableKey> = [
+                .appLifecycle(.willEnterForeground),
+                .databaseLifecycle(.resumed),
                 .loadPage(HomeViewModel.self),
                 .messageRequestAccepted,
                 .messageRequestDeleted,
@@ -246,7 +248,7 @@ public class HomeViewModel: NavigatableStateHolder {
             }
         
         /// Handle database events first
-        if let databaseEvents: Set<ObservedEvent> = splitEvents[.databaseQuery], !databaseEvents.isEmpty {
+        if !dependencies[singleton: .storage].isSuspended, let databaseEvents: Set<ObservedEvent> = splitEvents[.databaseQuery], !databaseEvents.isEmpty {
             do {
                 var fetchedConversations: [SessionThreadViewModel] = []
                 let idsNeedingRequery: Set<String> = self.extractIdsNeedingRequery(
@@ -355,6 +357,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 Log.critical(.homeViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
+        else if let databaseEvents: Set<ObservedEvent> = splitEvents[.databaseQuery], !databaseEvents.isEmpty {
+            Log.warn(.homeViewModel, "Ignored \(databaseEvents.count) database event(s) sent while storage was suspended.")
+        }
         
         /// Then handle non-database events
         let groupedOtherEvents: [GenericObservableKey: Set<ObservedEvent>]? = splitEvents[.other]?
@@ -446,6 +451,15 @@ public class HomeViewModel: NavigatableStateHolder {
         events: Set<ObservedEvent>,
         cache: [String: SessionThreadViewModel]
     ) -> Set<String> {
+        let requireFullRefresh: Bool = events.contains(where: { event in
+            event.key == .appLifecycle(.willEnterForeground) ||
+            event.key == .databaseLifecycle(.resumed)
+        })
+        
+        guard !requireFullRefresh else {
+            return Set(cache.keys)
+        }
+        
         return events.reduce(into: []) { result, event in
             switch (event.key.generic, event.value) {
                 case (.conversationUpdated, let event as ConversationEvent): result.insert(event.id)
@@ -742,6 +756,7 @@ private extension ObservedEvent {
             case (.feature(.forceOffline), _): return .other
             case (.setting(.hasViewedSeed), _): return .other
                 
+            case (.appLifecycle(.willEnterForeground), _): return .databaseQuery
             case (.messageRequestUnreadMessageReceived, _), (.messageRequestAccepted, _),
                 (.messageRequestDeleted, _), (.messageRequestMessageRead, _):
                 return .databaseQuery

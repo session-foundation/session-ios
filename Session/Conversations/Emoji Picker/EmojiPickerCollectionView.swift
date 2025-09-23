@@ -322,7 +322,12 @@ private class EmojiSectionHeader: UICollectionReusableView {
         label.font = .systemFont(ofSize: Values.smallFontSize)
         label.themeTextColor = .textPrimary
         addSubview(label)
-        label.pin(to: self)
+
+        label.pin(.top, to: .top, of: self)
+        label.pin(.leading, to: .leading, of: self, withInset: Values.mediumSpacing)
+        label.pin(.trailing, to: .trailing, of: self, withInset: -Values.mediumSpacing)
+        label.pin(.bottom, to: .bottom, of: self)
+        
         label.setCompressionResistance(to: .required)
     }
 

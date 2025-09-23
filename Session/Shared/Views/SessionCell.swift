@@ -10,7 +10,6 @@ import SessionUtilitiesKit
 public class SessionCell: UITableViewCell {
     public static let cornerRadius: CGFloat = 17
     
-    private var isEditingTitle = false
     public private(set) var interactionMode: SessionCell.TextInfo.Interaction = .none
     public var lastTouchLocation: UITouch?
     private var shouldHighlightTitle: Bool = true
@@ -34,10 +33,6 @@ public class SessionCell: UITableViewCell {
     private lazy var contentStackViewHorizontalCenterConstraint: NSLayoutConstraint = contentStackView.center(.horizontal, in: cellBackgroundView)
     private lazy var contentStackViewWidthConstraint: NSLayoutConstraint = contentStackView.set(.width, lessThanOrEqualTo: .width, of: cellBackgroundView)
     private lazy var leadingAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: leadingAccessoryView)
-    private lazy var titleTextFieldLeadingConstraint: NSLayoutConstraint = titleTextField.pin(.leading, to: .leading, of: cellBackgroundView)
-    private lazy var titleTextFieldTrailingConstraint: NSLayoutConstraint = titleTextField.pin(.trailing, to: .trailing, of: cellBackgroundView)
-    private lazy var titleMinHeightConstraint: NSLayoutConstraint = titleStackView.heightAnchor
-        .constraint(greaterThanOrEqualTo: titleTextField.heightAnchor)
     private lazy var trailingAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: trailingAccessoryView)
     private lazy var accessoryWidthMatchConstraint: NSLayoutConstraint = leadingAccessoryView.set(.width, to: .width, of: trailingAccessoryView)
     
@@ -107,17 +102,6 @@ public class SessionCell: UITableViewCell {
         result.setCompressionResistance(to: .defaultLow)
         
         return result
-    }()
-    
-    fileprivate let titleTextField: UITextField = {
-        let textField: SNTextField = SNTextField(placeholder: "", usesDefaultHeight: false)
-        textField.translatesAutoresizingMaskIntoConstraints = false
-        textField.textAlignment = .center
-        textField.alpha = 0
-        textField.isHidden = true
-        textField.set(.height, to: Values.largeButtonHeight)
-        
-        return textField
     }()
     
     private let subtitleLabel: SRCopyableLabel = {
@@ -195,8 +179,6 @@ public class SessionCell: UITableViewCell {
         titleStackView.addArrangedSubview(titleLabel)
         titleStackView.addArrangedSubview(subtitleLabel)
         
-        cellBackgroundView.addSubview(titleTextField)
-        
         setupLayout()
     }
     
@@ -214,8 +196,6 @@ public class SessionCell: UITableViewCell {
         
         contentStackViewTopConstraint.isActive = true
         contentStackViewBottomConstraint.isActive = true
-        
-        titleTextField.center(.vertical, in: titleLabel)
         
         botSeparatorLeadingConstraint = botSeparator.pin(.leading, to: .leading, of: cellBackgroundView)
         botSeparatorTrailingConstraint = botSeparator.pin(.trailing, to: .trailing, of: cellBackgroundView)
@@ -297,7 +277,6 @@ public class SessionCell: UITableViewCell {
     public override func prepareForReuse() {
         super.prepareForReuse()
         
-        isEditingTitle = false
         interactionMode = .none
         shouldHighlightTitle = true
         accessibilityIdentifier = nil
@@ -315,18 +294,12 @@ public class SessionCell: UITableViewCell {
         contentStackViewTrailingConstraint.isActive = false
         contentStackViewHorizontalCenterConstraint.isActive = false
         contentStackViewWidthConstraint.isActive = false
-        titleMinHeightConstraint.isActive = false
         leadingAccessoryView.prepareForReuse()
         leadingAccessoryView.alpha = 1
         leadingAccessoryFillConstraint.isActive = false
         titleLabel.text = ""
         titleLabel.themeTextColor = .textPrimary
         titleLabel.alpha = 1
-        titleTextField.text = ""
-        titleTextField.textAlignment = .center
-        titleTextField.themeTextColor = .textPrimary
-        titleTextField.isHidden = true
-        titleTextField.alpha = 0
         subtitleLabel.isUserInteractionEnabled = false
         subtitleLabel.attributedText = nil
         subtitleLabel.themeTextColor = .textPrimary
@@ -417,16 +390,6 @@ public class SessionCell: UITableViewCell {
             }
             
             return -(leadingFitToEdge || trailingFitToEdge ? 0 : Values.mediumSpacing)
-        }()
-        titleTextFieldLeadingConstraint.constant = {
-            guard info.styling.backgroundStyle != .noBackground else { return 0 }
-            
-            return (leadingFitToEdge ? 0 : Values.mediumSpacing)
-        }()
-        titleTextFieldTrailingConstraint.constant = {
-            guard info.styling.backgroundStyle != .noBackground else { return 0 }
-            
-            return -(trailingFitToEdge ? 0 : Values.mediumSpacing)
         }()
         
         // Styling and positioning
@@ -567,12 +530,6 @@ public class SessionCell: UITableViewCell {
         titleLabel.accessibilityIdentifier = info.title?.accessibility?.identifier
         titleLabel.accessibilityLabel = info.title?.accessibility?.label
         titleLabel.isHidden = (info.title == nil)
-        titleTextField.text = info.title?.text
-        titleTextField.textAlignment = (info.title?.textAlignment ?? .left)
-        titleTextField.placeholder = info.title?.editingPlaceholder
-        titleTextField.isHidden = (info.title == nil)
-        titleTextField.accessibilityIdentifier = info.title?.accessibility?.identifier
-        titleTextField.accessibilityLabel = info.title?.accessibility?.label
         subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
         subtitleLabel.font = info.subtitle?.font
         subtitleLabel.themeTextColor = info.styling.subtitleTintColor
@@ -602,48 +559,10 @@ public class SessionCell: UITableViewCell {
         )
     }
     
-    public func update(isEditing: Bool, becomeFirstResponder: Bool, animated: Bool) {
-        // Note: We set 'isUserInteractionEnabled' based on the 'info.isEditable' flag
-        // so can use that to determine whether this element can become editable
-        guard interactionMode == .editable || interactionMode == .alwaysEditing else { return }
-        
-        self.isEditingTitle = isEditing
-        
-        let changes = { [weak self] in
-            self?.titleLabel.alpha = (isEditing ? 0 : 1)
-            self?.titleTextField.alpha = (isEditing ? 1 : 0)
-            self?.leadingAccessoryView.alpha = (isEditing ? 0 : 1)
-            self?.trailingAccessoryView.alpha = (isEditing ? 0 : 1)
-            self?.titleMinHeightConstraint.isActive = isEditing
-        }
-        let completion: (Bool) -> Void = { [weak self] complete in
-            self?.titleTextField.text = self?.originalInputValue
-        }
-
-        if animated {
-            UIView.animate(withDuration: 0.25, animations: changes, completion: completion)
-        }
-        else {
-            changes()
-            completion(true)
-        }
-
-        if isEditing && becomeFirstResponder {
-            titleTextField.becomeFirstResponder()
-        }
-        else if !isEditing {
-            titleTextField.resignFirstResponder()
-        }
-    }
-    
     // MARK: - Interaction
     
     public override func setHighlighted(_ highlighted: Bool, animated: Bool) {
         super.setHighlighted(highlighted, animated: animated)
-        
-        // When editing disable the highlighted state changes (would result in UI elements
-        // reappearing otherwise)
-        guard !self.isEditingTitle else { return }
         
         // If the 'cellSelectedBackgroundView' is hidden then there is no background so we
         // should update the titleLabel to indicate the highlighted state
@@ -651,8 +570,6 @@ public class SessionCell: UITableViewCell {
             // Note: We delay the "unhighlight" of the titleLabel so that the transition doesn't
             // conflict with the transition into edit mode
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(10)) { [weak self] in
-                guard self?.isEditingTitle == false else { return }
-                
                 self?.titleLabel.alpha = (highlighted ? 0.8 : 1)
             }
         }
@@ -673,24 +590,5 @@ public class SessionCell: UITableViewCell {
         super.touchesEnded(touches, with: event)
         
         lastTouchLocation = touches.first
-    }
-}
-
-// MARK: - Compose
-
-extension CombineCompatible where Self: SessionCell {
-    var textPublisher: AnyPublisher<String, Never> {
-        return self.titleTextField.publisher(for: [.editingChanged, .editingDidEnd])
-            .handleEvents(
-                receiveOutput: { [weak self] textField in
-                    // When editing the text update the 'accessibilityLabel' of the cell to match
-                    // the text
-                    let targetText: String? = (textField.isEditing ? textField.text : self?.titleLabel.text)
-                    self?.accessibilityLabel = (targetText ?? self?.accessibilityLabel)
-                }
-            )
-            .filter { $0.isEditing }    // Don't bother sending events for 'editingDidEnd'
-            .map { textField -> String in (textField.text ?? "") }
-            .eraseToAnyPublisher()
     }
 }

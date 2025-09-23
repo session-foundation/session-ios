@@ -295,6 +295,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                             ),
                             forceBlinded: false
                         ),
+                        skipAuthentication: true,
                         using: dependencies
                     )
                 }
@@ -519,7 +520,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                     target: .community(
                                         imageId: "12",
                                         roomToken: "testRoom2",
-                                        server: Network.SOGS.defaultServer
+                                        server: Network.SOGS.defaultServer,
+                                        skipAuthentication: true
                                     ),
                                     timestamp: 1234567890
                                 )
@@ -567,7 +569,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
                                     target: .community(
                                         imageId: "12",
                                         roomToken: "testRoom2",
-                                        server: Network.SOGS.defaultServer
+                                        server: Network.SOGS.defaultServer,
+                                        skipAuthentication: true
                                     ),
                                     timestamp: 1234567890
                                 )

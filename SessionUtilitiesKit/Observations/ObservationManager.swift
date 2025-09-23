@@ -1,22 +1,48 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UIKit.UIApplication
 
 // MARK: - Singleton
 
 public extension Singleton {
     static let observationManager: SingletonConfig<ObservationManager> = Dependencies.create(
         identifier: "observationManager",
-        createInstance: { dependencies, _ in ObservationManager() }
+        createInstance: { dependencies, _ in ObservationManager(using: dependencies) }
     )
 }
 
 // MARK: - ObservationManager
 
 public actor ObservationManager {
+    private let lifecycleObservations: [any NSObjectProtocol]
     private var store: [ObservableKey: [UUID: AsyncStream<(event: ObservedEvent, priority: Priority)>.Continuation]] = [:]
     
+    // MARK: - Initialization
+    
+    init(using dependencies: Dependencies) {
+        let notifications: [Notification.Name: AppLifecycle] = [
+            UIApplication.didEnterBackgroundNotification: .didEnterBackground,
+            UIApplication.willEnterForegroundNotification: .willEnterForeground,
+            UIApplication.didBecomeActiveNotification: .didBecomeActive,
+            UIApplication.willResignActiveNotification: .willResignActive,
+            UIApplication.didReceiveMemoryWarningNotification: .didReceiveMemoryWarning,
+            UIApplication.willTerminateNotification: .willTerminate
+        ]
+        
+        lifecycleObservations = notifications.reduce(into: []) { [dependencies] result, next in
+            let value: AppLifecycle = next.value
+            
+            result.append(
+                NotificationCenter.default.addObserver(forName: next.key, object: nil, queue: .current) { [dependencies] _ in
+                    dependencies.notifyAsync(key: .appLifecycle(value))
+                }
+            )
+        }
+    }
+    
     deinit {
+        NotificationCenter.default.removeObserver(self)
         store.values.forEach { $0.values.forEach { $0.finish() } }
     }
     

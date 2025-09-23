@@ -444,6 +444,8 @@ open class Storage {
                 .defaulting(to: "N/A")
             Log.verbose(.storage, "Database suspended successfully for \(id) (db: \(dbFileSize), shm: \(dbShmFileSize), wal: \(dbWalFileSize)).")
         }
+        
+        dependencies.notifyAsync(key: .databaseLifecycle(.suspended))
     }
     
     /// This method reverses the database suspension used to prevent the `0xdead10cc` exception (see `suspendDatabaseAccess()`
@@ -453,6 +455,7 @@ open class Storage {
         
         isSuspended = false
         Log.info(.storage, "Database access resumed.")
+        dependencies.notifyAsync(key: .databaseLifecycle(.resumed))
     }
     
     public func checkpoint(_ mode: Database.CheckpointMode) throws {
