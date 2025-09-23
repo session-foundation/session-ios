@@ -112,6 +112,20 @@ extension ConversationVC:
         navigationController?.pushViewController(viewController, animated: true)
     }
     
+    // MARK: - External keyboard
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            guard let key = press.key else { continue }
+
+            if key.keyCode == .keyboardReturnOrEnter && key.modifierFlags.isEmpty {
+                // Enter only -> send
+                handleSendButtonTapped()
+                return
+            }
+        }
+        super.pressesBegan(presses, with: event)
+    }
+    
     // MARK: - Call
     
     @objc func startCall(_ sender: Any?) {
