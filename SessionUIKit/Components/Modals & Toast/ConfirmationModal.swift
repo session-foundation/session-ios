@@ -43,7 +43,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             target: self,
             action: #selector(proImageTapped)
         )
-        proImageStackViewContainer.addGestureRecognizer(result)
+        proDescriptionLabelContainer.addGestureRecognizer(result)
         result.isEnabled = false
         
         return result
@@ -185,21 +185,15 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
-    private lazy var proImageStackView: UIStackView = {
-        let proBadge: SessionProBadge = SessionProBadge(size: .small)
-        let label: UILabel = UILabel()
-        label.font = .systemFont(ofSize: Values.smallFontSize)
-        label.themeTextColor = .textSecondary
-        label.text = "proAnimatedDisplayPictureModalDescription".localized()
-        
-        let result: UIStackView = UIStackView(arrangedSubviews: [ proBadge, label ])
-        result.axis = .horizontal
-        result.spacing = Values.verySmallSpacing
+    private lazy var proDescriptionLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .textSecondary
         
         return result
     }()
     
-    private lazy var proImageStackViewContainer: UIView = {
+    private lazy var proDescriptionLabelContainer: UIView = {
         let result: UIView = UIView()
         result.isHidden = true
         
@@ -268,7 +262,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textToConfirmContainer,
                 textViewContainer,
                 textViewErrorLabel,
-                proImageStackViewContainer,
+                proDescriptionLabelContainer,
                 imageViewContainer
             ]
         )
@@ -374,10 +368,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         profileView.pin(.top, to: .top, of: imageViewContainer, withInset: 20)
         profileView.pin(.bottom, to: .bottom, of: imageViewContainer, withInset: -20)
         
-        proImageStackViewContainer.addSubview(proImageStackView)
-        proImageStackView.center(.horizontal, in: proImageStackViewContainer)
-        proImageStackView.pin(.top, to: .top, of: proImageStackViewContainer)
-        proImageStackView.pin(.bottom, to: .bottom, of: proImageStackViewContainer)
+        proDescriptionLabelContainer.addSubview(proDescriptionLabel)
+        proDescriptionLabel.center(.horizontal, in: proDescriptionLabelContainer)
+        proDescriptionLabel.pin(.top, to: .top, of: proDescriptionLabelContainer)
+        proDescriptionLabel.pin(.bottom, to: .bottom, of: proDescriptionLabelContainer)
         
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
@@ -536,13 +530,14 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     contentStackView.addArrangedSubview(radioButton)
                 }
                 
-            case .image(let source, let placeholder, let icon, let style, let showPro, let accessibility, let dataManager, _, let onClick):
+            case .image(let source, let placeholder, let icon, let style, let description, let accessibility, let dataManager, _, let onClick):
                 imageViewContainer.isAccessibilityElement = (accessibility != nil)
                 imageViewContainer.accessibilityIdentifier = accessibility?.identifier
                 imageViewContainer.accessibilityLabel = accessibility?.label
                 mainStackView.spacing = 0
                 contentStackView.spacing = Values.verySmallSpacing
-                proImageStackViewContainer.isHidden = !showPro
+                proDescriptionLabelContainer.isHidden = (description == nil)
+                proDescriptionLabel.attributedText = description
                 imageViewContainer.isHidden = false
                 profileView.clipsToBounds = (style == .circular)
                 profileView.setDataManager(dataManager)
@@ -671,7 +666,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc private func imageViewTapped() {
         internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
             switch (valueUpdate, info.body) {
-            case (.image(let updatedIdentifier, let updatedData), .image(_, let placeholder, _, let style, let showPro, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
+            case (.image(let updatedIdentifier, let updatedData), .image(_, let placeholder, _, let style, let description, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
                     self?.updateContent(
                         with: info.with(
                             body: .image(
@@ -681,7 +676,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                 placeholder: placeholder,
                                 icon: (updatedData == nil ? .rightPlus : .pencil),
                                 style: style,
-                                showPro: showPro,
+                                description: description,
                                 accessibility: accessibility,
                                 dataManager: dataManager,
                                 onProBageTapped: onProBadgeTapped,
@@ -697,7 +692,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }
     
     @objc private func proImageTapped() {
-        guard case .image(_, _, _, _, let showPro, _, _, let onProBadgeTapped, _) = info.body, showPro else { return }
+        guard case .image(_, _, _, _, let description, _, _, let onProBadgeTapped, _) = info.body, (description != nil) else { return }
         onProBadgeTapped?()
     }
     
@@ -1057,7 +1052,7 @@ public extension ConfirmationModal.Info {
             placeholder: ImageDataManager.DataSource?,
             icon: ProfilePictureView.ProfileIcon = .none,
             style: ImageStyle,
-            showPro: Bool,
+            description: NSAttributedString?,
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
             onProBageTapped: (() -> Void)?,

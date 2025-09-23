@@ -667,7 +667,26 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 }),
             icon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
-            showPro: dependencies[feature: .sessionProEnabled],
+            description: {
+                guard dependencies[feature: .sessionProEnabled] else { return nil }
+                return dependencies[cache: .libSession].isSessionPro ?
+                    "proAnimatedDisplayPictureModalDescription"
+                        .localized()
+                        .addProBadge(
+                            at: .leading,
+                            font: .systemFont(ofSize: Values.smallFontSize),
+                            textColor: .textSecondary,
+                            proBadgeSize: .small
+                        ):
+                    "proAnimatedDisplayPicturesNonProModalDescription"
+                        .localized()
+                        .addProBadge(
+                            at: .trailing,
+                            font: .systemFont(ofSize: Values.smallFontSize),
+                            textColor: .textSecondary,
+                            proBadgeSize: .small
+                        )
+            }(),
             accessibility: Accessibility(
                 identifier: "Upload",
                 label: "Upload"
