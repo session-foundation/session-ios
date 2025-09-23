@@ -782,10 +782,7 @@ extension SessionCell {
                     minWidthConstraint.isActive = true
             }
             
-            view.pin(.top, to: .top, of: self)
-            view.pin(.bottom, to: .bottom, of: self)
-            view.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
-            view.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
+            view.pin(to: self)
         }
         
         private func configureCustomView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.AnyCustom) {
