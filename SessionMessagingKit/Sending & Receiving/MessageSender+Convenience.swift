@@ -15,6 +15,7 @@ extension MessageSender {
         threadId: String,
         threadVariant: SessionThread.Variant,
         isSyncMessage: Bool = false,
+        messageResponse: MessageRequestResponse? = nil,
         using dependencies: Dependencies
     ) throws {
         // Only 'VisibleMessage' types can be sent via this method
@@ -32,6 +33,7 @@ extension MessageSender {
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
             isSyncMessage: isSyncMessage,
+            messageResponse: messageResponse,
             using: dependencies
         )
     }
@@ -64,6 +66,7 @@ extension MessageSender {
         interactionId: Int64?,
         to destination: Message.Destination,
         isSyncMessage: Bool = false,
+        messageResponse: MessageRequestResponse? = nil,
         using dependencies: Dependencies
     ) {
         // If it's a sync message then we need to make some slight tweaks before sending so use the proper
@@ -89,7 +92,8 @@ extension MessageSender {
                 details: MessageSendJob.Details(
                     destination: destination,
                     message: message
-                )
+                ),
+                transientData: messageResponse
             ),
             canStartJob: true
         )

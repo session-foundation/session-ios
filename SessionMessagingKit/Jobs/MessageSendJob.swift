@@ -193,12 +193,35 @@ public enum MessageSendJob: JobExecutor {
             default: break
         }
         
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        
+        // Convert and prepare the data for sending
+        let swarmPublicKey: String = {
+            switch details.destination {
+                case .contact(let publicKey): return publicKey
+                case .syncMessage: return userSessionId.hexString
+                case .closedGroup(let groupPublicKey): return groupPublicKey
+                case .openGroup, .openGroupInbox: preconditionFailure()
+            }
+        }()
+        
         // Store the sentTimestamp from the message in case it fails due to a clockOutOfSync error
         let originalSentTimestampMs: UInt64? = details.message.sentTimestampMs
         let startTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         
+        // Update `messageType` value used for logging info
+        var updatedMessageType: String {
+            guard let messageRequestResponse = job.transientData as? MessageRequestResponse else {
+                return messageType
+            }
+            return "\(messageType) and \(type(of: messageRequestResponse))"
+        }
+    
         /// Perform the actual message sending - this will timeout if the entire process takes longer than `Network.defaultTimeout * 2`
         /// which can occur if it needs to build a new onion path (which doesn't actually have any limits so can take forever in rare cases)
+        ///
+        /// Adds sending for `MessageRequestResponse` along with actual message if `job.transientData` is a valid
+        /// `MessageRequestResponse` type
         ///
         /// **Note:** No need to upload attachments as part of this process as the above logic splits that out into it's own job
         /// so we shouldn't get here until attachments have already been uploaded
@@ -216,15 +239,39 @@ public enum MessageSendJob: JobExecutor {
                     using: dependencies
                 )
             })
-            .tryFlatMap { authMethod in
-                try MessageSender.preparedSend(
-                    message: details.message,
-                    to: details.destination,
-                    namespace: details.destination.defaultNamespace,
-                    interactionId: job.interactionId,
-                    attachments: messageAttachments,
-                    authMethod: authMethod,
-                    onEvent: MessageSender.standardEventHandling(using: dependencies),
+            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Network.BatchResponse), Error> in
+                return try Network.SnodeAPI.preparedSequence(
+                    requests: []
+                        .appending(try {
+                            guard let messageRequestResponse = job.transientData as? MessageRequestResponse else { return nil }
+                
+                            return try MessageSender.preparedSend(
+                                message: messageRequestResponse,
+                                to: details.destination,
+                                namespace: details.destination.defaultNamespace,
+                                interactionId: nil,
+                                attachments: nil,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies),
+                                using: dependencies
+                            )
+                        }())
+                        .appending(contentsOf: [
+                            MessageSender.preparedSend(
+                                message: details.message,
+                                to: details.destination,
+                                namespace: details.destination.defaultNamespace,
+                                interactionId: job.interactionId,
+                                attachments: messageAttachments,
+                                authMethod: authMethod,
+                                onEvent: MessageSender.standardEventHandling(using: dependencies),
+                                using: dependencies
+                            )
+                        ]),
+                    requireAllBatchResponses: true,
+                    swarmPublicKey: swarmPublicKey,
+                    snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
+                    requestAndPathBuildTimeout: Network.defaultTimeout,
                     using: dependencies
                 ).send(using: dependencies)
             }
@@ -234,12 +281,12 @@ public enum MessageSendJob: JobExecutor {
                 receiveCompletion: { result in
                     switch result {
                         case .finished:
-                            Log.info(.cat, "Completed sending \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage).")
+                            Log.info(.cat, "Completed sending \(updatedMessageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage).")
                             dependencies.setAsync(.hasSentAMessage, true)
                             success(job, false)
                             
                         case .failure(let error):
-                            Log.info(.cat, "Failed to send \(messageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage) due to error: \(error).")
+                            Log.info(.cat, "Failed to send \(updatedMessageType) (\(job.id ?? -1)) after \(.seconds(dependencies.dateNow.timeIntervalSince1970 - startTime), unit: .s)\(previousDeferralsMessage) due to error: \(error).")
                             
                             // Actual error handling
                             switch (error, details.message) {
@@ -250,7 +297,7 @@ public enum MessageSendJob: JobExecutor {
                                     failure(job, error, true)
                                     
                                 case (SnodeAPIError.clockOutOfSync, _):
-                                    Log.error(.cat, "\(originalSentTimestampMs != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")
+                                    Log.error(.cat, "\(originalSentTimestampMs != nil ? "Permanently Failing" : "Failing") to send \(updatedMessageType) (\(job.id ?? -1)) due to clock out of sync issue.")
                                     failure(job, error, (originalSentTimestampMs != nil))
                                     
                                 // Don't bother retrying (it can just send a new one later but allowing retries
