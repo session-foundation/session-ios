@@ -721,20 +721,24 @@ extension ConversationVC:
         )
         
         // If this was a message request then approve it
-        approveMessageRequestIfNeeded(
+        // For 1-1 messages if approval is required `messageRequestResponse`
+        // `MessageRequestResponse` object will be returned
+        let messageRequestResponse = approveMessageRequestIfNeeded(
             for: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
             displayName: self.viewModel.threadData.displayName,
             isDraft: (self.viewModel.threadData.threadIsDraft == true),
-            timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
-        ).sinkUntilComplete(
-            receiveCompletion: { [weak self] _ in
-                self?.sendMessage(optimisticData: optimisticData)
-            }
+            timestampMs: (sentTimestampMs - 1), // Set 1ms earlier as this is used for sorting
+            shouldSequenceMessageRequestResponse: true // Skips scheduling of `MessageRequestResponse` sending
+        )
+        
+        sendMessage(
+            optimisticData: optimisticData,
+            messageRequestResponse: messageRequestResponse
         )
     }
     
-    private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) {
+    private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData, messageRequestResponse: MessageRequestResponse? = nil) {
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
@@ -831,6 +835,7 @@ extension ConversationVC:
                     interaction: insertedInteraction,
                     threadId: threadId,
                     threadVariant: threadVariant,
+                    messageResponse: messageRequestResponse,
                     using: dependencies
                 )
             }
@@ -2948,13 +2953,15 @@ extension ConversationVC: UIDocumentInteractionControllerDelegate {
 // MARK: - Message Request Actions
 
 extension ConversationVC {
+    @discardableResult
     fileprivate func approveMessageRequestIfNeeded(
         for threadId: String,
         threadVariant: SessionThread.Variant,
         displayName: String,
         isDraft: Bool,
-        timestampMs: Int64
-    ) -> AnyPublisher<Void, Never> {
+        timestampMs: Int64,
+        shouldSequenceMessageRequestResponse: Bool = false
+    ) -> MessageRequestResponse? {
         let updateNavigationBackStack: () -> Void = {
             // Remove the 'SessionTableViewController<MessageRequestsViewModel>' from the nav hierarchy if present
             DispatchQueue.main.async { [weak self] in
@@ -2982,9 +2989,14 @@ extension ConversationVC {
                         Contact.fetchOrCreate(db, id: threadId, using: dependencies)
                     }),
                     !contact.isApproved
-                else { return Just(()).eraseToAnyPublisher() }
+                else { return nil }
                 
-                return viewModel.dependencies[singleton: .storage]
+                let messageRequestResponse = MessageRequestResponse(
+                    isApproved: true,
+                    sentTimestampMs: UInt64(timestampMs)
+                )
+                
+                viewModel.dependencies[singleton: .storage]
                     .writePublisher { [dependencies = viewModel.dependencies] db in
                         /// If this isn't a draft thread (ie. sending a message request) then send a `messageRequestResponse`
                         /// back to the sender (this allows the sender to know that they have been approved and can now use this
@@ -3002,17 +3014,16 @@ extension ConversationVC {
                                 using: dependencies
                             ).inserted(db)
                             
-                            try MessageSender.send(
-                                db,
-                                message: MessageRequestResponse(
-                                    isApproved: true,
-                                    sentTimestampMs: UInt64(timestampMs)
-                                ),
-                                interactionId: nil,
-                                threadId: threadId,
-                                threadVariant: threadVariant,
-                                using: dependencies
-                            )
+                            if !shouldSequenceMessageRequestResponse {
+                                try MessageSender.send(
+                                    db,
+                                    message: messageRequestResponse,
+                                    interactionId: nil,
+                                    threadId: threadId,
+                                    threadVariant: threadVariant,
+                                    using: dependencies
+                                )
+                            }
                         }
                         
                         // Default 'didApproveMe' to true for the person approving the message request
@@ -3038,7 +3049,9 @@ extension ConversationVC {
                             updateNavigationBackStack()
                         }
                     )
-                    .eraseToAnyPublisher()
+                    .sinkUntilComplete()
+                
+                return !isDraft && shouldSequenceMessageRequestResponse ? messageRequestResponse : nil
                 
             case .group:
                 // If the group is not in the invited state then don't bother doing anything
@@ -3047,9 +3060,9 @@ extension ConversationVC {
                         try ClosedGroup.fetchOne(db, id: threadId)
                     }),
                     group.invited == true
-                else { return Just(()).eraseToAnyPublisher() }
+                else { return nil }
                 
-                return viewModel.dependencies[singleton: .storage]
+                viewModel.dependencies[singleton: .storage]
                     .writePublisher { [dependencies = viewModel.dependencies] db in
                         /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a
                         /// duplicate one from inside the group history)
@@ -3102,10 +3115,13 @@ extension ConversationVC {
                             updateNavigationBackStack()
                         }
                     )
-                    .eraseToAnyPublisher()
+                    .sinkUntilComplete()
                 
-            default: return Just(()).eraseToAnyPublisher()
+            default:
+                return nil
         }
+        
+        return nil
     }
 
     func acceptMessageRequest() {
@@ -3115,7 +3131,7 @@ extension ConversationVC {
             displayName: self.viewModel.threadData.displayName,
             isDraft: (self.viewModel.threadData.threadIsDraft == true),
             timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        ).sinkUntilComplete()
+        )
     }
 
     func declineMessageRequest() {
