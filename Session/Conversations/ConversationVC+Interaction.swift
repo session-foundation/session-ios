@@ -237,30 +237,6 @@ extension ConversationVC:
         return true
     }
     
-    // MARK: - Session Pro CTA
-    
-    @discardableResult func showSessionProCTAIfNeeded(_ variant: ProCTAModal.Variant) -> Bool {
-        let dependencies: Dependencies = viewModel.dependencies
-        guard dependencies[feature: .sessionProEnabled] && (!viewModel.isSessionPro) else {
-            return false
-        }
-        self.hideInputAccessoryView()
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
-                variant: variant,
-                dataManager: dependencies[singleton: .imageDataManager],
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
-                }
-            )
-        )
-        present(sessionProModal, animated: true, completion: nil)
-        
-        return true
-    }
-    
     // MARK: - UIGestureRecognizerDelegate
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
@@ -543,14 +519,28 @@ extension ConversationVC:
     }
     
     func handleCharacterLimitLabelTapped() {
-        guard !showSessionProCTAIfNeeded(.longerMessages) else { return }
+        guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
         
         self.hideInputAccessoryView()
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: viewModel.isSessionPro
+            isSessionPro: viewModel.isCurrentUserSessionPro
         )
-        let limit: Int = (viewModel.isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
+        let limit: Int = (viewModel.isCurrentUserSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -621,9 +611,9 @@ extension ConversationVC:
     func handleSendButtonTapped() {
         guard LibSession.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: viewModel.isSessionPro
+            isSessionPro: viewModel.isCurrentUserSessionPro
         ) >= 0 else {
-            showModalForMessagesExceedingCharacterLimit(isSessionPro: viewModel.isSessionPro)
+            showModalForMessagesExceedingCharacterLimit(isSessionPro: viewModel.isCurrentUserSessionPro)
             return
         }
         
@@ -635,7 +625,21 @@ extension ConversationVC:
     }
     
     func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
-        guard !showSessionProCTAIfNeeded(.longerMessages) else { return }
+        guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
         
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -1624,8 +1628,21 @@ extension ConversationVC:
                             openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
                         )
                     },
-                    onProBadgeTapped: { [weak self] in
-                        self?.showSessionProCTAIfNeeded(.generic)
+                    onProBadgeTapped: { [weak self, dependencies] in
+                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                            .generic,
+                            dismissType: .single,
+                            beforePresented: { [weak self] in
+                                self?.hideInputAccessoryView()
+                            },
+                            afterClosed: { [weak self] in
+                                self?.showInputAccessoryView()
+                                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                            },
+                            presenting: { modal in
+                                dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
+                            }
+                        )
                     }
                 ),
                 dataManager: dependencies[singleton: .imageDataManager],

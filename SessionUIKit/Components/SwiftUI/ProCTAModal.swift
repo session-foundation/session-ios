@@ -367,6 +367,44 @@ public protocol SessionProManagerType: AnyObject {
     var isSessionProSubject: CurrentValueSubject<Bool, Never> { get }
     var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
     func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
+    @discardableResult func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        dismissType: Modal.DismissType,
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool
+}
+
+// MARK: - Convenience
+public extension SessionProManagerType {
+    @discardableResult func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool {
+        showSessionProCTAIfNeeded(
+            variant,
+            dismissType: .recursive,
+            beforePresented: beforePresented,
+            afterClosed: afterClosed,
+            presenting: presenting
+        )
+    }
+    
+    @discardableResult func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool {
+        showSessionProCTAIfNeeded(
+            variant,
+            dismissType: .recursive,
+            beforePresented: nil,
+            afterClosed: nil,
+            presenting: presenting
+        )
+    }
 }
 
 struct ProCTAModal_Previews: PreviewProvider {
