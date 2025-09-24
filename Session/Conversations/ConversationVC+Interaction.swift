@@ -1594,7 +1594,7 @@ extension ConversationVC:
             else {
                 return (cellViewModel.authorId, nil)
             }
-            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].read { db in
+            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].write { db in
                 try BlindedIdLookup.fetchOrCreate(
                     db,
                     blindedId: cellViewModel.authorId,
@@ -1605,6 +1605,19 @@ extension ConversationVC:
                 )
             }
             return (lookup?.sessionId, cellViewModel.authorId.truncated(prefix: 10, suffix: 10))
+        }()
+        
+        let (displayName, contactDisplayName): (String?, String?) = {
+            guard let sessionId: String = sessionId else {
+                return (cellViewModel.authorName, nil)
+            }
+            
+            let profile: Profile? = dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId)}
+            
+            return (
+                (profile?.displayName(for: .contact) ?? cellViewModel.authorName),
+                profile?.displayName(for: .contact, ignoringNickname: true)
+            )
         }()
         
         let qrCodeImage: UIImage? = {
@@ -1625,11 +1638,8 @@ extension ConversationVC:
                     blindedId: blindedId,
                     qrCodeImage: qrCodeImage,
                     profileInfo: profileInfo,
-                    displayName: cellViewModel.authorName,
-                    nickname: cellViewModel.profile?.displayName(
-                        for: cellViewModel.threadVariant,
-                        ignoringNickname: true
-                    ),
+                    displayName: displayName,
+                    contactDisplayName: contactDisplayName,
                     isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
                     isMessageRequestsEnabled: isMessasgeRequestsEnabled,
                     onStartThread: { [weak self] in

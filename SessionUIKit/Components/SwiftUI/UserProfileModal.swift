@@ -26,7 +26,7 @@ public struct UserProfileModal: View {
                 .localizedFormatted(baseFont: Fonts.Body.smallRegular)
         } else {
             return "tooltipAccountIdVisible"
-                .put(key: "name", value: info.displayName)
+                .put(key: "name", value: (info.displayName ?? ""))
                 .localizedFormatted(baseFont: Fonts.Body.smallRegular)
         }
     }
@@ -148,17 +148,28 @@ public struct UserProfileModal: View {
                     }
                     
                     // Display name & Nickname (ProBadge)
-                    HStack(spacing: Values.smallSpacing) {
-                        Text(info.displayName)
-                            .font(.Headings.H6)
-                            .foregroundColor(themeColor: .textPrimary)
-                            .multilineTextAlignment(.center)
-                        
-                        if info.isProUser {
-                            SessionProBadge_SwiftUI(size: .large)
-                                .onTapGesture {
-                                    info.onProBadgeTapped?()
+                    if let displayName: String = info.displayName {
+                        VStack(spacing: Values.smallSpacing) {
+                            HStack(spacing: Values.smallSpacing) {
+                                Text(displayName)
+                                    .font(.Headings.H6)
+                                    .foregroundColor(themeColor: .textPrimary)
+                                    .multilineTextAlignment(.center)
+                                
+                                if info.isProUser {
+                                    SessionProBadge_SwiftUI(size: .large)
+                                        .onTapGesture {
+                                            info.onProBadgeTapped?()
+                                        }
                                 }
+                            }
+                            
+                            if let contactDisplayName: String = info.contactDisplayName, contactDisplayName != displayName {
+                                Text("(\(contactDisplayName))") // stringlint:ignroe
+                                    .font(.Body.smallRegular)
+                                    .foregroundColor(themeColor: .textSecondary)
+                                    .multilineTextAlignment(.center)
+                            }
                         }
                     }
                     
@@ -243,9 +254,9 @@ public struct UserProfileModal: View {
                         }
                         .padding(.bottom, 12)
                     } else {
-                        if !info.isMessageRequestsEnabled {
+                        if !info.isMessageRequestsEnabled, let displayName: String = info.displayName {
                             AttributedText("messageRequestsTurnedOff"
-                                .put(key: "name", value: info.displayName)
+                                .put(key: "name", value: displayName)
                                 .localizedFormatted(Fonts.Body.smallRegular)
                             )
                             .font(.Body.smallRegular)
@@ -386,8 +397,8 @@ public extension UserProfileModal {
         let blindedId: String?
         let qrCodeImage: UIImage?
         let profileInfo: ProfilePictureView.Info
-        let displayName: String
-        let nickname: String?
+        let displayName: String?
+        let contactDisplayName: String?
         let isProUser: Bool
         let isMessageRequestsEnabled: Bool
         let onStartThread: (() -> Void)?
@@ -398,8 +409,8 @@ public extension UserProfileModal {
             blindedId: String?,
             qrCodeImage: UIImage?,
             profileInfo: ProfilePictureView.Info,
-            displayName: String,
-            nickname: String?,
+            displayName: String?,
+            contactDisplayName: String?,
             isProUser: Bool,
             isMessageRequestsEnabled: Bool,
             onStartThread: (() -> Void)?,
@@ -410,7 +421,7 @@ public extension UserProfileModal {
             self.qrCodeImage = qrCodeImage
             self.profileInfo = profileInfo
             self.displayName = displayName
-            self.nickname = nickname
+            self.contactDisplayName = contactDisplayName
             self.isProUser = isProUser
             self.isMessageRequestsEnabled = isMessageRequestsEnabled
             self.onStartThread = onStartThread
