@@ -316,10 +316,10 @@ public class SessionCell: UITableViewCell {
         botSeparator.isHidden = true
     }
     
-    public func update<ID: Hashable & Differentiable>(
+    @MainActor public func update<ID: Hashable & Differentiable>(
         with info: Info<ID>,
         tableSize: CGSize,
-        onToggleExpansion: (() -> Void)? = nil,
+        onToggleExpansion: (@MainActor () -> Void)? = nil,
         using dependencies: Dependencies
     ) {
         /// Need to do this here as `prepareForReuse` doesn't always seem to get called
@@ -549,7 +549,8 @@ public class SessionCell: UITableViewCell {
         expandableDescriptionLabel.accessibilityIdentifier = info.description?.accessibility?.identifier
         expandableDescriptionLabel.accessibilityLabel = info.description?.accessibility?.label
         expandableDescriptionLabel.isHidden = (info.description == nil)
-        expandableDescriptionLabel.onToggleExpansion = (info.description?.interaction == .expandable ? onToggleExpansion : nil)
+        expandableDescriptionLabel.onToggleExpansion = (info.description?.interaction == .expandable ?
+            onToggleExpansion : nil)
         trailingAccessoryView.update(
             with: info.trailingAccessory,
             tintColor: info.styling.tintColor,

@@ -221,7 +221,7 @@ public enum ThemeManager {
         SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
     }
     
-    public static func onThemeChange(observer: AnyObject, callback: @escaping (Theme, Theme.PrimaryColor, (ThemeValue) -> UIColor?) -> ()) {
+    public static func onThemeChange(observer: AnyObject, callback: @escaping @MainActor (Theme, Theme.PrimaryColor, (ThemeValue) -> UIColor?) -> ()) {
         ThemeManager.uiRegistry.setObject(
             ThemeApplier(
                 existingApplier: ThemeManager.get(for: observer),
@@ -456,14 +456,14 @@ internal class ThemeApplier {
         case controlState
     }
     
-    private let applyTheme: (Theme) -> ()
+    private let applyTheme: @MainActor (Theme) -> ()
     private let info: [AnyHashable]
     private var otherAppliers: [ThemeApplier]?
     
     init(
         existingApplier: ThemeApplier?,
         info: [AnyHashable],
-        applyTheme: @escaping (Theme) -> ()
+        applyTheme: @escaping @MainActor (Theme) -> ()
     ) {
         self.applyTheme = applyTheme
         self.info = info
@@ -478,7 +478,9 @@ internal class ThemeApplier {
         
         // Automatically apply the theme immediately (if the database has been setup)
         if SNUIKit.config?.isStorageValid == true || ThemeManager.hasLoadedTheme {
-            self.apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
+            Task { @MainActor [weak self] in
+                self?.apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
+            }
         }
     }
     
@@ -509,7 +511,7 @@ internal class ThemeApplier {
         return self
     }
     
-    fileprivate func apply(theme: Theme, isInitialApplication: Bool = false) {
+    @MainActor fileprivate func apply(theme: Theme, isInitialApplication: Bool = false) {
         self.applyTheme(theme)
         
         // For the initial application of a ThemeApplier we don't want to apply the other

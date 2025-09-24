@@ -158,7 +158,7 @@ public class SessionApp: SessionAppType {
     
     /// Show Session Network Page for this release. We'll be able to extend this fuction to show other screens that is new
     /// or we want to promote in the future.
-    public func showPromotedScreen() {
+    @MainActor public func showPromotedScreen() {
         guard let homeViewController: HomeVC = self.homeViewController else { return }
         
         let viewController: SessionHostingViewController = SessionHostingViewController(
@@ -243,7 +243,7 @@ public protocol SessionAppType {
     @MainActor var homePresentedViewController: UIViewController? { get }
     
     func setHomeViewController(_ homeViewController: HomeVC)
-    func showHomeView()
+    @MainActor func showHomeView()
     @MainActor func presentConversationCreatingIfNeeded(
         for threadId: String,
         variant: SessionThread.Variant,
@@ -253,7 +253,7 @@ public protocol SessionAppType {
     )
     func createNewConversation()
     func resetData(onReset: (() -> ()))
-    func showPromotedScreen()
+    @MainActor func showPromotedScreen()
 }
 
 public extension SessionAppType {
