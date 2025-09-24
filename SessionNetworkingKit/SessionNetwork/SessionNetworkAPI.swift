@@ -101,18 +101,24 @@ public extension Network.SessionNetwork {
         using dependencies: Dependencies
     ) throws -> Network.Destination {
         guard
-            let url: URL = preparedRequest.destination.url,
+            let url: URL = try? preparedRequest.generateUrl(),
             case let .server(info) = preparedRequest.destination
         else { throw NetworkError.invalidPreparedRequest }
         
         return .server(
-            info: info.updated(
-                with: try signatureHeaders(
-                    url: url,
-                    method: preparedRequest.method,
-                    body: preparedRequest.body,
-                    using: dependencies
-                )
+            info: Network.Destination.ServerInfo(
+                method: info.method,
+                server: info.server,
+                queryParameters: info.queryParameters,
+                headers: info.headers.updated(
+                    with: try signatureHeaders(
+                        url: url,
+                        method: preparedRequest.method,
+                        body: preparedRequest.body,
+                        using: dependencies
+                    )
+                ),
+                x25519PublicKey: info.x25519PublicKey
             )
         )
     }

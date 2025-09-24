@@ -78,12 +78,13 @@ public extension Profile {
                             }
                         }
                         
+                        let profileUpdateTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: userSessionId.hexString,
                             displayNameUpdate: displayNameUpdate,
                             displayPictureUpdate: displayPictureUpdate,
-                            sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                            profileUpdateTimestamp: TimeInterval(profileUpdateTimestampMs / 1000),
                             using: dependencies
                         )
                         Log.info(.profile, "Successfully updated user profile.")
@@ -91,11 +92,12 @@ public extension Profile {
                     .mapError { _ in DisplayPictureError.databaseChangesFailed }
                     .eraseToAnyPublisher()
                 
-            case .currentUserUploadImageData(let data):
+            case .currentUserUploadImageData(let data, let isReupload):
                 return dependencies[singleton: .displayPictureManager]
-                    .prepareAndUploadDisplayPicture(imageData: data)
+                    .prepareAndUploadDisplayPicture(imageData: data, compression: !isReupload)
                     .mapError { $0 as Error }
                     .flatMapStorageWritePublisher(using: dependencies, updates: { db, result in
+                        let profileUpdateTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                         try Profile.updateIfNeeded(
                             db,
                             publicKey: userSessionId.hexString,
@@ -105,11 +107,12 @@ public extension Profile {
                                 key: result.encryptionKey,
                                 filePath: result.filePath
                             ),
-                            sentTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                            profileUpdateTimestamp: profileUpdateTimestamp,
+                            isReuploadCurrentUserProfilePicture: isReupload,
                             using: dependencies
                         )
                         
-                        dependencies[defaults: .standard, key: .lastProfilePictureUpload] = dependencies.dateNow
+                        dependencies[defaults: .standard, key: .lastUserDisplayPictureRefresh] = dependencies.dateNow
                         Log.info(.profile, "Successfully updated user profile.")
                     })
                     .mapError { error in
@@ -120,7 +123,36 @@ public extension Profile {
                     }
                     .eraseToAnyPublisher()
         }
-    }    
+    }
+    
+    /// To try to maintain backwards compatibility with profile changes we want to continue to accept profile changes from old clients if
+    /// we haven't received a profile update from a new client yet otherwise, if we have, then we should only accept profile changes if
+    /// they are newer that our cached version of the profile data
+    static func shouldUpdateProfile(
+        _ profileUpdateTimestamp: TimeInterval?,
+        profile: Profile,
+        using dependencies: Dependencies
+    ) -> Bool {
+        /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
+        /// there before falling back to the one fetched from the database
+        let targetProfile: Profile = (
+            dependencies.mutate(cache: .libSession) { $0.profile(contactId: profile.id) } ??
+            profile
+        )
+        let finalProfileUpdateTimestamp: TimeInterval = (profileUpdateTimestamp ?? 0)
+        let finalCachedProfileUpdateTimestamp: TimeInterval = (targetProfile.profileLastUpdated ?? 0)
+        
+        /// If neither the profile update or the cached profile have a timestamp then we should just always accept the update
+        ///
+        /// **Note:** We check if they are equal to `0` here because the default value from `libSession` will be `0`
+        /// rather than `null`
+        guard finalProfileUpdateTimestamp != 0 || finalCachedProfileUpdateTimestamp != 0 else {
+            return true
+        }
+        
+        /// Otherwise we should only accept the update if it's newer than our cached value
+        return (finalProfileUpdateTimestamp > finalCachedProfileUpdateTimestamp)
+    }
     
     static func updateIfNeeded(
         _ db: ObservingDatabase,
@@ -128,35 +160,23 @@ public extension Profile {
         displayNameUpdate: DisplayNameUpdate = .none,
         displayPictureUpdate: DisplayPictureManager.Update,
         blocksCommunityMessageRequests: Bool? = nil,
-        sentTimestamp: TimeInterval,
+        profileUpdateTimestamp: TimeInterval?,
+        isReuploadCurrentUserProfilePicture: Bool = false,
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == dependencies[cache: .general].sessionId.hexString)
         let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
         var profileChanges: [ConfigColumnAssignment] = []
         
-        /// There were some bugs (somewhere) where some of these timestamps valid could be in seconds or milliseconds so we need to try to
-        /// detect this and convert it to proper seconds (if we don't then we will never update the profile)
-        func convertToSections(_ maybeValue: Double?) -> TimeInterval {
-            guard let value: Double = maybeValue else { return 0 }
-            
-            if value > 9_000_000_000_000 {  // Microseconds
-                return (value / 1_000_000)
-            } else if value > 9_000_000_000 {  // Milliseconds
-                return (value / 1000)
-            }
-            
-            return TimeInterval(value)  // Seconds
+        guard shouldUpdateProfile(profileUpdateTimestamp, profile: profile, using: dependencies) else {
+            return
         }
         
         // Name
-        // FIXME: This 'lastNameUpdate' approach is buggy - we should have a timestamp on the ConvoInfoVolatile
-        switch (displayNameUpdate, isCurrentUser, (sentTimestamp > convertToSections(profile.lastNameUpdate))) {
-            case (.none, _, _): break
-            case (.currentUserUpdate(let name), true, _), (.contactUpdate(let name), false, true):
+        switch (displayNameUpdate, isCurrentUser) {
+            case (.none, _): break
+            case (.currentUserUpdate(let name), true), (.contactUpdate(let name), false):
                 guard let name: String = name, !name.isEmpty, name != profile.name else { break }
-                
-                profileChanges.append(Profile.Columns.lastNameUpdate.set(to: sentTimestamp))
                 
                 if profile.name != name {
                     profileChanges.append(Profile.Columns.name.set(to: name))
@@ -168,9 +188,8 @@ public extension Profile {
         }
         
         // Blocks community message requests flag
-        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests, sentTimestamp > convertToSections(profile.lastBlocksCommunityMessageRequests) {
+        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests {
             profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: blocksCommunityMessageRequests))
-            profileChanges.append(Profile.Columns.lastBlocksCommunityMessageRequests.set(to: sentTimestamp))
         }
         
         // Profile picture & profile key
@@ -180,8 +199,6 @@ public extension Profile {
                 preconditionFailure("Invalid options for this function")
                 
             case (.contactRemove, false), (.currentUserRemove, true):
-                profileChanges.append(Profile.Columns.displayPictureLastUpdated.set(to: sentTimestamp))
-                
                 if profile.displayPictureEncryptionKey != nil {
                     profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))
                 }
@@ -203,7 +220,7 @@ public extension Profile {
                             shouldBeUnique: true,
                             details: DisplayPictureDownloadJob.Details(
                                 target: .profile(id: profile.id, url: url, encryptionKey: key),
-                                timestamp: sentTimestamp
+                                timestamp: profileUpdateTimestamp
                             )
                         ),
                         canStartJob: dependencies[singleton: .appContext].isMainApp
@@ -218,16 +235,16 @@ public extension Profile {
                     if key != profile.displayPictureEncryptionKey && key.count == DisplayPictureManager.aes256KeyByteLength {
                         profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: key))
                     }
-                    
-                    profileChanges.append(Profile.Columns.displayPictureLastUpdated.set(to: sentTimestamp))
                 }
             
             /// Don't want profiles in messages to modify the current users profile info so ignore those cases
             default: break
         }
         
-        // Persist any changes
+        /// Persist any changes
         if !profileChanges.isEmpty {
+            profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
+            
             try profile.upsert(db)
             
             try Profile
@@ -237,6 +254,21 @@ public extension Profile {
                     profileChanges,
                     using: dependencies
                 )
+            
+            /// We don't automatically update the current users profile data when changed in the database so need to manually
+            /// trigger the update
+            if isCurrentUser, let updatedProfile = try? Profile.fetchOne(db, id: publicKey) {
+                try dependencies.mutate(cache: .libSession) { cache in
+                    try cache.performAndPushChange(db, for: .userProfile, sessionId: dependencies[cache: .general].sessionId) { _ in
+                        try cache.updateProfile(
+                            displayName: updatedProfile.name,
+                            displayPictureUrl: updatedProfile.displayPictureUrl,
+                            displayPictureEncryptionKey: updatedProfile.displayPictureEncryptionKey,
+                            isReuploadProfilePicture: isReuploadCurrentUserProfilePicture
+                        )
+                    }
+                }
+            }
         }
     }
 }

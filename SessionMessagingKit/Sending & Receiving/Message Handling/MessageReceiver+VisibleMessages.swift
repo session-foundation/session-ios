@@ -43,7 +43,7 @@ extension MessageReceiver {
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                sentTimestamp: messageSentTimestamp,
+                profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
         }

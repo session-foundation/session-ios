@@ -115,6 +115,7 @@ message DataExtractionNotification {
 message LokiProfile {
   optional string displayName = 1;
   optional string profilePicture = 2;
+  optional uint64 lastUpdateSeconds = 3; // Timestamp of the last profile update
 }
 
 message DataMessage {

@@ -41,7 +41,7 @@ enum _007_SMK_SetupStandardJobs: Migration {
                     true
                 ),
                 (
-                    \(Job.Variant.updateProfilePicture.rawValue),
+                    \(Job.Variant.reuploadUserDisplayPicture.rawValue),
                     \(Job.Behaviour.recurringOnActive.rawValue),
                     false
                 ),

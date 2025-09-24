@@ -64,19 +64,20 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 }
             }
             .tryMap { (preparedDownload: Network.PreparedRequest<Data>) -> Network.PreparedRequest<(Data, String, URL?)> in
+                let downloadUrl: URL? = try? preparedDownload.generateUrl()
+                
                 guard
                     let filePath: String = try? dependencies[singleton: .displayPictureManager].path(
-                        for: (preparedDownload.destination.url?.absoluteString)
-                            .defaulting(to: preparedDownload.destination.urlPathAndParamsString)
+                        for: (downloadUrl?.absoluteString ?? preparedDownload.path)
                     )
                 else { throw DisplayPictureError.invalidPath }
                 
                 guard !dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
-                    throw DisplayPictureError.alreadyDownloaded(preparedDownload.destination.url)
+                    throw DisplayPictureError.alreadyDownloaded(downloadUrl)
                 }
                 
                 return preparedDownload.map { _, data in
-                    (data, filePath, preparedDownload.destination.url)
+                    (data, filePath, downloadUrl)
                 }
             }
             .flatMap { $0.send(using: dependencies) }
@@ -190,7 +191,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         db,
                         Profile.Columns.displayPictureUrl.set(to: url),
                         Profile.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
-                        Profile.Columns.displayPictureLastUpdated.set(to: details.timestamp),
+                        Profile.Columns.profileLastUpdated.set(to: details.timestamp),
                         using: dependencies
                     )
                 db.addProfileEvent(id: id, change: .displayPictureUrl(url))
@@ -257,7 +258,7 @@ extension DisplayPictureDownloadJob {
     
     public struct Details: Codable, Hashable {
         public let target: Target
-        public let timestamp: TimeInterval
+        public let timestamp: TimeInterval?
         
         // MARK: - Hashable
         
@@ -270,7 +271,7 @@ extension DisplayPictureDownloadJob {
         
         // MARK: - Initialization
         
-        public init?(target: Target, timestamp: TimeInterval) {
+        public init?(target: Target, timestamp: TimeInterval?) {
             guard target.isValid else { return nil }
             
             self.target = {
@@ -297,7 +298,7 @@ extension DisplayPictureDownloadJob {
                         let key: Data = profile.displayPictureEncryptionKey,
                         let details: Details = Details(
                             target: .profile(id: profile.id, url: url, encryptionKey: key),
-                            timestamp: (profile.displayPictureLastUpdated ?? 0)
+                            timestamp: profile.profileLastUpdated
                         )
                     else { return nil }
                     
@@ -309,7 +310,7 @@ extension DisplayPictureDownloadJob {
                         let key: Data = group.displayPictureEncryptionKey,
                         let details: Details = Details(
                             target: .group(id: group.id, url: url, encryptionKey: key),
-                            timestamp: 0
+                            timestamp: nil
                         )
                     else { return nil }
                     
@@ -324,7 +325,7 @@ extension DisplayPictureDownloadJob {
                                 roomToken: openGroup.roomToken,
                                 server: openGroup.server
                             ),
-                            timestamp: 0
+                            timestamp: nil
                         )
                     else { return nil }
                     
@@ -341,11 +342,16 @@ extension DisplayPictureDownloadJob {
                 case .profile(let id, let url, let encryptionKey):
                     guard let latestProfile: Profile = try? Profile.fetchOne(db, id: id) else { return false }
                     
+                    /// If the data matches what is stored in the database then we should be fine to consider it valid (it may be that
+                    /// we are re-downloading a profile due to some invalid state)
+                    let dataMatches: Bool = (
+                        encryptionKey == latestProfile.displayPictureEncryptionKey &&
+                        url == latestProfile.displayPictureUrl
+                    )
+                    
                     return (
-                        timestamp >= (latestProfile.displayPictureLastUpdated ?? 0) || (
-                            encryptionKey == latestProfile.displayPictureEncryptionKey &&
-                            url == latestProfile.displayPictureUrl
-                        )
+                        Profile.shouldUpdateProfile(timestamp, profile: latestProfile, using: dependencies) ||
+                        dataMatches
                     )
                     
                 case .group(let id, let url,_):

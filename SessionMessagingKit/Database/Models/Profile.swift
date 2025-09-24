@@ -21,15 +21,13 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         case id
         
         case name
-        case lastNameUpdate
         case nickname
         
         case displayPictureUrl
         case displayPictureEncryptionKey
-        case displayPictureLastUpdated
+        case profileLastUpdated
         
         case blocksCommunityMessageRequests
-        case lastBlocksCommunityMessageRequests
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -37,9 +35,6 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     
     /// The name of the contact. Use this whenever you need the "real", underlying name of a user (e.g. when sending a message).
     public let name: String
-    
-    /// The timestamp (in seconds since epoch) that the name was last updated
-    public let lastNameUpdate: TimeInterval?
     
     /// A custom name for the profile set by the current user
     public let nickname: String?
@@ -52,37 +47,30 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     /// The key with which the profile is encrypted.
     public let displayPictureEncryptionKey: Data?
     
-    /// The timestamp (in seconds since epoch) that the profile picture was last updated
-    public let displayPictureLastUpdated: TimeInterval?
+    /// The timestamp (in seconds since epoch) that the profile was last updated
+    public let profileLastUpdated: TimeInterval?
     
     /// A flag indicating whether this profile has reported that it blocks community message requests
     public let blocksCommunityMessageRequests: Bool?
-    
-    /// The timestamp (in seconds since epoch) that the `blocksCommunityMessageRequests` setting was last updated
-    public let lastBlocksCommunityMessageRequests: TimeInterval?
     
     // MARK: - Initialization
     
     public init(
         id: String,
         name: String,
-        lastNameUpdate: TimeInterval? = nil,
         nickname: String? = nil,
         displayPictureUrl: String? = nil,
         displayPictureEncryptionKey: Data? = nil,
-        displayPictureLastUpdated: TimeInterval? = nil,
-        blocksCommunityMessageRequests: Bool? = nil,
-        lastBlocksCommunityMessageRequests: TimeInterval? = nil
+        profileLastUpdated: TimeInterval? = nil,
+        blocksCommunityMessageRequests: Bool? = nil
     ) {
         self.id = id
         self.name = name
-        self.lastNameUpdate = lastNameUpdate
         self.nickname = nickname
         self.displayPictureUrl = displayPictureUrl
         self.displayPictureEncryptionKey = displayPictureEncryptionKey
-        self.displayPictureLastUpdated = displayPictureLastUpdated
+        self.profileLastUpdated = profileLastUpdated
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
-        self.lastBlocksCommunityMessageRequests = lastBlocksCommunityMessageRequests
     }
 }
 
@@ -104,13 +92,11 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
         Profile(
             id: \(id),
             name: \(name),
-            lastNameUpdate: \(lastNameUpdate.map { "\($0)" } ?? "null"),
             nickname: \(nickname.map { "\($0)" } ?? "null"),
             displayPictureUrl: \(displayPictureUrl.map { "\"\($0)\"" } ?? "null"),
             displayPictureEncryptionKey: \(displayPictureEncryptionKey?.toHexString() ?? "null"),
-            displayPictureLastUpdated: \(displayPictureLastUpdated.map { "\($0)" } ?? "null"),
-            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
-            lastBlocksCommunityMessageRequests: \(lastBlocksCommunityMessageRequests.map { "\($0)" } ?? "null")
+            profileLastUpdated: \(profileLastUpdated.map { "\($0)" } ?? "null"),
+            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null")
         )
         """
     }
@@ -137,13 +123,11 @@ public extension Profile {
         self = Profile(
             id: try container.decode(String.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
-            lastNameUpdate: try? container.decode(TimeInterval?.self, forKey: .lastNameUpdate),
-            nickname: try? container.decode(String?.self, forKey: .nickname),
+            nickname: try container.decodeIfPresent(String.self, forKey: .nickname),
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: displayPictureKey,
-            displayPictureLastUpdated: try? container.decode(TimeInterval?.self, forKey: .displayPictureLastUpdated),
-            blocksCommunityMessageRequests: try? container.decode(Bool?.self, forKey: .blocksCommunityMessageRequests),
-            lastBlocksCommunityMessageRequests: try? container.decode(TimeInterval?.self, forKey: .lastBlocksCommunityMessageRequests)
+            profileLastUpdated: try container.decodeIfPresent(TimeInterval.self, forKey: .profileLastUpdated),
+            blocksCommunityMessageRequests: try container.decodeIfPresent(Bool.self, forKey: .blocksCommunityMessageRequests)
         )
     }
     
@@ -152,13 +136,11 @@ public extension Profile {
 
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
-        try container.encodeIfPresent(lastNameUpdate, forKey: .lastNameUpdate)
         try container.encodeIfPresent(nickname, forKey: .nickname)
         try container.encodeIfPresent(displayPictureUrl, forKey: .displayPictureUrl)
         try container.encodeIfPresent(displayPictureEncryptionKey, forKey: .displayPictureEncryptionKey)
-        try container.encodeIfPresent(displayPictureLastUpdated, forKey: .displayPictureLastUpdated)
+        try container.encodeIfPresent(profileLastUpdated, forKey: .profileLastUpdated)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
-        try container.encodeIfPresent(lastBlocksCommunityMessageRequests, forKey: .lastBlocksCommunityMessageRequests)
     }
 }
 
@@ -218,13 +200,11 @@ public extension Profile {
         return Profile(
             id: id,
             name: "",
-            lastNameUpdate: nil,
             nickname: nil,
             displayPictureUrl: nil,
             displayPictureEncryptionKey: nil,
-            displayPictureLastUpdated: nil,
-            blocksCommunityMessageRequests: nil,
-            lastBlocksCommunityMessageRequests: nil
+            profileLastUpdated: nil,
+            blocksCommunityMessageRequests: nil
         )
     }
     
@@ -434,13 +414,11 @@ public extension Profile {
         return Profile(
             id: id,
             name: (name ?? self.name),
-            lastNameUpdate: lastNameUpdate,
             nickname: (nickname ?? self.nickname),
             displayPictureUrl: (displayPictureUrl ?? self.displayPictureUrl),
             displayPictureEncryptionKey: displayPictureEncryptionKey,
-            displayPictureLastUpdated: displayPictureLastUpdated,
-            blocksCommunityMessageRequests: blocksCommunityMessageRequests,
-            lastBlocksCommunityMessageRequests: lastBlocksCommunityMessageRequests
+            profileLastUpdated: profileLastUpdated,
+            blocksCommunityMessageRequests: blocksCommunityMessageRequests
         )
     }
 }

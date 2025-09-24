@@ -23,7 +23,7 @@ enum _012_AddJobPriority: Migration {
             5: [Job.Variant._legacy_getSnodePool],
             4: [Job.Variant.syncPushTokens],
             3: [Job.Variant.retrieveDefaultOpenGroupRooms],
-            2: [Job.Variant.updateProfilePicture],
+            2: [Job.Variant.reuploadUserDisplayPicture],
             1: [Job.Variant.garbageCollection]
         ]
         

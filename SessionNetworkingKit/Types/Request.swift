@@ -48,7 +48,7 @@ public struct Request<T: Encodable, Endpoint: EndpointType> {
         body: T? = nil
     ) throws {
         self.endpoint = endpoint
-        self.destination = try destination.withGeneratedUrl(for: endpoint)
+        self.destination = destination
         self.body = body
     }
     

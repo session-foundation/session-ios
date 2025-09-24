@@ -24,6 +24,7 @@ internal extension LibSession {
         Profile.Columns.nickname,
         Profile.Columns.displayPictureUrl,
         Profile.Columns.displayPictureEncryptionKey,
+        Profile.Columns.profileLastUpdated,
         DisappearingMessagesConfiguration.Columns.isEnabled,
         DisappearingMessagesConfiguration.Columns.type,
         DisappearingMessagesConfiguration.Columns.durationSeconds
@@ -36,8 +37,7 @@ internal extension LibSessionCacheType {
     func handleContactsUpdate(
         _ db: ObservingDatabase,
         in config: LibSession.Config?,
-        oldState: [ObservableKey: Any],
-        serverTimestampMs: Int64
+        oldState: [ObservableKey: Any]
     ) throws {
         guard configNeedsDump(config) else { return }
         guard case .contacts(let conf) = config else {
@@ -48,7 +48,6 @@ internal extension LibSessionCacheType {
         // actually a bug)
         let targetContactData: [String: ContactData] = try LibSession.extractContacts(
             from: conf,
-            serverTimestampMs: serverTimestampMs,
             using: dependencies
         ).filter { $0.key != userSessionId.hexString }
         
@@ -62,24 +61,18 @@ internal extension LibSessionCacheType {
                 // observation system can't differ between update calls which do and don't change anything)
                 let contact: Contact = Contact.fetchOrCreate(db, id: sessionId, using: dependencies)
                 let profile: Profile = Profile.fetchOrCreate(db, id: sessionId)
-                let profileNameShouldBeUpdated: Bool = (
-                    !data.profile.name.isEmpty &&
-                    profile.name != data.profile.name &&
-                    (profile.lastNameUpdate ?? 0) < (data.profile.lastNameUpdate ?? 0)
-                )
-                let profilePictureShouldBeUpdated: Bool = (
-                    (
+                let profileUpdated: Bool = ((profile.profileLastUpdated ?? 0) < (data.profile.profileLastUpdated ?? 0))
+                
+                if (profileUpdated || (profile.nickname != data.profile.nickname)) {
+                    let profileNameShouldBeUpdated: Bool = (
+                        !data.profile.name.isEmpty &&
+                        profile.name != data.profile.name
+                    )
+                    let profilePictureShouldBeUpdated: Bool = (
                         profile.displayPictureUrl != data.profile.displayPictureUrl ||
                         profile.displayPictureEncryptionKey != data.profile.displayPictureEncryptionKey
-                    ) &&
-                    (profile.displayPictureLastUpdated ?? 0) < (data.profile.displayPictureLastUpdated ?? 0)
-                )
+                    )
                 
-                if
-                    profileNameShouldBeUpdated ||
-                    profile.nickname != data.profile.nickname ||
-                    profilePictureShouldBeUpdated
-                {
                     try profile.upsert(db)
                     try Profile
                         .filter(id: sessionId)
@@ -88,9 +81,6 @@ internal extension LibSessionCacheType {
                             [
                                 (!profileNameShouldBeUpdated ? nil :
                                     Profile.Columns.name.set(to: data.profile.name)
-                                ),
-                                (!profileNameShouldBeUpdated ? nil :
-                                    Profile.Columns.lastNameUpdate.set(to: data.profile.lastNameUpdate)
                                 ),
                                 (profile.nickname == data.profile.nickname ? nil :
                                     Profile.Columns.nickname.set(to: data.profile.nickname)
@@ -101,8 +91,8 @@ internal extension LibSessionCacheType {
                                 (profile.displayPictureEncryptionKey != data.profile.displayPictureEncryptionKey ? nil :
                                     Profile.Columns.displayPictureEncryptionKey.set(to: data.profile.displayPictureEncryptionKey)
                                 ),
-                                (!profilePictureShouldBeUpdated ? nil :
-                                    Profile.Columns.displayPictureLastUpdated.set(to: data.profile.displayPictureLastUpdated)
+                                (!profileUpdated ? nil :
+                                    Profile.Columns.profileLastUpdated.set(to: data.profile.profileLastUpdated)
                                 )
                             ].compactMap { $0 },
                             using: dependencies
@@ -344,6 +334,10 @@ public extension LibSession {
                     contact.set(\.profile_pic.url, to: info.displayPictureUrl)
                     contact.set(\.profile_pic.key, to: info.displayPictureEncryptionKey)
                     
+                    if let profileLastUpdated: Int64 = info.profileLastUpdated {
+                        contact.set(\.profile_updated, to: profileLastUpdated)
+                    }
+                    
                     // Attempts retrieval of the profile picture (will schedule a download if
                     // needed via a throttled subscription on another thread to prevent blocking)
                     //
@@ -511,19 +505,6 @@ internal extension LibSession {
                 (try? SessionId(from: $0.id))?.prefix == .standard &&
                 existingContactIds.contains($0.id)
             }
-        
-        // Update the user profile first (if needed)
-        if let updatedUserProfile: Profile = updatedProfiles.first(where: { $0.id == userSessionId.hexString }) {
-            try dependencies.mutate(cache: .libSession) { cache in
-                try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
-                    try cache.updateProfile(
-                        displayName: updatedUserProfile.name,
-                        displayPictureUrl: updatedUserProfile.displayPictureUrl,
-                        displayPictureEncryptionKey: updatedUserProfile.displayPictureEncryptionKey
-                    )
-                }
-            }
-        }
         
         try dependencies.mutate(cache: .libSession) { cache in
             try cache.performAndPushChange(db, for: .contacts, sessionId: userSessionId) { config in
@@ -740,6 +721,7 @@ extension LibSession {
         let nickname: String?
         let displayPictureUrl: String?
         let displayPictureEncryptionKey: Data?
+        let profileLastUpdated: Int64?
         
         let disappearingMessagesInfo: DisappearingMessageInfo?
         let priority: Int32?
@@ -775,6 +757,7 @@ extension LibSession {
                 nickname: profile?.nickname,
                 displayPictureUrl: profile?.displayPictureUrl,
                 displayPictureEncryptionKey: profile?.displayPictureEncryptionKey,
+                profileLastUpdated: profile?.profileLastUpdated.map { Int64($0) },
                 disappearingMessagesInfo: disappearingMessagesConfig.map {
                     DisappearingMessageInfo(
                         isEnabled: $0.isEnabled,
@@ -797,6 +780,7 @@ extension LibSession {
             nickname: String? = nil,
             displayPictureUrl: String? = nil,
             displayPictureEncryptionKey: Data? = nil,
+            profileLastUpdated: Int64? = nil,
             disappearingMessagesInfo: DisappearingMessageInfo? = nil,
             priority: Int32? = nil,
             created: TimeInterval? = nil
@@ -810,6 +794,7 @@ extension LibSession {
             self.nickname = nickname
             self.displayPictureUrl = displayPictureUrl
             self.displayPictureEncryptionKey = displayPictureEncryptionKey
+            self.profileLastUpdated = profileLastUpdated
             self.disappearingMessagesInfo = disappearingMessagesInfo
             self.priority = priority
             self.created = created
@@ -851,7 +836,6 @@ internal struct ContactData {
 internal extension LibSession {
     static func extractContacts(
         from conf: UnsafeMutablePointer<config_object>?,
-        serverTimestampMs: Int64,
         using dependencies: Dependencies
     ) throws -> [String: ContactData] {
         var infiniteLoopGuard: Int = 0
@@ -875,11 +859,10 @@ internal extension LibSession {
             let profileResult: Profile = Profile(
                 id: contactId,
                 name: contact.get(\.name),
-                lastNameUpdate: (TimeInterval(serverTimestampMs) / 1000),
                 nickname: contact.get(\.nickname, nullIfEmpty: true),
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-                displayPictureLastUpdated: (TimeInterval(serverTimestampMs) / 1000)
+                profileLastUpdated: TimeInterval(contact.profile_updated)
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,

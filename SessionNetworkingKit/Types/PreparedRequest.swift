@@ -230,7 +230,10 @@ public extension Network {
             self.method = request.destination.method
             self.endpoint = request.endpoint
             self.endpointName = E.name
-            self.path = request.destination.urlPathAndParamsString
+            self.path = Destination.generatePathWithParams(
+                endpoint: endpoint,
+                queryParameters: request.destination.queryParameters
+            )
             self.headers = request.destination.headers
             
             self.batchEndpoints = batchEndpoints
@@ -330,6 +333,26 @@ public extension Network {
             self.jsonBodyEncoder = jsonBodyEncoder
             self.b64 = b64
             self.bytes = bytes
+        }
+        
+        // MARK: - Functions
+        
+        public func generateUrl() throws -> URL {
+            switch destination {
+                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
+                    let pathWithParams: String = Destination.generatePathWithParams(
+                        endpoint: endpoint,
+                        queryParameters: info.queryParameters
+                    )
+                    
+                    guard let url: URL = URL(string: "\(info.server)\(pathWithParams)") else {
+                        throw NetworkError.invalidURL
+                    }
+                    
+                    return url
+                
+                default: throw NetworkError.invalidURL
+            }
         }
     }
 }

@@ -692,7 +692,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 guard let imageData: Data = source.imageData else { return }
                                 
                                 self?.updateProfile(
-                                    displayPictureUpdate: .currentUserUploadImageData(imageData),
+                                    displayPictureUpdate: .currentUserUploadImageData(
+                                        data: imageData,
+                                        isReupload: false
+                                    ),
                                     onComplete: { [weak modal] in modal?.close() }
                                 )
                                 
