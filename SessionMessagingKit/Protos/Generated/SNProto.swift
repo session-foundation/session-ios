@@ -1296,6 +1296,9 @@ extension SNProtoDataExtractionNotification.SNProtoDataExtractionNotificationBui
         if let _value = profilePicture {
             builder.setProfilePicture(_value)
         }
+        if hasLastUpdateSeconds {
+            builder.setLastUpdateSeconds(lastUpdateSeconds)
+        }
         return builder
     }
 
@@ -1311,6 +1314,10 @@ extension SNProtoDataExtractionNotification.SNProtoDataExtractionNotificationBui
 
         @objc public func setProfilePicture(_ valueParam: String) {
             proto.profilePicture = valueParam
+        }
+
+        @objc public func setLastUpdateSeconds(_ valueParam: UInt64) {
+            proto.lastUpdateSeconds = valueParam
         }
 
         @objc public func build() throws -> SNProtoLokiProfile {
@@ -1342,6 +1349,13 @@ extension SNProtoDataExtractionNotification.SNProtoDataExtractionNotificationBui
     }
     @objc public var hasProfilePicture: Bool {
         return proto.hasProfilePicture
+    }
+
+    @objc public var lastUpdateSeconds: UInt64 {
+        return proto.lastUpdateSeconds
+    }
+    @objc public var hasLastUpdateSeconds: Bool {
+        return proto.hasLastUpdateSeconds
     }
 
     private init(proto: SessionProtos_LokiProfile) {

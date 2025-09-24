@@ -619,12 +619,23 @@ struct SessionProtos_LokiProfile {
   /// Clears the value of `profilePicture`. Subsequent reads from it will return its default value.
   mutating func clearProfilePicture() {self._profilePicture = nil}
 
+  /// Timestamp of the last profile update
+  var lastUpdateSeconds: UInt64 {
+    get {return _lastUpdateSeconds ?? 0}
+    set {_lastUpdateSeconds = newValue}
+  }
+  /// Returns true if `lastUpdateSeconds` has been explicitly set.
+  var hasLastUpdateSeconds: Bool {return self._lastUpdateSeconds != nil}
+  /// Clears the value of `lastUpdateSeconds`. Subsequent reads from it will return its default value.
+  mutating func clearLastUpdateSeconds() {self._lastUpdateSeconds = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _displayName: String? = nil
   fileprivate var _profilePicture: String? = nil
+  fileprivate var _lastUpdateSeconds: UInt64? = nil
 }
 
 struct SessionProtos_DataMessage {
@@ -2321,6 +2332,7 @@ extension SessionProtos_LokiProfile: SwiftProtobuf.Message, SwiftProtobuf._Messa
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "displayName"),
     2: .same(proto: "profilePicture"),
+    3: .same(proto: "lastUpdateSeconds"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -2331,6 +2343,7 @@ extension SessionProtos_LokiProfile: SwiftProtobuf.Message, SwiftProtobuf._Messa
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularStringField(value: &self._displayName) }()
       case 2: try { try decoder.decodeSingularStringField(value: &self._profilePicture) }()
+      case 3: try { try decoder.decodeSingularUInt64Field(value: &self._lastUpdateSeconds) }()
       default: break
       }
     }
@@ -2347,12 +2360,16 @@ extension SessionProtos_LokiProfile: SwiftProtobuf.Message, SwiftProtobuf._Messa
     try { if let v = self._profilePicture {
       try visitor.visitSingularStringField(value: v, fieldNumber: 2)
     } }()
+    try { if let v = self._lastUpdateSeconds {
+      try visitor.visitSingularUInt64Field(value: v, fieldNumber: 3)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_LokiProfile, rhs: SessionProtos_LokiProfile) -> Bool {
     if lhs._displayName != rhs._displayName {return false}
     if lhs._profilePicture != rhs._profilePicture {return false}
+    if lhs._lastUpdateSeconds != rhs._lastUpdateSeconds {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

@@ -44,7 +44,7 @@ public class SessionProBadge: UIView {
     
     public init(size: Size) {
         self.size = size
-        super.init(frame: .zero)
+        super.init(frame: CGRect(x: 0, y: 0, width: size.width, height: size.height))
         self.setupView()
     }
     
@@ -75,5 +75,15 @@ public class SessionProBadge: UIView {
         self.layer.cornerRadius = self.size.cornerRadius
         self.set(.width, to: self.size.width)
         self.set(.height, to: self.size.height)
+    }
+    
+    public func toImage() -> UIImage {
+        self.proImageView.frame = CGRect(
+            x: (size.width - size.proFontWidth) / 2,
+            y: (size.height - size.proFontHeight) / 2,
+            width: size.proFontWidth,
+            height: size.proFontHeight
+        )
+        return self.toImage(isOpaque: self.isOpaque, scale: UIScreen.main.scale)
     }
 }

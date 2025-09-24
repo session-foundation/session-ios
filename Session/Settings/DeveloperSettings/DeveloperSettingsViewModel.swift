@@ -74,6 +74,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case proConfig
         case groupConfig
         
+        case shortenFileTTL
         case animationsEnabled
         case showStringKeys
         case truncatePubkeysInLogs
@@ -95,7 +96,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case communityPollLimit
         
-        
         case versionBlindedID
         case scheduleLocalNotification
         
@@ -114,7 +114,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                 case .proConfig: return "proConfig"
                 case .groupConfig: return "groupConfig"
-                    
+                
+                case .shortenFileTTL: return "shortenFileTTL"
                 case .animationsEnabled: return "animationsEnabled"
                 case .showStringKeys: return "showStringKeys"
                 case .truncatePubkeysInLogs: return "truncatePubkeysInLogs"
@@ -158,6 +159,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .proConfig: result.append(.proConfig); fallthrough
                 case .groupConfig: result.append(.groupConfig); fallthrough
                     
+                case .shortenFileTTL: result.append(.shortenFileTTL); fallthrough
                 case .animationsEnabled: result.append(.animationsEnabled); fallthrough
                 case .showStringKeys: result.append(.showStringKeys); fallthrough
                 case .truncatePubkeysInLogs: result.append(.truncatePubkeysInLogs); fallthrough
@@ -198,6 +200,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let developerMode: Bool
         let versionBlindedID: String?
         
+        let shortenFileTTL: Bool
         let animationsEnabled: Bool
         let showStringKeys: Bool
         let truncatePubkeysInLogs: Bool
@@ -241,6 +244,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     cache.get(.developerModeEnabled)
                 },
                 versionBlindedID: versionBlindedID,
+                shortenFileTTL: dependencies[feature: .shortenFileTTL],
                 animationsEnabled: dependencies[feature: .animationsEnabled],
                 showStringKeys: dependencies[feature: .showStringKeys],
                 truncatePubkeysInLogs: dependencies[feature: .truncatePubkeysInLogs],
@@ -334,6 +338,21 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let general: SectionModel = SectionModel(
             model: .general,
             elements: [
+                SessionCell.Info(
+                    id: .shortenFileTTL,
+                    title: "Shorten File TTL",
+                    subtitle: "Set the TTL for files in the cache to 1 minute",
+                    trailingAccessory: .toggle(
+                        current.shortenFileTTL,
+                        oldValue: previous?.shortenFileTTL
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .shortenFileTTL,
+                            to: !current.shortenFileTTL
+                        )
+                    }
+                ),
                 SessionCell.Info(
                     id: .animationsEnabled,
                     title: "Animations Enabled",
@@ -766,7 +785,15 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     .copyAppGroupPath, .resetSnodeCache, .createMockContacts, .exportDatabase,
                     .importDatabase, .advancedLogging, .resetAppReviewPrompt:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
-                
+
+                case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)
+                case .proConfig: DeveloperSettingsProViewModel.disableDeveloperMode(using: dependencies)
+
+                case .shortenFileTTL:
+                    guard dependencies.hasSet(feature: .shortenFileTTL) else { return }
+                    
+                    updateFlag(for: .shortenFileTTL, to: nil)
+
                 case .animationsEnabled:
                     guard dependencies.hasSet(feature: .animationsEnabled) else { return }
                     
@@ -815,9 +842,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     dependencies.set(feature: .communityPollLimit, to: nil)
                     forceRefresh(type: .databaseQuery)
-                    
-                case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)
-                case .proConfig: DeveloperSettingsProViewModel.disableDeveloperMode(using: dependencies)
                     
                 case .forceSlowDatabaseQueries:
                     guard dependencies.hasSet(feature: .forceSlowDatabaseQueries) else { return }

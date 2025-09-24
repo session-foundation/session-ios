@@ -34,4 +34,29 @@ public class SessionProState: SessionProManagerType {
         self.isSessionProSubject.send(true)
         completion?(true)
     }
+    
+    @discardableResult public func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        dismissType: Modal.DismissType,
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool {
+        guard dependencies[feature: .sessionProEnabled] && (!isSessionProSubject.value) else {
+            return false
+        }
+        beforePresented?()
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                delegate: dependencies[singleton: .sessionProState],
+                variant: variant,
+                dataManager: dependencies[singleton: .imageDataManager],
+                dismissType: dismissType,
+                afterClosed: afterClosed
+            )
+        )
+        presenting?(sessionProModal)
+        
+        return true
+    }
 }
