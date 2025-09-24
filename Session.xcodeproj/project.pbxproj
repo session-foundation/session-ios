@@ -498,7 +498,7 @@
 		FD22727C2C32911C004D8A6C /* GroupPromoteMemberJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272642C32911B004D8A6C /* GroupPromoteMemberJob.swift */; };
 		FD22727E2C32911C004D8A6C /* GarbageCollectionJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272662C32911B004D8A6C /* GarbageCollectionJob.swift */; };
 		FD22727F2C32911C004D8A6C /* GetExpirationJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272672C32911B004D8A6C /* GetExpirationJob.swift */; };
-		FD2272812C32911C004D8A6C /* UpdateProfilePictureJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD22726A2C32911C004D8A6C /* UpdateProfilePictureJob.swift */; };
+		FD2272812C32911C004D8A6C /* ReuploadUserDisplayPictureJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD22726A2C32911C004D8A6C /* ReuploadUserDisplayPictureJob.swift */; };
 		FD2272832C337830004D8A6C /* GroupPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272822C337830004D8A6C /* GroupPoller.swift */; };
 		FD2272A92C33E337004D8A6C /* ContentProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272952C33E335004D8A6C /* ContentProxy.swift */; };
 		FD2272AA2C33E337004D8A6C /* UpdatableTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2272962C33E335004D8A6C /* UpdatableTimestamp.swift */; };
@@ -642,7 +642,7 @@
 		FD3E0C84283B5835002A425C /* SessionThreadViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */; };
 		FD3F2EE72DE6CC4100FD6849 /* NotificationsManagerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3F2EE62DE6CC3B00FD6849 /* NotificationsManagerSpec.swift */; };
 		FD3F2EF22DF273D900FD6849 /* ThemedAttributedString.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3F2EF12DF273D100FD6849 /* ThemedAttributedString.swift */; };
-		FD3FAB592ADF906300DC5421 /* Profile+CurrentUser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB582ADF906300DC5421 /* Profile+CurrentUser.swift */; };
+		FD3FAB592ADF906300DC5421 /* Profile+Updating.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB582ADF906300DC5421 /* Profile+Updating.swift */; };
 		FD3FAB5F2AE9BC2200DC5421 /* EditGroupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB5E2AE9BC2200DC5421 /* EditGroupViewModel.swift */; };
 		FD3FAB612AEA194E00DC5421 /* UserListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB602AEA194E00DC5421 /* UserListViewModel.swift */; };
 		FD3FAB632AEB9A1500DC5421 /* ToastController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3FAB622AEB9A1500DC5421 /* ToastController.swift */; };
@@ -1098,6 +1098,8 @@
 		FDE755242C9BC1D1002A2623 /* Publisher+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE755232C9BC1D1002A2623 /* Publisher+Utilities.swift */; };
 		FDEF573E2C40F2A100131302 /* GroupUpdateMemberLeftNotificationMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEF573D2C40F2A100131302 /* GroupUpdateMemberLeftNotificationMessage.swift */; };
 		FDEF57712C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 in Resources */ = {isa = PBXBuildFile; fileRef = FDEF57702C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 */; };
+		FDEFDC6C2E8361E000EBCD81 /* HTTPHeader+FileServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEFDC6B2E8361DB00EBCD81 /* HTTPHeader+FileServer.swift */; };
+		FDEFDC6E2E83A74300EBCD81 /* _045_LastProfileUpdateTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEFDC6D2E83A74200EBCD81 /* _045_LastProfileUpdateTimestamp.swift */; };
 		FDF01FAD2A9ECC4200CAF969 /* SingletonConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF01FAC2A9ECC4200CAF969 /* SingletonConfig.swift */; };
 		FDF0B73C27FFD3D6004C14C5 /* LinkPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */; };
 		FDF0B7422804EA4F004C14C5 /* _007_SMK_SetupStandardJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDF0B7412804EA4F004C14C5 /* _007_SMK_SetupStandardJobs.swift */; };
@@ -1887,7 +1889,7 @@
 		FD2272642C32911B004D8A6C /* GroupPromoteMemberJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupPromoteMemberJob.swift; sourceTree = "<group>"; };
 		FD2272662C32911B004D8A6C /* GarbageCollectionJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GarbageCollectionJob.swift; sourceTree = "<group>"; };
 		FD2272672C32911B004D8A6C /* GetExpirationJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GetExpirationJob.swift; sourceTree = "<group>"; };
-		FD22726A2C32911C004D8A6C /* UpdateProfilePictureJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UpdateProfilePictureJob.swift; sourceTree = "<group>"; };
+		FD22726A2C32911C004D8A6C /* ReuploadUserDisplayPictureJob.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReuploadUserDisplayPictureJob.swift; sourceTree = "<group>"; };
 		FD2272822C337830004D8A6C /* GroupPoller.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GroupPoller.swift; sourceTree = "<group>"; };
 		FD2272952C33E335004D8A6C /* ContentProxy.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentProxy.swift; sourceTree = "<group>"; };
 		FD2272962C33E335004D8A6C /* UpdatableTimestamp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UpdatableTimestamp.swift; sourceTree = "<group>"; };
@@ -1992,7 +1994,7 @@
 		FD3E0C83283B5835002A425C /* SessionThreadViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionThreadViewModel.swift; sourceTree = "<group>"; };
 		FD3F2EE62DE6CC3B00FD6849 /* NotificationsManagerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsManagerSpec.swift; sourceTree = "<group>"; };
 		FD3F2EF12DF273D100FD6849 /* ThemedAttributedString.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemedAttributedString.swift; sourceTree = "<group>"; };
-		FD3FAB582ADF906300DC5421 /* Profile+CurrentUser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile+CurrentUser.swift"; sourceTree = "<group>"; };
+		FD3FAB582ADF906300DC5421 /* Profile+Updating.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Profile+Updating.swift"; sourceTree = "<group>"; };
 		FD3FAB5E2AE9BC2200DC5421 /* EditGroupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditGroupViewModel.swift; sourceTree = "<group>"; };
 		FD3FAB602AEA194E00DC5421 /* UserListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserListViewModel.swift; sourceTree = "<group>"; };
 		FD3FAB622AEB9A1500DC5421 /* ToastController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastController.swift; sourceTree = "<group>"; };
@@ -2382,6 +2384,8 @@
 		FDEF576D2C44C1DF00131302 /* GeoLite2-Country-Locations-ru.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Locations-ru.csv"; sourceTree = "<group>"; };
 		FDEF576E2C44C1DF00131302 /* GeoLite2-Country-Locations-zh-CN.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "GeoLite2-Country-Locations-zh-CN.csv"; sourceTree = "<group>"; };
 		FDEF57702C44D2D300131302 /* GeoLite2-Country-Blocks-IPv4 */ = {isa = PBXFileReference; lastKnownFileType = file; name = "GeoLite2-Country-Blocks-IPv4"; path = "Countries/GeoLite2-Country-Blocks-IPv4"; sourceTree = "<group>"; };
+		FDEFDC6B2E8361DB00EBCD81 /* HTTPHeader+FileServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPHeader+FileServer.swift"; sourceTree = "<group>"; };
+		FDEFDC6D2E83A74200EBCD81 /* _045_LastProfileUpdateTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _045_LastProfileUpdateTimestamp.swift; sourceTree = "<group>"; };
 		FDF01FAC2A9ECC4200CAF969 /* SingletonConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingletonConfig.swift; sourceTree = "<group>"; };
 		FDF0B73B27FFD3D6004C14C5 /* LinkPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreview.swift; sourceTree = "<group>"; };
 		FDF0B73F280402C4004C14C5 /* Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Job.swift; sourceTree = "<group>"; };
@@ -3429,8 +3433,8 @@
 				FD2272632C32911B004D8A6C /* MessageSendJob.swift */,
 				FD2272572C32911A004D8A6C /* ProcessPendingGroupMemberRemovalsJob.swift */,
 				FD22725D2C32911B004D8A6C /* RetrieveDefaultOpenGroupRoomsJob.swift */,
+				FD22726A2C32911C004D8A6C /* ReuploadUserDisplayPictureJob.swift */,
 				FD2272532C32911A004D8A6C /* SendReadReceiptsJob.swift */,
-				FD22726A2C32911C004D8A6C /* UpdateProfilePictureJob.swift */,
 			);
 			path = Jobs;
 			sourceTree = "<group>";
@@ -3677,7 +3681,7 @@
 				FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */,
 				C38EF2FB255B6DBD007E1867 /* OWSWindowManager.h */,
 				C38EF306255B6DBE007E1867 /* OWSWindowManager.m */,
-				FD3FAB582ADF906300DC5421 /* Profile+CurrentUser.swift */,
+				FD3FAB582ADF906300DC5421 /* Profile+Updating.swift */,
 				FD16AB602A1DD9B60083D849 /* ProfilePictureView+Convenience.swift */,
 				C38EF2EC255B6DBA007E1867 /* ProximityMonitoringManager.swift */,
 				FDE754FF2C9BB0FA002A2623 /* SessionEnvironment.swift */,
@@ -4083,6 +4087,7 @@
 				FD78E9F72DDD742100D55B50 /* _042_MoveSettingsToLibSession.swift */,
 				FD05594D2E012D1A00DC48CE /* _043_RenameAttachments.swift */,
 				94CD95C02E0CBF1C0097754D /* _044_AddProMessageFlag.swift */,
+				FDEFDC6D2E83A74200EBCD81 /* _045_LastProfileUpdateTimestamp.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -4372,6 +4377,7 @@
 			children = (
 				FD6B92C42E77AD01004463B5 /* Crypto */,
 				FD6B92A42E77A37A004463B5 /* Models */,
+				FDEFDC6A2E8361D400EBCD81 /* Types */,
 				FD6B928B2E779DC8004463B5 /* FileServer.swift */,
 				FD6B928F2E779EDA004463B5 /* FileServerAPI.swift */,
 				FD6B928D2E779E95004463B5 /* FileServerEndpoint.swift */,
@@ -5153,6 +5159,14 @@
 			);
 			name = SourceData;
 			path = Countries/SourceData;
+			sourceTree = "<group>";
+		};
+		FDEFDC6A2E8361D400EBCD81 /* Types */ = {
+			isa = PBXGroup;
+			children = (
+				FDEFDC6B2E8361DB00EBCD81 /* HTTPHeader+FileServer.swift */,
+			);
+			path = Types;
 			sourceTree = "<group>";
 		};
 		FDF01FAE2A9ED0C800CAF969 /* Dependency Injection */ = {
@@ -6371,6 +6385,7 @@
 				FDF848C229405C5A007DCAE5 /* OxenDaemonRPCRequest.swift in Sources */,
 				FDF848DC29405C5B007DCAE5 /* RevokeSubaccountRequest.swift in Sources */,
 				FDF848D029405C5B007DCAE5 /* UpdateExpiryResponse.swift in Sources */,
+				FDEFDC6C2E8361E000EBCD81 /* HTTPHeader+FileServer.swift in Sources */,
 				FD6B92E82E77C5B7004463B5 /* PushNotificationEndpoint.swift in Sources */,
 				FD6B92AC2E77A993004463B5 /* SOGSEndpoint.swift in Sources */,
 				FD6B92922E779FC8004463B5 /* SessionNetwork.swift in Sources */,
@@ -6708,19 +6723,20 @@
 				B8DE1FB626C22FCB0079C9CE /* CallMessage.swift in Sources */,
 				FDD23AEC2E458F980057E853 /* _024_ResetUserConfigLastHashes.swift in Sources */,
 				FD245C50285065C700B966DD /* VisibleMessage+Quote.swift in Sources */,
+				FDEFDC6E2E83A74300EBCD81 /* _045_LastProfileUpdateTimestamp.swift in Sources */,
 				FDD23AE82E458DD40057E853 /* _002_SUK_SetupStandardJobs.swift in Sources */,
 				FD72BDA12BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift in Sources */,
 				FD4C4E9C2B02E2A300C72199 /* DisplayPictureError.swift in Sources */,
 				FDD23AE22E457CE50057E853 /* _008_SNK_YDBToGRDBMigration.swift in Sources */,
 				FD5C7307284F103B0029977D /* MessageReceiver+MessageRequests.swift in Sources */,
 				C3A71D0B2558989C0043A11F /* MessageWrapper.swift in Sources */,
-				FD3FAB592ADF906300DC5421 /* Profile+CurrentUser.swift in Sources */,
+				FD3FAB592ADF906300DC5421 /* Profile+Updating.swift in Sources */,
 				FDEF573E2C40F2A100131302 /* GroupUpdateMemberLeftNotificationMessage.swift in Sources */,
 				FDD23ADF2E457CAA0057E853 /* _016_ThemePreferences.swift in Sources */,
 				FDB11A5D2DD300D300BEF49F /* SNProtoContent+Utilities.swift in Sources */,
 				FDE755002C9BB0FA002A2623 /* SessionEnvironment.swift in Sources */,
 				FDB5DADC2A95D840002C8721 /* GroupUpdateMemberChangeMessage.swift in Sources */,
-				FD2272812C32911C004D8A6C /* UpdateProfilePictureJob.swift in Sources */,
+				FD2272812C32911C004D8A6C /* ReuploadUserDisplayPictureJob.swift in Sources */,
 				FDB5DAE02A95D84D002C8721 /* GroupUpdateMemberLeftMessage.swift in Sources */,
 				FD8FD7622C37B7BD001E38C7 /* Position.swift in Sources */,
 				7B93D07127CF194000811CB6 /* MessageRequestResponse.swift in Sources */,
@@ -10422,7 +10438,7 @@
 			repositoryURL = "https://github.com/session-foundation/libsession-util-spm";
 			requirement = {
 				kind = exactVersion;
-				version = 1.5.1;
+				version = 1.5.6;
 			};
 		};
 		FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */ = {

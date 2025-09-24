@@ -34,7 +34,7 @@ public class DisplayPictureManager {
         case contactUpdateTo(url: String, key: Data, filePath: String)
         
         case currentUserRemove
-        case currentUserUploadImageData(Data)
+        case currentUserUploadImageData(data: Data, isReupload: Bool)
         case currentUserUpdateTo(url: String, key: Data, filePath: String)
         
         case groupRemove
@@ -182,7 +182,7 @@ public class DisplayPictureManager {
     
     // MARK: - Uploading
     
-    public func prepareAndUploadDisplayPicture(imageData: Data) -> AnyPublisher<UploadResult, DisplayPictureError> {
+    public func prepareAndUploadDisplayPicture(imageData: Data, compression: Bool) -> AnyPublisher<UploadResult, DisplayPictureError> {
         return Just(())
             .setFailureType(to: DisplayPictureError.self)
             .tryMap { [dependencies] _ -> (Network.PreparedRequest<FileUploadResponse>, String, Data) in

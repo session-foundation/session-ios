@@ -821,7 +821,7 @@ extension ConversationVC:
                             fallback: .none,
                             using: dependencies
                         ),
-                        sentTimestamp: (Double(optimisticData.interaction.timestampMs) / 1000),
+                        profileUpdateTimestamp: currentUserProfile.profileLastUpdated,
                         using: dependencies
                     )
                 }

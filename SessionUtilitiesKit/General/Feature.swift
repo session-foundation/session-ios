@@ -94,6 +94,10 @@ public extension FeatureStorage {
         identifier: "treatAllIncomingMessagesAsProMessages"
     )
     
+    static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "shortenFileTTL"
+    )
+    
     static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(
         identifier: "simulateAppReviewLimit"
     )

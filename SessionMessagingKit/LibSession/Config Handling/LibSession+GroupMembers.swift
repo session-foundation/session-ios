@@ -124,8 +124,7 @@ internal extension LibSessionCacheType {
         
         let groupProfiles: Set<Profile>? = try? LibSession.extractProfiles(
             from: conf,
-            groupSessionId: groupSessionId,
-            serverTimestampMs: serverTimestampMs
+            groupSessionId: groupSessionId
         )
         
         groupProfiles?.forEach { profile in
@@ -134,7 +133,7 @@ internal extension LibSessionCacheType {
                 publicKey: profile.id,
                 displayNameUpdate: .contactUpdate(profile.name),
                 displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
-                sentTimestamp: TimeInterval(Double(serverTimestampMs) * 1000),
+                profileUpdateTimestamp: (profile.profileLastUpdated ?? 0),
                 using: dependencies
             )
         }
@@ -501,8 +500,7 @@ internal extension LibSession {
     
     static func extractProfiles(
         from conf: UnsafeMutablePointer<config_object>?,
-        groupSessionId: SessionId,
-        serverTimestampMs: Int64
+        groupSessionId: SessionId
     ) throws -> Set<Profile> {
         var infiniteLoopGuard: Int = 0
         var result: [Profile] = []
@@ -522,14 +520,12 @@ internal extension LibSession {
                 Profile(
                     id: member.get(\.session_id),
                     name: member.get(\.name),
-                    lastNameUpdate: TimeInterval(Double(serverTimestampMs) / 1000),
                     nickname: nil,
                     displayPictureUrl: member.get(\.profile_pic.url, nullIfEmpty: true),
                     displayPictureEncryptionKey: (member.get(\.profile_pic.url, nullIfEmpty: true) == nil ? nil :
                         member.get(\.profile_pic.key)
                     ),
-                    displayPictureLastUpdated: TimeInterval(Double(serverTimestampMs) / 1000),
-                    lastBlocksCommunityMessageRequests: nil
+                    profileLastUpdated: TimeInterval(member.profile_updated)
                 )
             )
             

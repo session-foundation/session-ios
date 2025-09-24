@@ -10,6 +10,7 @@ public extension VisibleMessage {
         public let displayName: String?
         public let profileKey: Data?
         public let profilePictureUrl: String?
+        public let updateTimestampSeconds: TimeInterval?
         public let blocksCommunityMessageRequests: Bool?
         
         // MARK: - Initialization
@@ -18,6 +19,7 @@ public extension VisibleMessage {
             displayName: String,
             profileKey: Data? = nil,
             profilePictureUrl: String? = nil,
+            updateTimestampSeconds: TimeInterval? = nil,
             blocksCommunityMessageRequests: Bool? = nil
         ) {
             let hasUrlAndKey: Bool = (profileKey != nil && profilePictureUrl != nil)
@@ -25,6 +27,7 @@ public extension VisibleMessage {
             self.displayName = displayName
             self.profileKey = (hasUrlAndKey ? profileKey : nil)
             self.profilePictureUrl = (hasUrlAndKey ? profilePictureUrl : nil)
+            self.updateTimestampSeconds = updateTimestampSeconds
             self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         }
 
@@ -40,6 +43,7 @@ public extension VisibleMessage {
                 displayName: displayName,
                 profileKey: proto.profileKey,
                 profilePictureUrl: profileProto.profilePicture,
+                updateTimestampSeconds: TimeInterval(profileProto.lastUpdateSeconds),
                 blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil)
             )
         }
@@ -58,6 +62,10 @@ public extension VisibleMessage {
             if let profileKey = profileKey, let profilePictureUrl = profilePictureUrl {
                 dataMessageProto.setProfileKey(profileKey)
                 profileProto.setProfilePicture(profilePictureUrl)
+            }
+            
+            if let updateTimestampSeconds: TimeInterval = updateTimestampSeconds {
+                profileProto.setLastUpdateSeconds(UInt64(updateTimestampSeconds))
             }
             
             dataMessageProto.setProfile(try profileProto.build())
@@ -87,7 +95,8 @@ public extension VisibleMessage {
             return VMProfile(
                 displayName: displayName,
                 profileKey: proto.profileKey,
-                profilePictureUrl: profileProto.profilePicture
+                profilePictureUrl: profileProto.profilePicture,
+                updateTimestampSeconds: TimeInterval(profileProto.lastUpdateSeconds)
             )
         }
         
@@ -106,6 +115,9 @@ public extension VisibleMessage {
                 messageRequestResponseProto.setProfileKey(profileKey)
                 profileProto.setProfilePicture(profilePictureUrl)
             }
+            if let updateTimestampSeconds: TimeInterval = updateTimestampSeconds {
+                profileProto.setLastUpdateSeconds(UInt64(updateTimestampSeconds))
+            }
             do {
                 messageRequestResponseProto.setProfile(try profileProto.build())
                 return try messageRequestResponseProto.build()
@@ -122,7 +134,8 @@ public extension VisibleMessage {
             Profile(
                 displayName: \(displayName ?? "null"),
                 profileKey: \(profileKey?.description ?? "null"),
-                profilePictureUrl: \(profilePictureUrl ?? "null")
+                profilePictureUrl: \(profilePictureUrl ?? "null"),
+                updateTimestampSeconds: \(updateTimestampSeconds ?? 0)
             )
             """
         }

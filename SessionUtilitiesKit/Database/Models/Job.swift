@@ -58,9 +58,8 @@ public struct Job: Codable, Equatable, Hashable, Identifiable, FetchableRecord, 
         /// at the timestamp of the next disappearing message
         case disappearingMessages = 0
         
-        /// This is a recurring job that checks if the user needs to update their profile picture on launch, and if so
-        /// attempt to download the latest
-        case updateProfilePicture = 2
+        /// This is a recurring job that checks if the user needs to re-upload their profile picture on launch
+        case reuploadUserDisplayPicture = 2
         
         /// This is a recurring job that ensures the app fetches the default open group rooms on launch
         case retrieveDefaultOpenGroupRooms

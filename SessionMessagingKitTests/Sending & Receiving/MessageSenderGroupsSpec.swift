@@ -610,7 +610,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                     it("uploads the image") {
                         mockNetwork
                             .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                            .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
+                            .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
                         
                         MessageSender
                             .createGroup(
@@ -649,7 +649,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                         mockNetwork
                             .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                            .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
+                            .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
                         
                         MessageSender
                             .createGroup(

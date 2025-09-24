@@ -109,16 +109,18 @@ class LibSessionNetwork: NetworkType {
             .eraseToAnyPublisher()
     }
     
-    func send(
-        _ body: Data?,
-        to destination: Network.Destination,
+    func send<E: EndpointType>(
+        endpoint: E,
+        destination: Network.Destination,
+        body: Data?,
         requestTimeout: TimeInterval,
         requestAndPathBuildTimeout: TimeInterval?
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         switch destination {
             case .server, .serverUpload, .serverDownload, .cached:
                 return sendRequest(
-                    to: destination,
+                    endpoint: endpoint,
+                    destination: destination,
                     body: body,
                     requestTimeout: requestTimeout,
                     requestAndPathBuildTimeout: requestAndPathBuildTimeout
@@ -128,7 +130,8 @@ class LibSessionNetwork: NetworkType {
                 guard body != nil else { return Fail(error: NetworkError.invalidPreparedRequest).eraseToAnyPublisher() }
                 
                 return sendRequest(
-                    to: destination,
+                    endpoint: endpoint,
+                    destination: destination,
                     body: body,
                     requestTimeout: requestTimeout,
                     requestAndPathBuildTimeout: requestAndPathBuildTimeout
@@ -143,7 +146,8 @@ class LibSessionNetwork: NetworkType {
                 return getSwarm(for: swarmPublicKey)
                     .tryFlatMapWithRandomSnode(retry: retryCount, using: dependencies) { [weak self] snode in
                         try self.validOrThrow().sendRequest(
-                            to: .snode(snode, swarmPublicKey: swarmPublicKey),
+                            endpoint: endpoint,
+                            destination: .snode(snode, swarmPublicKey: swarmPublicKey),
                             body: body,
                             requestTimeout: requestTimeout,
                             requestAndPathBuildTimeout: requestAndPathBuildTimeout
@@ -168,7 +172,8 @@ class LibSessionNetwork: NetworkType {
                                 else { throw NetworkError.invalidPreparedRequest }
                                 
                                 return try self.validOrThrow().sendRequest(
-                                        to: .snode(snode, swarmPublicKey: swarmPublicKey),
+                                        endpoint: endpoint,
+                                        destination: .snode(snode, swarmPublicKey: swarmPublicKey),
                                         body: updatedBody,
                                         requestTimeout: requestTimeout,
                                         requestAndPathBuildTimeout: requestAndPathBuildTimeout
@@ -227,9 +232,10 @@ class LibSessionNetwork: NetworkType {
     }
     
     // MARK: - Internal Functions
-    
+
     private func sendRequest<T: Encodable>(
-        to destination: Network.Destination,
+        endpoint: (any EndpointType),
+        destination: Network.Destination,
         body: T?,
         requestTimeout: TimeInterval,
         requestAndPathBuildTimeout: TimeInterval?
@@ -286,8 +292,8 @@ class LibSessionNetwork: NetworkType {
                             ctx
                         )
                     
-                    case .server:
-                        try destination.withUnsafePointer { cServerDestination in
+                    case .server(let info):
+                        try info.withUnsafePointer(endpoint: endpoint) { cServerDestination in
                             network_send_onion_request_to_server_destination(
                                 network,
                                 cServerDestination,
@@ -305,10 +311,10 @@ class LibSessionNetwork: NetworkType {
                             )
                         }
                     
-                    case .serverUpload(_, let fileName):
+                    case .serverUpload(let info, let fileName):
                         guard !cPayloadBytes.isEmpty else { throw NetworkError.invalidPreparedRequest }
                         
-                        try destination.withUnsafePointer { cServerDestination in
+                        try info.withUnsafePointer(endpoint: endpoint) { cServerDestination in
                             network_upload_to_server(
                                 network,
                                 cServerDestination,
@@ -327,8 +333,8 @@ class LibSessionNetwork: NetworkType {
                             )
                         }
                     
-                    case .serverDownload:
-                        try destination.withUnsafePointer { cServerDestination in
+                    case .serverDownload(let info):
+                        try info.withUnsafePointer(endpoint: endpoint) { cServerDestination in
                             network_download_from_server(
                                 network,
                                 cServerDestination,
@@ -566,41 +572,30 @@ extension network_service_node: @retroactive CAccessible, @retroactive CMutable 
 
 // MARK: - Convenience
 
-private extension Network.Destination {
-    func withUnsafePointer<Result>(_ body: (network_server_destination) throws -> Result) throws -> Result {
-        let method: HTTPMethod
-        let url: URL
-        let headers: [HTTPHeader: String]?
-        let x25519PublicKey: String
+private extension Network.Destination.ServerInfo {
+    func withUnsafePointer<Result>(endpoint: (any EndpointType), _ body: (network_server_destination) throws -> Result) throws -> Result {
+        let x25519PublicKey: String = String(x25519PublicKey.suffix(64)) // Quick way to drop '05' prefix if present
         
-        switch self {
-            case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget, .cached: throw NetworkError.invalidPreparedRequest
-            case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                method = info.method
-                url = try info.url
-                headers = info.headers
-                x25519PublicKey = String(info.x25519PublicKey
-                    .suffix(64)) // Quick way to drop '05' prefix if present
-        }
-        
-        guard let host: String = url.host else { throw NetworkError.invalidURL }
+        guard let host: String = self.host else { throw NetworkError.invalidURL }
         guard x25519PublicKey.count == 64 || x25519PublicKey.count == 66 else {
             throw LibSessionError.invalidCConversion
         }
         
-        let targetScheme: String = (url.scheme ?? "https")
-        let endpoint: String = url.path
-            .appending(url.query.map { value in "?\(value)" } ?? "")
-        let port: UInt16 = UInt16(url.port ?? (targetScheme == "https" ? 443 : 80))
-        let headerKeys: [String] = (headers?.map { $0.key } ?? [])
-        let headerValues: [String] = (headers?.map { $0.value } ?? [])
+        let targetScheme: String = (self.scheme ?? "https")
+        let pathWithParams: String = Network.Destination.generatePathWithParams(
+            endpoint: endpoint,
+            queryParameters: queryParameters
+        )
+        let port: UInt16 = UInt16(self.port ?? (targetScheme == "https" ? 443 : 80))
+        let headerKeys: [String] = headers.map { $0.key }
+        let headerValues: [String] = headers.map { $0.value }
         let headersSize = headerKeys.count
         
         // Use scoped closure to avoid manual memory management (crazy nesting but it ends up safer)
         return try method.rawValue.withCString { cMethodPtr in
             try targetScheme.withCString { cTargetSchemePtr in
                 try host.withCString { cHostPtr in
-                    try endpoint.withCString { cEndpointPtr in
+                    try pathWithParams.withCString { cPathWithParamsPtr in
                         try x25519PublicKey.withCString { cX25519PubkeyPtr in
                             try headerKeys.withUnsafeCStrArray { headerKeysPtr in
                                 try headerValues.withUnsafeCStrArray { headerValuesPtr in
@@ -608,7 +603,7 @@ private extension Network.Destination {
                                         method: cMethodPtr,
                                         protocol: cTargetSchemePtr,
                                         host: cHostPtr,
-                                        endpoint: cEndpointPtr,
+                                        endpoint: cPathWithParamsPtr,
                                         port: port,
                                         x25519_pubkey: cX25519PubkeyPtr,
                                         headers: headerKeysPtr.baseAddress,

@@ -609,13 +609,11 @@ class OnboardingSpec: AsyncSpec {
                     Profile(
                         id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                         name: "TestCompleteName",
-                        lastNameUpdate: 1234567890,
                         nickname: nil,
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
-                        displayPictureLastUpdated: nil,
-                        blocksCommunityMessageRequests: nil,
-                        lastBlocksCommunityMessageRequests: nil
+                        profileLastUpdated: 1234567890,
+                        blocksCommunityMessageRequests: nil
                     )
                 ]))
             }
@@ -649,13 +647,11 @@ class OnboardingSpec: AsyncSpec {
                     Profile(
                         id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                         name: "TestCompleteName",
-                        lastNameUpdate: nil,
                         nickname: nil,
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
-                        displayPictureLastUpdated: nil,
-                        blocksCommunityMessageRequests: nil,
-                        lastBlocksCommunityMessageRequests: nil
+                        profileLastUpdated: nil,
+                        blocksCommunityMessageRequests: nil
                     )
                 ))
             }
@@ -665,16 +661,66 @@ class OnboardingSpec: AsyncSpec {
                 let result: [ConfigDump]? = mockStorage.read { db in
                     try ConfigDump.fetchAll(db)
                 }
-                let expectedData: Data? = Data(base64Encoded: "ZDE6IWkxZTE6JDEwNDpkMTojaTFlMTomZDE6K2ktMWUxOm4xNjpUZXN0Q29tcGxldGVOYW1lZTE6PGxsaTBlMzI66hc7V77KivGMNRmnu/acPnoF0cBJ+pVYNB2Ou0iwyWVkZWVlMTo9ZDE6KzA6MTpuMDplZTE6KGxlMTopbGUxOipkZTE6K2RlZQ==")
                 
-                expect(result).to(equal([
-                    ConfigDump(
-                        variant: .userProfile,
-                        sessionId: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
-                        data: (expectedData ?? Data()),
-                        timestampMs: 1234567890000
-                    )
-                ]))
+                try require(result).to(haveCount(1))
+                expect(result![0].variant).to(equal(.userProfile))
+                expect(result![0].sessionId).to(equal(SessionId(.standard, hex: TestConstants.publicKey)))
+                expect(result![0].timestampMs).to(equal(1234567890000))
+                
+                /// The data now contains a `now` timestamp so won't be an exact match anymore, but we _can_ check to ensure
+                /// the rest of the data matches and that the timestamps are close enough to `now`
+                ///
+                /// **Note:** The data contains non-ASCII content so we can't do a straight conversion unfortunately
+                let resultData: Data = result![0].data
+                let prefixData: Data = "d1:!i1e1:$144:d1:#i1e1:&d1:+i-1e1:Ti".data(using: .ascii)!
+                let infixData: Data = "e1:n16:TestCompleteName1:ti".data(using: .ascii)!
+                let suffixData: Data = "ee1:<lli0e32:".data(using: .ascii)!
+                
+                guard
+                    let prefixRange: Range<Data.Index> = resultData.range(of: prefixData),
+                    let infixRange: Range<Data.Index> = resultData
+                        .range(of: infixData, in: prefixRange.upperBound..<resultData.endIndex),
+                    let suffixRange: Range<Data.Index> = resultData
+                        .range(of: suffixData, in: infixRange.upperBound..<resultData.endIndex)
+                else { return fail("The structure of the binary data is incorrect.") }
+                
+                /// Extract the timestamps and ensure they match
+                let timestamp1Range: Range<Data.Index> = prefixRange.upperBound..<infixRange.lowerBound
+                let timestamp2Range: Range<Data.Index> = infixRange.upperBound..<suffixRange.lowerBound
+                let timestamp1Data: Data = resultData.subdata(in: timestamp1Range)
+                let timestamp2Data: Data = resultData.subdata(in: timestamp2Range)
+                
+                guard
+                    let timestamp1String: String = String(data: timestamp1Data, encoding: .ascii),
+                    let timestamp2String: String = String(data: timestamp2Data, encoding: .ascii)
+                else { return fail("Failed to decode the isolated timestamp data into strings.") }
+                
+                expect(timestamp1String).to(
+                    equal(timestamp2String),
+                    description: "The two timestamps within the data should be the same."
+                )
+                
+                /// Ensure the timestamp is within 5s of now
+                guard let timestampValue = TimeInterval(timestamp1String) else {
+                    return fail("Could not convert the captured timestamp '\(timestamp1String)' to a TimeInterval.")
+                }
+                expect(timestampValue).to(beCloseTo(Date().timeIntervalSince1970, within: 5.0))
+
+                /// Just for completeness we also want to ensure the end  of the data (which contains non-ASCII characters) matches
+                /// the content
+                let expectedEndPart: String = [
+                    "6hc7V77KivGMNRmnu/acPnoF0cBJ+pVYNB2Ou0iwyWVkZWVlMTo9ZDE6" +
+                    "KzA6MTpUMDoxOm4wOjE6dDA6ZWUxOihsZTE6KWxlMToqZGUxOitkZWU="
+                ].joined()
+                
+                guard let expectedEndPartData: Data = Data(base64Encoded: expectedEndPart) else {
+                    return fail("Failed to convert expected end part to Data.")
+                }
+                
+                expect(resultData.suffix(from: suffixRange.upperBound)).to(
+                    equal(expectedEndPartData),
+                    description: "The data does not end with the expected static suffix."
+                )
             }
             
             // MARK: -- updates the onboarding state to 'completed'
