@@ -86,20 +86,26 @@ public struct UserProfileModal: View {
                             
                             if info.sessionId != nil {
                                 let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (20, 12)
-                                AttributedText(Lucide.Icon.qrCode.attributedString(size: iconSize, baselineOffset: 0))
-                                    .font(.system(size: iconSize))
-                                    .foregroundColor(themeColor: .black)
-                                    .background(
-                                        Circle()
-                                            .foregroundColor(themeColor: .primary)
-                                            .frame(width: buttonSize, height: buttonSize)
-                                    )
-                                    .padding(.trailing, isProfileImageExpanding ? 28 : 4)
-                                    .onTapGesture {
-                                        withAnimation {
-                                            self.isProfileImageToggled.toggle()
-                                        }
+                                ZStack {
+                                    Circle()
+                                        .foregroundColor(themeColor: .primary)
+                                        .frame(width: buttonSize, height: buttonSize)
+                                    
+                                    if let icon: UIImage = Lucide.image(icon: .qrCode, size: iconSize) {
+                                        Image(uiImage: icon)
+                                            .resizable()
+                                            .renderingMode(.template)
+                                            .scaledToFit()
+                                            .foregroundColor(themeColor: .black)
+                                            .frame(width: iconSize, height: iconSize)
                                     }
+                                }
+                                .padding(.trailing, isProfileImageExpanding ? 28 : 4)
+                                .onTapGesture {
+                                    withAnimation {
+                                        self.isProfileImageToggled.toggle()
+                                    }
+                                }
                             }
                         }
                         .padding(.top, 12)
