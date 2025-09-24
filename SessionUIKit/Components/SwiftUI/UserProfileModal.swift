@@ -200,7 +200,6 @@ public struct UserProfileModal: View {
                             .font(isIPhone5OrSmaller ? .Display.base : .Display.large)
                             .foregroundColor(themeColor: .textPrimary)
                             .multilineTextAlignment(.center)
-                            .shouldTruncate(info.sessionId == nil)
                             .padding(.horizontal, info.blindedId == nil ? 0 : Values.largeSpacing)
                     }
                     

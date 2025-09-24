@@ -1587,13 +1587,24 @@ extension ConversationVC:
         guard let profileInfo: ProfilePictureView.Info = info else { return }
         
         let (sessionId, blindedId): (String?, String?) = {
-            guard (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15 else {
+            guard
+                (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15,
+                let openGroupServer: String = cellViewModel.threadOpenGroupServer,
+                let openGroupPublicKey: String = cellViewModel.threadOpenGroupPublicKey
+            else {
                 return (cellViewModel.authorId, nil)
             }
             let lookup: BlindedIdLookup? = dependencies[singleton: .storage].read { db in
-                try? BlindedIdLookup.fetchOne(db, id: cellViewModel.authorId)
+                try BlindedIdLookup.fetchOrCreate(
+                    db,
+                    blindedId: cellViewModel.authorId,
+                    openGroupServer: openGroupServer,
+                    openGroupPublicKey: openGroupPublicKey,
+                    isCheckingForOutbox: false,
+                    using: dependencies
+                )
             }
-            return (lookup?.sessionId, cellViewModel.authorId)
+            return (lookup?.sessionId, cellViewModel.authorId.truncated(prefix: 10, suffix: 10))
         }()
         
         let qrCodeImage: UIImage? = {
