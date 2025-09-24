@@ -14,11 +14,11 @@ public actor CancellationAwareAsyncStream<Element: Sendable>: CancellationAwareS
     // MARK: - Functions
 
     public func send(_ newValue: Element) async {
-        lifecycleManager.send(newValue)
+        await lifecycleManager.send(newValue)
     }
 
     public func finishCurrentStreams() async {
-        lifecycleManager.finishCurrentStreams()
+        await lifecycleManager.finishCurrentStreams()
     }
     
     public func beforeYield(to continuation: AsyncStream<Element>.Continuation) async {

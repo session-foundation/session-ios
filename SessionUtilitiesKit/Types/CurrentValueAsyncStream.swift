@@ -18,11 +18,11 @@ public actor CurrentValueAsyncStream<Element: Sendable>: CancellationAwareStream
 
     public func send(_ newValue: Element) async {
         currentValue = newValue
-        lifecycleManager.send(newValue)
+        await lifecycleManager.send(newValue)
     }
 
     public func finishCurrentStreams() async {
-        lifecycleManager.finishCurrentStreams()
+        await lifecycleManager.finishCurrentStreams()
     }
     
     public func beforeYield(to continuation: AsyncStream<Element>.Continuation) async {

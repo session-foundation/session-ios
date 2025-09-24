@@ -141,19 +141,25 @@ enum _036_GroupsRebuildChanges: Migration {
                     """,
                     arguments: [group.groupIdentityPrivateKey, group.authData]
                 )
+            }
+            
+            /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
+            if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                let maybeAuthMethods: [AuthenticationMethod] = extractedUserGroups.groups
+                    .filter { group in !group.invited }
+                    .compactMap { group in
+                        try? Authentication.with(
+                            swarmPublicKey: group.groupSessionId,
+                            using: dependencies
+                        )
+                    }
                 
-                /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
-                if !group.invited, let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                if !maybeAuthMethods.isEmpty {
                     db.afterCommit {
                         Task.detached(priority: .userInitiated) {
                             try? await Network.PushNotification.subscribe(
                                 token: Data(hex: token),
-                                swarmAuthentication: [
-                                    try? Authentication.with(
-                                        swarmPublicKey: group.groupSessionId,
-                                        using: dependencies
-                                    )
-                                ].compactMap { $0 },
+                                swarmAuthentication: maybeAuthMethods,
                                 using: dependencies
                             )
                         }

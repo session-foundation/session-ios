@@ -40,7 +40,6 @@ public extension Network {
                 method: HTTPMethod,
                 url: URL,
                 server: String?,
-                pathAndParamsString: String?,
                 queryParameters: [HTTPQueryParam: String] = [:],
                 headers: [HTTPHeader: String],
                 x25519PublicKey: String
@@ -148,7 +147,6 @@ public extension Network {
                 method: .get,
                 url: url,
                 server: nil,
-                pathAndParamsString: nil,
                 headers: headers,
                 x25519PublicKey: x25519PublicKey
             ))

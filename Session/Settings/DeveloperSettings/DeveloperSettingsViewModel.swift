@@ -71,6 +71,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case developerMode
         
+        case networkConfig
+        case resetSnodeCache
         case proConfig
         case groupConfig
         
@@ -85,9 +87,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case defaultLogLevel
         case advancedLogging
         case loggingCategory(String)
-        
-        case networkConfig
-        case resetSnodeCache
         
         case debugDisappearingMessageDurations
         
@@ -109,7 +108,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         public var differenceIdentifier: String {
             switch self {
                 case .developerMode: return "developerMode"
-                    
+                
+                case .networkConfig: return "networkConfig"
+                case .resetSnodeCache: return "resetSnodeCache"
                 case .proConfig: return "proConfig"
                 case .groupConfig: return "groupConfig"
                     
@@ -124,9 +125,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
                 case .loggingCategory(let categoryIdentifier): return "loggingCategory-\(categoryIdentifier)"
-                
-                case .networkConfig: return "networkConfig"
-                case .resetSnodeCache: return "resetSnodeCache"
                 
                 case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
                     
@@ -150,7 +148,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             var result: [TableItem] = []
             switch TableItem.developerMode {
                 case .developerMode: result.append(.developerMode); fallthrough
-                    
+                
+                case .networkConfig: result.append(.networkConfig); fallthrough
+                case .resetSnodeCache: result.append(.resetSnodeCache); fallthrough
                 case .proConfig: result.append(.proConfig); fallthrough
                 case .groupConfig: result.append(.groupConfig); fallthrough
                     
@@ -165,9 +165,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
                 case .loggingCategory: result.append(.loggingCategory("")); fallthrough
-                
-                case .networkConfig: result.append(.networkConfig); fallthrough
-                case .resetSnodeCache: result.append(.resetSnodeCache); fallthrough
                 
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
                 
@@ -272,6 +269,39 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         
                         Task { [weak self] in await self?.disableDeveloperMode() }
                     }
+                )
+            ]
+        )
+        let network: SectionModel = SectionModel(
+            model: .network,
+            elements: [
+                SessionCell.Info(
+                    id: .networkConfig,
+                    title: "Network Configuration",
+                    subtitle: """
+                    Configure settings related to how and where network requests are sent.
+                    
+                    <b>Service Network:</b> <span>\(dependencies[feature: .serviceNetwork].title)</span>
+                    <b>Router:</b> <span>\(dependencies[feature: .router].title)</span>
+                    <b>PN Service:</b> <span>\(dependencies[feature: .pushNotificationService].title)</span>
+                    """,
+                    trailingAccessory: .icon(.chevronRight),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: DeveloperSettingsNetworkViewModel(using: dependencies)
+                            )
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .resetSnodeCache,
+                    title: "Reset Service Node Cache",
+                    subtitle: """
+                    Reset and rebuild the service node cache and rebuild the paths.
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset Cache"),
+                    onTap: { [weak self] in self?.resetServiceNodeCache() }
                 )
             ]
         )
@@ -500,39 +530,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
             )
         )
-        let network: SectionModel = SectionModel(
-            model: .network,
-            elements: [
-                SessionCell.Info(
-                    id: .networkConfig,
-                    title: "Network Configuration",
-                    subtitle: """
-                    Configure settings related to how and where network requests are sent.
-                    
-                    <b>Service Network:</b> <span>\(dependencies[feature: .serviceNetwork].title)</span>
-                    <b>Router:</b> <span>\(dependencies[feature: .router].title)</span>
-                    <b>PN Service:</b> <span>\(dependencies[feature: .pushNotificationService].title)</span>
-                    """,
-                    trailingAccessory: .icon(.chevronRight),
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(
-                                viewModel: DeveloperSettingsNetworkViewModel(using: dependencies)
-                            )
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .resetSnodeCache,
-                    title: "Reset Service Node Cache",
-                    subtitle: """
-                    Reset and rebuild the service node cache and rebuild the paths.
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset Cache"),
-                    onTap: { [weak self] in self?.resetServiceNodeCache() }
-                )
-            ]
-        )
         let disappearingMessages: SectionModel = SectionModel(
             model: .disappearingMessages,
             elements: [
@@ -684,11 +681,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         return [
             developerMode,
+            network,
             sessionPro,
             groups,
             general,
             logging,
-            network,
             disappearingMessages,
             communities,
             sessionNetwork,

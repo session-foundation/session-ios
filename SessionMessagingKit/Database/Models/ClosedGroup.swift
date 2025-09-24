@@ -226,14 +226,17 @@ public extension ClosedGroup {
         
         /// Subscribe for group push notifications
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-            Task.detached(priority: .userInitiated) {
-                try? await Network.PushNotification.subscribe(
-                    token: Data(hex: token),
-                    swarmAuthentication: [
-                        try? Authentication.with(swarmPublicKey: group.id, using: dependencies)
-                    ].compactMap { $0 },
-                    using: dependencies
-                )
+            let maybeAuthMethod: AuthenticationMethod? = try? Authentication
+                .with(swarmPublicKey: group.id, using: dependencies)
+            
+            if let authMethod: AuthenticationMethod = maybeAuthMethod {
+                Task.detached(priority: .userInitiated) {
+                    try? await Network.PushNotification.subscribe(
+                        token: Data(hex: token),
+                        swarmAuthentication: [authMethod],
+                        using: dependencies
+                    )
+                }
             }
         }
     }
@@ -306,14 +309,20 @@ public extension ClosedGroup {
             /// Bulk unsubscripe from updated groups being removed
             if dataToRemove.contains(.pushNotifications) && threadVariants.contains(where: { $0.variant == .group }) {
                 if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                    Task.detached(priority: .userInitiated) { [dependencies] in
-                        try? await Network.PushNotification.unsubscribe(
-                            token: Data(hex: token),
-                            swarmAuthentication: threadVariants
-                                .filter { $0.variant == .group }
-                                .compactMap { try? Authentication.with(swarmPublicKey: $0.id, using: dependencies) },
-                            using: dependencies
-                        )
+                    let authData: [AuthenticationMethod] = threadVariants
+                        .filter { $0.variant == .group }
+                        .compactMap { try? Authentication.with(swarmPublicKey: $0.id, using: dependencies) }
+                    
+                    if !authData.isEmpty {
+                        Task.detached(priority: .userInitiated) { [dependencies] in
+                            try? await Network.PushNotification.unsubscribe(
+                                token: Data(hex: token),
+                                swarmAuthentication: threadVariants
+                                    .filter { $0.variant == .group }
+                                    .compactMap { try? Authentication.with(swarmPublicKey: $0.id, using: dependencies) },
+                                using: dependencies
+                            )
+                        }
                     }
                 }
             }

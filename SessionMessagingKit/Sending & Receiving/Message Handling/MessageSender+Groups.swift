@@ -190,11 +190,11 @@ extension MessageSender {
                             try? await Network.PushNotification.subscribe(
                                 token: Data(hex: token),
                                 swarmAuthentication: [
-                                    try? Authentication.with(
-                                        swarmPublicKey: preparedGroupData.groupSessionId.hexString,
-                                        using: dependencies
+                                    Authentication.groupAdmin(
+                                        groupSessionId: preparedGroupData.groupSessionId,
+                                        ed25519SecretKey: preparedGroupData.identityKeyPair.secretKey
                                     )
-                                ].compactMap { $0 },
+                                ],
                                 using: dependencies
                             )
                         }

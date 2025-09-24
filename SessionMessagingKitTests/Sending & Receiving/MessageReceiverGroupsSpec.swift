@@ -449,7 +449,7 @@ class MessageReceiverGroupsSpec: AsyncSpec {
                         
                         await fixture.mockGroupPollerManager
                             .verify { await $0.getOrCreatePoller(for: fixture.groupId.hexString) }
-                            .wasCalled(exactly: 1)
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                         await fixture.mockPoller.verify { await $0.startIfNeeded() }.wasCalled(exactly: 1)
                     }
                     

@@ -36,7 +36,7 @@ public extension Network.PushNotification {
         }
     }
     
-    public static func unsubscribeAll(
+    static func unsubscribeAll(
         token: Data,
         using dependencies: Dependencies
     ) async throws {
@@ -53,7 +53,7 @@ public extension Network.PushNotification {
         }
     }
     
-    private static func retrieveAllSwarmAuth(
+    static func retrieveAllSwarmAuth(
         using dependencies: Dependencies
     ) async throws -> [AuthenticationMethod] {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId

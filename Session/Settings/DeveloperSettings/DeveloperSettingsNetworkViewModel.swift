@@ -962,16 +962,15 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         if networkEnvironmentChanged {
             let state: State.NetworkState = internalState.pendingState
             
-            /// If the router was also changed then just update it directly (calling `updateEnvironment` will reset the rest of the
-            /// state so we just need to ensure the new router is set first)
-            if routerChanged {
-                dependencies.set(feature: .router, to: state.router)
-            }
-            
             await DeveloperSettingsNetworkViewModel.updateEnvironment(
                 serviceNetwork: state.environment,
                 devnetConfig: (state.environment == .devnet && state.devnetConfig.isValid ?
                     state.devnetConfig :
+                    nil
+                ),
+                additionalChanges: (routerChanged ?
+                    /// If the router was also changed then we also need to change it during the `updateEnvironment` call
+                    { [dependencies] in dependencies.set(feature: .router, to: state.router) } :
                     nil
                 ),
                 using: dependencies
@@ -1009,6 +1008,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
     internal static func updateEnvironment(
         serviceNetwork: ServiceNetwork,
         devnetConfig: ServiceNetwork.DevnetConfiguration?,
+        additionalChanges: (() -> Void)? = nil,
         using dependencies: Dependencies
     ) async {
         struct IdentityData {
@@ -1076,16 +1076,25 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         
         dependencies.set(singleton: .network, to: LibSession.NoopNetwork(using: dependencies))
         
-        /// Unsubscribe from push notifications (do this after resetting the network as they are server requests so aren't dependant on a service
-        /// layer and we don't want these to be cancelled)
-        if let existingToken: String = try? await dependencies[singleton: .storage].readAsync(value: { db in db[.lastRecordedPushToken] }) {
-            Task.detached(priority: .userInitiated) {
-                try? await Network.PushNotification.unsubscribeAll(
-                    token: Data(hex: existingToken),
-                    using: dependencies
-                )
+        /// If we have a push token then retrieve any auth details for them so we can unsubscribe once we have the new network layer
+        /// setup (since these will be server requests they aren't dependant on the `serviceNetwork` so can be run after we finish
+        /// updating the environment)
+        let existingPushInfo: (token: String, [AuthenticationMethod])? = await {
+            let maybeToken: String? = try? await dependencies[singleton: .storage].readAsync { db in
+                db[.lastRecordedPushToken]
             }
-        }
+            let maybeSwarmAuth: [AuthenticationMethod]? = try? await Network.PushNotification.retrieveAllSwarmAuth(
+                using: dependencies
+            )
+            
+            guard
+                let token: String = maybeToken,
+                let swarmAuth: [AuthenticationMethod] = maybeSwarmAuth,
+                !swarmAuth.isEmpty
+            else { return nil }
+            
+            return (token, swarmAuth)
+        }()
         
         /// Remove the libSession state (store the profile locally to maintain the name between environments)
         let existingProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
@@ -1124,6 +1133,9 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             dependencies.set(feature: .devnetConfig, to: devnetConfig)
         }
         
+        /// Perform any additional changes (eg. updating the `router`)
+        additionalChanges?()
+        
         /// Remove the temporary NoopNetwork and warm a new instance now that the `serviceNetwork` has been updated
         dependencies.remove(singleton: .network)
         dependencies.warm(singleton: .network)
@@ -1148,8 +1160,20 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             await poller.startIfNeeded()
         }
         
-        /// Re-sync the push tokens (if there are any)
-        SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
+        /// Unsubscribe from old push notifications and re-sync the push tokens for the account on the new `serviceNetwork` (if there are any)
+        switch existingPushInfo {
+            case .none: SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
+            case .some((let token, let swarmAuth)):
+                Task.detached(priority: .userInitiated) {
+                    _ = try? await Network.PushNotification.unsubscribe(
+                        token: Data(hex: token),
+                        swarmAuthentication: swarmAuth,
+                        using: dependencies
+                    )
+                    
+                    SyncPushTokensJob.run(uploadOnlyIfStale: false, using: dependencies).sinkUntilComplete()
+                }
+        }
         
         Log.info("[DevSettings] Completed swap to \(String(describing: serviceNetwork))")
     }

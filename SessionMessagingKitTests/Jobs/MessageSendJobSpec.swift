@@ -327,7 +327,7 @@ class MessageSendJobSpec: AsyncSpec {
                     
                     // MARK: ------ it fails when trying to send with an attachment which previously failed to download
                     it("it fails when trying to send with an attachment which previously failed to download") {
-                        mockStorage.write { db in
+                        try await mockStorage.writeAsync { db in
                             try attachment.with(state: .failedDownload, using: dependencies).upsert(db)
                         }
                         
@@ -353,7 +353,7 @@ class MessageSendJobSpec: AsyncSpec {
                     // MARK: ------ with a pending upload
                     context("with a pending upload") {
                         beforeEach {
-                            mockStorage.write { db in
+                            try await mockStorage.writeAsync { db in
                                 try attachment.with(state: .uploading, using: dependencies).upsert(db)
                             }
                         }
@@ -361,10 +361,6 @@ class MessageSendJobSpec: AsyncSpec {
                         // MARK: -------- it defers when trying to send with an attachment which is still pending upload
                         it("it defers when trying to send with an attachment which is still pending upload") {
                             var didDefer: Bool = false
-                            
-                            mockStorage.write { db in
-                                try attachment.with(state: .uploading, using: dependencies).upsert(db)
-                            }
                             
                             MessageSendJob.run(
                                 job,
@@ -382,7 +378,7 @@ class MessageSendJobSpec: AsyncSpec {
                         it("it defers when trying to send with an uploaded attachment that has an invalid downloadUrl") {
                             var didDefer: Bool = false
                             
-                            mockStorage.write { db in
+                            try await mockStorage.writeAsync { db in
                                 try attachment
                                     .with(
                                         state: .uploaded,
