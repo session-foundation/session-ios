@@ -305,10 +305,14 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         oldValue: previousState.mockCurrentUserSessionPro
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.set(
-                            feature: .mockCurrentUserSessionPro,
-                            to: !state.mockCurrentUserSessionPro
-                        )
+                        if !state.mockCurrentUserSessionPro {
+                            dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+                        } else {
+                            dependencies.set(
+                                feature: .mockCurrentUserSessionPro,
+                                to: false
+                            )
+                        }
                     }
                 ),
                 SessionCell.Info(
