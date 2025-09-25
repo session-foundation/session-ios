@@ -31,10 +31,23 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         /// Populate the notification settings from `libSession` and the database
         Task.detached(priority: .high) { [weak self] in
-            do { try await dependencies.waitUntilInitialised(cache: .libSession) }
-            catch {
-                Log.error("[NotificationPresenter] Failed to wait until libSession initialised: \(error)")
-                return
+            if #available(iOS 16.0, *) {
+                do { try await dependencies.waitUntilInitialised(cache: .libSession) }
+                catch {
+                    Log.error("[NotificationPresenter] Failed to wait until libSession initialised: \(error)")
+                    return
+                }
+            }
+            else {
+                /// iOS 15 doesn't support dependency observation so work around it with a loop
+                while true {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    
+                    /// If `libSession` has data we can break
+                    if !dependencies[cache: .libSession].isEmpty {
+                        break
+                    }
+                }
             }
             
             typealias GlobalSettings = (

@@ -31,7 +31,35 @@ extension LibSession {
         
         /// Subscribe for log level changes (this will emit an initial event which we can use to set the default log level)
         Task {
-            for await _ in dependencies.stream(feature: .allLogLevels) {
+            if #available(iOS 16.0, *) {
+                for await _ in dependencies.stream(feature: .allLogLevels) {
+                    let currentLogLevels: [Log.Category: Log.Level] = dependencies[feature: .allLogLevels]
+                        .currentValues(using: dependencies)
+                    let currentGroupLogLevels: [Log.Group: Log.Level] = dependencies[feature: .allLogLevels]
+                        .currentValues(using: dependencies)
+                    let targetDefault: Log.Level? = min(
+                        (currentLogLevels[.default] ?? .off),
+                        (currentGroupLogLevels[.libSession] ?? .off)
+                    )
+                    let cDefaultLevel: LOG_LEVEL = (targetDefault?.libSession ?? LOG_LEVEL_OFF)
+                    session_logger_set_level_default(cDefaultLevel)
+                    session_logger_reset_level(cDefaultLevel)
+                    
+                    /// Update all explicit log levels (we don't want to register a listener for each individual one so just re-apply all)
+                    ///
+                    /// If the conversation to the libSession `LOG_LEVEL` fails then it means we should use the default log level
+                    currentLogLevels.forEach { (category: Log.Category, level: Log.Level) in
+                        guard
+                            let cCat: [CChar] = category.rawValue.cString(using: .utf8),
+                            let cLogLevel: LOG_LEVEL = level.libSession
+                        else { return }
+                        
+                        session_logger_set_level(cCat, cLogLevel)
+                    }
+                }
+            }
+            else {
+                /// iOS 15 doesn't support observing dependency streams so just set the values once
                 let currentLogLevels: [Log.Category: Log.Level] = dependencies[feature: .allLogLevels]
                     .currentValues(using: dependencies)
                 let currentGroupLogLevels: [Log.Group: Log.Level] = dependencies[feature: .allLogLevels]

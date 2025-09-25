@@ -224,7 +224,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         /// It's likely that on a fresh launch that the `libSession` cache won't have been initialised by this point, so detatch a task to
         /// wait for it before checking the local network permission
         Task.detached { [dependencies] in
-            try? await dependencies.waitUntilInitialised(cache: .libSession)
+            if #available(iOS 16.0, *) {
+                try? await dependencies.waitUntilInitialised(cache: .libSession)
+            }
+            else {
+                /// iOS 15 doesn't support dependency observation so work around it with a loop
+                while true {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    
+                    /// If `libSession` has data we can break
+                    if !dependencies[cache: .libSession].isEmpty {
+                        break
+                    }
+                }
+            }
             
             if dependencies.mutate(cache: .libSession, { $0.get(.areCallsEnabled) }) && dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] {
                 Permissions.checkLocalNetworkPermission(using: dependencies)

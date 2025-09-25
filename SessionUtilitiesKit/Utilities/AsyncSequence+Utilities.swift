@@ -18,6 +18,32 @@ public extension AsyncSequence {
             }
         }
     }
+    
+    /// Returns a new async sequence that emits the given initial element before emitting the elements from the upstream sequence
+    func prepend(_ initialElement: Element?) -> AsyncThrowingStream<Element, Error> {
+        AsyncThrowingStream { continuation in
+            if let initialElement {
+                continuation.yield(initialElement)
+            }
+            
+            let observationTask: Task<Void, Never> = Task {
+                do {
+                    for try await element in self {
+                        continuation.yield(element)
+                    }
+                }
+                catch {
+                    continuation.finish(throwing: error)
+                }
+                
+                continuation.finish()
+            }
+            
+            continuation.onTermination = { @Sendable _ in
+                observationTask.cancel()
+            }
+        }
+    }
 }
 
 public extension AsyncSequence where Element: Equatable {

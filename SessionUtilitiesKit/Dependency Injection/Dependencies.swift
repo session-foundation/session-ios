@@ -165,6 +165,7 @@ public class Dependencies: FeatureStorageType {
         _cachedIsRTLRetriever.set(to: (requiresMainThread, isRTLRetriever))
     }
     
+    @available(iOS 16.0, *)
     private func waitUntilInitialised(targetKey: Dependencies.Key) async throws {
         /// If we already have an instance (which isn't a `NoopDependency`) then no need to observe the stream
         guard !_storage.performMap({ $0.instances[targetKey]?.isNoop == false }) else { return }
@@ -177,10 +178,12 @@ public class Dependencies: FeatureStorageType {
         }
     }
     
+    @available(iOS 16.0, *)
     public func waitUntilInitialised<S>(singleton: SingletonConfig<S>) async throws {
         try await waitUntilInitialised(targetKey: Key.Variant.singleton.key(singleton.identifier))
     }
     
+    @available(iOS 16.0, *)
     public func waitUntilInitialised<M, I>(cache: CacheConfig<M, I>) async throws {
         try await waitUntilInitialised(targetKey: Key.Variant.cache.key(cache.identifier))
     }
@@ -498,46 +501,35 @@ private extension Dependencies.DependencyStorage {
 // MARK: - Async/Await
 
 public extension Dependencies {
-    private func stream<T>(key: Dependencies.Key, initialValueRetriever: (() -> T?)) -> AsyncStream<T> {
-        return AsyncStream { continuation in
-            if let initialValue: T = initialValueRetriever() {
-                continuation.yield(initialValue)
-            }
-            
-            let observationTask = Task { [weak self] in
-                guard let self else { return continuation.finish() }
-                
-                for await (changedKey, changedValue) in self.dependencyChangeStream.stream {
-                    guard changedKey == key else { continue }
-                    
-                    if let newInstance = changedValue?.value(as: T.self) {
-                        continuation.yield(newInstance)
-                    }
-                }
-            }
-            
-            continuation.onTermination = { @Sendable _ in
-                observationTask.cancel()
-            }
-        }
+    @available(iOS 16.0, *)
+    private func stream<T>(key: Dependencies.Key, initialValueRetriever: (@escaping () -> T?)) -> AsyncStream<T> {
+        return dependencyChangeStream.stream
+            .filter { changedKey, _ in changedKey == key }
+            .compactMap { _, changedValue in changedValue?.value(as: T.self) }
+            .prepend(initialValueRetriever())
+            .asAsyncStream()
     }
     
+    @available(iOS 16.0, *)
     func stream<T>(key: Dependencies.Key, of type: T.Type) -> AsyncStream<T> {
         return stream(key: key, initialValueRetriever: { nil })
     }
     
+    @available(iOS 16.0, *)
     func stream<S>(singleton: SingletonConfig<S>) -> AsyncStream<S> {
         let key = Dependencies.Key.Variant.singleton.key(singleton.identifier)
         
         return stream(key: key, initialValueRetriever: { [weak self] in self?[singleton: singleton] })
     }
     
+    @available(iOS 16.0, *)
     func stream<M, I>(cache: CacheConfig<M, I>) -> AsyncStream<I> {
         let key = Dependencies.Key.Variant.cache.key(cache.identifier)
         
         return stream(key: key, initialValueRetriever: { [weak self] in self?[cache: cache] })
     }
     
+    @available(iOS 16.0, *)
     func stream<T: FeatureOption>(feature: FeatureConfig<T>) -> AsyncStream<T> {
         let key = Dependencies.Key.Variant.feature.key(feature.identifier)
         

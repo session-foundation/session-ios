@@ -926,12 +926,28 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 ))
             }
             
+            if #unavailable(iOS 16.0), (networkEnvironmentChanged || routerChanged) {
+                message.append(ThemedAttributedString(
+                    string: "\n\nThe app will need to restart for these changes to take effect.",
+                    attributes: [
+                        .paragraphStyle: style,
+                        .themeForegroundColor: ThemeValue.danger
+                    ]
+                ))
+            }
+            
             self.transitionToScreen(
                 ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "Change Network Settings",
                         body: .attributedText(message, scrollMode: .never),
-                        confirmTitle: "confirm".localized(),
+                        confirmTitle: {
+                            if #unavailable(iOS 16.0) {
+                                return "Restart"
+                            }
+                            
+                            return "confirm".localized()
+                        }(),
                         confirmStyle: .danger,
                         cancelStyle: .alert_text,
                         onConfirm: { [weak self] _ in
@@ -1136,10 +1152,6 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
         /// Perform any additional changes (eg. updating the `router`)
         additionalChanges?()
         
-        /// Remove the temporary NoopNetwork and warm a new instance now that the `serviceNetwork` has been updated
-        dependencies.remove(singleton: .network)
-        dependencies.warm(singleton: .network)
-        
         /// Run the onboarding process as if we are recovering an account (will setup the device in it's proper state)
         let updatedOnboarding: Onboarding.Manager = Onboarding.Manager(
             ed25519KeyPair: identityData.ed25519KeyPair,
@@ -1149,11 +1161,25 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                 .defaulting(to: "Anonymous"),
             using: dependencies
         )
-        dependencies.set(singleton: .onboarding, to: updatedOnboarding)
         await updatedOnboarding.completeRegistration()
         
         /// Re-enable developer mode
         dependencies.setAsync(.developerModeEnabled, true)
+        
+        if #unavailable(iOS 16.0) {
+            /// iOS 15 doesn't support live environment changes so we need to kill the app here
+            Log.info("[DevSettings] Completed swap to \(String(describing: serviceNetwork))")
+            Log.flush()
+            dependencies[singleton: .storage].suspendDatabaseAccess()
+            exit(0)
+        }
+            
+        /// Store the updated oboarding
+        dependencies.set(singleton: .onboarding, to: updatedOnboarding)
+            
+        /// Remove the temporary NoopNetwork and warm a new instance now that the `serviceNetwork` has been updated
+        dependencies.remove(singleton: .network)
+        dependencies.warm(singleton: .network)
         
         /// Restart the current user poller (there won't be any other pollers though)
         Task { @MainActor [poller = dependencies[singleton: .currentUserPoller]] in

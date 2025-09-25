@@ -19,28 +19,22 @@ public actor StreamLifecycleManager<Element: Sendable>: @unchecked Sendable {
     
     // MARK: - Internal Functions
     
-    private func addContinuation(_ continuation: AsyncStream<Element>.Continuation, for id: UUID) {
-        continuations[id] = continuation
-    }
-    
     private func removeContinuation(id: UUID) {
         continuations.removeValue(forKey: id)
     }
     
     // MARK: - Functions
     
-    nonisolated func makeTrackedStream() -> (stream: AsyncStream<Element>, id: UUID) {
+    func makeTrackedStream() -> (stream: AsyncStream<Element>, continuation: AsyncStream<Element>.Continuation, id: UUID) {
         let id: UUID = UUID()
         let (stream, continuation) = AsyncStream.makeStream(of: Element.self)
         continuation.onTermination = { @Sendable [weak self] _ in
             Task { await self?.removeContinuation(id: id) }
         }
         
-        Task { [weak self] in
-            await self?.addContinuation(continuation, for: id)
-        }
+        continuations[id] = continuation
         
-        return (stream, id)
+        return (stream, continuation, id)
     }
     
     func send(_ value: Element) {

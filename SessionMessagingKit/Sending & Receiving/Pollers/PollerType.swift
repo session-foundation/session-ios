@@ -148,12 +148,9 @@ public extension PollerType {
         )
         
         /// Don't bother trying to poll if we don't have a network connection, just wait for one to be established
-        try await dependencies.waitUntilConnected(
-            onWillStartWaiting: { [pollerName] in
-                Log.info(.poller, "\(pollerName) waiting for network to connect before starting to poll.")
-            },
-            retryDelayProvider: self.nextPollDelay
-        )
+        try await dependencies.waitUntilConnected(onWillStartWaiting: { [pollerName] in
+            Log.info(.poller, "\(pollerName) waiting for network to connect before starting to poll.")
+        })
         
         /// Now that we have a connection just poll indefinitely
         while true {
@@ -233,11 +230,13 @@ public extension PollerType {
     private func listenForReplacement() async throws {
         guard let key: Dependencies.Key = dependenciesKey else { return }
         
-        for await changedValue in dependencies.stream(key: key, of: (any PollerType).self) {
-            if ObjectIdentifier(changedValue as AnyObject) != ObjectIdentifier(self as AnyObject) {
-                Log.info(.poller, "\(pollerName) has been replaced in dependencies, shutting down old instance.")
-                pollTask?.cancel()
-                break
+        if #available(iOS 16.0, *) {
+            for await changedValue in dependencies.stream(key: key, of: (any PollerType).self) {
+                if ObjectIdentifier(changedValue as AnyObject) != ObjectIdentifier(self as AnyObject) {
+                    Log.info(.poller, "\(pollerName) has been replaced in dependencies, shutting down old instance.")
+                    pollTask?.cancel()
+                    break
+                }
             }
         }
     }

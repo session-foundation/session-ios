@@ -25,11 +25,10 @@ public actor CurrentValueAsyncStream<Element: Sendable>: CancellationAwareStream
         await lifecycleManager.finishCurrentStreams()
     }
     
-    public func beforeYield(to continuation: AsyncStream<Element>.Continuation) async {
+    public func _makeTrackedStream() async -> AsyncStream<Element> {
+        let (stream, continuation, _) = await lifecycleManager.makeTrackedStream()
         continuation.yield(currentValue)
-    }
-    
-    public func _makeTrackedStream() -> AsyncStream<Element> {
-        lifecycleManager.makeTrackedStream().stream
+        
+        return stream
     }
 }
