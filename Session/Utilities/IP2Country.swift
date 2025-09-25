@@ -217,10 +217,21 @@ fileprivate class IP2Country: IP2CountryCacheType {
         
         guard nameCache["\(ip)-\(currentLocale)"] == nil else { return }
         
+        /// Code block checks if IP passed is unknown, not supported or blocked
         guard
             let ipAsInt: Int64 = IPv4.toInt(ip),
-            let countryBlockGeonameIdIndex: Int = cache.countryBlocksIPInt.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 }),
-            let localeStartIndex: Int = cache.countryLocationsLocaleCode.firstIndex(where: { $0 == currentLocale }),
+            let countryBlockGeonameIdIndex: Int = cache.countryBlocksIPInt.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 })
+        else { return }
+        
+        /// Get local index for the current locale
+        /// When index is not found it should fallback to english
+        var validLocaleStartIndex: Int? {
+            cache.countryLocationsLocaleCode.firstIndex(of: currentLocale)
+            ?? cache.countryLocationsLocaleCode.firstIndex(of: "en")
+        }
+
+        guard
+            let localeStartIndex: Int = validLocaleStartIndex,
             let countryNameIndex: Int = Array(cache.countryLocationsGeonameId[localeStartIndex...]).firstIndex(where: { geonameId in
                 geonameId == cache.countryBlocksGeonameId[countryBlockGeonameIdIndex]
             }),
