@@ -491,7 +491,14 @@ extension SessionProSettingsViewModel {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPaymentScreen(
                 dataModel: .init(
-                    flow: .refund,
+                    flow: .refund(
+                        originatingPlatform: {
+                            switch dependencies[singleton: .sessionProState].sessionProStateSubject.value.originatingPlatform {
+                                case .iOS: return .iOS
+                                case .Android: return .Android
+                            }
+                        }()
+                    ),
                     plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
                 )
             )
@@ -622,8 +629,15 @@ extension SessionProPlanState {
                 )
             case .expired:
                 return .renew
-            case .refunding:
-                return .refund
+            case .refunding(let originatingPlatform):
+                return .refund(
+                    originatingPlatform: {
+                        switch originatingPlatform {
+                            case .iOS: return .iOS
+                            case .Android: return .Android
+                        }
+                    }()
+                )
         }
     }
 }

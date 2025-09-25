@@ -19,7 +19,17 @@ public enum SessionProPlanState {
         originatingPlatform: ClientPlatform
     )
     case expired
-    case refunding
+    case refunding(
+        originatingPlatform: ClientPlatform
+    )
+    
+    public var originatingPlatform: ClientPlatform {
+        return switch(self) {
+            case .active(_, _, _, let originatingPlatform): originatingPlatform
+            case .refunding(let originatingPlatform): originatingPlatform
+            default: .iOS // FIXME: get the real originating platform
+        }
+    }
 }
 
 public struct SessionProPlan: Equatable {

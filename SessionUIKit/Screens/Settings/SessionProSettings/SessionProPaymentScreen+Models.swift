@@ -14,7 +14,9 @@ public extension SessionProPaymentScreenContent {
             originatingPlatform: ClientPlatform
         )
         case renew
-        case refund
+        case refund(
+            originatingPlatform: ClientPlatform
+        )
         case cancel
     }
     
