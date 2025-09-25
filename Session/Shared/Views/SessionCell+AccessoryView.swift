@@ -55,7 +55,6 @@ extension SessionCell {
                     accessory: accessory,
                     tintColor: tintColor,
                     isEnabled: isEnabled,
-                    maxContentWidth: maxContentWidth,
                     using: dependencies
                 )
                 return
@@ -81,7 +80,6 @@ extension SessionCell {
                 accessory: accessory,
                 tintColor: tintColor,
                 isEnabled: isEnabled,
-                maxContentWidth: maxContentWidth,
                 using: dependencies
             )
             
@@ -177,14 +175,16 @@ extension SessionCell {
                     return createIconView(using: dependencies)
                     
                 case is SessionCell.AccessoryConfig.Toggle: return createToggleView()
-                case is SessionCell.AccessoryConfig.DropDown: return createDropDownView()
+                case is SessionCell.AccessoryConfig.DropDown:
+                    return createDropDownView(maxContentWidth: maxContentWidth)
+                    
                 case is SessionCell.AccessoryConfig.Radio: return createRadioView()
                     
                 case is SessionCell.AccessoryConfig.HighlightingBackgroundLabel:
-                    return createHighlightingBackgroundLabelView()
+                    return createHighlightingBackgroundLabelView(maxContentWidth: maxContentWidth)
                     
                 case is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio:
-                    return createHighlightingBackgroundLabelAndRadioView()
+                    return createHighlightingBackgroundLabelAndRadioView(maxContentWidth: maxContentWidth)
                     
                 case is SessionCell.AccessoryConfig.DisplayPicture: return createDisplayPictureView()
                 case is SessionCell.AccessoryConfig.Search: return createSearchView()
@@ -202,7 +202,7 @@ extension SessionCell {
                     return nil
             }
         }
-        
+ 
         private func layout(view: UIView?, accessory: Accessory) {
             switch accessory {
                 case let accessory as SessionCell.AccessoryConfig.QRCode:
@@ -212,10 +212,20 @@ extension SessionCell {
                     layoutProBadgeView(view, size: accessory.proBadgeSize)
         
                 case let accessory as SessionCell.AccessoryConfig.Icon:
-                    layoutIconView(view, iconSize: accessory.iconSize, shouldFill: accessory.shouldFill)
+                    layoutIconView(
+                        view,
+                        iconSize: accessory.iconSize,
+                        shouldFill: accessory.shouldFill,
+                        pin: accessory.pinEdges
+                    )
                     
                 case let accessory as SessionCell.AccessoryConfig.IconAsync:
-                    layoutIconView(view, iconSize: accessory.iconSize, shouldFill: accessory.shouldFill)
+                    layoutIconView(
+                        view,
+                        iconSize: accessory.iconSize,
+                        shouldFill: accessory.shouldFill,
+                        pin: accessory.pinEdges
+                    )
                     
                 case is SessionCell.AccessoryConfig.Toggle: layoutToggleView(view)
                 case is SessionCell.AccessoryConfig.DropDown: layoutDropDownView(view)
@@ -247,7 +257,6 @@ extension SessionCell {
             accessory: Accessory,
             tintColor: ThemeValue,
             isEnabled: Bool,
-            maxContentWidth: CGFloat,
             using dependencies: Dependencies
         ) {
             switch accessory {
@@ -395,15 +404,25 @@ extension SessionCell {
             return result
         }
         
-        private func layoutIconView(_ view: UIView?, iconSize: IconSize, shouldFill: Bool) {
+        private func layoutIconView(_ view: UIView?, iconSize: IconSize, shouldFill: Bool, pin edges: [UIView.HorizontalEdge]) {
             guard let imageView: SessionImageView = view as? SessionImageView else { return }
             
             imageView.set(.width, to: iconSize.size)
             imageView.set(.height, to: iconSize.size)
-            imageView.pin(.leading, to: .leading, of: self, withInset: (shouldFill ? 0 : Values.smallSpacing))
-            imageView.pin(.trailing, to: .trailing, of: self, withInset: (shouldFill ? 0 : -Values.smallSpacing))
             imageView.pin(.top, to: .top, of: self)
             imageView.pin(.bottom, to: .bottom, of: self)
+
+            let shouldInvertPadding: [UIView.HorizontalEdge] = [.left, .trailing]
+   
+            for edge in edges {
+                let inset: CGFloat = (
+                    (shouldFill ? 0 : Values.smallSpacing) *
+                    (shouldInvertPadding.contains(edge) ? -1 : 1)
+                )
+                
+                imageView.pin(edge, to: edge, of: self, withInset: inset)
+            }
+            
             fixedWidthConstraint.isActive = (iconSize.size <= fixedWidthConstraint.constant)
             minWidthConstraint.isActive = !fixedWidthConstraint.isActive
         }
@@ -415,7 +434,7 @@ extension SessionCell {
             imageView.accessibilityLabel = accessory.accessibility?.label
             imageView.themeTintColor = (accessory.customTint ?? tintColor)
             imageView.contentMode = (accessory.shouldFill ? .scaleAspectFill : .scaleAspectFit)
-            
+
             switch (accessory.icon, accessory.image) {
                 case (.some(let icon), _):
                     imageView.image = Lucide
@@ -486,7 +505,7 @@ extension SessionCell {
         
         // MARK: -- DropDown
         
-        private func createDropDownView() -> UIView {
+        private func createDropDownView(maxContentWidth: CGFloat) -> UIView {
             let result: UIStackView = UIStackView()
             result.translatesAutoresizingMaskIntoConstraints = false
             result.axis = .horizontal
@@ -506,6 +525,7 @@ extension SessionCell {
             label.themeTextColor = .textPrimary
             label.setContentHugging(to: .required)
             label.setCompressionResistance(to: .required)
+            label.preferredMaxLayoutWidth = (maxContentWidth * 0.4)    /// Limit to 40% of content width
             label.numberOfLines = 0
             
             result.addArrangedSubview(imageView)
@@ -620,8 +640,11 @@ extension SessionCell {
         
         // MARK: -- HighlightingBackgroundLabel
         
-        private func createHighlightingBackgroundLabelView() -> UIView {
-            return SessionHighlightingBackgroundLabel()
+        private func createHighlightingBackgroundLabelView(maxContentWidth: CGFloat) -> UIView {
+            let result: SessionHighlightingBackgroundLabel = SessionHighlightingBackgroundLabel()
+            result.preferredMaxLayoutWidth = (maxContentWidth * 0.4)    /// Limit to 40% of content width
+            
+            return result
         }
         
         private func layoutHighlightingBackgroundLabelView(_ view: UIView?) {
@@ -650,10 +673,11 @@ extension SessionCell {
         
         // MARK: -- HighlightingBackgroundLabelAndRadio
         
-        private func createHighlightingBackgroundLabelAndRadioView() -> UIView {
+        private func createHighlightingBackgroundLabelAndRadioView(maxContentWidth: CGFloat) -> UIView {
             let result: UIView = UIView()
             let label: SessionHighlightingBackgroundLabel = SessionHighlightingBackgroundLabel()
             let radio: UIView = createRadioView()
+            label.preferredMaxLayoutWidth = (maxContentWidth * 0.4)    /// Limit to 40% of content width
             
             result.addSubview(label)
             result.addSubview(radio)
@@ -668,6 +692,8 @@ extension SessionCell {
                 let radioBorderView: UIView = view.subviews.last,
                 let radioView: UIView = radioBorderView.subviews.first
             else { return }
+            
+            label.pin(to: self)
             
             label.pin(.top, to: .top, of: self)
             label.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
@@ -866,10 +892,7 @@ extension SessionCell {
                     minWidthConstraint.isActive = true
             }
             
-            view.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
-            view.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
-            view.pin(.top, to: .top, of: self)
-            view.pin(.bottom, to: .bottom, of: self)
+            view.pin(to: self)
         }
         
         private func configureCustomView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.AnyCustom) {

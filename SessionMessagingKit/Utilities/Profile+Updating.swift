@@ -125,7 +125,36 @@ public extension Profile {
                     }
                     .eraseToAnyPublisher()
         }
-    }    
+    }
+    
+    /// To try to maintain backwards compatibility with profile changes we want to continue to accept profile changes from old clients if
+    /// we haven't received a profile update from a new client yet otherwise, if we have, then we should only accept profile changes if
+    /// they are newer that our cached version of the profile data
+    static func shouldUpdateProfile(
+        _ profileUpdateTimestamp: TimeInterval?,
+        profile: Profile,
+        using dependencies: Dependencies
+    ) -> Bool {
+        /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
+        /// there before falling back to the one fetched from the database
+        let targetProfile: Profile = (
+            dependencies.mutate(cache: .libSession) { $0.profile(contactId: profile.id) } ??
+            profile
+        )
+        let finalProfileUpdateTimestamp: TimeInterval = (profileUpdateTimestamp ?? 0)
+        let finalCachedProfileUpdateTimestamp: TimeInterval = (targetProfile.profileLastUpdated ?? 0)
+        
+        /// If neither the profile update or the cached profile have a timestamp then we should just always accept the update
+        ///
+        /// **Note:** We check if they are equal to `0` here because the default value from `libSession` will be `0`
+        /// rather than `null`
+        guard finalProfileUpdateTimestamp != 0 || finalCachedProfileUpdateTimestamp != 0 else {
+            return true
+        }
+        
+        /// Otherwise we should only accept the update if it's newer than our cached value
+        return (finalProfileUpdateTimestamp > finalCachedProfileUpdateTimestamp)
+    }
     
     static func updateIfNeeded(
         _ db: ObservingDatabase,
@@ -133,7 +162,7 @@ public extension Profile {
         displayNameUpdate: DisplayNameUpdate = .none,
         displayPictureUpdate: DisplayPictureManager.Update,
         blocksCommunityMessageRequests: Bool? = nil,
-        profileUpdateTimestamp: TimeInterval,
+        profileUpdateTimestamp: TimeInterval?,
         isReuploadCurrentUserProfilePicture: Bool = false,
         using dependencies: Dependencies
     ) throws {
@@ -141,7 +170,9 @@ public extension Profile {
         let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
         var profileChanges: [ConfigColumnAssignment] = []
         
-        guard profileUpdateTimestamp > profile.profileLastUpdated.defaulting(to: 0) else { return }
+        guard shouldUpdateProfile(profileUpdateTimestamp, profile: profile, using: dependencies) else {
+            return
+        }
         
         // Name
         switch (displayNameUpdate, isCurrentUser) {
@@ -214,7 +245,7 @@ public extension Profile {
             default: break
         }
         
-        // Persist any changes
+        /// Persist any changes
         if !profileChanges.isEmpty {
             profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
             
@@ -228,7 +259,8 @@ public extension Profile {
                     using: dependencies
                 )
                 
-            
+            /// We don't automatically update the current users profile data when changed in the database so need to manually
+            /// trigger the update
             if isCurrentUser, let updatedProfile = try? Profile.fetchOne(db, id: publicKey) {
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile, sessionId: dependencies[cache: .general].sessionId) { _ in

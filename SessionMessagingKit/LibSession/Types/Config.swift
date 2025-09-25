@@ -4,7 +4,7 @@
 
 import Foundation
 import SessionUtil
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension LibSession {
@@ -324,7 +324,7 @@ public extension LibSession {
                         .sorted()
                     
                     if successfulMergeTimestamps.count != messages.count {
-                        Log.warn(.libSession, "Unable to merge \(SnodeAPI.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
+                        Log.warn(.libSession, "Unable to merge \(Network.SnodeAPI.Namespace.configGroupKeys) messages (\(successfulMergeTimestamps.count)/\(messages.count))")
                     }
                     
                     return successfulMergeTimestamps.last

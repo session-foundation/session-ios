@@ -33,7 +33,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.internalState = State.initialState(userSessionId: dependencies[cache: .general].sessionId)
+        self.internalState = State.initialState(
+            userSessionId: dependencies[cache: .general].sessionId,
+            isSessionPro: dependencies[cache: .libSession].isSessionPro
+        )
         
         bindState()
     }
@@ -151,6 +154,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public struct State: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
+        let isSessionPro: Bool
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let developerModeEnabled: Bool
@@ -165,15 +169,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 .profile(userSessionId.hexString),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
+                .feature(.mockCurrentUserSessionPro),
                 .setting(.developerModeEnabled),
                 .setting(.hideRecoveryPasswordPermanently)
+                // TODO: [PRO] Need to observe changes to the users pro status
             ]
         }
         
-        static func initialState(userSessionId: SessionId) -> State {
+        static func initialState(userSessionId: SessionId, isSessionPro: Bool) -> State {
             return State(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
+                isSessionPro: isSessionPro,
                 serviceNetwork: .mainnet,
                 forceOffline: false,
                 developerModeEnabled: false,
@@ -207,6 +214,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     ) async -> State {
         /// Store mutable copies of the data to update
         var profile: Profile = previousState.profile
+        var isSessionPro: Bool = previousState.isSessionPro
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
         var developerModeEnabled: Bool = previousState.developerModeEnabled
@@ -256,12 +264,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 
                 forceOffline = updatedValue
             }
+            else if event.key == .feature(.mockCurrentUserSessionPro) {
+                guard let updatedValue: Bool = event.value as? Bool else { return }
+                
+                isSessionPro = updatedValue
+            }
         }
         
         /// Generate the new state
         return State(
             userSessionId: previousState.userSessionId,
             profile: profile,
+            isSessionPro: isSessionPro,
             serviceNetwork: serviceNetwork,
             forceOffline: forceOffline,
             developerModeEnabled: developerModeEnabled,
@@ -306,11 +320,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         state.profile.displayName(),
                         font: .titleLarge,
                         alignment: .center,
-                        interaction: .editable,
-                        textTailing: (
-                            viewModel.dependencies[cache: .libSession].isSessionPro ?
-                            SessionProBadge(size: .medium).toImage() :
-                                nil
+                        trailingImage: (state.isSessionPro ?
+                            ("ProBadge", SessionProBadge(size: .medium).toImage()) :
+                            nil
                         )
                     ),
                     styling: SessionCell.StyleInfo(
@@ -697,14 +709,40 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 }),
             icon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
-            showPro: dependencies[feature: .sessionProEnabled],
+            description: {
+                guard dependencies[feature: .sessionProEnabled] else { return nil }
+                return dependencies[cache: .libSession].isSessionPro ?
+                    "proAnimatedDisplayPictureModalDescription"
+                        .localized()
+                        .addProBadge(
+                            at: .leading,
+                            font: .systemFont(ofSize: Values.smallFontSize),
+                            textColor: .textSecondary,
+                            proBadgeSize: .small
+                        ):
+                    "proAnimatedDisplayPicturesNonProModalDescription"
+                        .localized()
+                        .addProBadge(
+                            at: .trailing,
+                            font: .systemFont(ofSize: Values.smallFontSize),
+                            textColor: .textSecondary,
+                            proBadgeSize: .small
+                        )
+            }(),
             accessibility: Accessibility(
                 identifier: "Upload",
                 label: "Upload"
             ),
             dataManager: dependencies[singleton: .imageDataManager],
-            onProBageTapped: { [weak self] in
-                self?.showSessionProCTAIfNeeded()
+            onProBageTapped: { [weak self, dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                    .animatedProfileImage(
+                        isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                    ),
+                    presenting: { modal in
+                        self?.transitionToScreen(modal, transitionType: .present)
+                    }
+                )
             },
             onClick: { [weak self] onDisplayPictureSelected in
                 self?.onDisplayPictureSelected = { valueUpdate in
@@ -747,7 +785,14 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     dependencies[cache: .libSession].isSessionPro ||
                                     !dependencies[feature: .sessionProEnabled]
                                 ) else {
-                                    self?.showSessionProCTAIfNeeded()
+                                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                        .animatedProfileImage(
+                                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                                        ),
+                                        presenting: { modal in
+                                            self?.transitionToScreen(modal, transitionType: .present)
+                                        }
+                                    )
                                     return
                                 }
                             
@@ -779,23 +824,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             ),
             transitionType: .present
         )
-    }
-    
-    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
-        guard dependencies[feature: .sessionProEnabled] else { return false }
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                variant: .animatedProfileImage(
-                    isSessionProActivated: dependencies[cache: .libSession].isSessionPro
-                ),
-                dataManager: dependencies[singleton: .imageDataManager],
-                onConfirm: { [dependencies] in
-                    dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
-                }
-            )
-        )
-        self.transitionToScreen(sessionProModal, transitionType: .present)
-        return true
     }
     
     @MainActor private func showPhotoLibraryForAvatar() {

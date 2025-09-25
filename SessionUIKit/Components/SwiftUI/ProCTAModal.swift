@@ -151,9 +151,11 @@ public struct ProCTAModal: View {
                         }
                         
                         if
-                            case .groupLimit(_, let isSessionProActivated) = variant, isSessionProActivated,
-                            let proBadgeImage: UIImage = SessionProBadge(size: .small).toImage()
+                            case .groupLimit(_, let isSessionProActivated) = variant,
+                            isSessionProActivated
                         {
+                            let proBadgeImage: UIImage = SessionProBadge(size: .small).toImage()
+                            
                             (Text(variant.subtitle) + Text(" \(Image(uiImage: proBadgeImage))").baselineOffset(-2))
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textSecondary)
@@ -320,10 +322,8 @@ public extension ProCTAModal {
         /// of the modal.
         public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
             switch self {
-                case .generic:
-                return (1313.5, 753)
-                case .animatedProfileImage:
-                return (690, 363)
+                case .generic: return (1313.5, 753)
+                case .animatedProfileImage: return (690, 363)
                 default: return (0, 0)
             }
         }
@@ -341,18 +341,18 @@ public extension ProCTAModal {
                         .localized()
                 case .animatedProfileImage(let isSessionProActivated):
                     return isSessionProActivated ?
-                        "proAnimatedDisplayPicture".localized() :
-                        "proAnimatedDisplayPictureCallToActionDescription"
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localized()
+                    "proAnimatedDisplayPicture".localized() :
+                    "proAnimatedDisplayPictureCallToActionDescription"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .localized()
                 case .morePinnedConvos(let isGrandfathered):
                     return isGrandfathered ?
-                        "proCallToActionPinnedConversations"
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localized() :
-                        "proCallToActionPinnedConversationsMoreThan"
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localized()
+                    "proCallToActionPinnedConversations"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .localized() :
+                    "proCallToActionPinnedConversationsMoreThan"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .localized()
                 case .groupLimit(let isAdmin, let isSessionProActivated):
                     switch (isAdmin, isSessionProActivated) {
                         case (_, true):
@@ -454,6 +454,50 @@ public extension ProCTAModal {
                     return false
             }
         }
+    }
+}
+
+// MARK: - SessionProCTAManagerType
+
+public protocol SessionProCTAManagerType: AnyObject {
+    @discardableResult func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        dismissType: Modal.DismissType,
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool
+}
+
+// MARK: - Convenience
+
+public extension SessionProCTAManagerType {
+    @discardableResult func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool {
+        showSessionProCTAIfNeeded(
+            variant,
+            dismissType: .recursive,
+            beforePresented: beforePresented,
+            afterClosed: afterClosed,
+            presenting: presenting
+        )
+    }
+    
+    @discardableResult func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool {
+        showSessionProCTAIfNeeded(
+            variant,
+            dismissType: .recursive,
+            beforePresented: nil,
+            afterClosed: nil,
+            presenting: presenting
+        )
     }
 }
 

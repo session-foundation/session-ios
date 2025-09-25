@@ -3,7 +3,7 @@
 import Foundation
 import Combine
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 extension MessageReceiver {
@@ -140,14 +140,13 @@ extension MessageReceiver {
         
         // Update profile if needed
         if let profile = message.profile {
-            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? sentTimestampMs) / 1000)
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                profileUpdateTimestamp: profileUpdateTimestamp,
+                profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
         }
@@ -245,14 +244,13 @@ extension MessageReceiver {
         
         // Update profile if needed
         if let profile = message.profile {
-            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? sentTimestampMs) / 1000)
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                profileUpdateTimestamp: profileUpdateTimestamp,
+                profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
         }
@@ -309,7 +307,7 @@ extension MessageReceiver {
         // devices that had the group before they were promoted
         try SnodeReceivedMessageInfo
             .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == groupSessionId.hexString)
-            .filter(SnodeReceivedMessageInfo.Columns.namespace == SnodeAPI.Namespace.groupMessages.rawValue)
+            .filter(SnodeReceivedMessageInfo.Columns.namespace == Network.SnodeAPI.Namespace.groupMessages.rawValue)
             .updateAllAndConfig(
                 db,
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true),
@@ -607,14 +605,13 @@ extension MessageReceiver {
         
         // Update profile if needed
         if let profile = message.profile {
-            let profileUpdateTimestamp: TimeInterval = TimeInterval(Double(profile.updateTimestampMs ?? sentTimestampMs) / 1000)
             try Profile.updateIfNeeded(
                 db,
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                profileUpdateTimestamp: profileUpdateTimestamp,
+                profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
         }
@@ -756,7 +753,7 @@ extension MessageReceiver {
             )
         else { return }
         
-        try? SnodeAPI
+        try? Network.SnodeAPI
             .preparedDeleteMessages(
                 serverHashes: Array(hashes),
                 requireSuccessfulDeletion: false,
@@ -924,7 +921,7 @@ extension MessageReceiver {
                 db.afterCommit {
                     dependencies[singleton: .storage]
                         .readPublisher { db in
-                            try SnodeAPI.preparedDeleteMessages(
+                            try Network.SnodeAPI.preparedDeleteMessages(
                                 serverHashes: [serverHash],
                                 requireSuccessfulDeletion: false,
                                 authMethod: try Authentication.with(

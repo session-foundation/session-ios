@@ -5,15 +5,14 @@ import Combine
 import GRDB
 import DifferenceKit
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
-class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, EditableStateHolder, ObservableTableSource {
+class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let editableState: EditableState<TableItem> = EditableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     private let selectedIdsSubject: CurrentValueSubject<(name: String, ids: Set<String>), Never> = CurrentValueSubject(("", []))
@@ -543,7 +542,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Editabl
                             case (.some(let inviteByIdValue), _):
                                 // This could be an ONS name
                                 let viewController = ModalActivityIndicatorViewController() { modalActivityIndicator in
-                                    SnodeAPI
+                                    Network.SnodeAPI
                                         .getSessionID(for: inviteByIdValue, using: dependencies)
                                         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                                         .receive(on: DispatchQueue.main, using: dependencies)

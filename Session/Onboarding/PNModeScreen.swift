@@ -3,7 +3,7 @@
 import SwiftUI
 import Combine
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 

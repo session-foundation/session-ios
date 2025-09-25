@@ -14,7 +14,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 import SwiftUI
-import SessionSnodeKit
+import SessionNetworkingKit
 
 extension ConversationVC:
     InputViewDelegate,
@@ -22,7 +22,8 @@ extension ConversationVC:
     ContextMenuActionDelegate,
     SendMediaNavDelegate,
     AttachmentApprovalViewControllerDelegate,
-    GifPickerViewControllerDelegate
+    GifPickerViewControllerDelegate,
+    UIGestureRecognizerDelegate
 {
     // MARK: - Open Settings
     
@@ -31,6 +32,11 @@ extension ConversationVC:
         guard viewModel.threadData.threadRequiresApproval == false else { return }
 
         openSettingsFromTitleView()
+    }
+    
+    // Handle taps outside of tableview cell to dismiss keyboard
+    @MainActor @objc func dismissKeyboardOnTap() {
+        _ = self.snInputView.resignFirstResponder()
     }
     
     @MainActor func openSettingsFromTitleView() {
@@ -231,29 +237,8 @@ extension ConversationVC:
         return true
     }
     
-    // MARK: - Session Pro CTA
-    
-    @discardableResult func showSessionProCTAIfNeeded(_ variant: ProCTAModal.Variant) -> Bool {
-        let dependencies: Dependencies = viewModel.dependencies
-        guard dependencies[feature: .sessionProEnabled] && (!viewModel.isCurrentUserSessionPro) else {
-            return false
-        }
-        self.hideInputAccessoryView()
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                variant: variant,
-                dataManager: dependencies[singleton: .imageDataManager],
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
-                },
-                onConfirm: { [dependencies] in
-                    dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
-                }
-            )
-        )
-        present(sessionProModal, animated: true, completion: nil)
-        
+    // MARK: - UIGestureRecognizerDelegate
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
     }
 
@@ -534,7 +519,21 @@ extension ConversationVC:
     }
     
     func handleCharacterLimitLabelTapped() {
-        guard !showSessionProCTAIfNeeded(.longerMessages) else { return }
+        guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
         
         self.hideInputAccessoryView()
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
@@ -626,7 +625,21 @@ extension ConversationVC:
     }
     
     func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
-        guard !showSessionProCTAIfNeeded(.longerMessages) else { return }
+        guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
         
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -863,6 +876,9 @@ extension ConversationVC:
     }
 
     func showLinkPreviewSuggestionModal() {
+        // Hides accessory view while link preview confirmation is presented
+        hideInputAccessoryView()
+        
         let linkPreviewModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "linkPreviewsEnable".localized(),
@@ -873,12 +889,17 @@ extension ConversationVC:
                 ),
                 confirmTitle: "enable".localized(),
                 confirmStyle: .danger,
-                cancelStyle: .alert_text
-            ) { [weak self, dependencies = viewModel.dependencies] _ in
-                dependencies.setAsync(.areLinkPreviewsEnabled, true) {
-                    self?.snInputView.autoGenerateLinkPreview()
+                cancelStyle: .alert_text,
+                onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
+                    dependencies.setAsync(.areLinkPreviewsEnabled, true) {
+                        self?.snInputView.autoGenerateLinkPreview()
+                    }
+                },
+                afterClosed: { [weak self] in
+                    // Bring back accessory view after confirmation action
+                    self?.showInputAccessoryView()
                 }
-            }
+            )
         )
         
         present(linkPreviewModal, animated: true, completion: nil)
@@ -1058,7 +1079,7 @@ extension ConversationVC:
     }
 
     // MARK: MessageCellDelegate
-
+    
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
         // Show the unblock modal if needed
         guard self.viewModel.threadData.threadIsBlocked != true else {
@@ -1566,13 +1587,37 @@ extension ConversationVC:
         guard let profileInfo: ProfilePictureView.Info = info else { return }
         
         let (sessionId, blindedId): (String?, String?) = {
-            guard (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15 else {
+            guard
+                (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15,
+                let openGroupServer: String = cellViewModel.threadOpenGroupServer,
+                let openGroupPublicKey: String = cellViewModel.threadOpenGroupPublicKey
+            else {
                 return (cellViewModel.authorId, nil)
             }
-            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].read { db in
-                try? BlindedIdLookup.fetchOne(db, id: cellViewModel.authorId)
+            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].write { db in
+                try BlindedIdLookup.fetchOrCreate(
+                    db,
+                    blindedId: cellViewModel.authorId,
+                    openGroupServer: openGroupServer,
+                    openGroupPublicKey: openGroupPublicKey,
+                    isCheckingForOutbox: false,
+                    using: dependencies
+                )
             }
-            return (lookup?.sessionId, cellViewModel.authorId)
+            return (lookup?.sessionId, cellViewModel.authorId.truncated(prefix: 10, suffix: 10))
+        }()
+        
+        let (displayName, contactDisplayName): (String?, String?) = {
+            guard let sessionId: String = sessionId else {
+                return (cellViewModel.authorName, nil)
+            }
+            
+            let profile: Profile? = dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId)}
+            
+            return (
+                (profile?.displayName(for: .contact) ?? cellViewModel.authorName),
+                profile?.displayName(for: .contact, ignoringNickname: true)
+            )
         }()
         
         let qrCodeImage: UIImage? = {
@@ -1593,11 +1638,8 @@ extension ConversationVC:
                     blindedId: blindedId,
                     qrCodeImage: qrCodeImage,
                     profileInfo: profileInfo,
-                    displayName: cellViewModel.authorName,
-                    nickname: cellViewModel.profile?.displayName(
-                        for: cellViewModel.threadVariant,
-                        ignoringNickname: true
-                    ),
+                    displayName: displayName,
+                    contactDisplayName: contactDisplayName,
                     isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
                     isMessageRequestsEnabled: isMessasgeRequestsEnabled,
                     onStartThread: { [weak self] in
@@ -1607,8 +1649,21 @@ extension ConversationVC:
                             openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
                         )
                     },
-                    onProBadgeTapped: { [weak self] in
-                        self?.showSessionProCTAIfNeeded(.generic)
+                    onProBadgeTapped: { [weak self, dependencies] in
+                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                            .generic,
+                            dismissType: .single,
+                            beforePresented: { [weak self] in
+                                self?.hideInputAccessoryView()
+                            },
+                            afterClosed: { [weak self] in
+                                self?.showInputAccessoryView()
+                                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                            },
+                            presenting: { modal in
+                                dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
+                            }
+                        )
                     }
                 ),
                 dataManager: dependencies[singleton: .imageDataManager],
@@ -1822,7 +1877,7 @@ extension ConversationVC:
             let openGroupServerMessageId: Int64 = cellViewModel.openGroupServerMessageId
         else { return }
         
-        let pendingChange: OpenGroupAPI.PendingChange = viewModel.dependencies[singleton: .openGroupManager]
+        let pendingChange: OpenGroupManager.PendingChange = viewModel.dependencies[singleton: .openGroupManager]
             .addPendingReaction(
                 emoji: emoji,
                 id: openGroupServerMessageId,
@@ -1832,7 +1887,7 @@ extension ConversationVC:
             )
         
         Result {
-            try OpenGroupAPI.preparedReactionDeleteAll(
+            try Network.SOGS.preparedReactionDeleteAll(
                 emoji: emoji,
                 id: openGroupServerMessageId,
                 roomToken: roomToken,
@@ -1907,14 +1962,14 @@ extension ConversationVC:
         
         typealias OpenGroupInfo = (
             pendingReaction: Reaction?,
-            pendingChange: OpenGroupAPI.PendingChange,
+            pendingChange: OpenGroupManager.PendingChange,
             preparedRequest: Network.PreparedRequest<Int64?>
         )
         
         /// Perform the sending logic, we generate the pending reaction first in a deferred future closure to prevent the OpenGroup
         /// cache from blocking either the main thread or the database write thread
         Deferred { [dependencies = viewModel.dependencies] in
-            Future<OpenGroupAPI.PendingChange?, Error> { resolver in
+            Future<OpenGroupManager.PendingChange?, Error> { resolver in
                 guard
                     threadVariant == .community,
                     let serverMessageId: Int64 = cellViewModel.openGroupServerMessageId,
@@ -1935,7 +1990,7 @@ extension ConversationVC:
             }
         }
         .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: viewModel.dependencies)
-        .flatMapStorageWritePublisher(using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] db, pendingChange -> (OpenGroupAPI.PendingChange?, Reaction?, Message.Destination, AuthenticationMethod) in
+        .flatMapStorageWritePublisher(using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] db, pendingChange -> (OpenGroupManager.PendingChange?, Reaction?, Message.Destination, AuthenticationMethod) in
             // Update the thread to be visible (if it isn't already)
             if self?.viewModel.threadData.threadShouldBeVisible == false {
                 try SessionThread.updateVisibility(
@@ -2013,12 +2068,12 @@ extension ConversationVC:
                         let serverMessageId: Int64 = cellViewModel.openGroupServerMessageId,
                         let openGroupServer: String = cellViewModel.threadOpenGroupServer,
                         let openGroupRoom: String = openGroupRoom,
-                        let pendingChange: OpenGroupAPI.PendingChange = pendingChange
+                        let pendingChange: OpenGroupManager.PendingChange = pendingChange
                     else { throw MessageSenderError.invalidMessage }
                     
                     let preparedRequest: Network.PreparedRequest<Int64?> = try {
                         guard !remove else {
-                            return try OpenGroupAPI
+                            return try Network.SOGS
                                 .preparedReactionDelete(
                                     emoji: emoji,
                                     id: serverMessageId,
@@ -2029,7 +2084,7 @@ extension ConversationVC:
                                 .map { _, response in response.seqNo }
                         }
                         
-                        return try OpenGroupAPI
+                        return try Network.SOGS
                             .preparedReactionAdd(
                                 emoji: emoji,
                                 id: serverMessageId,
@@ -2334,10 +2389,26 @@ extension ConversationVC:
             isOutgoing: (cellViewModel.variant == .standardOutgoing)
         )
         
-        if isShowingSearchUI { willManuallyCancelSearchUI() }
+        // If the `MessageInfoViewController` is visible then we want to show the keyboard after
+        // the pop transition completes (and don't want to delay triggering the completion closure)
+        let messageInfoScreenVisible: Bool = (self.navigationController?.viewControllers.last is MessageInfoViewController)
+
+        guard !messageInfoScreenVisible else {
+            if self.isShowingSearchUI == true { self.willManuallyCancelSearchUI() }
+            self.hasPendingInputKeyboardPresentationEvent = true
+            completion?()
+            return
+        }
         
-        _ = snInputView.becomeFirstResponder()
-        completion?()
+        // Add delay before doing any ui updates
+        // Delay added to give time for long press actions to dismiss
+        let delay = completion == nil ? 0 : ContextMenuVC.dismissDuration
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            if self?.isShowingSearchUI == true { self?.willManuallyCancelSearchUI() }
+            _ = self?.snInputView.becomeFirstResponder()
+            completion?()
+        }
     }
 
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
@@ -2663,7 +2734,7 @@ extension ConversationVC:
                     }
                     .publisher
                     .tryFlatMap { (roomToken: String, authMethod: AuthenticationMethod) in
-                        try OpenGroupAPI.preparedUserBan(
+                        try Network.SOGS.preparedUserBan(
                             sessionId: cellViewModel.authorId,
                             from: [roomToken],
                             authMethod: authMethod,
@@ -2741,7 +2812,7 @@ extension ConversationVC:
                     }
                     .publisher
                     .tryFlatMap { (roomToken: String, authMethod: AuthenticationMethod) in
-                        try OpenGroupAPI.preparedUserBanAndDeleteAllMessages(
+                        try Network.SOGS.preparedUserBanAndDeleteAllMessages(
                             sessionId: cellViewModel.authorId,
                             roomToken: roomToken,
                             authMethod: authMethod,
@@ -2786,11 +2857,14 @@ extension ConversationVC:
 
     func startVoiceMessageRecording() {
         // Request permission if needed
-        Permissions.requestMicrophonePermissionIfNeeded(using: viewModel.dependencies) { [weak self] in
-            DispatchQueue.main.async {
-                self?.cancelVoiceMessageRecording()
+        Permissions.requestMicrophonePermissionIfNeeded(
+            using: viewModel.dependencies,
+            onNotGranted: { [weak self] in
+                DispatchQueue.main.async {
+                    self?.cancelVoiceMessageRecording()
+                }
             }
-        }
+        )
         
         // Keep screen on
         UIApplication.shared.isIdleTimerDisabled = false

@@ -362,34 +362,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             disposables: &disposables
         )
         
-        (viewModel as? ErasedEditableStateHolder)?.isEditing
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self, weak tableView] isEditing in
-                UIView.animate(withDuration: 0.25) {
-                    self?.setEditing(isEditing, animated: true)
-                    
-                    tableView?.visibleCells
-                        .compactMap { $0 as? SessionCell }
-                        .filter { $0.interactionMode == .editable || $0.interactionMode == .alwaysEditing }
-                        .enumerated()
-                        .forEach { index, cell in
-                            cell.update(
-                                isEditing: (isEditing || cell.interactionMode == .alwaysEditing),
-                                becomeFirstResponder: (
-                                    isEditing &&
-                                    index == 0 &&
-                                    cell.interactionMode != .alwaysEditing
-                                ),
-                                animated: true
-                            )
-                        }
-                    
-                    tableView?.beginUpdates()
-                    tableView?.endUpdates()
-                }
-            }
-            .store(in: &disposables)
-        
         viewModel.bannerInfo
             .receive(on: DispatchQueue.main)
             .sink { [weak self] info in
@@ -489,21 +461,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     },
                     using: viewModel.dependencies
                 )
-                cell.update(
-                    isEditing: (self.isEditing || (info.title?.interaction == .alwaysEditing)),
-                    becomeFirstResponder: false,
-                    animated: false
-                )
-                
-                switch viewModel {
-                    case let editableStateHolder as ErasedEditableStateHolder:
-                        cell.textPublisher
-                            .sink(receiveValue: { [weak editableStateHolder] text in
-                                editableStateHolder?.textChanged(text, for: info.id)
-                            })
-                            .store(in: &cell.disposables)
-                    default: break
-                }
                 
             case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<SessionThreadViewModel>):
                 cell.accessibilityIdentifier = info.accessibility?.identifier
@@ -608,7 +565,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         guard info.isEnabled else { return }
         
         // Get the view that was tapped (for presenting on iPad)
-        let tappedView: UIView? = {
+        let tappedView: UIView? = { () -> UIView? in
             guard let cell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell else {
                 return nil
             }
@@ -618,7 +575,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             cell.lastTouchLocation = nil
             
             if
-                info.title?.textTailing != nil,
+                info.title?.trailingImage != nil,
                 let localPoint: CGPoint = touchLocation?.location(in: cell.titleLabel),
                 cell.titleLabel.bounds.contains(localPoint),
                 cell.titleLabel.isPointOnTrailingAttachment(localPoint) == true

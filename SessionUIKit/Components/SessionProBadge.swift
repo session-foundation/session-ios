@@ -101,7 +101,7 @@ public class SessionProBadge: UIView {
         heightConstraint = self.set(.height, to: self.size.height)
     }
     
-    public func toImage() -> UIImage? {
+    public func toImage() -> UIImage {
         self.proImageView.frame = CGRect(
             x: (size.width - size.proFontWidth) / 2,
             y: (size.height - size.proFontHeight) / 2,

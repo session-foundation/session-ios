@@ -4,7 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension MessageViewModel {
@@ -124,7 +124,7 @@ public extension MessageViewModel.DeletionBehaviours {
         enum SelectedMessageState {
             case outgoingOnly
             case containsIncoming
-            case containsDeletedOrControlMessages
+            case containsLocalOnlyMessages /// Control, pending or deleted messages
         }
         
         /// If it's a legacy group and they have been deprecated then the user shouldn't be able to delete messages
@@ -134,8 +134,9 @@ public extension MessageViewModel.DeletionBehaviours {
         let state: SelectedMessageState = {
             guard
                 !cellViewModels.contains(where: { $0.variant.isDeletedMessage }) &&
-                !cellViewModels.contains(where: { $0.variant.isInfoMessage })
-            else { return .containsDeletedOrControlMessages }
+                !cellViewModels.contains(where: { $0.variant.isInfoMessage }) &&
+                !cellViewModels.contains(where: { $0.state == .sending || $0.state == .failed })
+            else { return .containsLocalOnlyMessages }
             
             return (cellViewModels.contains(where: { $0.variant == .standardIncoming }) ?
                 .containsIncoming :
@@ -171,8 +172,8 @@ public extension MessageViewModel.DeletionBehaviours {
                 }()
                 
                 switch (state, isAdmin) {
-                    /// User selects messages including a control message or “deleted” message
-                    case (.containsDeletedOrControlMessages, _):
+                    /// User selects messages including a control, pending or “deleted” message
+                    case (.containsLocalOnlyMessages, _):
                         return MessageViewModel.DeletionBehaviours(
                             title: "deleteMessage"
                                 .putNumber(cellViewModels.count)
@@ -415,7 +416,7 @@ public extension MessageViewModel.DeletionBehaviours {
                             .chunked(by: Network.BatchRequest.childRequestLimit)
                             .map { unsendRequestChunk in
                                 .preparedRequest(
-                                    try SnodeAPI.preparedBatch(
+                                    try Network.SnodeAPI.preparedBatch(
                                         requests: unsendRequestChunk,
                                         requireAllBatchResponses: false,
                                         swarmPublicKey: threadData.threadId,
@@ -426,7 +427,7 @@ public extension MessageViewModel.DeletionBehaviours {
                     )
                     .appending(serverHashes.isEmpty ? nil :
                         .preparedRequest(
-                            try SnodeAPI.preparedDeleteMessages(
+                            try Network.SnodeAPI.preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
                                 authMethod: try Authentication.with(
@@ -496,7 +497,7 @@ public extension MessageViewModel.DeletionBehaviours {
                             .chunked(by: Network.BatchRequest.childRequestLimit)
                             .map { unsendRequestChunk in
                                 .preparedRequest(
-                                    try SnodeAPI.preparedBatch(
+                                    try Network.SnodeAPI.preparedBatch(
                                         requests: unsendRequestChunk,
                                         requireAllBatchResponses: false,
                                         swarmPublicKey: threadData.threadId,
@@ -616,7 +617,7 @@ public extension MessageViewModel.DeletionBehaviours {
                         )
                     )
                     .appending(serverHashes.isEmpty ? nil :
-                        .preparedRequest(try SnodeAPI
+                            .preparedRequest(try Network.SnodeAPI
                             .preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
@@ -658,7 +659,7 @@ public extension MessageViewModel.DeletionBehaviours {
                 let deleteRequests: [Network.PreparedRequest] = try cellViewModels
                     .compactMap { $0.openGroupServerMessageId }
                     .map { messageId in
-                        try OpenGroupAPI.preparedMessageDelete(
+                        try Network.SOGS.preparedMessageDelete(
                             id: messageId,
                             roomToken: roomToken,
                             authMethod: authMethod,
@@ -674,7 +675,7 @@ public extension MessageViewModel.DeletionBehaviours {
                             .chunked(by: Network.BatchRequest.childRequestLimit)
                             .map { deleteRequestsChunk in
                                 .preparedRequest(
-                                    try OpenGroupAPI.preparedBatch(
+                                    try Network.SOGS.preparedBatch(
                                         requests: deleteRequestsChunk,
                                         authMethod: authMethod,
                                         using: dependencies

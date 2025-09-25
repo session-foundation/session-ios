@@ -20,7 +20,7 @@ extension EnvironmentValues {
     }
 }
 
-extension State: Equatable where Value: Equatable {
+extension State: @retroactive Equatable where Value: Equatable {
     public static func == (lhs: State<Value>, rhs: State<Value>) -> Bool {
         lhs.wrappedValue == rhs.wrappedValue
     }
@@ -308,27 +308,5 @@ struct HideScrollIndicators: ViewModifier {
                     UITableView.appearance().showsVerticalScrollIndicator = true
                 }
         }
-    }
-}
-
-// MARK: Conditional Truncation
-
-struct ConditionalTruncation: ViewModifier {
-    let shouldTruncate: Bool
-
-    func body(content: Content) -> some View {
-        if shouldTruncate {
-            content
-                .lineLimit(1)
-                .truncationMode(.middle)
-        } else {
-            content
-        }
-    }
-}
-
-extension View {
-    func shouldTruncate(_ condition: Bool) -> some View {
-        modifier(ConditionalTruncation(shouldTruncate: condition))
     }
 }

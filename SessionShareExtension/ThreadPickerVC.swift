@@ -8,7 +8,7 @@ import DifferenceKit
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableViewDelegate, AttachmentApprovalViewControllerDelegate, ThemedNavigation {
@@ -275,7 +275,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             dependencies[singleton: .network]
                 .getSwarm(for: swarmPublicKey)
                 .tryFlatMapWithRandomSnode(using: dependencies) { snode in
-                    try SnodeAPI
+                    try Network.SnodeAPI
                         .preparedGetNetworkTime(from: snode, using: dependencies)
                         .send(using: dependencies)
                 }

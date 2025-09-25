@@ -2,7 +2,7 @@
 
 import SwiftUI
 import SessionUIKit
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 import Lucide
@@ -221,7 +221,7 @@ struct MessageInfoScreen: View {
                                 spacing: Values.mediumSpacing
                             ) {
                                 InfoBlock(title: "attachmentsFileId".localized()) {
-                                    Text(attachment.downloadUrl.map { Attachment.fileId(for: $0) } ?? "")
+                                    Text(attachment.downloadUrl.map { Network.FileServer.fileId(for: $0) } ?? "")
                                         .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
@@ -583,7 +583,7 @@ struct MessageInfoScreen: View {
                     qrCodeImage: qrCodeImage,
                     profileInfo: profileInfo,
                     displayName: messageViewModel.authorName,
-                    nickname: messageViewModel.profile?.displayName(
+                    contactDisplayName: messageViewModel.profile?.displayName(
                         for: messageViewModel.threadVariant,
                         ignoringNickname: true
                     ),

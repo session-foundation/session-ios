@@ -62,6 +62,7 @@ public extension SessionCell.Accessory {
         size: IconSize = .medium,
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
+        pinEdges: [UIView.HorizontalEdge] = [.leading, .trailing],
         accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Icon(
@@ -70,6 +71,7 @@ public extension SessionCell.Accessory {
             iconSize: size,
             customTint: customTint,
             shouldFill: shouldFill,
+            pinEdges: pinEdges,
             accessibility: accessibility
         )
     }
@@ -79,6 +81,7 @@ public extension SessionCell.Accessory {
         size: IconSize = .medium,
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
+        pinEdges: [UIView.HorizontalEdge] = [.leading, .trailing],
         accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.Icon(
@@ -87,6 +90,7 @@ public extension SessionCell.Accessory {
             iconSize: size,
             customTint: customTint,
             shouldFill: shouldFill,
+            pinEdges: pinEdges,
             accessibility: accessibility
         )
     }
@@ -96,6 +100,7 @@ public extension SessionCell.Accessory {
         source: ImageDataManager.DataSource?,
         customTint: ThemeValue? = nil,
         shouldFill: Bool = false,
+        pinEdges: [UIView.HorizontalEdge] = [.leading, .trailing],
         accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.IconAsync(
@@ -103,6 +108,7 @@ public extension SessionCell.Accessory {
             source: source,
             customTint: customTint,
             shouldFill: shouldFill,
+            pinEdges: pinEdges,
             accessibility: accessibility
         )
     }
@@ -322,6 +328,7 @@ public extension SessionCell.AccessoryConfig {
         public let iconSize: IconSize
         public let customTint: ThemeValue?
         public let shouldFill: Bool
+        public let pinEdges: [UIView.HorizontalEdge]
         
         fileprivate init(
             icon: Lucide.Icon?,
@@ -329,6 +336,7 @@ public extension SessionCell.AccessoryConfig {
             iconSize: IconSize,
             customTint: ThemeValue?,
             shouldFill: Bool,
+            pinEdges: [UIView.HorizontalEdge],
             accessibility: Accessibility?
         ) {
             self.icon = icon
@@ -336,6 +344,7 @@ public extension SessionCell.AccessoryConfig {
             self.iconSize = iconSize
             self.customTint = customTint
             self.shouldFill = shouldFill
+            self.pinEdges = pinEdges
             
             super.init(accessibility: accessibility)
         }
@@ -348,6 +357,7 @@ public extension SessionCell.AccessoryConfig {
             iconSize.hash(into: &hasher)
             customTint.hash(into: &hasher)
             shouldFill.hash(into: &hasher)
+            pinEdges.hash(into: &hasher)
             accessibility.hash(into: &hasher)
         }
         
@@ -360,7 +370,9 @@ public extension SessionCell.AccessoryConfig {
                 iconSize == rhs.iconSize &&
                 customTint == rhs.customTint &&
                 shouldFill == rhs.shouldFill &&
+                pinEdges == rhs.pinEdges &&
                 accessibility == rhs.accessibility
+                
             )
         }
     }
@@ -374,18 +386,21 @@ public extension SessionCell.AccessoryConfig {
         public let source: ImageDataManager.DataSource?
         public let customTint: ThemeValue?
         public let shouldFill: Bool
+        public let pinEdges: [UIView.HorizontalEdge]
         
         fileprivate init(
             iconSize: IconSize,
             source: ImageDataManager.DataSource?,
             customTint: ThemeValue?,
             shouldFill: Bool,
+            pinEdges: [UIView.HorizontalEdge],
             accessibility: Accessibility?
         ) {
             self.iconSize = iconSize
             self.source = source
             self.customTint = customTint
             self.shouldFill = shouldFill
+            self.pinEdges = pinEdges
             
             super.init(accessibility: accessibility)
         }
@@ -397,6 +412,7 @@ public extension SessionCell.AccessoryConfig {
             source?.hash(into: &hasher)
             customTint.hash(into: &hasher)
             shouldFill.hash(into: &hasher)
+            pinEdges.hash(into: &hasher)
             accessibility.hash(into: &hasher)
         }
         
@@ -408,6 +424,7 @@ public extension SessionCell.AccessoryConfig {
                 source == rhs.source &&
                 customTint == rhs.customTint &&
                 shouldFill == rhs.shouldFill &&
+                pinEdges == rhs.pinEdges &&
                 accessibility == rhs.accessibility
             )
         }

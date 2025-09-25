@@ -7,7 +7,7 @@ import Combine
 // MARK: - Singleton
 
 public extension Singleton {
-    static let sessionProState: SingletonConfig<SessionProManagerType & ProfilePictureAnimationManagerType> = Dependencies.create(
+    static let sessionProState: SingletonConfig<SessionProManagerType & ProfilePictureAnimationManagerType & SessionProCTAManagerType> = Dependencies.create(
         identifier: "sessionProState",
         createInstance: { dependencies in SessionProState(using: dependencies) }
     )
@@ -15,7 +15,7 @@ public extension Singleton {
 
 // MARK: - SessionProState
 
-public class SessionProState: SessionProManagerType, ProfilePictureAnimationManagerType {
+public class SessionProState: SessionProManagerType, ProfilePictureAnimationManagerType, SessionProCTAManagerType {
     public let dependencies: Dependencies
     public var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never>
     public var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> {
@@ -76,5 +76,29 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         )
         self.shouldAnimateImageSubject.send(true)
         completion?(true)
+    }
+    
+    @discardableResult public func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        dismissType: Modal.DismissType,
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool {
+        guard dependencies[feature: .sessionProEnabled], case .active = sessionProStateSubject.value else {
+            return false
+        }
+        beforePresented?()
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                variant: variant,
+                dataManager: dependencies[singleton: .imageDataManager],
+                dismissType: dismissType,
+                afterClosed: afterClosed
+            )
+        )
+        presenting?(sessionProModal)
+        
+        return true
     }
 }

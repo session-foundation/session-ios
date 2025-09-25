@@ -2,7 +2,7 @@
 
 import Foundation
 import GRDB
-import SessionSnodeKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Authentication Types
@@ -78,38 +78,6 @@ public extension Authentication {
             }
         }
     }
-    
-    /// Used when interacting with a community
-    struct community: AuthenticationMethod {
-        public let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo
-        public let forceBlinded: Bool
-        
-        public var server: String { openGroupCapabilityInfo.server }
-        public var publicKey: String { openGroupCapabilityInfo.publicKey }
-        public var hasCapabilities: Bool { !openGroupCapabilityInfo.capabilities.isEmpty }
-        public var supportsBlinding: Bool { openGroupCapabilityInfo.capabilities.contains(.blind) }
-        
-        public var info: Info {
-            .community(
-                server: server,
-                publicKey: publicKey,
-                hasCapabilities: hasCapabilities,
-                supportsBlinding: supportsBlinding,
-                forceBlinded: forceBlinded
-            )
-        }
-        
-        public init(info: LibSession.OpenGroupCapabilityInfo, forceBlinded: Bool = false) {
-            self.openGroupCapabilityInfo = info
-            self.forceBlinded = forceBlinded
-        }
-        
-        // MARK: - SignatureGenerator
-        
-        public func generateSignature(with verificationBytes: [UInt8], using dependencies: Dependencies) throws -> Authentication.Signature {
-            throw CryptoError.signatureGenerationFailed
-        }
-    }
 }
 
 // MARK: - Convenience
@@ -117,6 +85,19 @@ public extension Authentication {
 fileprivate struct GroupAuthData: Codable, FetchableRecord {
     let groupIdentityPrivateKey: Data?
     let authData: Data?
+}
+
+public extension Authentication.community {
+    init(info: LibSession.OpenGroupCapabilityInfo, forceBlinded: Bool = false) {
+        self.init(
+            roomToken: info.roomToken,
+            server: info.server,
+            publicKey: info.publicKey,
+            hasCapabilities: !info.capabilities.isEmpty,
+            supportsBlinding: info.capabilities.contains(.blind),
+            forceBlinded: forceBlinded
+        )
+    }
 }
 
 public extension Authentication {

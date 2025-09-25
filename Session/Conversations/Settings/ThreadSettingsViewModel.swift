@@ -10,7 +10,7 @@ import SessionUIKit
 import SessionMessagingKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
-import SessionSnodeKit
+import SessionNetworkingKit
 
 class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
@@ -302,10 +302,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         threadViewModel.displayName,
                         font: .titleLarge,
                         alignment: .center,
-                        textTailing: (
+                        trailingImage: (
                             (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) ?
-                            SessionProBadge(size: .medium).toImage() :
-                                nil
+                            ("ProBadge", SessionProBadge(size: .medium).toImage()) :
+                            nil
                         )
                     ),
                     styling: SessionCell.StyleInfo(
@@ -1761,7 +1761,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         },
                         icon: .rightPlus,
                         style: .circular,
-                        showPro: false,
+                        description: nil,
                         accessibility: Accessibility(
                             identifier: "Image picker",
                             label: "Image picker"

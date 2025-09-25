@@ -6,7 +6,7 @@ import GRDB
 import Quick
 import Nimble
 
-@testable import SessionSnodeKit
+@testable import SessionNetworkingKit
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
 
@@ -23,14 +23,15 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
         }
         @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { $0.defaultInitialSetup() }
+            initialSetup: {
+                $0.defaultInitialSetup()
+                $0.when { $0.profile(contactId: .any, threadId: .any, threadVariant: .any, visibleMessage: .any) }
+                    .thenReturn(nil)
+            }
         )
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrationTargets: [
-                SNUtilitiesKit.self,
-                SNMessagingKit.self
-            ],
+            migrations: SNMessagingKit.migrations,
             using: dependencies,
             initialData: { db in
                 try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
@@ -544,7 +545,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                     )
                 )
                 let expectedRequest: Network.PreparedRequest<Data> = mockStorage.read { db in
-                    try OpenGroupAPI.preparedDownload(
+                    try Network.SOGS.preparedDownload(
                         fileId: "12",
                         roomToken: "testRoom",
                         authMethod: Authentication.community(

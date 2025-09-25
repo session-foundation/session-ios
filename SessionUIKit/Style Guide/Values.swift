@@ -8,7 +8,7 @@ public enum Values {
     public static let veryLowOpacity = CGFloat(0.12)
     public static let lowOpacity = CGFloat(0.4)
     public static let mediumOpacity = CGFloat(0.6)
-    public static let highOpacity = CGFloat(0.75)
+    public static let highOpacity = CGFloat(0.7)
     
     // MARK: - Font Sizes
     public static let miniFontSize = isIPhone5OrSmaller ? CGFloat(8) : CGFloat(10)
@@ -31,6 +31,8 @@ public enum Values {
     public static let accentLineThickness = CGFloat(4)
     
     public static let searchBarHeight = CGFloat(36)
+    
+    public static let gradientPaletteWidth = CGFloat(12)
 
     public static var separatorThickness: CGFloat { return 1 / UIScreen.main.scale }
     

@@ -66,11 +66,15 @@ struct RecoveryPasswordScreen: View {
                             }
                             .padding(.bottom, Values.smallSpacing)
                             
-                            Text("recoveryPasswordDescription".localized())
-                                .font(.system(size: Values.smallFontSize))
-                                .foregroundColor(themeColor: .textPrimary)
-                                .padding(.bottom, Values.mediumSpacing)
-                                .fixedSize(horizontal: false, vertical: true)
+                            AttributedText(
+                                "recoveryPasswordDescription".localizedFormatted(
+                                    baseFont: .systemFont(ofSize: Values.smallFontSize)
+                                )
+                            )
+                            .font(.system(size: Values.smallFontSize))
+                            .foregroundColor(themeColor: .textPrimary)
+                            .padding(.bottom, Values.mediumSpacing)
+                            .fixedSize(horizontal: false, vertical: true)
                             
                             if self.showQRCode {
                                 QRCodeView(
