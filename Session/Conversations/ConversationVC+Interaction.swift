@@ -249,7 +249,7 @@ extension ConversationVC:
             modal: ProCTAModal(
                 delegate: dependencies[singleton: .sessionProState],
                 variant: .longerMessages,
-                dataManager: viewModel.dependencies[singleton: .imageDataManager],
+                dataManager: dependencies[singleton: .imageDataManager],
                 afterClosed: { [weak self] in
                     self?.showInputAccessoryView()
                     self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
@@ -811,6 +811,7 @@ extension ConversationVC:
                 // FIXME: Remove this once we don't generate unique Profile entries for the current users blinded ids
                 if (try? SessionId.Prefix(from: optimisticData.interaction.authorId)) != .standard {
                     let currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+                    let sentTimestamp: TimeInterval = (Double(optimisticData.interaction.timestampMs) / 1000)
                     
                     try? Profile.updateIfNeeded(
                         db,
@@ -821,7 +822,7 @@ extension ConversationVC:
                             fallback: .none,
                             using: dependencies
                         ),
-                        sentTimestamp: (Double(optimisticData.interaction.timestampMs) / 1000),
+                        profileUpdateTimestamp: (currentUserProfile.profileLastUpdated ?? sentTimestamp),
                         using: dependencies
                     )
                 }

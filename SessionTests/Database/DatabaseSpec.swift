@@ -236,7 +236,8 @@ class DatabaseSpec: QuickSpec {
                     "utilitiesKit.RenameTableSettingToKeyValueStore",
                     "messagingKit.MoveSettingsToLibSession",
                     "messagingKit.RenameAttachments",
-                    "messagingKit.AddProMessageFlag"
+                    "messagingKit.AddProMessageFlag",
+                    "LastProfileUpdateTimestamp"
                 ]))
             }
             

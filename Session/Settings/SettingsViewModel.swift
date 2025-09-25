@@ -651,64 +651,138 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     private func updateProfilePicture(currentUrl: String?) {
         let iconName: String = "profile_placeholder" // stringlint:ignore
+        var hasSetNewProfilePicture: Bool = false
+        let body: ConfirmationModal.Info.Body = .image(
+            source: nil,
+            placeholder: currentUrl
+                .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
+                .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) }
+                .defaulting(to: Lucide.image(icon: .image, size: 40).map { image in
+                    ImageDataManager.DataSource.image(
+                        iconName,
+                        image
+                            .withTintColor(#colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1), renderingMode: .alwaysTemplate)
+                            .withCircularBackground(backgroundColor: #colorLiteral(red: 0.1764705882, green: 0.1764705882, blue: 0.1764705882, alpha: 1))
+                    )
+                }),
+            icon: (currentUrl != nil ? .pencil : .rightPlus),
+            style: .circular,
+            description: {
+                guard dependencies[feature: .sessionProEnabled] else { return nil }
+                return dependencies[cache: .libSession].isSessionPro ?
+                    "proAnimatedDisplayPictureModalDescription"
+                        .localized()
+                        .addProBadge(
+                            at: .leading,
+                            font: .systemFont(ofSize: Values.smallFontSize),
+                            textColor: .textSecondary,
+                            proBadgeSize: .small
+                        ):
+                    "proAnimatedDisplayPicturesNonProModalDescription"
+                        .localized()
+                        .addProBadge(
+                            at: .trailing,
+                            font: .systemFont(ofSize: Values.smallFontSize),
+                            textColor: .textSecondary,
+                            proBadgeSize: .small
+                        )
+            }(),
+            accessibility: Accessibility(
+                identifier: "Upload",
+                label: "Upload"
+            ),
+            dataManager: dependencies[singleton: .imageDataManager],
+            onProBageTapped: { [weak self] in
+                self?.showSessionProCTAIfNeeded()
+            },
+            onClick: { [weak self] onDisplayPictureSelected in
+                self?.onDisplayPictureSelected = { valueUpdate in
+                    onDisplayPictureSelected(valueUpdate)
+                    hasSetNewProfilePicture = true
+                }
+                self?.showPhotoLibraryForAvatar()
+            }
+        )
         
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "profileDisplayPictureSet".localized(),
-                    body: .image(
-                        source: currentUrl
-                            .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
-                            .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
-                        placeholder: UIImage(named: iconName).map {
-                            ImageDataManager.DataSource.image(iconName, $0)
-                        },
-                        icon: .rightPlus,
-                        style: .circular,
-                        accessibility: Accessibility(
-                            identifier: "Upload",
-                            label: "Upload"
-                        ),
-                        dataManager: dependencies[singleton: .imageDataManager],
-                        onClick: { [weak self] onDisplayPictureSelected in
-                            self?.onDisplayPictureSelected = onDisplayPictureSelected
-                            self?.showPhotoLibraryForAvatar()
-                        }
-                    ),
+                    body: body,
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: .bool(currentUrl != nil),
+                    cancelEnabled: (currentUrl != nil) ? .bool(true) : .afterChange { info in
+                        switch info.body {
+                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
+                            default: return false
+                        }
+                    },
                     hasCloseButton: true,
                     dismissOnConfirm: false,
-                    onConfirm: { [weak self] modal in
+                    onConfirm: { [weak self, dependencies] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
-                                
+                            
+                                let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(imageData)
+                                guard (
+                                    !isAnimatedImage ||
+                                    dependencies[cache: .libSession].isSessionPro ||
+                                    !dependencies[feature: .sessionProEnabled]
+                                ) else {
+                                    self?.showSessionProCTAIfNeeded()
+                                    return
+                                }
+                            
                                 self?.updateProfile(
-                                    displayPictureUpdate: .currentUserUploadImageData(imageData),
+                                    displayPictureUpdate: .currentUserUploadImageData(data: imageData, isReupload: false),
                                     onComplete: { [weak modal] in modal?.close() }
                                 )
-                                
+                            
                             default: modal.close()
                         }
                     },
                     onCancel: { [weak self] modal in
-                        self?.updateProfile(
-                            displayPictureUpdate: .currentUserRemove,
-                            onComplete: { [weak modal] in modal?.close() }
-                        )
+                        if hasSetNewProfilePicture {
+                            modal.updateContent(
+                                with: modal.info.with(
+                                    body: body,
+                                    cancelTitle: "remove".localized()
+                                )
+                            )
+                            hasSetNewProfilePicture = false
+                        } else {
+                            self?.updateProfile(
+                                displayPictureUpdate: .currentUserRemove,
+                                onComplete: { [weak modal] in modal?.close() }
+                            )
+                        }
                     }
                 )
             ),
             transitionType: .present
         )
+    }
+    
+    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
+        guard dependencies[feature: .sessionProEnabled] else { return false }
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                delegate: dependencies[singleton: .sessionProState],
+                variant: .animatedProfileImage(
+                    isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                ),
+                dataManager: dependencies[singleton: .imageDataManager]
+            )
+        )
+        self.transitionToScreen(sessionProModal, transitionType: .present)
+        return true
     }
     
     @MainActor private func showPhotoLibraryForAvatar() {

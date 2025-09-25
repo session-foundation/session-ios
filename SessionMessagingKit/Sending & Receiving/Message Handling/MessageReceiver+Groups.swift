@@ -146,7 +146,7 @@ extension MessageReceiver {
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
+                profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
         }
@@ -250,7 +250,7 @@ extension MessageReceiver {
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
+                profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
         }
@@ -611,7 +611,7 @@ extension MessageReceiver {
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                sentTimestamp: TimeInterval(Double(sentTimestampMs) / 1000),
+                profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
         }
@@ -628,7 +628,7 @@ extension MessageReceiver {
                         name: $0,
                         displayPictureUrl: profile.profilePictureUrl,
                         displayPictureEncryptionKey: profile.profileKey,
-                        displayPictureLastUpdated: (Double(sentTimestampMs) / 1000)
+                        profileLastUpdated: (Double(sentTimestampMs) / 1000)
                     )
                 }
             },
