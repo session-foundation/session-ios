@@ -237,30 +237,6 @@ extension ConversationVC:
         return true
     }
     
-    // MARK: - Session Pro CTA
-    
-    @discardableResult func showSessionProCTAIfNeeded(_ variant: ProCTAModal.Variant) -> Bool {
-        let dependencies: Dependencies = viewModel.dependencies
-        guard dependencies[feature: .sessionProEnabled] && (!viewModel.isCurrentUserSessionPro) else {
-            return false
-        }
-        self.hideInputAccessoryView()
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
-                variant: variant,
-                dataManager: dependencies[singleton: .imageDataManager],
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
-                }
-            )
-        )
-        present(sessionProModal, animated: true, completion: nil)
-        
-        return true
-    }
-    
     // MARK: - UIGestureRecognizerDelegate
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
@@ -543,7 +519,21 @@ extension ConversationVC:
     }
     
     func handleCharacterLimitLabelTapped() {
-        guard !showSessionProCTAIfNeeded(.longerMessages) else { return }
+        guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
         
         self.hideInputAccessoryView()
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
@@ -635,7 +625,21 @@ extension ConversationVC:
     }
     
     func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
-        guard !showSessionProCTAIfNeeded(.longerMessages) else { return }
+        guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
         
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -1583,13 +1587,37 @@ extension ConversationVC:
         guard let profileInfo: ProfilePictureView.Info = info else { return }
         
         let (sessionId, blindedId): (String?, String?) = {
-            guard (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15 else {
+            guard
+                (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15,
+                let openGroupServer: String = cellViewModel.threadOpenGroupServer,
+                let openGroupPublicKey: String = cellViewModel.threadOpenGroupPublicKey
+            else {
                 return (cellViewModel.authorId, nil)
             }
-            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].read { db in
-                try? BlindedIdLookup.fetchOne(db, id: cellViewModel.authorId)
+            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].write { db in
+                try BlindedIdLookup.fetchOrCreate(
+                    db,
+                    blindedId: cellViewModel.authorId,
+                    openGroupServer: openGroupServer,
+                    openGroupPublicKey: openGroupPublicKey,
+                    isCheckingForOutbox: false,
+                    using: dependencies
+                )
             }
-            return (lookup?.sessionId, cellViewModel.authorId)
+            return (lookup?.sessionId, cellViewModel.authorId.truncated(prefix: 10, suffix: 10))
+        }()
+        
+        let (displayName, contactDisplayName): (String?, String?) = {
+            guard let sessionId: String = sessionId else {
+                return (cellViewModel.authorName, nil)
+            }
+            
+            let profile: Profile? = dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId)}
+            
+            return (
+                (profile?.displayName(for: .contact) ?? cellViewModel.authorName),
+                profile?.displayName(for: .contact, ignoringNickname: true)
+            )
         }()
         
         let qrCodeImage: UIImage? = {
@@ -1610,11 +1638,8 @@ extension ConversationVC:
                     blindedId: blindedId,
                     qrCodeImage: qrCodeImage,
                     profileInfo: profileInfo,
-                    displayName: cellViewModel.authorName,
-                    nickname: cellViewModel.profile?.displayName(
-                        for: cellViewModel.threadVariant,
-                        ignoringNickname: true
-                    ),
+                    displayName: displayName,
+                    contactDisplayName: contactDisplayName,
                     isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
                     isMessageRequestsEnabled: isMessasgeRequestsEnabled,
                     onStartThread: { [weak self] in
@@ -1624,8 +1649,21 @@ extension ConversationVC:
                             openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
                         )
                     },
-                    onProBadgeTapped: { [weak self] in
-                        self?.showSessionProCTAIfNeeded(.generic)
+                    onProBadgeTapped: { [weak self, dependencies] in
+                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                            .generic,
+                            dismissType: .single,
+                            beforePresented: { [weak self] in
+                                self?.hideInputAccessoryView()
+                            },
+                            afterClosed: { [weak self] in
+                                self?.showInputAccessoryView()
+                                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                            },
+                            presenting: { modal in
+                                dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
+                            }
+                        )
                     }
                 ),
                 dataManager: dependencies[singleton: .imageDataManager],
@@ -2819,11 +2857,14 @@ extension ConversationVC:
 
     func startVoiceMessageRecording() {
         // Request permission if needed
-        Permissions.requestMicrophonePermissionIfNeeded(using: viewModel.dependencies) { [weak self] in
-            DispatchQueue.main.async {
-                self?.cancelVoiceMessageRecording()
+        Permissions.requestMicrophonePermissionIfNeeded(
+            using: viewModel.dependencies,
+            onNotGranted: { [weak self] in
+                DispatchQueue.main.async {
+                    self?.cancelVoiceMessageRecording()
+                }
             }
-        }
+        )
         
         // Keep screen on
         UIApplication.shared.isIdleTimerDisabled = false

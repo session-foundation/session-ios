@@ -1018,7 +1018,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
         let location = gestureRecognizer.location(in: self)
         
-        if profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)) || authorLabel.bounds.contains(authorLabel.convert(location, from: self))
+        if
+            (
+                profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)) ||
+                authorLabel.bounds.contains(authorLabel.convert(location, from: self))
+            ),
+            cellViewModel.shouldShowProfile
         {
             delegate?.showUserProfileModal(for: cellViewModel)
         }

@@ -581,7 +581,7 @@ struct MessageInfoScreen: View {
                     qrCodeImage: qrCodeImage,
                     profileInfo: profileInfo,
                     displayName: messageViewModel.authorName,
-                    nickname: messageViewModel.profile?.displayName(
+                    contactDisplayName: messageViewModel.profile?.displayName(
                         for: messageViewModel.threadVariant,
                         ignoringNickname: true
                     ),

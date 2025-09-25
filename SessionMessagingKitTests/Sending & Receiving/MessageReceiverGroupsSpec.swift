@@ -404,7 +404,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 displayName: "TestName",
                                 profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
                                     .map { _ in 1 }),
-                                profilePictureUrl: "https://www.oxen.io/1234"
+                                profilePictureUrl: "https://www.oxen.io/1234",
+                                updateTimestampSeconds: 1234567890
                             )
                             
                             mockStorage.write { db in
@@ -447,7 +448,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 displayName: "TestName",
                                 profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
                                     .map { _ in 1 }),
-                                profilePictureUrl: "https://www.oxen.io/1234"
+                                profilePictureUrl: "https://www.oxen.io/1234",
+                                updateTimestampSeconds: 1234567890
                             )
                             
                             mockStorage.write { db in

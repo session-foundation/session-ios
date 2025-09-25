@@ -26,7 +26,7 @@ public struct UserProfileModal: View {
                 .localizedFormatted(baseFont: Fonts.Body.smallRegular)
         } else {
             return "tooltipAccountIdVisible"
-                .put(key: "name", value: info.displayName)
+                .put(key: "name", value: (info.displayName ?? ""))
                 .localizedFormatted(baseFont: Fonts.Body.smallRegular)
         }
     }
@@ -86,20 +86,26 @@ public struct UserProfileModal: View {
                             
                             if info.sessionId != nil {
                                 let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (24, 14)
-                                AttributedText(Lucide.Icon.qrCode.attributedString(size: iconSize, baselineOffset: 0))
-                                    .font(.system(size: iconSize))
-                                    .foregroundColor(themeColor: .black)
-                                    .background(
-                                        Circle()
-                                            .foregroundColor(themeColor: .primary)
-                                            .frame(width: buttonSize, height: buttonSize)
-                                    )
-                                    .padding(.trailing, isProfileImageExpanding ? 28 : 4)
-                                    .onTapGesture {
-                                        withAnimation {
-                                            self.isProfileImageToggled.toggle()
-                                        }
+                                ZStack {
+                                    Circle()
+                                        .foregroundColor(themeColor: .primary)
+                                        .frame(width: buttonSize, height: buttonSize)
+                                    
+                                    if let icon: UIImage = Lucide.image(icon: .qrCode, size: iconSize) {
+                                        Image(uiImage: icon)
+                                            .resizable()
+                                            .renderingMode(.template)
+                                            .scaledToFit()
+                                            .foregroundColor(themeColor: .black)
+                                            .frame(width: iconSize, height: iconSize)
                                     }
+                                }
+                                .padding(.trailing, isProfileImageExpanding ? 28 : 4)
+                                .onTapGesture {
+                                    withAnimation {
+                                        self.isProfileImageToggled.toggle()
+                                    }
+                                }
                             }
                         }
                         .padding(.top, 12)
@@ -148,17 +154,28 @@ public struct UserProfileModal: View {
                     }
                     
                     // Display name & Nickname (ProBadge)
-                    HStack(spacing: Values.smallSpacing) {
-                        Text(info.displayName)
-                            .font(.Headings.H6)
-                            .foregroundColor(themeColor: .textPrimary)
-                            .multilineTextAlignment(.center)
-                        
-                        if info.isProUser {
-                            SessionProBadge_SwiftUI(size: .large)
-                                .onTapGesture {
-                                    info.onProBadgeTapped?()
+                    if let displayName: String = info.displayName {
+                        VStack(spacing: Values.smallSpacing) {
+                            HStack(spacing: Values.smallSpacing) {
+                                Text(displayName)
+                                    .font(.Headings.H6)
+                                    .foregroundColor(themeColor: .textPrimary)
+                                    .multilineTextAlignment(.center)
+                                
+                                if info.isProUser {
+                                    SessionProBadge_SwiftUI(size: .large)
+                                        .onTapGesture {
+                                            info.onProBadgeTapped?()
+                                        }
                                 }
+                            }
+                            
+                            if let contactDisplayName: String = info.contactDisplayName, contactDisplayName != displayName {
+                                Text("(\(contactDisplayName))") // stringlint:ignroe
+                                    .font(.Body.smallRegular)
+                                    .foregroundColor(themeColor: .textSecondary)
+                                    .multilineTextAlignment(.center)
+                            }
                         }
                     }
                     
@@ -200,7 +217,6 @@ public struct UserProfileModal: View {
                             .font(isIPhone5OrSmaller ? .Display.base : .Display.large)
                             .foregroundColor(themeColor: .textPrimary)
                             .multilineTextAlignment(.center)
-                            .shouldTruncate(info.sessionId == nil)
                             .padding(.horizontal, info.blindedId == nil ? 0 : Values.largeSpacing)
                     }
                     
@@ -244,9 +260,9 @@ public struct UserProfileModal: View {
                         }
                         .padding(.bottom, 12)
                     } else {
-                        if !info.isMessageRequestsEnabled {
+                        if !info.isMessageRequestsEnabled, let displayName: String = info.displayName {
                             AttributedText("messageRequestsTurnedOff"
-                                .put(key: "name", value: info.displayName)
+                                .put(key: "name", value: displayName)
                                 .localizedFormatted(Fonts.Body.smallRegular)
                             )
                             .font(.Body.smallRegular)
@@ -387,8 +403,8 @@ public extension UserProfileModal {
         let blindedId: String?
         let qrCodeImage: UIImage?
         let profileInfo: ProfilePictureView.Info
-        let displayName: String
-        let nickname: String?
+        let displayName: String?
+        let contactDisplayName: String?
         let isProUser: Bool
         let isMessageRequestsEnabled: Bool
         let onStartThread: (() -> Void)?
@@ -399,8 +415,8 @@ public extension UserProfileModal {
             blindedId: String?,
             qrCodeImage: UIImage?,
             profileInfo: ProfilePictureView.Info,
-            displayName: String,
-            nickname: String?,
+            displayName: String?,
+            contactDisplayName: String?,
             isProUser: Bool,
             isMessageRequestsEnabled: Bool,
             onStartThread: (() -> Void)?,
@@ -411,7 +427,7 @@ public extension UserProfileModal {
             self.qrCodeImage = qrCodeImage
             self.profileInfo = profileInfo
             self.displayName = displayName
-            self.nickname = nickname
+            self.contactDisplayName = contactDisplayName
             self.isProUser = isProUser
             self.isMessageRequestsEnabled = isMessageRequestsEnabled
             self.onStartThread = onStartThread

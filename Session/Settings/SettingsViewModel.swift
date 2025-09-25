@@ -705,14 +705,40 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 }),
             icon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
-            showPro: dependencies[feature: .sessionProEnabled],
+            description: {
+                guard dependencies[feature: .sessionProEnabled] else { return nil }
+                return dependencies[cache: .libSession].isSessionPro ?
+                    "proAnimatedDisplayPictureModalDescription"
+                        .localized()
+                        .addProBadge(
+                            at: .leading,
+                            font: .systemFont(ofSize: Values.smallFontSize),
+                            textColor: .textSecondary,
+                            proBadgeSize: .small
+                        ):
+                    "proAnimatedDisplayPicturesNonProModalDescription"
+                        .localized()
+                        .addProBadge(
+                            at: .trailing,
+                            font: .systemFont(ofSize: Values.smallFontSize),
+                            textColor: .textSecondary,
+                            proBadgeSize: .small
+                        )
+            }(),
             accessibility: Accessibility(
                 identifier: "Upload",
                 label: "Upload"
             ),
             dataManager: dependencies[singleton: .imageDataManager],
-            onProBageTapped: { [weak self] in
-                self?.showSessionProCTAIfNeeded()
+            onProBageTapped: { [weak self, dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                    .animatedProfileImage(
+                        isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                    ),
+                    presenting: { modal in
+                        self?.transitionToScreen(modal, transitionType: .present)
+                    }
+                )
             },
             onClick: { [weak self] onDisplayPictureSelected in
                 self?.onDisplayPictureSelected = { valueUpdate in
@@ -755,7 +781,14 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     dependencies[cache: .libSession].isSessionPro ||
                                     !dependencies[feature: .sessionProEnabled]
                                 ) else {
-                                    self?.showSessionProCTAIfNeeded()
+                                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                        .animatedProfileImage(
+                                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                                        ),
+                                        presenting: { modal in
+                                            self?.transitionToScreen(modal, transitionType: .present)
+                                        }
+                                    )
                                     return
                                 }
                             
@@ -787,21 +820,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             ),
             transitionType: .present
         )
-    }
-    
-    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
-        guard dependencies[feature: .sessionProEnabled] else { return false }
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
-                variant: .animatedProfileImage(
-                    isSessionProActivated: dependencies[cache: .libSession].isSessionPro
-                ),
-                dataManager: dependencies[singleton: .imageDataManager]
-            )
-        )
-        self.transitionToScreen(sessionProModal, transitionType: .present)
-        return true
     }
     
     @MainActor private func showPhotoLibraryForAvatar() {
