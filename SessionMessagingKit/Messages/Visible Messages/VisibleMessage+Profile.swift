@@ -10,7 +10,9 @@ public extension VisibleMessage {
         public let displayName: String?
         public let profileKey: Data?
         public let profilePictureUrl: String?
+        public let updateTimestampSeconds: TimeInterval?
         public let blocksCommunityMessageRequests: Bool?
+        public let sessionProProof: String?
         
         // MARK: - Initialization
 
@@ -18,14 +20,18 @@ public extension VisibleMessage {
             displayName: String,
             profileKey: Data? = nil,
             profilePictureUrl: String? = nil,
-            blocksCommunityMessageRequests: Bool? = nil
+            updateTimestampSeconds: TimeInterval? = nil,
+            blocksCommunityMessageRequests: Bool? = nil,
+            sessionProProof: String? = nil
         ) {
             let hasUrlAndKey: Bool = (profileKey != nil && profilePictureUrl != nil)
             
             self.displayName = displayName
             self.profileKey = (hasUrlAndKey ? profileKey : nil)
             self.profilePictureUrl = (hasUrlAndKey ? profilePictureUrl : nil)
+            self.updateTimestampSeconds = updateTimestampSeconds
             self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
+            self.sessionProProof = sessionProProof
         }
 
         // MARK: - Proto Conversion
@@ -40,7 +46,9 @@ public extension VisibleMessage {
                 displayName: displayName,
                 profileKey: proto.profileKey,
                 profilePictureUrl: profileProto.profilePicture,
-                blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil)
+                updateTimestampSeconds: TimeInterval(profileProto.lastUpdateSeconds),
+                blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil),
+                sessionProProof: nil // TODO: Add Session Pro Proof to profile proto
             )
         }
 
@@ -58,6 +66,10 @@ public extension VisibleMessage {
             if let profileKey = profileKey, let profilePictureUrl = profilePictureUrl {
                 dataMessageProto.setProfileKey(profileKey)
                 profileProto.setProfilePicture(profilePictureUrl)
+            }
+            
+            if let updateTimestampSeconds: TimeInterval = updateTimestampSeconds {
+                profileProto.setLastUpdateSeconds(UInt64(updateTimestampSeconds))
             }
             
             dataMessageProto.setProfile(try profileProto.build())
@@ -87,7 +99,9 @@ public extension VisibleMessage {
             return VMProfile(
                 displayName: displayName,
                 profileKey: proto.profileKey,
-                profilePictureUrl: profileProto.profilePicture
+                profilePictureUrl: profileProto.profilePicture,
+                updateTimestampSeconds: TimeInterval(profileProto.lastUpdateSeconds),
+                sessionProProof: nil // TODO: Add Session Pro Proof to profile proto
             )
         }
         
@@ -106,6 +120,9 @@ public extension VisibleMessage {
                 messageRequestResponseProto.setProfileKey(profileKey)
                 profileProto.setProfilePicture(profilePictureUrl)
             }
+            if let updateTimestampSeconds: TimeInterval = updateTimestampSeconds {
+                profileProto.setLastUpdateSeconds(UInt64(updateTimestampSeconds))
+            }
             do {
                 messageRequestResponseProto.setProfile(try profileProto.build())
                 return try messageRequestResponseProto.build()
@@ -122,7 +139,8 @@ public extension VisibleMessage {
             Profile(
                 displayName: \(displayName ?? "null"),
                 profileKey: \(profileKey?.description ?? "null"),
-                profilePictureUrl: \(profilePictureUrl ?? "null")
+                profilePictureUrl: \(profilePictureUrl ?? "null"),
+                UpdateTimestampSeconds: \(updateTimestampSeconds ?? 0)
             )
             """
         }

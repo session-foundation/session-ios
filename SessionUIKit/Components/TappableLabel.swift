@@ -17,7 +17,7 @@ public class TappableLabel: UILabel {
     public private(set) var links: [String: NSRange] = [:]
     private lazy var highlightedMentionBackgroundView: HighlightMentionBackgroundView = HighlightMentionBackgroundView(targetLabel: self)
     private(set) var layoutManager = NSLayoutManager()
-    private(set) var textContainer = NSTextContainer(size: CGSize.zero)
+    public private(set) var textContainer = NSTextContainer(size: CGSize.zero)
     private(set) var textStorage = NSTextStorage() {
         didSet {
             textStorage.addLayoutManager(layoutManager)
@@ -101,10 +101,37 @@ public class TappableLabel: UILabel {
         super.layoutSubviews()
         
         textContainer.size = bounds.size
+        
+        if preferredMaxLayoutWidth != bounds.width {
+            preferredMaxLayoutWidth = bounds.width
+            invalidateIntrinsicContentSize()
+        }
+        
         highlightedMentionBackgroundView.frame = self.frame.insetBy(
             dx: -highlightedMentionBackgroundView.maxPadding,
             dy: -highlightedMentionBackgroundView.maxPadding
         )
+    }
+    
+    public override var intrinsicContentSize: CGSize {
+        // Compute layout with the current/expected width
+        let width = preferredMaxLayoutWidth > 0 ? preferredMaxLayoutWidth : bounds.width
+        let targetWidth = (width > 0) ? width : UIScreen.main.bounds.width
+
+        textContainer.size = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
+        _ = layoutManager.glyphRange(for: textContainer) // forces layout
+        let used = layoutManager.usedRect(for: textContainer)
+
+        // Ceil to avoid fractional sizes causing extra lines/clipping
+        return CGSize(width: ceil(used.width), height: ceil(used.height))
+    }
+    
+    public override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let targetWidth = size.width > 0 ? size.width : UIScreen.main.bounds.width
+        textContainer.size = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
+        _ = layoutManager.glyphRange(for: textContainer)
+        let used = layoutManager.usedRect(for: textContainer)
+        return CGSize(width: min(ceil(used.width), targetWidth), height: ceil(used.height))
     }
     
     // MARK: - Functions

@@ -22,20 +22,39 @@ public extension LibSession {
 
 public extension LibSessionCacheType {
     var isSessionPro: Bool {
-        if dependencies.hasSet(feature: .mockCurrentUserSessionPro) {
-            return dependencies[feature: .mockCurrentUserSessionPro]
-        }
-        return false
+        guard dependencies[feature: .sessionProEnabled] else { return false }
+        return dependencies[feature: .mockCurrentUserSessionPro]
     }
     
-    func validateProProof(_ proProof: String?) -> Bool {
-        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
-            return dependencies[feature: .treatAllIncomingMessagesAsProMessages]
-        }
-        return false
+    func validateProProof(for message: Message?) -> Bool {
+        guard let message = message, dependencies[feature: .sessionProEnabled] else { return false }
+        return dependencies[feature: .allUsersSessionPro]
     }
     
-    func getProProof() -> String? {
+    func validateProProof(for profile: Profile?) -> Bool {
+        guard let profile = profile, dependencies[feature: .sessionProEnabled] else { return false }
+        return dependencies[feature: .allUsersSessionPro]
+    }
+    
+    func validateSessionProState(for threadId: String?) -> Bool {
+        guard let threadId = threadId, dependencies[feature: .sessionProEnabled] else { return false }
+        let threadVariant = dependencies[singleton: .storage].read { db in
+            try SessionThread
+                .select(SessionThread.Columns.variant)
+                .filter(id: threadId)
+                .asRequest(of: SessionThread.Variant.self)
+                .fetchOne(db)
+        }
+        guard threadVariant != .community else { return false }
+        return dependencies[feature: .allUsersSessionPro]
+    }
+    
+    func shouldShowProBadge(for profile: Profile?) -> Bool {
+        guard let profile = profile, dependencies[feature: .sessionProEnabled] else { return false }
+        return dependencies[feature: .allUsersSessionPro] || (profile.showProBadge == true)
+    }
+    
+    func getCurrentUserProProof() -> String? {
         guard isSessionPro else {
             return nil
         }

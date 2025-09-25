@@ -10,6 +10,7 @@ struct AttributedTextBlock {
     let underlineThemeColor: ThemeValue?
     let strikethroughThemeColor: ThemeValue?
     let baselineOffset: CGFloat?
+    let currentUserMentionBackground: (color: ThemeValue?, cornerRadius: CGFloat?, padding: CGFloat?)
 }
 
 public struct AttributedText: View {
@@ -36,6 +37,11 @@ public struct AttributedText: View {
                 let underlineThemeColor = (attribute[.themeUnderlineColor] as? ThemeValue)
                 let strikethroughThemeColor = (attribute[.themeStrikethroughColor] as? ThemeValue)
                 let baselineOffset = (attribute[.baselineOffset] as? CGFloat)
+                let currentUserMentionBackground = (
+                    color: attribute[.currentUserMentionBackgroundColor] as? ThemeValue,
+                    cornerRadius: attribute[.currentUserMentionBackgroundCornerRadius] as? CGFloat,
+                    padding: attribute[.currentUserMentionBackgroundPadding] as? CGFloat
+                )
                 descriptions.append(
                     AttributedTextBlock(
                         content: substring,
@@ -44,7 +50,8 @@ public struct AttributedText: View {
                         foregroundThemeColor: foregroundThemeColor,
                         underlineThemeColor: underlineThemeColor,
                         strikethroughThemeColor: strikethroughThemeColor,
-                        baselineOffset: baselineOffset
+                        baselineOffset: baselineOffset,
+                        currentUserMentionBackground: currentUserMentionBackground
                     )
                 )
             })
