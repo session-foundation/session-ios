@@ -1,6 +1,7 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -90,26 +91,29 @@ class ImageEditorCropViewController: OWSViewController {
         self.view.layoutMargins = .zero
 
         // MARK: - Buttons
-
+        
+        //rotate-ccw-square
         let rotate90Button = OWSButton(
-            imageName: "image_editor_rotate",
+            image: Lucide.image(icon: .rotateCcwSquare, size: 32),
             tintColor: .textPrimary
         ) { [weak self] in
             self?.rotate90ButtonPressed()
         }
         let flipButton = OWSButton(
-            imageName: "image_editor_flip",
+            image: Lucide.image(icon: .flipHorizontal2, size: 32),
             tintColor: .textPrimary
         ) { [weak self] in
             self?.flipButtonPressed()
         }
         let cropLockButton = OWSButton(
-            imageName: "image_editor_crop_unlock",
+            imageName: "crop-unlock-custom",
             tintColor: .textPrimary
         ) { [weak self] in
             self?.cropLockButtonPressed()
         }
         self.cropLockButton = cropLockButton
+        self.cropLockButton?.set(.height, to: 32)
+        self.cropLockButton?.set(.width, to: 32)
 
         // MARK: - Canvas & Wrapper
 
@@ -223,9 +227,9 @@ class ImageEditorCropViewController: OWSViewController {
     }
 
     public func updateNavigationBar() {
-        let resetButton = navigationBarButton(imageName: "image_editor_undo",
+        let resetButton = navigationBarButton(image: Lucide.image(icon: .rotateCcw, size: 32),
                                              selector: #selector(didTapReset(sender:)))
-        let doneButton = navigationBarButton(imageName: "image_editor_checkmark_full",
+        let doneButton = navigationBarButton(image: Lucide.image(icon: .circleCheck, size: 32),
                                              selector: #selector(didTapDone(sender:)))
         var navigationBarItems = [UIView]()
         if transform.isNonDefault {
@@ -239,8 +243,8 @@ class ImageEditorCropViewController: OWSViewController {
     private func updateCropLockButton() {
         switch (cropLockButton, isCropLocked) {
             case (.none, _): Log.error("[ImageEditorCropViewController] Missing cropLockButton")
-            case (.some(let button), true): button.setImage(imageName: "image_editor_crop_lock")
-            case (.some(let button), false): button.setImage(imageName: "image_editor_crop_unlock")
+            case (.some(let button), true): button.setImage(imageName: "crop-lock-custom")
+            case (.some(let button), false): button.setImage(imageName: "crop-unlock-custom")
         }
     }
 

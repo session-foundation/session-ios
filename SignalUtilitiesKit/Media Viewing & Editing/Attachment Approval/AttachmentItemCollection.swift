@@ -1,6 +1,7 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -9,7 +10,7 @@ class AddMoreRailItem: GalleryRailItem {
         let view = UIView()
         view.themeBackgroundColor = .backgroundSecondary
 
-        let iconView = UIImageView(image: #imageLiteral(resourceName: "ic_plus_24").withRenderingMode(.alwaysTemplate))
+        let iconView = LucideIconView(icon: .plus, size: 24)
         iconView.themeTintColor = .textPrimary
         view.addSubview(iconView)
         iconView.center(in: view)

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 
@@ -69,10 +70,7 @@ final class OpenGroupInvitationView: UIView {
         iconContainerView.set(.width, to: OpenGroupInvitationView.iconImageViewSize)
         iconContainerView.set(.height, to: OpenGroupInvitationView.iconImageViewSize)
         
-        let iconName = (isOutgoing ? "Globe" : "Plus") // stringlint:ignore
-        let iconImageView = UIImageView(
-            image: UIImage(named: iconName)?.withRenderingMode(.alwaysTemplate)
-        )
+        let iconImageView = LucideIconView(icon: isOutgoing ? .globe : .plus, size: Self.iconSize)
         iconImageView.themeTintColor = (isOutgoing ? .messageBubble_outgoingText : .textPrimary)
         iconImageView.contentMode = .scaleAspectFit
         iconImageView.set(.width, to: OpenGroupInvitationView.iconSize)

@@ -1,5 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
+import Lucide
 import UIKit
 import SessionUIKit
 import SessionMessagingKit
@@ -22,33 +23,34 @@ final class DocumentView: UIView {
     }
     
     private func setUpViewHierarchy(attachment: Attachment, textColor: ThemeValue) {
+        let documentIconSize = CGSize(width: 24, height: 32)
+        
         let imageBackgroundView: UIView = UIView()
         imageBackgroundView.themeBackgroundColor = .messageBubble_overlay
         addSubview(imageBackgroundView)
         
         // Image view
-        let imageView = UIImageView(
-            image: UIImage(systemName: "doc")?
-                .withRenderingMode(.alwaysTemplate)
-        )
+        let imageView = LucideIconView(icon: .file, size: documentIconSize.height)
         imageView.setContentCompressionResistancePriority(.required, for: .horizontal)
         imageView.setContentHuggingPriority(.required, for: .horizontal)
         imageView.contentMode = .scaleAspectFit
         imageView.themeTintColor = textColor
-        imageView.set(.width, to: 24)
-        imageView.set(.height, to: 32)
+        imageView.set(.width, to: documentIconSize.width)
+        imageView.set(.height, to: documentIconSize.height)
         
         if attachment.isAudio {
+            let audioIconSize = documentIconSize.height * 0.32
+            
             let audioImageView = UIImageView(
-                image: UIImage(systemName: "music.note")?
+                image: Lucide.image(icon: .music2, size: audioIconSize)?
                     .withRenderingMode(.alwaysTemplate)
             )
             audioImageView.contentMode = .scaleAspectFit
             audioImageView.themeTintColor = textColor
             imageView.addSubview(audioImageView)
             audioImageView.center(.horizontal, in: imageView)
-            audioImageView.center(.vertical, in: imageView, withInset: 4)
-            audioImageView.set(.height, to: .height, of: imageView, multiplier: 0.32)
+            audioImageView.center(.vertical, in: imageView, withInset: 2)
+            audioImageView.set(.height, to: audioIconSize)
         }
         
         // Body label
@@ -81,16 +83,17 @@ final class DocumentView: UIView {
         rightContainerView.addSubview(activityIndicator)
         activityIndicator.pin(to: rightContainerView, withInset: 8)
         
+        let accessoryIconSize = 24.0
+        
         let rightImageView = UIImageView(
             image: {
                 guard attachment.state != .failedDownload && attachment.state != .failedUpload else {
-                    return UIImage(named: "warning")?
-                        .withRenderingMode(.alwaysTemplate)
+                    return Lucide.image(icon: .fileWarning, size: accessoryIconSize)
                 }
                 
                 switch attachment.isAudio {
                     case true: return UIImage(systemName: "play.fill")
-                    case false: return UIImage(systemName: "arrow.down")
+                    case false: return Lucide.image(icon: .arrowDown, size: accessoryIconSize)
                 }
             }()?.withRenderingMode(.alwaysTemplate)
         )
@@ -99,7 +102,7 @@ final class DocumentView: UIView {
         rightImageView.contentMode = .scaleAspectFit
         rightImageView.themeTintColor = textColor
         rightImageView.isHidden = (attachment.state == .uploading || attachment.state == .downloading)
-        rightImageView.set(.height, to: 24)
+        rightImageView.set(.height, to: accessoryIconSize)
         rightContainerView.addSubview(rightImageView)
         rightImageView.center(in: rightContainerView)
         

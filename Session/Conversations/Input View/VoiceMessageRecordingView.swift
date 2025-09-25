@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -19,7 +20,7 @@ final class VoiceMessageRecordingView: UIView {
     
     private lazy var iconImageView: UIImageView = {
         let result: UIImageView = UIImageView()
-        result.image = UIImage(named: "Microphone")?
+        result.image = Lucide.image(icon: .mic, size: VoiceMessageRecordingView.iconSize)?
             .withRenderingMode(.alwaysTemplate)
         result.themeTintColor = .white
         result.contentMode = .scaleAspectFit
@@ -58,12 +59,16 @@ final class VoiceMessageRecordingView: UIView {
         
         return result
     }()
+    
+    private lazy var chevronImage: UIImage? = Lucide.image(
+        icon: .chevronLeft,
+        size: VoiceMessageRecordingView.chevronSize
+    )
 
     private lazy var chevronImageView: UIImageView = {
         let result: UIImageView = UIImageView(
             image: (Dependencies.isRTL ?
-                    UIImage(named: "small_chevron_left")?.withHorizontallyFlippedOrientation() :
-                    UIImage(named: "small_chevron_left")
+                    chevronImage?.withHorizontallyFlippedOrientation() : chevronImage
                 )?
                 .withRenderingMode(.alwaysTemplate)
         )
@@ -320,7 +325,8 @@ final class VoiceMessageRecordingView: UIView {
             
             UIView.animate(withDuration: 0.25, delay: 0, options: .transitionCrossDissolve, animations: {
                 self.lockView.alpha = 0
-                self.iconImageView.image = UIImage(named: "ArrowUp")?.withRenderingMode(.alwaysTemplate)
+                self.iconImageView.image = Lucide.image(icon: .arrowUp, size:  VoiceMessageRecordingView.iconSize)?
+                    .withRenderingMode(.alwaysTemplate)
                 self.slideToCancelStackView.alpha = 0
                 self.cancelButton.alpha = 1
             }, completion: { _ in
@@ -410,20 +416,14 @@ extension VoiceMessageRecordingView {
             layer.borderWidth = 1
             
             // Lock icon
-            let lockIconImageView: UIImageView = UIImageView(
-                image: UIImage(named: "ic_lock_outline")?
-                    .withRenderingMode(.alwaysTemplate)
-            )
+            let lockIconImageView: LucideIconView = LucideIconView(icon: .lockKeyhole, size: LockView.lockIconSize)
             lockIconImageView.themeTintColor = .textPrimary
             lockIconImageView.set(.width, to: LockView.lockIconSize)
             lockIconImageView.set(.height, to: LockView.lockIconSize)
             stackView.addArrangedSubview(lockIconImageView)
             
             // Chevron icon
-            let chevronIconImageView: UIImageView = UIImageView(
-                image: UIImage(named: "ic_chevron_up")?
-                    .withRenderingMode(.alwaysTemplate)
-            )
+            let chevronIconImageView: LucideIconView = LucideIconView(icon: .chevronUp, size: LockView.chevronIconSize)
             chevronIconImageView.themeTintColor = .textPrimary
             chevronIconImageView.set(.width, to: LockView.chevronIconSize)
             chevronIconImageView.set(.height, to: LockView.chevronIconSize)
