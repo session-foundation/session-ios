@@ -7,7 +7,7 @@ import Combine
 // MARK: - Singleton
 
 public extension Singleton {
-    static let sessionProState: SingletonConfig<SessionProManagerType> = Dependencies.create(
+    static let sessionProState: SingletonConfig<SessionProManagerType & ProfilePictureAnimationManagerType & SessionProCTAManagerType> = Dependencies.create(
         identifier: "sessionProState",
         createInstance: { dependencies in SessionProState(using: dependencies) }
     )
@@ -15,23 +15,90 @@ public extension Singleton {
 
 // MARK: - SessionProState
 
-public class SessionProState: SessionProManagerType {
+public class SessionProState: SessionProManagerType, ProfilePictureAnimationManagerType, SessionProCTAManagerType {
     public let dependencies: Dependencies
-    public var isSessionProSubject: CurrentValueSubject<Bool, Never>
-    public var isSessionProPublisher: AnyPublisher<Bool, Never> {
-        isSessionProSubject
+    public var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never>
+    public var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> {
+        sessionProStateSubject
+            .compactMap { $0 }
+            .eraseToAnyPublisher()
+    }
+    public var sessionProPlans: [SessionProPlan]
+    
+    public var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never>
+    public var shouldAnimateImagePublisher: AnyPublisher<Bool, Never> {
+        shouldAnimateImageSubject
             .filter { $0 }
             .eraseToAnyPublisher()
     }
     
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.isSessionProSubject = CurrentValueSubject(dependencies[cache: .libSession].isSessionPro)
+        self.sessionProStateSubject = CurrentValueSubject(
+            dependencies[cache: .libSession].isSessionPro ?
+                SessionProPlanState.active(
+                    currentPlan: SessionProPlan(
+                        variant: .threeMonths,
+                        price: SessionProPlan.Variant.threeMonths.price,
+                        discountPercent: SessionProPlan.Variant.threeMonths.discountPercent
+                    ),
+                    expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+                    isAutoRenewing: true,
+                    originatingPlatform: .iOS
+                ) :
+                SessionProPlanState.none
+        )
+        self.sessionProPlans = SessionProPlan.Variant.allCases.map {
+            SessionProPlan(
+                variant: $0,
+                price: $0.price,
+                discountPercent: $0.discountPercent
+            )
+        }
+        self.shouldAnimateImageSubject = CurrentValueSubject(
+            dependencies[cache: .libSession].isSessionPro
+        )
     }
     
     public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) {
         dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
-        self.isSessionProSubject.send(true)
+        self.sessionProStateSubject.send(
+            SessionProPlanState.active(
+                currentPlan: SessionProPlan(
+                    variant: .threeMonths,
+                    price: SessionProPlan.Variant.threeMonths.price,
+                    discountPercent: SessionProPlan.Variant.threeMonths.discountPercent
+                ),
+                expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+                isAutoRenewing: true,
+                originatingPlatform: .iOS
+            )
+        )
+        self.shouldAnimateImageSubject.send(true)
         completion?(true)
+    }
+    
+    @discardableResult public func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        dismissType: Modal.DismissType,
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool {
+        guard dependencies[feature: .sessionProEnabled], case .active = sessionProStateSubject.value else {
+            return false
+        }
+        beforePresented?()
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                variant: variant,
+                dataManager: dependencies[singleton: .imageDataManager],
+                dismissType: dismissType,
+                afterClosed: afterClosed
+            )
+        )
+        presenting?(sessionProModal)
+        
+        return true
     }
 }

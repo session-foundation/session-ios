@@ -1,5 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
+import SwiftUI
 import Foundation
 import Combine
 import Lucide
@@ -11,7 +12,7 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
-class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTableSource {
+class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: TableDataState<Section, TableItem> = TableDataState()
@@ -29,6 +30,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             self?.onDisplayPictureSelected?(.image(identifier: identifier, data: resultImageData))
         }
     )
+    private var profileImageStatus: (previous: ProfileImageStatus?, current: ProfileImageStatus?)
+    // TODO: Refactor this with SessionThreadViewModel
+    private var threadViewModelSubject: CurrentValueSubject<SessionThreadViewModel?, Never>
     
     // MARK: - Initialization
     
@@ -42,36 +46,41 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         self.threadId = threadId
         self.threadVariant = threadVariant
         self.didTriggerSearch = didTriggerSearch
+        self.threadViewModelSubject = CurrentValueSubject(nil)
+        self.profileImageStatus = (previous: nil, current: .normal)
     }
     
     // MARK: - Config
-    
-    enum NavState {
-        case standard
-        case editing
+    enum ProfileImageStatus: Equatable {
+        case normal
+        case expanded
+        case qrCode
     }
     
     enum NavItem: Equatable {
         case edit
-        case cancel
-        case done
     }
     
     public enum Section: SessionTableSection {
         case conversationInfo
+        case sessionId
+        case sessionIdNoteToSelf
         case content
         case adminActions
         case destructiveActions
         
         public var title: String? {
             switch self {
-            case .adminActions: return "adminSettings".localized()
+                case .sessionId: return "accountId".localized()
+                case .sessionIdNoteToSelf: return "accountIdYours".localized()
+                case .adminActions: return "adminSettings".localized()
                 default: return nil
             }
         }
         
         public var style: SessionTableSectionStyle {
             switch self {
+                case .sessionId, .sessionIdNoteToSelf: return .titleSeparator
                 case .destructiveActions: return .padding
                 case .adminActions: return .titleRoundedContent
                 default: return .none
@@ -81,6 +90,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     
     public enum TableItem: Differentiable {
         case avatar
+        case qrCode
         case displayName
         case contactName
         case threadDescription
@@ -109,6 +119,47 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         case debugDeleteAttachmentsBeforeNow
     }
     
+    lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = threadViewModelSubject
+        .map { [weak self] threadViewModel -> [SessionNavItem<NavItem>] in
+            guard let threadViewModel: SessionThreadViewModel = threadViewModel else { return [] }
+           
+            let currentUserIsClosedGroupAdmin: Bool = (
+                [.legacyGroup, .group].contains(threadViewModel.threadVariant) &&
+                threadViewModel.currentUserIsClosedGroupAdmin == true
+            )
+            
+            let canEditDisplayName: Bool = (
+                threadViewModel.threadIsNoteToSelf != true &&
+                (
+                    threadViewModel.threadVariant == .contact ||
+                    currentUserIsClosedGroupAdmin
+                )
+            )
+            
+            guard canEditDisplayName else { return [] }
+            
+            return [
+                SessionNavItem(
+                    id: .edit,
+                    image: Lucide.image(icon: .pencil, size: 22)?
+                        .withRenderingMode(.alwaysTemplate),
+                    style: .plain,
+                    accessibilityIdentifier: "Edit Nick Name",
+                    action: { [weak self] in
+                        guard
+                            let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
+                                threadViewModel: threadViewModel,
+                                currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
+                            )
+                        else { return }
+                        
+                        self?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                    }
+                )
+            ]
+        }
+        .eraseToAnyPublisher()
+    
     // MARK: - Content
     
     private struct State: Equatable {
@@ -124,7 +175,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     }
     
     lazy var observation: TargetObservation = ObservationBuilderOld
-        .databaseObservation(self) { [dependencies, threadId = self.threadId] db -> State in
+        .databaseObservation(self) { [ weak self, dependencies, threadId = self.threadId] db -> State in
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                 .conversationSettingsQuery(threadId: threadId, userSessionId: userSessionId)
@@ -133,14 +184,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 .fetchOne(db, id: threadId)
                 .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
             
+            self?.threadViewModelSubject.send(threadViewModel)
+            
             return State(
                 threadViewModel: threadViewModel,
                 disappearingMessagesConfig: disappearingMessagesConfig
             )
         }
-        .compactMap { [weak self] current -> [SectionModel]? in self?.content(current) }
+        .compactMap { [weak self] current -> [SectionModel]? in
+            self?.content(
+                current,
+                profileImageStatus: self?.profileImageStatus
+            )
+        }
     
-    private func content(_ current: State) -> [SectionModel] {
+    private func content(_ current: State, profileImageStatus: (previous: ProfileImageStatus?, current: ProfileImageStatus?)?) -> [SectionModel] {
         // If we don't get a `SessionThreadViewModel` then it means the thread was probably deleted
         // so dismiss the screen
         guard let threadViewModel: SessionThreadViewModel = current.threadViewModel else {
@@ -165,89 +223,97 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             isGroup &&
             threadViewModel.currentUserIsClosedGroupAdmin == true
         )
-        let canEditDisplayName: Bool = (
-            threadViewModel.threadIsNoteToSelf != true && (
-                threadViewModel.threadVariant == .contact ||
-                currentUserIsClosedGroupAdmin
-            )
-        )
         let isThreadHidden: Bool = (
             threadViewModel.threadShouldBeVisible != true &&
             threadViewModel.threadPinnedPriority == LibSession.hiddenPriority
         )
+        
         // MARK: - Conversation Info
+        
         let conversationInfoSection: SectionModel = SectionModel(
             model: .conversationInfo,
             elements: [
-                SessionCell.Info(
-                    id: .avatar,
-                    accessory: .profile(
-                        id: threadViewModel.id,
-                        size: .hero,
-                        threadVariant: threadViewModel.threadVariant,
-                        displayPictureUrl: threadViewModel.threadDisplayPictureUrl,
-                        profile: threadViewModel.profile,
-                        profileIcon: {
-                            guard
-                                threadViewModel.threadVariant == .group &&
-                                currentUserIsClosedGroupAdmin &&
-                                dependencies[feature: .updatedGroupsAllowDisplayPicture]
-                            else { return .none }
+                (profileImageStatus?.current == .qrCode ?
+                    SessionCell.Info(
+                        id: .qrCode,
+                        accessory: .qrCode(
+                            for: threadViewModel.getQRCodeString(),
+                            hasBackground: false,
+                            logo: "SessionWhite40", // stringlint:ignore
+                            themeStyle: ThemeManager.currentTheme.interfaceStyle
+                        ),
+                        styling: SessionCell.StyleInfo(
+                            alignment: .centerHugging,
+                            customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                            backgroundStyle: .noBackground
+                        ),
+                        onTapView: { [weak self] targetView in
+                            let didTapProfileIcon: Bool = !(targetView is UIImageView)
                             
-                            // If we already have a display picture then the main profile gets the icon
-                            return (threadViewModel.threadDisplayPictureUrl != nil ? .rightPlus : .none)
-                        }(),
-                        additionalProfile: threadViewModel.additionalProfile,
-                        additionalProfileIcon: {
-                            guard
-                                threadViewModel.threadVariant == .group &&
-                                currentUserIsClosedGroupAdmin &&
-                                dependencies[feature: .updatedGroupsAllowDisplayPicture]
-                            else { return .none }
-                            
-                            // No display picture means the dual-profile so the additionalProfile gets the icon
-                            return .rightPlus
-                        }(),
-                        accessibility: nil
-                    ),
-                    styling: SessionCell.StyleInfo(
-                        alignment: .centerHugging,
-                        customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
-                        backgroundStyle: .noBackground
-                    ),
-                    onTap: { [weak self] in
-                        switch (threadViewModel.threadVariant, threadViewModel.threadDisplayPictureUrl, currentUserIsClosedGroupAdmin) {
-                            case (.contact, _, _): self?.viewDisplayPicture(threadViewModel: threadViewModel)
-                            case (.group, _, true):
-                                self?.updateGroupDisplayPicture(currentUrl: threadViewModel.threadDisplayPictureUrl)
-                            
-                            case (_, .some, _): self?.viewDisplayPicture(threadViewModel: threadViewModel)
-                            default: break
+                            if didTapProfileIcon {
+                                self?.profileImageStatus = (previous: profileImageStatus?.current, current: profileImageStatus?.previous)
+                                self?.forceRefresh(type: .postDatabaseQuery)
+                            } else {
+                                self?.showQRCodeLightBox(for: threadViewModel)
+                            }
                         }
-                        
-                    }
+                    ) :
+                    SessionCell.Info(
+                        id: .avatar,
+                        accessory: .profile(
+                            id: threadViewModel.id,
+                            size: (profileImageStatus?.current == .expanded ? .expanded : .hero),
+                            threadVariant: threadViewModel.threadVariant,
+                            displayPictureUrl: threadViewModel.threadDisplayPictureUrl,
+                            profile: threadViewModel.profile,
+                            profileIcon: ((threadViewModel.threadIsNoteToSelf || threadVariant == .group) ? .none : .qrCode),
+                            additionalProfile: threadViewModel.additionalProfile,
+                            accessibility: nil
+                        ),
+                        styling: SessionCell.StyleInfo(
+                            alignment: .centerHugging,
+                            customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                            backgroundStyle: .noBackground
+                        ),
+                        onTapView: { [weak self] targetView in
+                            let didTapQRCodeIcon: Bool = !(targetView is ProfilePictureView)
+                            
+                            switch (threadViewModel.threadVariant, currentUserIsClosedGroupAdmin, didTapQRCodeIcon) {
+                                case (.group, true, _):
+                                    self?.updateGroupDisplayPicture(currentUrl: threadViewModel.threadDisplayPictureUrl)
+                                case (.group, _, _):
+                                    break
+                                case (_, _, true):
+                                    self?.profileImageStatus = (previous: profileImageStatus?.current, current: .qrCode)
+                                    self?.forceRefresh(type: .postDatabaseQuery)
+                                case (_, _, false):
+                                    self?.profileImageStatus = (
+                                        previous: profileImageStatus?.current,
+                                        current: (profileImageStatus?.current == .expanded ? .normal : .expanded)
+                                    )
+                                    self?.forceRefresh(type: .postDatabaseQuery)
+                            }
+                        }
+                    )
                 ),
                 SessionCell.Info(
                     id: .displayName,
                     title: SessionCell.TextInfo(
                         threadViewModel.displayName,
                         font: .titleLarge,
-                        alignment: .center
-                    ),
-                    trailingAccessory: (!canEditDisplayName ? nil :
-                        .icon(
-                            .pencil,
-                            size: .small,
-                            customTint: .textSecondary
+                        alignment: .center,
+                        trailingImage: (
+                            (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) ?
+                            ("ProBadge", SessionProBadge(size: .medium).toImage()) :
+                            nil
                         )
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
                         customPadding: SessionCell.Padding(
                             top: Values.smallSpacing,
-                            leading: (!canEditDisplayName ? nil : IconSize.small.size),
                             bottom: {
-                                guard threadViewModel.threadVariant != .contact else { return Values.smallSpacing }
+                                guard threadViewModel.threadVariant != .contact else { return Values.mediumSpacing }
                                 guard threadViewModel.threadDescription == nil else { return Values.smallSpacing }
                                 
                                 return Values.largeSpacing
@@ -260,15 +326,31 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         identifier: "Username",
                         label: threadViewModel.displayName
                     ),
-                    onTap: { [weak self] in
-                        guard
-                            let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
-                                threadViewModel: threadViewModel,
-                                currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
-                            )
-                        else { return }
+                    onTapView: { [weak self, threadId, dependencies] targetView in
+                        guard targetView is SessionProBadge else {
+                            guard
+                                let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
+                                    threadViewModel: threadViewModel,
+                                    currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
+                                )
+                            else { return }
+                            
+                            self?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                            return
+                        }
                         
-                        self?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                        let proCTAModalVariant: ProCTAModal.Variant = {
+                            switch threadViewModel.threadVariant {
+                                case .group:
+                                    return .groupLimit(
+                                        isAdmin: currentUserIsClosedGroupAdmin,
+                                        isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) })
+                                    )
+                                default: return .generic
+                            }
+                        }()
+                        
+                        self?.showSessionProCTAIfNeeded(proCTAModalVariant)
                     }
                 ),
                 
@@ -311,36 +393,49 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         accessibility: Accessibility(
                             identifier: "Description",
                             label: threadDescription
-                        )
-                    )
-                },
-
-                (threadViewModel.threadVariant != .contact ? nil :
-                    SessionCell.Info(
-                        id: .sessionId,
-                        subtitle: SessionCell.TextInfo(
-                            threadViewModel.id,
-                            font: .monoSmall,
-                            alignment: .center,
-                            interaction: .copy
                         ),
-                        styling: SessionCell.StyleInfo(
-                            customPadding: SessionCell.Padding(
-                                top: Values.smallSpacing,
-                                bottom: Values.largeSpacing
-                            ),
-                            backgroundStyle: .noBackground
-                        ),
-                        accessibility: Accessibility(
-                            identifier: "Session ID",
-                            label: threadViewModel.id
-                        )
+                        onTap: { [weak self] in
+                            guard
+                                let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
+                                    threadViewModel: threadViewModel,
+                                    currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
+                                )
+                            else { return }
+                            
+                            self?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                        }
                     )
-                )
+                }
             ].compactMap { $0 }
         )
         
+        // MARK: - Session Id
+        
+        let sessionIdSection: SectionModel = SectionModel(
+            model: (threadViewModel.threadIsNoteToSelf == true ? .sessionIdNoteToSelf : .sessionId),
+            elements: [
+                SessionCell.Info(
+                    id: .sessionId,
+                    subtitle: SessionCell.TextInfo(
+                        threadViewModel.id,
+                        font: .monoLarge,
+                        alignment: .center,
+                        interaction: .copy
+                    ),
+                    styling: SessionCell.StyleInfo(
+                        customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                        backgroundStyle: .noBackground
+                    ),
+                    accessibility: Accessibility(
+                        identifier: "Session ID",
+                        label: threadViewModel.id
+                    )
+                )
+            ]
+        )
+        
         // MARK: - Users kicked from groups
+        
         guard !currentUserKickedFromGroup else {
             return [
                 conversationInfoSection,
@@ -387,6 +482,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         }
         
         // MARK: - Standard Actions
+        
         let standardActionsSection: SectionModel = SectionModel(
             model: .content,
             elements: [
@@ -597,7 +693,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 )
             ].compactMap { $0 }
         )
+        
         // MARK: - Admin Actions
+        
         let adminActionsSection: SectionModel? = (
             !currentUserIsClosedGroupAdmin ? nil :
                 SectionModel(
@@ -677,7 +775,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     ].compactMap { $0 }
                 )
         )
+        
         // MARK: - Destructive Actions
+        
         let destructiveActionsSection: SectionModel = SectionModel(
             model: .destructiveActions,
             elements: [
@@ -1111,6 +1211,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         
         return [
             conversationInfoSection,
+            (threadViewModel.threadVariant != .contact ? nil : sessionIdSection),
             standardActionsSection,
             adminActionsSection,
             destructiveActionsSection
@@ -1118,24 +1219,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     }
     
     // MARK: - Functions
-    
-    private func viewDisplayPicture(threadViewModel: SessionThreadViewModel) {
-        guard
-            let fileUrl: String = threadViewModel.threadDisplayPictureUrl,
-            let path: String = try? dependencies[singleton: .displayPictureManager].path(for: fileUrl)
-        else { return }
-        
-        let navController: UINavigationController = StyledNavigationController(
-            rootViewController: ProfilePictureVC(
-                imageSource: .url(URL(fileURLWithPath: path)),
-                title: threadViewModel.displayName,
-                using: dependencies
-            )
-        )
-        navController.modalPresentationStyle = .fullScreen
-        
-        self.transitionToScreen(navController, transitionType: .present)
-    }
     
     private func inviteUsersToCommunity(threadViewModel: SessionThreadViewModel) {
         guard
@@ -1678,11 +1761,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         },
                         icon: .rightPlus,
                         style: .circular,
+                        description: nil,
                         accessibility: Accessibility(
                             identifier: "Image picker",
                             label: "Image picker"
                         ),
                         dataManager: dependencies[singleton: .imageDataManager],
+                        onProBageTapped: nil,
                         onClick: { [weak self] onDisplayPictureSelected in
                             self?.onDisplayPictureSelected = onDisplayPictureSelected
                             self?.showPhotoLibraryForAvatar()
@@ -1691,7 +1776,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
@@ -1701,7 +1786,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
                                 
                                 self?.updateGroupDisplayPicture(
@@ -1766,9 +1851,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     case .groupUploadImageData(let data):
                         /// Show a blocking loading indicator while uploading but not while updating or syncing the group configs
                         return dependencies[singleton: .displayPictureManager]
-                            .prepareAndUploadDisplayPicture(imageData: data)
+                            .prepareAndUploadDisplayPicture(imageData: data, compression: true)
                             .showingBlockingLoading(in: self?.navigatableState)
-                            .map { url, filePath, key -> DisplayPictureManager.Update in
+                            .map { url, filePath, key, _ -> DisplayPictureManager.Update in
                                 .groupUpdateTo(url: url, key: key, filePath: filePath)
                             }
                             .mapError { $0 as Error }
@@ -1902,11 +1987,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     
                     let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                         modal: ProCTAModal(
-                            delegate: dependencies[singleton: .sessionProState],
                             variant: .morePinnedConvos(
                                 isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit)
                             ),
-                            dataManager: dependencies[singleton: .imageDataManager]
+                            dataManager: dependencies[singleton: .imageDataManager],
+                            onConfirm: { [dependencies] in
+                                dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+                            }
                         )
                     )
                     self?.transitionToScreen(sessionProModal, transitionType: .present)
@@ -1982,5 +2069,69 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             
             case (.community, _), (.legacyGroup, false), (.group, false): return nil
         }
+    }
+    
+    private func showSessionProCTAIfNeeded(_ variant: ProCTAModal.Variant) {
+        let shouldShowProCTA: Bool = {
+            guard dependencies[feature: .sessionProEnabled] else { return false }
+            if case .groupLimit = variant { return true }
+            return !dependencies[cache: .libSession].isSessionPro
+        }()
+        
+        guard shouldShowProCTA else { return }
+        
+        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+            modal: ProCTAModal(
+                variant: variant,
+                dataManager: dependencies[singleton: .imageDataManager],
+                onConfirm: { [dependencies] in
+                    dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+                }
+            )
+        )
+        
+        self.transitionToScreen(sessionProModal, transitionType: .present)
+    }
+    
+    private func showQRCodeLightBox(for threadViewModel: SessionThreadViewModel) {
+        let qrCodeImage: UIImage = QRCode.generate(
+            for: threadViewModel.getQRCodeString(),
+            hasBackground: false,
+            iconName: "SessionWhite40" // stringlint:ignore
+        )
+        .withRenderingMode(.alwaysTemplate)
+        
+        let viewController = SessionHostingViewController(
+            rootView: LightBox(
+                itemsToShare: [
+                    QRCode.qrCodeImageWithTintAndBackground(
+                        image: qrCodeImage,
+                        themeStyle: ThemeManager.currentTheme.interfaceStyle,
+                        size: CGSize(width: 400, height: 400),
+                        insets: UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+                    )
+                ]
+            ) {
+                VStack {
+                    Spacer()
+                    
+                    QRCodeView(
+                        qrCodeImage: qrCodeImage,
+                        themeStyle: ThemeManager.currentTheme.interfaceStyle
+                    )
+                    .aspectRatio(1, contentMode: .fit)
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: .infinity
+                    )
+                    
+                    Spacer()
+                }
+                .backgroundColor(themeColor: .newConversation_background)
+            },
+            customizedNavigationBackground: .backgroundSecondary
+        )
+        viewController.modalPresentationStyle = .fullScreen
+        self.transitionToScreen(viewController, transitionType: .present)
     }
 }

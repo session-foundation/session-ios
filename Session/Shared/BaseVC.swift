@@ -2,8 +2,11 @@
 
 import UIKit
 import SessionUIKit
+import Combine
+import SessionUtilitiesKit
 
 public class BaseVC: UIViewController {
+    private var disposables: Set<AnyCancellable> = Set()
     public var onViewWillAppear: ((UIViewController) -> Void)?
     public var onViewWillDisappear: ((UIViewController) -> Void)?
     public var onViewDidDisappear: ((UIViewController) -> Void)?
@@ -81,16 +84,48 @@ public class BaseVC: UIViewController {
         navigationItem.titleView = container
     }
     
-    internal func setUpNavBarSessionHeading() {
+    internal func setUpNavBarSessionHeading(currentUserSessionProState: SessionProManagerType) {
         let headingImageView = UIImageView(
             image: UIImage(named: "SessionHeading")?
                 .withRenderingMode(.alwaysTemplate)
         )
         headingImageView.themeTintColor = .textPrimary
         headingImageView.contentMode = .scaleAspectFit
-        headingImageView.set(.width, to: 150)
+        headingImageView.set(.width, to: 140)
         headingImageView.set(.height, to: Values.mediumFontSize)
         
-        navigationItem.titleView = headingImageView
+        let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
+        let isPro: Bool = {
+            if case .active = currentUserSessionProState.sessionProStateSubject.value {
+                return true
+            } else {
+                return false
+            }
+        }()
+        sessionProBadge.isHidden = !isPro
+        
+        let stackView: UIStackView = UIStackView(arrangedSubviews: [ headingImageView, sessionProBadge ])
+        stackView.axis = .horizontal
+        stackView.alignment = .center
+        stackView.spacing = 0
+        
+        currentUserSessionProState.sessionProStatePublisher
+            .subscribe(on: DispatchQueue.main)
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveValue: { [weak sessionProBadge] sessionProPlanState in
+                    let isPro: Bool = {
+                        if case .active = sessionProPlanState {
+                            return true
+                        } else {
+                            return false
+                        }
+                    }()
+                    sessionProBadge?.isHidden = !isPro
+                }
+            )
+            .store(in: &disposables)
+        
+        navigationItem.titleView = stackView
     }
 }

@@ -31,7 +31,8 @@ extension MessageReceiver {
         
         // Note: `message.sentTimestamp` is in ms (convert to TimeInterval before converting to
         // seconds to maintain the accuracy)
-        let messageSentTimestamp: TimeInterval = TimeInterval(Double(message.sentTimestampMs ?? 0) / 1000)
+        let messageSentTimestampMs: UInt64 = message.sentTimestampMs ?? 0
+        let messageSentTimestamp: TimeInterval = TimeInterval(Double(messageSentTimestampMs) / 1000)
         let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
         
         // Update profile if needed (want to do this regardless of whether the message exists or
@@ -43,7 +44,7 @@ extension MessageReceiver {
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
-                sentTimestamp: messageSentTimestamp,
+                profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
         }
@@ -186,7 +187,7 @@ extension MessageReceiver {
             using: dependencies
         )
         do {
-            let isProMessage: Bool = dependencies.mutate(cache: .libSession, { $0.validateProProof(message.proProof) })
+            let isProMessage: Bool = dependencies.mutate(cache: .libSession, { $0.validateProProof(for: message) })
             let processedMessageBody: String? = Self.truncateMessageTextIfNeeded(
                 message.text,
                 isProMessage: isProMessage,

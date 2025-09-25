@@ -33,7 +33,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.internalState = State.initialState(userSessionId: dependencies[cache: .general].sessionId)
+        self.internalState = State.initialState(
+            userSessionId: dependencies[cache: .general].sessionId,
+            isSessionPro: dependencies[cache: .libSession].isSessionPro
+        )
         
         bindState()
     }
@@ -42,6 +45,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     enum NavItem: Equatable {
         case close
+        case edit
         case qrCode
     }
     
@@ -49,8 +53,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case profileInfo
         case sessionId
         
-        case donationAndCommunity
-        case network
+        case sessionProAndCommunity
+        case donationAndnetwork
         case settings
         case helpAndData
         
@@ -66,7 +70,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         var style: SessionTableSectionStyle {
             switch self {
                 case .sessionId: return .titleSeparator
-                case .donationAndCommunity, .network, .settings, .helpAndData: return .padding
+                case .sessionProAndCommunity, .donationAndnetwork, .settings, .helpAndData: return .padding
                 default: return .none
             }
         }
@@ -79,9 +83,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case sessionId
         case idActions
         
-        case donate
+        case sessionPro
         case inviteAFriend
         
+        case donate
         case path
         case sessionNetwork
         
@@ -112,7 +117,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = [
         SessionNavItem(
             id: .qrCode,
-            image: UIImage(named: "QRCode")?
+            image: Lucide.image(icon: .qrCode, size: 24)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             accessibilityIdentifier: "View QR code",
@@ -123,6 +128,24 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 viewController.setNavBarTitle("qrCode".localized())
                 self?.transitionToScreen(viewController)
             }
+        ),
+        SessionNavItem(
+            id: .edit,
+            image: Lucide.image(icon: .pencil, size: 22)?
+                .withRenderingMode(.alwaysTemplate),
+            style: .plain,
+            accessibilityIdentifier: "Edit Profile Name",
+            action: { [weak self] in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    self.transitionToScreen(
+                        ConfirmationModal(
+                            info: self.updateDisplayName(current: self.internalState.profile.displayName())
+                        ),
+                        transitionType: .present
+                    )
+                }
+            }
         )
     ]
     
@@ -131,6 +154,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public struct State: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
+        let isSessionPro: Bool
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let developerModeEnabled: Bool
@@ -145,15 +169,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 .profile(userSessionId.hexString),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
+                .feature(.mockCurrentUserSessionPro),
                 .setting(.developerModeEnabled),
                 .setting(.hideRecoveryPasswordPermanently)
+                // TODO: [PRO] Need to observe changes to the users pro status
             ]
         }
         
-        static func initialState(userSessionId: SessionId) -> State {
+        static func initialState(userSessionId: SessionId, isSessionPro: Bool) -> State {
             return State(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
+                isSessionPro: isSessionPro,
                 serviceNetwork: .mainnet,
                 forceOffline: false,
                 developerModeEnabled: false,
@@ -187,6 +214,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     ) async -> State {
         /// Store mutable copies of the data to update
         var profile: Profile = previousState.profile
+        var isSessionPro: Bool = previousState.isSessionPro
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
         var developerModeEnabled: Bool = previousState.developerModeEnabled
@@ -236,12 +264,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 
                 forceOffline = updatedValue
             }
+            else if event.key == .feature(.mockCurrentUserSessionPro) {
+                guard let updatedValue: Bool = event.value as? Bool else { return }
+                
+                isSessionPro = updatedValue
+            }
         }
         
         /// Generate the new state
         return State(
             userSessionId: previousState.userSessionId,
             profile: profile,
+            isSessionPro: isSessionPro,
             serviceNetwork: serviceNetwork,
             forceOffline: forceOffline,
             developerModeEnabled: developerModeEnabled,
@@ -263,7 +297,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             switch (state.serviceNetwork, state.forceOffline) {
                                 case (.testnet, false): return .letter("T", false)     // stringlint:ignore
                                 case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                default: return .none
+                                default: return .pencil
                             }
                         }()
                     ),
@@ -285,18 +319,16 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     title: SessionCell.TextInfo(
                         state.profile.displayName(),
                         font: .titleLarge,
-                        alignment: .center
-                    ),
-                    trailingAccessory: .icon(
-                        .pencil,
-                        size: .small,
-                        customTint: .textSecondary
+                        alignment: .center,
+                        trailingImage: (state.isSessionPro ?
+                            ("ProBadge", SessionProBadge(size: .medium).toImage()) :
+                            nil
+                        )
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
                         customPadding: SessionCell.Padding(
                             top: Values.smallSpacing,
-                            leading: IconSize.small.size,
                             bottom: Values.mediumSpacing,
                             interItem: 0
                         ),
@@ -367,20 +399,23 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 )
             ]
         )
-        let donationAndCommunity: SectionModel = SectionModel(
-            model: .donationAndCommunity,
+        let sessionProAndCommunity: SectionModel = SectionModel(
+            model: .sessionProAndCommunity,
             elements: [
                 SessionCell.Info(
-                    id: .donate,
-                    leadingAccessory: .icon(
-                        .heart,
-                        customTint: .sessionButton_border
-                    ),
-                    title: "donate".localized(),
+                    id: .sessionPro,
+                    leadingAccessory: .proBadge(size: .small),
+                    title: Constants.app_pro,
                     styling: SessionCell.StyleInfo(
-                        tintColor: .sessionButton_border
+                        tintColor: .primary
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        let viewController: SessionListHostingViewController = SessionListHostingViewController(
+                            viewModel: SessionProSettingsViewModel(using: dependencies),
+                            customizedNavigationBackground: .clear
+                        )
+                        viewModel?.transitionToScreen(viewController)
+                    }
                 ),
                 SessionCell.Info(
                     id: .inviteAFriend,
@@ -404,9 +439,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 )
             ]
         )
-        let network: SectionModel = SectionModel(
-            model: .network,
+        let donationAndNetwork: SectionModel = SectionModel(
+            model: .donationAndnetwork,
             elements: [
+                SessionCell.Info(
+                    id: .donate,
+                    leadingAccessory: .icon(
+                        .heart,
+                        customTint: .sessionButton_border
+                    ),
+                    title: "donate".localized(),
+                    onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
+                ),
                 SessionCell.Info(
                     id: .path,
                     leadingAccessory: .custom(
@@ -424,9 +468,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             .withRenderingMode(.alwaysTemplate)
                     ),
                     title: Constants.network_name,
-                    trailingAccessory: .custom(
-                        info: NewTagView.Info()
-                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         let viewController: SessionHostingViewController = SessionHostingViewController(
                             rootView: SessionNetworkScreen(
@@ -579,7 +620,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             elements: helpAndDataElements
         )
         
-        return [profileInfo, sessionId, donationAndCommunity, network, settings, helpAndData]
+        return [profileInfo, sessionId, sessionProAndCommunity, donationAndNetwork, settings, helpAndData]
     }
     
     public lazy var footerView: AnyPublisher<UIView?, Never> = Just(VersionFooterView(
@@ -627,6 +668,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 self?.updatedName != current
             },
             cancelStyle: .alert_text,
+            hasCloseButton: true,
             dismissOnConfirm: false,
             onConfirm: { [weak self] modal in
                 guard
@@ -651,59 +693,132 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     private func updateProfilePicture(currentUrl: String?) {
         let iconName: String = "profile_placeholder" // stringlint:ignore
+        var hasSetNewProfilePicture: Bool = false
+        let body: ConfirmationModal.Info.Body = .image(
+            source: nil,
+            placeholder: currentUrl
+                .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
+                .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) }
+                .defaulting(to: Lucide.image(icon: .image, size: 40).map { image in
+                    ImageDataManager.DataSource.image(
+                        iconName,
+                        image
+                            .withTintColor(#colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1), renderingMode: .alwaysTemplate)
+                            .withCircularBackground(backgroundColor: #colorLiteral(red: 0.1764705882, green: 0.1764705882, blue: 0.1764705882, alpha: 1))
+                    )
+                }),
+            icon: (currentUrl != nil ? .pencil : .rightPlus),
+            style: .circular,
+            description: {
+                guard dependencies[feature: .sessionProEnabled] else { return nil }
+                return dependencies[cache: .libSession].isSessionPro ?
+                    "proAnimatedDisplayPictureModalDescription"
+                        .localized()
+                        .addProBadge(
+                            at: .leading,
+                            font: .systemFont(ofSize: Values.smallFontSize),
+                            textColor: .textSecondary,
+                            proBadgeSize: .small
+                        ):
+                    "proAnimatedDisplayPicturesNonProModalDescription"
+                        .localized()
+                        .addProBadge(
+                            at: .trailing,
+                            font: .systemFont(ofSize: Values.smallFontSize),
+                            textColor: .textSecondary,
+                            proBadgeSize: .small
+                        )
+            }(),
+            accessibility: Accessibility(
+                identifier: "Upload",
+                label: "Upload"
+            ),
+            dataManager: dependencies[singleton: .imageDataManager],
+            onProBageTapped: { [weak self, dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                    .animatedProfileImage(
+                        isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                    ),
+                    presenting: { modal in
+                        self?.transitionToScreen(modal, transitionType: .present)
+                    }
+                )
+            },
+            onClick: { [weak self] onDisplayPictureSelected in
+                self?.onDisplayPictureSelected = { valueUpdate in
+                    onDisplayPictureSelected(valueUpdate)
+                    hasSetNewProfilePicture = true
+                }
+                self?.showPhotoLibraryForAvatar()
+            }
+        )
         
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "profileDisplayPictureSet".localized(),
-                    body: .image(
-                        source: currentUrl
-                            .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
-                            .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
-                        placeholder: UIImage(named: iconName).map {
-                            ImageDataManager.DataSource.image(iconName, $0)
-                        },
-                        icon: .rightPlus,
-                        style: .circular,
-                        accessibility: Accessibility(
-                            identifier: "Upload",
-                            label: "Upload"
-                        ),
-                        dataManager: dependencies[singleton: .imageDataManager],
-                        onClick: { [weak self] onDisplayPictureSelected in
-                            self?.onDisplayPictureSelected = onDisplayPictureSelected
-                            self?.showPhotoLibraryForAvatar()
-                        }
-                    ),
+                    body: body,
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: .bool(currentUrl != nil),
+                    cancelEnabled: (currentUrl != nil) ? .bool(true) : .afterChange { info in
+                        switch info.body {
+                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
+                            default: return false
+                        }
+                    },
                     hasCloseButton: true,
                     dismissOnConfirm: false,
-                    onConfirm: { [weak self] modal in
+                    onConfirm: { [weak self, dependencies] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
-                                
+                            
+                                let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(imageData)
+                                guard (
+                                    !isAnimatedImage ||
+                                    dependencies[cache: .libSession].isSessionPro ||
+                                    !dependencies[feature: .sessionProEnabled]
+                                ) else {
+                                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                        .animatedProfileImage(
+                                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                                        ),
+                                        presenting: { modal in
+                                            self?.transitionToScreen(modal, transitionType: .present)
+                                        }
+                                    )
+                                    return
+                                }
+                            
                                 self?.updateProfile(
-                                    displayPictureUpdate: .currentUserUploadImageData(imageData),
+                                    displayPictureUpdate: .currentUserUploadImageData(data: imageData, isReupload: false),
                                     onComplete: { [weak modal] in modal?.close() }
                                 )
-                                
+                            
                             default: modal.close()
                         }
                     },
                     onCancel: { [weak self] modal in
-                        self?.updateProfile(
-                            displayPictureUpdate: .currentUserRemove,
-                            onComplete: { [weak modal] in modal?.close() }
-                        )
+                        if hasSetNewProfilePicture {
+                            modal.updateContent(
+                                with: modal.info.with(
+                                    body: body,
+                                    cancelTitle: "remove".localized()
+                                )
+                            )
+                            hasSetNewProfilePicture = false
+                        } else {
+                            self?.updateProfile(
+                                displayPictureUpdate: .currentUserRemove,
+                                onComplete: { [weak modal] in modal?.close() }
+                            )
+                        }
                     }
                 )
             ),

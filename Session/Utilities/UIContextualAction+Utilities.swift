@@ -238,13 +238,15 @@ public extension UIContextualAction {
                             {
                                 let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                                     modal: ProCTAModal(
-                                        delegate: dependencies[singleton: .sessionProState],
                                         variant: .morePinnedConvos(
                                             isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
                                         ),
                                         dataManager: dependencies[singleton: .imageDataManager],
                                         afterClosed: { [completionHandler] in
                                             completionHandler(true)
+                                        },
+                                        onConfirm: { [dependencies] in
+                                            dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
                                         }
                                     )
                                 )
