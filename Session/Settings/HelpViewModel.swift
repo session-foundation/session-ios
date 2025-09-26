@@ -227,12 +227,23 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                 let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
             else { return }
             
+            let filePath = URL(fileURLWithPath: latestLogFilePath)
+            
+            /// To not modify the existing files generated and modified via `Log.logFilePath`
+            /// only the file to be shared will be sanitized by removing whitespaces
+            let sanitizedFileURL = Log.prepareFileForSharing(originalURL: filePath)
+
             let showShareSheet: () -> () = {
                 let shareVC = UIActivityViewController(
-                    activityItems: [ URL(fileURLWithPath: latestLogFilePath) ],
+                    activityItems: [
+                        sanitizedFileURL
+                    ],
                     applicationActivities: nil
                 )
                 shareVC.completionWithItemsHandler = { _, success, _, _ in
+                    /// Deletes file copy of the log file
+                    Log.deleteItem(at: sanitizedFileURL)
+                    
                     UIActivityViewController.notifyIfNeeded(success, using: dependencies)
                     onShareComplete?()
                 }
