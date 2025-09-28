@@ -4,7 +4,7 @@
 
 import Foundation
 
-public enum NotificationCategory: CaseIterable {
+public enum NotificationCategory: Int, CaseIterable, Equatable {
     case incomingMessage
     case errorMessage
     case threadlessErrorMessage

@@ -39,7 +39,7 @@ public extension Message {
             }
         }
         
-        public var defaultNamespace: Network.SnodeAPI.Namespace? {
+        public var defaultNamespace: Network.StorageServer.Namespace? {
             switch self {
                 case .contact, .syncMessage: return .`default`
                 case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:

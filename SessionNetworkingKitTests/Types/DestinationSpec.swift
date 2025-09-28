@@ -15,7 +15,7 @@ class DestinationSpec: QuickSpec {
             context("when generating a path") {
                 // MARK: ---- adds a leading forward slash to the endpoint path
                 it("adds a leading forward slash to the endpoint path") {
-                    let result: String = Network.Destination.generatePathsAndParams(
+                    let result: String = Network.Destination.generatePathWithParams(
                         endpoint: TestEndpoint.test1,
                         queryParameters: [:]
                     )
@@ -25,7 +25,7 @@ class DestinationSpec: QuickSpec {
                 
                 // MARK: ---- creates a valid URL with no query parameters
                 it("creates a valid URL with no query parameters") {
-                    let result: String = Network.Destination.generatePathsAndParams(
+                    let result: String = Network.Destination.generatePathWithParams(
                         endpoint: TestEndpoint.test1,
                         queryParameters: [:]
                     )
@@ -35,7 +35,7 @@ class DestinationSpec: QuickSpec {
                 
                 // MARK: ---- creates a valid URL when query parameters are provided
                 it("creates a valid URL when query parameters are provided") {
-                    let result: String = Network.Destination.generatePathsAndParams(
+                    let result: String = Network.Destination.generatePathWithParams(
                         endpoint: TestEndpoint.test1,
                         queryParameters: [
                             .testParam: "123"
@@ -43,20 +43,6 @@ class DestinationSpec: QuickSpec {
                     )
                     
                     expect(result).to(equal("/test1?testParam=123"))
-                }
-            }
-            
-            // MARK: -- for a server
-            context("for a server") {
-                // MARK: ---- throws an error if the generated URL is invalid
-                it("throws an error if the generated URL is invalid") {
-                    expect {
-                        _ = try Network.Destination.server(
-                            server: "ftp:// test Server",
-                            x25519PublicKey: ""
-                        ).withGeneratedUrl(for: TestEndpoint.testParams("test", 123))
-                    }
-                    .to(throwError(NetworkError.invalidURL))
                 }
             }
         }

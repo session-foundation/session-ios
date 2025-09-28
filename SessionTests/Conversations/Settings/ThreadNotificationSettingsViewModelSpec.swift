@@ -8,6 +8,7 @@ import SessionUIKit
 import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import Session
 
@@ -19,49 +20,55 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies[singleton: .scheduler] = .immediate
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
+            using: dependencies
+        )
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        @TestState var mockNotificationsManager: MockNotificationsManager! = .create(using: dependencies)
+        @TestState var viewModel: ThreadNotificationSettingsViewModel!
+        @TestState var cancellables: [AnyCancellable]!
+        
+        beforeEach {
+            try await mockStorage.perform(
+                migrations: SNMessagingKit.migrations
+            )
+            try await mockStorage.writeAsync { db in
                 try SessionThread(
                     id: "TestId",
                     variant: .contact,
                     creationDateTimestamp: 0
                 ).insert(db)
             }
-        )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-            }
-        )
-        @TestState(singleton: .notificationsManager, in: dependencies) var mockNotificationsManager: MockNotificationsManager! = MockNotificationsManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        @TestState var viewModel: ThreadNotificationSettingsViewModel! = TestState.create {
-            await ThreadNotificationSettingsViewModel(
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            
+            try await mockNotificationsManager.defaultInitialSetup()
+            dependencies.set(singleton: .notificationsManager, to: mockNotificationsManager)
+            
+            viewModel = await ThreadNotificationSettingsViewModel(
                 threadId: "TestId",
                 threadVariant: .contact,
                 threadOnlyNotifyForMentions: nil,
                 threadMutedUntilTimestamp: nil,
                 using: dependencies
             )
+            cancellables = [
+                viewModel.tableDataPublisher
+                    .receive(on: ImmediateScheduler.shared)
+                    .sink(
+                        receiveCompletion: { _ in },
+                        receiveValue: { viewModel.updateTableData($0) }
+                    )
+            ]
         }
-        
-        @TestState var cancellables: [AnyCancellable]! = [
-            viewModel.tableDataPublisher
-                .receive(on: ImmediateScheduler.shared)
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0) }
-                )
-        ]
         
         // MARK: - a ThreadNotificationSettingsViewModel
         describe("a ThreadNotificationSettingsViewModel") {
@@ -420,15 +427,16 @@ class ThreadNotificationSettingsViewModelSpec: AsyncSpec {
                     it("saves the updated settings") {
                         await MainActor.run { [footerButtonInfo] in footerButtonInfo?.onTap() }
                         
-                        await expect(mockNotificationsManager)
-                            .toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                        await mockNotificationsManager
+                            .verify {
                                 $0.updateSettings(
                                     threadId: "TestId",
                                     threadVariant: .contact,
                                     mentionsOnly: false,
                                     mutedUntil: Date.distantFuture.timeIntervalSince1970
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                 }
             }

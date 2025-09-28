@@ -46,46 +46,5 @@ public extension Network {
                         .map { String($0) }
                 }
         }
-    }
-    
-    static func preparedUpload(
-        data: Data,
-        requestAndPathBuildTimeout: TimeInterval? = nil,
-        using dependencies: Dependencies
-    ) throws -> PreparedRequest<FileUploadResponse> {
-        return try PreparedRequest(
-            request: Request(
-                endpoint: FileServer.Endpoint.file,
-                destination: .serverUpload(
-                    server: FileServer.fileServer,
-                    x25519PublicKey: FileServer.fileServerPublicKey,
-                    fileName: nil
-                ),
-                body: data
-            ),
-            responseType: FileUploadResponse.self,
-            requestTimeout: Network.fileUploadTimeout,
-            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
-            using: dependencies
-        )
-    }
-    
-    static func preparedDownload(
-        url: URL,
-        using dependencies: Dependencies
-    ) throws -> PreparedRequest<Data> {
-        return try PreparedRequest(
-            request: Request<NoBody, FileServer.Endpoint>(
-                endpoint: FileServer.Endpoint.directUrl(url),
-                destination: .serverDownload(
-                    url: url,
-                    x25519PublicKey: FileServer.fileServerPublicKey,
-                    fileName: nil
-                )
-            ),
-            responseType: Data.self,
-            requestTimeout: Network.fileUploadTimeout,
-            using: dependencies
-        )
-    }
+    }    
 }

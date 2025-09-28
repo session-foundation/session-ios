@@ -5,7 +5,7 @@ import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension SNProtoEnvelope {
-    static func from(_ message: SnodeReceivedMessage) -> SNProtoEnvelope? {
+    static func from(_ message: Network.StorageServer.Message) -> SNProtoEnvelope? {
         guard let result = try? MessageWrapper.unwrap(data: message.data) else {
             Log.error(.messageReceiver, "Failed to unwrap data for message: \(String(reflecting: message)).")
             return nil

@@ -41,11 +41,9 @@ final class ShareNavController: UINavigationController {
         }
 
         guard !SNUtilitiesKit.isRunningTests else { return }
-        
-        dependencies.warmCache(cache: .appVersion)
 
-        AppSetup.setupEnvironment(
-            appSpecificBlock: { [dependencies] in
+        Task(priority: .userInitiated) { [weak self, dependencies] in
+            do {
                 // stringlint:ignore_start
                 if !Log.loggerExists(withPrefix: "SessionShareExtension") {
                     Log.setup(with: Logger(
@@ -58,45 +56,37 @@ final class ShareNavController: UINavigationController {
                 }
                 // stringlint:ignore_stop
                 
-                // Setup LibSession
-                dependencies.warmCache(cache: .libSessionNetwork)
+                var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
+                try await AppSetup.performSetup(using: dependencies)
+                try await AppSetup.performDatabaseMigrations(using: dependencies)
+                try await AppSetup.postMigrationSetup(using: dependencies)
                 
-                // Configure the different targets
-                SNUtilitiesKit.configure(
-                    networkMaxFileSize: Network.maxFileSize,
-                    maxValidImageDimention: ImageDataManager.DataSource.maxValidDimension,
-                    using: dependencies
-                )
-                SNMessagingKit.configure(using: dependencies)
-            },
-            migrationsCompletion: { [weak self, dependencies] result in
-                switch result {
-                    case .failure: Log.error("Failed to complete migrations")
-                    case .success:
-                        DispatchQueue.main.async {
-                            /// Because the `SessionUIKit` target doesn't depend on the `SessionUtilitiesKit` dependency (it shouldn't
-                            /// need to since it should just be UI) but since the theme settings are stored in the database we need to pass these through
-                            /// to `SessionUIKit` and expose a mechanism to save updated settings - this is done here (once the migrations complete)
-                            SNUIKit.configure(
-                                with: SAESNUIKitConfig(using: dependencies),
-                                themeSettings: dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
-                                    (
-                                        cache.get(.theme),
-                                        cache.get(.themePrimaryColor),
-                                        cache.get(.themeMatchSystemDayNightCycle)
-                                    )
-                                }
+                /// The 'if' is only there to prevent the "variable never read" warning from showing
+                if backgroundTask != nil { backgroundTask = nil }
+                
+                let maybeUserMetadata: ExtensionHelper.UserMetadata? = dependencies[singleton: .extensionHelper]
+                    .loadUserMetadata()
+                
+                await MainActor.run { [weak self] in
+                    /// `SessionUIKit` is isolated from the other targets (since it should only contain UI code) but the theme settings are
+                    /// stored in `libSession` so we need to pass these through and expose a mechanism to save updated settings - this
+                    /// is done here
+                    SNUIKit.configure(
+                        with: SAESNUIKitConfig(using: dependencies),
+                        themeSettings: dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
+                            (
+                                cache.get(.theme),
+                                cache.get(.themePrimaryColor),
+                                cache.get(.themeMatchSystemDayNightCycle)
                             )
-                            
-                            let maybeUserMetadata: ExtensionHelper.UserMetadata? = dependencies[singleton: .extensionHelper]
-                                .loadUserMetadata()
-                            
-                            self?.versionMigrationsDidComplete(userMetadata: maybeUserMetadata)
                         }
+                    )
+                    
+                    self?.versionMigrationsDidComplete(userMetadata: maybeUserMetadata)
                 }
-            },
-            using: dependencies
-        )
+            }
+            catch { Log.error("Failed to complete migrations") }
+        }
 
         // We don't need to use "screen protection" in the SAE.
         NotificationCenter.default.addObserver(
@@ -551,8 +541,11 @@ final class ShareNavController: UINavigationController {
                             if let data = image.pngData() {
                                 let tempFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "png") // stringlint:ignore
                                 do {
-                                    let url = NSURL.fileURL(withPath: tempFilePath)
-                                    try data.write(to: url)
+                                    let url: URL = URL(fileURLWithPath: tempFilePath)
+                                    try dependencies[singleton: .fileManager].write(
+                                        data: data,
+                                        to: URL(fileURLWithPath: tempFilePath)
+                                    )
                                     
                                     resolver(
                                         Result.success(
@@ -780,7 +773,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     func navBarSessionIcon() -> NavBarSessionIcon {
         switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
             case (.mainnet, false): return NavBarSessionIcon()
-            case (.testnet, _), (.mainnet, true):
+            case (.testnet, _), (.devnet, _), (.mainnet, true):
                 return NavBarSessionIcon(
                     showDebugUI: true,
                     serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,

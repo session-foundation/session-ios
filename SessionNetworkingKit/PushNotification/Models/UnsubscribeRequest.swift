@@ -53,10 +53,10 @@ extension Network.PushNotification {
                 
                 try container.encode(serviceInfo, forKey: .serviceInfo)
                 
-                // Use the correct APNS service based on the serviceNetwork (default to mainnet)
-                switch encoder.dependencies?[feature: .serviceNetwork] {
-                    case .testnet: try container.encode(Service.sandbox, forKey: .service)
-                    case .mainnet, .none: try container.encode(Service.apns, forKey: .service)
+                // Use the desired APNS service (default to apns)
+                switch encoder.dependencies?[feature: .pushNotificationService] {
+                    case .sandbox: try container.encode(Service.sandbox, forKey: .service)
+                    case .apns, .none: try container.encode(Service.apns, forKey: .service)
                 }
                 
                 try super.encode(to: encoder)

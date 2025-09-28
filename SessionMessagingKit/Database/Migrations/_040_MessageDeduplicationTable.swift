@@ -30,7 +30,7 @@ enum _040_MessageDeduplicationTable: Migration {
         /// **oldestNotificationDedupeTimestampMs:** We probably only need to create "dedupe" records for the PN extension
         /// for messages sent within the last ~60 mins (any older and the user probably wouldn't get a PN
         let timestampNowInSec: Int64 = Int64(dependencies.dateNow.timeIntervalSince1970)
-        let oldestSnodeTimestampMs: Int64 = ((timestampNowInSec * 1000) - SnodeReceivedMessage.defaultExpirationMs)
+        let oldestSnodeTimestampMs: Int64 = ((timestampNowInSec * 1000) - Network.StorageServer.Message.defaultExpirationMs)
         let oldestNotificationDedupeTimestampMs: Int64 = ((timestampNowInSec - (60 * 60)) * 1000)
         
         try db.create(table: "messageDeduplication") { t in
@@ -191,24 +191,24 @@ enum _040_MessageDeduplicationTable: Migration {
                 
                 /// If we got here then it means we have no way to know when the message should expire but messages stored on
                 /// a snode as well as outgoing blinded message reuqests stored on a SOGS both have a similar default expiration
-                /// so create one manually by using `SnodeReceivedMessage.defaultExpirationMs`
+                /// so create one manually by using `Network.StorageServer.Message.defaultExpirationMs`
                 ///
                 /// For a `contact` conversation at the time of writing this migration there _shouldn't_ be any type of message
                 /// which never expires or has it's TTL extended (outside of config messages)
                 ///
                 /// If we have a `timestampMs` then base our custom expiration on that
                 if let timestampMs: Int64 = row["timestampMs"] {
-                    return ((timestampMs + SnodeReceivedMessage.defaultExpirationMs) / 1000)
+                    return ((timestampMs + Network.StorageServer.Message.defaultExpirationMs) / 1000)
                 }
                 
                 /// Otherwise just use the current time if we somehow don't have a timestamp (this case shouldn't be possible)
-                return (timestampNowInSec + (SnodeReceivedMessage.defaultExpirationMs / 1000))
+                return (timestampNowInSec + (Network.StorageServer.Message.defaultExpirationMs / 1000))
             }()
             
-            /// Add `(SnodeReceivedMessage.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
+            /// Add `(Network.StorageServer.Message.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
             /// in order to try to ensure that our deduplication record outlasts the message lifetime on the storage server
             let finalExpiryTimestampSeconds: Int64? = expirationTimestampSeconds
-                .map { $0 + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000) }
+                .map { $0 + ((Network.StorageServer.Message.serverClockToleranceMs * 2) / 1000) }
             
             /// If this record would have already expired then there is no need to insert a record for it
             guard (finalExpiryTimestampSeconds ?? timestampNowInSec) < timestampNowInSec else { return }
@@ -273,19 +273,19 @@ enum _040_MessageDeduplicationTable: Migration {
                 
                 /// If we got here then it means we have no way to know when the message should expire but messages stored on
                 /// a snode as well as outgoing blinded message reuqests stored on a SOGS both have a similar default expiration
-                /// so create one manually by using `SnodeReceivedMessage.defaultExpirationMs`
+                /// so create one manually by using `Network.StorageServer.Message.defaultExpirationMs`
                 ///
                 /// For a `contact` conversation at the time of writing this migration there _shouldn't_ be any type of message
                 /// which never expires or has it's TTL extended (outside of config messages)
                 ///
                 /// If we have a `timestampMs` then base our custom expiration on that
-                return ((timestampMs + SnodeReceivedMessage.defaultExpirationMs) / 1000)
+                return ((timestampMs + Network.StorageServer.Message.defaultExpirationMs) / 1000)
             }()
             
-            /// Add `(SnodeReceivedMessage.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
+            /// Add `(Network.StorageServer.Message.serverClockToleranceMs * 2)` to `expirationTimestampSeconds`
             /// in order to try to ensure that our deduplication record outlasts the message lifetime on the storage server
             let finalExpiryTimestampSeconds: Int64? = expirationTimestampSeconds
-                .map { $0 + ((SnodeReceivedMessage.serverClockToleranceMs * 2) / 1000) }
+                .map { $0 + ((Network.StorageServer.Message.serverClockToleranceMs * 2) / 1000) }
             
             /// If this record would have already expired then there is no need to insert a record for it
             guard (finalExpiryTimestampSeconds ?? timestampNowInSec) < timestampNowInSec else { return }

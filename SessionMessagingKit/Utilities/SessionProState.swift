@@ -9,7 +9,7 @@ import Combine
 public extension Singleton {
     static let sessionProState: SingletonConfig<SessionProManagerType> = Dependencies.create(
         identifier: "sessionProState",
-        createInstance: { dependencies in SessionProState(using: dependencies) }
+        createInstance: { dependencies, _ in SessionProState(using: dependencies) }
     )
 }
 

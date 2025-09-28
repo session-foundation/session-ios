@@ -6,6 +6,7 @@ import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
 import SessionMessagingKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import StoreKit
 import SessionUIKit
@@ -189,7 +190,7 @@ public class HomeViewModel: NavigatableStateHolder {
         isInitialQuery: Bool,
         using dependencies: Dependencies
     ) async -> State {
-        let startedAsNewUser: Bool = (dependencies[cache: .onboarding].initialFlow == .register)
+        let startedAsNewUser: Bool = (await dependencies[singleton: .onboarding].initialFlow == .register)
         var userProfile: Profile = previousState.userProfile
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline

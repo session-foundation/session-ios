@@ -5,8 +5,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension Network.SnodeAPI {
-    class UpdateExpiryRequest: SnodeAuthenticatedRequestBody {
+extension Network.StorageServer {
+    class UpdateExpiryRequest: BaseAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case messageHashes = "messages"
             case expiryMs = "expiry"
@@ -39,7 +39,7 @@ extension Network.SnodeAPI {
             /// ` || messages[N])` where `expiry` is the expiry timestamp expressed as a string.
             /// `ShortenOrExtend` is string signature must be base64 "shorten" if the shorten option is given (and true),
             /// "extend" if `extend` is true, and empty otherwise. The signature must be base64 encoded (json) or bytes (bt).
-            Network.SnodeAPI.Endpoint.expire.path.bytes
+            Endpoint.expire.path.bytes
                 .appending(contentsOf: (shorten == true ? "shorten".bytes : []))
                 .appending(contentsOf: (extend == true ? "extend".bytes : []))
                 .appending(contentsOf: "\(expiryMs)".data(using: .ascii)?.bytes)
@@ -60,7 +60,10 @@ extension Network.SnodeAPI {
             self.shorten = shorten
             self.extend = extend
             
-            super.init(authMethod: authMethod)
+            super.init(
+                timestampMs: nil,
+                authMethod: authMethod
+            )
         }
         
         // MARK: - Coding

@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let screenLock: SingletonConfig<ScreenLockWindow> = Dependencies.create(
         identifier: "screenLock",
-        createInstance: { dependencies in ScreenLockWindow(using: dependencies) }
+        createInstance: { dependencies, _ in ScreenLockWindow(using: dependencies) }
     )
 }
 

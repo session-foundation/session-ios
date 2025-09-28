@@ -5,28 +5,39 @@ import Combine
 import GRDB
 import SessionMessagingKit
 import SessionUtilitiesKit
+import TestUtilities
 
-public class MockNotificationsManager: Mock<NotificationsManagerType>, NotificationsManagerType {
-    public required init(using dependencies: Dependencies) {
-        super.init()
-        
-        mockNoReturn(untrackedArgs: [dependencies])
+class MockNotificationsManager: NotificationsManagerType, Mockable {
+    let handler: MockHandler<NotificationsManagerType>
+    var dependencies: Dependencies { handler.erasedDependencies as! Dependencies }
+    
+    required init(handler: MockHandler<NotificationsManagerType>) {
+        self.handler = handler
     }
     
-    internal required init(functionHandler: MockFunctionHandler? = nil, initialSetup: ((Mock<NotificationsManagerType>) -> ())? = nil) {
-        super.init(functionHandler: functionHandler, initialSetup: initialSetup)
+    required init(handlerForBuilder: any MockFunctionHandler) {
+        self.handler = MockHandler(forwardingHandler: handlerForBuilder)
+    }
+    
+    public required init(using dependencies: Dependencies) {
+        handler = MockHandler(
+            dummyProvider: { _ in MockNotificationsManager(handler: .invalid()) },
+            erasedDependenciesKey: nil,
+            using: dependencies
+        )
+        handler.mockNoReturn()
     }
     
     public func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {
-        mockNoReturn(args: [delegate])
+        handler.mockNoReturn(args: [delegate])
     }
     
     public func registerSystemNotificationSettings() -> AnyPublisher<Void, Never> {
-        return mock()
+        return handler.mock()
     }
     
     public func settings(threadId: String?, threadVariant: SessionThread.Variant) -> Preferences.NotificationSettings {
-        return mock(args: [threadId, threadVariant])
+        return handler.mock(args: [threadId, threadVariant])
     }
     
     public func updateSettings(
@@ -35,18 +46,18 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
         mentionsOnly: Bool,
         mutedUntil: TimeInterval?
     ) {
-        return mock(args: [threadId, threadVariant, mentionsOnly, mutedUntil])
+        return handler.mock(args: [threadId, threadVariant, mentionsOnly, mutedUntil])
     }
     
     public func notificationUserInfo(
         threadId: String,
         threadVariant: SessionThread.Variant
-    ) -> [String: Any] {
-        return mock(args: [threadId, threadVariant])
+    ) -> [String: AnyHashable] {
+        return handler.mock(args: [threadId, threadVariant])
     }
     
     public func notificationShouldPlaySound(applicationState: UIApplication.State) -> Bool {
-        return mock(args: [applicationState])
+        return handler.mock(args: [applicationState])
     }
     
     public func notifyForFailedSend(
@@ -54,11 +65,11 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
         threadVariant: SessionThread.Variant,
         applicationState: UIApplication.State
     ) {
-        mockNoReturn(args: [threadId, threadVariant, applicationState])
+        handler.mockNoReturn(args: [threadId, threadVariant, applicationState])
     }
     
     public func scheduleSessionNetworkPageLocalNotifcation(force: Bool) {
-        mockNoReturn(args: [force])
+        handler.mockNoReturn(args: [force])
     }
     
     public func addNotificationRequest(
@@ -66,29 +77,29 @@ public class MockNotificationsManager: Mock<NotificationsManagerType>, Notificat
         notificationSettings: Preferences.NotificationSettings,
         extensionBaseUnreadCount: Int?
     ) {
-        mockNoReturn(args: [content, notificationSettings, extensionBaseUnreadCount])
+        handler.mockNoReturn(args: [content, notificationSettings, extensionBaseUnreadCount])
     }
     
     public func cancelNotifications(identifiers: [String]) {
-        mockNoReturn(args: [identifiers])
+        handler.mockNoReturn(args: [identifiers])
     }
     
     public func clearAllNotifications() {
-        mockNoReturn()
+        handler.mockNoReturn()
     }
 }
 
 // MARK: - Convenience
 
-extension Mock where T == NotificationsManagerType {
-    func defaultInitialSetup() {
-        self
+extension MockNotificationsManager {
+    func defaultInitialSetup() async throws {
+        try await self
             .when { $0.notificationUserInfo(threadId: .any, threadVariant: .any) }
             .thenReturn([:])
-        self
+        try await self
             .when { $0.notificationShouldPlaySound(applicationState: .any) }
             .thenReturn(false)
-        self
+        try await self
             .when {
                 $0.addNotificationRequest(
                     content: .any,
@@ -97,10 +108,10 @@ extension Mock where T == NotificationsManagerType {
                 )
             }
             .thenReturn(())
-        self
+        try await self
             .when { $0.cancelNotifications(identifiers: .any) }
             .thenReturn(())
-        self
+        try await self
             .when { $0.settings(threadId: .any, threadVariant: .any) }
             .thenReturn(
                 Preferences.NotificationSettings(
@@ -110,7 +121,7 @@ extension Mock where T == NotificationsManagerType {
                     mutedUntil: nil
                 )
             )
-        self
+        try await self
             .when {
                 $0.updateSettings(
                     threadId: .any,

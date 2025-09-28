@@ -141,26 +141,27 @@ enum _036_GroupsRebuildChanges: Migration {
                     """,
                     arguments: [group.groupIdentityPrivateKey, group.authData]
                 )
+            }
+            
+            /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
+            if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                let maybeAuthMethods: [AuthenticationMethod] = extractedUserGroups.groups
+                    .filter { group in !group.invited }
+                    .compactMap { group in
+                        try? Authentication.with(
+                            swarmPublicKey: group.groupSessionId,
+                            using: dependencies
+                        )
+                    }
                 
-                /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
-                if !group.invited, let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                    let maybeAuthMethod: AuthenticationMethod? = try? Authentication.with(
-                        db,
-                        swarmPublicKey: group.groupSessionId,
-                        using: dependencies
-                    )
-                    
-                    if let authMethod: AuthenticationMethod = maybeAuthMethod {
-                        db.afterCommit {
-                            try? Network.PushNotification
-                                .preparedSubscribe(
-                                    token: Data(hex: token),
-                                    swarms: [(SessionId(.group, hex: group.groupSessionId), authMethod)],
-                                    using: dependencies
-                                )
-                                .send(using: dependencies)
-                                .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                                .sinkUntilComplete()
+                if !maybeAuthMethods.isEmpty {
+                    db.afterCommit {
+                        Task.detached(priority: .userInitiated) {
+                            try? await Network.PushNotification.subscribe(
+                                token: Data(hex: token),
+                                swarmAuthentication: maybeAuthMethods,
+                                using: dependencies
+                            )
                         }
                     }
                 }
@@ -169,7 +170,7 @@ enum _036_GroupsRebuildChanges: Migration {
         
         // Move the `imageData` out of the `OpenGroup` table and on to disk to be consistent with
         // the other display picture logic
-        let timestampMs: TimeInterval = TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+        let timestampMs: TimeInterval = TimeInterval(dependencies.networkOffsetTimestampMs() / 1000)
         let existingImageInfo: [Row] = try Row.fetchAll(db, sql: """
             SELECT threadid, imageData
             FROM openGroup
@@ -194,9 +195,13 @@ enum _036_GroupsRebuildChanges: Migration {
                 .path
             
             // Save the decrypted display picture to disk
-            try? imageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
+            try? dependencies[singleton: .fileManager].write(
+                data: imageData,
+                to: URL(fileURLWithPath: filePath),
+                options: .atomic
+            )
             
-            guard UIImage(contentsOfFile: filePath) != nil else {
+            guard dependencies[singleton: .fileManager].imageContents(atPath: filePath) != nil else {
                 Log.error("[GroupsRebuildChanges] Failed to save Community imageData for \(threadId)")
                 return
             }

@@ -12,7 +12,6 @@ COMPILE_DIR="${TARGET_BUILD_DIR}/LibSessionUtil"
 INDEX_DIR="${DERIVED_DATA_PATH}/Index.noindex/Build/Products/Debug-${PLATFORM_NAME}"
 LAST_SUCCESSFUL_HASH_FILE="${TARGET_BUILD_DIR}/last_successful_source_tree.hash.log"
 LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE="${TARGET_BUILD_DIR}/last_built_framework_slice_dir.log"
-BUILT_LIB_FINAL_TIMESTAMP_FILE="${TARGET_BUILD_DIR}/libsession_util_built.timestamp"
 
 # Save original stdout and set trap for cleanup
 exec 3>&1
@@ -21,6 +20,48 @@ function finish {
   exec 1>&3 3>&-
 }
 trap finish EXIT ERR SIGINT SIGTERM
+
+# Robustly removes a directory, first clearing any immutable flags (work around Xcode's indexer file locking)
+remove_locked_dir() {
+  local dir_to_remove="$1"
+  if [ -d "${dir_to_remove}" ]; then
+    echo "- Unlocking and removing ${dir_to_remove}"
+    chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
+    rm -rf "${dir_to_remove}"
+  fi
+}
+
+sync_headers() {
+    local source_dir="$1"
+    echo "- Syncing headers from ${source_dir}"
+    
+    local destinations=(
+        "${TARGET_BUILD_DIR}/include"
+        "${INDEX_DIR}/include"
+        "${BUILT_PRODUCTS_DIR}/include"
+        "${CONFIGURATION_BUILD_DIR}/include"
+    )
+    
+    for dest in "${destinations[@]}"; do
+        if [ -n "$dest" ]; then
+            remove_locked_dir "$dest"
+            mkdir -p "$dest"
+            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$dest/"
+            echo "  Synced to: $dest"
+        fi
+    done
+}
+
+# Modify the platform detection to handle archive builds
+if [ "${ACTION}" = "install" ] || [ "${CONFIGURATION}" = "Release" ]; then
+  # Archive builds typically use 'install' action
+  if [ -z "$PLATFORM_NAME" ]; then
+    # During archive, PLATFORM_NAME might not be set correctly
+    # Default to device build for archives
+    PLATFORM_NAME="iphoneos"
+    echo "Missing 'PLATFORM_NAME' value, manually set to ${PLATFORM_NAME}"
+  fi
+fi
 
 # Determine whether we want to build from source
 TARGET_ARCH_DIR=""
@@ -35,11 +76,14 @@ else
 fi
 
 if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
-  echo "Restoring original headers to Xcode Indexer cache from backup..."
-  rm -rf "${INDEX_DIR}/include"
-  rsync -rt --exclude='.DS_Store' "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/" "${INDEX_DIR}/include"
-
   echo "Using pre-packaged SessionUtil"
+  sync_headers "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/"
+  
+  # Create the placeholder in the FINAL products directory to satisfy dependency.
+  touch "${BUILT_PRODUCTS_DIR}/libsession-util.a"
+  
+  echo "- Revert to SPM complete."
+  
   exit 0
 fi
 
@@ -83,20 +127,22 @@ fi
 echo "- Checking if libSession changed..."
 REQUIRES_BUILD=0
 
-# Generate a hash to determine whether any source files have changed
-SOURCE_HASH=$(find "${LIB_SESSION_SOURCE_DIR}/src" -type f -not -name '.DS_Store' -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
-HEADER_HASH=$(find "${LIB_SESSION_SOURCE_DIR}/include" -type f -not -name '.DS_Store' -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
-EXTERNAL_HASH=$(find "${LIB_SESSION_SOURCE_DIR}/external" -type f -not -name '.DS_Store' -exec md5 {} + | awk '{print $NF}' | sort | md5 | awk '{print $NF}')
-MAKE_LISTS_HASH=$(md5 -q "${LIB_SESSION_SOURCE_DIR}/CMakeLists.txt")
-STATIC_BUNDLE_HASH=$(md5 -q "${LIB_SESSION_SOURCE_DIR}/utils/static-bundle.sh")
-
-CURRENT_SOURCE_TREE_HASH=$( (
-  echo "${SOURCE_HASH}"
-  echo "${HEADER_HASH}"
-  echo "${EXTERNAL_HASH}"
-  echo "${MAKE_LISTS_HASH}"
-  echo "${STATIC_BUNDLE_HASH}"
-) | sort | md5 -q)
+# Generate a hash to determine whether any source files have changed (by using git we automatically
+# respect .gitignore)
+CURRENT_SOURCE_TREE_HASH=$( \
+  ( \
+    cd "${LIB_SESSION_SOURCE_DIR}" && git ls-files --recurse-submodules \
+  ) \
+  | grep -vE '/(tests?|docs?|examples?)/|\.md$|/(\.DS_Store|\.gitignore)$' \
+  | sort \
+  | tr '\n' '\0' \
+  | ( \
+      cd "${LIB_SESSION_SOURCE_DIR}" && xargs -0 md5 -r \
+    ) \
+  | awk '{print $1}' \
+  | sort \
+  | md5 -q \
+)
 
 PREVIOUS_BUILT_FRAMEWORK_SLICE_DIR=""
 if [ -f "$LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE" ]; then
@@ -125,6 +171,16 @@ else
 fi
 
 if [ "${REQUIRES_BUILD}" == 1 ]; then
+
+#  # Hide the SPM framework to prevent module conflicts
+#  if [ -d "${PRE_BUILT_FRAMEWORK_DIR}" ]; then
+#    # Temporarily rename the SPM framework to prevent it from being found
+#    mv "${PRE_BUILT_FRAMEWORK_DIR}" "${PRE_BUILT_FRAMEWORK_DIR}.disabled" 2>/dev/null || true
+#
+#    # Store that we disabled it so we can restore if build fails
+#    echo "DISABLED" > "${TARGET_BUILD_DIR}/.spm_framework_disabled"
+#  fi
+
   # Import settings from XCode (defaulting values if not present)
   VALID_SIM_ARCHS=(arm64 x86_64)
   VALID_DEVICE_ARCHS=(arm64)
@@ -217,6 +273,8 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
       -DBUILD_TESTS=OFF \
       -DBUILD_STATIC_DEPS=ON \
       -DENABLE_VISIBILITY=ON \
+      -DLOKINET_FULL=OFF \
+      -DLOKINET_DAEMON=OFF \
       -DSUBMODULE_CHECK=$submodule_check \
       -DCMAKE_BUILD_TYPE=$build_type \
       -DLOCAL_MIRROR=https://oxen.rocks/deps
@@ -308,25 +366,24 @@ if [ "${REQUIRES_BUILD}" == 1 ]; then
   echo "- Saving successful build cache files"
   echo "${TARGET_ARCH_DIR}" > "${LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE}"
   echo "${CURRENT_SOURCE_TREE_HASH}" > "${LAST_SUCCESSFUL_HASH_FILE}"
-  
-  echo "- Touching timestamp file to signal update to Xcode"
-  touch "${BUILT_LIB_FINAL_TIMESTAMP_FILE}"
-  cp "${BUILT_LIB_FINAL_TIMESTAMP_FILE}" "${SPM_TIMESTAMP_FILE}"
 
   echo "- Build complete"
 fi
 
 echo "- Replacing build dir files"
 
-# Remove the current files (might be "newer")
-rm -rf "${TARGET_BUILD_DIR}/libsession-util.a"
-rm -rf "${TARGET_BUILD_DIR}/include"
-rm -rf "${INDEX_DIR}/include"
-
 # Rsync the compiled ones (maintaining timestamps)
+rm -rf "${TARGET_BUILD_DIR}/libsession-util.a"
 rsync -rt "${COMPILE_DIR}/libsession-util.a" "${TARGET_BUILD_DIR}/libsession-util.a"
-rsync -rt --exclude='.DS_Store' "${COMPILE_DIR}/Headers/" "${TARGET_BUILD_DIR}/include"
-rsync -rt --exclude='.DS_Store' "${COMPILE_DIR}/Headers/" "${INDEX_DIR}/include"
+
+if [ "${TARGET_BUILD_DIR}" != "${BUILT_PRODUCTS_DIR}" ]; then
+  echo "- TARGET_BUILD_DIR and BUILT_PRODUCTS_DIR are different. Copying library."
+  rm -f "${BUILT_PRODUCTS_DIR}/libsession-util.a"
+  rsync -rt "${COMPILE_DIR}/libsession-util.a" "${BUILT_PRODUCTS_DIR}/libsession-util.a"
+fi
+
+sync_headers "${COMPILE_DIR}/Headers/"
+echo "- Sync complete."
 
 # Output to XCode just so the output is good
 echo "LibSession is Ready"

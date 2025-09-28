@@ -126,46 +126,50 @@ struct PNModeScreen: View {
     }
     
     private func register() {
-        // Store whether we want to use APNS
-        dependencies.mutate(cache: .onboarding) { $0.setUseAPNS(currentSelection == .fast) }
-        
-        // If we are registering then we can just continue on
-        guard dependencies[cache: .onboarding].initialFlow != .register else {
-            return completeRegistration()
+        Task(priority: .userInitiated) {
+            // Store whether we want to use APNS
+            await dependencies[singleton: .onboarding].setUseAPNS(currentSelection == .fast)
+            
+            // If we are registering then we can just continue on
+            let initialFlow: Onboarding.Flow = await dependencies[singleton: .onboarding].initialFlow
+            guard initialFlow != .register else {
+                return await completeRegistration()
+            }
+            
+            // Check if we already have a profile name (ie. profile retrieval completed while waiting on
+            // this screen)
+            guard await dependencies[singleton: .onboarding].displayName.first() != nil else {
+                // If we have one then we can go straight to the home screen
+                return await self.completeRegistration()
+            }
+            
+            // If we don't have one then show a loading indicator and try to retrieve the existing name
+            await MainActor.run {
+                let viewController: SessionHostingViewController = SessionHostingViewController(
+                    rootView: LoadingScreen(initialFlow: initialFlow, using: dependencies)
+                )
+                viewController.setUpNavBarSessionIcon()
+                self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
+            }
         }
-        
-        // Check if we already have a profile name (ie. profile retrieval completed while waiting on
-        // this screen)
-        guard dependencies[cache: .onboarding].displayName.isEmpty else {
-            // If we have one then we can go straight to the home screen
-            return self.completeRegistration()
-        }
-        
-        // If we don't have one then show a loading indicator and try to retrieve the existing name
-        let viewController: SessionHostingViewController = SessionHostingViewController(
-            rootView: LoadingScreen(using: dependencies)
-        )
-        viewController.setUpNavBarSessionIcon()
-        self.host.controller?.navigationController?.pushViewController(viewController, animated: true)
     }
     
-    private func completeRegistration() {
-        dependencies.mutate(cache: .onboarding) { [dependencies] onboarding in
-            let shouldSyncPushTokens: Bool = onboarding.useAPNS
-            
-            onboarding.completeRegistration {
-                // Trigger the 'SyncPushTokensJob' directly as we don't want to wait for paths to build
-                // before requesting the permission from the user
-                if shouldSyncPushTokens {
-                    SyncPushTokensJob
-                        .run(uploadOnlyIfStale: false, using: dependencies)
-                        .sinkUntilComplete()
-                }
-                
-                let homeVC: HomeVC = HomeVC(using: dependencies)
-                dependencies[singleton: .app].setHomeViewController(homeVC)
-                self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
-            }
+    private func completeRegistration() async {
+        let shouldSyncPushTokens: Bool = await dependencies[singleton: .onboarding].useAPNS
+        await dependencies[singleton: .onboarding].completeRegistration()
+        
+        // Trigger the 'SyncPushTokensJob' directly as we don't want to wait for paths to build
+        // before requesting the permission from the user
+        if shouldSyncPushTokens {
+            SyncPushTokensJob
+                .run(uploadOnlyIfStale: false, using: dependencies)
+                .sinkUntilComplete()
+        }
+        
+        await MainActor.run {
+            let homeVC: HomeVC = HomeVC(using: dependencies)
+            dependencies[singleton: .app].setHomeViewController(homeVC)
+            self.host.controller?.navigationController?.setViewControllers([ homeVC ], animated: true)
         }
     }
 }

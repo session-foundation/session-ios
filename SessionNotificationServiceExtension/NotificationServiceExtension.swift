@@ -100,7 +100,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         /// Setup Version Info and Network
-        dependencies.warmCache(cache: .appVersion)
+        dependencies.warm(cache: .appVersion)
         
         /// Configure the different targets
         SNUtilitiesKit.configure(
@@ -205,7 +205,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 serverHash: info.metadata.hash,
                 serverTimestampMs: info.metadata.createdTimestampMs,
                 serverExpirationTimestamp: (
-                    (TimeInterval(dependencies[cache: .snodeAPI].currentOffsetTimestampMs() + SnodeReceivedMessage.defaultExpirationMs) / 1000)
+                    (TimeInterval(dependencies.networkOffsetTimestampMs() + Network.StorageServer.Message.defaultExpirationMs) / 1000)
                 )
             ),
             using: dependencies
@@ -279,7 +279,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private func handleConfigMessage(
         _ notification: ProcessedNotification,
         swarmPublicKey: String,
-        namespace: Network.SnodeAPI.Namespace,
+        namespace: Network.StorageServer.Namespace,
         serverHash: String,
         serverTimestampMs: Int64,
         data: Data
@@ -312,11 +312,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// for a poll to return
         do {
             try dependencies[singleton: .extensionHelper].saveMessage(
-                SnodeReceivedMessage(
+                Network.StorageServer.Message(
                     snode: nil,
                     publicKey: notification.info.metadata.accountId,
                     namespace: notification.info.metadata.namespace,
-                    rawMessage: GetMessagesResponse.RawMessage(
+                    rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                         base64EncodedDataString: notification.info.data.base64EncodedString(),
                         expirationMs: notification.info.metadata.expirationTimestampMs,
                         hash: notification.info.metadata.hash,
@@ -555,7 +555,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                                 .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
                             )
-                        else { throw SnodeAPIError.noKeyPair }
+                        else { throw CryptoError.keyGenerationFailed }
                         
                         Log.info(.calls, "Sending end call message because there is an ongoing call.")
                         /// Update the `CallMessage.state` value so the correct notification logic can occur
@@ -842,11 +842,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
             
             try dependencies[singleton: .extensionHelper].saveMessage(
-                SnodeReceivedMessage(
+                Network.StorageServer.Message(
                     snode: nil,
                     publicKey: notification.info.metadata.accountId,
                     namespace: notification.info.metadata.namespace,
-                    rawMessage: GetMessagesResponse.RawMessage(
+                    rawMessage: Network.StorageServer.GetMessagesResponse.RawMessage(
                         base64EncodedDataString: notification.info.data.base64EncodedString(),
                         expirationMs: notification.info.metadata.expirationTimestampMs,
                         hash: notification.info.metadata.hash,

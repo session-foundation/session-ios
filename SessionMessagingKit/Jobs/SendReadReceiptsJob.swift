@@ -33,10 +33,14 @@ public enum SendReadReceiptsJob: JobExecutor {
             return success(job, true)
         }
         
-        dependencies[singleton: .storage]
-            .readPublisher { db in try Authentication.with(db, swarmPublicKey: threadId, using: dependencies) }
-            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                try MessageSender.preparedSend(
+        AnyPublisher
+            .lazy { () -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: threadId,
+                    using: dependencies
+                )
+                
+                return try MessageSender.preparedSend(
                     message: ReadReceipt(
                         timestamps: details.timestampMsValues.map { UInt64($0) }
                     ),

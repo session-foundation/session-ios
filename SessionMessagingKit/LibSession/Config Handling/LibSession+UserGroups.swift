@@ -1043,6 +1043,21 @@ public extension LibSession.Cache {
         
         return ugroups_group_is_destroyed(&userGroup)
     }
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData {
+        var group: ugroups_group_info = ugroups_group_info()
+        
+        guard
+            case .userGroups(let conf) = config(for: .userGroups, sessionId: userSessionId),
+            var cGroupId: [CChar] = groupSessionId.hexString.cString(using: .utf8),
+            user_groups_get_group(conf, &group, &cGroupId)
+        else { return GroupAuthData(groupIdentityPrivateKey: nil, authData: nil) }
+        
+        return GroupAuthData(
+            groupIdentityPrivateKey: (!group.have_secretkey ? nil : group.get(\.secretkey, nullIfEmpty: true)),
+            authData: (!group.have_auth_data ? nil : group.get(\.auth_data, nullIfEmpty: true))
+        )
+    }
 }
 
 // MARK: - Convenience

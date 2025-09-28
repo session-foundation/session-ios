@@ -21,7 +21,7 @@ public extension Network.PushNotification {
         public let hash: String
         
         /// The swarm namespace in which this message arrived.
-        public let namespace: Network.SnodeAPI.Namespace
+        public let namespace: Network.StorageServer.Namespace
         
         /// The swarm timestamp when the message was created (unix epoch milliseconds)
         public let createdTimestampMs: Int64
@@ -49,9 +49,9 @@ extension Network.PushNotification.NotificationMetadata {
         /// There was a bug at one point where the metadata would include a `null` value for the namespace because we were storing
         /// messages in a namespace that the storage server didn't have an explicit `namespace_id` for, as a result we need to assume
         /// that the `namespace` value may not be present in the payload
-        let namespace: Network.SnodeAPI.Namespace = try container
+        let namespace: Network.StorageServer.Namespace = try container
             .decodeIfPresent(Int.self, forKey: .namespace)
-            .map { Network.SnodeAPI.Namespace(rawValue: $0) }
+            .map { Network.StorageServer.Namespace(rawValue: $0) }
             .defaulting(to: .unknown)
         
         self = Network.PushNotification.NotificationMetadata(

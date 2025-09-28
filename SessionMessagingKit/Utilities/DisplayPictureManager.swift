@@ -12,7 +12,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let displayPictureManager: SingletonConfig<DisplayPictureManager> = Dependencies.create(
         identifier: "displayPictureManager",
-        createInstance: { dependencies in DisplayPictureManager(using: dependencies) }
+        createInstance: { dependencies, _ in DisplayPictureManager(using: dependencies) }
     )
 }
 
@@ -261,7 +261,13 @@ public class DisplayPictureManager {
                 let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
                 
                 // Write the avatar to disk
-                do { try finalImageData.write(to: URL(fileURLWithPath: temporaryFilePath), options: [.atomic]) }
+                do {
+                    try dependencies[singleton: .fileManager].write(
+                        data: finalImageData,
+                        to: URL(fileURLWithPath: temporaryFilePath),
+                        options: .atomic
+                    )
+                }
                 catch {
                     Log.error(.displayPictureManager, "Updating service with profile failed.")
                     throw DisplayPictureError.writeFailed
@@ -279,9 +285,9 @@ public class DisplayPictureManager {
                 
                 // Upload the avatar to the FileServer
                 guard
-                    let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.preparedUpload(
+                    let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.FileServer.preparedUpload(
                         data: encryptedData,
-                        requestAndPathBuildTimeout: Network.fileUploadTimeout,
+                        overallTimeout: Network.fileUploadTimeout,
                         using: dependencies
                     )
                 else {
@@ -366,7 +372,7 @@ public extension DisplayPictureManager {
 public extension Cache {
     static let displayPicture: CacheConfig<DisplayPictureCacheType, DisplayPictureImmutableCacheType> = Dependencies.create(
         identifier: "displayPicture",
-        createInstance: { _ in DisplayPictureManager.Cache() },
+        createInstance: { _, _ in DisplayPictureManager.Cache() },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

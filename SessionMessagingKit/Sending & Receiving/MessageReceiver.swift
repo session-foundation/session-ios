@@ -175,13 +175,13 @@ public enum MessageReceiver {
         
         let proto: SNProtoContent = try (customProto ?? Result(catching: { try SNProtoContent.parseData(plaintext) })
             .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
-            .successOrThrow())
+            .get())
         let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender, using: dependencies))
         message.sender = sender
         message.serverHash = serverHash
         message.sentTimestampMs = sentTimestampMs
         message.sigTimestampMs = (proto.hasSigTimestamp ? proto.sigTimestamp : nil)
-        message.receivedTimestampMs = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        message.receivedTimestampMs = dependencies.networkOffsetTimestampMs()
         message.openGroupServerMessageId = openGroupServerMessageId
         message.openGroupWhisper = openGroupWhisper
         message.openGroupWhisperMods = openGroupWhisperMods
@@ -477,7 +477,7 @@ public enum MessageReceiver {
             .filter(Interaction.Columns.openGroupServerMessageId == openGroupMessageServerId)
             .asRequest(of: Info.self)
             .fetchOne(db)
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageReceiverError.originalMessageNotFound }
         
         // If the user locally deleted the message then we don't want to process reactions for it
         guard !interactionInfo.variant.isDeletedMessage else { return }
@@ -572,7 +572,7 @@ public enum MessageReceiver {
                 threadVariant: threadVariant,
                 changeTimestampMs: message.sentTimestampMs
                     .map { Int64($0) }
-                    .defaulting(to: dependencies[cache: .snodeAPI].currentOffsetTimestampMs())
+                    .defaulting(to: dependencies.networkOffsetTimestampMs())
             )
             
             switch (conversationInConfig, canPerformConfigChange) {

@@ -34,7 +34,7 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
                     )
                     
                     StatsSection(
-                        dataModel: $viewModel.dataModel,
+                        state: $viewModel.state,
                         isRefreshing: $viewModel.isRefreshing,
                         lastRefreshWasSuccessful: $viewModel.lastRefreshWasSuccessful,
                         isShowingTooltip: $isShowingTooltip
@@ -45,7 +45,7 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
                     )
                     
                     SessionTokenSection(
-                        dataModel: $viewModel.dataModel,
+                        state: $viewModel.state,
                         isRefreshing: $viewModel.isRefreshing,
                         linkOutAction: {
                             openUrl(Constants.session_staking_url)
@@ -184,7 +184,7 @@ extension SessionNetworkScreen {
 
 extension SessionNetworkScreen {
     struct StatsSection: View {
-        @Binding var dataModel: SessionNetworkScreenContent.DataModel
+        @Binding var state: SessionNetworkScreenContent.State
         @Binding var isRefreshing: Bool
         @Binding var lastRefreshWasSuccessful: Bool
         @Binding var isShowingTooltip: Bool
@@ -205,12 +205,12 @@ extension SessionNetworkScreen {
                     ZStack {
                         if isRefreshing || !lastRefreshWasSuccessful {
                             ProgressView()
-                        } else if dataModel.snodesInCurrentSwarm > 0 {
-                            Image("connection_\(dataModel.snodesInCurrentSwarm)")
+                        } else if state.snodesInCurrentSwarm > 0 {
+                            Image("connection_\(state.snodesInCurrentSwarm)")
                                 .renderingMode(.template)
                                 .foregroundColor(themeColor: .textPrimary)
                             
-                            Image("snodes_\(dataModel.snodesInCurrentSwarm)")
+                            Image("snodes_\(state.snodesInCurrentSwarm)")
                                 .renderingMode(.template)
                                 .foregroundColor(themeColor: .primary)
                                 .shadow(themeColor: .settings_glowingBackground, radius: 10)
@@ -271,9 +271,9 @@ extension SessionNetworkScreen {
                             
                             AdaptiveText(
                                 textOptions: [
-                                    dataModel.tokenUSDString,
-                                    dataModel.tokenUSDNoCentsString,
-                                    dataModel.tokenUSDAbbreviatedString
+                                    state.tokenUSDString,
+                                    state.tokenUSDNoCentsString,
+                                    state.tokenUSDAbbreviatedString
                                 ],
                                 isLoading: isRefreshing
                             )
@@ -332,7 +332,7 @@ extension SessionNetworkScreen {
                                 if isRefreshing || !lastRefreshWasSuccessful {
                                     ProgressView()
                                 } else {
-                                    Text("\(dataModel.snodesInCurrentSwarm)")
+                                    Text("\(state.snodesInCurrentSwarm)")
                                         .font(.Headings.H3)
                                         .foregroundColor(themeColor: .sessionButton_text)
                                         .lineLimit(1)
@@ -374,9 +374,9 @@ extension SessionNetworkScreen {
                             
                             AdaptiveText(
                                 textOptions: [
-                                    dataModel.snodesInTotalString,
-                                    dataModel.snodesInTotalAbbreviatedString,
-                                    dataModel.snodesInTotalAbbreviatedNoDecimalString
+                                    state.snodesInTotalString,
+                                    state.snodesInTotalAbbreviatedString,
+                                    state.snodesInTotalAbbreviatedNoDecimalString
                                 ],
                                 isLoading: isRefreshing || !lastRefreshWasSuccessful
                             )
@@ -411,7 +411,7 @@ extension SessionNetworkScreen {
                             )
                             .minimumScaleFactor(0.5)
                         
-                        Text(isRefreshing ? "loading".localized() : dataModel.networkStakedTokensString)
+                        Text(isRefreshing ? "loading".localized() : state.networkStakedTokensString)
                             .font(.Headings.H5)
                             .foregroundColor(themeColor: .sessionButton_text)
                             .lineLimit(1)
@@ -423,8 +423,8 @@ extension SessionNetworkScreen {
                         
                         AdaptiveText(
                             textOptions: [
-                                dataModel.networkStakedUSDString,
-                                dataModel.networkStakedUSDAbbreviatedString
+                                state.networkStakedUSDString,
+                                state.networkStakedUSDAbbreviatedString
                             ],
                             isLoading: isRefreshing
                         )
@@ -433,7 +433,7 @@ extension SessionNetworkScreen {
                             uiKit: Fonts.Body.custom(Values.smallFontSize)
                         )
                         .foregroundColor(themeColor: .textSecondary)
-                        .loadingStyle(.text(SessionNetworkScreenContent.DataModel.defaultPriceString))
+                        .loadingStyle(.text(SessionNetworkScreenContent.defaultPriceString))
                         .fixedSize()
                     }
                     .padding(.horizontal, Values.mediumSmallSpacing)
@@ -457,7 +457,7 @@ extension SessionNetworkScreen {
                     ZStack {
                         Text(
                             Constants.session_network_data_price
-                                .put(key: "date_time", value: dataModel.priceTimeString) // stringlint:ignore
+                                .put(key: "date_time", value: state.priceTimeString) // stringlint:ignore
                                 .localized()
                         )
                         .font(.Body.smallRegular)
@@ -496,7 +496,7 @@ extension SessionNetworkScreen {
 
 extension SessionNetworkScreen {
     struct SessionTokenSection: View {
-        @Binding var dataModel: SessionNetworkScreenContent.DataModel
+        @Binding var state: SessionNetworkScreenContent.State
         @Binding var isRefreshing: Bool
         var linkOutAction: () -> ()
         
@@ -549,7 +549,7 @@ extension SessionNetworkScreen {
                             alignment: .leading,
                             spacing: Values.veryLargeSpacing
                         ) {
-                            Text(isRefreshing ? "loading".localized() : dataModel.stakingRewardPoolString)
+                            Text(isRefreshing ? "loading".localized() : state.stakingRewardPoolString)
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textPrimary)
                                 .lineLimit(1)
@@ -560,8 +560,8 @@ extension SessionNetworkScreen {
                             
                             AdaptiveText(
                                 textOptions: [
-                                    dataModel.marketCapString,
-                                    dataModel.marketCapAbbreviatedString
+                                    state.marketCapString,
+                                    state.marketCapAbbreviatedString
                                 ],
                                 isLoading: isRefreshing
                             )
@@ -613,20 +613,20 @@ extension SessionNetworkScreen {
 #if DEBUG
 extension SessionNetworkScreenContent {
     class PreviewViewModel: ViewModelType {
-        var dataModel: DataModel
+        var state: State
         var isRefreshing: Bool
         var lastRefreshWasSuccessful: Bool
         var errorString: String?
         var lastUpdatedTimeString: String?
         
         init(
-            dataModel: DataModel,
+            state: State,
             isRefreshing: Bool,
             lastRefreshWasSuccessful: Bool,
             errorString: String? = nil,
             lastUpdatedTimeString: String? = nil
         ) {
-            self.dataModel = dataModel
+            self.state = state
             self.isRefreshing = isRefreshing
             self.lastRefreshWasSuccessful = lastRefreshWasSuccessful
             self.errorString = errorString
@@ -644,7 +644,7 @@ extension SessionNetworkScreenContent {
 #Preview {
     SessionNetworkScreen(
         viewModel: SessionNetworkScreenContent.PreviewViewModel(
-            dataModel: SessionNetworkScreenContent.DataModel(
+            state: SessionNetworkScreenContent.State(
                 snodesInCurrentSwarm: 6,
                 snodesInTotal: 2254,
                 contractAddress: "0x7D7fD4E91834A96cD9Fb2369E7f4EB72383bbdEd",
@@ -656,6 +656,7 @@ extension SessionNetworkScreenContent {
                 networkStakedUSD: 34_278_323_684.940723,
                 stakingRewardPool: 40_010_040,
                 marketCapUSD: 216_442_438_046.91196,
+                totalTargetConversations: 6,
                 lastUpdatedTimestampMs: 1745817920000
             ),
             isRefreshing: false,

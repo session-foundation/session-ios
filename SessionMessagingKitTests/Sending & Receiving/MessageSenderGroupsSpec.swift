@@ -5,6 +5,7 @@ import Combine
 import GRDB
 import SessionUtil
 import SessionUtilitiesKit
+import TestUtilities
 
 import Quick
 import Nimble
@@ -12,7 +13,7 @@ import Nimble
 @testable import SessionMessagingKit
 @testable import SessionNetworkingKit
 
-class MessageSenderGroupsSpec: QuickSpec {
+class MessageSenderGroupsSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -27,147 +28,16 @@ class MessageSenderGroupsSpec: QuickSpec {
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
-                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
-                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
-                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
-                
-                try Profile(
-                    id: "05\(TestConstants.publicKey)",
-                    name: "TestCurrentUser"
-                ).insert(db)
-            }
+            using: dependencies
         )
-        @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
-            initialSetup: { userDefaults in
-                userDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
-                userDefaults.when { $0.set(.any, forKey: .any) }.thenReturn(())
-            }
-        )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                    .thenReturn([:])
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-            }
-        )
-        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
-            initialSetup: { network in
-                network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                    .thenReturn(Network.BatchResponse.mockConfigSyncResponse)
-                network
-                    .when { $0.getSwarm(for: .any) }
-                    .thenReturn([
-                        LibSession.Snode(
-                            ip: "1.1.1.1",
-                            quicPort: 1,
-                            ed25519PubkeyHex: TestConstants.edPublicKey
-                        ),
-                        LibSession.Snode(
-                            ip: "1.1.1.1",
-                            quicPort: 2,
-                            ed25519PubkeyHex: TestConstants.edPublicKey
-                        ),
-                        LibSession.Snode(
-                            ip: "1.1.1.1",
-                            quicPort: 3,
-                            ed25519PubkeyHex: TestConstants.edPublicKey
-                        )
-                    ])
-            }
-        )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.ed25519KeyPair()) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: groupId.hexString).bytes,
-                            secretKey: groupSecretKey.bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Data(hex: groupId.hexString).bytes,
-                            secretKey: groupSecretKey.bytes
-                        )
-                    )
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-                crypto
-                    .when { $0.generate(.memberAuthData(config: .any, groupSessionId: .any, memberId: .any)) }
-                    .thenReturn(Authentication.Info.groupMember(
-                        groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
-                        authData: "TestAuthData".data(using: .utf8)!
-                    ))
-                crypto
-                    .when { $0.generate(.tokenSubaccount(config: .any, groupSessionId: .any, memberId: .any)) }
-                    .thenReturn(Array("TestSubAccountToken".data(using: .utf8)!))
-                crypto
-                    .when { try $0.tryGenerate(.randomBytes(.any)) }
-                    .thenReturn(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 }))
-                crypto
-                    .when { $0.generate(.uuid()) }
-                    .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
-                crypto
-                    .when { $0.generate(.encryptedDataDisplayPicture(data: .any, key: .any)) }
-                    .thenReturn(TestConstants.validImageData)
-                crypto
-                    .when { $0.generate(.ciphertextForGroupMessage(groupSessionId: .any, message: .any)) }
-                    .thenReturn("TestGroupMessageCiphertext".data(using: .utf8)!)
-                crypto
-                    .when { $0.generate(.hash(message: .any)) }
-                    .thenReturn(Array(Data(hex: "01010101010101010101010101010101")))
-            }
-        )
-        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
-            initialSetup: { keychain in
-                keychain
-                    .when {
-                        try $0.migrateLegacyKeyIfNeeded(
-                            legacyKey: .any,
-                            legacyService: .any,
-                            toKey: .pushNotificationEncryptionKey
-                        )
-                    }
-                    .thenReturn(())
-                keychain
-                    .when {
-                        try $0.getOrGenerateEncryptionKey(
-                            forKey: .any,
-                            length: .any,
-                            cat: .any,
-                            legacyKey: .any,
-                            legacyService: .any
-                        )
-                    }
-                    .thenReturn(Data([1, 2, 3]))
-                keychain
-                    .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
-                    .thenReturn(Data((0..<Network.PushNotification.encryptionKeyLength).map { _ in 1 }))
-            }
-        )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-            }
-        )
+        @TestState var mockUserDefaults: MockUserDefaults! = .create(using: dependencies)
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockKeychain: MockKeychain! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
         @TestState var secretKey: [UInt8]! = Array(Data(hex: TestConstants.edSecretKey))
         @TestState var groupEdPK: [UInt8]! = groupKeyPair.publicKey
         @TestState var groupEdSK: [UInt8]! = groupKeyPair.secretKey
@@ -200,50 +70,164 @@ class MessageSenderGroupsSpec: QuickSpec {
         @TestState var groupKeysConfig: LibSession.Config! = {
             return .groupKeys(groupKeysConf, info: groupInfoConf, members: groupMembersConf)
         }()
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { cache in
-                cache.defaultInitialSetup(
-                    configs: [
-                        .userGroups: userGroupsConfig,
-                        .groupInfo: groupInfoConfig,
-                        .groupMembers: groupMembersConfig,
-                        .groupKeys: groupKeysConfig
-                    ]
-                )
-                cache
-                    .when { try $0.pendingPushes(swarmPublicKey: .any) }
-                    .thenReturn(LibSession.PendingPushes(obsoleteHashes: ["testHash"]))
-            }
-        )
-        @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        @TestState var mockSwarmPoller: MockSwarmPoller! = MockSwarmPoller(
-            initialSetup: { cache in
-                cache.when { $0.startIfNeeded() }.thenReturn(())
-            }
-        )
-        @TestState(cache: .groupPollers, in: dependencies) var mockGroupPollersCache: MockGroupPollerCache! = MockGroupPollerCache(
-            initialSetup: { cache in
-                cache.when { $0.startAllPollers() }.thenReturn(())
-                cache.when { $0.getOrCreatePoller(for: .any) }.thenReturn(mockSwarmPoller)
-                cache.when { $0.stopAndRemovePoller(for: .any) }.thenReturn(())
-                cache.when { $0.stopAndRemoveAllPollers() }.thenReturn(())
-            }
-        )
-        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var mockPoller: MockPoller! = .create(using: dependencies)
+        @TestState var mockGroupPollerManager: MockGroupPollerManager! = .create(using: dependencies)
+        @TestState var mockFileManager: MockFileManager! = .create(using: dependencies)
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
         @TestState var thread: SessionThread?
+        
+        beforeEach {
+            try await mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            try await mockLibSessionCache.defaultInitialSetup(
+                configs: [
+                    .userGroups: userGroupsConfig,
+                    .groupInfo: groupInfoConfig,
+                    .groupMembers: groupMembersConfig,
+                    .groupKeys: groupKeysConfig
+                ]
+            )
+            try await mockLibSessionCache
+                .when { try $0.pendingPushes(swarmPublicKey: .any) }
+                .thenReturn(LibSession.PendingPushes(obsoleteHashes: ["testHash"]))
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockFileManager.defaultInitialSetup()
+            dependencies.set(singleton: .fileManager, to: mockFileManager)
+            
+            try await mockJobRunner
+                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                .thenReturn([:])
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            
+            try await mockNetwork.defaultInitialSetup(using: dependencies)
+            await mockNetwork.removeRequestMocks()
+            try await mockNetwork
+                .when {
+                    $0.send(
+                        endpoint: MockEndpoint.any,
+                        destination: .any,
+                        body: .any,
+                        category: .any,
+                        requestTimeout: .any,
+                        overallTimeout: .any
+                    )
+                }
+                .thenReturn(Network.BatchResponse.mockConfigSyncResponse)
+            dependencies.set(singleton: .network, to: mockNetwork)
+            
+            try await mockKeychain
+                .when {
+                    try $0.migrateLegacyKeyIfNeeded(
+                        legacyKey: .any,
+                        legacyService: .any,
+                        toKey: .pushNotificationEncryptionKey
+                    )
+                }
+                .thenReturn(())
+            try await mockKeychain
+                .when {
+                    try $0.getOrGenerateEncryptionKey(
+                        forKey: .any,
+                        length: .any,
+                        cat: .any,
+                        legacyKey: .any,
+                        legacyService: .any
+                    )
+                }
+                .thenReturn(Data([1, 2, 3]))
+            try await mockKeychain
+                .when { try $0.data(forKey: .pushNotificationEncryptionKey) }
+                .thenReturn(Data((0..<Network.PushNotification.encryptionKeyLength).map { _ in 1 }))
+            dependencies.set(singleton: .keychain, to: mockKeychain)
+            
+            try await mockPoller.when { await $0.startIfNeeded() }.thenReturn(())
+            
+            try await mockGroupPollerManager.when { await $0.startAllPollers() }.thenReturn(())
+            try await mockGroupPollerManager.when { await $0.getOrCreatePoller(for: .any) }.thenReturn(mockPoller)
+            try await mockGroupPollerManager.when { await $0.stopAndRemovePoller(for: .any) }.thenReturn(())
+            try await mockGroupPollerManager.when { await $0.stopAndRemoveAllPollers() }.thenReturn(())
+            dependencies.set(singleton: .groupPollerManager, to: mockGroupPollerManager)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+                
+                try Profile(
+                    id: "05\(TestConstants.publicKey)",
+                    name: "TestCurrentUser"
+                ).insert(db)
+            }
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair()) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: groupId.hexString).bytes,
+                        secretKey: groupSecretKey.bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Data(hex: groupId.hexString).bytes,
+                        secretKey: groupSecretKey.bytes
+                    )
+                )
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            try await mockCrypto
+                .when { $0.generate(.memberAuthData(config: .any, groupSessionId: .any, memberId: .any)) }
+                .thenReturn(Authentication.Info.groupMember(
+                    groupSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                    authData: "TestAuthData".data(using: .utf8)!
+                ))
+            try await mockCrypto
+                .when { $0.generate(.tokenSubaccount(config: .any, groupSessionId: .any, memberId: .any)) }
+                .thenReturn(Array("TestSubAccountToken".data(using: .utf8)!))
+            try await mockCrypto
+                .when { try $0.tryGenerate(.randomBytes(.any)) }
+                .thenReturn(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 }))
+            try await mockCrypto
+                .when { $0.generate(.uuid()) }
+                .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+            try await mockCrypto
+                .when { $0.generate(.encryptedDataDisplayPicture(data: .any, key: .any)) }
+                .thenReturn(TestConstants.validImageData)
+            try await mockCrypto
+                .when { $0.generate(.ciphertextForGroupMessage(groupSessionId: .any, message: .any)) }
+                .thenReturn("TestGroupMessageCiphertext".data(using: .utf8)!)
+            try await mockCrypto
+                .when { $0.generate(.hash(message: .any)) }
+                .thenReturn(Array(Data(hex: "01010101010101010101010101010101")))
+            dependencies.set(singleton: .crypto, to: mockCrypto)
+            
+            try await mockUserDefaults.defaultInitialSetup()
+            try await mockUserDefaults.when { $0.string(forKey: .any) }.thenReturn(nil)
+            dependencies.set(defaults: .standard, to: mockUserDefaults)
+        }
         
         // MARK: - a MessageSender dealing with Groups
         describe("a MessageSender dealing with Groups") {
             // MARK: -- when creating a group
             context("when creating a group") {
                 beforeEach {
-                    mockLibSessionCache
+                    try await mockLibSessionCache
                         .when { try $0.pendingPushes(swarmPublicKey: .any) }
                         .thenReturn(LibSession.PendingPushes())
                 }
@@ -262,18 +246,15 @@ class MessageSenderGroupsSpec: QuickSpec {
                         )
                         .sinkAndStore(in: &disposables)
                     
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .atLeast(2)) { cache in
-                            cache.setConfig(for: .groupInfo, sessionId: groupId, to: .any)
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .atLeast(2)) { cache in
-                            cache.setConfig(for: .groupMembers, sessionId: groupId, to: .any)
-                        })
-                    expect(mockLibSessionCache)
-                        .to(call(.exactly(times: 1), matchingParameters: .atLeast(2)) { cache in
-                            cache.setConfig(for: .groupKeys, sessionId: groupId, to: .any)
-                        })
+                    await mockLibSessionCache
+                        .verify { $0.setConfig(for: .groupInfo, sessionId: groupId, to: .any) }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify { $0.setConfig(for: .groupMembers, sessionId: groupId, to: .any) }
+                        .wasCalled(exactly: 1)
+                    await mockLibSessionCache
+                        .verify { $0.setConfig(for: .groupKeys, sessionId: groupId, to: .any) }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- returns the created thread
@@ -402,15 +383,14 @@ class MessageSenderGroupsSpec: QuickSpec {
                         )
                         .sinkAndStore(in: &disposables)
                     
-                    expect(mockSwarmPoller)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { poller in
-                            poller.startIfNeeded()
-                        })
+                    await mockPoller
+                        .verify { await $0.startIfNeeded() }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- syncs the group configuration messages
                 it("syncs the group configuration messages") {
-                    mockLibSessionCache
+                    try await mockLibSessionCache
                         .when { try $0.pendingPushes(swarmPublicKey: .any) }
                         .thenReturn(
                             LibSession.PendingPushes(
@@ -423,7 +403,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 ]
                             )
                         )
-                    let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = mockStorage.write { db in
+                    mockStorage.write { db in
                         // Need the auth data to exist in the database to prepare the request
                         _ = try SessionThread.upsert(
                             db,
@@ -444,38 +424,10 @@ class MessageSenderGroupsSpec: QuickSpec {
                             invited: nil
                         ).upsert(db)
                         
-                        let preparedRequest: Network.PreparedRequest<Network.BatchResponse> = try Network.SnodeAPI.preparedSequence(
-                            requests: [
-                                try Network.SnodeAPI
-                                    .preparedSendMessage(
-                                        message: SnodeMessage(
-                                            recipient: groupId.hexString,
-                                            data: Data([1, 2, 3]),
-                                            ttl: ConfigDump.Variant.groupInfo.ttl,
-                                            timestampMs: 1234567890
-                                        ),
-                                        in: ConfigDump.Variant.groupInfo.namespace,
-                                        authMethod: try Authentication.with(
-                                            db,
-                                            swarmPublicKey: groupId.hexString,
-                                            using: dependencies
-                                        ),
-                                        using: dependencies
-                                    )
-                            ],
-                            requireAllBatchResponses: false,
-                            swarmPublicKey: groupId.hexString,
-                            snodeRetrievalRetryCount: 0,
-                            requestAndPathBuildTimeout: Network.defaultTimeout,
-                            using: dependencies
-                        )
-                        
                         // Remove the debug group so it can be created during the actual test
                         try ClosedGroup.filter(id: groupId.hexString).deleteAll(db)
                         try SessionThread.filter(id: groupId.hexString).deleteAll(db)
-                        
-                        return preparedRequest
-                    }!
+                    }
                     
                     MessageSender
                         .createGroup(
@@ -489,22 +441,54 @@ class MessageSenderGroupsSpec: QuickSpec {
                         )
                         .sinkAndStore(in: &disposables)
                     
-                    expect(mockNetwork)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                            network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
-                                requestTimeout: expectedRequest.requestTimeout,
-                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                    await mockNetwork
+                        .verify {
+                            $0.send(
+                                endpoint: Network.StorageServer.Endpoint.sequence,
+                                destination: .randomSnode(swarmPublicKey: groupId.hexString),
+                                body: try! JSONEncoder(using: dependencies).encode(
+                                    Network.BatchRequest(
+                                        requestsKey: .requests,
+                                        requests: [
+                                            try Network.StorageServer.preparedSendMessage(
+                                                request: Network.StorageServer.SendMessageRequest(
+                                                    recipient: groupId.hexString,
+                                                    namespace: ConfigDump.Variant.groupInfo.namespace,
+                                                    data: Data([1, 2, 3]),
+                                                    ttl: ConfigDump.Variant.groupInfo.ttl,
+                                                    timestampMs: 1234567890000,
+                                                    authMethod: Authentication.groupAdmin(
+                                                        groupSessionId: groupId,
+                                                        ed25519SecretKey: Array(groupSecretKey)
+                                                    )
+                                                ),
+                                                using: dependencies
+                                            )
+                                        ]
+                                    )
+                                ),
+                                category: .standard,
+                                requestTimeout: Network.defaultTimeout,
+                                overallTimeout: Network.defaultTimeout
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1, timeout: .milliseconds(100))
                 }
                 
                 // MARK: ---- and the group configuration sync fails
                 context("and the group configuration sync fails") {
                     beforeEach {
-                        mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        try await mockNetwork
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(MockNetwork.errorResponse())
                     }
                     
@@ -523,7 +507,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(TestError.mock))
+                        await expect(error).toEventually(matchError(TestError.mock))
                     }
                     
                     // MARK: ------ removes the config state
@@ -541,10 +525,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(mockLibSessionCache)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { cache in
-                                cache.removeConfigs(for: groupId)
-                            })
+                        await mockLibSessionCache
+                            .verify { $0.removeConfigs(for: groupId) }
+                            .wasCalled(exactly: 1, timeout: .milliseconds(100))
                     }
                     
                     // MARK: ------ removes the data from the database
@@ -562,11 +545,11 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        let threads: [SessionThread]? = mockStorage.read { db in try SessionThread.fetchAll(db) }
+                        await expect { mockStorage.read { db in try SessionThread.fetchAll(db) } }
+                            .toEventually(beEmpty())
                         let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                         let members: [GroupMember]? = mockStorage.read { db in try GroupMember.fetchAll(db) }
                         
-                        expect(threads).to(beEmpty())
                         expect(groups).to(beEmpty())
                         expect(members).to(beEmpty())
                     }
@@ -575,7 +558,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                 // MARK: ------ does not upload an image if none is provided
                 it("does not upload an image if none is provided") {
                     // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
-                    mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
+                    try await mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                     
                     MessageSender
                         .createGroup(
@@ -590,26 +573,39 @@ class MessageSenderGroupsSpec: QuickSpec {
                         .mapError { error.setting(to: $0) }
                         .sinkAndStore(in: &disposables)
                     
-                    let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network
-                        .preparedUpload(data: TestConstants.validImageData, using: dependencies)
-                    
-                    expect(mockNetwork)
-                        .toNot(call { network in
-                            network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
-                                requestTimeout: expectedRequest.requestTimeout,
-                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                    await mockNetwork
+                        .verify {
+                            $0.send(
+                                endpoint: Network.FileServer.Endpoint.file,
+                                destination: .serverUpload(
+                                    server: Network.FileServer.fileServer,
+                                    x25519PublicKey: Network.FileServer.fileServerPublicKey,
+                                    fileName: nil
+                                ),
+                                body: TestConstants.validImageData,
+                                category: .upload,
+                                requestTimeout: Network.fileUploadTimeout,
+                                overallTimeout: nil
                             )
-                        })
+                        }
+                        .wasNotCalled()
                 }
                 
                 // MARK: ------ with an image
                 context("with an image") {
                     // MARK: ------ uploads the image
                     it("uploads the image") {
-                        mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        try await mockNetwork
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
                         
                         MessageSender
@@ -625,30 +621,46 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network
+                        let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer
                             .preparedUpload(
                                 data: TestConstants.validImageData,
-                                requestAndPathBuildTimeout: Network.fileUploadTimeout,
+                                overallTimeout: Network.fileUploadTimeout,
                                 using: dependencies
                             )
                         
-                        expect(mockNetwork)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                                network.send(
-                                    expectedRequest.body,
-                                    to: expectedRequest.destination,
-                                    requestTimeout: expectedRequest.requestTimeout,
-                                    requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                        await mockNetwork
+                            .verify {
+                                $0.send(
+                                    endpoint: Network.FileServer.Endpoint.file,
+                                    destination: .serverUpload(
+                                        server: Network.FileServer.fileServer,
+                                        x25519PublicKey: Network.FileServer.fileServerPublicKey,
+                                        fileName: nil
+                                    ),
+                                    body: TestConstants.validImageData,
+                                    category: .upload,
+                                    requestTimeout: Network.fileUploadTimeout,
+                                    overallTimeout: Network.fileUploadTimeout
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ------ saves the image info to the group
                     it("saves the image info to the group") {
                         // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
-                        mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
-                        mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        try await mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
+                        try await mockNetwork
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
                         
                         MessageSender
@@ -673,8 +685,17 @@ class MessageSenderGroupsSpec: QuickSpec {
                     
                     // MARK: ------ fails if the image fails to upload
                     it("fails if the image fails to upload") {
-                        mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        try await mockNetwork
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(Fail(error: NetworkError.unknown).eraseToAnyPublisher())
                         
                         MessageSender
@@ -708,9 +729,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                         )
                         .sinkAndStore(in: &disposables)
                     
-                    expect(mockJobRunner)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                            jobRunner.add(
+                    await mockJobRunner
+                        .verify {
+                            $0.add(
                                 .any,
                                 job: Job(
                                     variant: .groupInviteMember,
@@ -726,22 +747,21 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 dependantJob: nil,
                                 canStartJob: true
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ------ and trying to subscribe for push notifications
                 context("and trying to subscribe for push notifications") {
-                    @TestState var expectedRequest: Network.PreparedRequest<Network.PushNotification.SubscribeResponse>!
-                    
                     beforeEach {
                         // Need to set `isUsingFullAPNs` to true to generate the `expectedRequest`
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                             .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
-                        expectedRequest = mockStorage.write { db in
+                        mockStorage.write { db in
                             _ = try SessionThread.upsert(
                                 db,
                                 id: groupId.hexString,
@@ -760,34 +780,19 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 groupIdentityPrivateKey: groupSecretKey,
                                 invited: nil
                             ).upsert(db)
-                            let result = try Network.PushNotification.preparedSubscribe(
-                                token: Data([5, 4, 3, 2, 1]),
-                                swarms: [
-                                    (
-                                        groupId,
-                                        Authentication.groupAdmin(
-                                            groupSessionId: groupId,
-                                            ed25519SecretKey: Array(groupSecretKey)
-                                        )
-                                    )
-                                ],
-                                using: dependencies
-                            )
                             
                             // Remove the debug group so it can be created during the actual test
                             try ClosedGroup.filter(id: groupId.hexString).deleteAll(db)
                             try SessionThread.filter(id: groupId.hexString).deleteAll(db)
-                            
-                            return result
                         }!
                     }
                     
                     // MARK: ---- subscribes when they are enabled
                     it("subscribes when they are enabled") {
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                             .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
                         
@@ -803,25 +808,58 @@ class MessageSenderGroupsSpec: QuickSpec {
                             )
                             .sinkAndStore(in: &disposables)
                         
-                        expect(mockNetwork)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                                network.send(
-                                    expectedRequest.body,
-                                    to: expectedRequest.destination,
-                                    requestTimeout: expectedRequest.requestTimeout,
-                                    requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                        await mockNetwork
+                            .verify {
+                                $0.send(
+                                    endpoint: Network.PushNotification.Endpoint.subscribe,
+                                    destination: .server(
+                                        method: .post,
+                                        server: Network.PushNotification.server,
+                                        queryParameters: [:],
+                                        headers: [:],
+                                        x25519PublicKey: Network.PushNotification.serverPublicKey
+                                    ),
+                                    body: try! JSONEncoder(using: dependencies).encode(
+                                        Network.PushNotification.SubscribeRequest(
+                                            subscriptions: [
+                                                Network.PushNotification.SubscribeRequest.Subscription(
+                                                    namespaces: [
+                                                        .groupMessages,
+                                                        .configGroupKeys,
+                                                        .configGroupInfo,
+                                                        .configGroupMembers,
+                                                        .revokedRetrievableGroupMessages
+                                                    ],
+                                                    includeMessageData: true,
+                                                    serviceInfo: Network.PushNotification.ServiceInfo(
+                                                        token: Data([5, 4, 3, 2, 1]).toHexString()
+                                                    ),
+                                                    notificationsEncryptionKey: Data([1, 2, 3]),
+                                                    authMethod: try! Authentication.with(
+                                                        swarmPublicKey: groupId.hexString,
+                                                        using: dependencies
+                                                    ),
+                                                    timestamp: 1234567890
+                                                )
+                                            ]
+                                        )
+                                    ),
+                                    category: .standard,
+                                    requestTimeout: Network.defaultTimeout,
+                                    overallTimeout: nil
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: Network.PushNotification.maxRetryCount + 1, timeout: .milliseconds(100))
                     }
                     
                     // MARK: ---- does not subscribe if push notifications are disabled
                     it("does not subscribe if push notifications are disabled") {
                         // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
-                        mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
-                        mockUserDefaults
+                        try await mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
+                        try await mockUserDefaults
                             .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                             .thenReturn(Data([5, 4, 3, 2, 1]).toHexString())
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(false)
                         
@@ -837,24 +875,28 @@ class MessageSenderGroupsSpec: QuickSpec {
                             )
                             .sinkAndStore(in: &disposables)
                         
-                        expect(mockNetwork).toNot(call { network in
-                            network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
-                                requestTimeout: expectedRequest.requestTimeout,
-                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
-                            )
-                        })
+                        await mockNetwork
+                            .verify {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
+                            .wasNotCalled()
                     }
                     
                     // MARK: ---- does not subscribe if there is no push token
                     it("does not subscribe if there is no push token") {
                         // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
-                        mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
-                        mockUserDefaults
+                        try await mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
+                        try await mockUserDefaults
                             .when { $0.string(forKey: UserDefaults.StringKey.deviceToken.rawValue) }
                             .thenReturn(nil)
-                        mockUserDefaults
+                        try await mockUserDefaults
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
                         
@@ -870,14 +912,18 @@ class MessageSenderGroupsSpec: QuickSpec {
                             )
                             .sinkAndStore(in: &disposables)
                         
-                        expect(mockNetwork).toNot(call { network in
-                            network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
-                                requestTimeout: expectedRequest.requestTimeout,
-                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
-                            )
-                        })
+                        await mockNetwork
+                            .verify {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
+                            .wasNotCalled()
                     }
                 }
             }
@@ -885,8 +931,17 @@ class MessageSenderGroupsSpec: QuickSpec {
             // MARK: -- when adding members to a group
             context("when adding members to a group") {
                 beforeEach {
-                    mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    try await mockNetwork
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                category: .any,
+                                requestTimeout: .any,
+                                overallTimeout: .any
+                            )
+                        }
                         .thenReturn(Network.BatchResponse.mockAddMemberConfigSyncResponse)
                     
                     // Rekey a couple of times to increase the key generation to 1
@@ -993,8 +1048,17 @@ class MessageSenderGroupsSpec: QuickSpec {
                 // MARK: ---- and granting access to historic messages
                 context("and granting access to historic messages") {
                     beforeEach {
-                        mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        try await mockNetwork
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(Network.BatchResponse.mockAddMemberHistoricConfigSyncResponse)
                     }
                     
@@ -1031,45 +1095,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                             "LPczVOFKOPs+rrB3aUpMsNUnJHOEhW9g6zi/UPjuCWTnnvpxlMTpHaTFlMTp+NjQ6dKi86jZJ" +
                             "l3oiJEA5h5pBE5oOJHQNvtF8GOcsYwrIFTZKnI7AGkBSu1TxP0xLWwTUzjOGMgmKvlIgkQ6e9" +
                             "r3JBmU="
-                        let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = try Network.SnodeAPI.preparedSequence(
-                            requests: []
-                                .appending(try Network.SnodeAPI.preparedUnrevokeSubaccounts(
-                                    subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
-                                    authMethod: Authentication.groupAdmin(
-                                        groupSessionId: groupId,
-                                        ed25519SecretKey: Array(groupSecretKey)
-                                    ),
-                                    using: dependencies
-                                ))
-                                .appending(try Network.SnodeAPI.preparedSendMessage(
-                                    message: SnodeMessage(
-                                        recipient: groupId.hexString,
-                                        data: Data(base64Encoded: requestDataString)!,
-                                        ttl: ConfigDump.Variant.groupKeys.ttl,
-                                        timestampMs: UInt64(1234567890000)
-                                    ),
-                                    in: .configGroupKeys,
-                                    authMethod: Authentication.groupAdmin(
-                                        groupSessionId: groupId,
-                                        ed25519SecretKey: Array(groupSecretKey)
-                                    ),
-                                    using: dependencies
-                                ))
-                                .appending(try Network.SnodeAPI.preparedDeleteMessages(
-                                    serverHashes: ["testHash"],
-                                    requireSuccessfulDeletion: false,
-                                    authMethod: Authentication.groupAdmin(
-                                        groupSessionId: groupId,
-                                        ed25519SecretKey: Array(groupSecretKey)
-                                    ),
-                                    using: dependencies
-                                )),
-                            requireAllBatchResponses: true,
-                            swarmPublicKey: groupId.hexString,
-                            snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
-                            requestAndPathBuildTimeout: Network.defaultTimeout,
-                            using: dependencies
-                        )
                         
                         MessageSender.addGroupMembers(
                             groupSessionId: groupId.hexString,
@@ -1090,15 +1115,55 @@ class MessageSenderGroupsSpec: QuickSpec {
                             _ = groups_keys_load_message(groupKeysConf, &fakeHash3, pushResult, pushResultLen, 1234567890, groupInfoConf, groupMembersConf)
                         }
                         
-                        expect(mockNetwork)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                                network.send(
-                                    expectedRequest.body,
-                                    to: expectedRequest.destination,
-                                    requestTimeout: expectedRequest.requestTimeout,
-                                    requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                        await mockNetwork
+                            .verify {
+                                $0.send(
+                                    endpoint: Network.StorageServer.Endpoint.sequence,
+                                    destination: .randomSnode(swarmPublicKey: groupId.hexString),
+                                    body: try! JSONEncoder(using: dependencies).encode(
+                                        Network.BatchRequest(
+                                            requestsKey: .requests,
+                                            requests: [
+                                                try Network.StorageServer.preparedUnrevokeSubaccounts(
+                                                    subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
+                                                    authMethod: Authentication.groupAdmin(
+                                                        groupSessionId: groupId,
+                                                        ed25519SecretKey: Array(groupSecretKey)
+                                                    ),
+                                                    using: dependencies
+                                                ),
+                                                try Network.StorageServer.preparedSendMessage(
+                                                    request: Network.StorageServer.SendMessageRequest(
+                                                        recipient: groupId.hexString,
+                                                        namespace: .configGroupKeys,
+                                                        data: Data(base64Encoded: requestDataString)!,
+                                                        ttl: ConfigDump.Variant.groupKeys.ttl,
+                                                        timestampMs: UInt64(1234567890000),
+                                                        authMethod: Authentication.groupAdmin(
+                                                            groupSessionId: groupId,
+                                                            ed25519SecretKey: Array(groupSecretKey)
+                                                        )
+                                                    ),
+                                                    using: dependencies
+                                                ),
+                                                try Network.StorageServer.preparedDeleteMessages(
+                                                    serverHashes: ["testHash"],
+                                                    requireSuccessfulDeletion: false,
+                                                    authMethod: Authentication.groupAdmin(
+                                                        groupSessionId: groupId,
+                                                        ed25519SecretKey: Array(groupSecretKey)
+                                                    ),
+                                                    using: dependencies
+                                                )
+                                            ]
+                                        )
+                                    ),
+                                    category: .standard,
+                                    requestTimeout: Network.defaultTimeout,
+                                    overallTimeout: Network.defaultTimeout
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ---- schedules member invite jobs
@@ -1112,9 +1177,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                             using: dependencies
                         ).sinkUntilComplete()
                         
-                        expect(mockJobRunner)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                                jobRunner.add(
+                        await mockJobRunner
+                            .verify {
+                                $0.add(
                                     .any,
                                     job: Job(
                                         variant: .groupInviteMember,
@@ -1130,7 +1195,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                                     dependantJob: nil,
                                     canStartJob: true
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                     
                     // MARK: ---- adds a member change control message
@@ -1169,9 +1235,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                             using: dependencies
                         ).sinkUntilComplete()
                         
-                        expect(mockJobRunner)
-                            .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                                jobRunner.add(
+                        await mockJobRunner
+                            .verify {
+                                $0.add(
                                     .any,
                                     job: Job(
                                         variant: .messageSend,
@@ -1198,15 +1264,25 @@ class MessageSenderGroupsSpec: QuickSpec {
                                     dependantJob: nil,
                                     canStartJob: false
                                 )
-                            })
+                            }
+                            .wasCalled(exactly: 1)
                     }
                 }
                 
                 // MARK: ---- and not granting access to historic messages
                 context("and not granting access to historic messages") {
                     beforeEach {
-                        mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        try await mockNetwork
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    category: .any,
+                                    requestTimeout: .any,
+                                    overallTimeout: .any
+                                )
+                            }
                             .thenReturn(Network.BatchResponse.mockAddMemberConfigSyncResponse)
                     }
                     
@@ -1246,34 +1322,6 @@ class MessageSenderGroupsSpec: QuickSpec {
                 
                 // MARK: ---- includes the unrevoke subaccounts as part of the config sync sequence
                 it("includes the unrevoke subaccounts as part of the config sync sequence") {
-                    let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = try Network.SnodeAPI.preparedSequence(
-                        requests: []
-                            .appending(try Network.SnodeAPI
-                                .preparedUnrevokeSubaccounts(
-                                    subaccountsToUnrevoke: [Array("TestSubAccountToken".data(using: .utf8)!)],
-                                    authMethod: Authentication.groupAdmin(
-                                        groupSessionId: groupId,
-                                        ed25519SecretKey: Array(groupSecretKey)
-                                    ),
-                                    using: dependencies
-                                )
-                            )
-                            .appending(try Network.SnodeAPI.preparedDeleteMessages(
-                                serverHashes: ["testHash"],
-                                requireSuccessfulDeletion: false,
-                                authMethod: Authentication.groupAdmin(
-                                    groupSessionId: groupId,
-                                    ed25519SecretKey: Array(groupSecretKey)
-                                ),
-                                using: dependencies
-                            )),
-                        requireAllBatchResponses: true,
-                        swarmPublicKey: groupId.hexString,
-                        snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
-                        requestAndPathBuildTimeout: Network.defaultTimeout,
-                        using: dependencies
-                    )
-                    
                     MessageSender.addGroupMembers(
                         groupSessionId: groupId.hexString,
                         members: [
@@ -1283,15 +1331,43 @@ class MessageSenderGroupsSpec: QuickSpec {
                         using: dependencies
                     ).sinkUntilComplete()
                     
-                    expect(mockNetwork)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
-                            network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
-                                requestTimeout: expectedRequest.requestTimeout,
-                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                    await mockNetwork
+                        .verify {
+                            $0.send(
+                                endpoint: Network.StorageServer.Endpoint.sequence,
+                                destination: .randomSnode(swarmPublicKey: groupId.hexString),
+                                body: try! JSONEncoder(using: dependencies).encode(
+                                    Network.BatchRequest(
+                                        requestsKey: .requests,
+                                        requests: [
+                                            try Network.StorageServer.preparedUnrevokeSubaccounts(
+                                                subaccountsToUnrevoke: [
+                                                    Array("TestSubAccountToken".data(using: .utf8)!)
+                                                ],
+                                                authMethod: Authentication.groupAdmin(
+                                                    groupSessionId: groupId,
+                                                    ed25519SecretKey: Array(groupSecretKey)
+                                                ),
+                                                using: dependencies
+                                            ),
+                                            try Network.StorageServer.preparedDeleteMessages(
+                                                serverHashes: ["testHash"],
+                                                requireSuccessfulDeletion: false,
+                                                authMethod: Authentication.groupAdmin(
+                                                    groupSessionId: groupId,
+                                                    ed25519SecretKey: Array(groupSecretKey)
+                                                ),
+                                                using: dependencies
+                                            )
+                                        ]
+                                    )
+                                ),
+                                category: .standard,
+                                requestTimeout: Network.defaultTimeout,
+                                overallTimeout: Network.defaultTimeout
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- schedules member invite jobs
@@ -1305,9 +1381,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                         using: dependencies
                     ).sinkUntilComplete()
                     
-                    expect(mockJobRunner)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                            jobRunner.add(
+                    await mockJobRunner
+                        .verify {
+                            $0.add(
                                 .any,
                                 job: Job(
                                     variant: .groupInviteMember,
@@ -1323,7 +1399,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 dependantJob: nil,
                                 canStartJob: true
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- adds a member change control message
@@ -1362,9 +1439,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                         using: dependencies
                     ).sinkUntilComplete()
                     
-                    expect(mockJobRunner)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                            jobRunner.add(
+                    await mockJobRunner
+                        .verify {
+                            $0.add(
                                 .any,
                                 job: Job(
                                     variant: .messageSend,
@@ -1391,7 +1468,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 dependantJob: nil,
                                 canStartJob: false
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
                 
                 // MARK: ---- sorts the members in the control message deterministically
@@ -1407,9 +1485,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                         using: dependencies
                     ).sinkUntilComplete()
                     
-                    expect(mockJobRunner)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
-                            jobRunner.add(
+                    await mockJobRunner
+                        .verify {
+                            $0.add(
                                 .any,
                                 job: Job(
                                     variant: .messageSend,
@@ -1438,7 +1516,8 @@ class MessageSenderGroupsSpec: QuickSpec {
                                 dependantJob: nil,
                                 canStartJob: false
                             )
-                        })
+                        }
+                        .wasCalled(exactly: 1)
                 }
             }
         }
@@ -1447,8 +1526,14 @@ class MessageSenderGroupsSpec: QuickSpec {
 
 // MARK: - Mock Types
 
-extension SendMessagesResponse: Mocked {
-    static var mock: SendMessagesResponse = SendMessagesResponse(
+extension Network.StorageServer.SendMessagesResponse: @retroactive Mocked {
+    public static var any: Network.StorageServer.SendMessagesResponse = Network.StorageServer.SendMessagesResponse(
+        hash: .any,
+        swarm: .any,
+        hardFork: .any,
+        timeOffset: .any
+    )
+    public static var mock: Network.StorageServer.SendMessagesResponse = Network.StorageServer.SendMessagesResponse(
         hash: "hash",
         swarm: [:],
         hardFork: [1, 2],
@@ -1456,16 +1541,26 @@ extension SendMessagesResponse: Mocked {
     )
 }
 
-extension UnrevokeSubaccountResponse: Mocked {
-    static var mock: UnrevokeSubaccountResponse = UnrevokeSubaccountResponse(
+extension Network.StorageServer.UnrevokeSubaccountResponse: @retroactive Mocked {
+    public static var any: Network.StorageServer.UnrevokeSubaccountResponse = Network.StorageServer.UnrevokeSubaccountResponse(
+        swarm: .any,
+        hardFork: .any,
+        timeOffset: .any
+    )
+    public static var mock: Network.StorageServer.UnrevokeSubaccountResponse = Network.StorageServer.UnrevokeSubaccountResponse(
         swarm: [:],
         hardFork: [],
         timeOffset: 0
     )
 }
 
-extension DeleteMessagesResponse: Mocked {
-    static var mock: DeleteMessagesResponse = DeleteMessagesResponse(
+extension Network.StorageServer.DeleteMessagesResponse: @retroactive Mocked {
+    public static var any: Network.StorageServer.DeleteMessagesResponse = Network.StorageServer.DeleteMessagesResponse(
+        swarm: .any,
+        hardFork: .any,
+        timeOffset: .any
+    )
+    public static var mock: Network.StorageServer.DeleteMessagesResponse = Network.StorageServer.DeleteMessagesResponse(
         swarm: [:],
         hardFork: [],
         timeOffset: 0
@@ -1475,29 +1570,31 @@ extension DeleteMessagesResponse: Mocked {
 // MARK: - Mock Batch Responses
                         
 extension Network.BatchResponse {
+    typealias API = Network.StorageServer
+    
     // MARK: - Valid Responses
     
     fileprivate static let mockConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),
+            (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),
+            (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),
+            (API.Endpoint.deleteMessages, API.DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
     fileprivate static let mockAddMemberConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (Network.SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (API.Endpoint.unrevokeSubaccount, API.UnrevokeSubaccountResponse.mockBatchSubResponse()),
+            (API.Endpoint.deleteMessages, API.DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
     
     fileprivate static let mockAddMemberHistoricConfigSyncResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
         with: [
-            (Network.SnodeAPI.Endpoint.unrevokeSubaccount, UnrevokeSubaccountResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.sendMessage, SendMessagesResponse.mockBatchSubResponse()),
-            (Network.SnodeAPI.Endpoint.deleteMessages, DeleteMessagesResponse.mockBatchSubResponse())
+            (API.Endpoint.unrevokeSubaccount, API.UnrevokeSubaccountResponse.mockBatchSubResponse()),
+            (API.Endpoint.sendMessage, API.SendMessagesResponse.mockBatchSubResponse()),
+            (API.Endpoint.deleteMessages, API.DeleteMessagesResponse.mockBatchSubResponse())
         ]
     )
 }

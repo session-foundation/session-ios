@@ -82,11 +82,6 @@ public extension Authentication {
 
 // MARK: - Convenience
 
-fileprivate struct GroupAuthData: Codable, FetchableRecord {
-    let groupIdentityPrivateKey: Data?
-    let authData: Data?
-}
-
 public extension Authentication.community {
     init(info: LibSession.OpenGroupCapabilityInfo, forceBlinded: Bool = false) {
         self.init(
@@ -143,12 +138,11 @@ public extension Authentication {
                 
                 return Authentication.community(info: info, forceBlinded: forceBlinded)
                 
-            default: return try Authentication.with(db, swarmPublicKey: threadId, using: dependencies)
+            default: return try Authentication.with(swarmPublicKey: threadId, using: dependencies)
         }
     }
     
     static func with(
-        _ db: ObservingDatabase,
         swarmPublicKey: String,
         using dependencies: Dependencies
     ) throws -> AuthenticationMethod {
@@ -158,7 +152,7 @@ public extension Authentication {
                     let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                         .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
                     )
-                else { throw SnodeAPIError.noKeyPair }
+                else { throw CryptoError.keyGenerationFailed }
                 
                 return Authentication.standard(
                     sessionId: sessionId,
@@ -167,20 +161,18 @@ public extension Authentication {
                 )
                 
             case .some(let sessionId) where sessionId.prefix == .group:
-                let authData: GroupAuthData? = try? ClosedGroup
-                    .filter(id: swarmPublicKey)
-                    .select(.authData, .groupIdentityPrivateKey)
-                    .asRequest(of: GroupAuthData.self)
-                    .fetchOne(db)
+                let authData: GroupAuthData = dependencies.mutate(cache: .libSession) { libSession in
+                    libSession.authData(groupSessionId: SessionId(.group, hex: swarmPublicKey))
+                }
                 
-                switch (authData?.groupIdentityPrivateKey, authData?.authData) {
-                    case (.some(let privateKey), _):
+                switch (authData.groupIdentityPrivateKey, authData.authData) {
+                    case (.some(let privateKey), _) where !privateKey.isEmpty:
                         return Authentication.groupAdmin(
                             groupSessionId: sessionId,
                             ed25519SecretKey: Array(privateKey)
                         )
                         
-                    case (_, .some(let authData)):
+                    case (_, .some(let authData)) where !authData.isEmpty:
                         return Authentication.groupMember(
                             groupSessionId: sessionId,
                             authData: authData

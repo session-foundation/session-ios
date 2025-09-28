@@ -127,7 +127,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                             .map { _, data in (data, info.attachment, info.temporaryFileUrl) }
                         
                     case .none:
-                        return try Network
+                        return try Network.FileServer
                             .preparedDownload(
                                 url: info.downloadUrl,
                                 using: dependencies
@@ -144,7 +144,11 @@ public enum AttachmentDownloadJob: JobExecutor {
             .receive(on: scheduler, using: dependencies)
             .tryMap { attachment, temporaryFileUrl, data -> Attachment in
                 // Store the encrypted data temporarily
-                try data.write(to: temporaryFileUrl, options: .atomic)
+                try dependencies[singleton: .fileManager].write(
+                    data: data,
+                    to: temporaryFileUrl,
+                    options: .atomic
+                )
                 
                 // Decrypt the data
                 let plaintext: Data = try {
@@ -183,7 +187,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 let updatedAttachment: Attachment = try attachment
                     .with(
                         state: .downloaded,
-                        creationTimestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                        creationTimestamp: (dependencies.networkOffsetTimestampMs() / 1000),
                         using: dependencies
                     )
                     .upserted(db)
@@ -223,7 +227,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                                 /// If we got a 400 or a 401 then we want to fail the download in a way that has to be manually retried as it's
                                 /// likely something else is going on that caused the failure
                                 case NetworkError.badRequest, NetworkError.unauthorised,
-                                    SnodeAPIError.signatureVerificationFailed:
+                                    StorageServerError.signatureVerificationFailed:
                                     targetState = .failedDownload
                                     permanentFailure = true
                                 

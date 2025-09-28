@@ -533,7 +533,7 @@ extension MessageReceiver {
             .fetchOne(db)
         
         guard let interactionId: Int64 = maybeInteractionId else {
-            throw StorageError.objectNotFound
+            throw MessageReceiverError.originalMessageNotFound
         }
         
         let sortId = Reaction.getSortId(

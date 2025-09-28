@@ -307,7 +307,7 @@ extension MessageReceiver {
         // devices that had the group before they were promoted
         try SnodeReceivedMessageInfo
             .filter(SnodeReceivedMessageInfo.Columns.swarmPublicKey == groupSessionId.hexString)
-            .filter(SnodeReceivedMessageInfo.Columns.namespace == Network.SnodeAPI.Namespace.groupMessages.rawValue)
+            .filter(SnodeReceivedMessageInfo.Columns.namespace == Network.StorageServer.Namespace.groupMessages.rawValue)
             .updateAllAndConfig(
                 db,
                 SnodeReceivedMessageInfo.Columns.wasDeletedOrInvalid.set(to: true),
@@ -747,13 +747,12 @@ extension MessageReceiver {
                 cache.isAdmin(groupSessionId: groupSessionId)
             }),
             let authMethod: AuthenticationMethod = try? Authentication.with(
-                db,
                 swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
             )
         else { return }
         
-        try? Network.SnodeAPI
+        try? Network.StorageServer
             .preparedDeleteMessages(
                 serverHashes: Array(hashes),
                 requireSuccessfulDeletion: false,
@@ -919,22 +918,19 @@ extension MessageReceiver {
             case .none: break
             case .some(let serverHash):
                 db.afterCommit {
-                    dependencies[singleton: .storage]
-                        .readPublisher { db in
-                            try Network.SnodeAPI.preparedDeleteMessages(
-                                serverHashes: [serverHash],
-                                requireSuccessfulDeletion: false,
-                                authMethod: try Authentication.with(
-                                    db,
-                                    swarmPublicKey: userSessionId.hexString,
-                                    using: dependencies
-                                ),
-                                using: dependencies
-                            )
-                        }
-                        .flatMap { $0.send(using: dependencies) }
-                        .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-                        .sinkUntilComplete()
+                    guard let authMethod: AuthenticationMethod = try? Authentication.with(swarmPublicKey: userSessionId.hexString, using: dependencies) else {
+                        return
+                    }
+                    
+                    try? Network.StorageServer.preparedDeleteMessages(
+                        serverHashes: [serverHash],
+                        requireSuccessfulDeletion: false,
+                        authMethod: authMethod,
+                        using: dependencies
+                    )
+                    .send(using: dependencies)
+                    .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
+                    .sinkUntilComplete()
                 }
         }
         
@@ -1003,7 +999,7 @@ extension MessageReceiver {
                     db,
                     message: GroupUpdateInviteResponseMessage(
                         isApproved: true,
-                        sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        sentTimestampMs: dependencies.networkOffsetTimestampMs()
                     ),
                     interactionId: nil,
                     threadId: groupSessionId.hexString,
@@ -1019,7 +1015,7 @@ extension MessageReceiver {
                     variant: .group,
                     values: SessionThread.TargetValues(
                         creationDateTimestamp: .useExistingOrSetTo(
-                            dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
+                            dependencies.networkOffsetTimestampMs() / 1000
                         ),
                         shouldBeVisible: .useExisting
                     ),

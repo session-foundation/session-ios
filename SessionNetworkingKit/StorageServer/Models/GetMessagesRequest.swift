@@ -3,8 +3,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension Network.SnodeAPI {
-    class GetMessagesRequest: SnodeAuthenticatedRequestBody {
+extension Network.StorageServer {
+    class GetMessagesRequest: BaseAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case lastHash = "last_hash"
             case namespace
@@ -13,7 +13,7 @@ extension Network.SnodeAPI {
         }
         
         let lastHash: String
-        let namespace: Network.SnodeAPI.Namespace?
+        let namespace: Namespace?
         let maxCount: Int64?
         let maxSize: Int64?
         
@@ -22,7 +22,7 @@ extension Network.SnodeAPI {
             /// namespace), or `("retrieve" || timestamp)` when fetching from the default namespace.  Both
             /// namespace and timestamp are the base10 expressions of the relevant values.  Must be base64
             /// encoded for json requests; binary for OMQ requests.
-            Network.SnodeAPI.Endpoint.getMessages.path.bytes
+            Endpoint.getMessages.path.bytes
                 .appending(contentsOf: namespace?.verificationString.bytes)
                 .appending(contentsOf: timestampMs.map { "\($0)" }?.data(using: .ascii)?.bytes)
         }
@@ -31,11 +31,11 @@ extension Network.SnodeAPI {
         
         public init(
             lastHash: String,
-            namespace: Network.SnodeAPI.Namespace?,
-            authMethod: AuthenticationMethod,
-            timestampMs: UInt64,
+            namespace: Namespace?,
             maxCount: Int64? = nil,
-            maxSize: Int64? = nil
+            maxSize: Int64? = nil,
+            timestampMs: UInt64,
+            authMethod: AuthenticationMethod
         ) {
             self.lastHash = lastHash
             self.namespace = namespace
@@ -43,8 +43,8 @@ extension Network.SnodeAPI {
             self.maxSize = maxSize
             
             super.init(
-                authMethod: authMethod,
-                timestampMs: timestampMs
+                timestampMs: timestampMs,
+                authMethod: authMethod
             )
         }
         

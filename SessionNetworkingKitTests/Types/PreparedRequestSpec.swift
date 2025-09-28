@@ -24,9 +24,9 @@ class PreparedRequestSpec: QuickSpec {
         describe("a PreparedRequest") {
             // MARK: -- generates the request correctly
             it("generates the request correctly") {
-                request = try! Request<NoBody, TestEndpoint>(
+                request = Request<NoBody, TestEndpoint>(
                     endpoint: .endpoint,
-                    destination: try! .server(
+                    destination: .server(
                         method: .post,
                         server: "testServer",
                         queryParameters: [:],
@@ -36,12 +36,15 @@ class PreparedRequestSpec: QuickSpec {
                         ],
                         x25519PublicKey: ""
                     ),
-                    body: nil
+                    body: nil,
+                    category: .upload,
+                    requestTimeout: 123,
+                    overallTimeout: 1234,
+                    retryCount: 3
                 )
                 preparedRequest = try! Network.PreparedRequest(
                     request: request,
                     responseType: TestType.self,
-                    requestTimeout: 10,
                     using: dependencies
                 )
                 
@@ -51,13 +54,17 @@ class PreparedRequestSpec: QuickSpec {
                     "TestCustomHeader": "TestCustom",
                     HTTPHeader.testHeader: "Test"
                 ]))
+                expect(preparedRequest.category).to(equal(.upload))
+                expect(preparedRequest.requestTimeout).to(equal(123))
+                expect(preparedRequest.overallTimeout).to(equal(1234))
+                expect(preparedRequest.retryCount).to(equal(3))
             }
             
             // MARK: -- does not strip excluded subrequest headers
             it("does not strip excluded subrequest headers") {
-                request = try! Request<NoBody, TestEndpoint>(
+                request = Request<NoBody, TestEndpoint>(
                     endpoint: .endpoint,
-                    destination: try! .server(
+                    destination: .server(
                         method: .post,
                         server: "testServer",
                         queryParameters: [:],
@@ -72,12 +79,36 @@ class PreparedRequestSpec: QuickSpec {
                 preparedRequest = try! Network.PreparedRequest(
                     request: request,
                     responseType: TestType.self,
-                    requestTimeout: 10,
                     using: dependencies
                 )
                 
                 expect(TestEndpoint.excludedSubRequestHeaders).to(equal([HTTPHeader.testHeader]))
                 expect(preparedRequest.headers.keys).to(contain([HTTPHeader.testHeader]))
+            }
+            
+            // MARK: ---- throws an error if the generated URL is invalid
+            it("throws an error if the generated URL is invalid") {
+                request = Request<NoBody, TestEndpoint>(
+                    endpoint: .testParams("test", 123),
+                    destination: .server(
+                        method: .post,
+                        server: "ftp:// test Server",
+                        queryParameters: [:],
+                        headers: [
+                            "TestCustomHeader": "TestCustom",
+                            HTTPHeader.testHeader: "Test"
+                        ],
+                        x25519PublicKey: ""
+                    ),
+                    body: nil
+                )
+                preparedRequest = try! Network.PreparedRequest(
+                    request: request,
+                    responseType: TestType.self,
+                    using: dependencies
+                )
+                
+                expect { try preparedRequest.generateUrl() }.to(throwError(NetworkError.invalidURL))
             }
         }
         
@@ -160,6 +191,7 @@ fileprivate extension HTTPHeader {
 
 fileprivate enum TestEndpoint: EndpointType {
     case endpoint
+    case testParams(String, Int)
     
     static var name: String { "TestEndpoint" }
     static var batchRequestVariant: Network.BatchRequest.Child.Variant { .storageServer }

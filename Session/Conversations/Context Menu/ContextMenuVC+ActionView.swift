@@ -133,14 +133,14 @@ extension ContextMenuVC {
             subtitleWidthConstraint.isActive = true
             
             // To prevent a negative timer
-            let timeToExpireInSeconds = max(0, (expiresStartedAtMs + expiresInSeconds * 1000 - dependencies[cache: .snodeAPI].currentOffsetTimestampMs()) / 1000)
+            let timeToExpireInSeconds = max(0, (expiresStartedAtMs + expiresInSeconds * 1000 - dependencies.networkOffsetTimestampMs()) / 1000)
             
             subtitleLabel.text = "disappearingMessagesCountdownBigMobile"
                 .put(key: "time_large", value: timeToExpireInSeconds.formatted(format: .twoUnits, minimumUnit: .second))
                 .localized()
             
             timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 1, repeats: true, using: dependencies, block: { [weak self, dependencies] _ in
-                let timeToExpireInSeconds: TimeInterval =  (expiresStartedAtMs + expiresInSeconds * 1000 - dependencies[cache: .snodeAPI].currentOffsetTimestampMs()) / 1000
+                let timeToExpireInSeconds: TimeInterval =  (expiresStartedAtMs + expiresInSeconds * 1000 - dependencies.networkOffsetTimestampMs()) / 1000
                 if timeToExpireInSeconds <= 0 {
                     self?.dismissWithTimerInvalidationIfNeeded()
                 } else {

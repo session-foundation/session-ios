@@ -52,7 +52,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         
         // The first 32 bytes of a 64 byte ed25519 private key are the seed which can be used
         // to generate the KeyPair so extract those and send along with the promotion message
-        let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
         let message: GroupUpdatePromoteMessage = GroupUpdatePromoteMessage(
             groupIdentitySeed: groupInfo.groupIdentityPrivateKey.prefix(32),
             groupName: groupInfo.name,
@@ -61,7 +61,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .writePublisher { db -> AuthenticationMethod in
+            .writePublisher { db in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -71,11 +71,14 @@ public enum GroupPromoteMemberJob: JobExecutor {
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
                         using: dependencies
                     )
-                
-                return try Authentication.with(db, swarmPublicKey: details.memberSessionIdHexString, using: dependencies)
             }
-            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                try MessageSender.preparedSend(
+            .tryFlatMap { _ -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: details.memberSessionIdHexString,
+                    using: dependencies
+                )
+                
+                return try MessageSender.preparedSend(
                     message: message,
                     to: .contact(publicKey: details.memberSessionIdHexString),
                     namespace: .default,
@@ -139,10 +142,10 @@ public enum GroupPromoteMemberJob: JobExecutor {
                                 case let senderError as MessageSenderError where !senderError.isRetryable:
                                     failure(job, error, true)
                                     
-                                case SnodeAPIError.rateLimited:
+                                case StorageServerError.rateLimited:
                                     failure(job, error, true)
                                     
-                                case SnodeAPIError.clockOutOfSync:
+                                case StorageServerError.clockOutOfSync:
                                     Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
                                     failure(job, error, true)
                                     
@@ -301,7 +304,7 @@ public extension GroupPromoteMemberJob {
 public extension Cache {
     static let groupPromoteMemberJob: CacheConfig<GroupPromoteMemberJobCacheType, GroupPromoteMemberJobImmutableCacheType> = Dependencies.create(
         identifier: "groupPromoteMemberJob",
-        createInstance: { dependencies in GroupPromoteMemberJob.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in GroupPromoteMemberJob.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

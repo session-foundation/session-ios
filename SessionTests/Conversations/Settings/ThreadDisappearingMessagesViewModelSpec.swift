@@ -19,28 +19,11 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
             dependencies.forceSynchronous = true
             dependencies[singleton: .scheduler] = .immediate
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try SessionThread(
-                    id: "TestId",
-                    variant: .contact,
-                    creationDateTimestamp: 0
-                ).insert(db)
-            }
+            using: dependencies
         )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-            }
-        )
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
         @TestState var viewModel: ThreadDisappearingMessagesSettingsViewModel! = ThreadDisappearingMessagesSettingsViewModel(
             threadId: "TestId",
             threadVariant: .contact,
@@ -58,6 +41,28 @@ class ThreadDisappearingMessagesSettingsViewModelSpec: AsyncSpec {
                     receiveValue: { viewModel.updateTableData($0) }
                 )
         ]
+        
+        beforeEach {
+            try await mockStorage.perform(
+                migrations: SNMessagingKit.migrations
+            )
+            try await mockStorage.writeAsync { db in
+                try SessionThread(
+                    id: "TestId",
+                    variant: .contact,
+                    creationDateTimestamp: 0
+                ).insert(db)
+            }
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+        }
         
         // MARK: - a ThreadDisappearingMessagesSettingsViewModel
         describe("a ThreadDisappearingMessagesSettingsViewModel") {

@@ -167,7 +167,7 @@ public extension Network.SOGS {
                 authMethod: authMethod
             ),
             responseType: Network.BatchResponseMap<Endpoint>.self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
 
@@ -197,7 +197,7 @@ public extension Network.SOGS {
                 authMethod: authMethod
             ),
             responseType: CapabilitiesResponse.self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
 
@@ -223,7 +223,7 @@ public extension Network.SOGS {
                 authMethod: authMethod
             ),
             responseType: [Room].self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
 
@@ -822,11 +822,12 @@ public extension Network.SOGS {
                     x25519PublicKey: publicKey,
                     fileName: fileName
                 ),
-                body: data
+                body: data,
+                category: .upload,
+                requestTimeout: Network.fileUploadTimeout
             ),
             responseType: FileUploadResponse.self,
             additionalSignatureData: AdditionalSigningData(authMethod),
-            requestTimeout: Network.fileUploadTimeout,
             using: dependencies
         )
         .signed(with: Network.SOGS.signRequest, using: dependencies)
@@ -863,11 +864,12 @@ public extension Network.SOGS {
         let preparedRequest = try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 endpoint: .roomFileIndividual(roomToken, fileId),
-                authMethod: authMethod
+                category: .download,
+                authMethod: authMethod,
+                requestTimeout: Network.fileDownloadTimeout
             ),
             responseType: Data.self,
-            additionalSignatureData: AdditionalSigningData(authMethod),
-            requestTimeout: Network.fileDownloadTimeout,
+            additionalSignatureData: (skipAuthentication ? nil : AdditionalSigningData(authMethod)),
             using: dependencies
         )
         
@@ -921,7 +923,7 @@ public extension Network.SOGS {
     /// Remove all message requests from inbox, this methrod will return the number of messages deleted
     static func preparedClearInbox(
         requestTimeout: TimeInterval = Network.defaultTimeout,
-        requestAndPathBuildTimeout: TimeInterval? = nil,
+        overallTimeout: TimeInterval? = nil,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<DeleteInboxResponse> {
@@ -929,12 +931,12 @@ public extension Network.SOGS {
             request: Request<NoBody, Endpoint>(
                 method: .delete,
                 endpoint: .inbox,
-                authMethod: authMethod
+                authMethod: authMethod,
+                requestTimeout: requestTimeout,
+                overallTimeout: overallTimeout
             ),
             responseType: DeleteInboxResponse.self,
             additionalSignatureData: AdditionalSigningData(authMethod),
-            requestTimeout: requestTimeout,
-            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             using: dependencies
         )
         .signed(with: Network.SOGS.signRequest, using: dependencies)
@@ -1226,14 +1228,12 @@ public extension Network.SOGS {
     // MARK: - Authentication
     
     fileprivate static func signatureHeaders(
-        url: URL,
         method: HTTPMethod,
+        pathAndParamsString: String,
         body: Data?,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> [HTTPHeader: String] {
-        let path: String = url.path
-            .appending(url.query.map { value in "?\(value)" })
         let method: String = method.rawValue
         let timestamp: Int = Int(floor(dependencies.dateNow.timeIntervalSince1970))
         
@@ -1263,7 +1263,7 @@ public extension Network.SOGS {
             .appending(contentsOf: nonce)
             .appending(contentsOf: timestampBytes)
             .appending(contentsOf: method.bytes)
-            .appending(contentsOf: path.bytes)
+            .appending(contentsOf: pathAndParamsString.bytes)
             .appending(contentsOf: bodyHash ?? [])
         
         /// Sign the above message
@@ -1369,12 +1369,62 @@ public extension Network.SOGS {
         preparedRequest: Network.PreparedRequest<R>,
         using dependencies: Dependencies
     ) throws -> Network.Destination {
+        /// Handle the cached and invalid cases first (no need to sign them)
+        switch preparedRequest.destination {
+            case .cached: return preparedRequest.destination
+            case .snode, .randomSnode: throw NetworkError.unauthorised
+            default: break
+        }
+        
         guard let signingData: AdditionalSigningData = preparedRequest.additionalSignatureData as? AdditionalSigningData else {
             throw SOGSError.signingFailed
         }
         
-        return try preparedRequest.destination
-            .signed(data: signingData, body: preparedRequest.body, using: dependencies)
+        let signatureHeaders: [HTTPHeader: String] = try Network.SOGS.signatureHeaders(
+            method: preparedRequest.method,
+            pathAndParamsString: preparedRequest.path,
+            body: preparedRequest.body,
+            authMethod: signingData.authMethod,
+            using: dependencies
+        )
+        
+        switch preparedRequest.destination {
+            case .server(let info):
+                return .server(
+                    info: Network.Destination.ServerInfo(
+                        method: info.method,
+                        server: info.server,
+                        queryParameters: info.queryParameters,
+                        headers: info.headers.updated(with: signatureHeaders),
+                        x25519PublicKey: info.x25519PublicKey
+                    )
+                )
+            
+            case .serverUpload(let info, let fileName):
+                return .serverUpload(
+                    info: Network.Destination.ServerInfo(
+                        method: info.method,
+                        server: info.server,
+                        queryParameters: info.queryParameters,
+                        headers: info.headers.updated(with: signatureHeaders),
+                        x25519PublicKey: info.x25519PublicKey
+                    ),
+                    fileName: fileName
+                )
+            
+            case .serverDownload(let info):
+                return .serverDownload(
+                    info: Network.Destination.ServerInfo(
+                        method: info.method,
+                        server: info.server,
+                        queryParameters: info.queryParameters,
+                        headers: info.headers.updated(with: signatureHeaders),
+                        x25519PublicKey: info.x25519PublicKey
+                    )
+                )
+                
+            case .snode, .randomSnode, .cached: throw SOGSError.signingFailed
+        }
     }
 }
 
@@ -1385,32 +1435,5 @@ private extension Network.SOGS {
         init(_ authMethod: AuthenticationMethod) {
             self.authMethod = authMethod
         }
-    }
-}
-
-private extension Network.Destination {
-    func signed(data: Network.SOGS.AdditionalSigningData, body: Data?, using dependencies: Dependencies) throws -> Network.Destination {
-        switch self {
-            case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget: throw NetworkError.unauthorised
-            case .cached: return self
-            case .server(let info): return .server(info: try info.signed(data, body, using: dependencies))
-            case .serverUpload(let info, let fileName):
-                return .serverUpload(info: try info.signed(data, body, using: dependencies), fileName: fileName)
-            
-            case .serverDownload(let info):
-                return .serverDownload(info: try info.signed(data, body, using: dependencies))
-        }
-    }
-}
-
-private extension Network.Destination.ServerInfo {
-    func signed(_ data: Network.SOGS.AdditionalSigningData, _ body: Data?, using dependencies: Dependencies) throws -> Network.Destination.ServerInfo {
-        return updated(with: try Network.SOGS.signatureHeaders(
-            url: url,
-            method: method,
-            body: body,
-            authMethod: data.authMethod,
-            using: dependencies
-        ))
     }
 }

@@ -10,7 +10,7 @@ import KeychainSwift
 public extension Singleton {
     static let keychain: SingletonConfig<KeychainStorageType> = Dependencies.create(
         identifier: "keychain",
-        createInstance: { dependencies in KeychainStorage(using: dependencies) }
+        createInstance: { dependencies, _ in KeychainStorage(using: dependencies) }
     )
 }
 

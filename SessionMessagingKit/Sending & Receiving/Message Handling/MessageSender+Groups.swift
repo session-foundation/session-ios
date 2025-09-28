@@ -7,14 +7,14 @@ import SessionUtilitiesKit
 import SessionNetworkingKit
 
 extension MessageSender {
-    private typealias PreparedGroupData = (
-        groupSessionId: SessionId,
-        groupState: [ConfigDump.Variant: LibSession.Config],
-        thread: SessionThread,
-        group: ClosedGroup,
-        members: [GroupMember],
-        preparedNotificationsSubscription: Network.PreparedRequest<Network.PushNotification.SubscribeResponse>?
-    )
+    private struct PreparedGroupData {
+        let groupSessionId: SessionId
+        let identityKeyPair: KeyPair
+        let groupState: [ConfigDump.Variant: LibSession.Config]
+        let thread: SessionThread
+        let group: ClosedGroup
+        let members: [GroupMember]
+    }
     
     public static func createGroup(
         name: String,
@@ -43,114 +43,98 @@ extension MessageSender {
                     .map { Optional($0) }
                     .eraseToAnyPublisher()
             }
-            .flatMap { (displayPictureInfo: DisplayPictureManager.UploadResult?) -> AnyPublisher<PreparedGroupData, Error> in
-                dependencies[singleton: .storage].writePublisher { db -> PreparedGroupData in
-                    /// Create and cache the libSession entries
-                    let createdInfo: LibSession.CreatedGroupInfo = try LibSession.createGroup(
-                        db,
-                        name: name,
-                        description: description,
-                        displayPictureUrl: displayPictureInfo?.downloadUrl,
-                        displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
-                        members: members,
-                        using: dependencies
-                    )
-                    
-                    /// Save the relevant objects to the database
-                    let thread: SessionThread = try SessionThread.upsert(
-                        db,
-                        id: createdInfo.group.id,
-                        variant: .group,
-                        values: SessionThread.TargetValues(
-                            creationDateTimestamp: .setTo(createdInfo.group.formationTimestamp),
-                            shouldBeVisible: .setTo(true)
-                        ),
-                        using: dependencies
-                    )
-                    try createdInfo.group.insert(db)
-                    try createdInfo.members.forEach { try $0.insert(db) }
-                    
-                    /// Add a record of the initial invites going out (default to being read as we don't want the creator of the group
-                    /// to see the "Unread Messages" banner above this control message)
-                    _ = try? Interaction(
+            .flatMapStorageWritePublisher(using: dependencies) { (db: ObservingDatabase, displayPictureInfo: DisplayPictureManager.UploadResult?) -> PreparedGroupData in
+                /// Create and cache the libSession entries
+                let createdInfo: LibSession.CreatedGroupInfo = try LibSession.createGroup(
+                    db,
+                    name: name,
+                    description: description,
+                    displayPictureUrl: displayPictureInfo?.downloadUrl,
+                    displayPictureEncryptionKey: displayPictureInfo?.encryptionKey,
+                    members: members,
+                    using: dependencies
+                )
+                
+                /// Save the relevant objects to the database
+                let thread: SessionThread = try SessionThread.upsert(
+                    db,
+                    id: createdInfo.group.id,
+                    variant: .group,
+                    values: SessionThread.TargetValues(
+                        creationDateTimestamp: .setTo(createdInfo.group.formationTimestamp),
+                        shouldBeVisible: .setTo(true)
+                    ),
+                    using: dependencies
+                )
+                try createdInfo.group.insert(db)
+                try createdInfo.members.forEach { try $0.insert(db) }
+                
+                /// Add a record of the initial invites going out (default to being read as we don't want the creator of the group
+                /// to see the "Unread Messages" banner above this control message)
+                _ = try? Interaction(
+                    threadId: createdInfo.group.id,
+                    threadVariant: .group,
+                    authorId: userSessionId.hexString,
+                    variant: .infoGroupMembersUpdated,
+                    body: ClosedGroup.MessageInfo
+                        .addedUsers(
+                            hasCurrentUser: false,
+                            names: sortedOtherMembers.map { id, profile in
+                                profile?.displayName(for: .group) ??
+                                id.truncated()
+                            },
+                            historyShared: false
+                        )
+                        .infoString(using: dependencies),
+                    timestampMs: Int64(createdInfo.group.formationTimestamp * 1000),
+                    wasRead: true,
+                    using: dependencies
+                ).inserted(db)
+                
+                /// Schedule the "members added" control message to be sent after the config sync completes
+                try dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .messageSend,
+                        behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                         threadId: createdInfo.group.id,
-                        threadVariant: .group,
-                        authorId: userSessionId.hexString,
-                        variant: .infoGroupMembersUpdated,
-                        body: ClosedGroup.MessageInfo
-                            .addedUsers(
-                                hasCurrentUser: false,
-                                names: sortedOtherMembers.map { id, profile in
-                                    profile?.displayName(for: .group) ??
-                                    id.truncated()
-                                },
-                                historyShared: false
-                            )
-                            .infoString(using: dependencies),
-                        timestampMs: Int64(createdInfo.group.formationTimestamp * 1000),
-                        wasRead: true,
-                        using: dependencies
-                    ).inserted(db)
-                    
-                    /// Schedule the "members added" control message to be sent after the config sync completes
-                    try dependencies[singleton: .jobRunner].add(
-                        db,
-                        job: Job(
-                            variant: .messageSend,
-                            behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
-                            threadId: createdInfo.group.id,
-                            details: MessageSendJob.Details(
-                                destination: .closedGroup(groupPublicKey: createdInfo.group.id),
-                                message: GroupUpdateMemberChangeMessage(
-                                    changeType: .added,
-                                    memberSessionIds: sortedOtherMembers.map { id, _ in id },
-                                    historyShared: false,
-                                    sentTimestampMs: UInt64(createdInfo.group.formationTimestamp * 1000),
-                                    authMethod: Authentication.groupAdmin(
-                                        groupSessionId: createdInfo.groupSessionId,
-                                        ed25519SecretKey: createdInfo.identityKeyPair.secretKey
-                                    ),
-                                    using: dependencies
+                        details: MessageSendJob.Details(
+                            destination: .closedGroup(groupPublicKey: createdInfo.group.id),
+                            message: GroupUpdateMemberChangeMessage(
+                                changeType: .added,
+                                memberSessionIds: sortedOtherMembers.map { id, _ in id },
+                                historyShared: false,
+                                sentTimestampMs: UInt64(createdInfo.group.formationTimestamp * 1000),
+                                authMethod: Authentication.groupAdmin(
+                                    groupSessionId: createdInfo.groupSessionId,
+                                    ed25519SecretKey: createdInfo.identityKeyPair.secretKey
                                 ),
-                                requiredConfigSyncVariant: .groupMembers
-                            )
-                        ),
-                        canStartJob: false
-                    )
-                    
-                    // Prepare the notification subscription
-                    var preparedNotificationSubscription: Network.PreparedRequest<Network.PushNotification.SubscribeResponse>?
-                    
-                    if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                        preparedNotificationSubscription = try? Network.PushNotification
-                            .preparedSubscribe(
-                                token: Data(hex: token),
-                                swarms: [(
-                                    createdInfo.groupSessionId,
-                                    Authentication.groupAdmin(
-                                        groupSessionId: createdInfo.groupSessionId,
-                                        ed25519SecretKey: createdInfo.identityKeyPair.secretKey
-                                    )
-                                )],
                                 using: dependencies
-                            )
-                    }
-                    
-                    return (
-                        createdInfo.groupSessionId,
-                        createdInfo.groupState,
-                        thread,
-                        createdInfo.group,
-                        createdInfo.members,
-                        preparedNotificationSubscription
-                    )
-                }
+                            ),
+                            requiredConfigSyncVariant: .groupMembers
+                        )
+                    ),
+                    canStartJob: false
+                )
+                
+                return PreparedGroupData(
+                    groupSessionId: createdInfo.groupSessionId,
+                    identityKeyPair: createdInfo.identityKeyPair,
+                    groupState: createdInfo.groupState,
+                    thread: thread,
+                    group: createdInfo.group,
+                    members: createdInfo.members
+                )
             }
             .flatMap { preparedGroupData -> AnyPublisher<PreparedGroupData, Error> in
                 ConfigurationSyncJob
                     .run(
                         swarmPublicKey: preparedGroupData.groupSessionId.hexString,
                         requireAllRequestsSucceed: true,
+                        customAuthMethod: Authentication.groupAdmin(
+                            groupSessionId: preparedGroupData.groupSessionId,
+                            ed25519SecretKey: preparedGroupData.identityKeyPair.secretKey
+                        ),
                         using: dependencies
                     )
                     .flatMap { _ in
@@ -192,23 +176,33 @@ extension MessageSender {
                     .eraseToAnyPublisher()
             }
             .handleEvents(
-                receiveOutput: { groupSessionId, _, thread, group, groupMembers, preparedNotificationSubscription in
+                receiveOutput: { preparedGroupData in
                     let userSessionId: SessionId = dependencies[cache: .general].sessionId
                     
                     // Start polling
-                    dependencies
-                        .mutate(cache: .groupPollers) { $0.getOrCreatePoller(for: thread.id) }
-                        .startIfNeeded()
+                    Task.detached(priority: .userInitiated) { [manager = dependencies[singleton: .groupPollerManager]] in
+                        await manager.getOrCreatePoller(for: preparedGroupData.thread.id).startIfNeeded()
+                    }
                     
                     // Subscribe for push notifications (if PNs are enabled)
-                    preparedNotificationSubscription?
-                        .send(using: dependencies)
-                        .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                        .sinkUntilComplete()
+                    if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
+                        Task.detached(priority: .userInitiated) { [dependencies] in
+                            try? await Network.PushNotification.subscribe(
+                                token: Data(hex: token),
+                                swarmAuthentication: [
+                                    Authentication.groupAdmin(
+                                        groupSessionId: preparedGroupData.groupSessionId,
+                                        ed25519SecretKey: preparedGroupData.identityKeyPair.secretKey
+                                    )
+                                ],
+                                using: dependencies
+                            )
+                        }
+                    }
                     
                     dependencies[singleton: .storage].writeAsync { db in
                         // Save jobs for sending group member invitations
-                        groupMembers
+                        preparedGroupData.members
                             .filter { $0.profileId != userSessionId.hexString }
                             .compactMap { member -> (GroupMember, GroupInviteMemberJob.Details)? in
                                 // Generate authData for the removed member
@@ -216,8 +210,11 @@ extension MessageSender {
                                     let memberAuthInfo: Authentication.Info = try? dependencies.mutate(cache: .libSession, { cache in
                                         try dependencies[singleton: .crypto].tryGenerate(
                                             .memberAuthData(
-                                                config: cache.config(for: .groupKeys, sessionId: groupSessionId),
-                                                groupSessionId: groupSessionId,
+                                                config: cache.config(
+                                                    for: .groupKeys,
+                                                    sessionId: preparedGroupData.groupSessionId
+                                                ),
+                                                groupSessionId: preparedGroupData.groupSessionId,
                                                 memberId: member.profileId
                                             )
                                         )
@@ -235,7 +232,7 @@ extension MessageSender {
                                     db,
                                     job: Job(
                                         variant: .groupInviteMember,
-                                        threadId: thread.id,
+                                        threadId: preparedGroupData.thread.id,
                                         details: jobDetails
                                     ),
                                     canStartJob: true
@@ -244,7 +241,7 @@ extension MessageSender {
                     }
                 }
             )
-            .map { _, _, thread, _, _, _ in thread }
+            .map { $0.thread }
             .eraseToAnyPublisher()
     }
     
@@ -266,7 +263,7 @@ extension MessageSender {
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -373,7 +370,7 @@ extension MessageSender {
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -389,7 +386,7 @@ extension MessageSender {
                                         using: dependencies
                                     )
                                 
-                            case .groupUpdateTo(let url, let key, let fileName):
+                            case .groupUpdateTo(let url, let key, _):
                                 try ClosedGroup
                                     .filter(id: groupSessionId)
                                     .updateAllAndConfig(
@@ -474,7 +471,7 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let currentOffsetTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
             
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in
@@ -572,7 +569,7 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
                 
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
@@ -598,17 +595,17 @@ extension MessageSender {
                                 using: dependencies
                             )
                             
-                            maybeSupplementalKeyRequest = try Network.SnodeAPI.preparedSendMessage(
-                                message: SnodeMessage(
+                            maybeSupplementalKeyRequest = try Network.StorageServer.preparedSendMessage(
+                                request: Network.StorageServer.SendMessageRequest(
                                     recipient: sessionId.hexString,
+                                    namespace: .configGroupKeys,
                                     data: supplementData,
                                     ttl: ConfigDump.Variant.groupKeys.ttl,
-                                    timestampMs: UInt64(changeTimestampMs)
-                                ),
-                                in: .configGroupKeys,
-                                authMethod: Authentication.groupAdmin(
-                                    groupSessionId: sessionId,
-                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    timestampMs: UInt64(changeTimestampMs),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: sessionId,
+                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    )
                                 ),
                                 using: dependencies
                             )
@@ -682,7 +679,7 @@ extension MessageSender {
                 /// Unrevoke the newly added members just in case they had previously gotten their access to the group
                 /// revoked (fire-and-forget this request, we don't want it to be blocking - if the invited user still can't access
                 /// the group the admin can resend their invitation which will also attempt to unrevoke their subaccount)
-                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI.preparedUnrevokeSubaccounts(
+                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.StorageServer.preparedUnrevokeSubaccounts(
                     subaccountsToUnrevoke: memberJobData.map { _, _, _, subaccountToken in subaccountToken },
                     authMethod: Authentication.groupAdmin(
                         groupSessionId: sessionId,
@@ -802,7 +799,7 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageSenderError.invalidClosedGroupUpdate }
                 
-                let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 var maybeSupplementalKeyRequest: Network.PreparedRequest<Void>?
                 
                 /// Perform the config changes without triggering a config sync (we will do so manually after the process completes)
@@ -861,17 +858,17 @@ extension MessageSender {
                                 using: dependencies
                             )
                             
-                            maybeSupplementalKeyRequest = try Network.SnodeAPI.preparedSendMessage(
-                                message: SnodeMessage(
+                            maybeSupplementalKeyRequest = try Network.StorageServer.preparedSendMessage(
+                                request: Network.StorageServer.SendMessageRequest(
                                     recipient: sessionId.hexString,
+                                    namespace: .configGroupKeys,
                                     data: supplementData,
                                     ttl: ConfigDump.Variant.groupKeys.ttl,
-                                    timestampMs: UInt64(changeTimestampMs)
-                                ),
-                                in: .configGroupKeys,
-                                authMethod: Authentication.groupAdmin(
-                                    groupSessionId: sessionId,
-                                    ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    timestampMs: UInt64(changeTimestampMs),
+                                    authMethod: Authentication.groupAdmin(
+                                        groupSessionId: sessionId,
+                                        ed25519SecretKey: Array(groupIdentityPrivateKey)
+                                    )
                                 ),
                                 using: dependencies
                             )
@@ -907,7 +904,7 @@ extension MessageSender {
                 
                 /// Unrevoke the member just in case they had previously gotten their access to the group revoked and the
                 /// unrevoke request when initially added them failed (fire-and-forget this request, we don't want it to be blocking)
-                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.SnodeAPI
+                let unrevokeRequest: Network.PreparedRequest<Void> = try Network.StorageServer
                     .preparedUnrevokeSubaccounts(
                         subaccountsToUnrevoke: memberInfo.map { token, _ in token },
                         authMethod: Authentication.groupAdmin(
@@ -967,7 +964,7 @@ extension MessageSender {
         
         let targetChangeTimestampMs: Int64 = (
             changeTimestampMs ??
-            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            dependencies.networkOffsetTimestampMs()
         )
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -1168,7 +1165,7 @@ extension MessageSender {
                 /// that are getting promotions re-sent to them - we only want to send an admin changed message if there
                 /// is a newly promoted member
                 if !isResend && !membersReceivingPromotions.isEmpty {
-                    let changeTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    let changeTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                     let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: groupSessionId.hexString)
                     
                     _ = try Interaction(
@@ -1273,7 +1270,7 @@ extension MessageSender {
             authorId: userSessionId.hexString,
             variant: .infoGroupCurrentUserLeaving,
             body: "leaving".localized(),
-            timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+            timestampMs: dependencies.networkOffsetTimestampMs(),
             using: dependencies
         ).inserted(db)
         

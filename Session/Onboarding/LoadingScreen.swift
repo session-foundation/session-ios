@@ -12,43 +12,49 @@ struct LoadingScreen: View {
     public class ViewModel {
         fileprivate let dependencies: Dependencies
         fileprivate let preview: Bool
-        fileprivate var profileRetrievalCancellable: AnyCancellable?
+        fileprivate let initialFlow: Onboarding.Flow
+        fileprivate var profileRetrievalTask: Task<Void, Never>?
         
-        init(preview: Bool, using dependencies: Dependencies) {
+        init(preview: Bool, initialFlow: Onboarding.Flow, using dependencies: Dependencies) {
             self.preview = preview
+            self.initialFlow = initialFlow
             self.dependencies = dependencies
         }
         
         deinit {
-            profileRetrievalCancellable?.cancel()
+            profileRetrievalTask?.cancel()
         }
         
         fileprivate func observeProfileRetrieving(onComplete: @escaping (Bool) -> ()) {
-            profileRetrievalCancellable = dependencies[cache: .onboarding].displayNamePublisher
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .timeout(.seconds(15), scheduler: DispatchQueue.main, customError: { NetworkError.timeout(error: "", rawData: nil) })
-                .receive(on: DispatchQueue.main)
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { displayName in onComplete(displayName?.isEmpty == false) }
-                )
-        }
-        
-        fileprivate func completeRegistration(onComplete: @escaping () -> ()) {
-            dependencies.mutate(cache: .onboarding) { [dependencies] onboarding in
-                let shouldSyncPushTokens: Bool = onboarding.useAPNS
-                
-                onboarding.completeRegistration {
-                    // Trigger the 'SyncPushTokensJob' directly as we don't want to wait for paths to build
-                    // before requesting the permission from the user
-                    if shouldSyncPushTokens {
-                        SyncPushTokensJob
-                            .run(uploadOnlyIfStale: false, using: dependencies)
-                            .sinkUntilComplete()
+            profileRetrievalTask = Task(priority: .userInitiated) { [dependencies] in
+                await withTaskGroup { [dependencies] group in
+                    group.addTask {
+                        return (await dependencies[singleton: .onboarding].displayName
+                            .compactMap { $0 }
+                            .first(where: { _ in true }) ?? "")
+                    }
+                    group.addTask {
+                        try? await Task.sleep(for: .seconds(15))
+                        return ""
                     }
                     
-                    onComplete()
+                    let displayName: String? = await group.next()
+                    group.cancelAll()
+                    onComplete((displayName ?? "").isEmpty == false)
                 }
+            }
+        }
+        
+        fileprivate func completeRegistration() async {
+            let shouldSyncPushTokens: Bool = await dependencies[singleton: .onboarding].useAPNS
+            await dependencies[singleton: .onboarding].completeRegistration()
+            
+            // Trigger the 'SyncPushTokensJob' directly as we don't want to wait for paths to build
+            // before requesting the permission from the user
+            if shouldSyncPushTokens {
+                SyncPushTokensJob
+                    .run(uploadOnlyIfStale: false, using: dependencies)
+                    .sinkUntilComplete()
             }
         }
     }
@@ -61,8 +67,16 @@ struct LoadingScreen: View {
     
     // MARK: - Initialization
     
-    public init(preview: Bool = false, using dependencies: Dependencies) {
-        self.viewModel = ViewModel(preview: preview, using: dependencies)
+    public init(
+        preview: Bool = false,
+        initialFlow: Onboarding.Flow,
+        using dependencies: Dependencies
+    ) {
+        self.viewModel = ViewModel(
+            preview: preview,
+            initialFlow: initialFlow,
+            using: dependencies
+        )
     }
     
     // MARK: - UI
@@ -123,20 +137,24 @@ struct LoadingScreen: View {
     }
     
     private func finishLoading(success: Bool) {
-        viewModel.profileRetrievalCancellable?.cancel()
+        viewModel.profileRetrievalTask?.cancel()
         animationTimer?.invalidate()
         animationTimer = nil
         
         guard success else {
-            let viewController: SessionHostingViewController = SessionHostingViewController(
-                rootView: DisplayNameScreen(using: viewModel.dependencies)
-            )
-            viewController.setUpNavBarSessionIcon()
-            if let navigationController = self.host.controller?.navigationController {
-                let updatedViewControllers: [UIViewController] = navigationController.viewControllers
-                    .filter { !$0.isKind(of: SessionHostingViewController<LoadingScreen>.self) }
-                    .appending(viewController)
-                navigationController.setViewControllers(updatedViewControllers, animated: true)
+            Task(priority: .userInitiated) {
+                await MainActor.run {
+                    let viewController: SessionHostingViewController = SessionHostingViewController(
+                        rootView: DisplayNameScreen(flow: viewModel.initialFlow, using: viewModel.dependencies)
+                    )
+                    viewController.setUpNavBarSessionIcon()
+                    if let navigationController = self.host.controller?.navigationController {
+                        let updatedViewControllers: [UIViewController] = navigationController.viewControllers
+                            .filter { !$0.isKind(of: SessionHostingViewController<LoadingScreen>.self) }
+                            .appending(viewController)
+                        navigationController.setViewControllers(updatedViewControllers, animated: true)
+                    }
+                }
             }
             return
         }
@@ -145,8 +163,11 @@ struct LoadingScreen: View {
         withAnimation(.linear(duration: 0.3)) {
             self.percentage = 1
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            viewModel.completeRegistration {
+        
+        Task(priority: .userInitiated) {
+            try? await Task.sleep(for: .milliseconds(500))
+            await viewModel.completeRegistration()
+            await MainActor.run {
                 // Go to the home screen
                 let homeVC: HomeVC = HomeVC(using: viewModel.dependencies)
                 viewModel.dependencies[singleton: .app].setHomeViewController(homeVC)
@@ -217,6 +238,6 @@ struct CircularProgressView: View {
 
 struct LoadingView_Previews: PreviewProvider {
     static var previews: some View {
-        LoadingScreen(preview: true, using: Dependencies.createEmpty())
+        LoadingScreen(preview: true, initialFlow: .register, using: Dependencies.createEmpty())
     }
 }

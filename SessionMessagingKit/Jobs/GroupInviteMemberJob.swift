@@ -41,12 +41,12 @@ public enum GroupInviteMemberJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
         let adminProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .writePublisher { db -> (AuthenticationMethod, AuthenticationMethod) in
+            .writePublisher { db in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -56,18 +56,18 @@ public enum GroupInviteMemberJob: JobExecutor {
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
                         using: dependencies
                     )
-                
-                return (
-                    try Authentication.with(db, swarmPublicKey: threadId, using: dependencies),
-                    try Authentication.with(
-                        db,
-                        swarmPublicKey: details.memberSessionIdHexString,
-                        using: dependencies
-                    )
-                )
             }
-            .tryFlatMap { groupAuthMethod, memberAuthMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                try MessageSender.preparedSend(
+            .tryFlatMap { _ -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                let groupAuthMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: threadId,
+                    using: dependencies
+                )
+                let memberAuthMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: details.memberSessionIdHexString,
+                    using: dependencies
+                )
+                
+                return try MessageSender.preparedSend(
                     message: try GroupUpdateInviteMessage(
                         inviteeSessionIdHexString: details.memberSessionIdHexString,
                         groupSessionId: SessionId(.group, hex: threadId),
@@ -144,10 +144,10 @@ public enum GroupInviteMemberJob: JobExecutor {
                                 case let senderError as MessageSenderError where !senderError.isRetryable:
                                     failure(job, error, true)
                                     
-                                case SnodeAPIError.rateLimited:
+                                case StorageServerError.rateLimited:
                                     failure(job, error, true)
                                     
-                                case SnodeAPIError.clockOutOfSync:
+                                case StorageServerError.clockOutOfSync:
                                     Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
                                     failure(job, error, true)
                                     
@@ -304,7 +304,7 @@ public extension GroupInviteMemberJob {
 public extension Cache {
     static let groupInviteMemberJob: CacheConfig<GroupInviteMemberJobCacheType, GroupInviteMemberJobImmutableCacheType> = Dependencies.create(
         identifier: "groupInviteMemberJob",
-        createInstance: { dependencies in GroupInviteMemberJob.Cache(using: dependencies) },
+        createInstance: { dependencies, _ in GroupInviteMemberJob.Cache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )

@@ -171,7 +171,7 @@ public final class AttachmentUploader {
                 case .fileServer:
                     return (
                         attachment,
-                        try Network.preparedUpload(data: finalData, using: dependencies),
+                        try Network.FileServer.preparedUpload(data: finalData, using: dependencies),
                         encryptionKey,
                         digest
                     )
@@ -202,7 +202,7 @@ public final class AttachmentUploader {
                     state: .uploaded,
                     creationTimestamp: (
                         uploadInfo.attachment.creationTimestamp ??
-                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        (dependencies.networkOffsetTimestampMs() / 1000)
                     ),
                     downloadUrl: {
                         let isPlaceholderUploadUrl: Bool = dependencies[singleton: .attachmentManager]

@@ -352,7 +352,7 @@ public extension MessageViewModel.DeletionBehaviours {
                 }
             },
             completion: { result in
-                deletionBehaviours = try? result.successOrThrow()
+                deletionBehaviours = try? result.get()
                 semaphore.signal()
             }
         )
@@ -416,7 +416,7 @@ public extension MessageViewModel.DeletionBehaviours {
                             .chunked(by: Network.BatchRequest.childRequestLimit)
                             .map { unsendRequestChunk in
                                 .preparedRequest(
-                                    try Network.SnodeAPI.preparedBatch(
+                                    try Network.StorageServer.preparedBatch(
                                         requests: unsendRequestChunk,
                                         requireAllBatchResponses: false,
                                         swarmPublicKey: threadData.threadId,
@@ -427,11 +427,10 @@ public extension MessageViewModel.DeletionBehaviours {
                     )
                     .appending(serverHashes.isEmpty ? nil :
                         .preparedRequest(
-                            try Network.SnodeAPI.preparedDeleteMessages(
+                            try Network.StorageServer.preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,
                                 authMethod: try Authentication.with(
-                                    db,
                                     swarmPublicKey: threadData.currentUserSessionId,
                                     using: dependencies
                                 ),
@@ -497,7 +496,7 @@ public extension MessageViewModel.DeletionBehaviours {
                             .chunked(by: Network.BatchRequest.childRequestLimit)
                             .map { unsendRequestChunk in
                                 .preparedRequest(
-                                    try Network.SnodeAPI.preparedBatch(
+                                    try Network.StorageServer.preparedBatch(
                                         requests: unsendRequestChunk,
                                         requireAllBatchResponses: false,
                                         swarmPublicKey: threadData.threadId,
@@ -537,7 +536,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                 message: GroupUpdateDeleteMemberContentMessage(
                                     memberSessionIds: [],
                                     messageHashes: Array(serverHashes),
-                                    sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                                    sentTimestampMs: dependencies.networkOffsetTimestampMs(),
                                     authMethod: nil,
                                     using: dependencies
                                 ),
@@ -593,7 +592,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                 message: GroupUpdateDeleteMemberContentMessage(
                                     memberSessionIds: [],
                                     messageHashes: Array(serverHashes),
-                                    sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                                    sentTimestampMs: dependencies.networkOffsetTimestampMs(),
                                     authMethod: Authentication.groupAdmin(
                                         groupSessionId: SessionId(.group, hex: threadData.threadId),
                                         ed25519SecretKey: ed25519SecretKey
@@ -617,7 +616,7 @@ public extension MessageViewModel.DeletionBehaviours {
                         )
                     )
                     .appending(serverHashes.isEmpty ? nil :
-                            .preparedRequest(try Network.SnodeAPI
+                            .preparedRequest(try Network.StorageServer
                             .preparedDeleteMessages(
                                 serverHashes: Array(serverHashes),
                                 requireSuccessfulDeletion: false,

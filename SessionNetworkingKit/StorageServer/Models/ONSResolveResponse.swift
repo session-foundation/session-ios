@@ -3,8 +3,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-public extension Network.SnodeAPI {
-    class ONSResolveResponse: SnodeResponse {
+public extension Network.StorageServer {
+    class ONSResolveResponse: BaseResponse {
         internal struct Result: Codable {
             enum CodingKeys: String, CodingKey {
                 case nonce

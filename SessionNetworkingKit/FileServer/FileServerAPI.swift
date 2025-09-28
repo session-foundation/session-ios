@@ -9,7 +9,7 @@ private typealias Endpoint = Network.FileServer.Endpoint
 public extension Network.FileServer {
     static func preparedUpload(
         data: Data,
-        requestAndPathBuildTimeout: TimeInterval? = nil,
+        overallTimeout: TimeInterval? = nil,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<FileUploadResponse> {
         return try Network.PreparedRequest(
@@ -20,11 +20,12 @@ public extension Network.FileServer {
                     x25519PublicKey: FileServer.fileServerPublicKey,
                     fileName: nil
                 ),
-                body: data
+                body: data,
+                category: .upload,
+                requestTimeout: Network.fileUploadTimeout,
+                overallTimeout: overallTimeout
             ),
             responseType: FileUploadResponse.self,
-            requestTimeout: Network.fileUploadTimeout,
-            requestAndPathBuildTimeout: requestAndPathBuildTimeout,
             using: dependencies
         )
     }
@@ -40,10 +41,11 @@ public extension Network.FileServer {
                     url: url,
                     x25519PublicKey: FileServer.fileServerPublicKey,
                     fileName: nil
-                )
+                ),
+                category: .download,
+                requestTimeout: Network.fileUploadTimeout
             ),
             responseType: Data.self,
-            requestTimeout: Network.fileUploadTimeout,
             using: dependencies
         )
     }

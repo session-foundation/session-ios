@@ -61,7 +61,7 @@ public class NSENotificationPresenter: NotificationsManagerType {
         mutedUntil: TimeInterval?
     ) {}
     
-    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: Any] {
+    public func notificationUserInfo(threadId: String, threadVariant: SessionThread.Variant) -> [String: AnyHashable] {
         return [
             NotificationUserInfoKey.isFromRemote: true,
             NotificationUserInfoKey.threadId: threadId,

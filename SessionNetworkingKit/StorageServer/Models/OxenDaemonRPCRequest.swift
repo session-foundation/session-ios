@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension Network.SnodeAPI {
+extension Network.StorageServer {
     struct OxenDaemonRPCRequest<T: Encodable>: Encodable {
         private enum CodingKeys: String, CodingKey {
             case endpoint
@@ -13,7 +13,7 @@ extension Network.SnodeAPI {
         private let body: T
         
         public init(
-            endpoint: Network.SnodeAPI.Endpoint,
+            endpoint: Endpoint,
             body: T
         ) {
             self.endpoint = endpoint.path

@@ -13,7 +13,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let notificationActionHandler: SingletonConfig<NotificationActionHandler> = Dependencies.create(
         identifier: "notificationActionHandler",
-        createInstance: { dependencies in NotificationActionHandler(using: dependencies) }
+        createInstance: { dependencies, _ in NotificationActionHandler(using: dependencies) }
     )
 }
 
@@ -154,7 +154,7 @@ public class NotificationActionHandler {
                     throw NotificationError.failDebug("unable to find thread with id: \(threadId)")
                 }
                 
-                let sentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let sentTimestampMs: Int64 = dependencies.networkOffsetTimestampMs()
                 let destinationDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration
                     .filter(id: threadId)
                     .filter(DisappearingMessagesConfiguration.Columns.isEnabled == true)

@@ -40,16 +40,29 @@ public struct Request<T: Encodable, Endpoint: EndpointType> {
     /// is custom handling for certain data types
     public let body: T?
     
+    public let category: Network.RequestCategory
+    public let requestTimeout: TimeInterval
+    public let overallTimeout: TimeInterval?
+    public let retryCount: Int
+    
     // MARK: - Initialization
 
     public init(
         endpoint: Endpoint,
         destination: Network.Destination,
-        body: T? = nil
-    ) throws {
+        body: T? = nil,
+        category: Network.RequestCategory = .standard,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        overallTimeout: TimeInterval? = nil,
+        retryCount: Int = 0
+    ) {
         self.endpoint = endpoint
-        self.destination = try destination.withGeneratedUrl(for: endpoint)
+        self.destination = destination
         self.body = body
+        self.category = category
+        self.requestTimeout = requestTimeout
+        self.overallTimeout = overallTimeout
+        self.retryCount = retryCount
     }
     
     // MARK: - Internal Methods
@@ -78,5 +91,26 @@ public struct Request<T: Encodable, Endpoint: EndpointType> {
 
                 return try JSONEncoder(using: dependencies).encode(body)
         }
+    }
+}
+
+public extension Request where T == NoBody {
+    init(
+        endpoint: Endpoint,
+        destination: Network.Destination,
+        category: Network.RequestCategory = .standard,
+        requestTimeout: TimeInterval = Network.defaultTimeout,
+        overallTimeout: TimeInterval? = nil,
+        retryCount: Int = 0
+    ) {
+        self = Request(
+            endpoint: endpoint,
+            destination: destination,
+            body: nil,
+            category: category,
+            requestTimeout: requestTimeout,
+            overallTimeout: overallTimeout,
+            retryCount: retryCount
+        )
     }
 }

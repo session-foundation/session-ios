@@ -66,10 +66,18 @@ public enum GroupLeavingJob: JobExecutor {
                     return details.behaviour
                 }()
                 
+                /// There is a rare edge-case where a group could be created locally but the auth data wasn't saved to `libSession`
+                /// which results in the authentication data being invalid, as a result we want to try to retrieve the auth data regardless
+                /// of whether we are going to use it as this will throw an `invalidAuthentication` error that would allow deletion
+                /// even in this invalid state
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: threadId,
+                    using: dependencies
+                )
+                
                 switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
                     case (.leave, _, false):
                         let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
-                        let authMethod: AuthenticationMethod = try Authentication.with(db, swarmPublicKey: threadId, using: dependencies)
                         
                         return .sendLeaveMessage(authMethod, disappearingConfig)
                         
@@ -92,7 +100,7 @@ public enum GroupLeavingJob: JobExecutor {
             .tryFlatMap { requestType -> AnyPublisher<Void, Error> in
                 switch requestType {
                     case .sendLeaveMessage(let authMethod, let disappearingConfig):
-                        return try Network.SnodeAPI
+                        return try Network.StorageServer
                             .preparedBatch(
                                 requests: [
                                     /// Don't expire the `GroupUpdateMemberLeftMessage` as that's not a UI-based
@@ -138,7 +146,7 @@ public enum GroupLeavingJob: JobExecutor {
                 /// If it failed due to one of these errors then clear out any associated data (as the `SessionThread` exists but
                 /// either the data required to send the `MEMBER_LEFT` message doesn't or the user has had their access to the
                 /// group revoked which would leave the user in a state where they can't leave the group)
-                switch (error as? MessageSenderError, error as? SnodeAPIError, error as? CryptoError) {
+                switch (error as? MessageSenderError, error as? StorageServerError, error as? CryptoError) {
                     case (.invalidClosedGroupUpdate, _, _), (.noKeyPair, _, _), (.encryptionFailed, _, _),
                         (_, .unauthorised, _), (_, _, .invalidAuthentication):
                         return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()

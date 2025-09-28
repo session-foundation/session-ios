@@ -86,7 +86,7 @@ public enum MessageSendJob: JobExecutor {
             /// Retrieve the current attachment state
             let attachmentState: AttachmentState = dependencies[singleton: .storage]
                 .read { db in try MessageSendJob.fetchAttachmentState(db, interactionId: interactionId) }
-                .defaulting(to: AttachmentState(error: MessageSenderError.invalidMessage))
+                .defaulting(to: AttachmentState(error: StorageError.objectNotFound))
 
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
             /// should permanently fail
@@ -246,10 +246,10 @@ public enum MessageSendJob: JobExecutor {
                                 case (let senderError as MessageSenderError, _) where !senderError.isRetryable:
                                     failure(job, error, true)
                                     
-                                case (SnodeAPIError.rateLimited, _):
+                                case (StorageServerError.rateLimited, _):
                                     failure(job, error, true)
                                     
-                                case (SnodeAPIError.clockOutOfSync, _):
+                                case (StorageServerError.clockOutOfSync, _):
                                     Log.error(.cat, "\(originalSentTimestampMs != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")
                                     failure(job, error, (originalSentTimestampMs != nil))
                                     

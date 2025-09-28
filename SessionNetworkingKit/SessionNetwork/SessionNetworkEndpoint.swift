@@ -8,7 +8,7 @@ public extension Network.SessionNetwork {
         case price
         case token
         
-        public static var name: String { "NetworkAPI.Endpoint" }
+        public static var name: String { "SessionNetwork.Endpoint" }
         
         public var path: String {
             switch self {

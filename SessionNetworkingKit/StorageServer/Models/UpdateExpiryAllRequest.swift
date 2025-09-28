@@ -5,8 +5,8 @@
 import Foundation
 import SessionUtilitiesKit
 
-extension Network.SnodeAPI {
-    class UpdateExpiryAllRequest: SnodeAuthenticatedRequestBody {
+extension Network.StorageServer {
+    class UpdateExpiryAllRequest: BaseAuthenticatedRequestBody {
         enum CodingKeys: String, CodingKey {
             case expiryMs = "expiry"
             case namespace
@@ -19,14 +19,14 @@ extension Network.SnodeAPI {
         ///
         /// **Note:** If omitted when sending the request, message expiries are updated from the default namespace
         /// only (namespace 0)
-        let namespace: Network.SnodeAPI.Namespace?
+        let namespace: Namespace?
         
         override var verificationBytes: [UInt8] {
             /// Ed25519 signature of `("expire_all" || namespace || expiry)`, signed by `pubkey`.  Must be
             /// base64 encoded (json) or bytes (OMQ).  namespace should be the stringified namespace for
             /// non-default namespace expiries (i.e. "42", "-99", "all"), or an empty string for the default
             /// namespace (whether or not explicitly provided).
-            Network.SnodeAPI.Endpoint.expireAll.path.bytes
+            Endpoint.expireAll.path.bytes
                 .appending(
                     contentsOf: (namespace == nil ?
                         "all" :
@@ -40,13 +40,16 @@ extension Network.SnodeAPI {
         
         public init(
             expiryMs: UInt64,
-            namespace: Network.SnodeAPI.Namespace?,
+            namespace: Namespace?,
             authMethod: AuthenticationMethod
         ) {
             self.expiryMs = expiryMs
             self.namespace = namespace
             
-            super.init(authMethod: authMethod)
+            super.init(
+                timestampMs: nil,
+                authMethod: authMethod
+            )
         }
         
         // MARK: - Coding

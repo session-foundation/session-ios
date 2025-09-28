@@ -345,7 +345,7 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         self.receivedAtTimestampMs = {
             switch variant {
                 case .standardIncoming, .standardOutgoing:
-                    return dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    return dependencies.networkOffsetTimestampMs()
 
                 /// For TSInteractions which are not `standardIncoming` and `standardOutgoing` use the `timestampMs` value
                 default: return timestampMs
@@ -390,7 +390,10 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         switch ObservationContext.observingDb {
             case .none: Log.error("[Interaction] Could not process 'aroundInsert' due to missing observingDb.")
             case .some(let observingDb):
-                observingDb.dependencies.setAsync(.hasSavedMessage, true)
+                observingDb.afterCommit { [dependencies = observingDb.dependencies] in
+                    dependencies.setAsync(.hasSavedMessage, true)
+                }
+                
                 observingDb.addMessageEvent(id: id, threadId: threadId, type: .created)
                 
                 if self.expiresStartedAtMs != nil {
@@ -833,7 +836,7 @@ public extension Interaction {
                 job: DisappearingMessagesJob.updateNextRunIfNeeded(
                     db,
                     interactionIds: interactionInfo.map { $0.id },
-                    startedAtMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                    startedAtMs: dependencies.networkOffsetTimestampMs(),
                     threadId: threadId,
                     using: dependencies
                 ),
@@ -1458,6 +1461,19 @@ public extension Interaction {
             db.addAttachmentEvent(id: info.attachmentId, messageId: info.interactionId, type: .deleted)
         }
         
+        /// If we had attachments then we want to try to delete their associated files immediately (in the next run loop) as that's the
+        /// behaviour users would expect, if this fails for some reason then they will be cleaned up by the `GarbageCollectionJob`
+        /// but we should still try to handle it immediately
+        if !attachments.isEmpty {
+            let attachmentPaths: [String] = attachments.compactMap {
+                try? dependencies[singleton: .attachmentManager].path(for: $0.downloadUrl)
+            }
+            
+            DispatchQueue.global(qos: .background).async {
+                attachmentPaths.forEach { try? dependencies[singleton: .fileManager].removeItem(atPath: $0) }
+            }
+        }
+        
         /// Delete the reactions from the database
         _ = try Reaction
             .filter(interactionIds.contains(Reaction.Columns.interactionId))
@@ -1528,19 +1544,6 @@ public extension Interaction {
         /// Notify about the deletion
         interactionIds.forEach { id in
             db.addMessageEvent(id: id, threadId: threadId, type: .deleted)
-        }
-        
-        /// If we had attachments then we want to try to delete their associated files immediately (in the next run loop) as that's the
-        /// behaviour users would expect, if this fails for some reason then they will be cleaned up by the `GarbageCollectionJob`
-        /// but we should still try to handle it immediately
-        if !attachments.isEmpty {
-            let attachmentPaths: [String] = attachments.compactMap {
-                try? dependencies[singleton: .attachmentManager].path(for: $0.downloadUrl)
-            }
-            
-            DispatchQueue.global(qos: .background).async {
-                attachmentPaths.forEach { try? dependencies[singleton: .fileManager].removeItem(atPath: $0) }
-            }
         }
     }
     

@@ -220,27 +220,23 @@ public extension ClosedGroup {
         }
         
         /// Start the poller
-        dependencies.mutate(cache: .groupPollers) {
-            $0.getOrCreatePoller(for: group.id).startIfNeeded()
+        Task.detached(priority: .userInitiated) { [manager = dependencies[singleton: .groupPollerManager]] in
+            await manager.getOrCreatePoller(for: group.id).startIfNeeded()
         }
         
         /// Subscribe for group push notifications
         if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-            let maybeAuthMethod: AuthenticationMethod? = try? Authentication.with(
-                db,
-                swarmPublicKey: group.id,
-                using: dependencies
-            )
+            let maybeAuthMethod: AuthenticationMethod? = try? Authentication
+                .with(swarmPublicKey: group.id, using: dependencies)
             
             if let authMethod: AuthenticationMethod = maybeAuthMethod {
-                try? Network.PushNotification
-                    .preparedSubscribe(
+                Task.detached(priority: .userInitiated) {
+                    try? await Network.PushNotification.subscribe(
                         token: Data(hex: token),
-                        swarms: [(SessionId(.group, hex: group.id), authMethod)],
+                        swarmAuthentication: [authMethod],
                         using: dependencies
                     )
-                    .send(using: dependencies)
-                    .sinkUntilComplete()
+                }
             }
         }
     }
@@ -282,7 +278,9 @@ public extension ClosedGroup {
         if !dataToRemove.asSet().intersection([.poller, .pushNotifications, .libSessionState]).isEmpty {
             threadIds.forEach { threadId in
                 if dataToRemove.contains(.poller) {
-                    dependencies.mutate(cache: .groupPollers) { $0.stopAndRemovePoller(for: threadId) }
+                    Task { [manager = dependencies[singleton: .groupPollerManager]] in
+                        await manager.stopAndRemovePoller(for: threadId)
+                    }
                 }
                 
                 if dataToRemove.contains(.libSessionState) {
@@ -311,24 +309,21 @@ public extension ClosedGroup {
             /// Bulk unsubscripe from updated groups being removed
             if dataToRemove.contains(.pushNotifications) && threadVariants.contains(where: { $0.variant == .group }) {
                 if let token: String = dependencies[defaults: .standard, key: .deviceToken] {
-                    try? Network.PushNotification
-                        .preparedUnsubscribe(
-                            token: Data(hex: token),
-                            swarms: threadVariants
-                                .filter { $0.variant == .group }
-                                .compactMap { info in
-                                    let authMethod: AuthenticationMethod? = try? Authentication.with(
-                                        db,
-                                        swarmPublicKey: info.id,
-                                        using: dependencies
-                                    )
-                                    
-                                    return authMethod.map { (SessionId(.group, hex: info.id), $0) }
-                                },
-                            using: dependencies
-                        )
-                        .send(using: dependencies)
-                        .sinkUntilComplete()
+                    let authData: [AuthenticationMethod] = threadVariants
+                        .filter { $0.variant == .group }
+                        .compactMap { try? Authentication.with(swarmPublicKey: $0.id, using: dependencies) }
+                    
+                    if !authData.isEmpty {
+                        Task.detached(priority: .userInitiated) { [dependencies] in
+                            try? await Network.PushNotification.unsubscribe(
+                                token: Data(hex: token),
+                                swarmAuthentication: threadVariants
+                                    .filter { $0.variant == .group }
+                                    .compactMap { try? Authentication.with(swarmPublicKey: $0.id, using: dependencies) },
+                                using: dependencies
+                            )
+                        }
+                    }
                 }
             }
         }

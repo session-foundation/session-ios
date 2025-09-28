@@ -15,7 +15,7 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let attachmentManager: SingletonConfig<AttachmentManager> = Dependencies.create(
         identifier: "attachmentManager",
-        createInstance: { dependencies in AttachmentManager(using: dependencies) }
+        createInstance: { dependencies, _ in AttachmentManager(using: dependencies) }
     )
 }
 
@@ -171,13 +171,17 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
     public func existingThumbnailImage(url: URL, size: ImageDataManager.ThumbnailSize) -> UIImage? {
         guard let thumbnailUrl: URL = try? thumbnailUrl(for: url, size: size) else { return nil }
         
-        return UIImage(contentsOfFile: thumbnailUrl.path)
+        return dependencies[singleton: .fileManager].imageContents(atPath: thumbnailUrl.path)
     }
     
     public func saveThumbnail(data: Data, size: ImageDataManager.ThumbnailSize, url: URL) {
         guard let thumbnailUrl: URL = try? thumbnailUrl(for: url, size: size) else { return }
         
-        try? data.write(to: thumbnailUrl)
+        try? dependencies[singleton: .fileManager].write(
+            data: data,
+            to: thumbnailUrl,
+            options: .atomic
+        )
     }
     
     // MARK: - Validity

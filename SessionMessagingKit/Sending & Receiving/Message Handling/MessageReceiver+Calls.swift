@@ -368,7 +368,7 @@ extension MessageReceiver {
         
         let messageSentTimestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
-            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            dependencies.networkOffsetTimestampMs()
         )
         let interaction: Interaction = try Interaction(
             serverHash: message.serverHash,
@@ -404,7 +404,7 @@ extension MessageReceiver {
                 message: message,
                 disappearingMessagesConfiguration: try? DisappearingMessagesConfiguration
                     .fetchOne(db, id: threadId),
-                authMethod: try Authentication.with(db, swarmPublicKey: threadId, using: dependencies),
+                authMethod: try Authentication.with(swarmPublicKey: threadId, using: dependencies),
                 onEvent: MessageSender.standardEventHandling(using: dependencies),
                 using: dependencies
             )
@@ -476,7 +476,7 @@ extension MessageReceiver {
         )
         let timestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
-            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            dependencies.networkOffsetTimestampMs()
         )
         
         guard let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo) else {

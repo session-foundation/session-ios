@@ -2,14 +2,25 @@
 
 import Foundation
 import SessionUIKit
+import TestUtilities
 
 @testable import SessionMessagingKit
 
-class MockImageDataManager: Mock<ImageDataManagerType>, ImageDataManagerType {
+class MockImageDataManager: ImageDataManagerType, Mockable {
+    public var handler: MockHandler<ImageDataManagerType>
+    
+    required init(handler: MockHandler<ImageDataManagerType>) {
+        self.handler = handler
+    }
+    
+    required init(handlerForBuilder: any MockFunctionHandler) {
+        self.handler = MockHandler(forwardingHandler: handlerForBuilder)
+    }
+    
     @discardableResult func load(
         _ source: ImageDataManager.DataSource
     ) async -> ImageDataManager.ProcessedImageData? {
-        return mock(args: [source])
+        return handler.mock(args: [source])
     }
     
     @MainActor
@@ -17,22 +28,22 @@ class MockImageDataManager: Mock<ImageDataManagerType>, ImageDataManagerType {
         _ source: ImageDataManager.DataSource,
         onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void
     ) {
-        mockNoReturn(args: [source], untrackedArgs: [onComplete])
+        handler.mockNoReturn(args: [source])
     }
     
     func cacheImage(_ image: UIImage, for identifier: String) async {
-        mockNoReturn(args: [image, identifier])
+        handler.mockNoReturn(args: [image, identifier])
     }
     
     func cachedImage(identifier: String) async -> ImageDataManager.ProcessedImageData? {
-        return mock(args: [identifier])
+        return handler.mock(args: [identifier])
     }
     
     func removeImage(identifier: String) async {
-        mockNoReturn(args: [identifier])
+        handler.mockNoReturn(args: [identifier])
     }
     
     func clearCache() async {
-        mockNoReturn()
+        handler.mockNoReturn()
     }
 }

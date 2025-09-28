@@ -47,32 +47,29 @@ public enum CheckForAppUpdatesJob: JobExecutor {
             return deferred(updatedJob)
         }
         
-        dependencies[singleton: .network]
-            .checkClientVersion(ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey)
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { _ in
-                    var updatedJob: Job = job.with(
-                        failureCount: 0,
-                        nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
-                    )
+        Task { [dependencies] in
+            let versionInfo: Network.FileServer.AppVersionResponse? = try? await dependencies[singleton: .network]
+                .checkClientVersion(ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey)
+            
+            switch (versionInfo, versionInfo?.prerelease) {
+                case (.none, _): break
+                case (.some(let info), .none):
+                    Log.info(.cat, "Latest version: \(info.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
                     
-                    dependencies[singleton: .storage].write { db in
-                        try updatedJob.upsert(db)
-                    }
-                    
-                    success(updatedJob, false)
-                },
-                receiveValue: { _, versionInfo in
-                    switch versionInfo.prerelease {
-                        case .none:
-                            Log.info(.cat, "Latest version: \(versionInfo.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
-                            
-                        case .some(let prerelease):
-                            Log.info(.cat, "Latest version: \(versionInfo.version), pre-release version: \(prerelease.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
-                    }
-                }
+                case (.some(let info), .some(let prerelease)):
+                    Log.info(.cat, "Latest version: \(info.version), pre-release version: \(prerelease.version) (Current: \(dependencies[cache: .appVersion].versionInfo))")
+            }
+            
+            var updatedJob: Job = job.with(
+                failureCount: 0,
+                nextRunTimestamp: (dependencies.dateNow.timeIntervalSince1970 + updateCheckFrequency)
             )
+            
+            try? await dependencies[singleton: .storage].writeAsync { db in
+                try updatedJob.upsert(db)
+            }
+            
+            success(updatedJob, false)
+        }
     }
 }

@@ -10,7 +10,7 @@ public extension Singleton {
     static let extensionHelper: SingletonConfig<ExtensionHelperType> = Dependencies.create(
         identifier: "extensionHelper",
         // TODO: [Database Relocation] Might be good to add a mechanism to check if we can access the AppGroup and, if not, create a NoopExtensionHelper (to better support side-loading the app)
-        createInstance: { dependencies in ExtensionHelper(using: dependencies) }
+        createInstance: { dependencies, _ in ExtensionHelper(using: dependencies) }
     )
 }
 
@@ -44,7 +44,6 @@ public class ExtensionHelper: ExtensionHelperType {
     // stringlint:ignore_stop
     
     private let dependencies: Dependencies
-    private lazy var messagesLoadedStream: CurrentValueAsyncStream<Bool> = CurrentValueAsyncStream(false)
     
     // MARK: - Initialization
     
@@ -337,7 +336,7 @@ public class ExtensionHelper: ExtensionHelperType {
     public func replicateAllConfigDumpsIfNeeded(
         userSessionId: SessionId,
         allDumpSessionIds: Set<SessionId>
-    ) {
+    ) async {
         struct ReplicatedDumpInfo {
             struct DumpState {
                 let variant: ConfigDump.Variant
@@ -402,37 +401,29 @@ public class ExtensionHelper: ExtensionHelperType {
         let fetchTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
         let missingDumpIds: Set<String> = Set(missingReplicatedDumpInfo.map { $0.sessionId.hexString })
         
-        dependencies[singleton: .storage].readAsync(
-            retrieve: { db in
-                try ConfigDump
-                    .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
-                    .fetchAll(db)
-            },
-            completion: { [weak self] result in
-                guard
-                    let self = self,
-                    let dumps: [ConfigDump] = try? result.successOrThrow()
-                else { return }
-                
-                /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from
-                /// the database)
-                ///
-                /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
-                /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
-                /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
-                dumps.forEach { dump in
-                    let dumpLastUpdated: TimeInterval = self.lastUpdatedTimestamp(
-                        for: dump.sessionId,
-                        variant: dump.variant
-                    )
-                    
-                    self.replicate(
-                        dump: dump,
-                        replaceExisting: (dumpLastUpdated < fetchTimestamp)
-                    )
-                }
-            }
-        )
+        let dumps: [ConfigDump] = ((try? await dependencies[singleton: .storage].readAsync { db in
+            try ConfigDump
+                .filter(missingDumpIds.contains(ConfigDump.Columns.publicKey))
+                .fetchAll(db)
+        }) ?? [])
+        
+        /// Persist each dump to disk (if there isn't already one there, or it was updated before the dump was fetched from
+        /// the database)
+        ///
+        /// **Note:** Because it's likely that this function runs in the background it's possible that another thread could trigger
+        /// a config update which would result in the dump getting replicated - if that occurs then we don't want to override what
+        /// is likely a newer dump, but do need to replace what might be an invalid dump file (hence the timestamp check)
+        dumps.forEach { dump in
+            let dumpLastUpdated: TimeInterval = lastUpdatedTimestamp(
+                for: dump.sessionId,
+                variant: dump.variant
+            )
+            
+            replicate(
+                dump: dump,
+                replaceExisting: (dumpLastUpdated < fetchTimestamp)
+            )
+        }
     }
     
     public func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant) {
@@ -691,13 +682,13 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func saveMessage(
-        _ message: SnodeReceivedMessage?,
+        _ message: Network.StorageServer.Message?,
         threadId: String,
         isUnread: Bool,
         isMessageRequest: Bool
     ) throws {
         guard
-            let message: SnodeReceivedMessage = message,
+            let message: Network.StorageServer.Message = message,
             let messageAsData: Data = try? JSONEncoder(using: dependencies).encode(message),
             let targetPath: String = {
                 switch (message.namespace.isConfigNamespace, isUnread) {
@@ -727,18 +718,10 @@ public class ExtensionHelper: ExtensionHelperType {
         try write(data: messageAsData, to: targetPath)
     }
     
-    public func willLoadMessages() {
-        /// We want to synchronously reset the `messagesLoadedStream` value to `false`
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        Task {
-            await messagesLoadedStream.send(false)
-            semaphore.signal()
-        }
-        semaphore.wait()
-    }
-    
     public func loadMessages() async throws {
-        typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        typealias MessageData = (namespace: Network.StorageServer.Namespace, messages: [Network.StorageServer.Message], lastHash: String?)
+        
+        try Task.checkCancellation()
         
         /// Retrieve all conversation file paths
         ///
@@ -763,8 +746,14 @@ public class ExtensionHelper: ExtensionHelperType {
         try await dependencies[singleton: .storage].writeAsync { [weak self, dependencies] db in
             guard let this = self else { return }
             
+            /// Stop processing if the task got cancelled
+            guard !Task.isCancelled else { return }
+            
             /// Process each conversation individually
             conversationHashes.forEach { conversationHash in
+                /// Stop processing if the task got cancelled
+                guard !Task.isCancelled else { return }
+                
                 /// Retrieve and process any config messages
                 ///
                 /// For config message changes we want to load in every config for a conversation and process them all at once
@@ -781,15 +770,15 @@ public class ExtensionHelper: ExtensionHelperType {
                 
                 do {
                     let sortedMessages: [MessageData] = try configMessageHashes
-                        .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [Network.SnodeAPI.Namespace: [SnodeReceivedMessage]], hash: String) in
+                        .reduce([Network.StorageServer.Namespace: [Network.StorageServer.Message]]()) { (result: [Network.StorageServer.Namespace: [Network.StorageServer.Message]], hash: String) in
                             let path: String = URL(fileURLWithPath: this.conversationsPath)
                                 .appendingPathComponent(conversationHash)
                                 .appendingPathComponent(this.conversationConfigDir)
                                 .appendingPathComponent(hash)
                                 .path
                             let plaintext: Data = try this.read(from: path)
-                            let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
-                                .decode(SnodeReceivedMessage.self, from: plaintext)
+                            let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
+                                .decode(Network.StorageServer.Message.self, from: plaintext)
                             
                             return result.appending(message, toArrayOn: message.namespace)
                         }
@@ -866,11 +855,11 @@ public class ExtensionHelper: ExtensionHelperType {
                 )
                 
                 let sortedMessages: [MessageData] = allMessagePaths
-                    .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [Network.SnodeAPI.Namespace: [SnodeReceivedMessage]], path: String) in
+                    .reduce([Network.StorageServer.Namespace: [Network.StorageServer.Message]]()) { (result: [Network.StorageServer.Namespace: [Network.StorageServer.Message]], path: String) in
                         do {
                             let plaintext: Data = try this.read(from: path)
-                            let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
-                                .decode(SnodeReceivedMessage.self, from: plaintext)
+                            let message: Network.StorageServer.Message = try JSONDecoder(using: dependencies)
+                                .decode(Network.StorageServer.Message.self, from: plaintext)
                             
                             return result.appending(message, toArrayOn: message.namespace)
                         }
@@ -926,14 +915,12 @@ public class ExtensionHelper: ExtensionHelperType {
         }
         
         Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(failureConfigCount) config messages.")
-        await messagesLoadedStream.send(true)
     }
     
     @discardableResult public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool {
         return await withThrowingTaskGroup(of: Bool.self) { [weak self] group in
             group.addTask {
-                guard await self?.messagesLoadedStream.currentValue != true else { return true }
-                _ = await self?.messagesLoadedStream.stream.first { $0 == true }
+                try? await self?.loadMessages()
                 return true
             }
             group.addTask {
@@ -1011,7 +998,7 @@ public protocol ExtensionHelperType {
     
     func lastUpdatedTimestamp(for sessionId: SessionId, variant: ConfigDump.Variant) -> TimeInterval
     func replicate(dump: ConfigDump?, replaceExisting: Bool)
-    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>)
+    func replicateAllConfigDumpsIfNeeded(userSessionId: SessionId, allDumpSessionIds: Set<SessionId>) async
     func refreshDumpModifiedDate(sessionId: SessionId, variant: ConfigDump.Variant)
     func loadUserConfigState(
         into cache: LibSessionCacheType,
@@ -1036,12 +1023,11 @@ public protocol ExtensionHelperType {
     
     func unreadMessageCount() -> Int?
     func saveMessage(
-        _ message: SnodeReceivedMessage?,
+        _ message: Network.StorageServer.Message?,
         threadId: String,
         isUnread: Bool,
         isMessageRequest: Bool
     ) throws
-    func willLoadMessages()
     func loadMessages() async throws
     @discardableResult func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool
 }

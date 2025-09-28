@@ -87,41 +87,45 @@ public enum ConfigurationSyncJob: JobExecutor {
         }
         
         let jobStartTimestamp: TimeInterval = dependencies.dateNow.timeIntervalSince1970
-        let messageSendTimestamp: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let messageSendTimestamp: Int64 = dependencies.networkOffsetTimestampMs()
         let additionalTransientData: AdditionalTransientData? = (job.transientData as? AdditionalTransientData)
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingPushes.pushData.count), old hashes: \(pendingPushes.obsoleteHashes.count)")
         
-        dependencies[singleton: .storage]
-            .readPublisher { db -> AuthenticationMethod in
-                try Authentication.with(db, swarmPublicKey: swarmPublicKey, using: dependencies)
-            }
-            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Network.BatchResponse), Error> in
-                try Network.SnodeAPI.preparedSequence(
+        AnyPublisher
+            .lazy { () -> Network.PreparedRequest<Network.BatchResponse> in
+                let authMethod: AuthenticationMethod = try (
+                    additionalTransientData?.customAuthMethod ??
+                    Authentication.with(
+                        swarmPublicKey: swarmPublicKey,
+                        using: dependencies
+                    )
+                )
+                
+                return try Network.StorageServer.preparedSequence(
                     requests: []
                         .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
                         .appending(
                             contentsOf: try pendingPushes.pushData
                                 .flatMap { pushData -> [ErasedPreparedRequest] in
                                     try pushData.data.map { data -> ErasedPreparedRequest in
-                                        try Network.SnodeAPI
-                                            .preparedSendMessage(
-                                                message: SnodeMessage(
-                                                    recipient: swarmPublicKey,
-                                                    data: data,
-                                                    ttl: pushData.variant.ttl,
-                                                    timestampMs: UInt64(messageSendTimestamp)
-                                                ),
-                                                in: pushData.variant.namespace,
-                                                authMethod: authMethod,
-                                                using: dependencies
-                                            )
+                                        try Network.StorageServer.preparedSendMessage(
+                                            request: Network.StorageServer.SendMessageRequest(
+                                                recipient: swarmPublicKey,
+                                                namespace: pushData.variant.namespace,
+                                                data: data,
+                                                ttl: pushData.variant.ttl,
+                                                timestampMs: UInt64(messageSendTimestamp),
+                                                authMethod: authMethod
+                                            ),
+                                            using: dependencies
+                                        )
                                     }
                             }
                         )
                         .appending(try {
                             guard !pendingPushes.obsoleteHashes.isEmpty else { return nil }
                             
-                            return try Network.SnodeAPI.preparedDeleteMessages(
+                            return try Network.StorageServer.preparedDeleteMessages(
                                 serverHashes: Array(pendingPushes.obsoleteHashes),
                                 requireSuccessfulDeletion: false,
                                 authMethod: authMethod,
@@ -131,11 +135,11 @@ public enum ConfigurationSyncJob: JobExecutor {
                         .appending(contentsOf: additionalTransientData?.afterSequenceRequests),
                     requireAllBatchResponses: (additionalTransientData?.requireAllBatchResponses == true),
                     swarmPublicKey: swarmPublicKey,
-                    snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
-                    requestAndPathBuildTimeout: Network.defaultTimeout,
+                    overallTimeout: Network.defaultTimeout,
                     using: dependencies
-                ).send(using: dependencies)
+                )
             }
+            .flatMap { request in request.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .tryMap { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in
@@ -165,10 +169,10 @@ public enum ConfigurationSyncJob: JobExecutor {
                         /// If the request wasn't successful then just ignore it (the next time we sync this config we will try
                         /// to send the changes again)
                         guard
-                            let typedResponse: Network.BatchSubResponse<SendMessagesResponse> = (subResponse as? Network.BatchSubResponse<SendMessagesResponse>),
+                            let typedResponse: Network.BatchSubResponse<Network.StorageServer.SendMessagesResponse> = (subResponse as? Network.BatchSubResponse<Network.StorageServer.SendMessagesResponse>),
                             200...299 ~= typedResponse.code,
                             !typedResponse.failedToParseBody,
-                            let sendMessageResponse: SendMessagesResponse = typedResponse.body
+                            let sendMessageResponse: Network.StorageServer.SendMessagesResponse = typedResponse.body
                         else { return (pushData, nil) }
                         
                         return (pushData, sendMessageResponse.hash)
@@ -193,37 +197,25 @@ public enum ConfigurationSyncJob: JobExecutor {
                             
                             // If the failure is due to being offline then we should automatically
                             // retry if the connection is re-established
-                            dependencies[cache: .libSessionNetwork].networkStatus
-                                .first()
-                                .sinkUntilComplete(
-                                    receiveValue: { status in
-                                        switch status {
-                                            // If we are currently connected then use the standard
-                                            // retry behaviour
-                                            case .connected: failure(job, error, false)
-                                                
-                                            // If not then permanently fail the job and reschedule it
-                                            // to run again if we re-establish the connection
-                                            default:
-                                                failure(job, error, true)
-                                                
-                                                dependencies[cache: .libSessionNetwork].networkStatus
-                                                    .filter { $0 == .connected }
-                                                    .first()
-                                                    .sinkUntilComplete(
-                                                        receiveCompletion: { _ in
-                                                            dependencies[singleton: .storage].writeAsync { db in
-                                                                ConfigurationSyncJob.enqueue(
-                                                                    db,
-                                                                    swarmPublicKey: swarmPublicKey,
-                                                                    using: dependencies
-                                                                )
-                                                            }
-                                                        }
-                                                    )
-                                        }
-                                    }
-                                )
+                            Task { [dependencies] in
+                                // If we are currently connected then use the standard retry behaviour
+                                guard await dependencies.currentNetworkStatus != .connected else {
+                                    return failure(job, error, false)
+                                }
+                                
+                                // Otherwise we should permanently fail the job and reschedule it
+                                // to run again if we re-establish the connection
+                                failure(job, error, true)
+                                
+                                try? await dependencies.waitUntilConnected()
+                                try? await dependencies[singleton: .storage].writeAsync { db in
+                                    ConfigurationSyncJob.enqueue(
+                                        db,
+                                        swarmPublicKey: swarmPublicKey,
+                                        using: dependencies
+                                    )
+                                }
+                            }
                     }
                 },
                 receiveValue: { (configDumps: [ConfigDump]) in
@@ -334,24 +326,28 @@ extension ConfigurationSyncJob {
         public let afterSequenceRequests: [any ErasedPreparedRequest]
         public let requireAllBatchResponses: Bool
         public let requireAllRequestsSucceed: Bool
+        public let customAuthMethod: AuthenticationMethod?
         
         init?(
             beforeSequenceRequests: [any ErasedPreparedRequest],
             afterSequenceRequests: [any ErasedPreparedRequest],
             requireAllBatchResponses: Bool,
-            requireAllRequestsSucceed: Bool
+            requireAllRequestsSucceed: Bool,
+            customAuthMethod: AuthenticationMethod?
         ) {
             guard
                 !beforeSequenceRequests.isEmpty ||
                 !afterSequenceRequests.isEmpty ||
                 requireAllBatchResponses ||
-                requireAllRequestsSucceed
+                requireAllRequestsSucceed ||
+                customAuthMethod != nil
             else { return nil }
             
             self.beforeSequenceRequests = beforeSequenceRequests
             self.afterSequenceRequests = afterSequenceRequests
             self.requireAllBatchResponses = requireAllBatchResponses
             self.requireAllRequestsSucceed = requireAllRequestsSucceed
+            self.customAuthMethod = customAuthMethod
         }
     }
 }
@@ -411,6 +407,7 @@ public extension ConfigurationSyncJob {
         afterSequenceRequests: [any ErasedPreparedRequest] = [],
         requireAllBatchResponses: Bool = false,
         requireAllRequestsSucceed: Bool = false,
+        customAuthMethod: AuthenticationMethod? = nil,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         return Deferred {
@@ -425,7 +422,8 @@ public extension ConfigurationSyncJob {
                             beforeSequenceRequests: beforeSequenceRequests,
                             afterSequenceRequests: afterSequenceRequests,
                             requireAllBatchResponses: requireAllBatchResponses,
-                            requireAllRequestsSucceed: requireAllRequestsSucceed
+                            requireAllRequestsSucceed: requireAllRequestsSucceed,
+                            customAuthMethod: customAuthMethod
                         )
                     )
                 else { return resolver(Result.failure(NetworkError.parsingFailed)) }

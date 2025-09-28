@@ -30,7 +30,7 @@ public enum DisappearingMessagesJob: JobExecutor {
         guard dependencies[cache: .general].userExists else { return success(job, false) }
         
         // The 'backgroundTask' gets captured and cleared within the 'completion' block
-        let timestampNowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let timestampNowMs: Double = dependencies.networkOffsetTimestampMs()
         var backgroundTask: SessionBackgroundTask? = SessionBackgroundTask(label: #function, using: dependencies)
         var numDeleted: Int = -1
         
@@ -68,7 +68,7 @@ public extension DisappearingMessagesJob {
     static func cleanExpiredMessagesOnResume(using dependencies: Dependencies) {
         guard dependencies[cache: .general].userExists else { return }
         
-        let timestampNowMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let timestampNowMs: Double = dependencies.networkOffsetTimestampMs()
         var numDeleted: Int = -1
         
         dependencies[singleton: .storage].write { db in
@@ -104,11 +104,9 @@ public extension DisappearingMessagesJob {
             return nil
         }
         
-        /// The `expiresStartedAtMs` timestamp is now based on the
-        /// `dependencies[cache: .snodeAPI].currentOffsetTimestampMs()`
-        /// value so we need to make sure offset the `nextRunTimestamp` accordingly to
-        /// ensure it runs at the correct local time
-        let clockOffsetMs: Int64 = dependencies[cache: .snodeAPI].clockOffsetMs
+        /// The `expiresStartedAtMs` timestamp is now based on the `dependencies.networkOffsetTimestampMs()`
+        /// value so we need to make sure offset the `nextRunTimestamp` accordingly to ensure it runs at the correct local time
+        let clockOffsetMs: Int64 = dependencies[singleton: .network].syncState.networkTimeOffsetMs
         
         Log.info(.cat, "Scheduled future message expiration")
         return try? Job
@@ -155,7 +153,7 @@ public extension DisappearingMessagesJob {
                 threadId: threadId,
                 details: GetExpirationJob.Details(
                     expirationInfo: expirationInfo,
-                    startedAtTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    startedAtTimestampMs: dependencies.networkOffsetTimestampMs()
                 )
             ),
             canStartJob: true

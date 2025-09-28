@@ -14,8 +14,7 @@ final class PathVC: BaseVC {
     private static let rowHeight: CGFloat = (isIPhone5OrSmaller ? 52 : 75)
     
     private let dependencies: Dependencies
-    private var lastPath: [LibSession.Snode] = []
-    private var disposables: Set<AnyCancellable> = Set()
+    private var statusObservationTask: Task<Void, Never>?
 
     // MARK: - Components
     
@@ -65,6 +64,10 @@ final class PathVC: BaseVC {
         fatalError("init(coder:) has not been implemented")
     }
     
+    deinit {
+        statusObservationTask?.cancel()
+    }
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -72,6 +75,7 @@ final class PathVC: BaseVC {
         
         setUpNavBar()
         setUpViewHierarchy()
+        startObservingNetwork()
         
         if !dependencies[defaults: .standard, key: .hasVisitedPathScreen] {
             dependencies[defaults: .standard, key: .hasVisitedPathScreen] = true
@@ -132,44 +136,54 @@ final class PathVC: BaseVC {
         
         // Set up spacer constraints
         topSpacer.heightAnchor.constraint(equalTo: bottomSpacer.heightAnchor).isActive = true
-        
-        // Register for path country updates
-        dependencies[cache: .ip2Country].cacheLoaded
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sink(receiveValue: { [weak self] _ in
-                switch (self?.lastPath, self?.lastPath.isEmpty == true) {
-                    case (.none, _), (_, true): self?.update(paths: [], force: true)
-                    case (.some(let lastPath), _): self?.update(paths: [lastPath], force: true)
-                }
-            })
-            .store(in: &disposables)
-        
-        // Register for network updates
-        registerNetworkObservables()
     }
 
     // MARK: - Updating
     
-    private func registerNetworkObservables() {
-        /// Register for status updates (will be called immediately with current paths)
-        dependencies[cache: .libSessionNetwork].paths
-            .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sink(
-                receiveCompletion: { [weak self] _ in
-                    /// If the stream completes it means the network cache was reset in which case we want to
-                    /// re-register for updates in the next run loop (as the new cache should be created by then)
-                    DispatchQueue.global(qos: .background).async {
-                        self?.registerNetworkObservables()
-                    }
-                },
-                receiveValue: { [weak self] paths in self?.update(paths: paths, force: false) }
-            )
-            .store(in: &disposables)
+    private func startObservingNetwork() {
+        statusObservationTask?.cancel()
+        statusObservationTask = Task { [weak self, dependencies] in
+            for await _ in dependencies.networkStatusUpdates {
+                await self?.loadPathsAsync()
+            }
+        }
     }
     
-    private func update(paths: [[LibSession.Snode]], force: Bool) {
-        guard let pathToDisplay: [LibSession.Snode] = paths.first else {
+    private func loadPathsAsync() async {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        
+        guard
+            let currentUserSwarmPubkeys: Set<String> = try? await Set(dependencies[singleton: .network]
+                .getSwarm(for: userSessionId.hexString)
+                .map { $0.ed25519PubkeyHex }),
+            let paths: [LibSession.Path] = try? await dependencies[singleton: .network].getActivePaths(),
+            let targetPath: LibSession.Path = paths
+                /// Sanity check to make sure the sorting doesn't crash
+                .filter({ !$0.nodes.isEmpty })
+                /// Deterministic ordering
+                .sorted(by: { $0.nodes[0].ed25519PubkeyHex < $1.nodes[0].ed25519PubkeyHex })
+                .first(where: { path in
+                    switch path.category {
+                        case .standard: return true
+                        case .download, .upload: return false
+                        case .none, .invalid:
+                            guard let pubkey: String = path.destinationPubkey else {
+                                return false
+                            }
+                            
+                            return currentUserSwarmPubkeys.contains(pubkey)
+                    }
+                })
+        else {
+            self.update(path: nil, force: true)
+            return
+        }
+        
+        self.update(path: targetPath, force: true)
+    }
+    
+    @MainActor private func update(path: LibSession.Path?, force: Bool) {
+        guard let pathToDisplay: LibSession.Path = path else {
             pathStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
             spinner.startAnimating()
             
@@ -178,37 +192,44 @@ final class PathVC: BaseVC {
             }
             return
         }
-        guard force || lastPath != pathToDisplay else { return }
         
         // Cache the path that was used to avoid recreating the UI if not needed
-        lastPath = pathToDisplay
         pathStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
-        let dotAnimationRepeatInterval = Double(pathToDisplay.count) + 2
-        let snodeRows: [UIStackView] = pathToDisplay.enumerated().map { index, snode in
-            let isGuardSnode = (snode == pathToDisplay.first)
+        let dotAnimationRepeatInterval = Double(pathToDisplay.nodes.count) + 2
+        let snodeRows: [UIStackView] = pathToDisplay.nodes.enumerated().map { index, snode in
+            let isGuardSnode = (snode == pathToDisplay.nodes.first)
             
             return getPathRow(
-                snode: snode,
+                title: (isGuardSnode ?
+                    "onionRoutingPathEntryNode".localized() :
+                    "onionRoutingPathServiceNode".localized()
+                ),
+                subtitleResolver: { [ip2Country = dependencies[singleton: .ip2Country]] in
+                    try? await Task.sleep(for: .seconds(5), checkingEvery: .milliseconds(100)) {
+                        await ip2Country.isLoaded
+                    }
+                    
+                    return await ip2Country.country(for: snode.ip)
+                },
                 location: .middle,
                 dotAnimationStartDelay: Double(index) + 2,
-                dotAnimationRepeatInterval: dotAnimationRepeatInterval,
-                isGuardSnode: isGuardSnode
+                dotAnimationRepeatInterval: dotAnimationRepeatInterval
             )
         }
         
         let youRow = getPathRow(
             title: "you".localized(),
-            subtitle: nil,
+            subtitleResolver: nil,
             location: .top,
             dotAnimationStartDelay: 1,
             dotAnimationRepeatInterval: dotAnimationRepeatInterval
         )
         let destinationRow = getPathRow(
             title: "onionRoutingPathDestination".localized(),
-            subtitle: nil,
+            subtitleResolver: nil,
             location: .bottom,
-            dotAnimationStartDelay: Double(pathToDisplay.count) + 2,
+            dotAnimationStartDelay: Double(pathToDisplay.nodes.count) + 2,
             dotAnimationRepeatInterval: dotAnimationRepeatInterval
         )
         let rows = [ youRow ] + snodeRows + [ destinationRow ]
@@ -222,7 +243,13 @@ final class PathVC: BaseVC {
 
     // MARK: - General
     
-    private func getPathRow(title: String, subtitle: String?, location: LineView.Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double) -> UIStackView {
+    private func getPathRow(
+        title: String,
+        subtitleResolver: (() async -> String)?,
+        location: LineView.Location,
+        dotAnimationStartDelay: Double,
+        dotAnimationRepeatInterval: Double
+    ) -> UIStackView {
         let lineView = LineView(
             location: location,
             dotAnimationStartDelay: dotAnimationStartDelay,
@@ -241,13 +268,17 @@ final class PathVC: BaseVC {
         let titleStackView = UIStackView(arrangedSubviews: [ titleLabel ])
         titleStackView.axis = .vertical
         
-        if let subtitle = subtitle {
+        if let subtitleResolver: () async -> String = subtitleResolver {
             let subtitleLabel = UILabel()
             subtitleLabel.font = .systemFont(ofSize: Values.verySmallFontSize)
-            subtitleLabel.text = subtitle
+            subtitleLabel.text = "resolving".localized()
             subtitleLabel.themeTextColor = .textPrimary
             subtitleLabel.lineBreakMode = .byTruncatingTail
             titleStackView.addArrangedSubview(subtitleLabel)
+            
+            Task { [weak subtitleLabel] in
+                subtitleLabel?.text = await subtitleResolver()
+            }
         }
         
         let stackView = UIStackView(arrangedSubviews: [ lineView, titleStackView ])
@@ -256,19 +287,6 @@ final class PathVC: BaseVC {
         stackView.alignment = .center
         
         return stackView
-    }
-
-    private func getPathRow(snode: LibSession.Snode, location: LineView.Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double, isGuardSnode: Bool) -> UIStackView {
-        return getPathRow(
-            title: (isGuardSnode ?
-                "onionRoutingPathEntryNode".localized() :
-                "onionRoutingPathServiceNode".localized()
-            ),
-            subtitle: dependencies[cache: .ip2Country].country(for: snode.ip),
-            location: location,
-            dotAnimationStartDelay: dotAnimationStartDelay,
-            dotAnimationRepeatInterval: dotAnimationRepeatInterval
-        )
     }
     
     // MARK: - Interaction
@@ -283,13 +301,14 @@ final class PathVC: BaseVC {
 // MARK: - Line View
 
 private final class LineView: UIView {
+    private let dependencies: Dependencies
     private let location: Location
     private let dotAnimationStartDelay: Double
     private let dotAnimationRepeatInterval: Double
     private var dotViewWidthConstraint: NSLayoutConstraint!
     private var dotViewHeightConstraint: NSLayoutConstraint!
     private var dotViewAnimationTimer: Timer!
-    private var disposables: Set<AnyCancellable> = Set()
+    private var statusObservationTask: Task<Void, Never>?
 
     enum Location {
         case top, middle, bottom
@@ -298,6 +317,7 @@ private final class LineView: UIView {
     // MARK: - Initialization
     
     init(location: Location, dotAnimationStartDelay: Double, dotAnimationRepeatInterval: Double, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.location = location
         self.dotAnimationStartDelay = dotAnimationStartDelay
         self.dotAnimationRepeatInterval = dotAnimationRepeatInterval
@@ -305,7 +325,7 @@ private final class LineView: UIView {
         super.init(frame: CGRect.zero)
         
         setUpViewHierarchy()
-        registerObservers(using: dependencies)
+        startObservingNetwork()
     }
     
     override init(frame: CGRect) {
@@ -317,6 +337,7 @@ private final class LineView: UIView {
     }
     
     deinit {
+        statusObservationTask?.cancel()
         dotViewAnimationTimer?.invalidate()
     }
     
@@ -379,21 +400,13 @@ private final class LineView: UIView {
         }
     }
     
-    private func registerObservers(using dependencies: Dependencies) {
-        /// Register for status updates (will be called immediately with current status)
-        dependencies[cache: .libSessionNetwork].networkStatus
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sink(
-                receiveCompletion: { [weak self] _ in
-                    /// If the stream completes it means the network cache was reset in which case we want to
-                    /// re-register for updates in the next run loop (as the new cache should be created by then)
-                    DispatchQueue.global(qos: .background).async {
-                        self?.registerObservers(using: dependencies)
-                    }
-                },
-                receiveValue: { [weak self] status in self?.setStatus(to: status) }
-            )
-            .store(in: &disposables)
+    private func startObservingNetwork() {
+        statusObservationTask?.cancel()
+        statusObservationTask = Task.detached(priority: .userInitiated) { [weak self, dependencies] in
+            for await status in dependencies.networkStatusUpdates {
+                await self?.setStatus(to: status)
+            }
+        }
     }
 
     private func animate() {
@@ -419,7 +432,7 @@ private final class LineView: UIView {
         }
     }
     
-    private func setStatus(to status: NetworkStatus) {
+    @MainActor private func setStatus(to status: NetworkStatus) {
         dotView.themeBackgroundColor = status.themeColor
         dotView.layer.themeShadowColor = status.themeColor
     }

@@ -37,12 +37,11 @@ public enum GetExpirationJob: JobExecutor {
             return success(job, false)
         }
         
-        dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<GetExpiriesResponse> in
-                try Network.SnodeAPI.preparedGetExpiries(
+        AnyPublisher
+            .lazy {
+                try Network.StorageServer.preparedGetExpiries(
                     of: expirationInfo.map { $0.key },
                     authMethod: try Authentication.with(
-                        db,
                         swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                         using: dependencies
                     ),
@@ -59,7 +58,7 @@ public enum GetExpirationJob: JobExecutor {
                         case .failure(let error): failure(job, error, true)
                     }
                 },
-                receiveValue: { (_: ResponseInfoType, response: GetExpiriesResponse) in
+                receiveValue: { (_: ResponseInfoType, response: Network.StorageServer.GetExpiriesResponse) in
                     let serverSpecifiedExpirationStartTimesMs: [String: Double] = response.expiries
                         .reduce(into: [:]) { result, next in
                             guard let expiresInSeconds: Double = expirationInfo[next.key] else { return }

@@ -5,8 +5,10 @@ import Foundation
 public enum SessionNetworkScreenContent {}
 
 public extension SessionNetworkScreenContent {
+    static let defaultPriceString: String = "$-USD" // stringlint:disabled
+    
     protocol ViewModelType: ObservableObject {
-        var dataModel: DataModel { get set }
+        var state: State { get set }
         var isRefreshing: Bool { get set }
         var lastRefreshWasSuccessful: Bool { get set }
         var errorString: String? { get set }
@@ -16,9 +18,7 @@ public extension SessionNetworkScreenContent {
         func openURL(_ url: URL)
     }
     
-    final class DataModel: Equatable {
-        public static let defaultPriceString: String = "$-USD" // stringlint:disabled
-        
+    final class State: Sendable, Equatable {
         // Snode Data
         public let snodesInCurrentSwarm: Int
         public let snodesInTotal: Int
@@ -69,15 +69,13 @@ public extension SessionNetworkScreenContent {
         }
         public let networkStakedUSD: Double
         public var networkStakedUSDString: String {
-            guard networkStakedUSD > 0 else {
-                return DataModel.defaultPriceString
-            }
+            guard networkStakedUSD > 0 else { return defaultPriceString }
+            
             return "$\(networkStakedUSD.formatted(format: .currency(decimal: false))) USD"
         }
         public var networkStakedUSDAbbreviatedString: String {
-            guard networkStakedUSD > 0 else {
-                return DataModel.defaultPriceString
-            }
+            guard networkStakedUSD > 0 else { return defaultPriceString }
+            
             return "$\(networkStakedUSD.formatted(format: .abbreviatedCurrency(decimalPlaces: 1))) USD"
         }
         public let stakingRewardPool: Double?
@@ -100,23 +98,27 @@ public extension SessionNetworkScreenContent {
             }
             return "$\(marketCap.formatted(format: .abbreviatedCurrency(decimalPlaces: 1))) USD"
         }
+        public let totalTargetConversations: Int
         
         // Last update time
         public let lastUpdatedTimestampMs: Int64?
         
+        // MARK: - Initialization
+        
         public init(
-            snodesInCurrentSwarm: Int = 0,
-            snodesInTotal: Int = 0,
-            contractAddress: String? = nil,
-            tokenUSD: Double? = nil,
-            priceTimestampMs: Int64 = 0,
-            stakingRequirement: Double = 0,
-            networkSize: Int = 0,
-            networkStakedTokens: Double = 0,
-            networkStakedUSD: Double = 0,
-            stakingRewardPool: Double? = nil,
-            marketCapUSD: Double? = nil,
-            lastUpdatedTimestampMs: Int64? = nil
+            snodesInCurrentSwarm: Int,
+            snodesInTotal: Int,
+            contractAddress: String?,
+            tokenUSD: Double?,
+            priceTimestampMs: Int64,
+            stakingRequirement: Double,
+            networkSize: Int,
+            networkStakedTokens: Double,
+            networkStakedUSD: Double,
+            stakingRewardPool: Double?,
+            marketCapUSD: Double?,
+            totalTargetConversations: Int,
+            lastUpdatedTimestampMs: Int64?
         ) {
             self.snodesInCurrentSwarm = snodesInCurrentSwarm
             self.snodesInTotal = snodesInTotal
@@ -129,10 +131,11 @@ public extension SessionNetworkScreenContent {
             self.networkStakedUSD = networkStakedUSD
             self.stakingRewardPool = stakingRewardPool
             self.marketCapUSD = marketCapUSD
+            self.totalTargetConversations = totalTargetConversations
             self.lastUpdatedTimestampMs = lastUpdatedTimestampMs
         }
         
-        public static func == (lhs: DataModel, rhs: DataModel) -> Bool {
+        public static func == (lhs: State, rhs: State) -> Bool {
             let isSnodeInfoEqual: Bool = (
                 lhs.snodesInCurrentSwarm == rhs.snodesInCurrentSwarm &&
                 lhs.snodesInTotal == rhs.snodesInTotal
@@ -153,16 +156,23 @@ public extension SessionNetworkScreenContent {
                 lhs.marketCapUSD == rhs.marketCapUSD
             )
             
+            let convoCountEqual: Bool = lhs.totalTargetConversations == rhs.totalTargetConversations
             let isUpdateTimeEqual: Bool = lhs.lastUpdatedTimestampMs == rhs.lastUpdatedTimestampMs
                 
-            return isSnodeInfoEqual && isTokenInfoDataEqual && isNetworkInfoDataEqual && isUpdateTimeEqual
+            return (
+                isSnodeInfoEqual &&
+                isTokenInfoDataEqual &&
+                isNetworkInfoDataEqual &&
+                convoCountEqual &&
+                isUpdateTimeEqual
+            )
         }
     }
 }
 
 // MARK: - Convenience
 
-extension SessionNetworkScreenContent.DataModel {
+extension SessionNetworkScreenContent.State {
     public func with(
         snodesInCurrentSwarm: Int? = nil,
         snodesInTotal: Int? = nil,
@@ -175,9 +185,10 @@ extension SessionNetworkScreenContent.DataModel {
         networkStakedUSD: Double? = nil,
         stakingRewardPool: Double? = nil,
         marketCapUSD: Double? = nil,
+        totalTargetConversations: Int? = nil,
         lastUpdatedTimestampMs: Int64? = nil
-    ) -> SessionNetworkScreenContent.DataModel {
-        return SessionNetworkScreenContent.DataModel(
+    ) -> SessionNetworkScreenContent.State {
+        return SessionNetworkScreenContent.State(
             snodesInCurrentSwarm: snodesInCurrentSwarm ?? self.snodesInCurrentSwarm,
             snodesInTotal: snodesInTotal ?? self.snodesInTotal,
             contractAddress: contractAddress ?? self.contractAddress,
@@ -189,6 +200,7 @@ extension SessionNetworkScreenContent.DataModel {
             networkStakedUSD: networkStakedUSD ?? self.networkStakedUSD,
             stakingRewardPool: stakingRewardPool ?? self.stakingRewardPool,
             marketCapUSD: marketCapUSD ?? self.marketCapUSD,
+            totalTargetConversations: totalTargetConversations ?? self.totalTargetConversations,
             lastUpdatedTimestampMs: lastUpdatedTimestampMs ?? self.lastUpdatedTimestampMs
         )
     }

@@ -12,7 +12,7 @@ import SessionUtilitiesKit
 public extension Cache {
     static let libSession: CacheConfig<LibSessionCacheType, LibSessionImmutableCacheType> = Dependencies.create(
         identifier: "libSession",
-        createInstance: { dependencies in NoopLibSessionCache(using: dependencies) },
+        createInstance: { dependencies, _ in NoopLibSessionCache(using: dependencies) },
         mutableInstance: { $0 },
         immutableInstance: { $0 }
     )
@@ -182,7 +182,7 @@ public extension LibSession {
         dump: ConfigDump?
     )
     
-    enum CacheBehaviour {
+    enum CacheBehaviour: Int, CaseIterable {
         case skipAutomaticConfigSync
         case skipGroupAdminCheck
     }
@@ -206,11 +206,11 @@ public extension LibSession {
         
         // MARK: - State Management
         
-        public func loadState(_ db: ObservingDatabase, requestId: String?) {
+        public func loadState(_ db: ObservingDatabase, userEd25519SecretKey: [UInt8]) throws {
             // Ensure we have the ed25519 key and that we haven't already loaded the state before
             // we continue
             guard configStore.isEmpty else {
-                return Log.warn(.libSession, "Ignoring loadState\(requestId.map { " for \($0)" } ?? "") due to existing state")
+                return Log.warn(.libSession, "Ignoring loadState due to existing state")
             }
             
             /// Retrieve the existing dumps from the database
@@ -270,11 +270,11 @@ public extension LibSession {
             }
                                             
             /// Now that we have fully populated and sorted `configsToLoad` we should load each into memory
-            configsToLoad.forEach { sessionId, variant, dump in
-                configStore[sessionId, variant] = try? loadState(
+            try configsToLoad.forEach { sessionId, variant, dump in
+                configStore[sessionId, variant] = try loadState(
                     for: variant,
                     sessionId: sessionId,
-                    userEd25519SecretKey: dependencies[cache: .general].ed25519SecretKey,
+                    userEd25519SecretKey: userEd25519SecretKey,
                     groupEd25519SecretKey: groupsByKey[sessionId.hexString]?
                         .groupIdentityPrivateKey
                         .map { Array($0) },
@@ -282,7 +282,7 @@ public extension LibSession {
                 )
             }
             
-            Log.info(.libSession, "Completed loadState\(requestId.map { " for \($0)" } ?? "")")
+            Log.info(.libSession, "Completed loadState")
         }
         
         public func loadDefaultStateFor(
@@ -950,7 +950,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - State Management
     
-    func loadState(_ db: ObservingDatabase, requestId: String?)
+    func loadState(_ db: ObservingDatabase, userEd25519SecretKey: [UInt8]) throws
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
@@ -1113,6 +1113,8 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval?
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval?
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData
 }
 
 public extension LibSessionCacheType {
@@ -1167,19 +1169,15 @@ public extension LibSessionCacheType {
         return try perform(for: variant, sessionId: userSessionId, change: { _ in try change() })
     }
     
-    func loadState(_ db: ObservingDatabase) {
-        loadState(db, requestId: nil)
-    }
-    
-    func addEvent(key: ObservableKey, value: AnyHashable?) {
+    func addEvent<T: Hashable & Sendable>(key: ObservableKey, value: T?) {
         addEvent(ObservedEvent(key: key, value: value))
     }
     
-    func addEvent(key: Setting.BoolKey, value: AnyHashable?) {
+    func addEvent<T: Hashable & Sendable>(key: Setting.BoolKey, value: T?) {
         addEvent(ObservedEvent(key: .setting(key), value: value))
     }
     
-    func addEvent(key: Setting.EnumKey, value: AnyHashable?) {
+    func addEvent<T: Hashable & Sendable>(key: Setting.EnumKey, value: T?) {
         addEvent(ObservedEvent(key: .setting(key), value: value))
     }
     
@@ -1210,7 +1208,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     // MARK: - State Management
     
-    func loadState(_ db: ObservingDatabase, requestId: String?) {}
+    func loadState(_ db: ObservingDatabase, userEd25519SecretKey: [UInt8]) throws {}
     func loadDefaultStateFor(
         variant: ConfigDump.Variant,
         sessionId: SessionId,
@@ -1383,6 +1381,10 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool { return false }
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval? { return nil }
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval? { return nil }
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData {
+        return GroupAuthData(groupIdentityPrivateKey: nil, authData: nil)
+    }
 }
 
 // MARK: - Convenience

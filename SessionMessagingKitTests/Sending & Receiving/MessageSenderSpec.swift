@@ -10,47 +10,45 @@ import Nimble
 
 @testable import SessionMessagingKit
 
-class MessageSenderSpec: QuickSpec {
+class MessageSenderSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
         @TestState var dependencies: TestDependencies! = TestDependencies()
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
+            using: dependencies
+        )
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        
+        beforeEach {
+            try await mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
                 try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
-        )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-                crypto
-                    .when { $0.generate(.randomBytes(24)) }
-                    .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
-                crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
-                    .thenReturn(
-                        KeyPair(
-                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
-                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
-                        )
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            try await mockCrypto
+                .when { $0.generate(.randomBytes(24)) }
+                .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
+            try await mockCrypto
+                .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                .thenReturn(
+                    KeyPair(
+                        publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                        secretKey: Array(Data(hex: TestConstants.edSecretKey))
                     )
-            }
-        )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
-                cache
-                    .when { $0.ed25519Seed }
-                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
-            }
-        )
+                )
+            dependencies.set(singleton: .crypto, to: mockCrypto)
+        }
         
         // MARK: - a MessageSender
         describe("a MessageSender") {
@@ -59,12 +57,12 @@ class MessageSenderSpec: QuickSpec {
                 @TestState var preparedRequest: Network.PreparedRequest<Message>?
                 
                 beforeEach {
-                    mockCrypto
+                    try await mockCrypto
                         .when {
                             $0.generate(.ciphertextWithSessionProtocol(plaintext: .any, destination: .any))
                         }
                         .thenReturn(Data([1, 2, 3]))
-                    mockCrypto
+                    try await mockCrypto
                         .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                         .thenReturn(Authentication.Signature.standard(signature: []))
                 }

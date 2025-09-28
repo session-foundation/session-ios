@@ -11,19 +11,19 @@ import SessionUtilitiesKit
 public extension Singleton {
     static let currentUserPoller: SingletonConfig<any PollerType> = Dependencies.create(
         identifier: "currentUserPoller",
-        createInstance: { dependencies in
+        createInstance: { dependencies, key in
             /// After polling a given snode 6 times we always switch to a new one.
             ///
             /// The reason for doing this is that sometimes a snode will be giving us successful responses while
             /// it isn't actually getting messages from other snodes.
             return CurrentUserPoller(
                 pollerName: "Main Poller", // stringlint:ignore
-                pollerQueue: Threading.pollerQueue,
-                pollerDestination: .swarm(dependencies[cache: .general].sessionId.hexString),
-                pollerDrainBehaviour: .limitedReuse(count: 6),
+                destination: .swarm(dependencies[cache: .general].sessionId.hexString),
+                swarmDrainStrategy: .limitedReuse(count: 6),
                 namespaces: CurrentUserPoller.namespaces,
                 shouldStoreMessages: true,
                 logStartAndStopCalls: true,
+                key: key,
                 using: dependencies
             )
         }
@@ -32,45 +32,93 @@ public extension Singleton {
 
 // MARK: - CurrentUserPoller
 
-public final class CurrentUserPoller: SwarmPoller {
-    public static let namespaces: [Network.SnodeAPI.Namespace] = [
+public final actor CurrentUserPoller: SwarmPollerType {
+    public static let namespaces: [Network.StorageServer.Namespace] = [
         .default, .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups
     ]
     private let pollInterval: TimeInterval = 1.5
     private let retryInterval: TimeInterval = 0.25
     private let maxRetryInterval: TimeInterval = 15
     
-    // MARK: - Abstract Methods
+    public let dependencies: Dependencies
+    public let dependenciesKey: Dependencies.Key?
+    public let pollerName: String
+    public let destination: PollerDestination
+    public let swarmDrainer: SwarmDrainer
+    public let logStartAndStopCalls: Bool
+    nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
+    public var pollTask: Task<Void, any Error>?
+    public var pollCount: Int = 0
+    public var failureCount: Int
+    public var lastPollStart: TimeInterval = 0
+    public var cancellable: AnyCancellable?
     
-    override public func nextPollDelay() -> AnyPublisher<TimeInterval, Error> {
-        // If there have been no failures then just use the 'minPollInterval'
-        guard failureCount > 0 else {
-            return Just(pollInterval)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+    public let namespaces: [Network.StorageServer.Namespace]
+    public let customAuthMethod: AuthenticationMethod?
+    public let shouldStoreMessages: Bool
+    nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
+    
+    // MARK: - Initialization
+
+    public init(
+        pollerName: String,
+        destination: PollerDestination,
+        swarmDrainStrategy: SwarmDrainer.Strategy,
+        namespaces: [Network.StorageServer.Namespace],
+        failureCount: Int,
+        shouldStoreMessages: Bool,
+        logStartAndStopCalls: Bool,
+        customAuthMethod: AuthenticationMethod?,
+        key: Dependencies.Key?,
+        using dependencies: Dependencies
+    ) {
+        self.dependencies = dependencies
+        self.dependenciesKey = key
+        self.pollerName = pollerName
+        self.destination = destination
+        self.swarmDrainer = SwarmDrainer(
+            strategy: swarmDrainStrategy,
+            nextRetrievalAfterDrain: .resetState,
+            logDetails: SwarmDrainer.LogDetails(cat: .poller, name: pollerName),
+            using: dependencies
+        )
+        self.namespaces = namespaces
+        self.failureCount = failureCount
+        self.customAuthMethod = customAuthMethod
+        self.shouldStoreMessages = shouldStoreMessages
+        self.logStartAndStopCalls = logStartAndStopCalls
+    }
+
+    deinit {
+        // Send completion events to the observables
+        Task { [stream = responseStream] in
+            await stream.finishCurrentStreams()
         }
+        
+        pollTask?.cancel()
+    }
+    
+    // MARK: - Polling
+
+    public func pollerDidStart() {}
+    
+    public func pollerReceivedResponse(_ response: PollResponse) async {
+        await responseStream.send(response)
+    }
+    
+    public func pollerDidStop() {
+        Task { await responseStream.finishCurrentStreams() }
+    }
+    
+    // MARK: - PollerType
+    
+    public func nextPollDelay() async -> TimeInterval {
+        // If there have been no failures then just use the 'minPollInterval'
+        guard failureCount > 0 else { return pollInterval }
         
         // Otherwise use a simple back-off with the 'retryInterval'
         let nextDelay: TimeInterval = TimeInterval(retryInterval * (Double(failureCount) * 1.2))
         
-        return Just(min(maxRetryInterval, nextDelay))
-            .setFailureType(to: Error.self)
-            .eraseToAnyPublisher()
-    }
-    
-    // stringlint:ignore_contents
-    override public func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse {
-        if !dependencies[defaults: .appGroup, key: .isMainAppActive] {
-            // Do nothing when an error gets throws right after returning from the background (happens frequently)
-        }
-        else if case .limitedReuse(_, .some(let targetSnode), _, _, _) = pollerDrainBehaviour {
-            setDrainBehaviour(pollerDrainBehaviour.clearTargetSnode())
-            return .continuePollingInfo("Switching from \(targetSnode) to next snode.")
-        }
-        else {
-            return .continuePollingInfo("Had no target snode.")
-        }
-        
-        return .continuePolling
+        return min(maxRetryInterval, nextDelay)
     }
 }

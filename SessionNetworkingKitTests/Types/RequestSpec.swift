@@ -21,9 +21,9 @@ class RequestSpec: QuickSpec {
         describe("a Request") {
             // MARK: -- is initialized with the correct default values
             it("is initialized with the correct default values") {
-                let request: Request<NoBody, TestEndpoint> = try! Request(
+                let request: Request<NoBody, TestEndpoint> = Request(
                     endpoint: .test1,
-                    destination: try! .server(
+                    destination: .server(
                         server: "testServer",
                         x25519PublicKey: ""
                     )
@@ -36,9 +36,9 @@ class RequestSpec: QuickSpec {
             
             // MARK: ---- sets all the values correctly
             it("sets all the values correctly") {
-                let request: Request<NoBody, TestEndpoint> = try! Request(
+                let request: Request<NoBody, TestEndpoint> = Request(
                     endpoint: .test1,
-                    destination: try! .server(
+                    destination: .server(
                         method: .delete,
                         server: "testServer",
                         headers: [
@@ -48,9 +48,10 @@ class RequestSpec: QuickSpec {
                     )
                 )
                 
-                expect(request.destination.url?.absoluteString).to(equal("testServer/test1"))
+                expect(request.endpoint).to(equal(.test1))
+                expect(request.destination.server).to(equal("testServer"))
+                expect(request.destination.queryParameters).to(equal([:]))
                 expect(request.destination.method.rawValue).to(equal("DELETE"))
-                expect(request.destination.urlPathAndParamsString).to(equal("/test1"))
                 expect(request.destination.headers).to(equal(["TestHeader": "test"]))
                 expect(request.body).to(beNil())
             }
@@ -59,9 +60,9 @@ class RequestSpec: QuickSpec {
             context("with a base64 string body") {
                 // MARK: ------ successfully encodes the body
                 it("successfully encodes the body") {
-                    let request: Request<String, TestEndpoint> = try! Request(
+                    let request: Request<String, TestEndpoint> = Request(
                         endpoint: .test1,
-                        destination: try! .server(
+                        destination: .server(
                             server: "testServer",
                             x25519PublicKey: ""
                         ),
@@ -76,9 +77,9 @@ class RequestSpec: QuickSpec {
                 
                 // MARK: ------ throws an error if the body is not base64 encoded
                 it("throws an error if the body is not base64 encoded") {
-                    let request: Request<String, TestEndpoint> = try! Request(
+                    let request: Request<String, TestEndpoint> = Request(
                         endpoint: .test1,
-                        destination: try! .server(
+                        destination: .server(
                             server: "testServer",
                             x25519PublicKey: ""
                         ),
@@ -96,9 +97,9 @@ class RequestSpec: QuickSpec {
             context("with a byte body") {
                 // MARK: ------ successfully encodes the body
                 it("successfully encodes the body") {
-                    let request: Request<[UInt8], TestEndpoint> = try! Request(
+                    let request: Request<[UInt8], TestEndpoint> = Request(
                         endpoint: .test1,
-                        destination: try! .server(
+                        destination: .server(
                             server: "testServer",
                             x25519PublicKey: ""
                         ),
@@ -115,9 +116,9 @@ class RequestSpec: QuickSpec {
             context("with a JSON body") {
                 // MARK: ------ successfully encodes the body
                 it("successfully encodes the body") {
-                    let request: Request<TestType, TestEndpoint> = try! Request(
+                    let request: Request<TestType, TestEndpoint> = Request(
                         endpoint: .test1,
-                        destination: try! .server(
+                        destination: .server(
                             server: "testServer",
                             x25519PublicKey: ""
                         ),
@@ -135,9 +136,9 @@ class RequestSpec: QuickSpec {
                 
                 // MARK: ------ successfully encodes no body
                 it("successfully encodes no body") {
-                    let request: Request<NoBody, TestEndpoint> = try! Request(
+                    let request: Request<NoBody, TestEndpoint> = Request(
                         endpoint: .test1,
-                        destination: try! .server(
+                        destination: .server(
                             server: "testServer",
                             x25519PublicKey: ""
                         ),

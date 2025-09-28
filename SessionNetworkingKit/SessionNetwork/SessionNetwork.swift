@@ -6,12 +6,6 @@ import Foundation
 
 public extension Network {
     enum SessionNetwork {
-        public static let workQueue: DispatchQueue = DispatchQueue(
-            label: "SessionNetworkAPI.workQueue",
-            qos: .userInitiated
-        )
-        public static let client: HTTPClient = HTTPClient()
-        
         static let networkAPIServer = "http://networkv1.getsession.org"
         static let networkAPIServerPublicKey = "cbf461a4431dc9174dceef4421680d743a2a0e1a3131fc794240bcb0bc3dd449"
     }

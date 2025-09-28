@@ -177,14 +177,9 @@ final class NukeDataModal: Modal {
         
         ModalActivityIndicatorViewController
             .present(fromViewController: presentedViewController, canCancel: false) { [weak self, dependencies] _ in
-                dependencies[singleton: .storage]
-                    .readPublisher { db -> (AuthenticationMethod, [AuthenticationMethod]) in
-                        (
-                            try Authentication.with(
-                                db,
-                                swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
-                                using: dependencies
-                            ),
+                Task(priority: .userInitiated) { [weak self, dependencies] in
+                    do {
+                        let communityAuth: [AuthenticationMethod] = try await dependencies[singleton: .storage].readAsync { db in
                             try OpenGroup
                                 .filter(OpenGroup.Columns.isActive == true)
                                 .select(.server)
@@ -192,68 +187,66 @@ final class NukeDataModal: Modal {
                                 .asRequest(of: String.self)
                                 .fetchSet(db)
                                 .map { try Authentication.with(db, server: $0, using: dependencies) }
-                        )
-                    }
-                    .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-                    .tryFlatMap { (userAuth: AuthenticationMethod, communityAuth: [AuthenticationMethod]) -> AnyPublisher<(AuthenticationMethod, [String]), Error> in
-                        Publishers
-                            .MergeMany(
-                                try communityAuth.compactMap { authMethod in
-                                    switch authMethod.info {
-                                        case .community(let server, _, _, _, _):
-                                            return try Network.SOGS.preparedClearInbox(
-                                                requestAndPathBuildTimeout: Network.defaultTimeout,
-                                                authMethod: authMethod,
-                                                using: dependencies
-                                            )
-                                            .map { _, _ in server }
-                                            .send(using: dependencies)
-                                            
-                                        default: return nil
-                                    }
+                        }
+                        
+                        /// Clear the inbox of any known communities in case the user had sent messages to them
+                        let clearedServers: [String] = try await withThrowingTaskGroup { group in
+                            for authMethod in communityAuth {
+                                guard case .community(let server, _, _, _, _) = authMethod.info else { continue }
+                                
+                                group.addTask {
+                                    _ = try await Network.SOGS
+                                        .preparedClearInbox(
+                                            overallTimeout: Network.defaultTimeout,
+                                            authMethod: authMethod,
+                                            using: dependencies
+                                        )
+                                        .send(using: dependencies)
+                                        .value
+                                    
+                                    return server
                                 }
-                            )
-                            .collect()
-                            .map { response in (userAuth, response.map { $0.1 }) }
-                            .eraseToAnyPublisher()
-                    }
-                    .tryFlatMap { authMethod, clearedServers in
-                        try Network.SnodeAPI
+                            }
+                            
+                            var result: [String] = []
+                            while !group.isEmpty {
+                                guard let value: String = try await group.next() else {
+                                    throw NetworkError.invalidResponse
+                                }
+                                
+                                result.append(value)
+                            }
+                            
+                            return result
+                        }
+                        
+                        /// Get the latest network time before sending (to reduce the chance that the request will fail due to the
+                        /// device clock being out of sync with the network)
+                        let swarm: Set<LibSession.Snode> = try await dependencies[singleton: .network]
+                            .getSwarm(for: dependencies[cache: .general].sessionId.hexString)
+                        let snode: LibSession.Snode = try await SwarmDrainer(swarm: swarm, using: dependencies)
+                            .selectNextNode()
+                        try await Network.StorageServer.getNetworkTime(from: snode, using: dependencies)
+                        
+                        /// Clear the users swarm
+                        let userAuth: AuthenticationMethod = try Authentication.with(
+                            swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
+                            using: dependencies
+                        )
+                        var confirmations: [String: Bool] = try await Network.StorageServer
                             .preparedDeleteAllMessages(
                                 namespace: .all,
-                                requestAndPathBuildTimeout: Network.defaultTimeout,
-                                authMethod: authMethod,
+                                snode: snode,
+                                overallTimeout: Network.defaultTimeout,
+                                authMethod: userAuth,
                                 using: dependencies
                             )
                             .send(using: dependencies)
-                            .map { _, data in
-                                clearedServers.reduce(into: data) { result, next in result[next] = true }
-                            }
-                    }
-                    .receive(on: DispatchQueue.main, using: dependencies)
-                    .sinkUntilComplete(
-                        receiveCompletion: { result in
-                            switch result {
-                                case .finished: break
-                                case .failure:
-                                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                                
-                                    let modal: ConfirmationModal = ConfirmationModal(
-                                        targetView: self?.view,
-                                        info: ConfirmationModal.Info(
-                                            title: "clearDataAll".localized(),
-                                            body: .text("clearDataErrorDescriptionGeneric".localized()),
-                                            confirmTitle: "clearDevice".localized(),
-                                            confirmStyle: .danger,
-                                            cancelStyle: .alert_text
-                                        ) { [weak self] _ in
-                                            self?.clearDeviceOnly()
-                                        }
-                                    )
-                                    self?.present(modal, animated: true)
-                            }
-                        },
-                        receiveValue: { confirmations in
+                        
+                        /// Add the cleared Community servers so we have a full list
+                        clearedServers.forEach { confirmations[$0] = true }
+                        
+                        await MainActor.run {
                             self?.dismiss(animated: true, completion: nil) // Dismiss the loader
 
                             // Get a list of nodes which failed to delete the data
@@ -281,7 +274,27 @@ final class NukeDataModal: Modal {
                             )
                             self?.present(modal, animated: true)
                         }
-                    )
+                    }
+                    catch {
+                        await MainActor.run {
+                            self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                            
+                            let modal: ConfirmationModal = ConfirmationModal(
+                                targetView: self?.view,
+                                info: ConfirmationModal.Info(
+                                    title: "clearDataAll".localized(),
+                                    body: .text("clearDataErrorDescriptionGeneric".localized()),
+                                    confirmTitle: "clearDevice".localized(),
+                                    confirmStyle: .danger,
+                                    cancelStyle: .alert_text
+                                ) { [weak self] _ in
+                                    self?.clearDeviceOnly()
+                                }
+                            )
+                            self?.present(modal, animated: true)
+                        }
+                    }
+                }
             }
     }
     
@@ -296,9 +309,12 @@ final class NukeDataModal: Modal {
             UIApplication.shared.unregisterForRemoteNotifications()
             
             if let deviceToken: String = maybeDeviceToken, dependencies[singleton: .storage].isValid {
-                Network.PushNotification
-                    .unsubscribeAll(token: Data(hex: deviceToken), using: dependencies)
-                    .sinkUntilComplete()
+                Task.detached(priority: .userInitiated) {
+                    try? await Network.PushNotification.unsubscribeAll(
+                        token: Data(hex: deviceToken),
+                        using: dependencies
+                    )
+                }
             }
         }
         
@@ -312,21 +328,23 @@ final class NukeDataModal: Modal {
         dependencies[singleton: .notificationsManager].clearAllNotifications()
         UIApplication.shared.applicationIconBadgeNumber = 0
         
-        // Stop any pollers
-        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
-        
         // Call through to the SessionApp's "resetAppData" which will wipe out logs, database and
         // profile storage
         let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
         let serviceNetwork: ServiceNetwork = dependencies[feature: .serviceNetwork]
         
-        dependencies[singleton: .app].resetData { [dependencies] in
-            // Resetting the data clears the old user defaults. We need to restore the unlink default.
-            dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
+        Task {
+            // Stop any pollers
+            await (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
             
-            // We also want to keep the `ServiceNetwork` setting (so someone testing can delete and restore
-            // accounts on Testnet without issue
-            dependencies.set(feature: .serviceNetwork, to: serviceNetwork)
+            await dependencies[singleton: .app].resetData { [dependencies] in
+                // Resetting the data clears the old user defaults. We need to restore the unlink default.
+                dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
+                
+                // We also want to keep the `ServiceNetwork` setting (so someone testing can delete and restore
+                // accounts on Testnet without issue
+                dependencies.set(feature: .serviceNetwork, to: serviceNetwork)
+            }
         }
     }
 }

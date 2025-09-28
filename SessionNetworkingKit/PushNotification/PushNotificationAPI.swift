@@ -8,21 +8,15 @@ import UserNotifications
 import SessionUtilitiesKit
 
 public extension Network.PushNotification {
-    static func preparedSubscribe(
+    static func subscribe(
         token: Data,
-        swarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)],
+        swarmAuthentication: [AuthenticationMethod],
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<SubscribeResponse> {
+    ) async throws -> SubscribeResponse {
         guard dependencies[defaults: .standard, key: .isUsingFullAPNs] else {
             throw NetworkError.invalidPreparedRequest
         }
-        guard !swarms.isEmpty else {
-            return try Network.PreparedRequest.cached(
-                SubscribeResponse(subResponses: []),
-                endpoint: Endpoint.subscribe,
-                using: dependencies
-            )
-        }
+        guard !swarmAuthentication.isEmpty else { return SubscribeResponse(subResponses: []) }
         
         guard let notificationsEncryptionKey: Data = try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
             forKey: .pushNotificationEncryptionKey,
@@ -35,114 +29,110 @@ public extension Network.PushNotification {
             throw KeychainStorageError.keySpecInvalid
         }
         
-        return try Network.PreparedRequest(
-            request: Request(
-                method: .post,
-                endpoint: Endpoint.subscribe,
-                body: SubscribeRequest(
-                    subscriptions: swarms.map { sessionId, authMethod -> SubscribeRequest.Subscription in
-                        SubscribeRequest.Subscription(
-                            namespaces: {
-                                switch sessionId.prefix {
-                                    case .group: return [
-                                        .groupMessages,
-                                        .configGroupKeys,
-                                        .configGroupInfo,
-                                        .configGroupMembers,
-                                        .revokedRetrievableGroupMessages
-                                    ]
-                                    default: return [
-                                        .default,
-                                        .configUserProfile,
-                                        .configContacts,
-                                        .configConvoInfoVolatile,
-                                        .configUserGroups
-                                    ]
-                                }
-                            }(),
-                            /// Note: Unfortunately we always need the message content because without the content
-                            /// control messages can't be distinguished from visible messages which results in the
-                            /// 'generic' notification being shown when receiving things like typing indicator updates
-                            includeMessageData: true,
-                            serviceInfo: ServiceInfo(
-                                token: token.toHexString()
-                            ),
-                            notificationsEncryptionKey: notificationsEncryptionKey,
-                            authMethod: authMethod,
-                            timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) // Seconds
-                        )
-                    }
-                )
-            ),
-            responseType: SubscribeResponse.self,
-            retryCount: Network.PushNotification.maxRetryCount,
-            using: dependencies
-        )
-        .handleEvents(
-            receiveOutput: { _, response in
-                zip(response.subResponses, swarms).forEach { subResponse, swarm in
-                    guard subResponse.success != true else { return }
-                    
-                    Log.error(.pushNotificationAPI, "Couldn't subscribe for push notifications for: \(swarm.sessionId) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
-                }
-            },
-            receiveCompletion: { result in
-                switch result {
-                    case .finished: break
-                    case .failure(let error): Log.error(.pushNotificationAPI, "Couldn't subscribe for push notifications due to error: \(error).")
-                }
-            }
-        )
-    }
-    
-    static func preparedUnsubscribe(
-        token: Data,
-        swarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)],
-        using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<UnsubscribeResponse> {
-        guard !swarms.isEmpty else {
-            return try Network.PreparedRequest.cached(
-                UnsubscribeResponse(subResponses: []),
-                endpoint: Endpoint.subscribe,
+        do {
+            let request: Network.PreparedRequest<SubscribeResponse> = try Network.PreparedRequest(
+                request: Request(
+                    method: .post,
+                    endpoint: Endpoint.subscribe,
+                    body: SubscribeRequest(
+                        subscriptions: swarmAuthentication.map { authMethod -> SubscribeRequest.Subscription in
+                            SubscribeRequest.Subscription(
+                                namespaces: {
+                                    switch try? SessionId.Prefix(from: try? authMethod.swarmPublicKey) {
+                                        case .group: return [
+                                            .groupMessages,
+                                            .configGroupKeys,
+                                            .configGroupInfo,
+                                            .configGroupMembers,
+                                            .revokedRetrievableGroupMessages
+                                        ]
+                                        default: return [
+                                            .default,
+                                            .configUserProfile,
+                                            .configContacts,
+                                            .configConvoInfoVolatile,
+                                            .configUserGroups
+                                        ]
+                                    }
+                                }(),
+                                /// Note: Unfortunately we always need the message content because without the content
+                                /// control messages can't be distinguished from visible messages which results in the
+                                /// 'generic' notification being shown when receiving things like typing indicator updates
+                                includeMessageData: true,
+                                serviceInfo: ServiceInfo(
+                                    token: token.toHexString()
+                                ),
+                                notificationsEncryptionKey: notificationsEncryptionKey,
+                                authMethod: authMethod,
+                                timestamp: (dependencies.networkOffsetTimestampMs() / 1000) // Seconds
+                            )
+                        }
+                    ),
+                    retryCount: Network.PushNotification.maxRetryCount
+                ),
+                responseType: SubscribeResponse.self,
                 using: dependencies
             )
-        }
-        
-        return try Network.PreparedRequest(
-            request: Request(
-                method: .post,
-                endpoint: Endpoint.unsubscribe,
-                body: UnsubscribeRequest(
-                    subscriptions: swarms.map { sessionId, authMethod -> UnsubscribeRequest.Subscription in
-                        UnsubscribeRequest.Subscription(
-                            serviceInfo: ServiceInfo(
-                                token: token.toHexString()
-                            ),
-                            authMethod: authMethod,
-                            timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000) // Seconds
-                        )
-                    }
-                )
-            ),
-            responseType: UnsubscribeResponse.self,
-            retryCount: Network.PushNotification.maxRetryCount,
-            using: dependencies
-        )
-        .handleEvents(
-            receiveOutput: { _, response in
-                zip(response.subResponses, swarms).forEach { subResponse, swarm in
-                    guard subResponse.success != true else { return }
-                    
-                    Log.error(.pushNotificationAPI, "Couldn't unsubscribe for push notifications for: \(swarm.sessionId) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
-                }
-            },
-            receiveCompletion: { result in
-                switch result {
-                    case .finished: break
-                    case .failure(let error): Log.error(.pushNotificationAPI, "Couldn't unsubscribe for push notifications due to error: \(error).")
-                }
+            let response: SubscribeResponse = try await request.send(using: dependencies)
+                        
+            zip(response.subResponses, swarmAuthentication).forEach { subResponse, authMethod in
+                guard subResponse.success != true else { return }
+                
+                let swarmPublicKey: String = ((try? authMethod.swarmPublicKey) ?? "INVALID")
+                Log.error(.pushNotificationAPI, "Couldn't subscribe for push notifications for: \(swarmPublicKey) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
             }
-        )
+                
+            return response
+        }
+        catch {
+            Log.error(.pushNotificationAPI, "Couldn't subscribe for push notifications due to error: \(error).")
+            throw error
+        }
+    }
+    
+    static func unsubscribe(
+        token: Data,
+        swarmAuthentication: [AuthenticationMethod],
+        using dependencies: Dependencies
+    ) async throws -> UnsubscribeResponse {
+        guard !swarmAuthentication.isEmpty else { return UnsubscribeResponse(subResponses: []) }
+                
+        do {
+            let request: Network.PreparedRequest<UnsubscribeResponse> = try Network.PreparedRequest(
+                request: Request(
+                    method: .post,
+                    endpoint: Endpoint.unsubscribe,
+                    body: UnsubscribeRequest(
+                        subscriptions: swarmAuthentication.map { authMethod -> UnsubscribeRequest.Subscription in
+                            UnsubscribeRequest.Subscription(
+                                serviceInfo: ServiceInfo(
+                                    token: token.toHexString()
+                                ),
+                                authMethod: authMethod,
+                                timestamp: (dependencies.networkOffsetTimestampMs() / 1000) // Seconds
+                            )
+                        }
+                    ),
+                    retryCount: Network.PushNotification.maxRetryCount
+                ),
+                responseType: UnsubscribeResponse.self,
+                using: dependencies
+            )
+            let response: UnsubscribeResponse = try await request.send(using: dependencies)
+            
+            zip(response.subResponses, swarmAuthentication).forEach { subResponse, authMethod in
+                guard subResponse.success != true else { return }
+                
+                let swarmPublicKey: String = ((try? authMethod.swarmPublicKey) ?? "INVALID")
+                Log.error(.pushNotificationAPI, "Couldn't unsubscribe for push notifications for: \(swarmPublicKey) due to error (\(subResponse.error ?? -1)): \(subResponse.message ?? "nil").")
+            }
+            
+            return response
+        }
+        catch {
+            Log.error(.pushNotificationAPI, "Couldn't unsubscribe for push notifications due to error: \(error).")
+            throw error
+        }
     }
     
     // MARK: - Notification Handling

@@ -7,26 +7,60 @@ import SessionUtilitiesKit
 public extension Network.PreparedRequest {
     func send(using dependencies: Dependencies) -> AnyPublisher<(ResponseInfoType, R), Error> {
         return dependencies[singleton: .network]
-            .send(body, to: destination, requestTimeout: requestTimeout, requestAndPathBuildTimeout: requestAndPathBuildTimeout)
+            .send(
+                endpoint: endpoint,
+                destination: destination,
+                body: body,
+                category: category,
+                requestTimeout: requestTimeout,
+                overallTimeout: overallTimeout
+            )
             .decoded(with: self, using: dependencies)
             .retry(retryCount, using: dependencies)
             .handleEvents(
-                receiveSubscription: { _ in self.subscriptionHandler?() },
                 receiveOutput: self.outputEventHandler,
-                receiveCompletion: self.completionEventHandler,
-                receiveCancel: self.cancelEventHandler
+                receiveCompletion: self.completionEventHandler
             )
             .eraseToAnyPublisher()
     }
-}
-
-public extension Optional {
-    func send<R>(using dependencies: Dependencies) -> AnyPublisher<(ResponseInfoType, R), Error> where Wrapped == Network.PreparedRequest<R> {
-        guard let instance: Wrapped = self else {
-            return Fail(error: NetworkError.invalidPreparedRequest)
-                .eraseToAnyPublisher()
+    
+    func send(using dependencies: Dependencies) async throws -> (info: ResponseInfoType, value: R) {
+        /// Need to calculate a `finalRetryCount` to ensure the request is sent at least once
+        var lastError: Error?
+        let finalRetryCount: Int = (retryCount < 0 ? 1 : retryCount + 1)
+        
+        for _ in 0..<finalRetryCount {
+            do {
+                let response: (info: ResponseInfoType, value: Data?) = try await dependencies[singleton: .network].send(
+                    endpoint: endpoint,
+                    destination: destination,
+                    body: body,
+                    category: category,
+                    requestTimeout: requestTimeout,
+                    overallTimeout: overallTimeout
+                )
+                let result: (originalData: Any, convertedData: R) = try self.decode(info: response.info, data: response.value, using: dependencies)
+                self.outputEventHandler?(CachedResponse(
+                    info: response.info,
+                    originalData: result.originalData,
+                    convertedData: result.convertedData
+                ))
+                self.completionEventHandler?(.finished)
+                
+                return (response.info, result.convertedData)
+            }
+            catch {
+                lastError = error
+                self.completionEventHandler?(.failure(error))
+            }
         }
         
-        return instance.send(using: dependencies)
+        throw lastError ?? NetworkError.invalidResponse
+    }
+}
+
+public extension Network.PreparedRequest {
+    func send(using dependencies: Dependencies) async throws -> R {
+        return try await send(using: dependencies).value
     }
 }

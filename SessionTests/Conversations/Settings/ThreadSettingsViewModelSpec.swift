@@ -7,6 +7,7 @@ import Nimble
 import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
+import TestUtilities
 
 @testable import SessionUIKit
 @testable import SessionMessagingKit
@@ -25,65 +26,18 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
         @TestState var communityId: String! = "testserver.testRoom"
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies[singleton: .scheduler] = .immediate
+            dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
         }
-        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+        @TestState var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
-            migrations: SNMessagingKit.migrations,
-            using: dependencies,
-            initialData: { db in
-                try Identity(
-                    variant: .x25519PublicKey,
-                    data: Data(hex: TestConstants.publicKey)
-                ).insert(db)
-                try Profile(id: userPubkey, name: "TestMe").insert(db)
-                try Profile(id: user2Pubkey, name: "TestUser").insert(db)
-            }
+            using: dependencies
         )
-        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
-            initialSetup: { cache in
-                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
-            }
-        )
-        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
-            initialSetup: { jobRunner in
-                jobRunner
-                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
-                    .thenReturn(nil)
-                jobRunner
-                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
-                    .thenReturn([:])
-            }
-        )
-        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
-            initialSetup: { $0.defaultInitialSetup() }
-        )
-        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
-            initialSetup: { crypto in
-                crypto
-                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
-                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
-            }
-        )
-        @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
-            initialSetup: { cache in
-                var timestampMs: Int64 = 1234567890000
-                
-                cache.when { $0.clockOffsetMs }.thenReturn(0)
-                cache
-                    .when { $0.currentOffsetTimestampMs() }
-                    .thenReturn { _, _ in
-                        /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
-                        /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
-                        /// being identical between different interactions
-                        timestampMs += 1
-                        return timestampMs
-                    }
-            }
-        )
+        @TestState var mockGeneralCache: MockGeneralCache! = .create(using: dependencies)
+        @TestState var mockJobRunner: MockJobRunner! = .create(using: dependencies)
+        @TestState var mockLibSessionCache: MockLibSessionCache! = .create(using: dependencies)
+        @TestState var mockCrypto: MockCrypto! = .create(using: dependencies)
+        @TestState var mockNetwork: MockNetwork! = .create(using: dependencies)
         @TestState var threadVariant: SessionThread.Variant! = .contact
         @TestState var didTriggerSearchCallbackTriggered: Bool! = false
         @TestState var viewModel: ThreadSettingsViewModel!
@@ -117,7 +71,65 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 )
                 .store(in: &disposables)
         }
-        
+
+        beforeEach {
+            try await mockGeneralCache.defaultInitialSetup()
+            dependencies.set(cache: .general, to: mockGeneralCache)
+            
+            try await mockLibSessionCache.defaultInitialSetup()
+            dependencies.set(cache: .libSession, to: mockLibSessionCache)
+            
+            try await mockStorage.perform(migrations: SNMessagingKit.migrations)
+            try await mockStorage.writeAsync { db in
+                try Identity(
+                    variant: .x25519PublicKey,
+                    data: Data(hex: TestConstants.publicKey)
+                ).insert(db)
+                try Profile(id: userPubkey, name: "TestMe").insert(db)
+                try Profile(id: user2Pubkey, name: "TestUser").insert(db)
+            }
+            dependencies.set(singleton: .storage, to: mockStorage)
+            
+            try await mockJobRunner
+                .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                .thenReturn(nil)
+            try await mockJobRunner
+                .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                .thenReturn([:])
+            dependencies.set(singleton: .jobRunner, to: mockJobRunner)
+            
+            try await mockCrypto
+                .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            dependencies.set(singleton: .crypto, to: mockCrypto)
+            
+            var networkOffset: Int64 = 0
+            try await mockNetwork.when { await $0.networkTimeOffsetMs }.thenReturn { _ in
+                /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
+                /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
+                /// being identical between different interactions
+                networkOffset += 1
+                return networkOffset
+            }
+            try await mockNetwork.when { $0.syncState }.thenReturn { _ in
+                /// **Note:** We need to increment this value every time it's accessed because otherwise any functions which
+                /// insert multiple `Interaction` values can end up running into unique constraint conflicts due to the timestamp
+                /// being identical between different interactions
+                networkOffset += 1
+                
+                return NetworkSyncState(
+                    hardfork: 2,
+                    softfork: 11,
+                    networkTimeOffsetMs: networkOffset,
+                    using: dependencies
+                )
+            }
+            dependencies.set(singleton: .network, to: mockNetwork)
+        }
+
         // MARK: - a ThreadSettingsViewModel
         describe("a ThreadSettingsViewModel") {
             beforeEach {
@@ -741,8 +753,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             onChange2?("TestNewGroupName", "")
                             await modal?.confirmationPressed()
                             
-                            await expect(mockJobRunner)
-                                .toEventually(call(matchingParameters: .all) {
+                            await mockJobRunner
+                                .verify {
                                     $0.add(
                                         .any,
                                         job: Job(
@@ -755,7 +767,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                                 message: try GroupUpdateInfoChangeMessage(
                                                     changeType: .name,
                                                     updatedName: "TestNewGroupName",
-                                                    sentTimestampMs: UInt64(1234567890002),
+                                                    sentTimestampMs: UInt64(1234567890001),
                                                     authMethod: Authentication.groupAdmin(
                                                         groupSessionId: SessionId(.group, hex: groupPubkey),
                                                         ed25519SecretKey: [1, 2, 3]
@@ -768,36 +780,39 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                         dependantJob: nil,
                                         canStartJob: false
                                     )
-                                })
+                                }
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
                         }
                         
                         // MARK: -------- triggers a libSession change
                         it("triggers a libSession change") {
-                            mockLibSessionCache
+                            try await mockLibSessionCache
                                 .when { $0.isAdmin(groupSessionId: .any) }
                                 .thenReturn(true)
                             
                             onChange2?("Test", "TestNewGroupDescription")
                             await modal?.confirmationPressed()
                             
-                            await expect(mockLibSessionCache)
-                                .toEventually(call(matchingParameters: .all) {
+                            await mockLibSessionCache
+                                .verify {
                                     try $0.performAndPushChange(
                                         .any,
                                         for: .userGroups,
                                         sessionId: SessionId(.standard, hex: userPubkey),
                                         change: { _ in }
                                     )
-                                })
-                            expect(mockLibSessionCache)
-                                .to(call(matchingParameters: .all) {
+                                }
+                                .wasCalled(exactly: 1, timeout: .milliseconds(100))
+                            await mockLibSessionCache
+                                .verify {
                                     try $0.performAndPushChange(
                                         .any,
                                         for: .groupInfo,
                                         sessionId: SessionId(.group, hex: groupPubkey),
                                         change: { _ in }
                                     )
-                                })
+                                }
+                                .wasCalled(exactly: 1)
                         }
                     }
                 }

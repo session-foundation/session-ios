@@ -36,12 +36,21 @@ public enum ConfigMessageReceiveJob: JobExecutor {
             guard let jobId: Int64 = job.id else { return }
             
             dependencies[singleton: .storage].write { db in
-                try JobDependencies
+                let dependantJobIds: Set<Int64> = try JobDependencies
+                    .select(.jobId)
                     .filter(JobDependencies.Columns.dependantId == jobId)
-                    .joining(
-                        required: JobDependencies.job
-                            .filter(Job.Columns.variant == Job.Variant.messageReceive)
-                    )
+                    .asRequest(of: Int64.self)
+                    .fetchSet(db)
+                let targetJobIds: Set<Int64> = try Job
+                    .select(.id)
+                    .filter(dependantJobIds.contains(Job.Columns.id))
+                    .filter(Job.Columns.variant == Job.Variant.messageReceive)
+                    .asRequest(of: Int64.self)
+                    .fetchSet(db)
+                
+                try JobDependencies
+                    .filter(targetJobIds.contains(JobDependencies.Columns.jobId))
+                    .filter(JobDependencies.Columns.dependantId == jobId)
                     .deleteAll(db)
             }
         }
@@ -92,13 +101,13 @@ extension ConfigMessageReceiveJob {
                 case data
             }
             
-            public let namespace: Network.SnodeAPI.Namespace
+            public let namespace: Network.StorageServer.Namespace
             public let serverHash: String
             public let serverTimestampMs: Int64
             public let data: Data
             
             public init(
-                namespace: Network.SnodeAPI.Namespace,
+                namespace: Network.StorageServer.Namespace,
                 serverHash: String,
                 serverTimestampMs: Int64,
                 data: Data

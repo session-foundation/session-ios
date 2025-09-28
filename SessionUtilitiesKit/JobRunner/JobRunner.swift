@@ -11,7 +11,7 @@ import GRDB
 public extension Singleton {
     static let jobRunner: SingletonConfig<JobRunnerType> = Dependencies.create(
         identifier: "jobRunner",
-        createInstance: { dependencies in JobRunner(using: dependencies) }
+        createInstance: { dependencies, _ in JobRunner(using: dependencies) }
     )
 }
 
@@ -61,10 +61,12 @@ public protocol JobRunnerType: AnyObject {
 // MARK: - JobRunnerType Convenience
 
 public extension JobRunnerType {
-    func allJobInfo() -> [Int64: JobRunner.JobInfo] { return jobInfoFor(jobs: nil, state: .any, variant: nil) }
+    func allJobInfo() -> [Int64: JobRunner.JobInfo] {
+        return jobInfoFor(jobs: nil, state: .anyState, variant: nil)
+    }
     
     func jobInfoFor(jobs: [Job]) -> [Int64: JobRunner.JobInfo] {
-        return jobInfoFor(jobs: jobs, state: .any, variant: nil)
+        return jobInfoFor(jobs: jobs, state: .anyState, variant: nil)
     }
 
     func jobInfoFor(jobs: [Job], state: JobRunner.JobState) -> [Int64: JobRunner.JobInfo] {
@@ -80,7 +82,7 @@ public extension JobRunnerType {
     }
 
     func jobInfoFor(variant: Job.Variant) -> [Int64: JobRunner.JobInfo] {
-        return jobInfoFor(jobs: nil, state: .any, variant: variant)
+        return jobInfoFor(jobs: nil, state: .anyState, variant: variant)
     }
     
     func isCurrentlyRunning(_ job: Job?) -> Bool {
@@ -91,7 +93,7 @@ public extension JobRunnerType {
     
     func hasJob<T: Encodable>(
         of variant: Job.Variant? = nil,
-        inState state: JobRunner.JobState = .any,
+        inState state: JobRunner.JobState = .anyState,
         with jobDetails: T
     ) -> Bool {
         guard
@@ -116,7 +118,7 @@ public extension JobRunnerType {
     }
     
     func afterJob(_ job: Job?) -> AnyPublisher<JobRunner.JobResult, Never> {
-        return afterJob(job, state: .any)
+        return afterJob(job, state: .anyState)
     }
 }
 
@@ -167,7 +169,7 @@ public final class JobRunner: JobRunnerType {
         public static let pending: JobState = JobState(rawValue: 1 << 0)
         public static let running: JobState = JobState(rawValue: 1 << 1)
         
-        public static let any: JobState = [ .pending, .running ]
+        public static let anyState: JobState = [ .pending, .running ]
     }
     
     public enum JobResult: Equatable {
@@ -904,6 +906,8 @@ public final class JobRunner: JobRunnerType {
     }
     
     public func scheduleRecurringJobsIfNeeded() {
+        guard dependencies[singleton: .appContext].isMainApp else { return }
+        
         let scheduleInfo: [ScheduleInfo] = registeredRecurringJobs
         let variants: Set<Job.Variant> = Set(scheduleInfo.map { $0.variant })
         let maybeExistingJobs: [Job]? = dependencies[singleton: .storage].read { db in
@@ -1703,7 +1707,12 @@ public final class JobQueue: Hashable {
             updates: { [dependencies] db -> [Job] in
                 /// Retrieve the dependant jobs first (the `JobDependecies` table has cascading deletion when the original `Job` is
                 /// removed so we need to retrieve these records before that happens)
-                let dependantJobs: [Job] = try job.dependantJobs.fetchAll(db)
+                let dependantJobIds: Set<Int64> = try JobDependencies
+                    .select(.jobId)
+                    .filter(JobDependencies.Columns.dependantId == job.id)
+                    .asRequest(of: Int64.self)
+                    .fetchSet(db)
+                let dependantJobs: [Job] = try Job.fetchAll(db, ids: dependantJobIds)
                 
                 switch job.behaviour {
                     case .runOnce, .runOnceNextLaunch, .runOnceAfterConfigSyncIgnoringPermanentFailure:
@@ -1822,15 +1831,19 @@ public final class JobQueue: Hashable {
         // Get the max failure count for the job (a value of '-1' means it will retry indefinitely)
         let maxFailureCount: Int = (executorMap[job.variant]?.maxFailureCount ?? 0)
         let nextRunTimestamp: TimeInterval = (dependencies.dateNow.timeIntervalSince1970 + JobRunner.getRetryInterval(for: job))
-        var dependantJobIds: [Int64] = []
+        var dependantJobIds: Set<Int64> = []
         var failureText: String = "failed due to error: \(error)"
         
         dependencies[singleton: .storage].write { db in
             /// Retrieve a list of dependant jobs so we can clear them from the queue
-            dependantJobIds = try job.dependantJobs
-                .select(.id)
+            
+            /// Retrieve the dependant jobs first (the `JobDependecies` table has cascading deletion when the original `Job` is
+            /// removed so we need to retrieve these records before that happens)
+            dependantJobIds = try JobDependencies
+                .select(.jobId)
+                .filter(JobDependencies.Columns.dependantId == job.id)
                 .asRequest(of: Int64.self)
-                .fetchAll(db)
+                .fetchSet(db)
 
             /// Delete/update the failed jobs and any dependencies
             let updatedFailureCount: UInt = (job.failureCount + 1)
@@ -1849,9 +1862,7 @@ public final class JobQueue: Hashable {
                 
                 // If the job permanently failed or we have performed all of our retry attempts
                 // then delete the job and all of it's dependant jobs (it'll probably never succeed)
-                _ = try job.dependantJobs
-                    .deleteAll(db)
-
+                _ = try Job.deleteAll(db, ids: dependantJobIds)
                 _ = try job.delete(db)
                 return
             }
@@ -1868,7 +1879,8 @@ public final class JobQueue: Hashable {
             // Update the failureCount and nextRunTimestamp on dependant jobs as well (update the
             // 'nextRunTimestamp' value to be 1ms later so when the queue gets regenerated they'll
             // come after the dependency)
-            try job.dependantJobs
+            try Job
+                .filter(ids: dependantJobIds)
                 .updateAll(
                     db,
                     Job.Columns.failureCount.set(to: updatedFailureCount),

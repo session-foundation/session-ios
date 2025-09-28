@@ -149,7 +149,13 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
         switch ObservationContext.observingDb {
             case .none: Log.error("[SessionThread] Could not process 'aroundInsert' due to missing observingDb.")
             case .some(let observingDb):
-                observingDb.dependencies.setAsync(.hasSavedThread, true)
+                /// Only set the `hasSavedThread` value if it's not the 'Note to Self' thread
+                if id != observingDb.dependencies[cache: .general].sessionId.hexString {
+                    observingDb.afterCommit { [dependencies = observingDb.dependencies] in
+                        dependencies.setAsync(.hasSavedThread, true)
+                    }
+                }
+                
                 observingDb.addConversationEvent(id: id, type: .created)
         }
     }
@@ -348,7 +354,7 @@ public extension SessionThread {
                     variant: variant,
                     creationDateTimestamp: (
                         values.creationDateTimestamp.valueOrNull ??
-                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+                        (dependencies.networkOffsetTimestampMs() / 1000)
                     ),
                     shouldBeVisible: LibSession.shouldBeVisible(priority: targetPriority),
                     mutedUntilTimestamp: nil,

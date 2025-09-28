@@ -159,18 +159,14 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         heightConstraint = set(.height, to: OpenGroupSuggestionGrid.cellHeight)
         widthAnchor.constraint(greaterThanOrEqualToConstant: OpenGroupSuggestionGrid.cellHeight).isActive = true
         
-        dependencies[cache: .openGroupManager].defaultRoomsPublisher
-            .subscribe(on: DispatchQueue.global(qos: .default))
-            .receive(on: DispatchQueue.main)
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished: break
-                        case .failure: self?.update()
-                    }
-                },
-                receiveValue: { [weak self] roomInfo in self?.data = roomInfo }
-            )
+        Task { @MainActor [weak self, manager = dependencies[singleton: .openGroupManager]] in
+            for await roomInfo in manager.defaultRooms {
+                guard !roomInfo.isEmpty else { continue }
+                
+                self?.data = roomInfo
+                self?.update()
+            }
+        }
     }
     
     // MARK: - Updating

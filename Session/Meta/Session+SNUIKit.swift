@@ -39,7 +39,7 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     func navBarSessionIcon() -> NavBarSessionIcon {
         switch (dependencies[feature: .serviceNetwork], dependencies[feature: .forceOffline]) {
             case (.mainnet, false): return NavBarSessionIcon()
-            case (.testnet, _), (.mainnet, true):
+            case (.testnet, _), (.devnet, _), (.mainnet, true):
                 return NavBarSessionIcon(
                     showDebugUI: true,
                     serviceNetworkTitle: dependencies[feature: .serviceNetwork].title,
