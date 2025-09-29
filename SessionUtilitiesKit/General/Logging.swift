@@ -224,49 +224,6 @@ public enum Log {
         return tempFilePath
     }
     
-    /// New method used to clean up generated log file. It removes whitespaces that is converted to %20
-    /// This path components somehow causes issues when sharing with google drive or dropbox.
-    /// Creates a copy of the file with the cleaned up name
-    static public func prepareFileForSharing(originalURL: URL) -> URL {
-        let fileManager = FileManager.default
-        
-        let url = originalURL
-        let originalFileName = url.deletingPathExtension().lastPathComponent
-        let fileExtension = url.pathExtension
-        
-        // Remove white spaces
-        let newBaseName = originalFileName.replacingOccurrences(of: " ", with: "_")
-        
-        let newFullName: String
-        if fileExtension.isEmpty {
-            newFullName = newBaseName
-        } else {
-            newFullName = "\(newBaseName).\(fileExtension)"
-        }
-        
-        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent(newFullName)
-        
-        do {
-            try fileManager.copyItem(at: originalURL, to: tempURL)
-            return tempURL
-        } catch {
-            return originalURL
-        }
-    }
-    
-    @discardableResult
-    static public func deleteItem(at itemURL: URL) -> Bool {
-        let fileManager = FileManager.default
-        
-        do {
-            try fileManager.removeItem(at: itemURL)
-            return true
-            
-        } catch { return false }
-    }
-
-
     public static func flush() {
         DDLog.flushLog()
     }

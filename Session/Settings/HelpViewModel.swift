@@ -224,25 +224,24 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             
             guard
                 let latestLogFilePath: String = await Log.logFilePath(using: dependencies),
-                let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
+                let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController,
+                let sanitizedLogFilePath = try? dependencies[singleton: .attachmentManager]
+                    .createTemporaryFileForOpening(filePath: latestLogFilePath) // Creates a copy of the log file with whitespaces on the filename removed
             else { return }
             
-            let filePath = URL(fileURLWithPath: latestLogFilePath)
-            
-            /// To not modify the existing files generated and modified via `Log.logFilePath`
-            /// only the file to be shared will be sanitized by removing whitespaces
-            let sanitizedFileURL = Log.prepareFileForSharing(originalURL: filePath)
-
             let showShareSheet: () -> () = {
                 let shareVC = UIActivityViewController(
                     activityItems: [
-                        sanitizedFileURL
+                        URL(fileURLWithPath: sanitizedLogFilePath)
                     ],
                     applicationActivities: nil
                 )
                 shareVC.completionWithItemsHandler = { _, success, _, _ in
-                    /// Deletes file copy of the log file
-                    Log.deleteItem(at: sanitizedFileURL)
+                    /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                    if sanitizedLogFilePath.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) {
+                        /// Deletes file copy of the log file
+                        try? dependencies[singleton: .fileManager].removeItem(atPath: sanitizedLogFilePath)
+                    }
                     
                     UIActivityViewController.notifyIfNeeded(success, using: dependencies)
                     onShareComplete?()
