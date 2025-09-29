@@ -2066,7 +2066,7 @@ public extension SessionThreadViewModel {
         
         /// **Note:** The `numColumnsBeforeProfiles` value **MUST** match the number of fields before
         /// the `contactProfile` entry below otherwise the query will fail to parse and might throw
-        let numColumnsBeforeProfiles: Int = 8
+        let numColumnsBeforeProfiles: Int = 9
         let request: SQLRequest<ViewModel> = """
             SELECT
                 100 AS \(Column.rank),
