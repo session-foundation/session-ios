@@ -218,5 +218,5 @@ private extension MentionSelectionView {
 // MARK: - Delegate
 
 protocol MentionSelectionViewDelegate: AnyObject {
-    func handleMentionSelected(_ mention: MentionInfo, from view: MentionSelectionView)
+    @MainActor func handleMentionSelected(_ mention: MentionInfo, from view: MentionSelectionView)
 }

@@ -92,11 +92,11 @@ public final class InputTextView: UITextView, UITextViewDelegate {
 
     // MARK: - Updating
     
-    public func textViewDidChange(_ textView: UITextView) {
+    @MainActor public func textViewDidChange(_ textView: UITextView) {
         handleTextChanged()
     }
     
-    private func handleTextChanged() {
+    @MainActor private func handleTextChanged() {
         defer { snDelegate?.inputTextViewDidChangeContent(self) }
         
         placeholderLabel.isHidden = !(text ?? "").isEmpty
@@ -118,7 +118,7 @@ public final class InputTextView: UITextView, UITextViewDelegate {
 // MARK: - InputTextViewDelegate
 
 public protocol InputTextViewDelegate: AnyObject {
-    func inputTextViewDidChangeSize(_ inputTextView: InputTextView)
-    func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
-    func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage)
+    @MainActor func inputTextViewDidChangeSize(_ inputTextView: InputTextView)
+    @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
+    @MainActor func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage)
 }

@@ -7,7 +7,7 @@ public class ExpandableLabel: UIView {
     private var layoutLoopCounter: Int = 0
     private var isExpanded: Bool = false
     private var toggleDebounceTimer: Timer?
-    public var onToggleExpansion: (() -> Void)?
+    public var onToggleExpansion: (@MainActor () -> Void)?
 
     public var font: UIFont {
         get { label.font }
@@ -164,7 +164,7 @@ public class ExpandableLabel: UIView {
     
     // MARK: - Interaction
     
-    private func toggleExpansion() {
+    @MainActor private func toggleExpansion() {
         isExpanded.toggle()
         buttonLabel.text = (isExpanded ? "viewLess".localized() : "viewMore".localized())
         label.numberOfLines = isExpanded ? 0 : (maxNumberOfLines - 1)
@@ -178,7 +178,7 @@ public class ExpandableLabel: UIView {
         
         toggleDebounceTimer?.invalidate()
         toggleDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { [weak self] _ in
-            self?.toggleExpansion()
+            Task { @MainActor [weak self] in self?.toggleExpansion() }
         }
     }
 }
