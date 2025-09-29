@@ -44,7 +44,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                     ),
                     expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
                     isAutoRenewing: true,
-                    originatingPlatform: .iOS
+                    originatingPlatform: .Android
                 ) :
                 SessionProPlanState.none
         )

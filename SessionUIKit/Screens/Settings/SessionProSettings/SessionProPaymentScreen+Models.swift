@@ -15,9 +15,12 @@ public extension SessionProPaymentScreenContent {
         )
         case renew
         case refund(
+            originatingPlatform: ClientPlatform,
+            requestedAt: Date?
+        )
+        case cancel(
             originatingPlatform: ClientPlatform
         )
-        case cancel
     }
     
     enum ClientPlatform: Equatable {

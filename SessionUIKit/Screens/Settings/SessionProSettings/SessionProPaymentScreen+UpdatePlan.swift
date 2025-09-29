@@ -119,20 +119,25 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                 alignment: .leading,
                 spacing: Values.mediumSpacing
             ) {
-                Text("updatePlan".localized())
-                    .font(.Headings.H7)
+                VStack(
+                    alignment: .leading,
+                    spacing: Values.verySmallSpacing
+                ) {
+                    Text("updatePlan".localized())
+                        .font(.Headings.H7)
+                        .foregroundColor(themeColor: .textPrimary)
+                    
+                    AttributedText(
+                        "proPlanSignUp"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .put(key: "platform_store", value: originatingPlatform.store)
+                            .put(key: "platform_account", value: originatingPlatform.account)
+                            .localizedFormatted(Fonts.Body.baseRegular)
+                    )
+                    .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
-                
-                Text(
-                    "proPlanSignUp"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "platform_store", value: originatingPlatform.store)
-                        .put(key: "platform_account", value: originatingPlatform.account)
-                        .localized()
-                )
-                .font(.Body.baseRegular)
-                .foregroundColor(themeColor: .textPrimary)
-                .multilineTextAlignment(.leading)
+                    .multilineTextAlignment(.leading)
+                }
                 
                 Text("updatePlanTwo".localized())
                     .font(.Body.baseRegular)

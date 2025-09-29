@@ -20,13 +20,14 @@ public enum SessionProPlanState {
     )
     case expired
     case refunding(
-        originatingPlatform: ClientPlatform
+        originatingPlatform: ClientPlatform,
+        requestedAt: Date?
     )
     
     public var originatingPlatform: ClientPlatform {
         return switch(self) {
             case .active(_, _, _, let originatingPlatform): originatingPlatform
-            case .refunding(let originatingPlatform): originatingPlatform
+            case .refunding(let originatingPlatform, _): originatingPlatform
             default: .iOS // FIXME: get the real originating platform
         }
     }

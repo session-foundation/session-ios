@@ -56,7 +56,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             switch self {
                 case .proStats: return "proStats".put(key: "pro", value: Constants.pro).localized()
                 case .proSettings: return "proSettings".put(key: "pro", value: Constants.pro).localized()
-                case .proFeatures: return "proFeatures".put(key: "pro", value: Constants.pro).localized()
+                case .proFeatures: return "proBetaFeatures".put(key: "pro", value: Constants.pro).localized()
                 case .proManagement: return "managePro".put(key: "pro", value: Constants.pro).localized()
                 case .help: return "sessionHelp".localized()
                 default: return nil
@@ -407,7 +407,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     variant: .cell(
                         info: .init(
                             title: .init("proFaq".put(key: "pro", value: Constants.pro).localized(), font: .Headings.H8),
-                            description: .init("proFaqDescription".put(key: "app_name", value: Constants.app_pro).localized(), font: .Body.smallRegular),
+                            description: .init("proFaqDescription".put(key: "app_pro", value: Constants.app_pro).localized(), font: .Body.smallRegular),
                             trailingAccessory: .icon(.squareArrowUpRight, size: .large, customTint: .primary)
                         )
                     ),
@@ -479,7 +479,14 @@ extension SessionProSettingsViewModel {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPaymentScreen(
                 dataModel: .init(
-                    flow: .cancel,
+                    flow: .cancel(
+                        originatingPlatform: {
+                            switch dependencies[singleton: .sessionProState].sessionProStateSubject.value.originatingPlatform {
+                                case .iOS: return .iOS
+                                case .Android: return .Android
+                            }
+                        }()
+                    ),
                     plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
                 )
             )
@@ -497,7 +504,8 @@ extension SessionProSettingsViewModel {
                                 case .iOS: return .iOS
                                 case .Android: return .Android
                             }
-                        }()
+                        }(),
+                        requestedAt: nil
                     ),
                     plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
                 )
@@ -629,14 +637,15 @@ extension SessionProPlanState {
                 )
             case .expired:
                 return .renew
-            case .refunding(let originatingPlatform):
+            case .refunding(let originatingPlatform, let requestedAt):
                 return .refund(
                     originatingPlatform: {
                         switch originatingPlatform {
                             case .iOS: return .iOS
                             case .Android: return .Android
                         }
-                    }()
+                    }(),
+                    requestedAt: requestedAt
                 )
         }
     }

@@ -65,11 +65,28 @@ public struct SessionProPaymentScreen: View {
                                 openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
                             )
                         }
-                    } else if case .refund(let originatingPlatform) = dataModel.flow {
+                    } else if case .refund(let originatingPlatform, let requestedAt) = dataModel.flow {
                         if originatingPlatform == .iOS {
-                            
+                            RequestRefundOriginatingPlatformContent(
+                                requestRefundAction: {}
+                            )
                         } else {
-                            
+                            RequestRefundNonOriginatingPlatformContent(
+                                originatingPlatform: originatingPlatform,
+                                requestedAt: requestedAt,
+                                openPlatformStoreWebsiteAction: {}
+                            )
+                        }
+                    } else if case .cancel(let originatingPlatform) = dataModel.flow {
+                        if originatingPlatform == .iOS {
+                            CancelPlanOriginatingPlatformContent(
+                                cancelPlanAction: {}
+                            )
+                        } else {
+                            CancelPlanNonOriginatingPlatformContent(
+                                originatingPlatform: originatingPlatform,
+                                openPlatformStoreWebsiteAction: {}
+                            )
                         }
                     }
                     
