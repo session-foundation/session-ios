@@ -243,7 +243,7 @@ public enum ThemeManager {
         switch value {
             case .value(let value, let alpha):
                 let color: T? = color(for: value, in: theme, with: primaryColor)
-                return color?.alpha(alpha)
+                return color?.alpha(alpha) as? T
                 
             case .primary: return T.resolve(primaryColor)
             case .explicitPrimary(let explicitPrimary): return T.resolve(explicitPrimary)
@@ -252,8 +252,8 @@ public enum ThemeManager {
                 let color: T? = color(for: value, in: theme, with: primaryColor)!
                 
                 switch (currentTheme.interfaceStyle, alwaysDarken) {
-                    case (.light, _), (_, true): return color?.brighten(-0.06)
-                    default: return color?.brighten(0.08)
+                    case (.light, _), (_, true): return color?.brighten(-0.06) as? T
+                    default: return color?.brighten(0.08) as? T
                 }
                 
             case .dynamicForInterfaceStyle(let light, let dark):
@@ -540,21 +540,28 @@ extension Array {
 // MARK: - ColorType
 
 internal protocol ColorType {
+    /// Apple have done some odd schenanigans with `UIColor` where some types aren't _actually_ `UIColor` but a special
+    /// type (eg. `UIColor.black` and `UIColor.white` are `UICachedDeviceWhiteColor`), due to this casting to
+    /// `Self` in an extension on `UIColor` ends up failing (because calling `alpha(_)` on a `UICachedDeviceWhiteColor`
+    /// expects you to return a `UICachedDeviceWhiteColor`, but the alpha-applied output is a standard `UIColor` which can't
+    /// convert to `Self`), by defining an explicit `BaseColorType` we return an explicit type and avoid weird private types
+    associatedtype BaseColorType
+    
     var isPrimary: Bool { get }
     
-    func alpha(_ alpha: Double) -> Self?
-    func brighten(_ amount: Double) -> Self?
+    func alpha(_ alpha: Double) -> BaseColorType?
+    func brighten(_ amount: Double) -> BaseColorType?
 }
 
 extension UIColor: ColorType {
     internal var isPrimary: Bool { self == UIColor.primary() }
     
-    internal func alpha(_ alpha: Double) -> Self? {
-        return self.withAlphaComponent(CGFloat(alpha)) as? Self
+    internal func alpha(_ alpha: Double) -> UIColor? {
+        return self.withAlphaComponent(CGFloat(alpha))
     }
     
-    internal func brighten(_ amount: Double) -> Self? {
-        return self.brighten(by: amount) as? Self
+    internal func brighten(_ amount: Double) -> UIColor? {
+        return self.brighten(by: amount)
     }
 }
 

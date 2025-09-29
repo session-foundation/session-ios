@@ -220,6 +220,7 @@ final class QuoteView: UIView {
         authorLabel.lineBreakMode = .byTruncatingTail
         authorLabel.isHidden = (authorLabel.text == nil)
         authorLabel.numberOfLines = 1
+        authorLabel.setCompressionResistance(.vertical, to: .required)
         
         let labelStackView = UIStackView(arrangedSubviews: [ authorLabel, bodyLabel ])
         labelStackView.axis = .vertical

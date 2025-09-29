@@ -13,8 +13,7 @@ final class ThemeMessagePreviewView: UIView {
     // MARK: - Components
     
     private lazy var incomingMessagePreview: UIView = {
-        let result: VisibleMessageCell = VisibleMessageCell()
-        result.translatesAutoresizingMaskIntoConstraints = true
+        let result: VisibleMessageCell = VisibleMessageCell(isPreview: true)
         result.update(
             with: MessageViewModel(
                 variant: .standardIncoming,
@@ -34,16 +33,11 @@ final class ThemeMessagePreviewView: UIView {
             using: dependencies
         )
         
-        // Remove built-in padding
-        result.authorLabelTopConstraint.constant = 0
-        result.contentViewLeadingConstraint1.constant = 0
-        
         return result
     }()
     
     private lazy var outgoingMessagePreview: UIView = {
-        let result: VisibleMessageCell = VisibleMessageCell()
-        result.translatesAutoresizingMaskIntoConstraints = true
+        let result: VisibleMessageCell = VisibleMessageCell(isPreview: true)
         result.update(
             with: MessageViewModel(
                 variant: .standardOutgoing,
@@ -57,10 +51,6 @@ final class ThemeMessagePreviewView: UIView {
             lastSearchText: nil,
             using: dependencies
         )
-        
-        // Remove built-in padding
-        result.authorLabelTopConstraint.constant = 0
-        result.contentViewTrailingConstraint1.constant = 0
         
         return result
     }()
@@ -91,8 +81,10 @@ final class ThemeMessagePreviewView: UIView {
     private func setupLayout() {
         incomingMessagePreview.pin(.top, to: .top, of: self)
         incomingMessagePreview.pin(.leading, to: .leading, of: self)
+        incomingMessagePreview.pin(.trailing, to: .trailing, of: self)
         
         outgoingMessagePreview.pin(.top, to: .bottom, of: incomingMessagePreview, withInset: Values.mediumSpacing)
+        outgoingMessagePreview.pin(.leading, to: .leading, of: self)
         outgoingMessagePreview.pin(.trailing, to: .trailing, of: self)
         outgoingMessagePreview.pin(.bottom, to: .bottom, of: self)
     }

@@ -365,7 +365,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             .backgroundPrimary,
             .backgroundPrimary
         ]
-        result.set(.height, to: 92)
         
         return result
     }()
