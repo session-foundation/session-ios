@@ -220,11 +220,13 @@ public class AttachmentPrepViewController: OWSViewController {
         if attachment.isVideo || attachment.isAudio {
             let playButtonSize: CGFloat = Values.scaleFromIPhone5(70)
             
+            let playButtonVerticalOffset = attachment.isAudio ? 0 : -AttachmentPrepViewController.verticalCenterOffset
+            
             NSLayoutConstraint.activate([
                 playButton.centerXAnchor.constraint(equalTo: contentContainerView.centerXAnchor),
                 playButton.centerYAnchor.constraint(
                     equalTo: contentContainerView.centerYAnchor,
-                    constant: -AttachmentPrepViewController.verticalCenterOffset
+                    constant: playButtonVerticalOffset
                 ),
                 playButton.widthAnchor.constraint(equalToConstant: playButtonSize),
                 playButton.heightAnchor.constraint(equalToConstant: playButtonSize),
