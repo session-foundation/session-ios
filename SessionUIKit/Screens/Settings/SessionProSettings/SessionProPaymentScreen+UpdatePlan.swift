@@ -87,7 +87,7 @@ struct UpdatePlanOriginatingPlatformContent: View {
     }
 }
 
-// MARK: - Non Originating Platform Content
+// MARK: - Update Plan Non Originating Platform Content
 
 struct UpdatePlanNonOriginatingPlatformContent: View {
     let currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo

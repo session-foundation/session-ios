@@ -13,6 +13,7 @@ public extension Constants {
     static let session_feedback_url = "https://getsession.org/feedback"
     
     // MARK: - Names
-    static let store_name = "App Store"
+    static let platform_store = "App Store"
     static let platform_name = "iOS"
+    static let platform_account = "Apple"
 }
