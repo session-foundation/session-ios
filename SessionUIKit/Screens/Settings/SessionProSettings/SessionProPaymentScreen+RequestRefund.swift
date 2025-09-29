@@ -18,7 +18,7 @@ struct RequestRefundOriginatingPlatformContent: View {
             
             VStack(
                 alignment: .leading,
-                spacing: 0
+                spacing: Values.verySmallSpacing
             ) {
                 Text(
                     "proRefunding"
@@ -38,8 +38,7 @@ struct RequestRefundOriginatingPlatformContent: View {
                 )
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)
-                .padding(.vertical, Values.smallSpacing)
-                .padding(.bottom, Values.smallSpacing)
+                .padding(.bottom, Values.mediumSmallSpacing)
                 
                 Text("important".localized())
                     .font(.Headings.H7)
@@ -52,7 +51,7 @@ struct RequestRefundOriginatingPlatformContent: View {
                 )
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)
-                .padding(.vertical, Values.smallSpacing)
+                .padding(.bottom, Values.smallSpacing)
             }
             .padding(Values.mediumSpacing)
             .background(

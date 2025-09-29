@@ -11,6 +11,7 @@ public extension Constants {
     static let session_pro_faq_url = "https://getsession.org/faq#pro"
     static let session_pro_support_url = "https://getsession.org/pro-form"
     static let session_feedback_url = "https://getsession.org/feedback"
+    static let app_store_refund_support = "https://support.apple.com/118224"
     
     // MARK: - Names
     static let platform_store = "App Store"
