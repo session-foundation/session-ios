@@ -122,9 +122,11 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
                     )
                 }()
         }
+
+        let sanitizedFileName = targetFilenameNoExtension.replacingWhitespacesWithUnderscores
         
         return URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
-            .appendingPathComponent(targetFilenameNoExtension)
+            .appendingPathComponent(sanitizedFileName)
             .appendingPathExtension(finalExtension)
             .path
     }
@@ -162,8 +164,8 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
         let fileExtension: String = originalUrl.pathExtension
         
         /// Removes white spaces on the filename and replaces it with _
-        let filenameNoExtension: String = fileName
-            .replacingOccurrences(of: " ", with: "_") // stringlint:ignore
+        let filenameNoExtension = fileName
+            .replacingWhitespacesWithUnderscores
         
         let tmpPath: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
             .appendingPathComponent(filenameNoExtension)
