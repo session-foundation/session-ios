@@ -93,6 +93,7 @@ final class InfoMessageCell: MessageCell {
         showExpandedReactions: Bool,
         shouldExpanded: Bool,
         lastSearchText: String?,
+        tableSize: CGSize,
         using dependencies: Dependencies
     ) {
         guard cellViewModel.variant.isInfoMessage else { return }

@@ -497,7 +497,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         }
     }
     
-    private func updateNavBarButtons(
+    @MainActor private func updateNavBarButtons(
         userProfile: Profile,
         serviceNetwork: ServiceNetwork,
         forceOffline: Bool

@@ -19,7 +19,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         didSet {
             Log.debug(.giphy, "ViewController viewMode: \(viewMode)")
 
-            updateContents()
+            Task { @MainActor [weak self] in self?.updateContents() }
         }
     }
 
@@ -221,7 +221,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
         return label
     }
 
-    private func updateContents() {
+    @MainActor private func updateContents() {
         guard let noResultsView = self.noResultsView else {
             Log.error(.giphy, "ViewController missing noResultsView")
             return

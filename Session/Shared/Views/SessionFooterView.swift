@@ -4,11 +4,6 @@ import UIKit
 import SessionUIKit
 
 class SessionFooterView: UITableViewHeaderFooterView {
-    private lazy var emptyHeightConstraint: NSLayoutConstraint = self.heightAnchor
-        .constraint(equalToConstant: (Values.verySmallSpacing * 2))
-    private lazy var filledHeightConstraint: NSLayoutConstraint = self.heightAnchor
-        .constraint(greaterThanOrEqualToConstant: Values.mediumSpacing)
-    
     // MARK: - UI
     
     private let stackView: UIStackView = {
@@ -53,7 +48,12 @@ class SessionFooterView: UITableViewHeaderFooterView {
     }
     
     private func setupLayout() {
-        stackView.pin(to: self)
+        stackView.pin(.top, to: .top, of: self)
+        stackView.pin(.leading, to: .leading, of: self)
+        stackView.pin(.trailing, to: .trailing, of: self)
+            .setting(priority: .defaultHigh)
+        stackView.pin(.bottom, to: .bottom, of: self)
+            .setting(priority: .defaultHigh)
     }
     
     // MARK: - Content
@@ -81,8 +81,6 @@ class SessionFooterView: UITableViewHeaderFooterView {
             bottom: (titleIsEmpty ? Values.verySmallSpacing : Values.mediumSpacing),
             right: edgePadding
         )
-        emptyHeightConstraint.isActive = titleIsEmpty
-        filledHeightConstraint.isActive = !titleIsEmpty
         
         self.layoutIfNeeded()
     }
