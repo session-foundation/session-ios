@@ -184,7 +184,8 @@ class AppearanceViewModel: SessionTableViewModel, NavigatableStateHolder, Observ
                             id: .primaryColorPreview,
                             leadingAccessory: .custom(
                                 info: ThemeMessagePreviewView.Info()
-                            )
+                            ),
+                            isEnabled: false
                         )
                     ]
                 ),

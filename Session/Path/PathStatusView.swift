@@ -115,10 +115,7 @@ final class PathStatusViewAccessory: UIView, SessionCell.Accessory.CustomView {
     
     /// We want the path status to have the same sizing as other list item icons so it needs to be wrapped in
     /// this contains view
-    public static let size: SessionCell.Accessory.Size = .fixed(
-        width: IconSize.medium.size,
-        height: IconSize.medium.size
-    )
+    public static let size: SessionCell.Accessory.Size = .minWidth(height: IconSize.medium.size)
     
     static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> PathStatusViewAccessory {
         return PathStatusViewAccessory(using: dependencies)

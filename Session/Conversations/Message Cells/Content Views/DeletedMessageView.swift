@@ -41,6 +41,12 @@ final class DeletedMessageView: UIView {
         imageView.set(.width, to: DeletedMessageView.iconSize)
         imageView.set(.height, to: DeletedMessageView.iconSize)
         
+        let imageViewContainer: UIView = UIView()
+        imageViewContainer.addSubview(imageView)
+        imageView.center(.vertical, in: imageViewContainer)
+        imageView.pin(.leading, to: .leading, of: imageViewContainer)
+        imageView.pin(.trailing, to: .trailing, of: imageViewContainer)
+        
         // Body label
         let titleLabel = UILabel()
         titleLabel.setContentHuggingPriority(.required, for: .vertical)
@@ -57,26 +63,26 @@ final class DeletedMessageView: UIView {
         titleLabel.alpha = Values.highOpacity
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.numberOfLines = 2
+        titleLabel.setContentHugging(.vertical, to: .required)
+        titleLabel.setCompressionResistance(.vertical, to: .required)
         
         // Stack view
         let stackView = UIStackView(arrangedSubviews: [
-            imageView,
+            imageViewContainer,
             titleLabel
         ])
         stackView.axis = .horizontal
-        stackView.alignment = .center
+        stackView.alignment = .fill
         stackView.spacing = Values.smallSpacing
         stackView.isLayoutMarginsRelativeArrangement = true
         stackView.layoutMargins = UIEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 6)
         addSubview(stackView)
         
-        let calculatedSize: CGSize = stackView.systemLayoutSizeFitting(CGSize(width: maxWidth, height: 999))
-        
         stackView.pin(.top, to: .top, of: self, withInset: Self.verticalInset)
         stackView.pin(.leading, to: .leading, of: self, withInset: Self.horizontalInset)
         stackView.pin(.trailing, to: .trailing, of: self, withInset: -Self.horizontalInset)
         stackView.pin(.bottom, to: .bottom, of: self, withInset: -Self.verticalInset)
-        
-        stackView.set(.height, greaterThanOrEqualTo: calculatedSize.height)
+        stackView.setContentHugging(.vertical, to: .required)
+        stackView.setCompressionResistance(.vertical, to: .required)
     }
 }
