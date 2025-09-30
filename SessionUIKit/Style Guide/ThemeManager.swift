@@ -221,7 +221,7 @@ public enum ThemeManager {
         SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
     }
     
-    public static func onThemeChange(observer: AnyObject, callback: @escaping @MainActor (Theme, Theme.PrimaryColor, (ThemeValue) -> UIColor?) -> ()) {
+    @MainActor public static func onThemeChange(observer: AnyObject, callback: @escaping @MainActor (Theme, Theme.PrimaryColor, (ThemeValue) -> UIColor?) -> ()) {
         ThemeManager.uiRegistry.setObject(
             ThemeApplier(
                 existingApplier: ThemeManager.get(for: observer),
@@ -311,7 +311,7 @@ public enum ThemeManager {
         }
     }
     
-    internal static func set<T: AnyObject>(
+    @MainActor internal static func set<T: AnyObject>(
         _ view: T,
         keyPath: ReferenceWritableKeyPath<T, UIColor?>,
         to value: ThemeValue?
@@ -347,7 +347,7 @@ public enum ThemeManager {
         ThemeManager.uiRegistry.setObject(updatedApplier, forKey: view)
     }
     
-    internal static func set<T: AnyObject>(
+    @MainActor internal static func set<T: AnyObject>(
         _ view: T,
         keyPath: ReferenceWritableKeyPath<T, CGColor?>,
         to value: ThemeValue?
@@ -381,7 +381,7 @@ public enum ThemeManager {
         )
     }
     
-    internal static func set<T: AttributedTextAssignable>(
+    @MainActor internal static func set<T: AttributedTextAssignable>(
         _ view: T,
         keyPath: ReferenceWritableKeyPath<T, ThemedAttributedString?>,
         to value: ThemedAttributedString?
@@ -460,7 +460,7 @@ internal class ThemeApplier {
     private let info: [AnyHashable]
     private var otherAppliers: [ThemeApplier]?
     
-    init(
+    @MainActor init(
         existingApplier: ThemeApplier?,
         info: [AnyHashable],
         applyTheme: @escaping @MainActor (Theme) -> ()
@@ -478,9 +478,7 @@ internal class ThemeApplier {
         
         // Automatically apply the theme immediately (if the database has been setup)
         if SNUIKit.config?.isStorageValid == true || ThemeManager.hasLoadedTheme {
-            Task { @MainActor [weak self] in
-                self?.apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
-            }
+            apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
         }
     }
     
