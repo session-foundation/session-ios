@@ -693,14 +693,16 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             ),
             dataManager: dependencies[singleton: .imageDataManager],
             onProBageTapped: { [weak self, dependencies] in
-                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                    .animatedProfileImage(
-                        isSessionProActivated: dependencies[cache: .libSession].isSessionPro
-                    ),
-                    presenting: { modal in
-                        self?.transitionToScreen(modal, transitionType: .present)
-                    }
-                )
+                Task { @MainActor in
+                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                        .animatedProfileImage(
+                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                        ),
+                        presenting: { modal in
+                            self?.transitionToScreen(modal, transitionType: .present)
+                        }
+                    )
+                }
             },
             onClick: { [weak self] onDisplayPictureSelected in
                 self?.onDisplayPictureSelected = { valueUpdate in
@@ -743,14 +745,16 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     dependencies[cache: .libSession].isSessionPro ||
                                     !dependencies[feature: .sessionProEnabled]
                                 ) else {
-                                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                                        .animatedProfileImage(
-                                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro
-                                        ),
-                                        presenting: { modal in
-                                            self?.transitionToScreen(modal, transitionType: .present)
-                                        }
-                                    )
+                                    Task { @MainActor in
+                                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                            .animatedProfileImage(
+                                                isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                                            ),
+                                            presenting: { modal in
+                                                self?.transitionToScreen(modal, transitionType: .present)
+                                            }
+                                        )
+                                    }
                                     return
                                 }
                             
