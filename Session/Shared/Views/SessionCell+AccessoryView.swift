@@ -21,7 +21,9 @@ extension SessionCell {
         
         private lazy var minWidthConstraint: NSLayoutConstraint = self.widthAnchor
             .constraint(greaterThanOrEqualToConstant: AccessoryView.minWidth)
-        private lazy var fixedWidthConstraint: NSLayoutConstraint = self.set(.width, to: AccessoryView.minWidth)
+        private lazy var fixedWidthConstraint: NSLayoutConstraint = self
+            .set(.width, to: AccessoryView.minWidth)
+            .setting(priority: .defaultHigh)
         
         // MARK: - Content
         
@@ -302,17 +304,27 @@ extension SessionCell {
             imageView.set(.width, to: iconSize.size)
             imageView.set(.height, to: iconSize.size)
             imageView.pin(.top, to: .top, of: self)
-            imageView.pin(.bottom, to: .bottom, of: self)
+            imageView.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
 
-            let shouldInvertPadding: [UIView.HorizontalEdge] = [.left, .trailing]
+            let edgeSet: Set<UIView.HorizontalEdge> = Set(edges)
+            let hasLeadingPin = (edgeSet.contains(.leading) || edgeSet.contains(.left))
+            let hasTrailingPin = (edgeSet.contains(.trailing) || edgeSet.contains(.right))
    
-            for edge in edges {
-                let inset: CGFloat = (
-                    (shouldFill ? 0 : Values.smallSpacing) *
-                    (shouldInvertPadding.contains(edge) ? -1 : 1)
-                )
+            /// If we want to pin to both edges then we should actually center instead (otherwise this will cause constraint violations)
+            if hasLeadingPin && hasTrailingPin {
+                imageView.center(.horizontal, in: self)
+            }
+            else {
+                let shouldInvertPadding: [UIView.HorizontalEdge] = [.right, .trailing]
                 
-                imageView.pin(edge, to: edge, of: self, withInset: inset)
+                for edge in edges {
+                    let inset: CGFloat = (
+                        (shouldFill ? 0 : Values.smallSpacing) *
+                        (shouldInvertPadding.contains(edge) ? -1 : 1)
+                    )
+                    
+                    imageView.pin(edge, to: edge, of: self, withInset: inset)
+                }
             }
             
             fixedWidthConstraint.isActive = (iconSize.size <= fixedWidthConstraint.constant)
@@ -483,6 +495,7 @@ extension SessionCell {
             radioBorderView.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
             radioBorderView.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
             radioBorderView.pin(.bottom, to: .bottom, of: self)
+                .setting(priority: .defaultHigh)
         }
         
         private func configureRadioView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.Radio, isEnabled: Bool) {
@@ -670,7 +683,11 @@ extension SessionCell {
         private func layoutDisplayPictureView(_ view: UIView?, size: ProfilePictureView.Size) {
             guard let profilePictureView: ProfilePictureView = view as? ProfilePictureView else { return }
             
-            profilePictureView.pin(to: self)
+            profilePictureView.size = size
+            profilePictureView.pin(.top, to: .top, of: self)
+            profilePictureView.pin(.leading, to: .leading, of: self)
+            profilePictureView.pin(.trailing, to: .trailing, of: self)
+            profilePictureView.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
             fixedWidthConstraint.constant = size.viewSize
             fixedWidthConstraint.isActive = true
         }
@@ -682,12 +699,9 @@ extension SessionCell {
         ) {
             guard let profilePictureView: ProfilePictureView = view as? ProfilePictureView else { return }
             
-            // Note: We MUST set the 'size' property before triggering the 'update'
-            // function or the profile picture won't layout correctly
             profilePictureView.accessibilityIdentifier = accessory.accessibility?.identifier
             profilePictureView.accessibilityLabel = accessory.accessibility?.label
             profilePictureView.isAccessibilityElement = (accessory.accessibility != nil)
-            profilePictureView.size = accessory.size
             profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
             profilePictureView.update(
                 publicKey: accessory.id,
@@ -743,7 +757,10 @@ extension SessionCell {
         private func layoutButtonView(_ view: UIView?) {
             guard let button: SessionButton = view as? SessionButton else { return }
             
-            button.pin(to: self)
+            button.pin(.top, to: .top, of: self)
+            button.pin(.leading, to: .leading, of: self)
+            button.pin(.trailing, to: .trailing, of: self)
+            button.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
             minWidthConstraint.isActive = true
         }
         
@@ -769,6 +786,11 @@ extension SessionCell {
                     view.set(.height, to: height)
                     fixedWidthConstraint.isActive = (width <= fixedWidthConstraint.constant)
                     minWidthConstraint.isActive = !fixedWidthConstraint.isActive
+                
+                case .minWidth(let height):
+                    view.set(.width, to: .width, of: self)
+                    view.set(.height, to: height)
+                    fixedWidthConstraint.isActive = true
                     
                 case .fillWidth(let height):
                     view.set(.width, to: .width, of: self)
@@ -782,7 +804,10 @@ extension SessionCell {
                     minWidthConstraint.isActive = true
             }
             
-            view.pin(to: self)
+            view.pin(.top, to: .top, of: self)
+            view.pin(.leading, to: .leading, of: self)
+            view.pin(.trailing, to: .trailing, of: self)
+            view.pin(.bottom, to: .bottom, of: self)
         }
         
         private func configureCustomView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.AnyCustom) {

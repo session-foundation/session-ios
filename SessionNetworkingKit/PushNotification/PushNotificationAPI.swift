@@ -16,6 +16,13 @@ public extension Network.PushNotification {
         guard dependencies[defaults: .standard, key: .isUsingFullAPNs] else {
             throw NetworkError.invalidPreparedRequest
         }
+        guard !swarms.isEmpty else {
+            return try Network.PreparedRequest.cached(
+                SubscribeResponse(subResponses: []),
+                endpoint: Endpoint.subscribe,
+                using: dependencies
+            )
+        }
         
         guard let notificationsEncryptionKey: Data = try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
             forKey: .pushNotificationEncryptionKey,
@@ -93,6 +100,14 @@ public extension Network.PushNotification {
         swarms: [(sessionId: SessionId, authMethod: AuthenticationMethod)],
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<UnsubscribeResponse> {
+        guard !swarms.isEmpty else {
+            return try Network.PreparedRequest.cached(
+                UnsubscribeResponse(subResponses: []),
+                endpoint: Endpoint.subscribe,
+                using: dependencies
+            )
+        }
+        
         return try Network.PreparedRequest(
             request: Request(
                 method: .post,

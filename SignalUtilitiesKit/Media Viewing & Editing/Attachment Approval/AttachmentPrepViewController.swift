@@ -9,9 +9,8 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 protocol AttachmentPrepViewControllerDelegate: AnyObject {
-    func prepViewControllerUpdateNavigationBar()
-
-    func prepViewControllerUpdateControls()
+    @MainActor func prepViewControllerUpdateNavigationBar()
+    @MainActor func prepViewControllerUpdateControls()
 }
 
 // MARK: -

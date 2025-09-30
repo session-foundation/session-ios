@@ -32,6 +32,10 @@ public extension Network.PushNotification {
         
         public let subResponses: [SubResponse]
         
+        public init(subResponses: [SubResponse]) {
+            self.subResponses = subResponses
+        }
+        
         public init(from decoder: Decoder) throws {
             guard
                 let container: SingleValueDecodingContainer = try? decoder.singleValueContainer(),

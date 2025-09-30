@@ -367,7 +367,7 @@ public protocol SessionProManagerType: AnyObject {
     var isSessionProSubject: CurrentValueSubject<Bool, Never> { get }
     var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
     func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
-    @discardableResult func showSessionProCTAIfNeeded(
+    @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
         beforePresented: (() -> Void)?,
@@ -378,7 +378,7 @@ public protocol SessionProManagerType: AnyObject {
 
 // MARK: - Convenience
 public extension SessionProManagerType {
-    @discardableResult func showSessionProCTAIfNeeded(
+    @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
@@ -393,7 +393,7 @@ public extension SessionProManagerType {
         )
     }
     
-    @discardableResult func showSessionProCTAIfNeeded(
+    @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
