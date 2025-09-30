@@ -813,6 +813,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 let size = getSize(for: cellViewModel, tableSize: tableSize)
                 albumView.set(.width, to: size.width)
                 albumView.set(.height, to: size.height)
+                albumView.isAccessibilityElement = true
                 albumView.accessibilityLabel = "contentDescriptionMediaMessage".localized()
                 snContentView.addArrangedSubview(albumView)
             
