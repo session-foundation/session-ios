@@ -928,7 +928,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
             
             if #unavailable(iOS 16.0), (networkEnvironmentChanged || routerChanged) {
                 message.append(ThemedAttributedString(
-                    string: "\n\nThe app will need to restart for these changes to take effect.",
+                    string: "\n\nThe app will need to be restarted for these changes to take effect.",
                     attributes: [
                         .paragraphStyle: style,
                         .themeForegroundColor: ThemeValue.danger
@@ -943,7 +943,7 @@ class DeveloperSettingsNetworkViewModel: SessionTableViewModel, NavigatableState
                         body: .attributedText(message, scrollMode: .never),
                         confirmTitle: {
                             if #unavailable(iOS 16.0) {
-                                return "Restart"
+                                return "Close App"
                             }
                             
                             return "confirm".localized()

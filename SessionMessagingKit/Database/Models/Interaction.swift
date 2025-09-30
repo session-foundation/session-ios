@@ -573,8 +573,8 @@ public extension Interaction {
             JOIN \(SessionThread.self) ON (
                 \(thread[.id]) = \(interaction[.threadId]) AND
                 -- Ignore message request threads (these should be counted by the PN extension but
-                -- seeing the "Message Requests" banner is considered marking the "Unread Message
-                -- Request" notification as read)
+                -- seeing the 'Message Requests' banner is considered marking the 'Unread Message
+                -- Request' notification as read)
                 \(thread[.id]) NOT IN \(messageRequestThreadIds) AND (
                     -- Ignore muted threads
                     \(thread[.mutedUntilTimestamp]) IS NULL OR
