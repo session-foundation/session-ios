@@ -13,8 +13,8 @@ final class ThemeMessagePreviewView: UIView {
     // MARK: - Components
     
     private lazy var incomingMessagePreview: UIView = {
-        let result: VisibleMessageCell = VisibleMessageCell(isPreview: true)
-        result.update(
+        let cell: VisibleMessageCell = VisibleMessageCell()
+        cell.update(
             with: MessageViewModel(
                 variant: .standardIncoming,
                 body: "appearancePreview2".localized(),
@@ -30,15 +30,17 @@ final class ThemeMessagePreviewView: UIView {
             showExpandedReactions: false,
             shouldExpanded: false,
             lastSearchText: nil,
+            tableSize: UIScreen.main.bounds.size,
             using: dependencies
         )
+        cell.contentHStack.removeFromSuperview()
         
-        return result
+        return cell.contentHStack
     }()
     
     private lazy var outgoingMessagePreview: UIView = {
-        let result: VisibleMessageCell = VisibleMessageCell(isPreview: true)
-        result.update(
+        let cell: VisibleMessageCell = VisibleMessageCell()
+        cell.update(
             with: MessageViewModel(
                 variant: .standardOutgoing,
                 body: "appearancePreview3".localized(),
@@ -49,10 +51,12 @@ final class ThemeMessagePreviewView: UIView {
             showExpandedReactions: false,
             shouldExpanded: false,
             lastSearchText: nil,
+            tableSize: UIScreen.main.bounds.size,
             using: dependencies
         )
+        cell.contentHStack.removeFromSuperview()
         
-        return result
+        return cell.contentHStack
     }()
     
     // MARK: - Initializtion

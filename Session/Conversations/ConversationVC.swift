@@ -1719,6 +1719,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     shouldExpanded: viewModel.messageExpandedInteractionIds
                         .contains(cellViewModel.id),
                     lastSearchText: viewModel.lastSearchedText,
+                    tableSize: tableView.bounds.size,
                     using: viewModel.dependencies
                 )
                 cell.delegate = self

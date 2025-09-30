@@ -9,7 +9,6 @@ import SessionMessagingKit
 final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private static let maxNumberOfLinesAfterTruncation: Int = 25
     
-    private var isPreview: Bool = false
     private var isHandlingLongPress: Bool = false
     private var previousX: CGFloat = 0
     
@@ -41,6 +40,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     }()
     
     // MARK: - UI Components
+    
+    private lazy var contentHStackTopConstraint: NSLayoutConstraint =
+        contentHStack.pin(.top, to: .top, of: contentView)
     
     private lazy var viewsToMoveForReply: [UIView] = [
         snContentView,
@@ -78,7 +80,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         dataManager: nil
     )
     
-    lazy var contentHStack: UIStackView = {
+    public lazy var contentHStack: UIStackView = {
         let result: UIStackView = UIStackView(
             arrangedSubviews: [leadingSpacer, profilePictureViewContainer, mainVStack, trailingSpacer]
         )
@@ -267,30 +269,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     enum Direction { case incoming, outgoing }
 
-    // MARK: - Initialization
-    
-    @MainActor init(isPreview: Bool) {
-        self.isPreview = isPreview
-        
-        super.init(style: .default, reuseIdentifier: nil)
-        
-        /// When a `UITableViewCell` is added as a subview instead of rendered as a cell directly within a `UITableView` the
-        /// `contentView` doesn't have constraints (because the table manages those) so we need to manually add them
-        contentView.pin(to: self)
-    }
-    
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-    }
-    
-    @MainActor required init?(coder: NSCoder) {
-        super.init(coder: coder)
-    }
-    
     // MARK: - Lifecycle
     
     override func setUpViewHierarchy() {
         super.setUpViewHierarchy()
+        
         contentView.addSubview(contentHStack)
         contentView.addSubview(replyButton)
         
@@ -299,18 +282,18 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         replyButton.addSubview(replyIconImageView)
         
-        contentHStack.pin(.top, to: .top, of: contentView)
+        contentHStackTopConstraint.isActive = true
         contentHStack.pin(
             .leading,
             to: .leading,
             of: contentView,
-            withInset: (isPreview ? 0 : VisibleMessageCell.contactThreadHSpacing)
+            withInset: VisibleMessageCell.contactThreadHSpacing
         )
         contentHStack.pin(
             .trailing,
             to: .trailing,
             of: contentView,
-            withInset: (isPreview ? 0 : -VisibleMessageCell.contactThreadHSpacing)
+            withInset: -VisibleMessageCell.contactThreadHSpacing
         )
         contentHStack
             .pin(.bottom, to: .bottom, of: contentView, withInset: -Values.verySmallSpacing)
@@ -341,6 +324,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         showExpandedReactions: Bool,
         shouldExpanded: Bool,
         lastSearchText: String?,
+        tableSize: CGSize,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
@@ -355,12 +339,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 cellViewModel.isOnlyMessageInCluster
             )
         )
-        contentHStack.layoutMargins = UIEdgeInsets(
-            top: (shouldAddTopInset ? Values.mediumSpacing : 0),
-            left: 0,
-            bottom: 0,
-            right: 0
-        )
+        contentHStackTopConstraint.constant = (shouldAddTopInset ? Values.mediumSpacing : 0)
         
         // Author label
         authorLabel.isHidden = (cellViewModel.senderName == nil)
@@ -404,6 +383,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             playbackInfo: playbackInfo,
             shouldExpanded: shouldExpanded,
             lastSearchText: lastSearchText,
+            tableSize: tableSize,
             using: dependencies
         )
         
@@ -432,6 +412,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             for: cellViewModel,
             maxWidth: VisibleMessageCell.getMaxWidth(
                 for: cellViewModel,
+                cellWidth: tableSize.width,
                 includingOppositeGutter: false
             ),
             showExpandedReactions: showExpandedReactions
@@ -506,6 +487,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         shouldExpanded: Bool,
         lastSearchText: String?,
+        tableSize: CGSize,
         using dependencies: Dependencies
     ) {
         let bodyLabelTextColor: ThemeValue = (cellViewModel.variant.isOutgoing ?
@@ -540,7 +522,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             let deletedMessageView: DeletedMessageView = DeletedMessageView(
                 textColor: bodyLabelTextColor,
                 variant: cellViewModel.variant,
-                maxWidth: (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+                maxWidth: (
+                    VisibleMessageCell.getMaxWidth(
+                        for: cellViewModel,
+                        cellWidth: tableSize.width
+                    ) - 2 * inset
+                )
             )
             bubbleView.addSubview(deletedMessageView)
             deletedMessageView.pin(to: bubbleView)
@@ -553,7 +540,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // FIXME: We should support rendering link previews alongside the other variants (bigger refactor)
         guard cellViewModel.cellType != .textOnlyMessage else {
             let inset: CGFloat = 12
-            let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+            let maxWidth: CGFloat = (
+                VisibleMessageCell.getMaxWidth(
+                    for: cellViewModel,
+                    cellWidth: tableSize.width
+                ) - 2 * inset)
             
             if let linkPreview: LinkPreview = cellViewModel.linkPreview {
                 switch linkPreview.variant {
@@ -678,7 +669,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         /// Add any quote & body if present
         let inset: CGFloat = 12
-        let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+        let maxWidth: CGFloat = (
+            VisibleMessageCell.getMaxWidth(
+                for: cellViewModel,
+                cellWidth: tableSize.width
+            ) - 2 * inset
+        )
         
         switch (cellViewModel.quote, cellViewModel.body) {
             /// Both quote and body
@@ -801,7 +797,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
             case .mediaMessage:
                 // Album view
-                let maxMessageWidth: CGFloat = VisibleMessageCell.getMaxWidth(for: cellViewModel)
+                let maxMessageWidth: CGFloat = VisibleMessageCell.getMaxWidth(
+                    for: cellViewModel,
+                    cellWidth: tableSize.width
+                )
                 let albumView = MediaAlbumView(
                     items: (cellViewModel.attachments?
                         .filter { $0.isVisualMedia })
@@ -811,7 +810,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     using: dependencies
                 )
                 self.albumView = albumView
-                let size = getSize(for: cellViewModel)
+                let size = getSize(for: cellViewModel, tableSize: tableSize)
                 albumView.set(.width, to: size.width)
                 albumView.set(.height, to: size.height)
                 albumView.accessibilityLabel = "contentDescriptionMediaMessage".localized()
@@ -1201,12 +1200,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return CGFloat(maxNumberOfLinesAfterTruncation) * UIFont.systemFont(ofSize: getFontSize(for: cellViewModel)).lineHeight
     }
 
-    private func getSize(for cellViewModel: MessageViewModel) -> CGSize {
+    private func getSize(for cellViewModel: MessageViewModel, tableSize: CGSize) -> CGSize {
         guard let mediaAttachments: [Attachment] = cellViewModel.attachments?.filter({ $0.isVisualMedia }) else {
             preconditionFailure()
         }
         
-        let maxMessageWidth = VisibleMessageCell.getMaxWidth(for: cellViewModel)
+        let maxMessageWidth = VisibleMessageCell.getMaxWidth(
+            for: cellViewModel,
+            cellWidth: tableSize.width
+        )
         let defaultSize = MediaAlbumView.layoutSize(forMaxMessageWidth: maxMessageWidth, items: mediaAttachments)
         
         guard
@@ -1246,27 +1248,29 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return CGSize(width: finalWidth, height: finalHeight)
     }
 
-    static func getMaxWidth(for cellViewModel: MessageViewModel, includingOppositeGutter: Bool = true) -> CGFloat {
-        let screen: CGRect = UIScreen.main.bounds
-        let width: CGFloat = UIDevice.current.isIPad ? screen.width * 0.75 : screen.width
+    static func getMaxWidth(
+        for cellViewModel: MessageViewModel,
+        cellWidth: CGFloat,
+        includingOppositeGutter: Bool = true
+    ) -> CGFloat {
+        let horizontalPadding: CGFloat = (contactThreadHSpacing * 2)
+        let isGroupThread: Bool = (
+            cellViewModel.threadVariant == .community ||
+            cellViewModel.threadVariant == .legacyGroup ||
+            cellViewModel.threadVariant == .group
+        )
+        let profileSpace: CGFloat = {
+            guard
+                cellViewModel.variant.isIncoming,
+                isGroupThread,
+                cellViewModel.canHaveProfile
+            else { return 0 }
+            
+            return ProfilePictureView.Size.message.viewSize + groupThreadHSpacing
+        }()
         let oppositeEdgePadding: CGFloat = (includingOppositeGutter ? gutterSize : contactThreadHSpacing)
         
-        switch cellViewModel.variant {
-            case .standardOutgoing, .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
-                return (width - contactThreadHSpacing - oppositeEdgePadding)
-                
-            case .standardIncoming, .standardIncomingDeleted, .standardIncomingDeletedLocally:
-                let isGroupThread = (
-                    cellViewModel.threadVariant == .community ||
-                    cellViewModel.threadVariant == .legacyGroup ||
-                    cellViewModel.threadVariant == .group
-                )
-                let leftEdgeGutterSize = (isGroupThread ? leftGutterSize : contactThreadHSpacing)
-                
-                return (width - leftEdgeGutterSize - oppositeEdgePadding)
-                
-            default: preconditionFailure()
-        }
+        return (cellWidth - horizontalPadding - profileSpace - oppositeEdgePadding)
     }
     
     // stringlint:ignore_contents
