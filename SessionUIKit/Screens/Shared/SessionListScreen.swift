@@ -75,13 +75,13 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                                 .foregroundColor(themeColor: .backgroundSecondary)
                                         )
                                     
-                                if (section.model.divider && !isLastElement) {
-                                    Divider()
-                                        .foregroundColor(themeColor: .borderSeparator)
-                                        .padding(.horizontal, Values.mediumSpacing)
-                                }
-                                case .logoWithPro:
-                                    ListItemLogoWithPro()
+                                    if (section.model.divider && !isLastElement) {
+                                        Divider()
+                                            .foregroundColor(themeColor: .borderSeparator)
+                                            .padding(.horizontal, Values.mediumSpacing)
+                                    }
+                                case .logoWithPro(let style):
+                                    ListItemLogoWithPro(style: style)
                                 case .dataMatrix(let info):
                                     ListItemDataMatrix(info: info)
                                         .background(

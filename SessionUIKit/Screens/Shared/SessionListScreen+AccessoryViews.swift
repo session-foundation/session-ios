@@ -116,15 +116,15 @@ public extension SessionListScreenContent {
             _ image: UIImage?,
             iconSize: IconSize = .medium,
             customTint: ThemeValue? = nil,
-            gradientBackgroundColors: [Color] = [],
+            gradientBackgroundColors: [ThemeValue] = [],
             backgroundSize: IconSize = .veryLarge,
             backgroundCornerRadius: CGFloat = 0,
             accessibility: Accessibility? = nil
         ) -> ListItemAccessory {
             return ListItemAccessory {
                 ZStack {
-                    LinearGradient(
-                        colors: gradientBackgroundColors,
+                    ThemeLinearGradient(
+                        themeColors: gradientBackgroundColors,
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )

@@ -60,7 +60,7 @@ public extension SessionListScreenContent {
     struct ListItemInfo<ID: Hashable & Differentiable>: Equatable, Hashable, Differentiable {
         public enum Variant: Equatable, Hashable, Differentiable {
             case cell(info: CellInfo)
-            case logoWithPro
+            case logoWithPro(style: ListItemLogoWithPro.ThemeStyle)
             case dataMatrix(info: [[DataMatrixInfo]])
         }
         

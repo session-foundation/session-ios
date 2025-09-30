@@ -89,8 +89,8 @@ struct ListItemCell: View {
     }
 }
 
-struct ListItemLogoWithPro: View {
-    enum ThemeStyle {
+public struct ListItemLogoWithPro: View {
+    public enum ThemeStyle {
         case normal
         case disabled
         
@@ -115,7 +115,7 @@ struct ListItemLogoWithPro: View {
         self.style = style
     }
     
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 0) {
             ZStack {
                 Ellipse()

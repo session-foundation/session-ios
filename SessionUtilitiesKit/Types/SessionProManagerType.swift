@@ -10,7 +10,7 @@ public protocol SessionProManagerType: AnyObject {
     func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
 }
 
-public enum SessionProPlanState {
+public enum SessionProPlanState: Equatable, Sendable {
     case none
     case active(
         currentPlan: SessionProPlan,
@@ -33,8 +33,8 @@ public enum SessionProPlanState {
     }
 }
 
-public struct SessionProPlan: Equatable {
-    public enum Variant {
+public struct SessionProPlan: Equatable, Sendable {
+    public enum Variant: Sendable {
         case oneMonth, threeMonths, twelveMonths
         
         public static var allCases: [Variant] { [.twelveMonths, .threeMonths, .oneMonth] }
@@ -80,7 +80,29 @@ public struct SessionProPlan: Equatable {
     }
 }
 
-public enum ClientPlatform {
+public enum ClientPlatform: Sendable {
     case iOS
     case Android
+    
+    public var store: String {
+        switch self {
+            case .iOS: return "Apple App"
+            case .Android: return "Google Play"
+        }
+    }
+    
+    public var account: String {
+        switch self {
+            case .iOS: return "Apple Account"
+            case .Android: return "Google Account"
+        }
+    }
+    
+    public var deviceType: String {
+        switch self {
+            case .iOS: return "iOS"
+            case .Android: return "Android"
+        }
+    }
 }
+
