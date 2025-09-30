@@ -255,7 +255,6 @@
 		B8856D72256F1421001CE70E /* OWSWindowManager.h in Headers */ = {isa = PBXBuildFile; fileRef = C38EF2FB255B6DBD007E1867 /* OWSWindowManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B8856DE6256F15F2001CE70E /* String+SSK.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDB3F255A580C00E217F9 /* String+SSK.swift */; };
 		B8856E09256F1676001CE70E /* UIDevice+featureSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF237255B6D65007E1867 /* UIDevice+featureSupport.swift */; };
-		B886B4A92398BA1500211ABE /* QRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B886B4A82398BA1500211ABE /* QRCode.swift */; };
 		B88FA7F2260C3EB10049422F /* OpenGroupSuggestionGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88FA7F1260C3EB10049422F /* OpenGroupSuggestionGrid.swift */; };
 		B893063F2383961A005EAA8E /* ScanQRCodeWrapperVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B893063E2383961A005EAA8E /* ScanQRCodeWrapperVC.swift */; };
 		B894D0752339EDCF00B4D94D /* NukeDataModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = B894D0742339EDCF00B4D94D /* NukeDataModal.swift */; };
@@ -1645,7 +1644,6 @@
 		B879D448247E1BE300DB3608 /* PathVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathVC.swift; sourceTree = "<group>"; };
 		B879D44A247E1D9200DB3608 /* PathStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathStatusView.swift; sourceTree = "<group>"; };
 		B885D5F52334A32100EE0D8E /* UIView+Constraints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Constraints.swift"; sourceTree = "<group>"; };
-		B886B4A82398BA1500211ABE /* QRCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCode.swift; sourceTree = "<group>"; };
 		B88FA7B726045D100049422F /* SOGSAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSAPI.swift; sourceTree = "<group>"; };
 		B88FA7F1260C3EB10049422F /* OpenGroupSuggestionGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupSuggestionGrid.swift; sourceTree = "<group>"; };
 		B893063E2383961A005EAA8E /* ScanQRCodeWrapperVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanQRCodeWrapperVC.swift; sourceTree = "<group>"; };
