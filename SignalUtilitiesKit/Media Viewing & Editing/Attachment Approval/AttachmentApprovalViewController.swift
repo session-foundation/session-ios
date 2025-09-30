@@ -679,8 +679,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 // MARK: - AttachmentTextToolbarDelegate
 
 extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
-<<<<<<< HEAD
-    func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar) {
+    @MainActor func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar) {
         guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
             beforePresented: { [weak self] in
@@ -696,10 +695,7 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
         ) else {
             return
         }
-=======
-    @MainActor func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar) {
-        guard !showSessionProCTAIfNeeded() else { return }
->>>>>>> animated-profile-picture
+        
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
