@@ -152,6 +152,6 @@ final class ExpandingReactionButton: UIView {
             rightMargin += margin
         }
         
-        set(.width, to: rightMargin - margin + size)
+        set(.width, to: rightMargin - margin + size).setting(priority: .defaultHigh)
     }
 }
