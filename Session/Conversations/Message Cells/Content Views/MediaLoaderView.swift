@@ -5,9 +5,12 @@ import SessionUIKit
 
 final class MediaLoaderView: UIView {
     private let bar = UIView()
+    private var cachedWidth: CGFloat = 0
     
     private lazy var barLeftConstraint = bar.pin(.left, to: .left, of: self)
-    private lazy var barRightConstraint = bar.pin(.right, to: .right, of: self)
+    private lazy var barRightConstraint = bar
+        .pin(.right, to: .right, of: self)
+        .setting(priority: .defaultHigh)
     
     // MARK: - Lifecycle
     
@@ -30,14 +33,22 @@ final class MediaLoaderView: UIView {
         barLeftConstraint.isActive = true
         bar.pin(.top, to: .top, of: self)
         barRightConstraint.isActive = true
-        bar.pin(.bottom, to: .bottom, of: self)
+        bar.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
         step1()
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        
+        if cachedWidth != bounds.width {
+            cachedWidth = bounds.width
+        }
     }
     
     // MARK: - Animation
     
     func step1() {
-        barRightConstraint.constant = -bounds.width
+        barRightConstraint.constant = -cachedWidth
         UIView.animate(withDuration: 0.5, animations: { [weak self] in
             guard let self = self else { return }
             self.barRightConstraint.constant = 0
@@ -51,7 +62,7 @@ final class MediaLoaderView: UIView {
         barLeftConstraint.constant = 0
         UIView.animate(withDuration: 0.5, animations: { [weak self] in
             guard let self = self else { return }
-            self.barLeftConstraint.constant = self.bounds.width
+            self.barLeftConstraint.constant = cachedWidth
             self.layoutIfNeeded()
         }, completion: { [weak self] _ in
             Timer.scheduledTimer(withTimeInterval: 0.25, repeats: false) { _ in
@@ -75,7 +86,7 @@ final class MediaLoaderView: UIView {
         barRightConstraint.constant = 0
         UIView.animate(withDuration: 0.5, animations: { [weak self] in
             guard let self = self else { return }
-            self.barRightConstraint.constant = -self.bounds.width
+            self.barRightConstraint.constant = -cachedWidth
             self.layoutIfNeeded()
         }, completion: { [weak self] _ in
             Timer.scheduledTimer(withTimeInterval: 0.25, repeats: false) { _ in

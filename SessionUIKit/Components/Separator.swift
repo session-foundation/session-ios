@@ -73,6 +73,8 @@ public final class Separator: UIView {
         titleLabel.pin(.trailing, to: .trailing, of: roundedLine, withInset: -10)
         titleLabel.pin(.bottom, to: .bottom, of: roundedLine, withInset: -6)
         
+        roundedLine.pin(.top, to: .top, of: self)
+        roundedLine.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
         roundedLine.center(.horizontal, in: self)
         roundedLine.center(.vertical, in: self)
         roundedLine.setContentHugging(.horizontal, to: .required)
