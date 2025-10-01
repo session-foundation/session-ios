@@ -509,7 +509,7 @@ struct MessageInfoScreen: View {
             proCTAVariant = (proFeatures.count > 1 ? .generic : .longerMessages)
         }
         
-        if ImageDataManager.isAnimatedImage(profileInfo?.source?.imageData) {
+        if ImageDataManager.isAnimatedImage(profileInfo?.source) {
             proFeatures.append("proAnimatedDisplayPictureFeature".localized())
             proCTAVariant = (proFeatures.count > 1 ? .generic : .animatedProfileImage(isSessionProActivated: false))
         }

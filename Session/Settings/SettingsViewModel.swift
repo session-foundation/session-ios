@@ -777,7 +777,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             case .image(.some(let source), _, _, _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
                             
-                                let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(imageData)
+                                let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
                                 guard (
                                     !isAnimatedImage ||
                                     dependencies[cache: .libSession].isSessionPro ||
