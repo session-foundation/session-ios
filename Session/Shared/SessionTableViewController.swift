@@ -558,7 +558,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         guard info.isEnabled else { return }
         
         // Get the view that was tapped (for presenting on iPad)
-        let tappedView: UIView? = {
+        let tappedView: UIView? = { () -> UIView? in
             guard let cell: SessionCell = tableView.cellForRow(at: indexPath) as? SessionCell else {
                 return nil
             }
@@ -566,6 +566,15 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             // Retrieve the last touch location from the cell
             let touchLocation: UITouch? = cell.lastTouchLocation
             cell.lastTouchLocation = nil
+            
+            if
+                info.title?.trailingImage != nil,
+                let localPoint: CGPoint = touchLocation?.location(in: cell.titleLabel),
+                cell.titleLabel.bounds.contains(localPoint),
+                cell.titleLabel.isPointOnTrailingAttachment(localPoint) == true
+            {
+                return SessionProBadge(size: .large)
+            }
             
             switch (info.leadingAccessory, info.trailingAccessory) {
                 case (_, is SessionCell.AccessoryConfig.HighlightingBackgroundLabel):
@@ -582,7 +591,10 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     
                     return cell.trailingAccessoryView.touchedView(touchLocation)
                     
-                case (is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _):
+                case
+                    (is SessionCell.AccessoryConfig.HighlightingBackgroundLabelAndRadio, _),
+                    (is SessionCell.AccessoryConfig.DisplayPicture, _),
+                    (is SessionCell.AccessoryConfig.QRCode, _):
                     guard
                         let touchLocation: UITouch = touchLocation,
                         !cell.leadingAccessoryView.isHidden

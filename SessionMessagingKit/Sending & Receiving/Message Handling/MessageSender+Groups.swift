@@ -38,7 +38,7 @@ extension MessageSender {
                 }
                 
                 return dependencies[singleton: .displayPictureManager]
-                    .prepareAndUploadDisplayPicture(imageData: displayPictureData)
+                    .prepareAndUploadDisplayPicture(imageData: displayPictureData, compression: true)
                     .mapError { error -> Error in error }
                     .map { Optional($0) }
                     .eraseToAnyPublisher()

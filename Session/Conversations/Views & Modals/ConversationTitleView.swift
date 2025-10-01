@@ -27,14 +27,18 @@ final class ConversationTitleView: UIView {
     private lazy var stackViewLeadingConstraint: NSLayoutConstraint = stackView.pin(.leading, to: .leading, of: self)
     private lazy var stackViewTrailingConstraint: NSLayoutConstraint = stackView.pin(.trailing, to: .trailing, of: self)
     
-    private lazy var titleLabel: UILabel = {
-        let result: UILabel = UILabel()
+    private lazy var titleLabel: SessionLabelWithProBadge = {
+        let result: SessionLabelWithProBadge = SessionLabelWithProBadge(
+            proBadgeSize: .medium,
+            withStretchingSpacer: false
+        )
         result.accessibilityIdentifier = "Conversation header name"
         result.accessibilityLabel = "Conversation header name"
         result.isAccessibilityElement = true
-        result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
+        result.font = Fonts.Headings.H5
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
+        result.isProBadgeHidden = true
         
         return result
     }()
@@ -48,6 +52,7 @@ final class ConversationTitleView: UIView {
         let result = UIStackView(arrangedSubviews: [ titleLabel, labelCarouselView ])
         result.axis = .vertical
         result.alignment = .center
+        result.spacing = 2
         
         return result
     }()
@@ -80,12 +85,14 @@ final class ConversationTitleView: UIView {
     public func initialSetup(
         with threadVariant: SessionThread.Variant,
         isNoteToSelf: Bool,
-        isMessageRequest: Bool
+        isMessageRequest: Bool,
+        isSessionPro: Bool
     ) {
         self.update(
             with: " ",
             isNoteToSelf: isNoteToSelf,
             isMessageRequest: isMessageRequest,
+            isSessionPro: isSessionPro,
             threadVariant: threadVariant,
             mutedUntilTimestamp: nil,
             onlyNotifyForMentions: false,
@@ -113,6 +120,7 @@ final class ConversationTitleView: UIView {
         with name: String,
         isNoteToSelf: Bool,
         isMessageRequest: Bool,
+        isSessionPro: Bool,
         threadVariant: SessionThread.Variant,
         mutedUntilTimestamp: TimeInterval?,
         onlyNotifyForMentions: Bool,
@@ -130,12 +138,8 @@ final class ConversationTitleView: UIView {
         
         self.titleLabel.text = name
         self.titleLabel.accessibilityLabel = name
-        self.titleLabel.font = .boldSystemFont(
-            ofSize: (shouldHaveSubtitle ?
-                Values.largeFontSize :
-                Values.veryLargeFontSize
-            )
-        )
+        self.titleLabel.font = (shouldHaveSubtitle ? Fonts.Headings.H6 : Fonts.Headings.H5)
+        self.titleLabel.isProBadgeHidden = !isSessionPro
         self.labelCarouselView.isHidden = !shouldHaveSubtitle
         
         // Contact threads also have the call button to compensate for

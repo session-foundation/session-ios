@@ -87,8 +87,6 @@ final class QuoteView: UIView {
         let mainStackView = UIStackView(arrangedSubviews: [])
         mainStackView.axis = .horizontal
         mainStackView.spacing = smallSpacing
-        mainStackView.isLayoutMarginsRelativeArrangement = true
-        mainStackView.layoutMargins = UIEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: smallSpacing)
         mainStackView.alignment = .center
         mainStackView.setCompressionResistance(.vertical, to: .required)
         
@@ -160,13 +158,13 @@ final class QuoteView: UIView {
         bodyLabel.lineBreakMode = .byTruncatingTail
         bodyLabel.numberOfLines = 2
         
-        let targetThemeColor: ThemeValue = {
+        let (targetThemeColor, proBadgeThemeColor): (ThemeValue, ThemeValue) = {
             switch mode {
                 case .regular: return (direction == .outgoing ?
-                    .messageBubble_outgoingText :
-                    .messageBubble_incomingText
+                    (.messageBubble_outgoingText, .white) :
+                    (.messageBubble_incomingText, .primary)
                 )
-                case .draft: return .textPrimary
+                case .draft: return (.textPrimary, .primary)
             }
         }()
         bodyLabel.font = .systemFont(ofSize: Values.smallFontSize)
@@ -198,7 +196,10 @@ final class QuoteView: UIView {
             .defaulting(to: ThemedAttributedString(string: "messageErrorOriginal".localized(), attributes: [ .themeForegroundColor: targetThemeColor ]))
         
         // Label stack view
-        let authorLabel = UILabel()
+        let authorLabel = SessionLabelWithProBadge(
+            proBadgeSize: .mini,
+            proBadgeThemeBackgroundColor: proBadgeThemeColor
+        )
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
         authorLabel.text = {
             guard !currentUserSessionIds.contains(authorId) else { return "you".localized() }
@@ -219,8 +220,9 @@ final class QuoteView: UIView {
         }()
         authorLabel.themeTextColor = targetThemeColor
         authorLabel.lineBreakMode = .byTruncatingTail
-        authorLabel.isHidden = (authorLabel.text == nil)
         authorLabel.numberOfLines = 1
+        authorLabel.isHidden = (authorLabel.text == nil)
+        authorLabel.isProBadgeHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: authorId) }
         authorLabel.setCompressionResistance(.vertical, to: .required)
         
         let labelStackView = UIStackView(arrangedSubviews: [ authorLabel, bodyLabel ])

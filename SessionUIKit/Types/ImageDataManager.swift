@@ -605,7 +605,7 @@ public extension ImageDataManager {
             }
         }
         
-        fileprivate func createImageSource(options: [CFString: Any]? = nil) -> CGImageSource? {
+        public func createImageSource(options: [CFString: Any]? = nil) -> CGImageSource? {
             let finalOptions: CFDictionary = (
                 options ??
                 [
@@ -718,8 +718,8 @@ public extension ImageDataManager {
 // MARK: - ImageDataManager.isAnimatedImage
 
 public extension ImageDataManager {
-    static func isAnimatedImage(_ imageData: Data?) -> Bool {
-        guard let data: Data = imageData, let imageSource = CGImageSourceCreateWithData(data as CFData, nil) else {
+    static func isAnimatedImage(_ dataSource: DataSource?) -> Bool {
+        guard let dataSource: DataSource = dataSource, let imageSource = dataSource.createImageSource() else {
             return false
         }
         let frameCount = CGImageSourceGetCount(imageSource)

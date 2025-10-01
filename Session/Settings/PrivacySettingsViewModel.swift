@@ -505,9 +505,11 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "callsVoiceAndVideoBeta".localized(),
-                    body: .text("callsVoiceAndVideoModalDescription"
-                        .put(key: "session_foundation", value: Constants.session_foundation)
-                        .localized()),
+                    body: .text(
+                        "callsVoiceAndVideoModalDescription"
+                            .put(key: "session_foundation", value: Constants.session_foundation)
+                            .localized()
+                    ),
                     showCondition: .disabled,
                     confirmTitle: "theContinue".localized(),
                     confirmStyle: .danger,
