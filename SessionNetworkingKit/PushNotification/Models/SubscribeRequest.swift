@@ -115,12 +115,11 @@ public extension Network.PushNotification {
         // MARK: - Coding
         
         public func encode(to encoder: Encoder) throws {
-            guard subscriptions.count > 1 else {
-                try subscriptions[0].encode(to: encoder)
-                return
+            switch subscriptions.count {
+                case 0: return
+                case 1: try subscriptions[0].encode(to: encoder)
+                default: try subscriptions.encode(to: encoder)
             }
-            
-            try subscriptions.encode(to: encoder)
         }
     }
 }

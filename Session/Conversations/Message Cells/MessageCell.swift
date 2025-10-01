@@ -89,6 +89,7 @@ public class MessageCell: UITableViewCell {
         showExpandedReactions: Bool,
         shouldExpanded: Bool,
         lastSearchText: String?,
+        tableSize: CGSize,
         using dependencies: Dependencies
     ) {
         preconditionFailure("Must be overridden by subclasses.")

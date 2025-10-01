@@ -326,6 +326,7 @@ public final class ProfilePictureView: UIView {
         
         widthConstraint = self.set(.width, to: self.size.viewSize)
         heightConstraint = self.set(.height, to: self.size.viewSize)
+            .setting(priority: .defaultHigh)
         
         imageViewTopConstraint = imageContainerView.pin(.top, to: .top, of: self)
         imageViewLeadingConstraint = imageContainerView.pin(.leading, to: .leading, of: self)

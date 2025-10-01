@@ -10,9 +10,9 @@ import Combine
 let kMaxMessageBodyCharacterCount = 2000
 
 protocol AttachmentTextToolbarDelegate: AnyObject {
-    func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar)
-    func attachmentTextToolbarDidChange(_ attachmentTextToolbar: AttachmentTextToolbar)
-    func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar)
+    @MainActor func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar)
+    @MainActor func attachmentTextToolbarDidChange(_ attachmentTextToolbar: AttachmentTextToolbar)
+    @MainActor func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar)
 }
 
 // MARK: -
@@ -204,17 +204,15 @@ extension AttachmentTextToolbar: InputViewButtonDelegate {
 }
 
 extension AttachmentTextToolbar: InputTextViewDelegate {
-    func inputTextViewDidChangeSize(_ inputTextView: InputTextView) {
+    @MainActor func inputTextViewDidChangeSize(_ inputTextView: InputTextView) {
         invalidateIntrinsicContentSize()
         self.bottomStackView?.alignment = (inputTextView.contentSize.height > inputTextView.minHeight) ? .top : .center
     }
     
-    func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
+    @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
         updateNumberOfCharactersLeft(text ?? "")
         delegate?.attachmentTextToolbarDidChange(self)
     }
     
-    func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage) {
-        
-    }
+    @MainActor func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage) {}
 }
