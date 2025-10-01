@@ -99,7 +99,7 @@ public final class ProfilePictureView: UIView {
         
         func iconVerticalInset(for size: Size) -> CGFloat {
             switch (self, size) {
-                case (.crown, .navigation), (.crown, .message): return 1
+                case (.crown, .navigation), (.crown, .message): return 2
                 case (.crown, .list): return 3
                 case (.crown, .hero): return 5
                     

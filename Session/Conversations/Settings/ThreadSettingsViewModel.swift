@@ -144,7 +144,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     image: Lucide.image(icon: .pencil, size: 22)?
                         .withRenderingMode(.alwaysTemplate),
                     style: .plain,
-                    accessibilityIdentifier: "Edit Nick Name",
+                    accessibilityIdentifier: "Edit Nickname",
                     action: { [weak self] in
                         guard
                             let info: ConfirmationModal.Info = self?.updateDisplayNameModal(

@@ -19,7 +19,7 @@ struct MessageInfoScreen: View {
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
     let threadCanWrite: Bool
-    let onStartThread: (() -> Void)?
+    let onStartThread: (@MainActor () -> Void)?
     let dependencies: Dependencies
     let isMessageFailed: Bool
     let isCurrentUser: Bool
@@ -31,7 +31,7 @@ struct MessageInfoScreen: View {
         actions: [ContextMenuVC.Action],
         messageViewModel: MessageViewModel,
         threadCanWrite: Bool,
-        onStartThread: (() -> Void)?,
+        onStartThread: (@MainActor () -> Void)?,
         using dependencies: Dependencies
     ) {
         self.actions = actions
