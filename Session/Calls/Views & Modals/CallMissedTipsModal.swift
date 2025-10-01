@@ -104,7 +104,6 @@ final class CallMissedTipsModal: Modal {
 
     override func populateContentView() {
         cancelButton.setTitle("sessionSettings".localized(), for: .normal)
-        cancelButton.accessibilityIdentifier = "Modal button"
         
         contentView.addSubview(mainStackView)
         tipsIconContainerView.addSubview(tipsIconImageView)
