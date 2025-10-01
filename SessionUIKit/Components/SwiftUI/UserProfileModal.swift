@@ -229,15 +229,15 @@ public struct UserProfileModal: View {
                                 Text("message".localized())
                                     .font(.Body.baseBold)
                                     .foregroundColor(themeColor: .sessionButton_text)
+                                    .framing(
+                                        maxWidth: .infinity,
+                                        height: Values.smallButtonHeight
+                                    )
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(themeColor: .sessionButton_border)
+                                    )
                             }
-                            .framing(
-                                maxWidth: .infinity,
-                                height: Values.smallButtonHeight
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(themeColor: .sessionButton_border)
-                            )
                             .buttonStyle(PlainButtonStyle())
                             
                             Button {
@@ -246,24 +246,25 @@ public struct UserProfileModal: View {
                                 Text(isSessionIdCopied ? "copied".localized() : "copy".localized())
                                     .font(.Body.baseBold)
                                     .foregroundColor(themeColor: .sessionButton_text)
+                                    .framing(
+                                        maxWidth: .infinity,
+                                        height: Values.smallButtonHeight
+                                    )
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(themeColor: .sessionButton_border)
+                                    )
                             }
                             .disabled(isSessionIdCopied)
-                            .framing(
-                                maxWidth: .infinity,
-                                height: Values.smallButtonHeight
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(themeColor: .sessionButton_border)
-                            )
                             .buttonStyle(PlainButtonStyle())
                         }
                         .padding(.bottom, 12)
                     } else {
                         if !info.isMessageRequestsEnabled, let displayName: String = info.displayName {
-                            AttributedText("messageRequestsTurnedOff"
-                                .put(key: "name", value: displayName)
-                                .localizedFormatted(Fonts.Body.smallRegular)
+                            AttributedText(
+                                "messageRequestsTurnedOff"
+                                    .put(key: "name", value: displayName)
+                                    .localizedFormatted(Fonts.Body.smallRegular)
                             )
                             .font(.Body.smallRegular)
                             .foregroundColor(themeColor: .textSecondary)
@@ -276,18 +277,18 @@ public struct UserProfileModal: View {
                                     close(info.onStartThread)
                                 } label: {
                                     Text("message".localized())
-                                        .font(.system(size: Values.mediumFontSize))
+                                        .font(.Body.baseBold)
                                         .foregroundColor(themeColor: (info.isMessageRequestsEnabled ? .sessionButton_text : .disabled))
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(themeColor: (info.isMessageRequestsEnabled ? .sessionButton_border : .disabled))
+                                                .frame(
+                                                    width: (geometry.size.width - Values.mediumSpacing) / 2,
+                                                    height: Values.smallButtonHeight
+                                                )
+                                        )
                                 }
                                 .disabled(!info.isMessageRequestsEnabled)
-                                .frame(
-                                    width: (geometry.size.width - Values.mediumSpacing) / 2,
-                                    height: Values.smallButtonHeight
-                                )
-                                .overlay(
-                                    Capsule()
-                                        .stroke(themeColor: (info.isMessageRequestsEnabled ? .sessionButton_border : .disabled))
-                                )
                                 .buttonStyle(PlainButtonStyle())
                             }
                             .frame(
