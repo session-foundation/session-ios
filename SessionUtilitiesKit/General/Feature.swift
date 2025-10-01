@@ -97,6 +97,10 @@ public extension FeatureStorage {
     static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(
         identifier: "simulateAppReviewLimit"
     )
+    
+    static let versionDeprecationWarning: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "versionDeprecationWarning"
+    )
 }
 
 // MARK: - FeatureOption
