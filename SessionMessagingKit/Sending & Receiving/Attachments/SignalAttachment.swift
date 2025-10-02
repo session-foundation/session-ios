@@ -102,7 +102,6 @@ public class SignalAttachment: Equatable {
     // MARK: Properties
 
     public let dataSource: (any DataSource)
-    public var captionText: String?
     public var linkPreviewDraft: LinkPreviewDraft?
     
     public var data: Data { return dataSource.data }
@@ -951,7 +950,6 @@ public class SignalAttachment: Equatable {
         
         return (
             lhs.dataType == rhs.dataType &&
-            lhs.captionText == rhs.captionText &&
             lhs.linkPreviewDraft == rhs.linkPreviewDraft &&
             lhs.isConvertibleToTextMessage == rhs.isConvertibleToTextMessage &&
             lhs.isConvertibleToContactShare == rhs.isConvertibleToContactShare &&

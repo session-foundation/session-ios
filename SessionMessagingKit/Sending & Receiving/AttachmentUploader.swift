@@ -31,7 +31,6 @@ public final class AttachmentUploader {
                 contentType: signalAttachment.mimeType,
                 dataSource: signalAttachment.dataSource,
                 sourceFilename: signalAttachment.sourceFilename,
-                caption: signalAttachment.captionText,
                 using: dependencies
             )
         }

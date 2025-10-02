@@ -120,6 +120,7 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
     public let digest: Data?
     
     /// Caption for the attachment
+    @available(*, deprecated, message: "This field is no longer sent or rendered by the clients")
     public let caption: String?
     
     // MARK: - Initialization
@@ -140,8 +141,7 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         isVisualMedia: Bool? = nil,
         isValid: Bool = false,
         encryptionKey: Data? = nil,
-        digest: Data? = nil,
-        caption: String? = nil
+        digest: Data? = nil
     ) {
         self.id = id
         self.serverId = serverId
@@ -159,7 +159,6 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         self.isValid = isValid
         self.encryptionKey = encryptionKey
         self.digest = digest
-        self.caption = caption
     }
     
     /// This initializer should only be used when converting from either a LinkPreview or a SignalAttachment to an Attachment (prior to upload)
@@ -169,7 +168,6 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         contentType: String,
         dataSource: any DataSource,
         sourceFilename: String? = nil,
-        caption: String? = nil,
         using dependencies: Dependencies
     ) {
         guard
@@ -207,7 +205,6 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         self.isValid = isValid
         self.encryptionKey = nil
         self.digest = nil
-        self.caption = caption
     }
 }
 
@@ -435,8 +432,7 @@ extension Attachment {
             ),
             isValid: isValid,
             encryptionKey: (encryptionKey ?? self.encryptionKey),
-            digest: (digest ?? self.digest),
-            caption: self.caption
+            digest: (digest ?? self.digest)
         )
     }
 }
@@ -480,7 +476,6 @@ extension Attachment {
         self.isValid = false        // Needs to be downloaded to be set
         self.encryptionKey = proto.key
         self.digest = proto.digest
-        self.caption = (proto.hasCaption ? proto.caption : nil)
     }
     
     public func buildProto() -> SNProtoAttachmentPointer? {
@@ -495,10 +490,6 @@ extension Attachment {
         
         if let sourceFilename: String = sourceFilename, !sourceFilename.isEmpty {
             builder.setFileName(sourceFilename)
-        }
-        
-        if let caption: String = self.caption, !caption.isEmpty {
-            builder.setCaption(caption)
         }
         
         builder.setSize(UInt32(byteCount))

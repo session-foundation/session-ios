@@ -10,7 +10,7 @@ enum _045_LastProfileUpdateTimestamp: Migration {
     static var createdTables: [(FetchableRecord & TableRecord).Type] = []
     
     static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
-        try db.alter(table: "Profile") { t in
+        try db.alter(table: "profile") { t in
             t.drop(column: "lastNameUpdate")
             t.drop(column: "lastBlocksCommunityMessageRequests")
             t.rename(column: "displayPictureLastUpdated", to: "profileLastUpdated")

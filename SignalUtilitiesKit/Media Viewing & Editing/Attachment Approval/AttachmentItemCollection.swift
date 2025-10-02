@@ -54,12 +54,6 @@ class SignalAttachmentItem: Equatable {
         }
     }
 
-    // MARK: 
-
-    var captionText: String? {
-        return attachment.captionText
-    }
-
     // MARK: Equatable
 
     static func == (lhs: SignalAttachmentItem, rhs: SignalAttachmentItem) -> Bool {

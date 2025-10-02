@@ -48,7 +48,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         startObservingChanges()
 
         updateTitle(item: item)
-        updateCaption(item: item)
         setViewControllers([galleryPage], direction: direction, animated: isAnimated) { [weak galleryPage] _ in
             galleryPage?.parentDidAppear() // Trigger any custom appearance animations
         }
@@ -122,7 +121,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         return result
     }()
     
-    let captionContainerView: CaptionContainerView = CaptionContainerView()
     var galleryRailView: GalleryRailView = GalleryRailView()
 
     var pagerScrollView: UIScrollView!
@@ -167,25 +165,18 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         // e.g. when getting to media details via message details screen, there's only
         // one "Page" so the bounce doesn't make sense.
         pagerScrollView.isScrollEnabled = sliderEnabled
-        pagerScrollViewContentOffsetObservation = pagerScrollView.observe(\.contentOffset, options: [.new]) { [weak self] _, change in
-            guard let strongSelf = self else { return }
-            strongSelf.pagerScrollView(strongSelf.pagerScrollView, contentOffsetDidChange: change)
-        }
-
+        
         // Views
         pagerScrollView.themeBackgroundColor = .newConversation_background
 
         view.themeBackgroundColor = .newConversation_background
-
-        captionContainerView.delegate = self
-        updateCaptionContainerVisibility()
 
         galleryRailView.isHidden = true
         galleryRailView.delegate = self
         galleryRailView.set(.height, to: 72)
         footerBar.set(.height, to: 44)
 
-        let bottomStack = UIStackView(arrangedSubviews: [captionContainerView, galleryRailView, footerBar])
+        let bottomStack = UIStackView(arrangedSubviews: [galleryRailView, footerBar])
         bottomStack.axis = .vertical
         bottomStack.isLayoutMarginsRelativeArrangement = true
         bottomContainer.addSubview(bottomStack)
@@ -200,7 +191,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         galleryRailBlockingView.pin(.bottom, to: .bottom, of: bottomStack)
         
         updateTitle(item: currentItem)
-        updateCaption(item: currentItem)
         updateMediaRail(item: currentItem)
         updateFooterBarButtonItems()
 
@@ -251,23 +241,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         super.didReceiveMemoryWarning()
 
         self.cachedPages = [:]
-    }
-
-    // MARK: KVO
-
-    var pagerScrollViewContentOffsetObservation: NSKeyValueObservation?
-    func pagerScrollView(_ pagerScrollView: UIScrollView, contentOffsetDidChange change: NSKeyValueObservedChange<CGPoint>) {
-        guard let newValue = change.newValue else {
-            Log.error("[MediaPageViewController] newValue was unexpectedly nil")
-            return
-        }
-
-        let width = pagerScrollView.frame.size.width
-        guard width > 0 else {
-            return
-        }
-        let ratioComplete = abs((newValue.x - width) / width)
-        captionContainerView.updatePagerTransition(ratioComplete: ratioComplete)
     }
 
     // MARK: View Helpers
@@ -619,25 +592,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
     // MARK: UIPageViewControllerDelegate
 
-    var pendingViewController: MediaDetailViewController?
-    public func pageViewController(_ pageViewController: UIPageViewController, willTransitionTo pendingViewControllers: [UIViewController]) {
-
-        Log.assert(pendingViewControllers.count == 1)
-        pendingViewControllers.forEach { viewController in
-            guard let pendingViewController = viewController as? MediaDetailViewController else {
-                Log.error("[MediaPageViewController] Unexpected mediaDetailViewController: \(viewController)")
-                return
-            }
-            self.pendingViewController = pendingViewController
-
-            if let pendingCaptionText = pendingViewController.galleryItem.captionForDisplay, pendingCaptionText.count > 0 {
-                self.captionContainerView.pendingText = pendingCaptionText
-            } else {
-                self.captionContainerView.pendingText = nil
-            }
-        }
-    }
-
     public func pageViewController(_ pageViewController: UIPageViewController, didFinishAnimating finished: Bool, previousViewControllers: [UIViewController], transitionCompleted: Bool) {
 
         Log.assert(previousViewControllers.count == 1)
@@ -649,21 +603,11 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
             // Do any cleanup for the no-longer visible view controller
             if transitionCompleted {
-                pendingViewController = nil
-
-                // This can happen when trying to page past the last (or first) view controller
-                // In that case, we don't want to change the captionView.
-                if (previousPage != currentViewController) {
-                    captionContainerView.completePagerTransition()
-                }
-
                 currentViewController?.parentDidAppear() // Trigger any custom appearance animations
                 updateTitle(item: currentItem)
                 updateMediaRail(item: currentItem)
                 previousPage.zoomOut(animated: false)
                 updateFooterBarButtonItems()
-            } else {
-                captionContainerView.pendingText = nil
             }
         }
     }
@@ -859,10 +803,6 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
         return containerView
     }()
 
-    private func updateCaption(item: MediaGalleryViewModel.Item?) {
-        captionContainerView.currentText = item?.captionForDisplay
-    }
-
     private func updateTitle(item: MediaGalleryViewModel.Item?) {
         guard let targetItem: MediaGalleryViewModel.Item = item else { return }
         let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
@@ -949,29 +889,6 @@ extension MediaPageViewController: GalleryRailViewDelegate {
             ),
             animated: true
         )
-    }
-}
-
-extension MediaPageViewController: CaptionContainerViewDelegate {
-
-    func captionContainerViewDidUpdateText(_ captionContainerView: CaptionContainerView) {
-        updateCaptionContainerVisibility()
-    }
-
-    // MARK: Helpers
-
-    func updateCaptionContainerVisibility() {
-        if let currentText = captionContainerView.currentText, currentText.count > 0 {
-            captionContainerView.isHidden = false
-            return
-        }
-
-        if let pendingText = captionContainerView.pendingText, pendingText.count > 0 {
-            captionContainerView.isHidden = false
-            return
-        }
-
-        captionContainerView.isHidden = true
     }
 }
 
