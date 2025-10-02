@@ -1064,6 +1064,14 @@ extension ConversationVC:
             }
             return
         }
+        
+        if !self.isFirstResponder {
+            // Force this object to become the First Responder. This is necessary
+            // to trigger the display of its associated inputAccessoryView
+            // and/or inputView.
+            self.becomeFirstResponder()
+        }
+        
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1
