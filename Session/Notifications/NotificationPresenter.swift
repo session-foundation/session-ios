@@ -230,6 +230,7 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
             threadVariant: threadVariant,
             identifier: threadId,
             category: .errorMessage,
+            groupingIdentifier: .threadId(threadId),
             body: "messageErrorDelivery".localized(),
             sound: notificationSettings.sound,
             userInfo: notificationUserInfo(threadId: threadId, threadVariant: threadVariant),
@@ -339,12 +340,12 @@ public class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate, 
         
         switch shouldPresentNotification {
             case true:
-                let shouldGroupNotification: Bool = (
+                let shouldDelayNotificationForBatching: Bool = (
                     content.threadVariant == .community &&
                     content.identifier == content.threadId
                 )
-                
-                if shouldGroupNotification {
+
+                if shouldDelayNotificationForBatching {
                     /// Only set a trigger for grouped notifications if we don't already have one
                     if trigger == nil {
                         trigger = UNTimeIntervalNotificationTrigger(

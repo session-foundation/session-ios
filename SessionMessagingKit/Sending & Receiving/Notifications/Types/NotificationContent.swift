@@ -1,13 +1,32 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import UIKit
 import UserNotifications
+
+// Add more later if any push notification needs to be customly grouped
+// Currently default grouping is via `threadId`
+public enum NotificationGroupingType: Equatable {
+    case messageRequest
+    case threadId(String)
+    case none
+
+    var key: String? {
+        switch self {
+            case .messageRequest: "message-request-grouping-identifier"
+            case .threadId(let indentifier): indentifier
+            case .none: nil
+        }
+    }
+}
 
 public struct NotificationContent {
     public let threadId: String?
     public let threadVariant: SessionThread.Variant?
     public let identifier: String
     public let category: NotificationCategory
+    public let groupingIdentifier: NotificationGroupingType
     public let title: String?
     public let body: String?
     public let delay: TimeInterval?
@@ -22,6 +41,7 @@ public struct NotificationContent {
         threadVariant: SessionThread.Variant?,
         identifier: String,
         category: NotificationCategory,
+        groupingIdentifier: NotificationGroupingType = .none,
         title: String? = nil,
         body: String? = nil,
         delay: TimeInterval? = nil,
@@ -33,6 +53,7 @@ public struct NotificationContent {
         self.threadVariant = threadVariant
         self.identifier = identifier
         self.category = category
+        self.groupingIdentifier = groupingIdentifier
         self.title = title
         self.body = body
         self.delay = delay
@@ -53,6 +74,7 @@ public struct NotificationContent {
             threadVariant: threadVariant,
             identifier: identifier,
             category: category,
+            groupingIdentifier: groupingIdentifier,
             title: (title ?? self.title),
             body: (body ?? self.body),
             delay: self.delay,
@@ -67,7 +89,10 @@ public struct NotificationContent {
         content.categoryIdentifier = category.identifier
         content.userInfo = userInfo
         
-        if let threadId: String = threadId { content.threadIdentifier = threadId }
+        if let groupIdentifier = groupingIdentifier.key {
+            content.threadIdentifier = groupIdentifier
+        }
+        
         if let title: String = title { content.title = title }
         if let body: String = body { content.body = body }
         
