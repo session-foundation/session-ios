@@ -464,9 +464,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         setUpViewHierarchy()
         setUpProfilePictureImage()
         
-        if shouldRestartCamera { cameraManager.prepare() }
-        
         _ = call.videoCapturer // Force the lazy var to instantiate
+        
         titleLabel.text = self.call.contactName
         if self.call.hasConnected {
             callDurationLabel.isHidden = false
@@ -721,6 +720,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     // MARK: - Video and Audio
     
     @objc private func operateCamera() {
+        
         if (call.isVideoEnabled) {
             floatingViewContainer.isHidden = true
             cameraManager.stop()
@@ -730,34 +730,34 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             call.isVideoEnabled = false
         }
         else {
-            guard Permissions.requestCameraPermissionIfNeeded(using: dependencies) else {
-                let confirmationModal: ConfirmationModal = ConfirmationModal(
-                    info: ConfirmationModal.Info(
-                        title: "permissionsRequired".localized(),
-                        body: .text("permissionsCameraAccessRequiredCallsIos".localized()),
-                        showCondition: .disabled,
-                        confirmTitle: "sessionSettings".localized(),
-                        onConfirm: { _ in
-                            UIApplication.shared.openSystemSettings()
-                        }
-                    )
-                )
+            
+            // Added delay of preview due to permission dialog alert dismissal on allow.
+            // It causes issue on `VideoPreviewVC` presentation animation,
+            // If camera permission is already allowed no animation delay is needed
+            var previewDelay = Permissions.camera == .undetermined ? 0.5 : 0
+            
+            Permissions.requestCameraPermissionIfNeeded(presentingViewController: self, using: dependencies) { [weak self] isAuthorized in
+                guard isAuthorized else { return }
                 
-                self.navigationController?.present(confirmationModal, animated: true, completion: nil)
-                return
+                DispatchQueue.main.asyncAfter(deadline: .now() + previewDelay) { [weak self] in
+                    let previewVC = VideoPreviewVC()
+                    previewVC.delegate = self
+                    self?.present(previewVC, animated: true, completion: nil)
+                }
             }
-            let previewVC = VideoPreviewVC()
-            previewVC.delegate = self
-            present(previewVC, animated: true, completion: nil)
         }
     }
-    
+
     func cameraDidConfirmTurningOn() {
         floatingViewContainer.isHidden = false
+        
         let localVideoView: LocalVideoView = self.floatingViewVideoSource == .local ? self.floatingLocalVideoView : self.fullScreenLocalVideoView
         localVideoView.alpha = 1
+        
+        // Camera preparation
         cameraManager.prepare()
         cameraManager.start()
+        
         videoButton.themeTintColor = .backgroundSecondary
         videoButton.themeBackgroundColor = .textPrimary
         switchCameraButton.isEnabled = true
