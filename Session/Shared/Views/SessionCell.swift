@@ -214,8 +214,36 @@ public class SessionCell: UITableViewCell {
         prepareForReuse()
     }
     
+    public override func systemLayoutSizeFitting(
+        _ targetSize: CGSize,
+        withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority,
+        verticalFittingPriority: UILayoutPriority
+    ) -> CGSize {
+        // Force accessory views to layout first if they have custom content
+        leadingAccessoryView.layoutIfNeeded()
+        trailingAccessoryView.layoutIfNeeded()
+        
+        return super.systemLayoutSizeFitting(
+            targetSize,
+            withHorizontalFittingPriority: horizontalFittingPriority,
+            verticalFittingPriority: verticalFittingPriority
+        )
+    }
+    
     public override func layoutSubviews() {
         super.layoutSubviews()
+        
+        if titleLabel.preferredMaxLayoutWidth != titleLabel.bounds.width {
+            titleLabel.preferredMaxLayoutWidth = titleLabel.bounds.width
+        }
+        
+        if subtitleLabel.preferredMaxLayoutWidth != subtitleLabel.bounds.width {
+            subtitleLabel.preferredMaxLayoutWidth = subtitleLabel.bounds.width
+        }
+        
+        if expandableDescriptionLabel.preferredMaxLayoutWidth != expandableDescriptionLabel.bounds.width {
+            expandableDescriptionLabel.preferredMaxLayoutWidth = expandableDescriptionLabel.bounds.width
+        }
         
         // Need to force the contentStackView to layout if needed as it might not have updated it's
         // sizing yet
@@ -223,6 +251,7 @@ public class SessionCell: UITableViewCell {
         repositionExtraView(titleExtraView, for: titleLabel)
         repositionExtraView(subtitleExtraView, for: subtitleLabel)
         self.titleStackView.layoutIfNeeded()
+        self.layoutIfNeeded()
     }
     
     private func repositionExtraView(_ targetView: UIView?, for label: UILabel) {

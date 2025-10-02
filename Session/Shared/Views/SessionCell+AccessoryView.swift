@@ -684,11 +684,12 @@ extension SessionCell {
             guard let profilePictureView: ProfilePictureView = view as? ProfilePictureView else { return }
             
             profilePictureView.size = size
-            profilePictureView.pin(.top, to: .top, of: self)
-            profilePictureView.pin(.leading, to: .leading, of: self)
+            profilePictureView.pin(.top, to: .top, of: self, withInset: Values.mediumSpacing)
+            profilePictureView.pin(.leading, to: .leading, of: self, withInset: Values.mediumSpacing)
             profilePictureView.pin(.trailing, to: .trailing, of: self)
-            profilePictureView.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
-            fixedWidthConstraint.constant = size.viewSize
+            profilePictureView.pin(.bottom, to: .bottom, of: self, withInset: -Values.mediumSpacing)
+                .setting(priority: .defaultHigh)
+            fixedWidthConstraint.constant = (size.viewSize + Values.mediumSpacing)
             fixedWidthConstraint.isActive = true
         }
         
