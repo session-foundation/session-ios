@@ -214,22 +214,6 @@ public class SessionCell: UITableViewCell {
         prepareForReuse()
     }
     
-    public override func systemLayoutSizeFitting(
-        _ targetSize: CGSize,
-        withHorizontalFittingPriority horizontalFittingPriority: UILayoutPriority,
-        verticalFittingPriority: UILayoutPriority
-    ) -> CGSize {
-        // Force accessory views to layout first if they have custom content
-        leadingAccessoryView.layoutIfNeeded()
-        trailingAccessoryView.layoutIfNeeded()
-        
-        return super.systemLayoutSizeFitting(
-            targetSize,
-            withHorizontalFittingPriority: horizontalFittingPriority,
-            verticalFittingPriority: verticalFittingPriority
-        )
-    }
-    
     public override func layoutSubviews() {
         super.layoutSubviews()
         
@@ -348,6 +332,8 @@ public class SessionCell: UITableViewCell {
         subtitleLabel.isHidden = true
         expandableDescriptionLabel.isHidden = true
         botSeparator.isHidden = true
+        
+        invalidateIntrinsicContentSize()
     }
     
     @MainActor public func update<ID: Hashable & Differentiable>(
