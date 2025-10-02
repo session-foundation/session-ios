@@ -275,6 +275,13 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
             )
         }
         
+        if threadVariant == .community && threadCanWrite == false {
+            return MessageInputState(
+                allowedInputTypes: .none,
+                message: "permissionsWriteCommunity".localized()
+            )
+        }
+        
         return MessageInputState(
             allowedInputTypes: (threadRequiresApproval == false && threadIsMessageRequest == false ?
                 .all :
