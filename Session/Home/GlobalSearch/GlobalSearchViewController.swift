@@ -223,6 +223,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
             state: .defaultContacts,
             data: contacts
                 .sorted { lhs, rhs in lhs.displayName.lowercased() < rhs.displayName.lowercased() }
+                .filter { $0.isContactApproved == true } // Only show default contacts that have been approved via message request
                 .reduce(into: [String: SectionModel]()) { result, next in
                     guard !next.threadIsNoteToSelf else {
                         result[""] = SectionModel(
