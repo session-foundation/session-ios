@@ -122,9 +122,11 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
                     )
                 }()
         }
+
+        let sanitizedFileName = targetFilenameNoExtension.replacingWhitespacesWithUnderscores
         
         return URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
-            .appendingPathComponent(targetFilenameNoExtension)
+            .appendingPathComponent(sanitizedFileName)
             .appendingPathExtension(finalExtension)
             .path
     }
@@ -147,6 +149,35 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
         if !dependencies[singleton: .fileManager].fileExists(atPath: tmpPath) {
             try dependencies[singleton: .fileManager].copyItem(atPath: path, toPath: tmpPath)
         }
+        
+        return tmpPath
+    }
+    
+    public func createTemporaryFileForOpening(filePath: String) throws -> String {
+        /// Ensure the original file exists before generating a path for opening or trying to copy it
+        guard dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
+            throw AttachmentError.invalidData
+        }
+        
+        let originalUrl: URL = URL(fileURLWithPath: filePath)
+        let fileName: String = originalUrl.deletingPathExtension().lastPathComponent
+        let fileExtension: String = originalUrl.pathExtension
+        
+        /// Removes white spaces on the filename and replaces it with _
+        let filenameNoExtension = fileName
+            .replacingWhitespacesWithUnderscores
+        
+        let tmpPath: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
+            .appendingPathComponent(filenameNoExtension)
+            .appendingPathExtension(fileExtension)
+            .path
+        
+        /// If the file already exists then we should remove it as it may not be the same file
+        if dependencies[singleton: .fileManager].fileExists(atPath: tmpPath) {
+            try dependencies[singleton: .fileManager].removeItem(atPath: tmpPath)
+        }
+        
+        try dependencies[singleton: .fileManager].copyItem(atPath: filePath, toPath: tmpPath)
         
         return tmpPath
     }
