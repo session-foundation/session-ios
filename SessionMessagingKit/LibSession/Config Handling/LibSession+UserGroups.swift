@@ -39,8 +39,7 @@ internal extension LibSession {
 internal extension LibSessionCacheType {
     func handleUserGroupsUpdate(
         _ db: ObservingDatabase,
-        in config: LibSession.Config?,
-        serverTimestampMs: Int64
+        in config: LibSession.Config?
     ) throws {
         guard configNeedsDump(config) else { return }
         guard case .userGroups(let conf) = config else {
