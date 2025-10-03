@@ -700,6 +700,9 @@ extension ConversationVC:
             return present(modal, animated: true, completion: nil)
         }
         
+        // Preserve the quote before clearing input fields for message sending.
+        let quoteToUse: QuotedReplyModel? = quoteModel ?? snInputView.quoteDraftInfo?.model
+        
         // Clearing this out immediately to make this appear more snappy
         DispatchQueue.main.async { [weak self] in
             self?.snInputView.text = ""
@@ -717,7 +720,7 @@ extension ConversationVC:
             sentTimestampMs: sentTimestampMs,
             attachments: attachments,
             linkPreviewDraft: linkPreviewDraft,
-            quoteModel: quoteModel
+            quoteModel: quoteToUse
         )
         
         // If this was a message request then approve it
