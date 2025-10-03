@@ -225,6 +225,7 @@
 		94CD96412E1BABE90097754D /* HigherCharLimitCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD963E2E1BABE90097754D /* HigherCharLimitCTA.webp */; };
 		94CD96432E1BAC0F0097754D /* GenericCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD963C2E1BABE90097754D /* GenericCTA.webp */; };
 		94CD96452E1BAC0F0097754D /* HigherCharLimitCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD963E2E1BABE90097754D /* HigherCharLimitCTA.webp */; };
+		94D716802E8F6363008294EE /* HighlightMentionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D7167F2E8F6362008294EE /* HighlightMentionView.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1616,6 +1617,7 @@
 		94CD96312E1B88C20097754D /* ExpandingAttachmentsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandingAttachmentsButton.swift; sourceTree = "<group>"; };
 		94CD963C2E1BABE90097754D /* GenericCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTA.webp; sourceTree = "<group>"; };
 		94CD963E2E1BABE90097754D /* HigherCharLimitCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = HigherCharLimitCTA.webp; sourceTree = "<group>"; };
+		94D7167F2E8F6362008294EE /* HighlightMentionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlightMentionView.swift; sourceTree = "<group>"; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -3405,6 +3407,7 @@
 				C3C3CF8824D8EED300E1CCE7 /* SNTextView.swift */,
 				7BBBDC43286EAD2D00747E59 /* TappableLabel.swift */,
 				FD09B7E228865FDA00ED0B66 /* HighlightMentionBackgroundView.swift */,
+				94D7167F2E8F6362008294EE /* HighlightMentionView.swift */,
 				C38EF3EE255B6DF6007E1867 /* GradientView.swift */,
 				FD8A5B0F2DBF2F14004C689B /* NavBarSessionIcon.swift */,
 				C38EF2A3255B6D93007E1867 /* PlaceholderIcon.swift */,
@@ -6294,6 +6297,7 @@
 				942BA9C42E55AB54007C4595 /* UILabel+Utilities.swift in Sources */,
 				FD8A5B112DBF34BD004C689B /* Date+Utilities.swift in Sources */,
 				FDB348632BE3774000B716C2 /* BezierPathView.swift in Sources */,
+				94D716802E8F6363008294EE /* HighlightMentionView.swift in Sources */,
 				FD8A5B292DC060E2004C689B /* Double+Utilities.swift in Sources */,
 				FD8A5B0E2DBF2DB1004C689B /* SessionHostingViewController.swift in Sources */,
 				94CD962D2E1B85920097754D /* InputViewButton.swift in Sources */,

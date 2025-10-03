@@ -3,6 +3,8 @@
 import UIKit
 
 public class SessionProBadge: UIView {
+    static let cache: NSCache<NSString, UIImage> = NSCache()
+    
     public enum Size {
         case mini, small, medium, large
         
@@ -44,6 +46,16 @@ public class SessionProBadge: UIView {
                 case .small: return 24
                 case .medium: return 28
                 case .large: return 40
+            }
+        }
+        
+        // stringlint:ignore_contents
+        var cacheKey: NSString {
+            switch self {
+                case .mini: return "SessionProBadge.Mini"
+                case .small: return "SessionProBadge.Small"
+                case .medium: return "SessionProBadge.Medium"
+                case .large: return "SessionProBadge.Large"
             }
         }
     }
@@ -102,12 +114,18 @@ public class SessionProBadge: UIView {
     }
     
     public func toImage() -> UIImage {
+        if let cachedImage = SessionProBadge.cache.object(forKey: self.size.cacheKey) {
+            return cachedImage
+        }
+        
         self.proImageView.frame = CGRect(
             x: (size.width - size.proFontWidth) / 2,
             y: (size.height - size.proFontHeight) / 2,
             width: size.proFontWidth,
             height: size.proFontHeight
         )
-        return self.toImage(isOpaque: self.isOpaque, scale: UIScreen.main.scale)
+        let renderedImage = self.toImage(isOpaque: self.isOpaque, scale: UIScreen.main.scale)
+        SessionProBadge.cache.setObject(renderedImage, forKey: self.size.cacheKey)
+        return renderedImage
     }
 }

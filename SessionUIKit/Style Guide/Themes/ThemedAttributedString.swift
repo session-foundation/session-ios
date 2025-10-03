@@ -155,6 +155,10 @@ public class ThemedAttributedString: Equatable, Hashable {
         return value.boundingRect(with: size, options: options, context: context)
     }
     
+    public func replaceCharacters(in range: NSRange, with attributedString: NSAttributedString) {
+        value.replaceCharacters(in: range, with: attributedString)
+    }
+    
     // MARK: - Convenience
     
     #if DEBUG
