@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import AVFoundation
 import ImageIO
 
@@ -89,6 +90,13 @@ public actor ImageDataManager: ImageDataManagerType {
 
     private static func processSource(_ dataSource: DataSource) async -> ProcessedImageData? {
         switch dataSource {
+            case .icon(let icon, let size, let renderingMode):
+                guard let image: UIImage = Lucide.image(icon: icon, size: size) else { return nil }
+                
+                return ProcessedImageData(
+                    type: .staticImage(image.withRenderingMode(renderingMode))
+                )
+                
             /// If we were given a direct `UIImage` value then use it
             case .image(_, let maybeImage):
                 guard let image: UIImage = maybeImage else { return nil }
@@ -98,7 +106,7 @@ public actor ImageDataManager: ImageDataManagerType {
                 )
             
             /// Custom handle `videoUrl` values since it requires thumbnail generation
-            case .videoUrl(let url, let mimeType, let sourceFilename, let thumbnailManager):
+            case .videoUrl(let url, let utType, let sourceFilename, let thumbnailManager):
                 /// If we had already generated a thumbnail then use that
                 if
                     let existingThumbnail: UIImage = thumbnailManager.existingThumbnailImage(url: url, size: .large),
@@ -119,7 +127,7 @@ public actor ImageDataManager: ImageDataManagerType {
                 /// Otherwise we need to generate a new one
                 let assetInfo: (asset: AVURLAsset, cleanup: () -> Void)? = SNUIKit.asset(
                     for: url.path,
-                    mimeType: mimeType,
+                    utType: utType,
                     sourceFilename: sourceFilename
                 )
                 
@@ -558,8 +566,9 @@ public extension ImageDataManager {
     enum DataSource: Sendable, Equatable, Hashable {
         case url(URL)
         case data(String, Data)
+        case icon(Lucide.Icon, size: CGFloat, renderingMode: UIImage.RenderingMode = .alwaysOriginal)
         case image(String, UIImage?)
-        case videoUrl(URL, String, String?, ThumbnailManager)
+        case videoUrl(URL, UTType, String?, ThumbnailManager)
         case urlThumbnail(URL, ImageDataManager.ThumbnailSize, ThumbnailManager)
         case placeholderIcon(seed: String, text: String, size: CGFloat)
         case asyncSource(String, @Sendable () async -> DataSource?)
@@ -568,6 +577,9 @@ public extension ImageDataManager {
             switch self {
                 case .url(let url): return url.absoluteString
                 case .data(let identifier, _): return identifier
+                case .icon(let icon, let size, let renderingMode):
+                    return "\(icon.rawValue)-\(Int(floor(size)))-\(renderingMode.rawValue)"
+                
                 case .image(let identifier, _): return identifier
                 case .videoUrl(let url, _, _, _): return url.absoluteString
                 case .urlThumbnail(let url, let size, _):
@@ -586,26 +598,19 @@ public extension ImageDataManager {
             }
         }
         
-        public var imageData: Data? {
+        public var contentExists: Bool {
             switch self {
-                case .url(let url): return try? Data(contentsOf: url, options: [.dataReadingMapped])
-                case .data(_, let data): return data
-                case .image(_, let image): return image?.pngData()
-                case .videoUrl: return nil
-                case .urlThumbnail: return nil
-                case .placeholderIcon: return nil
-                case .asyncSource: return nil
+                case .url(let url), .videoUrl(let url, _, _, _), .urlThumbnail(let url, _, _):
+                    return FileManager.default.fileExists(atPath: url.path)
+                    
+                case .data(_, let data): return !data.isEmpty
+                case .image(_, let image): return (image != nil)
+                case .icon, .placeholderIcon: return true
+                case .asyncSource: return true /// Need to assume it exists
             }
         }
         
-        public var directImage: UIImage? {
-            switch self {
-                case .image(_, let image): return image
-                default: return nil
-            }
-        }
-        
-        fileprivate func createImageSource(options: [CFString: Any]? = nil) -> CGImageSource? {
+        public func createImageSource(options: [CFString: Any]? = nil) -> CGImageSource? {
             let finalOptions: CFDictionary = (
                 options ??
                 [
@@ -620,7 +625,7 @@ public extension ImageDataManager {
                 case .urlThumbnail(let url, _, _): return CGImageSourceCreateWithURL(url as CFURL, finalOptions)
                     
                 // These cases have special handling which doesn't use `createImageSource`
-                case .image, .videoUrl, .placeholderIcon, .asyncSource: return nil
+                case .icon, .image, .videoUrl, .placeholderIcon, .asyncSource: return nil
             }
         }
         
@@ -633,14 +638,21 @@ public extension ImageDataManager {
                         lhsData == rhsData
                     )
                     
+                case (.icon(let lhsIcon, let lhsSize, let lhsRenderingMode), .icon(let rhsIcon, let rhsSize, let rhsRenderingMode)):
+                    return (
+                        lhsIcon == rhsIcon &&
+                        lhsSize == rhsSize &&
+                        lhsRenderingMode == rhsRenderingMode
+                    )
+                    
                 case (.image(let lhsIdentifier, _), .image(let rhsIdentifier, _)):
                     /// `UIImage` is not _really_ equatable so we need to use a separate identifier to use instead
                     return (lhsIdentifier == rhsIdentifier)
                     
-                case (.videoUrl(let lhsUrl, let lhsMimeType, let lhsSourceFilename, _), .videoUrl(let rhsUrl, let rhsMimeType, let rhsSourceFilename, _)):
+                case (.videoUrl(let lhsUrl, let lhsUTType, let lhsSourceFilename, _), .videoUrl(let rhsUrl, let rhsUTType, let rhsSourceFilename, _)):
                     return (
                         lhsUrl == rhsUrl &&
-                        lhsMimeType == rhsMimeType &&
+                        lhsUTType == rhsUTType &&
                         lhsSourceFilename == rhsSourceFilename
                     )
                     
@@ -671,13 +683,18 @@ public extension ImageDataManager {
                     identifier.hash(into: &hasher)
                     data.hash(into: &hasher)
                     
+                case .icon(let icon, let size, let renderingMode):
+                    icon.hash(into: &hasher)
+                    size.hash(into: &hasher)
+                    renderingMode.hash(into: &hasher)
+                    
                 case .image(let identifier, _):
                     /// `UIImage` is not actually hashable so we need to provide a separate identifier to use instead
                     identifier.hash(into: &hasher)
                     
-                case .videoUrl(let url, let mimeType, let sourceFilename, _):
+                case .videoUrl(let url, let utType, let sourceFilename, _):
                     url.hash(into: &hasher)
-                    mimeType.hash(into: &hasher)
+                    utType.hash(into: &hasher)
                     sourceFilename.hash(into: &hasher)
                     
                 case .urlThumbnail(let url, let size, _):
@@ -806,6 +823,7 @@ public extension ImageDataManager.DataSource {
         /// There are a number of types which have fixed sizes, in those cases we should return the target size rather than try to
         /// read it from data so we doncan avoid processing
         switch self {
+            case .icon(_, let size, _): return CGSize(width: size, height: size)
             case .image(_, let image):
                 guard let image: UIImage = image else { break }
                 

@@ -61,19 +61,18 @@ public class ImageEditorModel {
         let srcFileName = (srcImagePath as NSString).lastPathComponent
         let srcFileExtension = (srcFileName as NSString).pathExtension
         
-        guard let type: UTType = UTType(sessionFileExtension: srcFileExtension) else {
+        guard let utType: UTType = UTType(sessionFileExtension: srcFileExtension) else {
             Log.error("[ImageEditorModel] Couldn't determine UTType for file.")
             throw ImageEditorError.invalidInput
         }
-        guard type.isImage && !type.isAnimated else {
-            Log.error("[ImageEditorModel] Invalid MIME type: \(type.preferredMIMEType ?? "unknown").")
+        guard utType.isImage && !utType.isAnimated else {
+            Log.error("[ImageEditorModel] Invalid MIME type: \(utType.preferredMIMEType ?? "unknown").")
             throw ImageEditorError.invalidInput
         }
         
         let srcImageSizePixels = MediaUtils.unrotatedSize(
             for: srcImagePath,
-            type: type,
-            mimeType: nil,
+            utType: utType,
             sourceFilename: srcFileName,
             using: dependencies
         )
@@ -310,8 +309,7 @@ public class ImageEditorModel {
         }
         let hasAlpha: Bool = (MediaUtils.MediaMetadata(
             from: imagePath,
-            type: nil,
-            mimeType: nil,
+            utType: nil,
             sourceFilename: nil,
             using: dependencies
         )?.hasAlpha == true)

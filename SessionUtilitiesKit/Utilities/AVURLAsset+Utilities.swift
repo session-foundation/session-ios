@@ -1,16 +1,23 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import AVFoundation
+import UniformTypeIdentifiers
 
 public extension AVURLAsset {
-    static func asset(for path: String, mimeType: String?, sourceFilename: String?, using dependencies: Dependencies) -> (asset: AVURLAsset, cleanup: () -> Void)? {
+    static func asset(for path: String, utType: UTType?, sourceFilename: String?, using dependencies: Dependencies) -> (asset: AVURLAsset, cleanup: () -> Void)? {
         if #available(iOS 17.0, *) {
             /// Since `mimeType` can be null we need to try to resolve it to a value
             let finalMimeType: String
             
-            switch (mimeType, sourceFilename) {
+            switch (utType, sourceFilename) {
                 case (.none, .none): return nil
-                case (.some(let mimeType), _): finalMimeType = mimeType
+                case (.some(let utType), _):
+                    guard let mimeType: String = utType.sessionMimeType else {
+                        return nil
+                    }
+                    
+                    finalMimeType = mimeType
+                    
                 case (.none, .some(let sourceFilename)):
                     guard
                         let type: UTType = UTType(
@@ -34,7 +41,7 @@ public extension AVURLAsset {
             /// Since `mimeType` and/or `sourceFilename` can be null we need to try to resolve them both to values
             let finalExtension: String
             
-            switch (mimeType, sourceFilename) {
+            switch (utType, sourceFilename) {
                 case (.none, .none): return nil
                 case (.none, .some(let sourceFilename)):
                     guard
@@ -46,16 +53,15 @@ public extension AVURLAsset {
                     
                     finalExtension = fileExtension
                     
-                case (.some(let mimeType), let sourceFilename):
-                    guard
-                        let fileExtension: String = UTType(sessionMimeType: mimeType)?
-                            .sessionFileExtension(sourceFilename: sourceFilename)
-                    else { return nil }
+                case (.some(let utType), let sourceFilename):
+                    guard let fileExtension: String = utType.sessionFileExtension(sourceFilename: sourceFilename) else {
+                        return nil
+                    }
                     
                     finalExtension = fileExtension
             }
             
-            let tmpPath: String = URL(fileURLWithPath: NSTemporaryDirectory())
+            let tmpPath: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
                 .appendingPathComponent(URL(fileURLWithPath: path).lastPathComponent)
                 .appendingPathExtension(finalExtension)
                 .path

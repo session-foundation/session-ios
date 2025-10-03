@@ -10,6 +10,7 @@ final class LinkPreviewView: UIView {
     private static let loaderSize: CGFloat = 24
     private static let cancelButtonSize: CGFloat = 45
     
+    private let dependencies: Dependencies
     private let maxWidth: CGFloat
     private let onCancel: (() -> ())?
 
@@ -23,7 +24,7 @@ final class LinkPreviewView: UIView {
     public var previewView: UIView { hStackView }
 
     private lazy var imageView: SessionImageView = {
-        let result: SessionImageView = SessionImageView()
+        let result: SessionImageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
         result.contentMode = .scaleAspectFill
         
         return result
@@ -88,7 +89,12 @@ final class LinkPreviewView: UIView {
 
     // MARK: - Initialization
     
-    init(maxWidth: CGFloat, onCancel: (() -> ())? = nil) {
+    init(
+        maxWidth: CGFloat,
+        using dependencies: Dependencies,
+        onCancel: (() -> ())? = nil
+    ) {
+        self.dependencies = dependencies
         self.maxWidth = maxWidth
         self.onCancel = onCancel
         
@@ -153,10 +159,13 @@ final class LinkPreviewView: UIView {
     ) {
         cancelButton.removeFromSuperview()
         
-        var image: UIImage? = state.image
-        let stateHasImage: Bool = (image != nil)
-        if image == nil && (state is LinkPreview.DraftState || state is LinkPreview.SentState) {
-            image = UIImage(named: "Link")?.withRenderingMode(.alwaysTemplate)
+        var imageSource: ImageDataManager.DataSource? = state.imageSource
+        let stateHasImage: Bool = (imageSource != nil && imageSource?.contentExists == true)
+        if
+            (imageSource == nil || imageSource?.contentExists != true) &&
+            (state is LinkPreview.DraftState || state is LinkPreview.SentState)
+        {
+            imageSource = .icon(.link, size: 32, renderingMode: .alwaysTemplate)
         }
         
         // Image view
@@ -165,7 +174,10 @@ final class LinkPreviewView: UIView {
         imageViewContainerHeightConstraint.constant = imageViewContainerSize
         imageViewContainer.layer.cornerRadius = (state is LinkPreview.SentState ? 0 : 8)
         
-        imageView.image = image
+        if let source: ImageDataManager.DataSource = imageSource {
+            imageView.loadImage(source)
+        }
+    
         imageView.themeTintColor = (isOutgoing ?
             .messageBubble_outgoingText :
             .messageBubble_incomingText
@@ -173,8 +185,8 @@ final class LinkPreviewView: UIView {
         imageView.contentMode = (stateHasImage ? .scaleAspectFill : .center)
         
         // Loader
-        loader.alpha = (image != nil ? 0 : 1)
-        if image != nil { loader.stopAnimating() } else { loader.startAnimating() }
+        loader.alpha = (imageSource != nil ? 0 : 1)
+        if imageSource != nil { loader.stopAnimating() } else { loader.startAnimating() }
         
         // Title
         titleLabel.text = state.title

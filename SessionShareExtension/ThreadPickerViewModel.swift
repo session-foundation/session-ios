@@ -14,6 +14,8 @@ public class ThreadPickerViewModel {
     public let dependencies: Dependencies
     public let userMetadata: ExtensionHelper.UserMetadata?
     public let hasNonTextAttachment: Bool
+    // FIXME: Clean up to follow proper MVVM
+    @MainActor public private(set) var linkPreviewDrafts: [LinkPreviewDraft] = []
     
     init(
         userMetadata: ExtensionHelper.UserMetadata?,
@@ -96,6 +98,10 @@ public class ThreadPickerViewModel {
         .handleEvents(didFail: { Log.error("Observation failed with error: \($0)") })
     
     // MARK: - Functions
+    
+    @MainActor public func didLoadLinkPreview(linkPreview: LinkPreviewDraft) {
+        linkPreviewDrafts.append(linkPreview)
+    }
     
     public func updateData(_ updatedData: [SessionThreadViewModel]) {
         self.viewData = updatedData

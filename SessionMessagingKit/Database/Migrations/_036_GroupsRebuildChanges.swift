@@ -4,6 +4,7 @@
 
 import Foundation
 import UIKit.UIImage
+import UniformTypeIdentifiers
 import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
@@ -186,7 +187,7 @@ enum _036_GroupsRebuildChanges: Migration {
             }
             
             let filename: String = generateFilename(
-                format: MediaUtils.guessedImageFormat(data: imageData),
+                utType: (UTType(imageData: imageData) ?? .jpeg),
                 using: dependencies
             )
             let filePath: String = URL(fileURLWithPath: dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath())
@@ -217,11 +218,20 @@ enum _036_GroupsRebuildChanges: Migration {
 }
 
 private extension _036_GroupsRebuildChanges {
-    static func generateFilename(format: ImageFormat = .jpeg, using dependencies: Dependencies) -> String {
+    static func generateFilename(utType: UTType, using dependencies: Dependencies) -> String {
         return dependencies[singleton: .crypto]
             .generate(.uuid())
             .defaulting(to: UUID())
             .uuidString
-            .appendingFileExtension(format.fileExtension)
+            .appendingFileExtension(utType.sessionFileExtension(sourceFilename: nil) ?? "jpg")
+    }
+}
+
+private extension String {
+    func appendingFileExtension(_ fileExtension: String) -> String {
+        guard let result = (self as NSString).appendingPathExtension(fileExtension) else {
+            return self
+        }
+        return result
     }
 }

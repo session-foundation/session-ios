@@ -63,19 +63,16 @@ internal extension LibSessionCacheType {
             publicKey: userSessionId.hexString,
             displayNameUpdate: .currentUserUpdate(profileName),
             displayPictureUpdate: {
-                guard
-                    let displayPictureUrl: String = displayPictureUrl,
-                    let filePath: String = try? dependencies[singleton: .displayPictureManager]
-                        .path(for: displayPictureUrl)
-                else { return .currentUserRemove }
+                guard let displayPictureUrl: String = displayPictureUrl else { return .currentUserRemove }
                 
                 return .currentUserUpdateTo(
                     url: displayPictureUrl,
                     key: displayPic.get(\.key),
-                    filePath: filePath
+                    isReupload: false
                 )
             }(),
             profileUpdateTimestamp: profileLastUpdateTimestamp,
+            suppressUserProfileConfigUpdate: true,
             using: dependencies
         )
         

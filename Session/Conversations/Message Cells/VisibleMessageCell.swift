@@ -513,7 +513,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             if let linkPreview: LinkPreview = cellViewModel.linkPreview {
                 switch linkPreview.variant {
                     case .standard:
-                        let linkPreviewView: LinkPreviewView = LinkPreviewView(maxWidth: maxWidth)
+                        let linkPreviewView: LinkPreviewView = LinkPreviewView(
+                            maxWidth: maxWidth,
+                            using: dependencies
+                        )
                         linkPreviewView.update(
                             with: LinkPreview.SentState(
                                 linkPreview: linkPreview,

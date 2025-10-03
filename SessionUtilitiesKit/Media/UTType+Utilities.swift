@@ -158,6 +158,17 @@ public extension UTType {
         self = result
     }
     
+    init?(imageData: Data) {
+        guard
+            let imageSource: CGImageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
+            let typeString: String = CGImageSourceGetType(imageSource) as? String,
+            let result: UTType = UTType(typeString)
+        else { return nil }
+        
+        self = result
+    }
+
+    
     // MARK: - Convenience
     
     static func isAnimated(_ mimeType: String) -> Bool {

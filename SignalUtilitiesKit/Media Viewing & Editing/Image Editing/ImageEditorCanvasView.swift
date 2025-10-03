@@ -608,8 +608,7 @@ public class ImageEditorCanvasView: UIView {
         let viewSize = dstSizePixels
         let hasAlpha: Bool = (MediaUtils.MediaMetadata(
             from: model.srcImagePath,
-            type: nil,
-            mimeType: nil,
+            utType: nil,
             sourceFilename: nil,
             using: dependencies
         )?.hasAlpha == true)

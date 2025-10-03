@@ -14,7 +14,7 @@ protocol ImagePickerGridControllerDelegate: AnyObject {
     func imagePickerDidCancel(_ imagePicker: ImagePickerGridController)
 
     func imagePicker(_ imagePicker: ImagePickerGridController, isAssetSelected asset: PHAsset) -> Bool
-    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, attachmentPublisher: AnyPublisher<SignalAttachment, Error>)
+    func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, retrievalTask: Task<MediaLibraryAttachment, Error>)
     func imagePicker(_ imagePicker: ImagePickerGridController, didDeselectAsset asset: PHAsset)
 
     var isInBatchSelectMode: Bool { get }
@@ -189,7 +189,19 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             delegate.imagePicker(
                 self,
                 didSelectAsset: asset,
-                attachmentPublisher: photoCollectionContents.outgoingAttachment(for: asset, using: dependencies)
+                retrievalTask: Task.detached { [weak photoCollectionContents, dependencies] in
+                    guard let contents: PhotoCollectionContents = photoCollectionContents else {
+                        throw CancellationError()
+                    }
+                    
+                    return MediaLibraryAttachment(
+                        asset: asset,
+                        attachment: try await contents.pendingAttachment(
+                            for: asset,
+                            using: dependencies
+                        )
+                    )
+                }
             )
             collectionView.selectItem(at: indexPath, animated: true, scrollPosition: [])
         case .deselect:
@@ -468,7 +480,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             return true
         }
 
-        if (indexPathsForSelectedItems.count < SignalAttachment.maxAttachmentsAllowed) {
+        if (indexPathsForSelectedItems.count < AttachmentManager.maxAttachmentsAllowed) {
             return true
         } else {
             showTooManySelectedToast()
@@ -491,7 +503,19 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         delegate.imagePicker(
             self,
             didSelectAsset: asset,
-            attachmentPublisher: photoCollectionContents.outgoingAttachment(for: asset, using: dependencies)
+            retrievalTask: Task.detached { [weak photoCollectionContents, dependencies] in
+                guard let contents: PhotoCollectionContents = photoCollectionContents else {
+                    throw CancellationError()
+                }
+                
+                return MediaLibraryAttachment(
+                    asset: asset,
+                    attachment: try await contents.pendingAttachment(
+                        for: asset,
+                        using: dependencies
+                    )
+                )
+            }
         )
         firstSelectedIndexPath = nil
 

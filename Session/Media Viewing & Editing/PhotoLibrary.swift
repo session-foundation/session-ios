@@ -206,133 +206,130 @@ class PhotoCollectionContents {
         }
     }
 
-    private func requestImageDataSource(for asset: PHAsset, using dependencies: Dependencies) -> AnyPublisher<(dataSource: (any DataSource), type: UTType), Error> {
-        return Deferred {
-            Future { [weak self] resolver in
-                let options: PHImageRequestOptions = PHImageRequestOptions()
-                options.isNetworkAccessAllowed = true
-                options.deliveryMode = .highQualityFormat
+    private func requestImageDataSource(
+        for asset: PHAsset,
+        using dependencies: Dependencies
+    ) async throws -> PendingAttachment {
+        let options: PHImageRequestOptions = PHImageRequestOptions()
+        options.isSynchronous = false
+        options.isNetworkAccessAllowed = true
+        options.deliveryMode = .highQualityFormat
+        
+        return try await withCheckedThrowingContinuation { [imageManager] continuation in
+            imageManager.requestImageDataAndOrientation(for: asset, options: options) { imageData, dataUTI, orientation, info in
+                if let error: Error = info?[PHImageErrorKey] as? Error {
+                    return continuation.resume(throwing: error)
+                }
                 
-                _ = self?.imageManager.requestImageData(for: asset, options: options) { imageData, dataUTI, orientation, info in
-                    if let error: Error = info?[PHImageErrorKey] as? Error {
-                        return resolver(.failure(error))
+                if (info?[PHImageCancelledKey] as? Bool) == true {
+                    return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "Image request cancelled"))
+                }
+                
+                // If we get a degraded image then we want to wait for the next callback (which will
+                // be the non-degraded version)
+                guard (info?[PHImageResultIsDegradedKey] as? Bool) != true else {
+                    return
+                }
+                
+                guard let imageData: Data = imageData else {
+                    return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "imageData was unexpectedly nil"))
+                }
+                
+                guard let type: UTType = dataUTI.map({ UTType($0) }) else {
+                    return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "dataUTI was unexpectedly nil"))
+                }
+                
+                guard let filePath: String = try? dependencies[singleton: .fileManager].write(dataToTemporaryFile: imageData) else {
+                    return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "failed to write temporary file"))
+                }
+                
+                continuation.resume(
+                    returning: PendingAttachment(
+                        source: .media(URL(fileURLWithPath: filePath)),
+                        utType: type,
+                        using: dependencies
+                    )
+                )
+            }
+        }
+    }
+
+    private func requestVideoDataSource(
+        for asset: PHAsset,
+        using dependencies: Dependencies
+    ) async throws -> PendingAttachment {
+        let options: PHVideoRequestOptions = PHVideoRequestOptions()
+        options.isNetworkAccessAllowed = true
+        options.deliveryMode = .highQualityFormat
+        
+        return try await withCheckedThrowingContinuation { [imageManager] continuation in
+            imageManager.requestAVAsset(forVideo: asset, options: options) { avAsset, _, info in
+                if let error: Error = info?[PHImageErrorKey] as? Error {
+                    return continuation.resume(throwing: error)
+                }
+                
+                guard let avAsset: AVAsset = avAsset else {
+                    return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "avAsset was unexpectedly nil"))
+                }
+                
+                let compatiblePresets = AVAssetExportSession.exportPresets(compatibleWith: avAsset)
+                var bestExportPreset: String
+                
+                if compatiblePresets.contains(AVAssetExportPresetPassthrough) {
+                    bestExportPreset = AVAssetExportPresetPassthrough
+                    Log.debug("[PhotoLibrary] Using Passthrough export preset.")
+                } else {
+                    bestExportPreset = AVAssetExportPresetHighestQuality
+                    Log.debug("[PhotoLibrary] Passthrough not available. Falling back to HighestQuality export preset.")
+                }
+                
+                if (info?[PHImageCancelledKey] as? Bool) == true {
+                    return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "Video request cancelled"))
+                }
+                
+                guard let exportSession: AVAssetExportSession = AVAssetExportSession(asset: avAsset, presetName: bestExportPreset) else {
+                    return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "exportSession was unexpectedly nil"))
+                }
+                
+                exportSession.outputFileType = AVFileType.mp4
+                exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
+                
+                let exportPath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "mp4") // stringlint:ignore
+                let exportURL = URL(fileURLWithPath: exportPath)
+                exportSession.outputURL = exportURL
+                
+                Log.debug("[PhotoLibrary] Starting video export")
+                exportSession.exportAsynchronously { [weak exportSession] in
+                    Log.debug("[PhotoLibrary] Completed video export")
+                    
+                    guard exportSession?.status == .completed else {
+                        return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "Failed to build data source for exported video URL"))
                     }
                     
-                    if (info?[PHImageCancelledKey] as? Bool) == true {
-                        return resolver(.failure(PhotoLibraryError.assertionError(description: "Image request cancelled")))
-                    }
-                    
-                    // If we get a degraded image then we want to wait for the next callback (which will
-                    // be the non-degraded version)
-                    guard (info?[PHImageResultIsDegradedKey] as? Bool) != true else {
-                        return
-                    }
-                    
-                    guard let imageData = imageData else {
-                        resolver(Result.failure(PhotoLibraryError.assertionError(description: "imageData was unexpectedly nil")))
-                        return
-                    }
-                    
-                    guard let type: UTType = dataUTI.map({ UTType($0) }) else {
-                        resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataUTI was unexpectedly nil")))
-                        return
-                    }
-                    
-                    guard let dataSource = DataSourceValue(data: imageData, dataType: type, using: dependencies) else {
-                        resolver(Result.failure(PhotoLibraryError.assertionError(description: "dataSource was unexpectedly nil")))
-                        return
-                    }
-                    
-                    resolver(Result.success((dataSource: dataSource, type: type)))
+                    continuation.resume(
+                        returning: PendingAttachment(
+                            source: .media(
+                                .videoUrl(
+                                    exportURL,
+                                    .mpeg4Movie,
+                                    nil,
+                                    dependencies[singleton: .attachmentManager]
+                                )
+                            ),
+                            utType: .mpeg4Movie,
+                            using: dependencies
+                        )
+                    )
                 }
             }
         }
-        .eraseToAnyPublisher()
     }
 
-    private func requestVideoDataSource(for asset: PHAsset, using dependencies: Dependencies) -> AnyPublisher<(dataSource: (any DataSource), type: UTType), Error> {
-        return Deferred {
-            Future { [weak self] resolver in
-                let options: PHVideoRequestOptions = PHVideoRequestOptions()
-                options.isNetworkAccessAllowed = true
-                options.deliveryMode = .highQualityFormat
-                
-                self?.imageManager.requestAVAsset(forVideo: asset, options: options) { avAsset, _, info in
-                    
-                    if let error: Error = info?[PHImageErrorKey] as? Error {
-                        return resolver(.failure(error))
-                    }
-                    
-                    guard let avAsset: AVAsset = avAsset else {
-                        return resolver(Result.failure(PhotoLibraryError.assertionError(description: "avAsset was unexpectedly nil")))
-                    }
-                    
-                    let compatiblePresets = AVAssetExportSession.exportPresets(compatibleWith: avAsset)
-                    var bestExportPreset: String
-                    
-                    if compatiblePresets.contains(AVAssetExportPresetPassthrough) {
-                        bestExportPreset = AVAssetExportPresetPassthrough
-                        Log.debug("[PhotoLibrary] Using Passthrough export preset.")
-                    } else {
-                        bestExportPreset = AVAssetExportPresetHighestQuality
-                        Log.debug("[PhotoLibrary] Passthrough not available. Falling back to HighestQuality export preset.")
-                    }
-                    
-                    if (info?[PHImageCancelledKey] as? Bool) == true {
-                        return resolver(.failure(PhotoLibraryError.assertionError(description: "Video request cancelled")))
-                    }
-                    
-                    guard let exportSession: AVAssetExportSession = AVAssetExportSession(asset: avAsset, presetName: bestExportPreset) else {
-                        resolver(Result.failure(PhotoLibraryError.assertionError(description: "exportSession was unexpectedly nil")))
-                        return
-                    }
-                    
-                    exportSession.outputFileType = AVFileType.mp4
-                    exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
-                    
-                    let exportPath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "mp4") // stringlint:ignore
-                    let exportURL = URL(fileURLWithPath: exportPath)
-                    exportSession.outputURL = exportURL
-                    
-                    Log.debug("[PhotoLibrary] Starting video export")
-                    exportSession.exportAsynchronously { [weak exportSession] in
-                        Log.debug("[PhotoLibrary] Completed video export")
-                        
-                        guard
-                            exportSession?.status == .completed,
-                            let dataSource = DataSourcePath(fileUrl: exportURL, sourceFilename: nil, shouldDeleteOnDeinit: true, using: dependencies)
-                        else {
-                            resolver(Result.failure(PhotoLibraryError.assertionError(description: "Failed to build data source for exported video URL")))
-                            return
-                        }
-                        
-                        resolver(Result.success((dataSource: dataSource, type: .mpeg4Movie)))
-                    }
-                }
-            }
-        }
-        .eraseToAnyPublisher()
-    }
-
-    func outgoingAttachment(for asset: PHAsset, using dependencies: Dependencies) -> AnyPublisher<SignalAttachment, Error> {
+    func pendingAttachment(for asset: PHAsset, using dependencies: Dependencies) async throws -> PendingAttachment {
         switch asset.mediaType {
-            case .image:
-                return requestImageDataSource(for: asset, using: dependencies)
-                    .map { (dataSource: DataSource, type: UTType) in
-                        SignalAttachment.attachment(dataSource: dataSource, type: type, imageQuality: .medium, using: dependencies)
-                    }
-                    .eraseToAnyPublisher()
-                
-            case .video:
-                return requestVideoDataSource(for: asset, using: dependencies)
-                    .map { (dataSource: DataSource, type: UTType) in
-                        SignalAttachment.attachment(dataSource: dataSource, type: type, using: dependencies)
-                    }
-                    .eraseToAnyPublisher()
-                
-            default:
-                return Fail(error: PhotoLibraryError.unsupportedMediaType)
-                    .eraseToAnyPublisher()
+            case .image: return try await requestImageDataSource(for: asset, using: dependencies)
+            case .video: return try await requestVideoDataSource(for: asset, using: dependencies)
+            default: throw PhotoLibraryError.unsupportedMediaType
         }
     }
 }

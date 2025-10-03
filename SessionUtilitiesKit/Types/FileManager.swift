@@ -29,7 +29,7 @@ public protocol FileManagerType {
     func protectFileOrFolder(at path: String, fileProtectionType: FileProtectionType) throws
     func fileSize(of path: String) -> UInt64?
     func temporaryFilePath(fileExtension: String?) -> String
-    func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String?
+    func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String
     
     // MARK: - Forwarded NSFileManager
     
@@ -73,6 +73,14 @@ public extension FileManagerType {
     
     func protectFileOrFolder(at path: String) throws {
         try protectFileOrFolder(at: path, fileProtectionType: .completeUntilFirstUserAuthentication)
+    }
+    
+    func temporaryFilePath() -> String {
+        return temporaryFilePath(fileExtension: nil)
+    }
+    
+    func write(dataToTemporaryFile data: Data) throws -> String {
+        return try write(data: data, toTemporaryFileWithExtension: nil)
     }
     
     func enumerator(at url: URL, includingPropertiesForKeys keys: [URLResourceKey]?) -> FileManager.DirectoryEnumerator? {
@@ -257,7 +265,7 @@ public class SessionFileManager: FileManagerType {
             .path
     }
     
-    public func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String? {
+    public func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String {
         let tempFilePath: String = temporaryFilePath(fileExtension: fileExtension)
         
         try data.write(to: URL(fileURLWithPath: tempFilePath), options: .atomic)

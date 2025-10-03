@@ -20,6 +20,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
     
     /// We want to cache url previews to the nearest 100,000 seconds (~28 hours - simpler than 86,400) to ensure the user isn't shown a preview that is too stale
     internal static let timstampResolution: Double = 100000
+    internal static let maxImageDimension: CGFloat = 600
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -131,21 +132,25 @@ public extension LinkPreview {
         return (floor(sentTimestampMs / 1000 / LinkPreview.timstampResolution) * LinkPreview.timstampResolution)
     }
     
-    static func generateAttachmentIfPossible(imageData: Data?, type: UTType, using dependencies: Dependencies) throws -> Attachment? {
+    static func generateAttachmentIfPossible(urlString: String, imageData: Data?, type: UTType, using dependencies: Dependencies) throws -> Attachment? {
         guard let imageData: Data = imageData, !imageData.isEmpty else { return nil }
-        guard let fileExtension: String = type.sessionFileExtension(sourceFilename: nil) else { return nil }
-        guard let mimeType: String = type.preferredMIMEType else { return nil }
         
-        let filePath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
-        try imageData.write(to: NSURL.fileURL(withPath: filePath), options: .atomicWrite)
-        let dataSource: DataSourcePath = DataSourcePath(
-            filePath: filePath,
-            sourceFilename: nil,
-            shouldDeleteOnDeinit: true,
+        let pendingAttachment: PendingAttachment = PendingAttachment(
+            source: .media(urlString, imageData),
+            utType: type,
+            using: dependencies
+        )
+        let preparedAttachment: PreparedAttachment = try pendingAttachment.prepare(
+            transformations: [
+                .compress,
+                .convertToStandardFormats,
+                .resize(maxDimension: LinkPreview.maxImageDimension),
+                .stripImageMetadata
+            ],
             using: dependencies
         )
         
-        return Attachment(contentType: mimeType, dataSource: dataSource, using: dependencies)
+        return preparedAttachment.attachment
     }
     
     static func isValidLinkUrl(_ urlString: String) -> Bool {
@@ -432,7 +437,7 @@ public extension LinkPreview {
                 let imageUrl: String = contents.imageUrl,
                 URL(string: imageUrl) != nil,
                 let imageFileExtension: String = fileExtension(forImageUrl: imageUrl),
-                let imageMimeType: String = UTType(sessionFileExtension: imageFileExtension)?.preferredMIMEType
+                let imageUTType: UTType = UTType(sessionFileExtension: imageFileExtension)
             else {
                 return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
                     .setFailureType(to: Error.self)
@@ -440,7 +445,7 @@ public extension LinkPreview {
             }
 
             return LinkPreview
-                .downloadImage(url: imageUrl, imageMimeType: imageMimeType, using: dependencies)
+                .downloadImage(url: imageUrl, imageUTType: imageUTType, using: dependencies)
                 .map { imageData -> LinkPreviewDraft in
                     // We always recompress images to Jpeg
                     LinkPreviewDraft(urlString: linkUrlString, title: title, jpegImageData: imageData)
@@ -489,7 +494,7 @@ public extension LinkPreview {
     
     private static func downloadImage(
         url urlString: String,
-        imageMimeType: String,
+        imageUTType: UTType,
         using dependencies: Dependencies
     ) -> AnyPublisher<Data, Error> {
         guard
@@ -509,11 +514,9 @@ public extension LinkPreview {
                 shouldIgnoreSignalProxy: true
             )
             .tryMap { asset, _ -> Data in
-                let type: UTType? = UTType(sessionMimeType: imageMimeType)
                 let imageSize = MediaUtils.unrotatedSize(
                     for: asset.filePath,
-                    type: type,
-                    mimeType: imageMimeType,
+                    utType: imageUTType,
                     sourceFilename: nil,
                     using: dependencies
                 )
@@ -523,7 +526,16 @@ public extension LinkPreview {
                 }
                 
                 // Loki: If it's a GIF then ensure its validity and don't download it as a JPG
-                if type == .gif && MediaUtils.isValidImage(at: asset.filePath, type: .gif, using: dependencies) {
+                if
+                    imageUTType == .gif,
+                    let metadata: MediaUtils.MediaMetadata = MediaUtils.MediaMetadata(
+                        from: asset.filePath,
+                        utType: .gif,
+                        sourceFilename: nil,
+                        using: dependencies
+                    ),
+                    metadata.isValidImage
+                {
                     return try Data(contentsOf: URL(fileURLWithPath: asset.filePath))
                 }
                 

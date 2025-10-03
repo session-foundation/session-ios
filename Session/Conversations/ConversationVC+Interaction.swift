@@ -274,7 +274,7 @@ extension ConversationVC:
 
     func sendMediaNav(
         _ sendMediaNavigationController: SendMediaNavigationController,
-        didApproveAttachments attachments: [SignalAttachment],
+        didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
         messageText: String?
@@ -304,7 +304,7 @@ extension ConversationVC:
     
     func attachmentApproval(
         _ attachmentApproval: AttachmentApprovalViewController,
-        didApproveAttachments attachments: [SignalAttachment],
+        didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
         messageText: String?
@@ -330,7 +330,7 @@ extension ConversationVC:
         snInputView.text = (newMessageText ?? "")
     }
     
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didRemoveAttachment attachment: SignalAttachment) {
+    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didRemoveAttachment attachment: PendingAttachment) {
     }
 
     func attachmentApprovalDidTapAddMore(_ attachmentApproval: AttachmentApprovalViewController) {
@@ -413,24 +413,25 @@ extension ConversationVC:
                 }
                 
                 let fileName: String = (urlResourceValues.name ?? "attachment".localized())
-                guard let dataSource = DataSourcePath(fileUrl: url, sourceFilename: urlResourceValues.name, shouldDeleteOnDeinit: false, using: dependencies) else {
-                    DispatchQueue.main.async { [weak self] in
-                        self?.viewModel.showToast(text: "attachmentsErrorLoad".localized())
-                    }
-                    return
-                }
-                dataSource.sourceFilename = fileName
+                let pendingAttachment: PendingAttachment = PendingAttachment(
+                    source: .file(url),
+                    utType: type,
+                    sourceFilename: fileName,
+                    using: dependencies
+                )
                 
-                // Although we want to be able to send higher quality attachments through the document picker
-                // it's more imporant that we ensure the sent format is one all clients can accept (e.g. *not* quicktime .mov)
-                guard !SignalAttachment.isInvalidVideo(dataSource: dataSource, type: type) else {
-                    self?.showAttachmentApprovalDialogAfterProcessingVideo(at: url, with: fileName)
+                /// Although we want to be able to send higher quality attachments through the document picker
+                /// it's more imporant that we ensure the sent format is one all clients can accept (e.g. *not* quicktime .mov)
+                if
+                    UTType.supportedVideoTypes.contains(pendingAttachment.utType) &&
+                    !UTType.supportedOutputVideoTypes.contains(pendingAttachment.utType)
+                {
+                    self?.showAttachmentApprovalDialogAfterProcessingVideo(pendingAttachment)
                     return
                 }
                 
                 // "Document picker" attachments _SHOULD NOT_ be resized
-                let attachment = SignalAttachment.attachment(dataSource: dataSource, type: type, imageQuality: .original, using: dependencies)
-                self?.showAttachmentApprovalDialog(for: [ attachment ])
+                self?.showAttachmentApprovalDialog(for: [ pendingAttachment ])
             },
             wasCancelled: { [weak self] _ in
                 self?.showInputAccessoryView()
@@ -483,17 +484,18 @@ extension ConversationVC:
     
     // MARK: - GifPickerViewControllerDelegate
     
-    func gifPickerDidSelect(attachment: SignalAttachment) {
+    func gifPickerDidSelect(attachment: PendingAttachment) {
         showAttachmentApprovalDialog(for: [ attachment ])
     }
     
-    func showAttachmentApprovalDialog(for attachments: [SignalAttachment]) {
+    func showAttachmentApprovalDialog(for attachments: [PendingAttachment]) {
         guard let navController = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
             attachments: attachments,
             approvalDelegate: self,
             disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
+            didLoadLinkPreview: nil,
             using: self.viewModel.dependencies
         ) else { return }
         navController.modalPresentationStyle = .fullScreen
@@ -501,36 +503,28 @@ extension ConversationVC:
         present(navController, animated: true, completion: nil)
     }
 
-    func showAttachmentApprovalDialogAfterProcessingVideo(at url: URL, with fileName: String) {
-        ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: true, message: nil) { [weak self, dependencies = viewModel.dependencies] modalActivityIndicator in
-            
-            guard let dataSource = DataSourcePath(fileUrl: url, sourceFilename: fileName, shouldDeleteOnDeinit: false, using: dependencies) else {
-                self?.showErrorAlert(for: SignalAttachment.empty(using: dependencies))
-                return
-            }
-            dataSource.sourceFilename = fileName
-            
-            SignalAttachment
-                .compressVideoAsMp4(
-                    dataSource: dataSource,
-                    type: .mpeg4Movie,
+    func showAttachmentApprovalDialogAfterProcessingVideo(_ pendingAttachment: PendingAttachment) {
+        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(
+            canCancel: true
+        )
+        present(indicator, animated: false)
+        
+        Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies = viewModel.dependencies] in
+            do {
+                let convertedAttachment: PendingAttachment = try await pendingAttachment.compressAsMp4Video(
                     using: dependencies
                 )
-                .attachmentPublisher
-                .sinkUntilComplete(
-                    receiveValue: { [weak self] attachment in
-                        guard !modalActivityIndicator.wasCancelled else { return }
-                        
-                        modalActivityIndicator.dismiss {
-                            guard !attachment.hasError else {
-                                self?.showErrorAlert(for: attachment)
-                                return
-                            }
-                            
-                            self?.showAttachmentApprovalDialog(for: [ attachment ])
-                        }
-                    }
-                )
+                guard await !indicator.wasCancelled else { return }
+                
+                await indicator.dismiss {
+                    self?.showAttachmentApprovalDialog(for: [ convertedAttachment ])
+                }
+            }
+            catch {
+                await indicator.dismiss {
+                    self?.showErrorAlert(for: error)
+                }
+            }
         }
     }
     
@@ -659,17 +653,12 @@ extension ConversationVC:
 
     func sendMessage(
         text: String,
-        attachments: [SignalAttachment] = [],
+        attachments: [PendingAttachment] = [],
         linkPreviewDraft: LinkPreviewDraft? = nil,
         quoteModel: QuotedReplyModel? = nil,
         hasPermissionToSendSeed: Bool = false
     ) {
         guard !showBlockedModalIfNeeded() else { return }
-        
-        // Handle attachment errors if applicable
-        if let failedAttachment: SignalAttachment = attachments.first(where: { $0.hasError }) {
-            return showErrorAlert(for: failedAttachment)
-        }
         
         let processedText: String = replaceMentions(in: text.trimmingCharacters(in: .whitespacesAndNewlines))
         
@@ -926,18 +915,20 @@ extension ConversationVC:
     
     // MARK: --Attachments
     
-    func didPasteImageFromPasteboard(_ image: UIImage) {
-        guard let imageData = image.jpegData(compressionQuality: 1.0) else { return }
+    func didPasteImageDataFromPasteboard(_ imageData: Data) {
+        let pendingAttachment: PendingAttachment = PendingAttachment(
+            source: .media(UUID().uuidString, imageData),
+            sourceFilename: nil,
+            using: viewModel.dependencies
+        )
         
-        let dataSource = DataSourceValue(data: imageData, dataType: .jpeg, using: viewModel.dependencies)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .jpeg, imageQuality: .medium, using: viewModel.dependencies)
-
         guard let approvalVC = AttachmentApprovalViewController.wrappedInNavController(
             threadId: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
-            attachments: [ attachment ],
+            attachments: [ pendingAttachment ],
             approvalDelegate: self,
             disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
+            didLoadLinkPreview: nil,
             using: self.viewModel.dependencies
         ) else { return }
         approvalVC.modalPresentationStyle = .fullScreen
@@ -2852,21 +2843,15 @@ extension ConversationVC:
         // Get data
         let fileName = ("messageVoice".localized() as NSString)
             .appendingPathExtension("m4a") // stringlint:ignore
-        let dataSourceOrNil = DataSourcePath(fileUrl: audioRecorder.url, sourceFilename: fileName, shouldDeleteOnDeinit: true, using: viewModel.dependencies)
-        self.audioRecorder = nil
-        
-        guard let dataSource = dataSourceOrNil else {
-            return Log.error(.conversation, "Couldn't load recorded data.")
-        }
-        
-        let attachment = SignalAttachment.voiceMessageAttachment(dataSource: dataSource, type: .mpeg4Audio, using: viewModel.dependencies)
-        
-        guard !attachment.hasError else {
-            return showErrorAlert(for: attachment)
-        }
+        let pendingAttachment: PendingAttachment = PendingAttachment(
+            source: .voiceMessage(audioRecorder.url),
+            utType: .mpeg4Audio,
+            sourceFilename: fileName,
+            using: viewModel.dependencies
+        )
         
         // Send attachment
-        sendMessage(text: "", attachments: [attachment])
+        sendMessage(text: "", attachments: [pendingAttachment])
     }
 
     func cancelVoiceMessageRecording() {
@@ -2911,13 +2896,13 @@ extension ConversationVC:
 
     // MARK: - Convenience
     
-    func showErrorAlert(for attachment: SignalAttachment) {
+    @MainActor func showErrorAlert(for error: Error) {
         DispatchQueue.main.async { [weak self] in
             let modal: ConfirmationModal = ConfirmationModal(
                 targetView: self?.view,
                 info: ConfirmationModal.Info(
                     title: "attachmentsErrorSending".localized(),
-                    body: .text(attachment.localizedErrorDescription ?? SignalAttachment.missingDataErrorMessage),
+                    body: .text("\(error)"),
                     cancelTitle: "okay".localized(),
                     cancelStyle: .alert_text
                 )

@@ -2,6 +2,7 @@
 
 import UIKit
 import SwiftUI
+import UniformTypeIdentifiers
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -23,7 +24,7 @@ public extension ImageDataManager.DataSource {
             /// Videos need special handling so handle those specially
             return .videoUrl(
                 URL(fileURLWithPath: path),
-                attachment.contentType,
+                (UTType(sessionMimeType: attachment.contentType) ?? .invalid),
                 attachment.sourceFilename,
                 dependencies[singleton: .attachmentManager]
             )
@@ -52,7 +53,7 @@ public extension ImageDataManager.DataSource {
         if attachment.isVideo {
             return .videoUrl(
                 URL(fileURLWithPath: path),
-                attachment.contentType,
+                (UTType(sessionMimeType: attachment.contentType) ?? .invalid),
                 attachment.sourceFilename,
                 dependencies[singleton: .attachmentManager]
             )

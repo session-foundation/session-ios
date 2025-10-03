@@ -36,17 +36,25 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
         }
         
         Task {
-            // TODO: Wait until we've received a poll response before running the logic?
-            // TODO: Check whether the image needs to be reprocessed
-            // TODO: Try to extend the TTL
             
-            let lastAttempt: Date = (
-                dependencies[defaults: .standard, key: .lastUserDisplayPictureRefresh] ??
-                Date.distantPast
-            )
+            /// Retrieve the users profile data
+            let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
             
-            /// Only try to extend the TTL of the users display pic if enough time has passed since the last attempt
-            guard dependencies.dateNow.timeIntervalSince(lastAttempt) > maxExtendTTLFrequency else {
+            /// If we don't have a display pic then no need to do anything
+            guard
+                let displayPictureUrl: URL = profile.displayPictureUrl.map({ URL(string: $0) }),
+                let displayPictureEncryptionKey: Data = profile.displayPictureEncryptionKey
+            else {
+                Log.info(.cat, "User has no display picture")
+                return scheduler.schedule {
+                    success(job, false)
+                }
+            }
+            
+            /// Only try to extend the TTL of the users display pic if enough time has passed since it was last updated
+            let lastUpdated: Date = Date(timeIntervalSince1970: profile.profileLastUpdated ?? 0)
+            
+            guard dependencies.dateNow.timeIntervalSince(lastUpdated) > maxExtendTTLFrequency else {
                 /// Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck in a loop endlessly
                 /// deferring the job
                 if let jobId: Int64 = job.id {
@@ -63,141 +71,111 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                 }
             }
             
-            /// Retrieve the users profile data
-            let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
-            
-            /// If we don't have a display pic then no need to do anything
-            guard let displayPictureUrl: URL = profile.displayPictureUrl.map({ URL(string: $0) }) else {
-                Log.info(.cat, "User has no display picture")
-                return scheduler.schedule {
-                    success(job, false)
-                }
-            }
-            
-            //        let displayPictureUpdate: DisplayPictureManager.Update = profile.displayPictureUrl
-            //            .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
-            //            .map { dependencies[singleton: .fileManager].contents(atPath: $0) }
-            //            .map { .currentUserUploadImageData($0) }
-            //            .defaulting(to: .none)
-            
             /// Try to extend the TTL of the existing profile pic first
             do {
-                let preparedRequest: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer.preparedExtend(
+                let request: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer.preparedExtend(
                     url: displayPictureUrl,
                     ttl: maxDisplayPictureTTL,
                     serverPubkey: Network.FileServer.fileServerPublicKey,
                     using: dependencies
                 )
-                var response: FileUploadResponse?
-                var requestError: Error?
-                let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
                 
-                preparedRequest
+                // FIXME: Make this async/await when the refactored networking is merged
+                let response: FileUploadResponse = try await request
                     .send(using: dependencies)
-                    .sinkUntilComplete(
-                        receiveCompletion: { result in
-                            switch result {
-                                case .finished: break /// The `receiveValue` closure will handle
-                                case .failure(let error):
-                                    requestError = error
-                                    semaphore.signal()
-                            }
-                        },
-                        receiveValue: { _, fileUploadResponse in
-                            response = fileUploadResponse
-                            semaphore.signal()
-                        }
-                    )
+                    .values
+                    .first(where: { _ in true })?.1 ?? { throw DisplayPictureError.uploadFailed }()
                 
-                /// Wait for the request to complete
-                semaphore.wait()
+                /// Even though the data hasn't changed, we need to trigger `Profile.UpdateLocal` in order for the
+                /// `profileLastUpdated` value to be updated correctly
+                try await Profile.updateLocal(
+                    displayPictureUpdate: .currentUserUpdateTo(
+                        url: displayPictureUrl.absoluteString,
+                        key: displayPictureEncryptionKey,
+                        isReupload: true
+                    ),
+                    using: dependencies
+                )
+                Log.info(.cat, "Existing profile expiration extended")
                 
-                // TODO: If it's a `NotFound` error then we should do the standard reupload logic
-                
+                return scheduler.schedule {
+                    success(job, false)
+                }
+            } catch NetworkError.notFound {
                 /// If we get a `404` it means we couldn't extend the TTL of the file so need to re-upload
-                switch (response, requestError) {
-                    case (_, NetworkError.notFound): break
-                    case (_, .some(let error)):
-                        return scheduler.schedule {
-                            failure(job, error, false)
-                        }
-                        
-                    case (.none, .none): break
-                        /// An unknown error occured (we got no response and no error - shouldn't be possible)
-                        return scheduler.schedule {
-                            failure(job, DisplayPictureError.uploadFailed, false)
-                        }
-                        
-                    case (.some, .none):
-                        Log.info(.cat, "Existing profile expiration extended")
-                        
-                        return scheduler.schedule {
-                            success(job, false)
-                        }
+            } catch {
+                return scheduler.schedule {
+                    failure(job, error, false)
                 }
-                
-                /// Determine whether we need to re-process the display picture before re-uploading it
-                var needsReprocessing: Bool = ((profile.profileLastUpdated ?? 0) == 0)
-                
-                if !needsReprocessing {
-                    try? dependencies[singleton: .displayPictureManager].path(for: $0)
-                    displayPictureUrl
-                }
-                
-                
-                //profile.pro
-                // TODO: If `shortenFileTTL` is set then reupload even if it's less than the 12 day timeout
-                // TODO: Update the timestamp on successful extend
-                //            dependencies[defaults: .standard, key: .lastUserDisplayPictureReupload] = dependencies.dateNow
-            }
-            catch {
-                failure(job, error, false)
             }
             
-            //        // Only re-upload the profile picture if enough time has passed since the last upload
-            //        guard
-            //            let lastAttempt: Date = dependencies[defaults: .standard, key: .lastProfilePictureReuploadAttempt],
-            //            dependencies.dateNow.timeIntervalSince(lastProfilePictureUpload) > (14 * 24 * 60 * 60)
-            //        else {
-            //            // Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck
-            //            // in a loop endlessly deferring the job
-            //            if let jobId: Int64 = job.id {
-            //                dependencies[singleton: .storage].write { db in
-            //                    try Job
-            //                        .filter(id: jobId)
-            //                        .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))
-            //                }
-            //            }
-            //
-            //            Log.info(.cat, "Deferred as not enough time has passed since the last update")
-            //            return deferred(job)
-            //        }
-            //
-            //        /// **Note:** The `lastProfilePictureUpload` value is updated in `DisplayPictureManager`
-            //        let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
-            //        let displayPictureUpdate: DisplayPictureManager.Update = profile.displayPictureUrl
-            //            .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
-            //            .map { dependencies[singleton: .fileManager].contents(atPath: $0) }
-            //            .map { .currentUserUploadImageData($0) }
-            //            .defaulting(to: .none)
-            //
-            //        Profile
-            //            .updateLocal(
-            //                displayPictureUpdate: displayPictureUpdate,
-            //                using: dependencies
-            //            )
-            //            .subscribe(on: scheduler, using: dependencies)
-            //            .receive(on: scheduler, using: dependencies)
-            //            .sinkUntilComplete(
-            //                receiveCompletion: { result in
-            //                    switch result {
-            //                        case .failure(let error): failure(job, error, false)
-            //                        case .finished:
-            //                            Log.info(.cat, "Profile successfully updated")
-            //                            success(job, false)
-            //                    }
-            //                }
-            //            )
+            /// Since we made it here it means that refreshing the TTL failed so we may need to reupload the display picture
+            do {
+                let pendingDisplayPicture: PendingAttachment = PendingAttachment(
+                    source: .displayPicture(.url(displayPictureUrl)),
+                    using: dependencies
+                )
+                
+                guard
+                    try profile.profileLastUpdated == 0 ||
+                    dependencies.dateNow.timeIntervalSince(lastUpdated) > maxReuploadFrequency ||
+                    dependencies[feature: .shortenFileTTL] ||
+                    pendingDisplayPicture.needsPreparationForAttachmentUpload(
+                        transformations: [
+                            .convertToStandardFormats,
+                            .resize(maxDimension: DisplayPictureManager.maxDimension)
+                        ]
+                    )
+                else {
+                    /// Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck in a loop endlessly
+                    /// deferring the job
+                    if let jobId: Int64 = job.id {
+                        dependencies[singleton: .storage].write { db in
+                            try Job
+                                .filter(id: jobId)
+                                .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))
+                        }
+                    }
+        
+                    return scheduler.schedule {
+                        Log.info(.cat, "Deferred as not enough time has passed since the last update")
+                        deferred(job)
+                    }
+                }
+                
+                /// Prepare and upload the display picture
+                let preparedAttachment: PreparedAttachment = try dependencies[singleton: .displayPictureManager]
+                    .prepareDisplayPicture(
+                        attachment: pendingDisplayPicture,
+                        transformations: [
+                            .convertToStandardFormats,
+                            .resize(maxDimension: DisplayPictureManager.maxDimension),
+                            .encrypt(legacy: true)  // FIXME: Remove the `legacy` encryption option
+                        ]
+                    )
+                let result = try await dependencies[singleton: .displayPictureManager]
+                    .uploadDisplayPicture(attachment: preparedAttachment)
+                
+                /// Update the local state now that the display picture has finished uploading
+                try await Profile.updateLocal(
+                    displayPictureUpdate: .currentUserUpdateTo(
+                        url: result.downloadUrl,
+                        key: result.encryptionKey,
+                        isReupload: true
+                    ),
+                    using: dependencies
+                )
+                
+                return scheduler.schedule {
+                    Log.info(.cat, "Profile successfully updated")
+                    success(job, false)
+                }
+            }
+            catch {
+                return scheduler.schedule {
+                    failure(job, error, false)
+                }
+            }
         }
     }
 }

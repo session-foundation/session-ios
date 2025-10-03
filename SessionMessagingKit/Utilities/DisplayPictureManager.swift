@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import UIKit
 import Combine
@@ -31,15 +33,14 @@ public class DisplayPictureManager {
         case none
         
         case contactRemove
-        case contactUpdateTo(url: String, key: Data, filePath: String)
+        case contactUpdateTo(url: String, key: Data)
         
         case currentUserRemove
-        case currentUserUploadImageData(data: Data, isReupload: Bool)
-        case currentUserUpdateTo(url: String, key: Data, filePath: String)
+        case currentUserUpdateTo(url: String, key: Data, isReupload: Bool)
         
         case groupRemove
-        case groupUploadImageData(Data)
-        case groupUpdateTo(url: String, key: Data, filePath: String)
+        case groupUploadImage(ImageDataManager.DataSource)
+        case groupUpdateTo(url: String, key: Data)
         
         static func from(_ profile: VisibleMessage.VMProfile, fallback: Update, using dependencies: Dependencies) -> Update {
             return from(profile.profilePictureUrl, key: profile.profileKey, fallback: fallback, using: dependencies)
@@ -52,16 +53,15 @@ public class DisplayPictureManager {
         static func from(_ url: String?, key: Data?, fallback: Update, using dependencies: Dependencies) -> Update {
             guard
                 let url: String = url,
-                let key: Data = key,
-                let filePath: String = try? dependencies[singleton: .displayPictureManager].path(for: url)
+                let key: Data = key
             else { return fallback }
             
-            return .contactUpdateTo(url: url, key: key, filePath: filePath)
+            return .contactUpdateTo(url: url, key: key)
         }
     }
     
     public static let maxBytes: UInt = (5 * 1000 * 1000)
-    public static let maxDiameter: CGFloat = 640
+    public static let maxDimension: CGFloat = 600
     public static let aes256KeyByteLength: Int = 32
     internal static let nonceLength: Int = 12
     internal static let tagLength: Int = 16
@@ -101,7 +101,7 @@ public class DisplayPictureManager {
     
     public func sharedDataDisplayPictureDirPath() -> String {
         let path: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath)
-            .appendingPathComponent("DisplayPictures")   // stringlint:ignore
+            .appendingPathComponent("DisplayPictures")
             .path
         try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: path)
         
@@ -131,6 +131,13 @@ public class DisplayPictureManager {
         return URL(fileURLWithPath: sharedDataDisplayPictureDirPath())
             .appendingPathComponent(urlHash)
             .path
+    }
+    
+    public func path(for source: ImageDataManager.DataSource) throws -> String {
+        switch source {
+            case .url(let url): return try path(for: url.absoluteString)
+            default: throw DisplayPictureError.invalidCall
+        }
     }
     
     public func resetStorage() {
@@ -182,150 +189,66 @@ public class DisplayPictureManager {
     
     // MARK: - Uploading
     
-    public func prepareAndUploadDisplayPicture(imageData: Data, compression: Bool) -> AnyPublisher<UploadResult, DisplayPictureError> {
-        return Just(())
-            .setFailureType(to: DisplayPictureError.self)
-            .tryMap { [dependencies] _ -> (Network.PreparedRequest<FileUploadResponse>, String, Data) in
-                // If the profile avatar was updated or removed then encrypt with a new profile key
-                // to ensure that other users know that our profile picture was updated
-                let newEncryptionKey: Data
-                let finalImageData: Data
-                let fileExtension: String
-                let guessedFormat: ImageFormat = MediaUtils.guessedImageFormat(data: imageData)
-                
-                finalImageData = try {
-                    switch guessedFormat {
-                        case .gif, .webp:
-                            // Animated images can't be resized so if the data is too large we should error
-                            guard imageData.count <= DisplayPictureManager.maxBytes else {
-                                // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
-                                // be able to fit our profile photo (eg. generating pure noise at our resolution
-                                // compresses to ~200k)
-                                Log.error(.displayPictureManager, "Updating service with profile failed: \(DisplayPictureError.uploadMaxFileSizeExceeded).")
-                                throw DisplayPictureError.uploadMaxFileSizeExceeded
-                            }
-                            
-                            return imageData
-                            
-                        default: break
-                    }
-                    
-                    // Process the image to ensure it meets our standards for size and compress it to
-                    // standardise the formwat and remove any metadata
-                    guard var image: UIImage = UIImage(data: imageData) else {
-                        throw DisplayPictureError.invalidCall
-                    }
-                    
-                    if image.size.width != DisplayPictureManager.maxDiameter || image.size.height != DisplayPictureManager.maxDiameter {
-                        // To help ensure the user is being shown the same cropping of their avatar as
-                        // everyone else will see, we want to be sure that the image was resized before this point.
-                        Log.verbose(.displayPictureManager, "Avatar image should have been resized before trying to upload.")
-                        image = image.resized(toFillPixelSize: CGSize(width: DisplayPictureManager.maxDiameter, height: DisplayPictureManager.maxDiameter))
-                    }
-                    
-                    guard let data: Data = image.jpegData(compressionQuality: 0.95) else {
-                        Log.error(.displayPictureManager, "Updating service with profile failed.")
-                        throw DisplayPictureError.writeFailed
-                    }
-                    
-                    guard data.count <= DisplayPictureManager.maxBytes else {
-                        // Our avatar dimensions are so small that it's incredibly unlikely we wouldn't
-                        // be able to fit our profile photo (eg. generating pure noise at our resolution
-                        // compresses to ~200k)
-                        Log.verbose(.displayPictureManager, "Suprised to find profile avatar was too large. Was it scaled properly? image: \(image)")
-                        Log.error(.displayPictureManager, "Updating service with profile failed.")
-                        throw DisplayPictureError.uploadMaxFileSizeExceeded
-                    }
-                    
-                    return data
-                }()
-                
-                newEncryptionKey = try dependencies[singleton: .crypto]
-                    .tryGenerate(.randomBytes(DisplayPictureManager.aes256KeyByteLength))
-                fileExtension = {
-                    switch guessedFormat {
-                        case .gif: return "gif"     // stringlint:ignore
-                        case .webp: return "webp"   // stringlint:ignore
-                        default: return "jpg"       // stringlint:ignore
-                    }
-                }()
-                
-                // If we have a new avatar image, we must first:
-                //
-                // * Write it to disk.
-                // * Encrypt it
-                // * Upload it to asset service
-                // * Send asset service info to Signal Service
-                Log.verbose(.displayPictureManager, "Updating local profile on service with new avatar.")
-                
-                let temporaryFilePath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
-                
-                // Write the avatar to disk
-                do { try finalImageData.write(to: URL(fileURLWithPath: temporaryFilePath), options: [.atomic]) }
-                catch {
-                    Log.error(.displayPictureManager, "Updating service with profile failed.")
-                    throw DisplayPictureError.writeFailed
-                }
-                
-                // Encrypt the avatar for upload
-                guard
-                    let encryptedData: Data = dependencies[singleton: .crypto].generate(
-                        .encryptedDataDisplayPicture(data: finalImageData, key: newEncryptionKey)
-                    )
-                else {
-                    Log.error(.displayPictureManager, "Updating service with profile failed.")
-                    throw DisplayPictureError.encryptionFailed
-                }
-                
-                // Upload the avatar to the FileServer
-                guard
-                    let preparedUpload: Network.PreparedRequest<FileUploadResponse> = try? Network.preparedUpload(
-                        data: encryptedData,
-                        requestAndPathBuildTimeout: Network.fileUploadTimeout,
-                        using: dependencies
-                    )
-                else {
-                    Log.error(.displayPictureManager, "Updating service with profile failed.")
-                    throw DisplayPictureError.uploadFailed
-                }
-                
-                return (preparedUpload, temporaryFilePath, newEncryptionKey)
-            }
-            .flatMap { [dependencies] preparedUpload, temporaryFilePath, newEncryptionKey -> AnyPublisher<(FileUploadResponse, String, Data), Error> in
-                preparedUpload.send(using: dependencies)
-                    .map { _, response -> (FileUploadResponse, String, Data) in
-                        (response, temporaryFilePath, newEncryptionKey)
-                    }
-                    .eraseToAnyPublisher()
-            }
-            .tryMap { [dependencies] fileUploadResponse, temporaryFilePath, newEncryptionKey -> (String, String, Data) in
-                let downloadUrl: String = Network.FileServer.downloadUrlString(for: fileUploadResponse.id)
-                let finalFilePath: String = try dependencies[singleton: .displayPictureManager].path(for: downloadUrl)
-                try dependencies[singleton: .fileManager].moveItem(atPath: temporaryFilePath, toPath: finalFilePath)
-                
-                return (downloadUrl, finalFilePath, newEncryptionKey)
-            }
-            .mapError { error in
-                Log.error(.displayPictureManager, "Updating service with profile failed with error: \(error).")
-                
-                switch error {
-                    case NetworkError.maxFileSizeExceeded: return DisplayPictureError.uploadMaxFileSizeExceeded
-                    case let displayPictureError as DisplayPictureError: return displayPictureError
-                    default: return DisplayPictureError.uploadFailed
-                }
-            }
-            .map { [dependencies] downloadUrl, finalFilePath, newEncryptionKey -> UploadResult in
-                /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
-                Task(priority: .userInitiated) {
-                    await dependencies[singleton: .imageDataManager].load(
-                        .url(URL(fileURLWithPath: finalFilePath))
-                    )
-                }
-                
-                Log.verbose(.displayPictureManager, "Successfully uploaded avatar image.")
-                return (downloadUrl, finalFilePath, newEncryptionKey)
-            }
-            .eraseToAnyPublisher()
+    public func prepareDisplayPicture(
+        attachment: PendingAttachment,
+        transformations: Set<PendingAttachment.Transform>? = nil
+    ) throws -> PreparedAttachment {
+        /// If we weren't given custom transformations then use the default ones for display pictures
+        let finalTransfomations: Set<PendingAttachment.Transform> = (
+            transformations ??
+            [
+                .compress,
+                .convertToStandardFormats,
+                .resize(maxDimension: DisplayPictureManager.maxDimension),
+                .stripImageMetadata,
+                .encrypt(legacy: true)  // FIXME: Remove the `legacy` encryption option
+            ]
+        )
+        
+        return try attachment.prepare(transformations: finalTransfomations, using: dependencies)
+    }
+    
+    public func uploadDisplayPicture(attachment: PreparedAttachment) async throws -> UploadResult {
+        let uploadResponse: FileUploadResponse
+        
+        /// Ensure we have an encryption key for the `PreparedAttachment` we want to use as a display picture
+        guard let encryptionKey: Data = attachment.attachment.encryptionKey else {
+            throw DisplayPictureError.notEncrypted
+        }
+        
+        do {
+            /// Upload the data
+            let data: Data = try dependencies[singleton: .fileManager]
+                .contents(atPath: attachment.temporaryFilePath) ?? { throw AttachmentError.invalidData }()
+            let request: Network.PreparedRequest<FileUploadResponse> = try Network.preparedUpload(
+                data: data,
+                requestAndPathBuildTimeout: Network.fileUploadTimeout,
+                using: dependencies
+            )
+            
+            // TODO: Refactor to use async/await when the networking refactor is merged
+            uploadResponse = try await request
+                .send(using: dependencies)
+                .values
+                .first(where: { _ in true })?.1 ?? { throw DisplayPictureError.uploadFailed }()
+        }
+        catch NetworkError.maxFileSizeExceeded { throw DisplayPictureError.uploadMaxFileSizeExceeded }
+        catch { throw DisplayPictureError.uploadFailed }
+        
+        /// Generate the `downloadUrl` and move the temporary file to it's expected destination
+        let downloadUrl: String = Network.FileServer.downloadUrlString(for: uploadResponse.id)
+        let finalFilePath: String = try dependencies[singleton: .displayPictureManager].path(for: downloadUrl)
+        try dependencies[singleton: .fileManager].moveItem(
+            atPath: attachment.temporaryFilePath,
+            toPath: finalFilePath
+        )
+        
+        /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
+        Task.detached(priority: .userInitiated) { [imageDataManager = dependencies[singleton: .imageDataManager]] in
+            await imageDataManager.load(.url(URL(fileURLWithPath: finalFilePath)))
+        }
+        
+        return (downloadUrl, finalFilePath, encryptionKey)
     }
 }
 

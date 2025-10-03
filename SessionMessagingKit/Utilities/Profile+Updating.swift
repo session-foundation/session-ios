@@ -34,95 +34,53 @@ public extension Profile {
         displayNameUpdate: DisplayNameUpdate = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
         using dependencies: Dependencies
-    ) -> AnyPublisher<Void, DisplayPictureError> {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let isRemovingAvatar: Bool = {
-            switch displayPictureUpdate {
-                case .currentUserRemove: return true
-                default: return false
-            }
-        }()
-        
+    ) async throws {
+        /// Perform any non-database related changes for the update
         switch displayPictureUpdate {
-            case .contactRemove, .contactUpdateTo, .groupRemove, .groupUpdateTo, .groupUploadImageData:
-                return Fail(error: DisplayPictureError.invalidCall)
-                    .eraseToAnyPublisher()
+            case .contactRemove, .contactUpdateTo, .groupRemove, .groupUpdateTo, .groupUploadImage:
+                throw DisplayPictureError.invalidCall
             
-            case .none, .currentUserRemove, .currentUserUpdateTo:
-                return dependencies[singleton: .storage]
-                    .writePublisher { db in
-                        if isRemovingAvatar {
-                            let existingProfileUrl: String? = try Profile
-                                .filter(id: userSessionId.hexString)
-                                .select(.displayPictureUrl)
-                                .asRequest(of: String.self)
-                                .fetchOne(db)
-                            
-                            /// Remove any cached avatar image data
-                            if
-                                let existingProfileUrl: String = existingProfileUrl,
-                                let filePath: String = try? dependencies[singleton: .displayPictureManager]
-                                    .path(for: existingProfileUrl)
-                            {
-                                Task(priority: .low) {
-                                    await dependencies[singleton: .imageDataManager].removeImage(
-                                        identifier: filePath
-                                    )
-                                    try? dependencies[singleton: .fileManager].removeItem(atPath: filePath)
-                                }
-                            }
-                            
-                            switch existingProfileUrl {
-                                case .some: Log.verbose(.profile, "Updating local profile on service with cleared avatar.")
-                                case .none: Log.verbose(.profile, "Updating local profile on service with no avatar.")
-                            }
-                        }
-                        
-                        let profileUpdateTimestampMs: Double = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                        try Profile.updateIfNeeded(
-                            db,
-                            publicKey: userSessionId.hexString,
-                            displayNameUpdate: displayNameUpdate,
-                            displayPictureUpdate: displayPictureUpdate,
-                            profileUpdateTimestamp: TimeInterval(profileUpdateTimestampMs / 1000),
-                            using: dependencies
+            case .none, .currentUserUpdateTo: break
+            case .currentUserRemove:
+                /// Remove any cached avatar image data
+                if
+                    let existingProfileUrl: String = dependencies
+                        .mutate(cache: .libSession, { $0.profile })
+                        .displayPictureUrl,
+                    let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                        .path(for: existingProfileUrl)
+                {
+                    Log.verbose(.profile, "Updating local profile on service with cleared avatar.")
+                    Task(priority: .low) {
+                        await dependencies[singleton: .imageDataManager].removeImage(
+                            identifier: filePath
                         )
-                        Log.info(.profile, "Successfully updated user profile.")
+                        try? dependencies[singleton: .fileManager].removeItem(atPath: filePath)
                     }
-                    .mapError { _ in DisplayPictureError.databaseChangesFailed }
-                    .eraseToAnyPublisher()
-                
-            case .currentUserUploadImageData(let data, let isReupload):
-                return dependencies[singleton: .displayPictureManager]
-                    .prepareAndUploadDisplayPicture(imageData: data, compression: !isReupload)
-                    .mapError { $0 as Error }
-                    .flatMapStorageWritePublisher(using: dependencies, updates: { db, result in
-                        let profileUpdateTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-                        try Profile.updateIfNeeded(
-                            db,
-                            publicKey: userSessionId.hexString,
-                            displayNameUpdate: displayNameUpdate,
-                            displayPictureUpdate: .currentUserUpdateTo(
-                                url: result.downloadUrl,
-                                key: result.encryptionKey,
-                                filePath: result.filePath
-                            ),
-                            profileUpdateTimestamp: profileUpdateTimestamp,
-                            isReuploadCurrentUserProfilePicture: isReupload,
-                            using: dependencies
-                        )
-                        
-                        dependencies[defaults: .standard, key: .lastUserDisplayPictureRefresh] = dependencies.dateNow
-                        Log.info(.profile, "Successfully updated user profile.")
-                    })
-                    .mapError { error in
-                        switch error {
-                            case let displayPictureError as DisplayPictureError: return displayPictureError
-                            default: return DisplayPictureError.databaseChangesFailed
-                        }
-                    }
-                    .eraseToAnyPublisher()
+                }
+                else {
+                    Log.verbose(.profile, "Updating local profile on service with no avatar.")
+                }
         }
+        
+        /// Finally, update the `Profile` data in the database
+        do {
+            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            let profileUpdateTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+            
+            try await dependencies[singleton: .storage].writeAsync { db in
+                try Profile.updateIfNeeded(
+                    db,
+                    publicKey: userSessionId.hexString,
+                    displayNameUpdate: displayNameUpdate,
+                    displayPictureUpdate: displayPictureUpdate,
+                    profileUpdateTimestamp: profileUpdateTimestamp,
+                    using: dependencies
+                )
+            }
+            Log.info(.profile, "Successfully updated user profile.")
+        }
+        catch { throw DisplayPictureError.databaseChangesFailed }
     }
     
     /// To try to maintain backwards compatibility with profile changes we want to continue to accept profile changes from old clients if
@@ -161,7 +119,7 @@ public extension Profile {
         displayPictureUpdate: DisplayPictureManager.Update,
         blocksCommunityMessageRequests: Bool? = nil,
         profileUpdateTimestamp: TimeInterval?,
-        isReuploadCurrentUserProfilePicture: Bool = false,
+        suppressUserProfileConfigUpdate: Bool = false,
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == dependencies[cache: .general].sessionId.hexString)
@@ -195,9 +153,7 @@ public extension Profile {
         // Profile picture & profile key
         switch (displayPictureUpdate, isCurrentUser) {
             case (.none, _): break
-            case (.currentUserUploadImageData, _), (.groupRemove, _), (.groupUpdateTo, _):
-                preconditionFailure("Invalid options for this function")
-                
+            case (.groupRemove, _), (.groupUpdateTo, _): throw DisplayPictureError.invalidCall
             case (.contactRemove, false), (.currentUserRemove, true):
                 if profile.displayPictureEncryptionKey != nil {
                     profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))
@@ -208,11 +164,15 @@ public extension Profile {
                     db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
                 }
             
-            case (.contactUpdateTo(let url, let key, let filePath), false),
-                (.currentUserUpdateTo(let url, let key, let filePath), true):
+            case (.contactUpdateTo(let url, let key), false),
+                (.currentUserUpdateTo(let url, let key, _), true):
                 /// If we have already downloaded the image then no need to download it again (the database records will be updated
                 /// once the download completes)
-                if !dependencies[singleton: .fileManager].fileExists(atPath: filePath) {
+                let fileExists: Bool = ((try? dependencies[singleton: .displayPictureManager]
+                    .path(for: url))
+                    .map { dependencies[singleton: .fileManager].fileExists(atPath: $0) } ?? false)
+                
+                if !fileExists {
                     dependencies[singleton: .jobRunner].add(
                         db,
                         job: Job(
@@ -257,14 +217,19 @@ public extension Profile {
             
             /// We don't automatically update the current users profile data when changed in the database so need to manually
             /// trigger the update
-            if isCurrentUser, let updatedProfile = try? Profile.fetchOne(db, id: publicKey) {
+            if !suppressUserProfileConfigUpdate, isCurrentUser, let updatedProfile = try? Profile.fetchOne(db, id: publicKey) {
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile, sessionId: dependencies[cache: .general].sessionId) { _ in
                         try cache.updateProfile(
                             displayName: updatedProfile.name,
                             displayPictureUrl: updatedProfile.displayPictureUrl,
                             displayPictureEncryptionKey: updatedProfile.displayPictureEncryptionKey,
-                            isReuploadProfilePicture: isReuploadCurrentUserProfilePicture
+                            isReuploadProfilePicture: {
+                                switch displayPictureUpdate {
+                                    case .currentUserUpdateTo(_, _, let isReupload): return isReupload
+                                    default: return false
+                                }
+                            }()
                         )
                     }
                 }

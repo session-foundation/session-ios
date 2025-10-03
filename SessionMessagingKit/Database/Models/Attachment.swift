@@ -10,7 +10,7 @@ import SessionUtilitiesKit
 import SessionNetworkingKit
 import SessionUIKit
 
-public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct Attachment: Sendable, Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "attachment" }
     internal static let linkPreviewForeignKey = ForeignKey([Columns.id], to: [LinkPreview.Columns.attachmentId])
     public static let interactionAttachments = hasOne(InteractionAttachment.self)
@@ -42,12 +42,12 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         case caption
     }
     
-    public enum Variant: Int, Codable, DatabaseValueConvertible {
+    public enum Variant: Int, Sendable, Codable, DatabaseValueConvertible {
         case standard
         case voiceMessage
     }
     
-    public enum State: Int, Codable, DatabaseValueConvertible {
+    public enum State: Int, Sendable, Codable, DatabaseValueConvertible {
         case failedDownload
         case pendingDownload
         case downloading
@@ -121,7 +121,7 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
     
     /// Caption for the attachment
     @available(*, deprecated, message: "This field is no longer sent or rendered by the clients")
-    public let caption: String?
+    public let caption: String? = nil
     
     // MARK: - Initialization
     
@@ -159,52 +159,6 @@ public struct Attachment: Codable, Identifiable, Equatable, Hashable, FetchableR
         self.isValid = isValid
         self.encryptionKey = encryptionKey
         self.digest = digest
-    }
-    
-    /// This initializer should only be used when converting from either a LinkPreview or a SignalAttachment to an Attachment (prior to upload)
-    public init?(
-        id: String = UUID().uuidString,
-        variant: Variant = .standard,
-        contentType: String,
-        dataSource: any DataSource,
-        sourceFilename: String? = nil,
-        using dependencies: Dependencies
-    ) {
-        guard
-            let uploadInfo: (url: String, path: String) = try? dependencies[singleton: .attachmentManager]
-                .uploadPathAndUrl(for: id),
-            case .success = Result(try dataSource.write(to: uploadInfo.path))
-        else { return nil }
-        
-        let imageSize: CGSize? = MediaUtils.unrotatedSize(
-            for: uploadInfo.path,
-            type: UTType(sessionMimeType: contentType),
-            mimeType: contentType,
-            sourceFilename: sourceFilename,
-            using: dependencies
-        )
-        let (isValid, duration): (Bool, TimeInterval?) = dependencies[singleton: .attachmentManager].determineValidityAndDuration(
-            contentType: contentType,
-            downloadUrl: uploadInfo.url,
-            sourceFilename: sourceFilename
-        )
-        
-        self.id = id
-        self.serverId = nil
-        self.variant = variant
-        self.state = .uploading
-        self.contentType = contentType
-        self.byteCount = UInt(dataSource.dataLength)
-        self.creationTimestamp = nil
-        self.sourceFilename = sourceFilename
-        self.downloadUrl = uploadInfo.url   /// This value will be replaced once the upload is successful
-        self.width = imageSize.map { UInt(floor($0.width)) }
-        self.height = imageSize.map { UInt(floor($0.height)) }
-        self.duration = duration
-        self.isVisualMedia = UTType.isVisualMedia(contentType)
-        self.isValid = isValid
-        self.encryptionKey = nil
-        self.digest = nil
     }
 }
 
@@ -405,8 +359,7 @@ extension Attachment {
             
             return MediaUtils.unrotatedSize(
                 for: path,
-                type: UTType(sessionMimeType: contentType),
-                mimeType: contentType,
+                utType: UTType(sessionMimeType: contentType),
                 sourceFilename: sourceFilename,
                 using: dependencies
             )

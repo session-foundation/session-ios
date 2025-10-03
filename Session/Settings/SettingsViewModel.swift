@@ -678,7 +678,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _):
+                                return (source?.contentExists == true)
+                            
                             default: return false
                         }
                     },
@@ -689,13 +691,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
                             case .image(.some(let source), _, _, _, _, _, _):
-                                guard let imageData: Data = source.imageData else { return }
-                                
                                 self?.updateProfile(
-                                    displayPictureUpdate: .currentUserUploadImageData(
-                                        data: imageData,
-                                        isReupload: false
-                                    ),
+                                    displayPictureUpdateGenerator: { [weak self] in
+                                        guard let self = self else { throw DisplayPictureError.uploadFailed }
+                                        
+                                        return try await uploadDisplayPicture(source: source)
+                                    },
                                     onComplete: { [weak modal] in modal?.close() }
                                 )
                                 
@@ -704,7 +705,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     },
                     onCancel: { [weak self] modal in
                         self?.updateProfile(
-                            displayPictureUpdate: .currentUserRemove,
+                            displayPictureUpdateGenerator: { .currentUserRemove },
                             onComplete: { [weak modal] in modal?.close() }
                         )
                     }
@@ -727,55 +728,65 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         }
     }
     
+    fileprivate func uploadDisplayPicture(source: ImageDataManager.DataSource) async throws -> DisplayPictureManager.Update {
+        let pendingAttachment: PendingAttachment = PendingAttachment(
+            source: .media(source),
+            using: dependencies
+        )
+        let preparedAttachment: PreparedAttachment = try dependencies[singleton: .displayPictureManager]
+            .prepareDisplayPicture(attachment: pendingAttachment)
+        let result = try await dependencies[singleton: .displayPictureManager]
+            .uploadDisplayPicture(attachment: preparedAttachment)
+        
+        return .currentUserUpdateTo(url: result.downloadUrl, key: result.encryptionKey, isReupload: false)
+    }
+    
     @MainActor fileprivate func updateProfile(
         displayNameUpdate: Profile.DisplayNameUpdate = .none,
-        displayPictureUpdate: DisplayPictureManager.Update = .none,
+        displayPictureUpdateGenerator generator: @escaping () async throws -> DisplayPictureManager.Update = { .none },
         onComplete: @escaping () -> ()
     ) {
-        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies] modalActivityIndicator in
-            Profile
-                .updateLocal(
+        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController()
+        self.transitionToScreen(indicator, transitionType: .present)
+        
+        Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies] in
+            var displayPictureUpdate: DisplayPictureManager.Update = .none
+            
+            do {
+                displayPictureUpdate = try await generator()
+                try await Profile.updateLocal(
                     displayNameUpdate: displayNameUpdate,
                     displayPictureUpdate: displayPictureUpdate,
                     using: dependencies
                 )
-                .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
-                .receive(on: DispatchQueue.main, using: dependencies)
-                .sinkUntilComplete(
-                    receiveCompletion: { result in
-                        modalActivityIndicator.dismiss {
-                            switch result {
-                                case .finished: onComplete()
-                                case .failure(let error):
-                                    let message: String = {
-                                        switch (displayPictureUpdate, error) {
-                                            case (.currentUserRemove, _): return "profileDisplayPictureRemoveError".localized()
-                                            case (_, .uploadMaxFileSizeExceeded):
-                                                return "profileDisplayPictureSizeError".localized()
-                                            
-                                            default: return "errorConnection".localized()
-                                        }
-                                    }()
-                                    
-                                    self?.transitionToScreen(
-                                        ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "profileErrorUpdate".localized(),
-                                                body: .text(message),
-                                                cancelTitle: "okay".localized(),
-                                                cancelStyle: .alert_text,
-                                                dismissType: .single
-                                            )
-                                        ),
-                                        transitionType: .present
-                                    )
-                            }
-                        }
+            }
+            catch {
+                let message: String = {
+                    switch (displayPictureUpdate, error) {
+                        case (.currentUserRemove, _): return "profileDisplayPictureRemoveError".localized()
+                        case (_, DisplayPictureError.uploadMaxFileSizeExceeded):
+                            return "profileDisplayPictureSizeError".localized()
+                        
+                        default: return "errorConnection".localized()
                     }
-                )
+                }()
+                
+                await indicator.dismiss {
+                    self?.transitionToScreen(
+                        ConfirmationModal(
+                            info: ConfirmationModal.Info(
+                                title: "profileErrorUpdate".localized(),
+                                body: .text(message),
+                                cancelTitle: "okay".localized(),
+                                cancelStyle: .alert_text,
+                                dismissType: .single
+                            )
+                        ),
+                        transitionType: .present
+                    )
+                }
+            }
         }
-        
-        self.transitionToScreen(viewController, transitionType: .present)
     }
     
     private func copySessionId(_ sessionId: String, button: SessionButton?) {

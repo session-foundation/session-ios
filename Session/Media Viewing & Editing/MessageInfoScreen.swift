@@ -473,6 +473,7 @@ struct MessageBubble: View {
                                         imageAttachment: messageViewModel.linkPreviewAttachment,
                                         using: dependencies
                                     ),
+                                    dataManager: dependencies[singleton: .imageDataManager],
                                     isOutgoing: (messageViewModel.variant == .standardOutgoing),
                                     maxWidth: maxWidth,
                                     messageViewModel: messageViewModel,

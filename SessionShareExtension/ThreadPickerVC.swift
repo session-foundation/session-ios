@@ -207,51 +207,62 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        ShareNavController.attachmentPrepPublisher?
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .receive(on: DispatchQueue.main)
-            .sinkUntilComplete(
-                receiveValue: { [weak self, dependencies = self.viewModel.dependencies] attachments in
-                    guard
-                        let strongSelf = self,
-                        let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
-                            threadId: strongSelf.viewModel.viewData[indexPath.row].threadId,
-                            threadVariant: strongSelf.viewModel.viewData[indexPath.row].threadVariant,
-                            attachments: attachments,
-                            approvalDelegate: strongSelf,
-                            disableLinkPreviewImageDownload: (
-                                strongSelf.viewModel.viewData[indexPath.row].threadCanUpload != true
-                            ),
-                            using: dependencies
-                        )
-                    else { return }
-                    
-                    self?.navigationController?.present(approvalVC, animated: true, completion: nil)
-                }
-            )
+        Task(priority: .userInitiated) { [weak self] in
+            let attachments: [PendingAttachment] = await ShareNavController.pendingAttachments.stream
+                .compactMap { $0 }
+                .first(where: { _ in true })
+                .defaulting(to: [])
+            
+            guard
+                !attachments.isEmpty,
+                let self = self,
+                let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
+                    threadId: self.viewModel.viewData[indexPath.row].threadId,
+                    threadVariant: self.viewModel.viewData[indexPath.row].threadVariant,
+                    attachments: attachments,
+                    approvalDelegate: self,
+                    disableLinkPreviewImageDownload: (
+                        self.viewModel.viewData[indexPath.row].threadCanUpload != true
+                    ),
+                    didLoadLinkPreview: { [weak self] linkPreview in
+                        self?.viewModel.didLoadLinkPreview(linkPreview: linkPreview)
+                    },
+                    using: self.viewModel.dependencies
+                )
+            else {
+                self?.shareNavController?.shareViewFailed(error: AttachmentError.invalidData)
+                return
+            }
+            
+            navigationController?.present(approvalVC, animated: true, completion: nil)
+        }
     }
     
     func attachmentApproval(
         _ attachmentApproval: AttachmentApprovalViewController,
-        didApproveAttachments attachments: [SignalAttachment],
+        didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
         messageText: String?
     ) {
         // Sharing a URL or plain text will populate the 'messageText' field so in those
         // cases we should ignore the attachments
-        let isSharingUrl: Bool = (attachments.count == 1 && attachments[0].isUrl)
-        let isSharingText: Bool = (attachments.count == 1 && attachments[0].isText)
-        let finalAttachments: [SignalAttachment] = (isSharingUrl || isSharingText ? [] : attachments)
-        let body: String? = (
-            isSharingUrl && (messageText?.isEmpty == true || attachments[0].linkPreviewDraft == nil) ?
-            (
-                (messageText?.isEmpty == true || (attachments[0].text() == messageText) ?
-                    attachments[0].text() :
-                    "\(attachments[0].text() ?? "")\n\n\(messageText ?? "")" // stringlint:ignore
-                )
-            ) :
-            messageText
+        let isSharingUrl: Bool = (attachments.count == 1 && attachments[0].utType.conforms(to: .url))
+        let isSharingText: Bool = (attachments.count == 1 && attachments[0].utType.isText)
+        let finalAttachments: [PendingAttachment] = (isSharingUrl || isSharingText ? [] : attachments)
+        let body: String? = {
+            guard isSharingUrl else { return messageText }
+            
+            let attachmentText: String? = attachments[0].toText()
+            
+            return (messageText?.isEmpty == true || attachmentText == messageText ?
+                attachmentText :
+                "\(attachmentText ?? "")\n\n\(messageText ?? "")" // stringlint:ignore
+            )
+        }()
+        let linkPreviewDraft: LinkPreviewDraft? = (isSharingUrl ?
+            viewModel.linkPreviewDrafts.first(where: { $0.urlString == body }) :
+            nil
         )
         let userSessionId: SessionId = viewModel.dependencies[cache: .general].sessionId
         let swarmPublicKey: String = {
@@ -314,7 +325,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
                             sentTimestampMs: Double(sentTimestampMs)
                         ),
-                        linkPreviewUrl: (isSharingUrl ? attachments.first?.linkPreviewDraft?.urlString : nil),
+                        linkPreviewUrl: linkPreviewDraft?.urlString,
                         using: dependencies
                     ).inserted(db)
                     sharedInteractionId = interaction.id
@@ -327,7 +338,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     // one then add it now
                     if
                         isSharingUrl,
-                        let linkPreviewDraft: LinkPreviewDraft = attachments.first?.linkPreviewDraft,
+                        let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft,
                         (try? interaction.linkPreview.isEmpty(db)) == true
                     {
                         try LinkPreview(
@@ -335,6 +346,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                             title: linkPreviewDraft.title,
                             attachmentId: LinkPreview
                                 .generateAttachmentIfPossible(
+                                    urlString: linkPreviewDraft.urlString,
                                     imageData: linkPreviewDraft.jpegImageData,
                                     type: .jpeg,
                                     using: dependencies
@@ -454,7 +466,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
     func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didChangeMessageText newMessageText: String?) {
     }
     
-    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didRemoveAttachment attachment: SignalAttachment) {
+    func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didRemoveAttachment attachment: PendingAttachment) {
     }
     
     func attachmentApprovalDidTapAddMore(_ attachmentApproval: AttachmentApprovalViewController) {

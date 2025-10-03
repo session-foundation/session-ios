@@ -156,7 +156,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                     else { return data } // Open group attachments are unencrypted
                     
                     return try dependencies[singleton: .crypto].tryGenerate(
-                        .decryptAttachment(
+                        .legacyDecryptAttachment(
                             ciphertext: data,
                             key: key,
                             digest: digest,

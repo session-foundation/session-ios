@@ -135,30 +135,45 @@ public final class AttachmentUploader {
                 )
             }
             
-            // Get the raw attachment data
-            guard let rawData: Data = try? attachment.readDataFromFile(using: dependencies) else {
-                Log.error([cat].compactMap { $0 }, "Couldn't read attachment from disk.")
-                throw AttachmentError.noAttachment
-            }
-            
             // Encrypt the attachment if needed
-            var finalData: Data = rawData
-            var encryptionKey: Data?
-            var digest: Data?
+            let pendingAttachment: PendingAttachment = try PendingAttachment(
+                attachment: attachment,
+                using: dependencies
+            )
+            let finalData: Data
+            let encryptionKey: Data?
+            let digest: Data?
             
             if destination.shouldEncrypt {
-                guard
-                    let result: EncryptionData = dependencies[singleton: .crypto].generate(
-                        .encryptAttachment(plaintext: rawData)
-                    )
-                else {
+                let preparedAttachment: PreparedAttachment = try pendingAttachment.prepare(
+                    transformations: [
+                        .encrypt(legacy: true)  // FIXME: Remove the `legacy` encryption option
+                    ],
+                    using: dependencies
+                )
+                let maybeEncryptedData: Data? = dependencies[singleton: .fileManager]
+                    .contents(atPath: preparedAttachment.temporaryFilePath)
+                
+                guard let encryptedData: Data = maybeEncryptedData else {
                     Log.error([cat].compactMap { $0 }, "Couldn't encrypt attachment.")
                     throw AttachmentError.encryptionFailed
                 }
+                    
                 
-                finalData = result.ciphertext
-                encryptionKey = result.encryptionKey
-                digest = result.digest
+                finalData = encryptedData
+                encryptionKey = preparedAttachment.attachment.encryptionKey
+                digest = preparedAttachment.attachment.digest
+            }
+            else {
+                // Get the raw attachment data
+                guard let rawData: Data = try? attachment.readDataFromFile(using: dependencies) else {
+                    Log.error([cat].compactMap { $0 }, "Couldn't read attachment from disk.")
+                    throw AttachmentError.noAttachment
+                }
+                
+                finalData = rawData
+                encryptionKey = nil
+                digest = nil
             }
                 
             // Ensure the file size is smaller than our upload limit

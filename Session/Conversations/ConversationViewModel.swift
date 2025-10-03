@@ -719,7 +719,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public func optimisticallyAppendOutgoingMessage(
         text: String?,
         sentTimestampMs: Int64,
-        attachments: [SignalAttachment]?,
+        attachments: [PendingAttachment]?,
         linkPreviewDraft: LinkPreviewDraft?,
         quoteModel: QuotedReplyModel?
     ) -> OptimisticMessageData {
@@ -745,10 +745,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             isProMessage: dependencies[cache: .libSession].isSessionPro,
             using: dependencies
         )
-        let optimisticAttachments: [Attachment]? = attachments
-            .map { AttachmentUploader.prepare(attachments: $0, using: dependencies) }
+        let optimisticAttachments: [Attachment]? = try? attachments.map {
+            try AttachmentUploader.prepare(attachments: $0, using: dependencies)
+        }
         let linkPreviewAttachment: Attachment? = linkPreviewDraft.map { draft in
             try? LinkPreview.generateAttachmentIfPossible(
+                urlString: draft.urlString,
                 imageData: draft.jpegImageData,
                 type: .jpeg,
                 using: dependencies

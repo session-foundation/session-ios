@@ -475,8 +475,8 @@ public final class ProfilePictureView: UIView {
         
         // Populate the main imageView
         switch (info.source, info.renderingMode) {
-            case (.some(let source), .some(let renderingMode)) where source.directImage != nil:
-                imageView.image = source.directImage?.withRenderingMode(renderingMode)
+            case (.image(_, let image), .some(let renderingMode)):
+                imageView.image = image?.withRenderingMode(renderingMode)
                 
             case (.some(let source), _): imageView.loadImage(source)
                 
@@ -519,8 +519,8 @@ public final class ProfilePictureView: UIView {
         
         // Set the additional image content and reposition the image views correctly
         switch (additionalInfo.source, additionalInfo.renderingMode) {
-            case (.some(let source), .some(let renderingMode)) where source.directImage != nil:
-                additionalImageView.image = source.directImage?.withRenderingMode(renderingMode)
+            case (.image(_, let image), .some(let renderingMode)):
+                additionalImageView.image = image?.withRenderingMode(renderingMode)
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):

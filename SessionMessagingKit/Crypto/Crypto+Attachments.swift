@@ -4,6 +4,7 @@
 
 import Foundation
 import CommonCrypto
+import SessionUtil
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
@@ -114,12 +115,113 @@ public extension Crypto.Generator {
             return (Data(encryptedPaddedData), outKey, Data(digest))
         }
     }
+    
+    @available(*, deprecated, message: "This encryption method is deprecated and will be removed in a future release.")
+    static func legacyEncryptAttachment(
+        plaintext: Data
+    ) -> Crypto.Generator<(ciphertext: Data, encryptionKey: Data, digest: Data)> {
+        return Crypto.Generator(
+            id: "encryptAttachment",
+            args: [plaintext]
+        ) { dependencies in
+            // Due to paddedSize, we need to divide by two.
+            guard plaintext.count < (UInt.max / 2) else {
+                Log.error("[Crypto] Attachment data too long to encrypt.")
+                throw CryptoError.encryptionFailed
+            }
+            
+            guard
+                var iv: [UInt8] = dependencies[singleton: .crypto].generate(.randomBytes(aesCBCIvLength)),
+                var encryptionKey: [UInt8] = dependencies[singleton: .crypto].generate(.randomBytes(aesKeySize)),
+                var hmacKey: [UInt8] = dependencies[singleton: .crypto].generate(.randomBytes(hmac256KeyLength))
+            else {
+                Log.error("[Crypto] Failed to generate random data.")
+                throw CryptoError.encryptionFailed
+            }
+
+            // The concatenated key for storage
+            var outKey: Data = Data()
+            outKey.append(Data(encryptionKey))
+            outKey.append(Data(hmacKey))
+
+            // Apply any padding
+            let desiredSize: Int = max(541, min(Int(Network.maxFileSize), Int(floor(pow(1.05, ceil(log(Double(plaintext.count)) / log(1.05)))))))
+            var paddedAttachmentData: [UInt8] = Array(plaintext)
+            if desiredSize > plaintext.count {
+                paddedAttachmentData.append(contentsOf: [UInt8](repeating: 0, count: desiredSize - plaintext.count))
+            }
+            
+            var numBytesEncrypted: size_t = 0
+            var bufferData: [UInt8] = Array(Data(count: paddedAttachmentData.count + kCCBlockSizeAES128))
+            let cryptStatus: CCCryptorStatus = CCCrypt(
+                CCOperation(kCCEncrypt),
+                CCAlgorithm(kCCAlgorithmAES128),
+                CCOptions(kCCOptionPKCS7Padding),
+                &encryptionKey, encryptionKey.count,
+                &iv,
+                &paddedAttachmentData, paddedAttachmentData.count,
+                &bufferData, bufferData.count,
+                &numBytesEncrypted
+            )
+
+            guard cryptStatus == kCCSuccess else {
+                Log.error("[Crypto] Failed to encrypt attachment with status: \(cryptStatus).")
+                throw CryptoError.encryptionFailed
+            }
+            
+            guard cryptStatus == kCCSuccess else {
+                Log.error("[Crypto] Failed to encrypt attachment with status: \(cryptStatus).")
+                throw CryptoError.encryptionFailed
+            }
+
+            guard bufferData.count >= numBytesEncrypted else {
+                Log.error("[Crypto] ciphertext has unexpected length: \(bufferData.count) < \(numBytesEncrypted).")
+                throw CryptoError.encryptionFailed
+            }
+            
+            let ciphertext: [UInt8] = Array(bufferData[0..<numBytesEncrypted])
+            var encryptedPaddedData: [UInt8] = (iv + ciphertext)
+
+            // compute hmac of: iv || encrypted data
+            guard encryptedPaddedData.count < (UInt.max / 2) else {
+                Log.error("[Crypto] Attachment data too long to encrypt.")
+                throw CryptoError.encryptionFailed
+            }
+            guard hmacKey.count < (UInt.max / 2) else {
+                Log.error("[Crypto] Hmac key is too long.")
+                throw CryptoError.encryptionFailed
+            }
+            
+            var hmacDataBuffer: [UInt8] = Array(Data(count: Int(CC_SHA256_DIGEST_LENGTH)))
+            CCHmac(
+                CCHmacAlgorithm(kCCHmacAlgSHA256),
+                &hmacKey,
+                hmacKey.count,
+                &encryptedPaddedData,
+                encryptedPaddedData.count,
+                &hmacDataBuffer
+            )
+            let hmac: [UInt8] = Array(hmacDataBuffer[0..<hmac256OutputLength])
+            encryptedPaddedData.append(contentsOf: hmac)
+
+            // compute digest of: iv || encrypted data || hmac
+            guard encryptedPaddedData.count < UInt32.max else {
+                Log.error("[Crypto] Attachment data too long to encrypt.")
+                throw CryptoError.encryptionFailed
+            }
+            
+            var digest: [UInt8] = Array(Data(count: Int(CC_SHA256_DIGEST_LENGTH)))
+            CC_SHA256(&encryptedPaddedData, UInt32(encryptedPaddedData.count), &digest)
+            
+            return (Data(encryptedPaddedData), outKey, Data(digest))
+        }
+    }
 }
 
 // MARK: - Decryption
 
 public extension Crypto.Generator {
-    static func decryptAttachment(
+    static func legacyDecryptAttachment(
         ciphertext: Data,
         key: Data,
         digest: Data,

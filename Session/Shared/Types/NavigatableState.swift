@@ -124,7 +124,7 @@ public extension Publisher {
         
         return Deferred {
             Future<ModalActivityIndicatorViewController, Never> { promise in
-                Task { @MainActor in
+                DispatchQueue.main.async {
                     promise(.success(ModalActivityIndicatorViewController(onAppear: { _ in })))
                 }
             }
@@ -140,9 +140,11 @@ public extension Publisher {
                 .flatMap { result -> AnyPublisher<Output, Failure> in
                     Deferred {
                         Future<Output, Failure> { resolver in
-                            indicator.dismiss(completion: {
-                                resolver(result)
-                            })
+                            DispatchQueue.main.async {
+                                indicator.dismiss(completion: {
+                                    resolver(result)
+                                })
+                            }
                         }
                     }.eraseToAnyPublisher()
                 }

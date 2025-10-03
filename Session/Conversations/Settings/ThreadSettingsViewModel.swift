@@ -1691,7 +1691,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _):
+                                return (source?.contentExists == true)
+                                
                             default: return false
                         }
                     },
@@ -1702,10 +1704,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
                             case .image(.some(let source), _, _, _, _, _, _):
-                                guard let imageData: Data = source.imageData else { return }
-                                
                                 self?.updateGroupDisplayPicture(
-                                    displayPictureUpdate: .groupUploadImageData(imageData),
+                                    displayPictureUpdate: .groupUploadImage(source),
                                     onUploadComplete: { [weak modal] in
                                         Task { @MainActor in modal?.close() }
                                     }
@@ -1750,102 +1750,104 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             default: break
         }
         
-        Just(displayPictureUpdate)
-            .setFailureType(to: Error.self)
-            .flatMap { [weak self, dependencies] update -> AnyPublisher<DisplayPictureManager.Update, Error> in
+        Task(priority: .userInitiated) { [weak self, threadId, dependencies] in
+            var targetUpdate: DisplayPictureManager.Update = displayPictureUpdate
+            var indicator: ModalActivityIndicatorViewController?
+            
+            do {
                 switch displayPictureUpdate {
-                    case .none, .currentUserRemove, .currentUserUploadImageData, .currentUserUpdateTo,
-                        .contactRemove, .contactUpdateTo:
-                        return Fail(error: AttachmentError.invalidStartState).eraseToAnyPublisher()
+                    case .none, .currentUserRemove, .currentUserUpdateTo, .contactRemove,
+                        .contactUpdateTo:
+                        throw AttachmentError.invalidStartState
                         
-                    case .groupRemove, .groupUpdateTo:
-                        return Just(displayPictureUpdate)
-                            .setFailureType(to: Error.self)
-                            .eraseToAnyPublisher()
-                        
-                    case .groupUploadImageData(let data):
+                    case .groupRemove, .groupUpdateTo: break
+                    case .groupUploadImage(let source):
                         /// Show a blocking loading indicator while uploading but not while updating or syncing the group configs
-                        return dependencies[singleton: .displayPictureManager]
-                            .prepareAndUploadDisplayPicture(imageData: data)
-                            .showingBlockingLoading(in: self?.navigatableState)
-                            .map { url, filePath, key -> DisplayPictureManager.Update in
-                                .groupUpdateTo(url: url, key: key, filePath: filePath)
-                            }
-                            .mapError { $0 as Error }
-                            .handleEvents(
-                                receiveCompletion: { result in
-                                    switch result {
-                                        case .failure(let error):
-                                            let message: String = {
-                                                switch (displayPictureUpdate, error) {
-                                                    case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
-                                                    case (_, DisplayPictureError.uploadMaxFileSizeExceeded):
-                                                        return "profileDisplayPictureSizeError".localized()
-                                                    
-                                                    default: return "errorConnection".localized()
-                                                }
-                                            }()
-                                            
-                                            self?.transitionToScreen(
-                                                ConfirmationModal(
-                                                    info: ConfirmationModal.Info(
-                                                        title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
-                                                        body: .text(message),
-                                                        cancelTitle: "okay".localized(),
-                                                        cancelStyle: .alert_text,
-                                                        dismissType: .single
-                                                    )
-                                                ),
-                                                transitionType: .present
-                                            )
-                                        
-                                        case .finished: onUploadComplete()
-                                    }
-                                }
-                            )
-                            .eraseToAnyPublisher()
+                        indicator = await MainActor.run { [weak self] in
+                            let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
+                            self?.transitionToScreen(indicator, transitionType: .present)
+                            return indicator
+                        }
+                        
+                        let pendingAttachment: PendingAttachment = PendingAttachment(
+                            source: .media(source),
+                            using: dependencies
+                        )
+                        let preparedAttachment: PreparedAttachment = try dependencies[singleton: .displayPictureManager]
+                            .prepareDisplayPicture(attachment: pendingAttachment)
+                        let result = try await dependencies[singleton: .displayPictureManager]
+                            .uploadDisplayPicture(attachment: preparedAttachment)
+                        await MainActor.run { onUploadComplete() }
+                        
+                        targetUpdate = .groupUpdateTo(
+                            url: result.downloadUrl,
+                            key: result.encryptionKey
+                        )
                 }
             }
-            .flatMapStorageReadPublisher(using: dependencies) { [threadId] db, displayPictureUpdate -> (DisplayPictureManager.Update, String?) in
-                (
-                    displayPictureUpdate,
-                    try? ClosedGroup
-                        .filter(id: threadId)
-                        .select(.displayPictureUrl)
-                        .asRequest(of: String.self)
-                        .fetchOne(db)
-                )
-            }
-            .flatMap { [threadId, dependencies] displayPictureUpdate, existingDownloadUrl -> AnyPublisher<String?, Error> in
-                MessageSender
-                    .updateGroup(
-                        groupSessionId: threadId,
-                        displayPictureUpdate: displayPictureUpdate,
-                        using: dependencies
-                    )
-                    .map { _ in existingDownloadUrl }
-                    .eraseToAnyPublisher()
-            }
-            .handleEvents(
-                receiveOutput: { [dependencies] existingDownloadUrl in
-                    /// Remove any cached avatar image value
-                    if
-                        let existingDownloadUrl: String = existingDownloadUrl,
-                        let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
-                            .path(for: existingDownloadUrl)
-                    {
-                        Task {
-                            await dependencies[singleton: .imageDataManager].removeImage(
-                                identifier: existingFilePath
+            catch {
+                let message: String = {
+                    switch (displayPictureUpdate, error) {
+                        case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
+                        case (_, DisplayPictureError.uploadMaxFileSizeExceeded):
+                            return "profileDisplayPictureSizeError".localized()
+                            
+                        default: return "errorConnection".localized()
+                    }
+                }()
+                
+                await indicator?.dismiss { [weak self] in
+                    self?.transitionToScreen(
+                        ConfirmationModal(
+                            info: ConfirmationModal.Info(
+                                title: "deleteAfterLegacyGroupsGroupUpdateErrorTitle".localized(),
+                                body: .text(message),
+                                cancelTitle: "okay".localized(),
+                                cancelStyle: .alert_text,
+                                dismissType: .single
                             )
-                            try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
-                        }
+                        ),
+                        transitionType: .present
+                    )
+                }
+                return
+            }
+            
+            let existingDownloadUrl: String? = try? await dependencies[singleton: .storage].readAsync { db in
+                try? ClosedGroup
+                    .filter(id: threadId)
+                    .select(.displayPictureUrl)
+                    .asRequest(of: String.self)
+                    .fetchOne(db)
+            }
+            
+            do {
+                try await MessageSender.updateGroup(
+                    groupSessionId: threadId,
+                    displayPictureUpdate: targetUpdate,
+                    using: dependencies
+                )
+                
+                /// Remove any cached avatar image value (only want to do so if the above update succeeded)
+                if
+                    let existingDownloadUrl: String = existingDownloadUrl,
+                    let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
+                        .path(for: existingDownloadUrl)
+                {
+                    Task { [dependencies] in
+                        await dependencies[singleton: .imageDataManager].removeImage(
+                            identifier: existingFilePath
+                        )
+                        try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
                     }
                 }
-            )
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
-            .receive(on: DispatchQueue.main, using: dependencies)
-            .sinkUntilComplete()
+            }
+            catch {}
+            
+            await MainActor.run { [indicator] in
+                indicator?.dismiss(completion: {})
+            }
+        }
     }
     
     private func updateBlockedState(
