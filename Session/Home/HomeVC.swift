@@ -431,7 +431,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
        
         // Update the 'view seed' UI
         seedReminderView.isHidden = !state.showViewedSeedBanner
-        versionSupportBanner.isHidden = state.showVersionSupportBanner
+        versionSupportBanner.isHidden = !state.showVersionSupportBanner
         
         // Update the overall view state (loading, empty, or loaded)
         switch state.viewState {
