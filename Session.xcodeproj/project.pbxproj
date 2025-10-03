@@ -226,6 +226,7 @@
 		94CD96432E1BAC0F0097754D /* GenericCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD963C2E1BABE90097754D /* GenericCTA.webp */; };
 		94CD96452E1BAC0F0097754D /* HigherCharLimitCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94CD963E2E1BABE90097754D /* HigherCharLimitCTA.webp */; };
 		94D716802E8F6363008294EE /* HighlightMentionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D7167F2E8F6362008294EE /* HighlightMentionView.swift */; };
+		94D716822E8FA1A0008294EE /* AttributedLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D716812E8FA19D008294EE /* AttributedLabel.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1618,6 +1619,7 @@
 		94CD963C2E1BABE90097754D /* GenericCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GenericCTA.webp; sourceTree = "<group>"; };
 		94CD963E2E1BABE90097754D /* HigherCharLimitCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = HigherCharLimitCTA.webp; sourceTree = "<group>"; };
 		94D7167F2E8F6362008294EE /* HighlightMentionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlightMentionView.swift; sourceTree = "<group>"; };
+		94D716812E8FA19D008294EE /* AttributedLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttributedLabel.swift; sourceTree = "<group>"; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -2873,6 +2875,7 @@
 		942256932C23F8DD00C0FDBF /* SwiftUI */ = {
 			isa = PBXGroup;
 			children = (
+				94D716812E8FA19D008294EE /* AttributedLabel.swift */,
 				94363E542E5D83F60004EE43 /* TappableLabel+SwiftUI.swift */,
 				942BA9402E4487EE007C4595 /* LightBox.swift */,
 				94B6BB032E3B208200E718BB /* Seperator+SwiftUI.swift */,
@@ -6351,6 +6354,7 @@
 				94AAB14F2E1F6CC100A6FA18 /* SessionProBadge+SwiftUI.swift in Sources */,
 				94AAB14B2E1E198200A6FA18 /* Modal+SwiftUI.swift in Sources */,
 				94AAB1532E1F8AE200A6FA18 /* ShineButton.swift in Sources */,
+				94D716822E8FA1A0008294EE /* AttributedLabel.swift in Sources */,
 				FD37E9D728A20B5D003AE748 /* UIColor+Utilities.swift in Sources */,
 				94A6B9DB2DD6BF7C00DB4B44 /* Constants+Apple.swift in Sources */,
 				FD37E9C328A1C6F3003AE748 /* ThemeManager.swift in Sources */,

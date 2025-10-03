@@ -712,7 +712,7 @@ struct MessageBubble: View {
                         searchText: nil,
                         using: dependencies
                     ) {
-                        TappableLabel_SwiftUI(themeAttributedText: bodyText, maxWidth: maxWidth)
+                        AttributedLabel(bodyText, maxWidth: maxWidth)
                             .padding(.horizontal, Self.inset)
                             .padding(.top, Self.inset)
                             .frame(
