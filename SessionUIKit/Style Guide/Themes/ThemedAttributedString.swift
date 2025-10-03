@@ -9,10 +9,6 @@ public extension NSAttributedString.Key {
         .themeForegroundColor, .themeBackgroundColor, .themeStrokeColor, .themeUnderlineColor, .themeStrikethroughColor
     ]
     
-    internal static let keysToIgnoreValidation: Set<NSAttributedString.Key> = [
-        .currentUserMentionBackgroundColor, .currentUserMentionBackgroundCornerRadius, .currentUserMentionBackgroundPadding
-    ]
-    
     static let themeForegroundColor = NSAttributedString.Key("org.getsession.themeForegroundColor")
     static let themeBackgroundColor = NSAttributedString.Key("org.getsession.themeBackgroundColor")
     static let themeStrokeColor = NSAttributedString.Key("org.getsession.themeStrokeColor")
@@ -166,8 +162,7 @@ public class ThemedAttributedString: Equatable, Hashable {
         for (key, value) in attributes {
             guard
                 key.originalKey == nil &&
-                NSAttributedString.Key.themedKeys.contains(key) == false &&
-                NSAttributedString.Key.keysToIgnoreValidation.contains(key) == false
+                NSAttributedString.Key.themedKeys.contains(key) == false
             else { continue }
             
             if value is ThemeValue {

@@ -179,7 +179,6 @@
 		942BA9C12E4EA5CB007C4595 /* SessionLabelWithProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */; };
 		942BA9C22E53F694007C4595 /* SRCopyableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */; };
 		942BA9C42E55AB54007C4595 /* UILabel+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9C32E55AB51007C4595 /* UILabel+Utilities.swift */; };
-		94363E552E5D84010004EE43 /* TappableLabel+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E542E5D83F60004EE43 /* TappableLabel+SwiftUI.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
 		94519A932E84C20700F02723 /* _045_LastProfileUpdateTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9BE2E4ABB9F007C4595 /* _045_LastProfileUpdateTimestamp.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
@@ -456,7 +455,6 @@
 		FD09799527FE7B8E00936362 /* Interaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09799227FE693200936362 /* Interaction.swift */; };
 		FD09799927FFC1A300936362 /* Attachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09799827FFC1A300936362 /* Attachment.swift */; };
 		FD09799B27FFC82D00936362 /* Quote.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09799A27FFC82D00936362 /* Quote.swift */; };
-		FD09B7E328865FDA00ED0B66 /* HighlightMentionBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09B7E228865FDA00ED0B66 /* HighlightMentionBackgroundView.swift */; };
 		FD09B7E5288670BB00ED0B66 /* _017_EmojiReacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09B7E4288670BB00ED0B66 /* _017_EmojiReacts.swift */; };
 		FD09B7E7288670FD00ED0B66 /* Reaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09B7E6288670FD00ED0B66 /* Reaction.swift */; };
 		FD09C5E628260FF9000CE219 /* MediaGalleryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD09C5E528260FF9000CE219 /* MediaGalleryViewModel.swift */; };
@@ -1571,7 +1569,6 @@
 		942BA9BE2E4ABB9F007C4595 /* _045_LastProfileUpdateTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _045_LastProfileUpdateTimestamp.swift; sourceTree = "<group>"; };
 		942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLabelWithProBadge.swift; sourceTree = "<group>"; };
 		942BA9C32E55AB51007C4595 /* UILabel+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UILabel+Utilities.swift"; sourceTree = "<group>"; };
-		94363E542E5D83F60004EE43 /* TappableLabel+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TappableLabel+SwiftUI.swift"; sourceTree = "<group>"; };
 		94367C422C6C828500814252 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
@@ -1856,7 +1853,6 @@
 		FD09799227FE693200936362 /* Interaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interaction.swift; sourceTree = "<group>"; };
 		FD09799827FFC1A300936362 /* Attachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Attachment.swift; sourceTree = "<group>"; };
 		FD09799A27FFC82D00936362 /* Quote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quote.swift; sourceTree = "<group>"; };
-		FD09B7E228865FDA00ED0B66 /* HighlightMentionBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlightMentionBackgroundView.swift; sourceTree = "<group>"; };
 		FD09B7E4288670BB00ED0B66 /* _017_EmojiReacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _017_EmojiReacts.swift; sourceTree = "<group>"; };
 		FD09B7E6288670FD00ED0B66 /* Reaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reaction.swift; sourceTree = "<group>"; };
 		FD09C5E528260FF9000CE219 /* MediaGalleryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaGalleryViewModel.swift; sourceTree = "<group>"; };
@@ -2876,7 +2872,6 @@
 			isa = PBXGroup;
 			children = (
 				94D716812E8FA19D008294EE /* AttributedLabel.swift */,
-				94363E542E5D83F60004EE43 /* TappableLabel+SwiftUI.swift */,
 				942BA9402E4487EE007C4595 /* LightBox.swift */,
 				94B6BB032E3B208200E718BB /* Seperator+SwiftUI.swift */,
 				94B6BAFF2E3AE83500E718BB /* QRCodeView.swift */,
@@ -3409,7 +3404,6 @@
 				B8BB82B423947F2D00BA5194 /* SNTextField.swift */,
 				C3C3CF8824D8EED300E1CCE7 /* SNTextView.swift */,
 				7BBBDC43286EAD2D00747E59 /* TappableLabel.swift */,
-				FD09B7E228865FDA00ED0B66 /* HighlightMentionBackgroundView.swift */,
 				94D7167F2E8F6362008294EE /* HighlightMentionView.swift */,
 				C38EF3EE255B6DF6007E1867 /* GradientView.swift */,
 				FD8A5B0F2DBF2F14004C689B /* NavBarSessionIcon.swift */,
@@ -6288,10 +6282,8 @@
 				7BBBDC44286EAD2D00747E59 /* TappableLabel.swift in Sources */,
 				FD8A5B252DC05B16004C689B /* Number+Utilities.swift in Sources */,
 				FDE5219C2E08E76C00061B8E /* SessionAsyncImage.swift in Sources */,
-				FD09B7E328865FDA00ED0B66 /* HighlightMentionBackgroundView.swift in Sources */,
 				FD3FAB632AEB9A1500DC5421 /* ToastController.swift in Sources */,
 				C331FFE72558FB0000070591 /* SNTextField.swift in Sources */,
-				94363E552E5D84010004EE43 /* TappableLabel+SwiftUI.swift in Sources */,
 				942256962C23F8DD00C0FDBF /* CompatibleScrollingVStack.swift in Sources */,
 				FD71165B28E6DDBC00B47552 /* StyledNavigationController.swift in Sources */,
 				C331FFE32558FB0000070591 /* TabBar.swift in Sources */,

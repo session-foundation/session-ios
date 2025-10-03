@@ -15,7 +15,6 @@ public protocol TappableLabelDelegate: AnyObject {
 
 public class TappableLabel: UILabel {
     public private(set) var links: [String: NSRange] = [:]
-    private lazy var highlightedMentionBackgroundView: HighlightMentionBackgroundView = HighlightMentionBackgroundView(targetLabel: self)
     private(set) var layoutManager = NSLayoutManager()
     public private(set) var textContainer = NSTextContainer(size: CGSize.zero)
     private(set) var textStorage = NSTextStorage() {
@@ -36,12 +35,6 @@ public class TappableLabel: UILabel {
 
             textStorage = NSTextStorage(attributedString: attributedText)
             findLinksAndRange(attributeString: attributedText)
-            highlightedMentionBackgroundView.maxPadding = highlightedMentionBackgroundView
-                .calculateMaxPadding(for: attributedText)
-            highlightedMentionBackgroundView.frame = self.bounds.insetBy(
-                dx: -highlightedMentionBackgroundView.maxPadding,
-                dy: -highlightedMentionBackgroundView.maxPadding
-            )
         }
     }
 
@@ -84,19 +77,6 @@ public class TappableLabel: UILabel {
     
     // MARK: - Layout
     
-    public override func didMoveToSuperview() {
-        super.didMoveToSuperview()
-
-        // Note: Because we want the 'highlight' content to appear behind the label we need
-        // to add the 'highlightedMentionBackgroundView' below it in the view hierarchy
-        //
-        // In order to try and avoid adding even more complexity to UI components which use
-        // this 'TappableLabel' we are going some view hierarchy manipulation and forcing
-        // these elements to maintain the same superview
-        highlightedMentionBackgroundView.removeFromSuperview()
-        superview?.insertSubview(highlightedMentionBackgroundView, belowSubview: self)
-    }
-    
     public override func layoutSubviews() {
         super.layoutSubviews()
         
@@ -106,11 +86,6 @@ public class TappableLabel: UILabel {
             preferredMaxLayoutWidth = bounds.width
             invalidateIntrinsicContentSize()
         }
-        
-        highlightedMentionBackgroundView.frame = self.frame.insetBy(
-            dx: -highlightedMentionBackgroundView.maxPadding,
-            dy: -highlightedMentionBackgroundView.maxPadding
-        )
     }
     
     public override var intrinsicContentSize: CGSize {
