@@ -101,6 +101,11 @@ public extension FeatureStorage {
     static let versionDeprecationWarning: FeatureConfig<Bool> = Dependencies.create(
         identifier: "versionDeprecationWarning"
     )
+    
+    static let versionDeprecationMinimum: FeatureConfig<Int> = Dependencies.create(
+        identifier: "versionDeprecationMinimum",
+        defaultOption: 16
+    )
 }
 
 // MARK: - FeatureOption

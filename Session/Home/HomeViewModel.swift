@@ -37,9 +37,9 @@ public class HomeViewModel: NavigatableStateHolder {
     
     // Reusable OS version check for initial and updated state check
     // Check if the current device is running a version LESS THAN iOS 16.0
-    private static var isOSVersionDeprecated: Bool {
-        guard #unavailable(iOS 16.0) else { return false }
-        return true
+    private static func isOSVersionDeprecated(using dependencies: Dependencies) -> Bool {
+        let systemVersion = ProcessInfo.processInfo.operatingSystemVersion
+        return systemVersion.majorVersion < dependencies[feature: .versionDeprecationMinimum]
     }
     
     public let dependencies: Dependencies
@@ -61,7 +61,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 .loadInitialAppReviewPromptState(using: dependencies),
             appWasInstalledPriorToAppReviewRelease: AppReviewPromptModel
                 .checkIfAppWasInstalledPriorToAppReviewRelease(using: dependencies),
-            showVersionSupportBanner: Self.isOSVersionDeprecated && dependencies[feature: .versionDeprecationWarning]
+            showVersionSupportBanner: Self.isOSVersionDeprecated(using: dependencies) && dependencies[feature: .versionDeprecationWarning]
         )
         
         /// Bind the state
@@ -134,7 +134,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 .userDefault(.hasPressedDonateButton),
                 .userDefault(.hasChangedTheme),
                 .updateScreen(HomeViewModel.self),
-                .feature(.versionDeprecationWarning)
+                .feature(.versionDeprecationWarning),
+                .feature(.versionDeprecationMinimum)
             ]
             
             itemCache.values.forEach { threadViewModel in
@@ -413,7 +414,10 @@ public class HomeViewModel: NavigatableStateHolder {
                 forceOffline = updatedValue
             }
             else if event.key == .feature(.versionDeprecationWarning), let updatedValue = event.value as? Bool {
-                showVersionSupportBanner = isOSVersionDeprecated && updatedValue
+                showVersionSupportBanner = isOSVersionDeprecated(using: dependencies) && updatedValue
+            }
+            else if event.key == .feature(.versionDeprecationMinimum) {
+                showVersionSupportBanner = isOSVersionDeprecated(using: dependencies) && dependencies[feature: .versionDeprecationWarning]
             }
         }
         
