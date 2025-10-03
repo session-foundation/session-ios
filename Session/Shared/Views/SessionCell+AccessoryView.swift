@@ -39,6 +39,8 @@ extension SessionCell {
             minWidthConstraint.isActive = false
             fixedWidthConstraint.constant = AccessoryView.minWidth
             fixedWidthConstraint.isActive = false
+            
+            invalidateIntrinsicContentSize()
         }
         
         public func update(
@@ -688,7 +690,7 @@ extension SessionCell {
             profilePictureView.pin(.leading, to: .leading, of: self)
             profilePictureView.pin(.trailing, to: .trailing, of: self)
             profilePictureView.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
-            fixedWidthConstraint.constant = size.viewSize
+            fixedWidthConstraint.constant = (size.viewSize)
             fixedWidthConstraint.isActive = true
         }
         

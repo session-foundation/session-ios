@@ -212,7 +212,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
-                        customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                        customPadding: SessionCell.Padding(
+                            leading: 0,
+                            bottom: Values.smallSpacing
+                        ),
                         backgroundStyle: .noBackground
                     ),
                     onTap: { [weak self] in

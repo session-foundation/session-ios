@@ -96,7 +96,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         result.delegate = self
         result.sectionHeaderTopPadding = 0
         result.rowHeight = UITableView.automaticDimension
-        result.estimatedRowHeight = 56 // Approximate size of an [{Icon} {Text}] SessionCell
+        result.estimatedRowHeight = UITableView.automaticDimension
 
         return result
     }()
