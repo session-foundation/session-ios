@@ -498,8 +498,19 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                 receiveValue: { [weak self] imageInfos in
                     Log.debug(.giphy, "ViewController showing trending")
                     
-                    if imageInfos.count > 0 {
-                        self?.imageInfos = imageInfos
+                    // Filter out invalid images before displaying
+                    let validImageInfos = imageInfos.filter { imageInfo in
+                        let isValid: Bool = imageInfo.isValid()
+                        
+                        if !isValid {
+                            Log.debug(.giphy, "Filtering out invalid GIF: \(imageInfo.giphyId)")
+                        }
+                        
+                        return isValid
+                    }
+                    
+                    if validImageInfos.count > 0 {
+                        self?.imageInfos = validImageInfos
                         self?.viewMode = .results
                     }
                     else {
@@ -536,7 +547,19 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                 },
                 receiveValue: { [weak self] imageInfos in
                     Log.verbose(.giphy, "ViewController search complete")
-                    self?.imageInfos = imageInfos
+                    
+                    // Filter out invalid images before displaying
+                    let validImageInfos = imageInfos.filter { imageInfo in
+                        let isValid: Bool = imageInfo.isValid()
+                        
+                        if !isValid {
+                            Log.debug(.giphy, "Filtering out invalid GIF: \(imageInfo.giphyId)")
+                        }
+                        
+                        return isValid
+                    }
+                    
+                    self?.imageInfos = validImageInfos
                     
                     if imageInfos.count > 0 {
                         self?.viewMode = .results
