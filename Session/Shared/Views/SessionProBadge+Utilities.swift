@@ -19,7 +19,7 @@ public extension SessionProBadge.Size{
 public extension SessionProBadge {
     func toImage(using dependencies: Dependencies) -> UIImage {
         let themePrimaryColor = dependencies.mutate(cache: .libSession) { libSession -> Theme.PrimaryColor? in libSession.get(.themePrimaryColor)}
-        let cacheKey: String = self.size.cacheKey + ".\(themePrimaryColor.defaulting(to: .defaultPrimaryColor))"
+        let cacheKey: String = self.size.cacheKey + ".\(themePrimaryColor.defaulting(to: .defaultPrimaryColor))" // stringlint:ignore
         
         if let cachedImage = dependencies[cache: .generalUI].get(for: cacheKey) {
             return cachedImage

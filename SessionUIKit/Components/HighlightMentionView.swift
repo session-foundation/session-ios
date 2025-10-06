@@ -31,13 +31,7 @@ public class HighlightMentionView: UIView {
         self.themeBackgroundColor = themeBackgroundColor
         self.label.pin(to: self, withInset: backgroundPadding)
         self.layer.cornerRadius = backgroundCornerRadius
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    public func toImage() -> UIImage {
+        
         let maxSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: label.font.lineHeight)
         let size = self.label.sizeThatFits(maxSize)
         self.label.frame = CGRect(
@@ -51,7 +45,9 @@ public class HighlightMentionView: UIView {
             width: size.width + 2 * self.backgroundPadding,
             height: size.height + 2 * self.backgroundPadding
         )
-        let renderedImage = self.toImage(isOpaque: self.isOpaque, scale: UIScreen.main.scale)
-        return renderedImage
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 }
