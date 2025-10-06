@@ -291,7 +291,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         .send(using: dependencies)
                 }
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .flatMapStorageWritePublisher(using: dependencies) { db, _ -> (Message, Message.Destination, Int64?, AuthenticationMethod, [Network.PreparedRequest<(attachment: Attachment, fileId: String)>]) in
+                .flatMapStorageWritePublisher(using: dependencies) { db, _ -> (Message, Message.Destination, Int64?, AuthenticationMethod, [AttachmentUploadJob.PreparedUpload]) in
                     guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
                         throw MessageSenderError.noThread
                     }
@@ -357,14 +357,14 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         ).insert(db)
                     }
                     
-                    // Process any attachments
-                    try AttachmentUploader.process(
+                    // Link any attachments to their interaction
+                    try AttachmentUploadJob.link(
                         db,
-                        attachments: AttachmentUploader.prepare(
+                        attachments: try AttachmentUploadJob.preparePriorToUpload(
                             attachments: finalAttachments,
                             using: dependencies
                         ),
-                        for: interactionId
+                        toInteractionWithId: interactionId
                     )
                     
                     // Using the same logic as the `MessageSendJob` retrieve 
@@ -376,13 +376,12 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     )
                     let attachmentState: MessageSendJob.AttachmentState = try MessageSendJob
                         .fetchAttachmentState(db, interactionId: interactionId)
-                    let preparedUploads: [Network.PreparedRequest<(attachment: Attachment, fileId: String)>] = try Attachment
+                    let preparedUploads: [AttachmentUploadJob.PreparedUpload] = try Attachment
                         .filter(ids: attachmentState.allAttachmentIds)
                         .fetchAll(db)
                         .map { attachment in
-                            try AttachmentUploader.preparedUpload(
+                            try AttachmentUploadJob.preparedUpload(
                                 attachment: attachment,
-                                logCategory: nil,
                                 authMethod: authMethod,
                                 using: dependencies
                             )
@@ -396,7 +395,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     
                     return (visibleMessage, destination, interaction.id, authMethod, preparedUploads)
                 }
-                .flatMap { (message: Message, destination: Message.Destination, interactionId: Int64?, authMethod: AuthenticationMethod, preparedUploads: [Network.PreparedRequest<(attachment: Attachment, fileId: String)>]) -> AnyPublisher<(Message, Message.Destination, Int64?, AuthenticationMethod, [(Attachment, String)]), Error> in
+                .flatMap { (message: Message, destination: Message.Destination, interactionId: Int64?, authMethod: AuthenticationMethod, preparedUploads: [AttachmentUploadJob.PreparedUpload]) -> AnyPublisher<(Message, Message.Destination, Int64?, AuthenticationMethod, [(PreparedAttachment, FileUploadResponse)]), Error> in
                     guard !preparedUploads.isEmpty else {
                         return Just((message, destination, interactionId, authMethod, []))
                             .setFailureType(to: Error.self)
@@ -404,26 +403,44 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     }
                         
                     return Publishers
-                        .MergeMany(preparedUploads.map { $0.send(using: dependencies) })
+                        .MergeMany(
+                            preparedUploads.map { request, preparedAttachment in
+                                request.send(using: dependencies).map { _, response in
+                                    (preparedAttachment, response)
+                                }
+                            }
+                        )
                         .collect()
-                        .map { results in (message, destination, interactionId, authMethod, results.map { _, value in value }) }
+                        .map { results in (message, destination, interactionId, authMethod, results) }
                         .eraseToAnyPublisher()
                 }
-                .tryFlatMap { message, destination, interactionId, authMethod, attachments -> AnyPublisher<(Message, [Attachment]), Error> in
-                    try MessageSender
+                .tryFlatMap { message, destination, interactionId, authMethod, uploadResults -> AnyPublisher<(Message, [Attachment]), Error> in
+                    let updatedAttachments: [(attachment: Attachment, fileId: String)] = try uploadResults.map { attachment, response in
+                        (
+                            try AttachmentUploadJob.processUploadResponse(
+                                preparedAttachment: attachment,
+                                authMethod: authMethod,
+                                response: response,
+                                using: dependencies
+                            ),
+                            response.id
+                        )
+                    }
+                    
+                    return try MessageSender
                         .preparedSend(
                             message: message,
                             to: destination,
                             namespace: destination.defaultNamespace,
                             interactionId: interactionId,
-                            attachments: attachments,
+                            attachments: updatedAttachments,
                             authMethod: authMethod,
                             onEvent: MessageSender.standardEventHandling(using: dependencies),
                             using: dependencies
                         )
                         .send(using: dependencies)
                         .map { _, message in
-                            (message, attachments.map { attachment, _ in attachment })
+                            (message, updatedAttachments.map { attachment, _ in attachment })
                         }
                         .eraseToAnyPublisher()
                 }

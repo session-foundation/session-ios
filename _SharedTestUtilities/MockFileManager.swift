@@ -7,7 +7,6 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
     var temporaryDirectory: String { mock() }
     var documentsDirectoryPath: String { mock() }
     var appSharedDataDirectoryPath: String { mock() }
-    var temporaryDirectoryAccessibleAfterFirstAuth: String { mock() }
     
     func clearOldTemporaryDirectories() { mockNoReturn() }
     

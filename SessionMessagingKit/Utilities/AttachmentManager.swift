@@ -7,6 +7,7 @@ import Combine
 import UniformTypeIdentifiers
 import GRDB
 import SDWebImageWebPCoder
+import SessionUtil
 import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
@@ -39,7 +40,7 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
         self.dependencies = dependencies
     }
     
-    // MARK: - General
+    // MARK: - File Paths
     
     public func sharedDataAttachmentsDirPath() -> String {
         let path: String = URL(fileURLWithPath: SessionFileManager.nonInjectedAppSharedDataDirectoryPath)
@@ -50,7 +51,14 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
         return path
     }
     
-    // MARK: - File Paths
+    private func placeholderUrlPath() -> String {
+        let path: String = URL(fileURLWithPath: sharedDataAttachmentsDirPath())
+            .appendingPathComponent("uploadPlaceholderUrl")  // stringlint:ignore
+            .path
+        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: path)
+        
+        return path
+    }
     
     /// **Note:** Generally the url we get won't have an extension and we don't want to make assumptions until we have the actual
     /// image data so generate a name for the file and then determine the extension separately
@@ -58,8 +66,12 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
         guard
             let urlString: String = urlString,
             !urlString.isEmpty
-        else { throw DisplayPictureError.invalidCall }
+        else { throw AttachmentError.invalidPath }
         
+        /// If the provided url is a placeholder url then it _is_ a valid path, so we should just return it directly
+        guard !isPlaceholderUploadUrl(urlString) else { return urlString }
+        
+        /// Otherwise we need to generate the deterministic file path based on the url provided
         let urlHash = try dependencies[singleton: .crypto]
             .tryGenerate(.hash(message: Array(urlString.utf8)))
             .toHexString()
@@ -69,20 +81,19 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
             .path
     }
     
-    private func placeholderUrlPath() -> String {
-        return URL(fileURLWithPath: sharedDataAttachmentsDirPath())
-            .appendingPathComponent("uploadPlaceholderUrl")  // stringlint:ignore
-            .path
-    }
-    
-    public func pendingUploadFilePath(for id: String) throws -> String {
+    public func pendingUploadPath(for id: String) throws -> String {
         return URL(fileURLWithPath: placeholderUrlPath())
             .appendingPathComponent(id)
             .path
     }
     
-    public func isPlaceholderUploadUrl(_ url: String?) -> Bool {
-        return (url?.hasPrefix(placeholderUrlPath()) == true)
+    public func isPlaceholderUploadUrl(_ urlString: String?) -> Bool {
+        guard
+            let urlString: String = urlString,
+            let url: URL = URL(string: urlString)
+        else { return false }
+        
+        return url.path.hasPrefix(placeholderUrlPath())
     }
     
     public func temporaryPathForOpening(downloadUrl: String?, mimeType: String?, sourceFilename: String?) throws -> String {
@@ -161,7 +172,7 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
     // MARK: - ThumbnailManager
     
     private func thumbnailUrl(for url: URL, size: ImageDataManager.ThumbnailSize) throws -> URL {
-        guard !url.lastPathComponent.isEmpty else { throw DisplayPictureError.invalidCall }
+        guard !url.lastPathComponent.isEmpty else { throw AttachmentError.invalidPath }
         
         /// Thumbnails are written to the caches directory, so that iOS can remove them if necessary
         return URL(fileURLWithPath: SessionFileManager.cachesDirectoryPath)
@@ -223,6 +234,7 @@ public struct PendingAttachment: Sendable, Equatable, Hashable {
     public let source: DataSource
     public let sourceFilename: String?
     public let metadata: Metadata?
+    private let existingAttachmentId: String?
     
     public var utType: UTType { metadata?.utType ?? .invalid }
     public var fileSize: UInt64 { metadata?.fileSize ?? 0 }
@@ -249,6 +261,7 @@ public struct PendingAttachment: Sendable, Equatable, Hashable {
             sourceFilename: sourceFilename,
             using: dependencies
         )
+        self.existingAttachmentId = nil
     }
     
     public init(
@@ -268,10 +281,11 @@ public struct PendingAttachment: Sendable, Equatable, Hashable {
         self.sourceFilename = attachment.sourceFilename
         self.metadata = PendingAttachment.metadata(
             for: source,
-            utType: UTType(attachment.contentType),
+            utType: UTType(sessionMimeType: attachment.contentType),
             sourceFilename: attachment.sourceFilename,
             using: dependencies
         )
+        self.existingAttachmentId = attachment.id
     }
     
     // MARK: - Internal Functions
@@ -294,7 +308,7 @@ public struct PendingAttachment: Sendable, Equatable, Hashable {
                 /// If the url is actually media then try to load `MediaMetadata`, falling back to the `FileMetadata`
                 guard
                     let metadata: MediaUtils.MediaMetadata = MediaUtils.MediaMetadata(
-                        from: url.absoluteString,
+                        from: url.path,
                         utType: utType,
                         sourceFilename: sourceFilename,
                         using: dependencies
@@ -374,25 +388,13 @@ public extension PendingAttachment {
         fileprivate func fileSize(using dependencies: Dependencies) -> UInt64? {
             switch (self, visualMediaSource) {
                 case (.file(let url), _), (.voiceMessage(let url), _), (_, .url(let url)):
-                    guard let path: String = try? path(for: url, using: dependencies) else { return nil }
-                    
-                    return dependencies[singleton: .fileManager].fileSize(of: path)
+                    return dependencies[singleton: .fileManager].fileSize(of: url.path)
                     
                 case (_, .data(_, let data)): return UInt64(data.count)
                 case (.text(let content), _):
                     return (content.data(using: .ascii)?.count).map { UInt64($0) }
                     
                 default: return nil
-            }
-        }
-        
-        private func path(for url: URL, using dependencies: Dependencies) throws -> String {
-            switch self {
-                case .displayPicture:
-                    return try dependencies[singleton: .displayPictureManager].path(for: url.absoluteString)
-                    
-                default:
-                    return try dependencies[singleton: .attachmentManager].path(for: url.absoluteString)
             }
         }
     }
@@ -443,17 +445,20 @@ public extension PendingAttachment {
 public struct PreparedAttachment: Sendable, Equatable, Hashable {
     public let attachment: Attachment
     public let temporaryFilePath: String
+    public let pendingUploadFilePath: String
     
     public init(
         attachment: Attachment,
-        temporaryFilePath: String
+        temporaryFilePath: String,
+        pendingUploadFilePath: String
     ) {
         self.attachment = attachment
         self.temporaryFilePath = temporaryFilePath
+        self.pendingUploadFilePath = pendingUploadFilePath
     }
 }
 
-// MARK: - Conversion
+// MARK: - Transforms
 
 public extension PendingAttachment {
     enum Transform: Sendable, Equatable, Hashable {
@@ -461,7 +466,7 @@ public extension PendingAttachment {
         case convertToStandardFormats
         case resize(maxDimension: CGFloat)
         case stripImageMetadata
-        case encrypt(legacy: Bool)
+        case encrypt(legacy: Bool, domain: Crypto.AttachmentDomain)
         
         fileprivate enum Erased: Equatable {
             case compress
@@ -615,36 +620,34 @@ public extension PendingAttachment {
     }
     
     func prepare(transformations: Set<Transform>, using dependencies: Dependencies) throws -> PreparedAttachment {
+        /// Perform any source-specific transformations and load the attachment data into memory
         let preparedData: Data
         
         switch source {
             case .displayPicture: preparedData = try prepareImage(transformations)
-            case .media where utType.isImage || utType.isAnimated:
-                preparedData = try prepareImage(transformations)
-            
-            // TODO: Custom video processing???
-            case .media where utType.isVideo: fatalError() // TODO: Load and encrypt
-                
-            // TODO: Custom audio processing???
-            case .voiceMessage: fatalError() // TODO: Load and encrypt
-            case .media where utType.isAudio: fatalError() // TODO: Load and encrypt
-            case .file, .media, .voiceMessage: fatalError() // TODO: Load and encrypt
-            case .text: fatalError() // TODO: Encode to file as ASCII?
+            case .media where utType.isImage: preparedData = try prepareImage(transformations)
+            case .media where utType.isAnimated: preparedData = try prepareImage(transformations)
+            case .media where utType.isVideo: preparedData = try prepareVideo(transformations)
+            case .media where utType.isAudio:  preparedData = try prepareAudio(transformations)
+            case .voiceMessage: preparedData = try prepareAudio(transformations)
+            case .text: preparedData = try prepareText(transformations)
+            case .file, .media: preparedData = try prepareGeneral(transformations)
         }
         
         /// Generate the temporary path to use while the upload is pending
         ///
         /// **Note:** This is stored alongside other attachments rather that in the temporary directory because the
         /// `AttachmentUploadJob` can exist between launches, but the temporary directory gets cleared on every launch)
-        let attachmentId: String = UUID().uuidString
-        let pendingUploadFilePath: String = try dependencies[singleton: .attachmentManager].pendingUploadFilePath(for: attachmentId)
+        let attachmentId: String = (existingAttachmentId ?? UUID().uuidString)
+        let pendingUploadFilePath: String = try dependencies[singleton: .attachmentManager].pendingUploadPath(for: attachmentId)
         
         /// If we don't have the `encrypt` transform then we can just return the `preparedData` (which is unencrypted but should
         /// have all other `Transform` changes applied
         // FIXME: We should store attachments encrypted and decrypt them when we want to render/open them
-        guard case .encrypt(let legacyEncryption) = transformations.first(where: { $0.erased == .encrypt }) else {
-            let filePath: String = try dependencies[singleton: .fileManager]
-                .write(dataToTemporaryFile: preparedData)
+        guard case .encrypt(let legacyEncryption, let encryptionDomain) = transformations.first(where: { $0.erased == .encrypt }) else {
+            let filePath: String = try dependencies[singleton: .fileManager].write(
+                dataToTemporaryFile: preparedData
+            )
             
             return PreparedAttachment(
                 attachment: try prepareAttachment(
@@ -655,7 +658,8 @@ public extension PendingAttachment {
                     digest: nil,
                     using: dependencies
                 ),
-                temporaryFilePath: filePath
+                temporaryFilePath: filePath,
+                pendingUploadFilePath: pendingUploadFilePath
             )
         }
         
@@ -664,15 +668,30 @@ public extension PendingAttachment {
         let encryptedData: EncryptionData
         
         if legacyEncryption {
-            // TODO: For legacy encryption do we need to validate the file size here or can we do it earlier???
-            
             encryptedData = try dependencies[singleton: .crypto].tryGenerate(
                 .legacyEncryptAttachment(plaintext: preparedData)
             )
+            
+            /// May as well throw here if we know the attachment is too large to send
+            guard encryptedData.ciphertext.count <= Network.maxFileSize else {
+                throw AttachmentError.fileSizeTooLarge
+            }
         }
         else {
-            // TODO: This
-            fatalError()
+            let encryptedSize: Int = try dependencies[singleton: .crypto].tryGenerate(
+                .expectedEncryptedAttachmentSize(plaintext: preparedData)
+            )
+            
+            /// May as well throw here if we know the attachment is too large to send
+            guard UInt(encryptedSize) <= Network.maxFileSize else {
+                throw AttachmentError.fileSizeTooLarge
+            }
+            
+            let result = try dependencies[singleton: .crypto].tryGenerate(
+                .encryptAttachment(plaintext: preparedData, domain: encryptionDomain)
+            )
+            
+            encryptedData = (result.ciphertext, result.encryptionKey, Data())
         }
         
         let filePath: String = try dependencies[singleton: .fileManager]
@@ -687,7 +706,8 @@ public extension PendingAttachment {
                 digest: encryptedData.digest,
                 using: dependencies
             ),
-            temporaryFilePath: filePath
+            temporaryFilePath: filePath,
+            pendingUploadFilePath: pendingUploadFilePath
         )
     }
     
@@ -706,7 +726,7 @@ public extension PendingAttachment {
         /// an impact due to a smaller number of users actually using them)
         guard mediaMatadata.frameCount == 1 else {
             switch targetSource {
-                case .url(let url): return try Data(contentsOf: url, options: [.dataReadingMapped])
+                case .url(let url): return try Data(contentsOf: url, options: [])
                 case .data(_, let data): return data
                 
                 /// None of the other source options support animated images so just fail
@@ -730,7 +750,7 @@ public extension PendingAttachment {
                 
             case .url(let url):
                 guard
-                    let imageData: Data = try? Data(contentsOf: url, options: [.dataReadingMapped]),
+                    let imageData: Data = try? Data(contentsOf: url, options: []),
                     let loadedImage = UIImage(data: imageData)
                 else { throw AttachmentError.invalidImageData }
                 
@@ -819,6 +839,76 @@ public extension PendingAttachment {
         }
         
         return data
+    }
+    
+    private func prepareVideo(_ transformations: Set<Transform>) throws -> Data {
+        guard
+            let targetSource: ImageDataManager.DataSource = visualMediaSource,
+            case .media(let mediaMatadata) = self.metadata
+        else { throw AttachmentError.invalidMediaSource }
+        
+        guard mediaMatadata.hasValidPixelSize else {
+            Log.error(.attachmentManager, "Source has invalid image dimensions.")
+            throw AttachmentError.invalidDimensions
+        }
+        guard mediaMatadata.hasValidDuration else {
+            Log.error(.attachmentManager, "Source has invalid duration.")
+            throw AttachmentError.invalidDuration
+        }
+        
+        switch targetSource {
+            case .data(_, let data): return data
+            case .url(let url), .videoUrl(let url, _, _, _):
+                return try Data(contentsOf: url, options: [])
+            
+            default: throw AttachmentError.invalidMediaSource
+        }
+    }
+    
+    private func prepareAudio(_ transformations: Set<Transform>) throws -> Data {
+        guard case .media(let mediaMatadata) = self.metadata else {
+            throw AttachmentError.invalidMediaSource
+        }
+        
+        guard mediaMatadata.hasValidDuration else {
+            Log.error(.attachmentManager, "Source has invalid duration.")
+            throw AttachmentError.invalidDuration
+        }
+        
+        switch source {
+            case .voiceMessage(let url): return try Data(contentsOf: url, options: [])
+            case .media(let mediaSource) where utType.isAudio:
+                switch mediaSource {
+                    case .url(let url): return try Data(contentsOf: url, options: [])
+                    case .data(_, let data): return data
+                    default: throw AttachmentError.invalidMediaSource
+                }
+                
+            default: throw AttachmentError.invalidMediaSource
+        }
+    }
+    
+    private func prepareText(_ transformations: Set<Transform>) throws -> Data {
+        guard
+            case .text(let text) = source,
+            let data: Data = text.data(using: .ascii)
+        else { throw AttachmentError.invalidData }
+        
+        return data
+    }
+    
+    private func prepareGeneral(_ transformations: Set<Transform>) throws -> Data {
+        switch source {
+            case .file(let url): return try Data(contentsOf: url, options: [])
+            case .media(let mediaSource):
+                switch mediaSource {
+                    case .url(let url): return try Data(contentsOf: url, options: [])
+                    case .data(_, let data): return data
+                    default: throw AttachmentError.invalidData
+                }
+                
+            default: throw AttachmentError.invalidData
+        }
     }
     
     private func prepareAttachment(

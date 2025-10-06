@@ -43,12 +43,13 @@ class PendingAttachmentRailItem: Equatable {
         // Try and make a ImageEditorModel.
         // This will only apply for valid images.
         if
-            ImageEditorModel.isFeatureEnabled,
+            ImageEditorModel.isFeatureEnabled &&
+            attachment.utType.isImage,
             case .media(let mediaSource) = attachment.source,
-            case .url(let url) = mediaSource
+            case .url = mediaSource
         {
             do {
-                imageEditorModel = try ImageEditorModel(srcImagePath: url.absoluteString, using: dependencies)
+                imageEditorModel = try ImageEditorModel(attachment: attachment, using: dependencies)
             } catch {
                 // Usually not an error; this usually indicates invalid input.
                 Log.warn("[PendingAttachmentRailItem] Could not create image editor: \(error)")

@@ -690,7 +690,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .mapError { error.setting(to: $0) }
                             .sinkAndStore(in: &disposables)
                         
-                        expect(error).to(matchError(DisplayPictureError.uploadFailed))
+                        expect(error).to(matchError(AttachmentError.uploadFailed))
                     }
                 }
                 

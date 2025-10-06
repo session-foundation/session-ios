@@ -787,11 +787,11 @@ extension ConversationVC:
                     ).insert(db)
                 }
                 
-                // Process any attachments
-                try AttachmentUploader.process(
+                // Link any attachments to their interaction
+                try AttachmentUploadJob.link(
                     db,
                     attachments: optimisticData.attachmentData,
-                    for: insertedInteraction.id
+                    toInteractionWithId: insertedInteraction.id
                 )
                 
                 // If we are sending a blinded message then we need to update the blinded profile

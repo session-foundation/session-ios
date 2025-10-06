@@ -746,7 +746,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             using: dependencies
         )
         let optimisticAttachments: [Attachment]? = try? attachments.map {
-            try AttachmentUploader.prepare(attachments: $0, using: dependencies)
+            try AttachmentUploadJob.preparePriorToUpload(attachments: $0, using: dependencies)
         }
         let linkPreviewAttachment: Attachment? = linkPreviewDraft.map { draft in
             try? LinkPreview.generateAttachmentIfPossible(

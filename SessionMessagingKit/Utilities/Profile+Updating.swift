@@ -38,7 +38,7 @@ public extension Profile {
         /// Perform any non-database related changes for the update
         switch displayPictureUpdate {
             case .contactRemove, .contactUpdateTo, .groupRemove, .groupUpdateTo, .groupUploadImage:
-                throw DisplayPictureError.invalidCall
+                throw AttachmentError.invalidStartState
             
             case .none, .currentUserUpdateTo: break
             case .currentUserRemove:
@@ -80,7 +80,7 @@ public extension Profile {
             }
             Log.info(.profile, "Successfully updated user profile.")
         }
-        catch { throw DisplayPictureError.databaseChangesFailed }
+        catch { throw AttachmentError.databaseChangesFailed }
     }
     
     /// To try to maintain backwards compatibility with profile changes we want to continue to accept profile changes from old clients if
@@ -153,7 +153,7 @@ public extension Profile {
         // Profile picture & profile key
         switch (displayPictureUpdate, isCurrentUser) {
             case (.none, _): break
-            case (.groupRemove, _), (.groupUpdateTo, _): throw DisplayPictureError.invalidCall
+            case (.groupRemove, _), (.groupUpdateTo, _): throw AttachmentError.invalidStartState
             case (.contactRemove, false), (.currentUserRemove, true):
                 if profile.displayPictureEncryptionKey != nil {
                     profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))

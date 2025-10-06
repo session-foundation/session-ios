@@ -116,7 +116,7 @@ public class DisplayPictureManager {
         guard
             let urlString: String = urlString,
             !urlString.isEmpty
-        else { throw DisplayPictureError.invalidCall }
+        else { throw AttachmentError.invalidPath }
         
         let urlHash = try {
             guard let cachedHash: String = cache.object(forKey: urlString as NSString) as? String else {
@@ -131,13 +131,6 @@ public class DisplayPictureManager {
         return URL(fileURLWithPath: sharedDataDisplayPictureDirPath())
             .appendingPathComponent(urlHash)
             .path
-    }
-    
-    public func path(for source: ImageDataManager.DataSource) throws -> String {
-        switch source {
-            case .url(let url): return try path(for: url.absoluteString)
-            default: throw DisplayPictureError.invalidCall
-        }
     }
     
     public func resetStorage() {
@@ -198,10 +191,9 @@ public class DisplayPictureManager {
             transformations ??
             [
                 .compress,
-                .convertToStandardFormats,
                 .resize(maxDimension: DisplayPictureManager.maxDimension),
                 .stripImageMetadata,
-                .encrypt(legacy: true)  // FIXME: Remove the `legacy` encryption option
+                .encrypt(legacy: true, domain: .profilePicture)  // FIXME: Remove the `legacy` encryption option
             ]
         )
         
@@ -213,7 +205,7 @@ public class DisplayPictureManager {
         
         /// Ensure we have an encryption key for the `PreparedAttachment` we want to use as a display picture
         guard let encryptionKey: Data = attachment.attachment.encryptionKey else {
-            throw DisplayPictureError.notEncrypted
+            throw AttachmentError.notEncrypted
         }
         
         do {
@@ -230,10 +222,10 @@ public class DisplayPictureManager {
             uploadResponse = try await request
                 .send(using: dependencies)
                 .values
-                .first(where: { _ in true })?.1 ?? { throw DisplayPictureError.uploadFailed }()
+                .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()
         }
-        catch NetworkError.maxFileSizeExceeded { throw DisplayPictureError.uploadMaxFileSizeExceeded }
-        catch { throw DisplayPictureError.uploadFailed }
+        catch NetworkError.maxFileSizeExceeded { throw AttachmentError.fileSizeTooLarge }
+        catch { throw AttachmentError.uploadFailed }
         
         /// Generate the `downloadUrl` and move the temporary file to it's expected destination
         let downloadUrl: String = Network.FileServer.downloadUrlString(for: uploadResponse.id)

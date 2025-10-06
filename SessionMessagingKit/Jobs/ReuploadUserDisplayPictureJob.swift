@@ -84,7 +84,7 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                 let response: FileUploadResponse = try await request
                     .send(using: dependencies)
                     .values
-                    .first(where: { _ in true })?.1 ?? { throw DisplayPictureError.uploadFailed }()
+                    .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()
                 
                 /// Even though the data hasn't changed, we need to trigger `Profile.UpdateLocal` in order for the
                 /// `profileLastUpdated` value to be updated correctly
@@ -150,7 +150,7 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                         transformations: [
                             .convertToStandardFormats,
                             .resize(maxDimension: DisplayPictureManager.maxDimension),
-                            .encrypt(legacy: true)  // FIXME: Remove the `legacy` encryption option
+                            .encrypt(legacy: true, domain: .profilePicture)  // FIXME: Remove the `legacy` encryption option
                         ]
                     )
                 let result = try await dependencies[singleton: .displayPictureManager]

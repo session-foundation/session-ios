@@ -178,7 +178,7 @@ public class MediaView: UIView {
         
         addSubview(loadingIndicator)
         loadingIndicator.pin(.leading, to: .leading, of: self)
-        loadingIndicator.pin(.trailing, to: .trailing, of: self)
+        loadingIndicator.pin(.trailing, to: .trailing, of: self).setting(priority: .defaultHigh)
         loadingIndicator.pin(.bottom, to: .bottom, of: self)
         
         /// Load in image data if possible

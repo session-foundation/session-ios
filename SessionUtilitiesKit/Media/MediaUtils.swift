@@ -49,7 +49,9 @@ public enum MediaUtils {
         kCGImagePropertyDepth,
         kCGImagePropertyHasAlpha,
         kCGImagePropertyColorModel,
-        kCGImagePropertyOrientation
+        kCGImagePropertyOrientation,
+        kCGImagePropertyGIFDelayTime,
+        kCGImagePropertyGIFUnclampedDelayTime
     ]
     
     public struct MediaMetadata: Sendable, Equatable, Hashable {

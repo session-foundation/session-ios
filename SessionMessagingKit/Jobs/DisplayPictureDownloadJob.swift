@@ -34,147 +34,159 @@ public enum DisplayPictureDownloadJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<Data> in
-                switch details.target {
-                    case .profile(_, let url, _), .group(_, let url, _):
-                        guard
-                            let fileId: String = Network.FileServer.fileId(for: url),
-                            let downloadUrl: URL = URL(string: Network.FileServer.downloadUrlString(for: url, fileId: fileId))
-                        else { throw NetworkError.invalidURL }
-                        
-                        return try Network.preparedDownload(
-                            url: downloadUrl,
-                            using: dependencies
-                        )
-                        
-                    case .community(let fileId, let roomToken, let server, let skipAuthentication):
-                        guard
-                            let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
-                                .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
-                        else { throw JobRunnerError.missingRequiredDetails }
-                        
-                        return try Network.SOGS.preparedDownload(
-                            fileId: fileId,
-                            roomToken: roomToken,
-                            authMethod: Authentication.community(info: info),
-                            skipAuthentication: skipAuthentication,
-                            using: dependencies
-                        )
+        Task {
+            do {
+                let request: Network.PreparedRequest<Data> = try await dependencies[singleton: .storage].readAsync { db in
+                    switch details.target {
+                        case .profile(_, let url, _), .group(_, let url, _):
+                            // TODO: Support custom URLs
+                            guard
+                                let fileId: String = Network.FileServer.fileId(for: url),
+                                let downloadUrl: URL = URL(string: Network.FileServer.downloadUrlString(for: url, fileId: fileId))
+                            else { throw NetworkError.invalidURL }
+                            
+                            return try Network.preparedDownload(
+                                url: downloadUrl,
+                                using: dependencies
+                            )
+                            
+                        case .community(let fileId, let roomToken, let server, let skipAuthentication):
+                            guard
+                                let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
+                                    .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
+                            else { throw JobRunnerError.missingRequiredDetails }
+                            
+                            return try Network.SOGS.preparedDownload(
+                                fileId: fileId,
+                                roomToken: roomToken,
+                                authMethod: Authentication.community(info: info),
+                                skipAuthentication: skipAuthentication,
+                                using: dependencies
+                            )
+                    }
                 }
-            }
-            .tryMap { (preparedDownload: Network.PreparedRequest<Data>) -> Network.PreparedRequest<(Data, String, URL?)> in
-                let downloadUrl: URL? = try? preparedDownload.generateUrl()
+                try Task.checkCancellation()
                 
-                guard
-                    let filePath: String = try? dependencies[singleton: .displayPictureManager].path(
-                        for: (downloadUrl?.absoluteString ?? preparedDownload.path)
-                    )
-                else { throw DisplayPictureError.invalidPath }
+                let downloadUrl: URL? = try? request.generateUrl()
+                let filePath: String = try dependencies[singleton: .displayPictureManager]
+                    .path(for: (downloadUrl?.absoluteString ?? request.path))
                 
                 guard !dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
-                    throw DisplayPictureError.alreadyDownloaded(downloadUrl)
+                    throw AttachmentError.alreadyDownloaded(downloadUrl)
                 }
                 
-                return preparedDownload.map { _, data in
-                    (data, filePath, downloadUrl)
-                }
-            }
-            .flatMap { $0.send(using: dependencies) }
-            .map { _, result in result }
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .flatMapStorageReadPublisher(using: dependencies) { (db: ObservingDatabase, result: (Data, String, URL?)) -> (Data, String, URL?) in
+                // FIXME: Make this async/await when the refactored networking is merged
+                let response: Data = try await request
+                    .send(using: dependencies)
+                    .values
+                    .first(where: { _ in true })?.1 ?? { throw AttachmentError.downloadFailed }()
+                try Task.checkCancellation()
+                
                 /// Check to make sure this download is still a valid update
-                guard details.isValidUpdate(db, using: dependencies) else {
-                    throw DisplayPictureError.updateNoLongerValid
+                try await dependencies[singleton: .storage].readAsync { db in
+                    try details.ensureValidUpdate(db, using: dependencies)
                 }
                 
-                return result
-            }
-            .tryMap { (data: Data, filePath: String, downloadUrl: URL?) -> URL? in
+                /// Get the decrypted data
                 guard
                     let decryptedData: Data = {
                         switch details.target {
-                            case .community: return data    // Community data is unencrypted
+                            case .community: return response    /// Community data is unencrypted
                             case .profile(_, _, let encryptionKey), .group(_, _, let encryptionKey):
                                 return dependencies[singleton: .crypto].generate(
-                                    .decryptedDataDisplayPicture(data: data, key: encryptionKey)
+                                    .decryptedDataDisplayPicture(data: response, key: encryptionKey)
                                 )
                         }
                     }()
-                else { throw DisplayPictureError.writeFailed }
+                else { throw AttachmentError.writeFailed }
                 
+                /// Ensure it's a valid image
                 guard
                     UIImage(data: decryptedData) != nil,
                     dependencies[singleton: .fileManager].createFile(
                         atPath: filePath,
                         contents: decryptedData
                     )
-                else { throw DisplayPictureError.loadFailed }
+                else { throw AttachmentError.invalidData }
                 
                 /// Kick off a task to load the image into the cache (assuming we want to render it soon)
-                Task(priority: .userInitiated) {
+                Task.detached(priority: .userInitiated) {
                     await dependencies[singleton: .imageDataManager].load(
                         .url(URL(fileURLWithPath: filePath))
                     )
                 }
                 
-                return downloadUrl
-            }
-            .flatMapStorageWritePublisher(using: dependencies) { (db: ObservingDatabase, downloadUrl: URL?) in
                 /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
                 /// the `downloadUrl` changing)
-                try writeChanges(
-                    db,
-                    details: details,
-                    downloadUrl: downloadUrl,
-                    using: dependencies
-                )
+                try await dependencies[singleton: .storage].writeAsync { db in
+                    try writeChanges(
+                        db,
+                        details: details,
+                        downloadUrl: downloadUrl,
+                        using: dependencies
+                    )
+                }
+                
+                return scheduler.schedule {
+                    success(job, false)
+                }
             }
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch (result, result.errorOrNull, result.errorOrNull as? DisplayPictureError) {
-                        case (.finished, _, _): success(job, false)
-                        case (_, _, .updateNoLongerValid): success(job, false)
-                        case (_, _, .alreadyDownloaded(let downloadUrl)):
-                            /// If the file already exists then write the changes to the database
-                            dependencies[singleton: .storage].writeAsync(
-                                updates: { db in
-                                    try writeChanges(
-                                        db,
-                                        details: details,
-                                        downloadUrl: downloadUrl,
-                                        using: dependencies
-                                    )
-                                },
-                                completion: { result in
-                                    switch result {
-                                        case .success: success(job, false)
-                                        case .failure(let error): failure(job, error, true)
-                                    }
-                                }
-                            )
-                            
-                        case (_, let error as JobRunnerError, _) where error == .missingRequiredDetails:
-                            failure(job, error, true)
-                            
-                        case (_, _, .invalidPath):
-                            Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
-                            failure(job, DisplayPictureError.invalidPath, true)
-                            
-                        case (_, _, .writeFailed):
-                            Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
-                            failure(job, DisplayPictureError.writeFailed, true)
-                            
-                        case (_, _, .loadFailed):
-                            Log.error(.cat, "Failed to load display picture for \(details.target)")
-                            failure(job, DisplayPictureError.loadFailed, true)
-                            
-                        case (.failure(let error), _, _): failure(job, error, true)
+            catch AttachmentError.downloadNoLongerValid {
+                return scheduler.schedule {
+                    success(job, false)
+                }
+            }
+            catch AttachmentError.alreadyDownloaded(let downloadUrl) {
+                /// If the file already exists then write the changes to the database
+                do {
+                    try await dependencies[singleton: .storage].writeAsync { db in
+                        try writeChanges(
+                            db,
+                            details: details,
+                            downloadUrl: downloadUrl,
+                            using: dependencies
+                        )
+                    }
+                    
+                    return scheduler.schedule {
+                        success(job, false)
                     }
                 }
-            )
+                catch {
+                    return scheduler.schedule {
+                        failure(job, error, true)
+                    }
+                }
+            }
+            catch JobRunnerError.missingRequiredDetails {
+                return scheduler.schedule {
+                    failure(job, JobRunnerError.missingRequiredDetails, true)
+                }
+            }
+            catch AttachmentError.invalidPath {
+                return scheduler.schedule {
+                    Log.error(.cat, "Failed to generate display picture file path for \(details.target)")
+                    failure(job, AttachmentError.invalidPath, true)
+                }
+            }
+            catch AttachmentError.writeFailed {
+                return scheduler.schedule {
+                    Log.error(.cat, "Failed to decrypt display picture for \(details.target)")
+                    failure(job, AttachmentError.writeFailed, true)
+                }
+            }
+            catch AttachmentError.invalidData {
+                return scheduler.schedule {
+                    Log.error(.cat, "Failed to load display picture for \(details.target)")
+                    failure(job, AttachmentError.invalidData, true)
+                }
+            }
+            catch {
+                return scheduler.schedule {
+                    failure(job, error, true)
+                }
+            }
+        }
     }
 
     private static func writeChanges(
@@ -337,10 +349,12 @@ extension DisplayPictureDownloadJob {
         
         // MARK: - Functions
         
-        fileprivate func isValidUpdate(_ db: ObservingDatabase, using dependencies: Dependencies) -> Bool {
+        fileprivate func ensureValidUpdate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
             switch self.target {
                 case .profile(let id, let url, let encryptionKey):
-                    guard let latestProfile: Profile = try? Profile.fetchOne(db, id: id) else { return false }
+                    guard let latestProfile: Profile = try? Profile.fetchOne(db, id: id) else {
+                        throw AttachmentError.downloadNoLongerValid
+                    }
                     
                     /// If the data matches what is stored in the database then we should be fine to consider it valid (it may be that
                     /// we are re-downloading a profile due to some invalid state)
@@ -349,10 +363,12 @@ extension DisplayPictureDownloadJob {
                         url == latestProfile.displayPictureUrl
                     )
                     
-                    return (
+                    guard
                         Profile.shouldUpdateProfile(timestamp, profile: latestProfile, using: dependencies) ||
-                        dataMatches
-                    )
+                            dataMatches
+                    else { throw AttachmentError.downloadNoLongerValid }
+                    
+                    break
                     
                 case .group(let id, let url,_):
                     /// Groups now rely on a `GroupInfo` config message which has a proper `seqNo` so we don't need any
@@ -361,10 +377,11 @@ extension DisplayPictureDownloadJob {
                     guard
                         let latestDisplayPictureUrl: String = dependencies.mutate(cache: .libSession, { cache in
                             cache.displayPictureUrl(threadId: id, threadVariant: .group)
-                        })
-                    else { return false }
+                        }),
+                        url == latestDisplayPictureUrl
+                    else { throw AttachmentError.downloadNoLongerValid }
                     
-                    return (url == latestDisplayPictureUrl)
+                    break
                     
                 case .community(let imageId, let roomToken, let server, _):
                     guard
@@ -372,10 +389,11 @@ extension DisplayPictureDownloadJob {
                             .select(.imageId)
                             .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
                             .asRequest(of: String.self)
-                            .fetchOne(db)
-                    else { return false }
+                            .fetchOne(db),
+                        imageId == latestImageId
+                    else { throw AttachmentError.downloadNoLongerValid }
                     
-                    return (imageId == latestImageId)
+                    break
             }
         }
     }

@@ -19,7 +19,6 @@ public protocol FileManagerType {
     var temporaryDirectory: String { get }
     var documentsDirectoryPath: String { get }
     var appSharedDataDirectoryPath: String { get }
-    var temporaryDirectoryAccessibleAfterFirstAuth: String { get }
     
     /// **Note:** We need to call this method on launch _and_ every time the app becomes active,
     /// since file protection may prevent it from succeeding in the background.
@@ -153,13 +152,6 @@ public class SessionFileManager: FileManagerType {
     public var appSharedDataDirectoryPath: String {
         return (fileManager.containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup)?.path)
             .defaulting(to: "")
-    }
-    
-    public var temporaryDirectoryAccessibleAfterFirstAuth: String {
-        let dirPath: String = NSTemporaryDirectory()
-        try? ensureDirectoryExists(at: dirPath, fileProtectionType: .completeUntilFirstUserAuthentication)
-        
-        return dirPath
     }
     
     // MARK: - Initialization
@@ -375,7 +367,7 @@ public class SessionFileManager: FileManagerType {
             withItemAt: URL(fileURLWithPath: newItemPath),
             backupItemName: backupItemName,
             options: options
-        )?.absoluteString
+        )?.path
     }
     
     public func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> URL? {

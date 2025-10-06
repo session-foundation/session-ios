@@ -1789,7 +1789,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 let message: String = {
                     switch (displayPictureUpdate, error) {
                         case (.groupRemove, _): return "profileDisplayPictureRemoveError".localized()
-                        case (_, DisplayPictureError.uploadMaxFileSizeExceeded):
+                        case (_, AttachmentError.fileSizeTooLarge):
                             return "profileDisplayPictureSizeError".localized()
                             
                         default: return "errorConnection".localized()

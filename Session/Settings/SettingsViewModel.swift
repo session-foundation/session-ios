@@ -693,7 +693,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             case .image(.some(let source), _, _, _, _, _, _):
                                 self?.updateProfile(
                                     displayPictureUpdateGenerator: { [weak self] in
-                                        guard let self = self else { throw DisplayPictureError.uploadFailed }
+                                        guard let self = self else { throw AttachmentError.uploadFailed }
                                         
                                         return try await uploadDisplayPicture(source: source)
                                     },
@@ -764,7 +764,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 let message: String = {
                     switch (displayPictureUpdate, error) {
                         case (.currentUserRemove, _): return "profileDisplayPictureRemoveError".localized()
-                        case (_, DisplayPictureError.uploadMaxFileSizeExceeded):
+                        case (_, AttachmentError.fileSizeTooLarge):
                             return "profileDisplayPictureSizeError".localized()
                         
                         default: return "errorConnection".localized()

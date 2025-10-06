@@ -294,57 +294,31 @@ extension Attachment: CustomStringConvertible {
 
 extension Attachment {
     public func with(
-        serverId: String? = nil,
         state: State? = nil,
         creationTimestamp: TimeInterval? = nil,
-        downloadUrl: String? = nil,
-        encryptionKey: Data? = nil,
-        digest: Data? = nil,
         using dependencies: Dependencies
-    ) -> Attachment {
-        /// If the `downloadUrl` previously had a value and we are updating it then we need to move the file from it's current location
-        /// to the hash that would be generated for the new location
-        ///
-        /// We default `finalDownloadUrl` to the current `downloadUrl` just in case moving the file fails (in which case we don't
-        /// want to update it or we won't be able to resolve the stored file), but if we don't currently have a `downloadUrl` then we can
-        /// just use the new one
-        var finalDownloadUrl: String? = (self.downloadUrl ?? downloadUrl)
-        
-        if
-            let newUrl: String = downloadUrl,
-            let oldUrl: String = self.downloadUrl,
-            newUrl != oldUrl
-        {
-            if
-                let oldPath: String = try? dependencies[singleton: .attachmentManager].path(for: oldUrl),
-                let newPath: String = try? dependencies[singleton: .attachmentManager].path(for: newUrl)
-            {
-                do {
-                    try dependencies[singleton: .fileManager].moveItem(atPath: oldPath, toPath: newPath)
-                    finalDownloadUrl = newUrl
-                }
-                catch {}
-            }
-        }
+    ) throws -> Attachment {
+        guard let downloadUrl: String = self.downloadUrl else { throw AttachmentError.invalidPath }
         
         let (isValid, duration): (Bool, TimeInterval?) = {
             switch (self.state, state) {
                 case (_, .downloaded):
                     return dependencies[singleton: .attachmentManager].determineValidityAndDuration(
                         contentType: contentType,
-                        downloadUrl: finalDownloadUrl,
+                        downloadUrl: downloadUrl,
                         sourceFilename: sourceFilename
                     )
                 
-                // Assume the data is already correct for "uploading" attachments (and don't override it)
+                /// Assume the data is already correct for "uploading" attachments (and don't override it)
                 case (.uploading, _), (.uploaded, _), (.failedUpload, _): return (self.isValid, self.duration)
                 case (_, .failedDownload): return (false, nil)
                     
                 default: return (self.isValid, self.duration)
             }
         }()
-        // Regenerate this just in case we added support since the attachment was inserted into
-        // the database (eg. manually downloaded in a later update)
+        
+        /// Regenerate this just in case we added support since the attachment was inserted into the database (eg. manually
+        /// downloaded in a later update)
         let isVisualMedia: Bool = UTType.isVisualMedia(contentType)
         let attachmentResolution: CGSize? = {
             if let width: UInt = self.width, let height: UInt = self.height, width > 0, height > 0 {
@@ -354,7 +328,7 @@ extension Attachment {
                 isVisualMedia,
                 state == .downloaded,
                 let path: String = try? dependencies[singleton: .attachmentManager]
-                    .path(for: finalDownloadUrl)
+                    .path(for: downloadUrl)
             else { return nil }
             
             return MediaUtils.unrotatedSize(
@@ -366,26 +340,22 @@ extension Attachment {
         }()
         
         return Attachment(
-            id: self.id,
-            serverId: (serverId ?? self.serverId),
+            id: id,
+            serverId: serverId,
             variant: variant,
             state: (state ?? self.state),
             contentType: contentType,
             byteCount: byteCount,
             creationTimestamp: (creationTimestamp ?? self.creationTimestamp),
             sourceFilename: sourceFilename,
-            downloadUrl: finalDownloadUrl,
+            downloadUrl: downloadUrl,
             width: attachmentResolution.map { UInt($0.width) },
             height: attachmentResolution.map { UInt($0.height) },
             duration: duration,
-            isVisualMedia: (
-                // Regenerate this just in case we added support since the attachment was inserted into
-                // the database (eg. manually downloaded in a later update)
-                UTType.isVisualMedia(contentType)
-            ),
+            isVisualMedia: isVisualMedia,
             isValid: isValid,
-            encryptionKey: (encryptionKey ?? self.encryptionKey),
-            digest: (digest ?? self.digest)
+            encryptionKey: encryptionKey,
+            digest: digest
         )
     }
 }
@@ -451,8 +421,10 @@ extension Attachment {
             0
         )
         
-        if let encryptionKey: Data = encryptionKey, let digest: Data = digest {
+        if let encryptionKey: Data = encryptionKey {
             builder.setKey(encryptionKey)
+        }
+        if let digest: Data = digest {
             builder.setDigest(digest)
         }
         
