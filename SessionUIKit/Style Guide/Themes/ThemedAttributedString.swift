@@ -9,10 +9,6 @@ public extension NSAttributedString.Key {
         .themeForegroundColor, .themeBackgroundColor, .themeStrokeColor, .themeUnderlineColor, .themeStrikethroughColor
     ]
     
-    internal static let keysToIgnoreValidation: Set<NSAttributedString.Key> = [
-        .currentUserMentionBackgroundColor, .currentUserMentionBackgroundCornerRadius, .currentUserMentionBackgroundPadding
-    ]
-    
     static let themeForegroundColor = NSAttributedString.Key("org.getsession.themeForegroundColor")
     static let themeBackgroundColor = NSAttributedString.Key("org.getsession.themeBackgroundColor")
     static let themeStrokeColor = NSAttributedString.Key("org.getsession.themeStrokeColor")
@@ -34,37 +30,50 @@ public extension NSAttributedString.Key {
 // MARK: - ThemedAttributedString
 
 public class ThemedAttributedString: Equatable, Hashable {
-    internal let value: NSMutableAttributedString
+    internal var value: NSMutableAttributedString {
+        if let image = imageAttachmentGenerator?() {
+            return NSMutableAttributedString(attachment: NSTextAttachment(image: image))
+        }
+        return attributedString
+    }
     public var string: String { value.string }
     public var length: Int { value.length }
+    internal var imageAttachmentGenerator: (() -> UIImage?)?
+    internal var attributedString: NSMutableAttributedString
     
     public init() {
-        self.value = NSMutableAttributedString()
+        self.attributedString = NSMutableAttributedString()
     }
     
     public init(attributedString: ThemedAttributedString) {
-        self.value = attributedString.value
+        self.attributedString = attributedString.attributedString
+        self.imageAttachmentGenerator = attributedString.imageAttachmentGenerator
     }
     
     public init(attributedString: NSAttributedString) {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributedString)
         #endif
-        self.value = NSMutableAttributedString(attributedString: attributedString)
+        self.attributedString = NSMutableAttributedString(attributedString: attributedString)
     }
     
     public init(string: String, attributes: [NSAttributedString.Key: Any] = [:]) {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributes)
         #endif
-        self.value = NSMutableAttributedString(string: string, attributes: attributes)
+        self.attributedString = NSMutableAttributedString(string: string, attributes: attributes)
     }
     
     public init(attachment: NSTextAttachment, attributes: [NSAttributedString.Key: Any] = [:]) {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributes)
         #endif
-        self.value = NSMutableAttributedString(attachment: attachment)
+        self.attributedString = NSMutableAttributedString(attachment: attachment)
+    }
+    
+    public init(imageAttachmentGenerator: @escaping (() -> UIImage?)) {
+        self.attributedString = NSMutableAttributedString()
+        self.imageAttachmentGenerator = imageAttachmentGenerator
     }
     
     required init?(coder: NSCoder) {
@@ -89,7 +98,7 @@ public class ThemedAttributedString: Equatable, Hashable {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributes ?? [:])
         #endif
-        value.append(NSAttributedString(string: string, attributes: attributes))
+        self.attributedString.append(NSAttributedString(string: string, attributes: attributes))
         return self
     }
     
@@ -97,23 +106,23 @@ public class ThemedAttributedString: Equatable, Hashable {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributedString)
         #endif
-        value.append(attributedString)
+        self.attributedString.append(attributedString)
     }
     
     public func append(_ attributedString: ThemedAttributedString) {
-        value.append(attributedString.value)
+        self.attributedString.append(attributedString.value)
     }
     
     public func appending(_ attributedString: NSAttributedString) -> ThemedAttributedString {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributedString)
         #endif
-        value.append(attributedString)
+        self.attributedString.append(attributedString)
         return self
     }
     
     public func appending(_ attributedString: ThemedAttributedString) -> ThemedAttributedString {
-        value.append(attributedString.value)
+        self.attributedString.append(attributedString.value)
         return self
     }
     
@@ -122,7 +131,7 @@ public class ThemedAttributedString: Equatable, Hashable {
         ThemedAttributedString.validateAttributes([name: value])
         #endif
         let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
-        value.addAttribute(name, value: attrValue, range: targetRange)
+        self.attributedString.addAttribute(name, value: attrValue, range: targetRange)
     }
     
     public func addingAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange? = nil) -> ThemedAttributedString {
@@ -130,7 +139,7 @@ public class ThemedAttributedString: Equatable, Hashable {
         ThemedAttributedString.validateAttributes([name: value])
         #endif
         let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
-        value.addAttribute(name, value: attrValue, range: targetRange)
+        self.attributedString.addAttribute(name, value: attrValue, range: targetRange)
         return self
     }
 
@@ -139,7 +148,7 @@ public class ThemedAttributedString: Equatable, Hashable {
         ThemedAttributedString.validateAttributes(attrs)
         #endif
         let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
-        value.addAttributes(attrs, range: targetRange)
+        self.attributedString.addAttributes(attrs, range: targetRange)
     }
     
     public func addingAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange? = nil) -> ThemedAttributedString {
@@ -147,12 +156,16 @@ public class ThemedAttributedString: Equatable, Hashable {
         ThemedAttributedString.validateAttributes(attrs)
         #endif
         let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
-        value.addAttributes(attrs, range: targetRange)
+        self.attributedString.addAttributes(attrs, range: targetRange)
         return self
     }
     
     public func boundingRect(with size: CGSize, options: NSStringDrawingOptions = [], context: NSStringDrawingContext?) -> CGRect {
-        return value.boundingRect(with: size, options: options, context: context)
+        return self.attributedString.boundingRect(with: size, options: options, context: context)
+    }
+    
+    public func replaceCharacters(in range: NSRange, with attributedString: NSAttributedString) {
+        self.attributedString.replaceCharacters(in: range, with: attributedString)
     }
     
     // MARK: - Convenience
@@ -162,8 +175,7 @@ public class ThemedAttributedString: Equatable, Hashable {
         for (key, value) in attributes {
             guard
                 key.originalKey == nil &&
-                NSAttributedString.Key.themedKeys.contains(key) == false &&
-                NSAttributedString.Key.keysToIgnoreValidation.contains(key) == false
+                NSAttributedString.Key.themedKeys.contains(key) == false
             else { continue }
             
             if value is ThemeValue {

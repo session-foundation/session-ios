@@ -761,6 +761,7 @@ public extension LibSession.Cache {
         let displayNameInMessage: String? = (visibleMessage?.sender != contactId ? nil :
             visibleMessage?.profile?.displayName?.nullIfEmpty
         )
+        let profileLastUpdatedInMessage: TimeInterval? = visibleMessage?.profile?.updateTimestampSeconds
         let fallbackProfile: Profile? = displayNameInMessage.map { Profile(id: contactId, name: $0) }
         
         guard var cContactId: [CChar] = contactId.cString(using: .utf8) else {
@@ -782,11 +783,10 @@ public extension LibSession.Cache {
             return Profile(
                 id: contactId,
                 name: String(cString: profileNamePtr),
-                lastNameUpdate: nil,
                 nickname: nil,
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : displayPic.get(\.key)),
-                displayPictureLastUpdated: nil
+                profileLastUpdated: profileLastUpdatedInMessage
             )
         }
         
@@ -812,11 +812,10 @@ public extension LibSession.Cache {
             return Profile(
                 id: contactId,
                 name: (displayNameInMessage ?? member.get(\.name)),
-                lastNameUpdate: nil,
                 nickname: nil,
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : member.get(\.profile_pic.key)),
-                displayPictureLastUpdated: nil
+                profileLastUpdated: TimeInterval(member.get(\.profile_updated))
             )
         }
         
@@ -838,11 +837,10 @@ public extension LibSession.Cache {
         return Profile(
             id: contactId,
             name: (displayNameInMessage ?? contact.get(\.name)),
-            lastNameUpdate: nil,
             nickname: contact.get(\.nickname, nullIfEmpty: true),
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-            displayPictureLastUpdated: nil
+            profileLastUpdated: TimeInterval(contact.get( \.profile_updated))
         )
     }
     
