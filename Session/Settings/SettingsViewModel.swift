@@ -321,7 +321,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         font: .titleLarge,
                         alignment: .center,
                         trailingImage: (state.isSessionPro ?
-                            ("ProBadge", SessionProBadge(size: .medium).toImage()) :
+                            ("ProBadge", SessionProBadge(size: .medium).toImage(using: viewModel.dependencies)) :
                             nil
                         )
                     ),
@@ -714,7 +714,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             at: .leading,
                             font: .systemFont(ofSize: Values.smallFontSize),
                             textColor: .textSecondary,
-                            proBadgeSize: .small
+                            proBadgeSize: .small,
+                            using: dependencies
                         ):
                     "proAnimatedDisplayPicturesNonProModalDescription"
                         .localized()
@@ -722,7 +723,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             at: .trailing,
                             font: .systemFont(ofSize: Values.smallFontSize),
                             textColor: .textSecondary,
-                            proBadgeSize: .small
+                            proBadgeSize: .small,
+                            using: dependencies
                         )
             }(),
             accessibility: Accessibility(
