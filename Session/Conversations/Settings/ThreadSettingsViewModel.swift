@@ -304,7 +304,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         alignment: .center,
                         trailingImage: (
                             (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) ?
-                            ("ProBadge", SessionProBadge(size: .medium).toImage(using: dependencies)) :
+                            ("ProBadge", { [dependencies] in SessionProBadge(size: .medium).toImage(using: dependencies) }) :
                             nil
                         )
                     ),

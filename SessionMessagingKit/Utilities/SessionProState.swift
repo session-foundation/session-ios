@@ -42,7 +42,7 @@ public class SessionProState: SessionProManagerType {
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
-        guard dependencies[feature: .sessionProEnabled] && (!isSessionProSubject.value) else {
+        guard dependencies[feature: .sessionProEnabled] && (!dependencies[feature: .mockCurrentUserSessionPro]) else {
             return false
         }
         beforePresented?()

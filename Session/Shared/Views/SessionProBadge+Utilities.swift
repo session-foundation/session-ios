@@ -43,26 +43,17 @@ public extension String {
         proBadgeSize: SessionProBadge.Size,
         spacing: String = " ",
         using dependencies: Dependencies
-    ) -> NSMutableAttributedString {
-        let image: UIImage = SessionProBadge(size: proBadgeSize).toImage(using: dependencies)
-        let base = NSMutableAttributedString()
-        let attachment = NSTextAttachment()
-        attachment.image = image
-        
-        // Vertical alignment tweak to align to baseline
-        let cap = font.capHeight
-        let dy = (cap - image.size.height) / 2
-        attachment.bounds = CGRect(x: 0, y: dy, width: image.size.width, height: image.size.height)
-        
+    ) -> ThemedAttributedString {
+        let base = ThemedAttributedString()
         switch postion {
             case .leading:
-                base.append(NSAttributedString(attachment: attachment))
-                base.append(NSAttributedString(string: spacing))
-                base.append(NSAttributedString(string: self, attributes: [.font: font, .themeForegroundColor: textColor]))
+                base.append(ThemedAttributedString(imageAttachmentGenerator: { SessionProBadge(size: proBadgeSize).toImage(using: dependencies) }))
+                base.append(ThemedAttributedString(string: spacing))
+                base.append(ThemedAttributedString(string: self, attributes: [.font: font, .themeForegroundColor: textColor]))
             case .trailing:
-                base.append(NSAttributedString(string: self, attributes: [.font: font, .themeForegroundColor: textColor]))
-                base.append(NSAttributedString(string: spacing))
-                base.append(NSAttributedString(attachment: attachment))
+                base.append(ThemedAttributedString(string: self, attributes: [.font: font, .themeForegroundColor: textColor]))
+                base.append(ThemedAttributedString(string: spacing))
+                base.append(ThemedAttributedString(imageAttachmentGenerator: { SessionProBadge(size: proBadgeSize).toImage(using: dependencies) }))
         }
 
         return base

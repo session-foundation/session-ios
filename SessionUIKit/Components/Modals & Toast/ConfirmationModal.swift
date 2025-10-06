@@ -537,7 +537,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 mainStackView.spacing = 0
                 contentStackView.spacing = Values.verySmallSpacing
                 proDescriptionLabelContainer.isHidden = (description == nil)
-                proDescriptionLabel.attributedText = description
+                proDescriptionLabel.themeAttributedText = description
                 imageViewContainer.isHidden = false
                 profileView.clipsToBounds = (style == .circular)
                 profileView.setDataManager(dataManager)
@@ -1052,7 +1052,7 @@ public extension ConfirmationModal.Info {
             placeholder: ImageDataManager.DataSource?,
             icon: ProfilePictureView.ProfileIcon = .none,
             style: ImageStyle,
-            description: NSAttributedString?,
+            description: ThemedAttributedString?,
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
             onProBageTapped: (() -> Void)?,

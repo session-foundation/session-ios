@@ -321,7 +321,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         font: .titleLarge,
                         alignment: .center,
                         trailingImage: (state.isSessionPro ?
-                            ("ProBadge", SessionProBadge(size: .medium).toImage(using: viewModel.dependencies)) :
+                            ("ProBadge", { SessionProBadge(size: .medium).toImage(using: viewModel.dependencies) }) :
                             nil
                         )
                     ),
