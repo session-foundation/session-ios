@@ -49,7 +49,8 @@ public extension MentionUtilities {
                     threadVariant: threadVariant,
                     using: dependencies
                 )
-            }
+            },
+            using: dependencies
         )
     }
 }

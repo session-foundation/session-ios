@@ -19,7 +19,7 @@ struct MessageInfoScreen: View {
     var actions: [ContextMenuVC.Action]
     var messageViewModel: MessageViewModel
     let threadCanWrite: Bool
-    let onStartThread: (() -> Void)?
+    let onStartThread: (@MainActor () -> Void)?
     let dependencies: Dependencies
     let isMessageFailed: Bool
     let isCurrentUser: Bool
@@ -31,7 +31,7 @@ struct MessageInfoScreen: View {
         actions: [ContextMenuVC.Action],
         messageViewModel: MessageViewModel,
         threadCanWrite: Bool,
-        onStartThread: (() -> Void)?,
+        onStartThread: (@MainActor () -> Void)?,
         using dependencies: Dependencies
     ) {
         self.actions = actions
@@ -509,7 +509,7 @@ struct MessageInfoScreen: View {
             proCTAVariant = (proFeatures.count > 1 ? .generic : .longerMessages)
         }
         
-        if ImageDataManager.isAnimatedImage(profileInfo?.source?.imageData) {
+        if ImageDataManager.isAnimatedImage(profileInfo?.source) {
             proFeatures.append("proAnimatedDisplayPictureFeature".localized())
             proCTAVariant = (proFeatures.count > 1 ? .generic : .animatedProfileImage(isSessionProActivated: false))
         }
@@ -638,7 +638,12 @@ struct MessageBubble: View {
     
     var body: some View {
         ZStack {
-            let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: messageViewModel, includingOppositeGutter: false) - 2 * Self.inset)
+            let maxWidth: CGFloat = (
+                VisibleMessageCell.getMaxWidth(
+                    for: messageViewModel,
+                    cellWidth: UIScreen.main.bounds.width
+                ) - 2 * Self.inset
+            )
             let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: messageViewModel)
             let height: CGFloat = VisibleMessageCell.getBodyTappableLabel(
                 for: messageViewModel,
@@ -709,7 +714,7 @@ struct MessageBubble: View {
                         searchText: nil,
                         using: dependencies
                     ) {
-                        TappableLabel_SwiftUI(themeAttributedText: bodyText, maxWidth: maxWidth)
+                        AttributedLabel(bodyText, maxWidth: maxWidth)
                             .padding(.horizontal, Self.inset)
                             .padding(.top, Self.inset)
                             .frame(

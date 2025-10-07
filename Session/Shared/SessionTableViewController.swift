@@ -95,6 +95,8 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         result.dataSource = self
         result.delegate = self
         result.sectionHeaderTopPadding = 0
+        result.rowHeight = UITableView.automaticDimension
+        result.estimatedRowHeight = 56 // Approximate size of an [{Icon} {Text}] SessionCell
 
         return result
     }()
@@ -452,8 +454,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                         UIView.setAnimationsEnabled(false)
                         cell.setNeedsLayout()
                         cell.layoutIfNeeded()
-                        tableView.beginUpdates()
-                        tableView.endUpdates()
+                        tableView.performBatchUpdates(nil)
                         // Only re-enable animations if the feature flag isn't disabled
                         if dependencies[feature: .animationsEnabled] {
                             UIView.setAnimationsEnabled(true)
@@ -508,14 +509,6 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         let section: SectionModel = tableData[section]
         
         return (section.model.footer == nil ? 0 : UITableView.automaticDimension)
-    }
-    
-    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
-    }
-    
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
     }
     
     func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {

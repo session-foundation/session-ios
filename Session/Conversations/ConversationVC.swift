@@ -365,7 +365,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             .backgroundPrimary,
             .backgroundPrimary
         ]
-        result.set(.height, to: 92)
         
         return result
     }()
@@ -1722,6 +1721,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     shouldExpanded: viewModel.messageExpandedInteractionIds
                         .contains(cellViewModel.id),
                     lastSearchText: viewModel.lastSearchedText,
+                    tableSize: tableView.bounds.size,
                     using: viewModel.dependencies
                 )
                 cell.delegate = self

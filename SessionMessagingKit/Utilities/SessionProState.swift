@@ -78,7 +78,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         completion?(true)
     }
     
-    @discardableResult public func showSessionProCTAIfNeeded(
+    @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
         beforePresented: (() -> Void)?,

@@ -512,13 +512,13 @@ extension ConversationVC:
     
     // MARK: - InputViewDelegate
     
-    func handleDisabledInputTapped() {
+    @MainActor func handleDisabledInputTapped() {
         guard viewModel.threadData.threadIsBlocked == true else { return }
         
         self.showBlockedModalIfNeeded()
     }
     
-    func handleCharacterLimitLabelTapped() {
+    @MainActor func handleCharacterLimitLabelTapped() {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
             beforePresented: { [weak self] in
@@ -572,7 +572,7 @@ extension ConversationVC:
         present(confirmationModal, animated: true, completion: nil)
     }
     
-    func handleDisabledAttachmentButtonTapped() {
+    @MainActor func handleDisabledAttachmentButtonTapped() {
         /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
         /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
         /// to prevent this happening in the future we've added this toast when pressing on the disabled button
@@ -589,7 +589,7 @@ extension ConversationVC:
         )
     }
     
-    func handleDisabledVoiceMessageButtonTapped() {
+    @MainActor func handleDisabledVoiceMessageButtonTapped() {
         /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
         /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
         /// to prevent this happening in the future we've added this toast when pressing on the disabled button
@@ -608,7 +608,7 @@ extension ConversationVC:
 
     // MARK: --Message Sending
     
-    func handleSendButtonTapped() {
+    @MainActor func handleSendButtonTapped() {
         guard LibSession.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
             isSessionPro: viewModel.isCurrentUserSessionPro
@@ -624,7 +624,7 @@ extension ConversationVC:
         )
     }
     
-    func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
+    @MainActor func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
             beforePresented: { [weak self] in
@@ -875,7 +875,7 @@ extension ConversationVC:
         }
     }
 
-    func showLinkPreviewSuggestionModal() {
+    @MainActor func showLinkPreviewSuggestionModal() {
         // Hides accessory view while link preview confirmation is presented
         hideInputAccessoryView()
         
@@ -905,7 +905,7 @@ extension ConversationVC:
         present(linkPreviewModal, animated: true, completion: nil)
     }
     
-    func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
+    @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
         // Note: If there is a 'draft' message then we don't want it to trigger the typing indicator to
         // appear (as that is not expected/correct behaviour)
         guard !viewIsAppearing else { return }
@@ -931,7 +931,7 @@ extension ConversationVC:
     
     // MARK: --Attachments
     
-    func didPasteImageFromPasteboard(_ image: UIImage) {
+    @MainActor func didPasteImageFromPasteboard(_ image: UIImage) {
         guard let imageData = image.jpegData(compressionQuality: 1.0) else { return }
         
         let dataSource = DataSourceValue(data: imageData, dataType: .jpeg, using: viewModel.dependencies)
@@ -952,7 +952,7 @@ extension ConversationVC:
 
     // MARK: --Mentions
     
-    func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView) {
+    @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView) {
         guard let currentMentionStartIndex = currentMentionStartIndex else { return }
         
         mentions.append(mentionInfo)

@@ -33,29 +33,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         ]
     }
     
-    // Constraints
-    internal lazy var authorLabelTopConstraint = authorLabel.pin(.top, to: .top, of: self)
-    private lazy var authorLabelHeightConstraint = authorLabel.set(.height, to: 0)
-    private lazy var profilePictureViewLeadingConstraint = profilePictureView.pin(.leading, to: .leading, of: self, withInset: VisibleMessageCell.groupThreadHSpacing)
-    internal lazy var contentViewLeadingConstraint1 = snContentView.pin(.leading, to: .trailing, of: profilePictureView, withInset: VisibleMessageCell.groupThreadHSpacing)
-    private lazy var contentViewLeadingConstraint2 = snContentView.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: VisibleMessageCell.gutterSize)
-    private lazy var contentViewTopConstraint = snContentView.pin(.top, to: .bottom, of: authorLabel, withInset: VisibleMessageCell.authorLabelBottomSpacing)
-    internal lazy var contentViewTrailingConstraint1 = snContentView.pin(.trailing, to: .trailing, of: self, withInset: -VisibleMessageCell.contactThreadHSpacing)
-    private lazy var contentViewTrailingConstraint2 = snContentView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -VisibleMessageCell.gutterSize)
-    private lazy var contentBottomConstraint = snContentView.bottomAnchor
-        .constraint(lessThanOrEqualTo: self.bottomAnchor, constant: -1)
-    
-    private lazy var underBubbleStackViewIncomingLeadingConstraint: NSLayoutConstraint = underBubbleStackView.pin(.leading, to: .leading, of: snContentView)
-    private lazy var underBubbleStackViewIncomingTrailingConstraint: NSLayoutConstraint = underBubbleStackView.pin(.trailing, to: .trailing, of: self, withInset: -VisibleMessageCell.contactThreadHSpacing)
-    private lazy var underBubbleStackViewOutgoingLeadingConstraint: NSLayoutConstraint = underBubbleStackView.pin(.leading, to: .leading, of: self, withInset: VisibleMessageCell.contactThreadHSpacing)
-    private lazy var underBubbleStackViewOutgoingTrailingConstraint: NSLayoutConstraint = underBubbleStackView.pin(.trailing, to: .trailing, of: snContentView)
-    private lazy var underBubbleStackViewNoHeightConstraint: NSLayoutConstraint = underBubbleStackView.set(.height, to: 0)
-    
-    private lazy var timerViewOutgoingMessageConstraint = timerView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
-    private lazy var timerViewIncomingMessageConstraint = timerView.pin(.leading, to: .leading, of: messageStatusContainerView)
-    private lazy var messageStatusLabelOutgoingMessageConstraint = messageStatusLabel.pin(.trailing, to: .leading, of: timerView, withInset: -2)
-    private lazy var messageStatusLabelIncomingMessageConstraint = messageStatusLabel.pin(.leading, to: .trailing, of: timerView, withInset: 2)
-
     private lazy var panGestureRecognizer: UIPanGestureRecognizer = {
         let result = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
         result.delegate = self
@@ -64,23 +41,62 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     
     // MARK: - UI Components
     
+    private lazy var contentHStackTopConstraint: NSLayoutConstraint =
+        contentHStack.pin(.top, to: .top, of: contentView)
+    
     private lazy var viewsToMoveForReply: [UIView] = [
         snContentView,
         profilePictureView,
         replyButton,
         timerView,
-        messageStatusContainerView,
+        messageStatusStackView,
         reactionContainerView
     ]
+    
+    private lazy var leadingSpacer: UIView = {
+        let result: UIView = UIView()
+        result.setContentHugging(.horizontal, to: .defaultLow)
+        result.setCompressionResistance(.horizontal, to: .defaultLow)
+        
+        return result
+    }()
+    
+    private lazy var trailingSpacer: UIView = {
+        let result: UIView = UIView()
+        result.setContentHugging(.horizontal, to: .defaultLow)
+        result.setCompressionResistance(.horizontal, to: .defaultLow)
+        
+        return result
+    }()
+    
+    private lazy var profilePictureViewContainer: UIView = {
+        let result: UIView = UIView()
+        
+        return result
+    }()
     
     private lazy var profilePictureView: ProfilePictureView = ProfilePictureView(
         size: .message,
         dataManager: nil
     )
     
+    public lazy var contentHStack: UIStackView = {
+        let result: UIStackView = UIStackView(
+            arrangedSubviews: [leadingSpacer, profilePictureViewContainer, mainVStack, trailingSpacer]
+        )
+        result.axis = .horizontal
+        result.alignment = .fill
+        result.spacing = VisibleMessageCell.groupThreadHSpacing
+        
+        return result
+    }()
+    
     lazy var bubbleBackgroundView: UIView = {
         let result = UIView()
         result.layer.cornerRadius = VisibleMessageCell.largeCornerRadius
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
+        
         return result
     }()
 
@@ -89,6 +105,23 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         result.clipsToBounds = true
         result.layer.cornerRadius = VisibleMessageCell.largeCornerRadius
         result.set(.width, greaterThanOrEqualTo: VisibleMessageCell.largeCornerRadius * 2)
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
+        
+        return result
+    }()
+    
+    private lazy var mainVStack: UIStackView = {
+        let result: UIStackView = UIStackView(
+            arrangedSubviews: [authorLabel, snContentView, underBubbleStackView]
+        )
+        result.axis = .vertical
+        result.alignment = .fill
+        result.setCustomSpacing(VisibleMessageCell.authorLabelBottomSpacing, after: authorLabel)
+        result.setCustomSpacing(Values.verySmallSpacing, after: snContentView)
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
+        
         return result
     }()
     
@@ -96,6 +129,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let result = SessionLabelWithProBadge(proBadgeSize: .mini)
         result.font = .boldSystemFont(ofSize: Values.smallFontSize)
         result.isProBadgeHidden = true
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
+        
         return result
     }()
 
@@ -104,6 +140,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         result.axis = .vertical
         result.spacing = Values.verySmallSpacing
         result.alignment = .leading
+        result.setContentHugging(.horizontal, to: .defaultHigh)
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.horizontal, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
+        
         return result
     }()
 
@@ -141,24 +182,39 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         return result
     }()
-
-    private lazy var timerView: DisappearingMessageTimerView = DisappearingMessageTimerView()
     
     lazy var underBubbleStackView: UIStackView = {
-        let result = UIStackView(arrangedSubviews: [])
+        let result = UIStackView(
+            arrangedSubviews: [reactionContainerView, messageStatusStackView]
+        )
         result.setContentHuggingPriority(.required, for: .vertical)
         result.setContentCompressionResistancePriority(.required, for: .vertical)
         result.axis = .vertical
         result.spacing = Values.verySmallSpacing
         result.alignment = .trailing
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
         
         return result
     }()
 
     private lazy var reactionContainerView = ReactionContainerView()
     
-    internal lazy var messageStatusContainerView: UIView = {
-        let result = UIView()
+    internal lazy var messageStatusStackView: UIStackView = {
+        let result: UIStackView = UIStackView(
+            arrangedSubviews: [messageStatusLabel, messageStatusImageView, timerView]
+        )
+        result.axis = .horizontal
+        result.alignment = .center
+        result.spacing = 2
+        
+        return result
+    }()
+    
+    private lazy var timerView: DisappearingMessageTimerView = {
+        let result: DisappearingMessageTimerView = DisappearingMessageTimerView()
+        result.set(.width, to: VisibleMessageCell.messageStatusImageViewSize)
+        result.set(.height, to: VisibleMessageCell.messageStatusImageViewSize)
         
         return result
     }()
@@ -179,11 +235,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         result.accessibilityLabel = "Message sent status tick"
         result.contentMode = .scaleAspectFit
         result.themeTintColor = .messageBubble_deliveryStatus
+        result.set(.width, to: VisibleMessageCell.messageStatusImageViewSize)
+        result.set(.height, to: VisibleMessageCell.messageStatusImageViewSize)
         
         return result
     }()
-    
-    internal lazy var messageStatusLabelPaddingView: UIView = UIView()
 
     // MARK: - Settings
     
@@ -219,65 +275,46 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     override func setUpViewHierarchy() {
         super.setUpViewHierarchy()
         
-        // Author label
-        addSubview(authorLabel)
-        authorLabelTopConstraint.isActive = true
-        authorLabelHeightConstraint.isActive = true
+        contentView.addSubview(contentHStack)
+        contentView.addSubview(replyButton)
         
+        profilePictureViewContainer.addSubview(profilePictureView)
+        bubbleBackgroundView.addSubview(bubbleView)
+        
+        replyButton.addSubview(replyIconImageView)
+        
+        contentHStackTopConstraint.isActive = true
+        contentHStack.pin(
+            .leading,
+            to: .leading,
+            of: contentView,
+            withInset: VisibleMessageCell.contactThreadHSpacing
+        )
+        contentHStack.pin(
+            .trailing,
+            to: .trailing,
+            of: contentView,
+            withInset: -VisibleMessageCell.contactThreadHSpacing
+        )
+        contentHStack
+            .pin(.bottom, to: .bottom, of: contentView, withInset: -Values.verySmallSpacing)
+            .setting(priority: .defaultHigh)  /// Avoid breaking encapsulated height
+
         // Profile picture view
-        addSubview(profilePictureView)
-        profilePictureViewLeadingConstraint.isActive = true
-        
-        // Content view
-        addSubview(snContentView)
-        contentViewLeadingConstraint1.isActive = true
-        contentViewTopConstraint.isActive = true
-        contentViewTrailingConstraint1.isActive = true
-        snContentView.pin(.bottom, to: .bottom, of: profilePictureView)
+        profilePictureView.pin(.bottom, to: .bottom, of: profilePictureViewContainer)
+        profilePictureView.pin(.leading, to: .leading, of: profilePictureViewContainer)
+        profilePictureView.pin(.trailing, to: .trailing, of: profilePictureViewContainer)
         
         // Bubble background view
-        bubbleBackgroundView.addSubview(bubbleView)
         bubbleView.pin(to: bubbleBackgroundView)
         
         // Reply button
-        addSubview(replyButton)
-        replyButton.addSubview(replyIconImageView)
         replyIconImageView.center(in: replyButton)
         replyButton.pin(.leading, to: .trailing, of: snContentView, withInset: Values.smallSpacing)
         replyButton.center(.vertical, in: snContentView)
         
-        // Remaining constraints
-        authorLabel.pin(.leading, to: .leading, of: snContentView, withInset: VisibleMessageCell.authorLabelInset)
-        authorLabel.pin(.trailing, to: .trailing, of: self, withInset: -Values.mediumSpacing)
-        
-        // Under bubble content
-        addSubview(underBubbleStackView)
-        underBubbleStackView.pin(.top, to: .bottom, of: snContentView, withInset: Values.verySmallSpacing)
-        underBubbleStackView.pin(.bottom, to: .bottom, of: self)
-        
-        underBubbleStackView.addArrangedSubview(reactionContainerView)
-        underBubbleStackView.addArrangedSubview(messageStatusContainerView)
-        underBubbleStackView.addArrangedSubview(messageStatusLabelPaddingView)
-        
-        messageStatusContainerView.addSubview(messageStatusLabel)
-        messageStatusContainerView.addSubview(messageStatusImageView)
-        messageStatusContainerView.addSubview(timerView)
-        
-        reactionContainerView.widthAnchor
-            .constraint(lessThanOrEqualTo: underBubbleStackView.widthAnchor)
-            .isActive = true
-        messageStatusImageView.pin(.top, to: .top, of: messageStatusContainerView)
-        messageStatusImageView.pin(.bottom, to: .bottom, of: messageStatusContainerView)
-        messageStatusImageView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
-        messageStatusImageView.set(.width, to: VisibleMessageCell.messageStatusImageViewSize)
-        messageStatusImageView.set(.height, to: VisibleMessageCell.messageStatusImageViewSize)
-        timerView.pin(.top, to: .top, of: messageStatusContainerView)
-        timerView.pin(.bottom, to: .bottom, of: messageStatusContainerView)
-        timerView.set(.width, to: VisibleMessageCell.messageStatusImageViewSize)
-        timerView.set(.height, to: VisibleMessageCell.messageStatusImageViewSize)
-        messageStatusLabel.center(.vertical, in: messageStatusContainerView)
-        messageStatusLabelPaddingView.pin(.leading, to: .leading, of: messageStatusContainerView)
-        messageStatusLabelPaddingView.pin(.trailing, to: .trailing, of: messageStatusContainerView)
+        // Reactions container
+        reactionContainerView.set(.width, lessThanOrEqualTo: .width, of: underBubbleStackView)
     }
     
     // MARK: - Updating
@@ -288,6 +325,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         showExpandedReactions: Bool,
         shouldExpanded: Bool,
         lastSearchText: String?,
+        tableSize: CGSize,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
@@ -302,6 +340,13 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 cellViewModel.isOnlyMessageInCluster
             )
         )
+        contentHStackTopConstraint.constant = (shouldAddTopInset ? Values.mediumSpacing : 0)
+        
+        // Author label
+        authorLabel.isHidden = (cellViewModel.senderName == nil)
+        authorLabel.text = cellViewModel.senderName
+        authorLabel.themeTextColor = .textPrimary
+        
         let isGroupThread: Bool = (
             cellViewModel.threadVariant == .community ||
             cellViewModel.threadVariant == .legacyGroup ||
@@ -310,11 +355,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         // Profile picture view (should always be handled as a standard 'contact' profile picture)
         let profileShouldBeVisible: Bool = (
+            isGroupThread &&
             cellViewModel.canHaveProfile &&
             cellViewModel.shouldShowProfile &&
             cellViewModel.profile != nil
         )
-        profilePictureViewLeadingConstraint.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : 0)
         profilePictureView.isHidden = !cellViewModel.canHaveProfile
         profilePictureView.alpha = (profileShouldBeVisible ? 1 : 0)
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
@@ -328,13 +373,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
        
         // Bubble view
-        contentViewLeadingConstraint1.isActive = cellViewModel.variant.isIncoming
-        contentViewLeadingConstraint1.constant = (isGroupThread ? VisibleMessageCell.groupThreadHSpacing : VisibleMessageCell.contactThreadHSpacing)
-        contentViewLeadingConstraint2.isActive = cellViewModel.variant.isOutgoing
-        contentViewTopConstraint.constant = (cellViewModel.senderName == nil ? 0 : VisibleMessageCell.authorLabelBottomSpacing)
-        contentViewTrailingConstraint1.isActive = cellViewModel.variant.isOutgoing
-        contentViewTrailingConstraint2.isActive = cellViewModel.variant.isIncoming
-        
         let bubbleBackgroundColor: ThemeValue = (cellViewModel.variant.isIncoming ? .messageBubble_incomingBackground : .messageBubble_outgoingBackground)
         bubbleView.themeBackgroundColor = bubbleBackgroundColor
         bubbleBackgroundView.themeBackgroundColor = bubbleBackgroundColor
@@ -346,6 +384,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             playbackInfo: playbackInfo,
             shouldExpanded: shouldExpanded,
             lastSearchText: lastSearchText,
+            tableSize: tableSize,
             using: dependencies
         )
         
@@ -354,16 +393,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         bubbleView.isAccessibilityElement = true
         
         // Author label
-        authorLabelTopConstraint.constant = (shouldAddTopInset ? Values.mediumSpacing : 0)
         authorLabel.isHidden = (cellViewModel.senderName == nil)
         authorLabel.text = cellViewModel.senderName
         authorLabel.themeTextColor = .textPrimary
-        authorLabel.isProBadgeHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: cellViewModel.authorId)}
-        
-        let authorLabelAvailableWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * VisibleMessageCell.authorLabelInset)
-        let authorLabelAvailableSpace = CGSize(width: authorLabelAvailableWidth, height: .greatestFiniteMagnitude)
-        let authorLabelSize = authorLabel.sizeThatFits(authorLabelAvailableSpace)
-        authorLabelHeightConstraint.constant = (cellViewModel.senderName != nil ? authorLabelSize.height : 0)
+        authorLabel.isProBadgeHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: cellViewModel.authorId) }
         
         // Flip horizontally for RTL languages
         replyIconImageView.transform = CGAffineTransform.identity
@@ -380,19 +413,13 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             removeGestureRecognizer(panGestureRecognizer)
         }
         
-        // Under bubble content
-        underBubbleStackView.alignment = (cellViewModel.variant.isOutgoing ?.trailing : .leading)
-        underBubbleStackViewIncomingLeadingConstraint.isActive = !cellViewModel.variant.isOutgoing
-        underBubbleStackViewIncomingTrailingConstraint.isActive = !cellViewModel.variant.isOutgoing
-        underBubbleStackViewOutgoingLeadingConstraint.isActive = cellViewModel.variant.isOutgoing
-        underBubbleStackViewOutgoingTrailingConstraint.isActive = cellViewModel.variant.isOutgoing
-        
         // Reaction view
         reactionContainerView.isHidden = (cellViewModel.reactionInfo?.isEmpty != false)
         populateReaction(
             for: cellViewModel,
             maxWidth: VisibleMessageCell.getMaxWidth(
                 for: cellViewModel,
+                cellWidth: tableSize.width,
                 includingOppositeGutter: false
             ),
             showExpandedReactions: showExpandedReactions
@@ -409,7 +436,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         messageStatusImageView.image = image
         messageStatusLabel.accessibilityIdentifier = "Message sent status: \(statusText ?? "invalid")"
         messageStatusImageView.themeTintColor = tintColor
-        messageStatusContainerView.isHidden = (
+        messageStatusStackView.isHidden = (
             (cellViewModel.expiresInSeconds ?? 0) == 0 && (
                 !cellViewModel.variant.isOutgoing ||
                 cellViewModel.variant.isDeletedMessage ||
@@ -419,10 +446,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     !cellViewModel.isLastOutgoing
                 )
             )
-        )
-        messageStatusLabelPaddingView.isHidden = (
-            messageStatusContainerView.isHidden ||
-            cellViewModel.isLast
         )
         
         // Timer
@@ -446,16 +469,24 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             messageStatusImageView.isHidden = false
         }
         
-        timerViewOutgoingMessageConstraint.isActive = cellViewModel.variant.isOutgoing
-        timerViewIncomingMessageConstraint.isActive = cellViewModel.variant.isIncoming
-        messageStatusLabelOutgoingMessageConstraint.isActive = cellViewModel.variant.isOutgoing
-        messageStatusLabelIncomingMessageConstraint.isActive = cellViewModel.variant.isIncoming
+        // Hide the underBubbleStackView if all of it's content is hidden
+        underBubbleStackView.isHidden = !underBubbleStackView.arrangedSubviews.contains { !$0.isHidden }
         
-        // Set the height of the underBubbleStackView to 0 if it has no content (need to do this
-        // otherwise it can randomly stretch)
-        underBubbleStackViewNoHeightConstraint.isActive = underBubbleStackView.arrangedSubviews
-            .filter { !$0.isHidden }
-            .isEmpty
+        if cellViewModel.variant.isOutgoing {
+            leadingSpacer.isHidden = false
+            trailingSpacer.isHidden = true
+            
+            snContentView.alignment = .trailing
+            underBubbleStackView.alignment = .trailing
+        }
+        else {
+            leadingSpacer.isHidden = true
+            trailingSpacer.isHidden = false
+            contentHStack.spacing = (cellViewModel.canHaveProfile ? VisibleMessageCell.groupThreadHSpacing : 0)
+            
+            snContentView.alignment = .leading
+            underBubbleStackView.alignment = .leading
+        }
     }
 
     private func populateContentView(
@@ -463,6 +494,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         playbackInfo: ConversationViewModel.PlaybackInfo?,
         shouldExpanded: Bool,
         lastSearchText: String?,
+        tableSize: CGSize,
         using dependencies: Dependencies
     ) {
         let bodyLabelTextColor: ThemeValue = (cellViewModel.variant.isOutgoing ?
@@ -497,7 +529,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             let deletedMessageView: DeletedMessageView = DeletedMessageView(
                 textColor: bodyLabelTextColor,
                 variant: cellViewModel.variant,
-                maxWidth: (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+                maxWidth: (
+                    VisibleMessageCell.getMaxWidth(
+                        for: cellViewModel,
+                        cellWidth: tableSize.width
+                    ) - 2 * inset
+                )
             )
             bubbleView.addSubview(deletedMessageView)
             deletedMessageView.pin(to: bubbleView)
@@ -510,7 +547,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         // FIXME: We should support rendering link previews alongside the other variants (bigger refactor)
         guard cellViewModel.cellType != .textOnlyMessage else {
             let inset: CGFloat = 12
-            let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+            let maxWidth: CGFloat = (
+                VisibleMessageCell.getMaxWidth(
+                    for: cellViewModel,
+                    cellWidth: tableSize.width
+                ) - 2 * inset)
             let lineHeight: CGFloat = UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight
             
             if let linkPreview: LinkPreview = cellViewModel.linkPreview {
@@ -577,6 +618,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 let stackView = UIStackView(arrangedSubviews: [])
                 stackView.axis = .vertical
                 stackView.spacing = 2
+                stackView.setContentHugging(.vertical, to: .required)
+                stackView.setCompressionResistance(.vertical, to: .required)
                 
                 // Quote view
                 if let quote: Quote = cellViewModel.quote {
@@ -610,10 +653,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 stackView.addArrangedSubview(bodyTappableLabel)
                 readMoreButton.themeTextColor = bodyLabelTextColor
                 let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
-                self.bodayTappableLabelHeightConstraint = bodyTappableLabel.set(
-                    .height,
-                    to: (shouldExpanded ? height : min(height, maxHeight))
-                )
+                bodyTappableLabel.numberOfLines = shouldExpanded ? 0 : VisibleMessageCell.maxNumberOfLinesAfterTruncation
+                
                 if ((height - maxHeight >= lineHeight) && !shouldExpanded) {
                     stackView.addArrangedSubview(readMoreButton)
                     readMoreButton.isHidden = false
@@ -657,7 +698,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         /// Add any quote & body if present
         let inset: CGFloat = 12
-        let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: cellViewModel) - 2 * inset)
+        let maxWidth: CGFloat = (
+            VisibleMessageCell.getMaxWidth(
+                for: cellViewModel,
+                cellWidth: tableSize.width
+            ) - 2 * inset
+        )
         let lineHeight: CGFloat = UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight
         
         switch (cellViewModel.quote, cellViewModel.body) {
@@ -698,10 +744,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 stackView.addArrangedSubview(bodyTappableLabel)
                 readMoreButton.themeTextColor = bodyLabelTextColor
                 let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
-                self.bodayTappableLabelHeightConstraint = bodyTappableLabel.set(
-                    .height,
-                    to: (shouldExpanded ? height : min(height, maxHeight))
-                )
+                bodyTappableLabel.numberOfLines = shouldExpanded ? 0 : VisibleMessageCell.maxNumberOfLinesAfterTruncation
+                
                 if ((height - maxHeight >= lineHeight) && !shouldExpanded) {
                     stackView.addArrangedSubview(readMoreButton)
                     readMoreButton.isHidden = false
@@ -735,10 +779,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 stackView.addArrangedSubview(bodyTappableLabel)
                 readMoreButton.themeTextColor = bodyLabelTextColor
                 let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
-                self.bodayTappableLabelHeightConstraint = bodyTappableLabel.set(
-                    .height,
-                    to: (shouldExpanded ? height : min(height, maxHeight))
-                )
+                bodyTappableLabel.numberOfLines = shouldExpanded ? 0 : VisibleMessageCell.maxNumberOfLinesAfterTruncation
+                
                 if ((height - maxHeight > UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight) && !shouldExpanded) {
                     stackView.addArrangedSubview(readMoreButton)
                     readMoreButton.isHidden = false
@@ -785,7 +827,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
             case .mediaMessage:
                 // Album view
-                let maxMessageWidth: CGFloat = VisibleMessageCell.getMaxWidth(for: cellViewModel)
+                let maxMessageWidth: CGFloat = VisibleMessageCell.getMaxWidth(
+                    for: cellViewModel,
+                    cellWidth: tableSize.width
+                )
                 let albumView = MediaAlbumView(
                     items: (cellViewModel.attachments?
                         .filter { $0.isVisualMedia })
@@ -795,9 +840,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     using: dependencies
                 )
                 self.albumView = albumView
-                let size = getSize(for: cellViewModel)
+                let size = getSize(for: cellViewModel, tableSize: tableSize)
                 albumView.set(.width, to: size.width)
                 albumView.set(.height, to: size.height)
+                albumView.isAccessibilityElement = true
                 albumView.accessibilityLabel = "contentDescriptionMediaMessage".localized()
                 snContentView.addArrangedSubview(albumView)
             
@@ -931,6 +977,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         bodyTappableLabel = nil
         bodyTappableLabelHeight = 0
         bodayTappableLabelHeightConstraint = nil
+        
         viewsToMoveForReply.forEach { $0.transform = .identity }
         replyButton.alpha = 0
         timerView.prepareForReuse()
@@ -1059,7 +1106,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
         else if snContentView.bounds.contains(snContentView.convert(location, from: self)) {
             if !readMoreButton.isHidden && readMoreButton.bounds.contains(readMoreButton.convert(location, from: self)) {
-                bodayTappableLabelHeightConstraint?.constant = self.bodyTappableLabelHeight
+                bodyTappableLabel?.numberOfLines = 0
                 bodyTappableLabel?.invalidateIntrinsicContentSize()
                 readMoreButton.isHidden = true
                 self.bodyContainerStackView?.removeArrangedSubview(readMoreButton)
@@ -1173,12 +1220,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return CGFloat(maxNumberOfLinesAfterTruncation) * UIFont.systemFont(ofSize: getFontSize(for: cellViewModel)).lineHeight
     }
 
-    private func getSize(for cellViewModel: MessageViewModel) -> CGSize {
+    private func getSize(for cellViewModel: MessageViewModel, tableSize: CGSize) -> CGSize {
         guard let mediaAttachments: [Attachment] = cellViewModel.attachments?.filter({ $0.isVisualMedia }) else {
             preconditionFailure()
         }
         
-        let maxMessageWidth = VisibleMessageCell.getMaxWidth(for: cellViewModel)
+        let maxMessageWidth = VisibleMessageCell.getMaxWidth(
+            for: cellViewModel,
+            cellWidth: tableSize.width
+        )
         let defaultSize = MediaAlbumView.layoutSize(forMaxMessageWidth: maxMessageWidth, items: mediaAttachments)
         
         guard
@@ -1218,27 +1268,29 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return CGSize(width: finalWidth, height: finalHeight)
     }
 
-    static func getMaxWidth(for cellViewModel: MessageViewModel, includingOppositeGutter: Bool = true) -> CGFloat {
-        let screen: CGRect = UIScreen.main.bounds
-        let width: CGFloat = UIDevice.current.isIPad ? screen.width * 0.75 : screen.width
+    static func getMaxWidth(
+        for cellViewModel: MessageViewModel,
+        cellWidth: CGFloat,
+        includingOppositeGutter: Bool = true
+    ) -> CGFloat {
+        let horizontalPadding: CGFloat = (contactThreadHSpacing * 2)
+        let isGroupThread: Bool = (
+            cellViewModel.threadVariant == .community ||
+            cellViewModel.threadVariant == .legacyGroup ||
+            cellViewModel.threadVariant == .group
+        )
+        let profileSpace: CGFloat = {
+            guard
+                cellViewModel.variant.isIncoming,
+                isGroupThread,
+                cellViewModel.canHaveProfile
+            else { return 0 }
+            
+            return ProfilePictureView.Size.message.viewSize + groupThreadHSpacing
+        }()
         let oppositeEdgePadding: CGFloat = (includingOppositeGutter ? gutterSize : contactThreadHSpacing)
         
-        switch cellViewModel.variant {
-            case .standardOutgoing, .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
-                return (width - contactThreadHSpacing - oppositeEdgePadding)
-                
-            case .standardIncoming, .standardIncomingDeleted, .standardIncomingDeletedLocally:
-                let isGroupThread = (
-                    cellViewModel.threadVariant == .community ||
-                    cellViewModel.threadVariant == .legacyGroup ||
-                    cellViewModel.threadVariant == .group
-                )
-                let leftEdgeGutterSize = (isGroupThread ? leftGutterSize : contactThreadHSpacing)
-                
-                return (width - leftEdgeGutterSize - oppositeEdgePadding)
-                
-            default: preconditionFailure()
-        }
+        return (cellWidth - horizontalPadding - profileSpace - oppositeEdgePadding)
     }
     
     // stringlint:ignore_contents
@@ -1377,7 +1429,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         using dependencies: Dependencies
     ) -> (label: TappableLabel, height: CGFloat) {
         let result: TappableLabel = TappableLabel()
-        result.setContentCompressionResistancePriority(.required, for: .vertical)
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
         result.themeAttributedText = VisibleMessageCell.getBodyAttributedText(
             for: cellViewModel,
             textColor: textColor,

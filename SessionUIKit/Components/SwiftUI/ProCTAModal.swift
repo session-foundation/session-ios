@@ -154,9 +154,7 @@ public struct ProCTAModal: View {
                             case .groupLimit(_, let isSessionProActivated) = variant,
                             isSessionProActivated
                         {
-                            let proBadgeImage: UIImage = SessionProBadge(size: .small).toImage()
-                            
-                            (Text(variant.subtitle) + Text(" \(Image(uiImage: proBadgeImage))").baselineOffset(-2))
+                            Text(variant.subtitle)
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textSecondary)
                                 .multilineTextAlignment(.center)
@@ -272,6 +270,7 @@ public struct ProCTAModal: View {
 
 // MARK: - Variant
 
+<<<<<<< HEAD
 public extension ProCTAModal {
     enum Variant {
         case generic
@@ -460,7 +459,7 @@ public extension ProCTAModal {
 // MARK: - SessionProCTAManagerType
 
 public protocol SessionProCTAManagerType: AnyObject {
-    @discardableResult func showSessionProCTAIfNeeded(
+    @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
         beforePresented: (() -> Void)?,
@@ -472,7 +471,7 @@ public protocol SessionProCTAManagerType: AnyObject {
 // MARK: - Convenience
 
 public extension SessionProCTAManagerType {
-    @discardableResult func showSessionProCTAIfNeeded(
+    @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
@@ -487,7 +486,7 @@ public extension SessionProCTAManagerType {
         )
     }
     
-    @discardableResult func showSessionProCTAIfNeeded(
+    @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {

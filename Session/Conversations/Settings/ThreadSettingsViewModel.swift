@@ -144,7 +144,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     image: Lucide.image(icon: .pencil, size: 22)?
                         .withRenderingMode(.alwaysTemplate),
                     style: .plain,
-                    accessibilityIdentifier: "Edit Nick Name",
+                    accessibilityIdentifier: "Edit Nickname",
                     action: { [weak self] in
                         guard
                             let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
@@ -304,7 +304,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         alignment: .center,
                         trailingImage: (
                             (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) ?
-                            ("ProBadge", SessionProBadge(size: .medium).toImage()) :
+                            ("ProBadge", { [dependencies] in SessionProBadge(size: .medium).toImage(using: dependencies) }) :
                             nil
                         )
                     ),

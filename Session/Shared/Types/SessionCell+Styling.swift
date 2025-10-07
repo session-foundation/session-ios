@@ -18,7 +18,7 @@ public extension SessionCell {
         let editingPlaceholder: String?
         let interaction: Interaction
         let accessibility: Accessibility?
-        let trailingImage: (id: String, image: UIImage)?
+        let trailingImage: (id: String, imageGenerator: (() -> UIImage))?
         let extraViewGenerator: (() -> UIView)?
         
         private let fontStyle: FontStyle
@@ -31,7 +31,7 @@ public extension SessionCell {
             editingPlaceholder: String? = nil,
             interaction: Interaction = .none,
             accessibility: Accessibility? = nil,
-            trailingImage: (id: String, image: UIImage)? = nil,
+            trailingImage: (id: String, imageGenerator: (() -> UIImage))? = nil,
             extraViewGenerator: (() -> UIView)? = nil
         ) {
             self.text = text

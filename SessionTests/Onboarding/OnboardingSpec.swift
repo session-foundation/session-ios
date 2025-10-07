@@ -690,7 +690,7 @@ class OnboardingSpec: AsyncSpec {
                         timestampMs: 1234567890000
                     )
                 ))
-                expect(resultDataString).to(contain(["TestCompleteName1"]))
+                expect(resultDataString).to(contain(["TestCompleteNamee1"]))
             }
             
             // MARK: -- updates the onboarding state to 'completed'

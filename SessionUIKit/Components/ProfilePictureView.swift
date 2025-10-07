@@ -104,7 +104,7 @@ public final class ProfilePictureView: UIView {
         
         func iconVerticalInset(for size: Size) -> CGFloat {
             switch (self, size) {
-                case (.crown, .navigation), (.crown, .message): return 1
+                case (.crown, .navigation), (.crown, .message): return 2
                 case (.crown, .list): return 3
                 case (.crown, .hero): return 5
                     
@@ -331,6 +331,7 @@ public final class ProfilePictureView: UIView {
         
         widthConstraint = self.set(.width, to: self.size.viewSize)
         heightConstraint = self.set(.height, to: self.size.viewSize)
+            .setting(priority: .defaultHigh)
         
         imageViewTopConstraint = imageContainerView.pin(.top, to: .top, of: self)
         imageViewLeadingConstraint = imageContainerView.pin(.leading, to: .leading, of: self)
