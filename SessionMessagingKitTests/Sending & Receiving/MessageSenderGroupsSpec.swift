@@ -120,7 +120,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                     .thenReturn(Array("TestSubAccountToken".data(using: .utf8)!))
                 crypto
                     .when { try $0.tryGenerate(.randomBytes(.any)) }
-                    .thenReturn(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 }))
+                    .thenReturn(Data((0..<DisplayPictureManager.encryptionKeySize).map { _ in 1 }))
                 crypto
                     .when { $0.generate(.uuid()) }
                     .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
@@ -668,7 +668,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                         
                         expect(groups?.first?.displayPictureUrl).to(equal("http://filev2.getsession.org/file/1"))
                         expect(groups?.first?.displayPictureEncryptionKey)
-                            .to(equal(Data((0..<DisplayPictureManager.aes256KeyByteLength).map { _ in 1 })))
+                            .to(equal(Data((0..<DisplayPictureManager.encryptionKeySize).map { _ in 1 })))
                     }
                     
                     // MARK: ------ fails if the image fails to upload

@@ -280,7 +280,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         createGroupOutput.groupState[.groupInfo]?.conf.map {
                             var displayPic: user_profile_pic = user_profile_pic()
                             displayPic.set(\.url, to: "https://www.oxen.io/file/1234")
-                            displayPic.set(\.key, to: Data(repeating: 1, count: DisplayPictureManager.aes256KeyByteLength))
+                            displayPic.set(\.key, to: Data(repeating: 1, count: DisplayPictureManager.encryptionKeySize))
                             groups_info_set_pic($0, displayPic)
                         }
                         
@@ -309,7 +309,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                                 url: "https://www.oxen.io/file/1234",
                                                 encryptionKey: Data(
                                                     repeating: 1,
-                                                    count: DisplayPictureManager.aes256KeyByteLength
+                                                    count: DisplayPictureManager.encryptionKeySize
                                                 )
                                             ),
                                             timestamp: 1234567891

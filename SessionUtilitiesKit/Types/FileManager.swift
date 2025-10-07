@@ -27,8 +27,11 @@ public protocol FileManagerType {
     func ensureDirectoryExists(at path: String, fileProtectionType: FileProtectionType) throws
     func protectFileOrFolder(at path: String, fileProtectionType: FileProtectionType) throws
     func fileSize(of path: String) -> UInt64?
+    
+    func isLocatedInTemporaryDirectory(_ path: String) -> Bool
     func temporaryFilePath(fileExtension: String?) -> String
     func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String
+    func write(data: Data, toPath path: String) throws
     
     // MARK: - Forwarded NSFileManager
     
@@ -140,6 +143,8 @@ public extension SessionFileManager {
 // MARK: - SessionFileManager
 
 public class SessionFileManager: FileManagerType {
+    private static let temporaryDirectoryPrefix: String = "sesh_temp_"
+    
     private let dependencies: Dependencies
     private let fileManager: FileManager = .default
     public var temporaryDirectory: String
@@ -159,8 +164,8 @@ public class SessionFileManager: FileManagerType {
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         
-        // Create a new temp directory for this instance
-        let dirName: String = "ows_temp_\(UUID().uuidString)"
+        /// Create a new temp directory for this instance
+        let dirName: String = "\(SessionFileManager.temporaryDirectoryPrefix)\(UUID().uuidString)"
         self.temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent(dirName)
             .path
@@ -170,31 +175,32 @@ public class SessionFileManager: FileManagerType {
     // MARK: - Functions
     
     public func clearOldTemporaryDirectories() {
-        // We use the lowest priority queue for this, and wait N seconds
-        // to avoid interfering with app startup.
+        /// We use the lowest priority queue for this, and wait N seconds to avoid interfering with app startup
         DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + .seconds(3), using: dependencies) { [temporaryDirectory, fileManager, dependencies] in
-            // Abort if app not active
+            /// Abort if app not active
             guard dependencies[singleton: .appContext].isAppForegroundAndActive else { return }
             
-            // Ignore the "current" temp directory.
+            /// Ignore the "current" temp directory
             let thresholdDate: Date = dependencies[singleton: .appContext].appLaunchTime
             let currentTempDirName: String = URL(fileURLWithPath: temporaryDirectory).lastPathComponent
             let dirPath: String = NSTemporaryDirectory()
             
-            guard let fileNames: [String] = try? fileManager.contentsOfDirectory(atPath: dirPath) else { return }
+            guard let fileNames: [String] = try? fileManager.contentsOfDirectory(atPath: dirPath) else {
+                return
+            }
             
             fileNames.forEach { fileName in
                 guard fileName != currentTempDirName else { return }
                 
-                // Delete files with either:
-                //
-                // a) "ows_temp" name prefix.
-                // b) modified time before app launch time.
+                /// Delete files with either:
+                ///
+                /// a) `temporaryDirectoryPrefix` name prefix.
+                /// b) modified time before app launch time.
                 let filePath: String = URL(fileURLWithPath: dirPath).appendingPathComponent(fileName).path
                 
-                if !fileName.hasPrefix("ows_temp") {
-                    // It's fine if we can't get the attributes (the file may have been deleted since we found it),
-                    // also don't delete files which were created in the last N minutes
+                if !fileName.hasPrefix(SessionFileManager.temporaryDirectoryPrefix) {
+                    /// It's fine if we can't get the attributes (the file may have been deleted since we found it), also don't delete
+                    /// files which were created in the last N minutes
                     guard
                         let attributes: [FileAttributeKey: Any] = try? fileManager.attributesOfItem(atPath: filePath),
                         let modificationDate: Date = attributes[.modificationDate] as? Date,
@@ -202,8 +208,7 @@ public class SessionFileManager: FileManagerType {
                     else { return }
                 }
                 
-                // This can happen if the app launches before the phone is unlocked.
-                // Clean up will occur when app becomes active.
+                /// This can happen if the app launches before the phone is unlocked, clean up will occur when app becomes active
                 try? fileManager.removeItem(atPath: filePath)
             }
         }
@@ -245,6 +250,14 @@ public class SessionFileManager: FileManagerType {
         return (attributes[.size] as? UInt64)
     }
     
+    public func isLocatedInTemporaryDirectory(_ path: String) -> Bool {
+        let prefix: String = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(SessionFileManager.temporaryDirectoryPrefix)
+            .path
+        
+        return path.hasPrefix(prefix)
+    }
+    
     public func temporaryFilePath(fileExtension: String?) -> String {
         var tempFileName: String = UUID().uuidString
         
@@ -264,6 +277,11 @@ public class SessionFileManager: FileManagerType {
         try protectFileOrFolder(at: tempFilePath)
         
         return tempFilePath
+    }
+    
+    public func write(data: Data, toPath path: String) throws {
+        try data.write(to: URL(fileURLWithPath: path), options: .atomic)
+        try protectFileOrFolder(at: path)
     }
     
     // MARK: - Forwarded NSFileManager

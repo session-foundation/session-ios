@@ -373,8 +373,8 @@ public class HomeViewModel: NavigatableStateHolder {
             
             switch eventValue.change {
                 case .name(let name): userProfile = userProfile.with(name: name)
-                case .nickname(let nickname): userProfile = userProfile.with(nickname: nickname)
-                case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: url)
+                case .nickname(let nickname): userProfile = userProfile.with(nickname: .set(to: nickname))
+                case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: .set(to: url))
             }
         }
         groupedOtherEvents?[.setting]?.forEach { event in

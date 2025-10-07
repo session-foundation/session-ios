@@ -123,7 +123,11 @@ public extension Profile {
         using dependencies: Dependencies
     ) throws {
         let isCurrentUser = (publicKey == dependencies[cache: .general].sessionId.hexString)
-        let profile: Profile = Profile.fetchOrCreate(db, id: publicKey)
+        let profile: Profile = (isCurrentUser ?
+            dependencies.mutate(cache: .libSession) { $0.profile } :
+            Profile.fetchOrCreate(db, id: publicKey)
+        )
+        var updatedProfile: Profile = profile
         var profileChanges: [ConfigColumnAssignment] = []
         
         guard shouldUpdateProfile(profileUpdateTimestamp, profile: profile, using: dependencies) else {
@@ -137,6 +141,7 @@ public extension Profile {
                 guard let name: String = name, !name.isEmpty, name != profile.name else { break }
                 
                 if profile.name != name {
+                    updatedProfile = updatedProfile.with(name: name)
                     profileChanges.append(Profile.Columns.name.set(to: name))
                     db.addProfileEvent(id: publicKey, change: .name(name))
                 }
@@ -147,6 +152,7 @@ public extension Profile {
         
         // Blocks community message requests flag
         if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests {
+            updatedProfile = updatedProfile.with(blocksCommunityMessageRequests: .set(to: blocksCommunityMessageRequests))
             profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: blocksCommunityMessageRequests))
         }
         
@@ -156,10 +162,12 @@ public extension Profile {
             case (.groupRemove, _), (.groupUpdateTo, _): throw AttachmentError.invalidStartState
             case (.contactRemove, false), (.currentUserRemove, true):
                 if profile.displayPictureEncryptionKey != nil {
+                    updatedProfile = updatedProfile.with(displayPictureEncryptionKey: .set(to: nil))
                     profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))
                 }
                 
                 if profile.displayPictureUrl != nil {
+                    updatedProfile = updatedProfile.with(displayPictureUrl: .set(to: nil))
                     profileChanges.append(Profile.Columns.displayPictureUrl.set(to: nil))
                     db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
                 }
@@ -188,11 +196,13 @@ public extension Profile {
                 }
                 else {
                     if url != profile.displayPictureUrl {
+                        updatedProfile = updatedProfile.with(displayPictureUrl: .set(to: url))
                         profileChanges.append(Profile.Columns.displayPictureUrl.set(to: url))
                         db.addProfileEvent(id: publicKey, change: .displayPictureUrl(url))
                     }
                     
-                    if key != profile.displayPictureEncryptionKey && key.count == DisplayPictureManager.aes256KeyByteLength {
+                    if key != profile.displayPictureEncryptionKey && key.count == DisplayPictureManager.encryptionKeySize {
+                        updatedProfile = updatedProfile.with(displayPictureEncryptionKey: .set(to: key))
                         profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: key))
                     }
                 }
@@ -203,21 +213,25 @@ public extension Profile {
         
         /// Persist any changes
         if !profileChanges.isEmpty {
+            updatedProfile = updatedProfile.with(profileLastUpdated: .set(to: profileUpdateTimestamp))
             profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
             
-            try profile.upsert(db)
-            
-            try Profile
-                .filter(id: publicKey)
-                .updateAllAndConfig(
-                    db,
-                    profileChanges,
-                    using: dependencies
-                )
+            /// The current users profile is sourced from `libSession` everywhere so no need to update the database
+            if !isCurrentUser {
+                try updatedProfile.upsert(db)
+                
+                try Profile
+                    .filter(id: publicKey)
+                    .updateAllAndConfig(
+                        db,
+                        profileChanges,
+                        using: dependencies
+                    )
+            }
             
             /// We don't automatically update the current users profile data when changed in the database so need to manually
             /// trigger the update
-            if !suppressUserProfileConfigUpdate, isCurrentUser, let updatedProfile = try? Profile.fetchOne(db, id: publicKey) {
+            if !suppressUserProfileConfigUpdate, isCurrentUser {
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile, sessionId: dependencies[cache: .general].sessionId) { _ in
                         try cache.updateProfile(

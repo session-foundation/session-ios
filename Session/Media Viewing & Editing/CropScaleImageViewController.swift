@@ -39,11 +39,7 @@ import SessionUtilitiesKit
     var imageLayer: CALayer!
 
     // In width/height.
-    //
-    // TODO: We could make this a parameter.
-    var dstSizePixels: CGSize {
-        return CGSize(width: 640, height: 640)
-    }
+    let dstSizePixels: CGSize
     var dstAspectRatio: CGFloat {
         return dstSizePixels.width / dstSizePixels.height
     }
@@ -78,9 +74,14 @@ import SessionUtilitiesKit
         fatalError("init(coder:) has not been implemented")
     }
 
-    @objc required init(srcImage: UIImage, successCompletion : @escaping (CGRect, Data) -> Void) {
+    @objc required init(
+        srcImage: UIImage,
+        dstSizePixels: CGSize,
+        successCompletion: @escaping (CGRect, Data) -> Void
+    ) {
         // normalized() can be slightly expensive but in practice this is fine.
         self.srcImage = srcImage.normalizedImage()
+        self.dstSizePixels = dstSizePixels
         self.successCompletion = successCompletion
         super.init(nibName: nil, bundle: nil)
 

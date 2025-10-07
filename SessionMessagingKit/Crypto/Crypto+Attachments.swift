@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import CryptoKit
 import CommonCrypto
 import SessionUtil
 import SessionNetworkingKit
@@ -78,11 +79,11 @@ public extension Crypto.Generator {
     }
     
     @available(*, deprecated, message: "This encryption method is deprecated and will be removed in a future release.")
-    static func legacyEncryptAttachment(
+    static func legacyEncryptedAttachment(
         plaintext: Data
     ) -> Crypto.Generator<(ciphertext: Data, encryptionKey: Data, digest: Data)> {
         return Crypto.Generator(
-            id: "legacyEncryptAttachment",
+            id: "legacyEncryptedAttachment",
             args: [plaintext]
         ) { dependencies in
             // Due to paddedSize, we need to divide by two.
@@ -153,6 +154,33 @@ public extension Crypto.Generator {
             CC_SHA256(&encryptedPaddedData, UInt32(encryptedPaddedData.count), &digest)
             
             return (Data(encryptedPaddedData), outKey, Data(digest))
+        }
+    }
+
+    @available(*, deprecated, message: "This encryption method is deprecated and will be removed in a future release.")
+    static func legacyEncryptedDisplayPicture(
+        data: Data,
+        key: Data
+    ) -> Crypto.Generator<Data> {
+        return Crypto.Generator(
+            id: "legacyEncryptedDisplayPicture",
+            args: [data, key]
+        ) { dependencies in
+            // The key structure is: nonce || ciphertext || authTag
+            guard
+                key.count == DisplayPictureManager.encryptionKeySize,
+                let nonceData: Data = dependencies[singleton: .crypto]
+                    .generate(.randomBytes(DisplayPictureManager.nonceLength)),
+                let nonce: AES.GCM.Nonce = try? AES.GCM.Nonce(data: nonceData),
+                let sealedData: AES.GCM.SealedBox = try? AES.GCM.seal(
+                    data,
+                    using: SymmetricKey(data: key),
+                    nonce: nonce
+                ),
+                let encryptedContent: Data = sealedData.combined
+            else { throw CryptoError.failedToGenerateOutput }
+
+            return encryptedContent
         }
     }
 }
@@ -313,6 +341,35 @@ public extension Crypto.Generator {
             guard unpaddedSize != paddedPlaintext.count else { return Data(paddedPlaintext) }
             
             return Data(paddedPlaintext[0..<Int(unpaddedSize)])
+        }
+    }
+    
+    static func legacyDecryptedDisplayPicture(
+        data: Data,
+        key: Data
+    ) -> Crypto.Generator<Data> {
+        return Crypto.Generator(
+            id: "legacyDecryptedDisplayPicture",
+            args: [data, key]
+        ) { dependencies in
+            guard key.count == DisplayPictureManager.encryptionKeySize else {
+                throw CryptoError.failedToGenerateOutput
+            }
+
+            // The key structure is: nonce || ciphertext || authTag
+            let cipherTextLength: Int = (data.count - (DisplayPictureManager.nonceLength + DisplayPictureManager.tagLength))
+
+            guard
+                cipherTextLength > 0,
+                let sealedData: AES.GCM.SealedBox = try? AES.GCM.SealedBox(
+                    nonce: AES.GCM.Nonce(data: data.subdata(in: 0..<DisplayPictureManager.nonceLength)),
+                    ciphertext: data.subdata(in: DisplayPictureManager.nonceLength..<(DisplayPictureManager.nonceLength + cipherTextLength)),
+                    tag: data.subdata(in: (data.count - DisplayPictureManager.tagLength)..<data.count)
+                ),
+                let decryptedData: Data = try? AES.GCM.open(sealedData, using: SymmetricKey(data: key))
+            else { throw CryptoError.failedToGenerateOutput }
+
+            return decryptedData
         }
     }
 }

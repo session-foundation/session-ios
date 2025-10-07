@@ -68,8 +68,12 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
             !urlString.isEmpty
         else { throw AttachmentError.invalidPath }
         
-        /// If the provided url is a placeholder url then it _is_ a valid path, so we should just return it directly
-        guard !isPlaceholderUploadUrl(urlString) else { return urlString }
+        /// If the provided url is a placeholder url or located in the temporary directory then it _is_ a valid path, so we should just return
+        /// it directly instead of generating a hash
+        guard
+            !isPlaceholderUploadUrl(urlString) &&
+            !dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(urlString)
+        else { return urlString }
         
         /// Otherwise we need to generate the deterministic file path based on the url provided
         let urlHash = try dependencies[singleton: .crypto]
@@ -324,7 +328,7 @@ public struct PendingAttachment: Sendable, Equatable, Hashable {
                 
                 return .media(metadata)
                 
-            case (.displayPicture(let mediaSource), _), (.media(let mediaSource), _):
+            case (.media(let mediaSource), _):
                 guard
                     let fileSize: UInt64 = maybeFileSize,
                     let source: CGImageSource = mediaSource.createImageSource(),
@@ -351,7 +355,6 @@ public struct PendingAttachment: Sendable, Equatable, Hashable {
 
 public extension PendingAttachment {
     enum DataSource: Sendable, Equatable, Hashable {
-        case displayPicture(ImageDataManager.DataSource)
         case media(ImageDataManager.DataSource)
         case file(URL)
         case voiceMessage(URL)
@@ -369,7 +372,7 @@ public extension PendingAttachment {
         
         fileprivate var visualMediaSource: ImageDataManager.DataSource? {
             switch self {
-                case .displayPicture(let source), .media(let source): return source
+                case .media(let source): return source
                 case .file, .voiceMessage, .text: return nil
             }
         }
@@ -380,7 +383,7 @@ public extension PendingAttachment {
                     (_, .videoUrl(let url, _, _, _)), (_, .urlThumbnail(let url, _, _)):
                     return url
                     
-                case (_, .none), (_, .data), (_, .image), (_, .placeholderIcon), (_, .asyncSource), (.displayPicture, _), (.media, _), (.text, _):
+                case (_, .none), (_, .data), (_, .image), (_, .placeholderIcon), (_, .asyncSource), (.media, _), (.text, _):
                     return nil
             }
         }
@@ -444,17 +447,14 @@ public extension PendingAttachment {
 
 public struct PreparedAttachment: Sendable, Equatable, Hashable {
     public let attachment: Attachment
-    public let temporaryFilePath: String
-    public let pendingUploadFilePath: String
+    public let filePath: String
     
     public init(
         attachment: Attachment,
-        temporaryFilePath: String,
-        pendingUploadFilePath: String
+        filePath: String
     ) {
         self.attachment = attachment
-        self.temporaryFilePath = temporaryFilePath
-        self.pendingUploadFilePath = pendingUploadFilePath
+        self.filePath = filePath
     }
 }
 
@@ -487,63 +487,12 @@ public extension PendingAttachment {
         }
     }
     
-    func toText() -> String? {
-        /// Just to be safe ensure the file size isn't crazy large - since we have a character limit of 2,000 - 10,000 characters
-        /// (which is ~40Kb) a 100Kb limit should be sufficiend
-        guard (metadata?.fileSize ?? 0) < (1024 * 100) else { return nil }
-        
-        switch (source, source.visualMediaSource) {
-            case (.text(let text), _): return text
-            case (.file(let fileUrl), _): return try? String(contentsOf: fileUrl, encoding: .utf8)
-            case (_, .data(_, let data)): return String(data: data, encoding: .utf8)
-            case (.displayPicture, _), (.media, _), (.voiceMessage, _): return nil
-        }
-    }
-    
-    func compressAsMp4Video(using dependencies: Dependencies) async throws -> PendingAttachment {
-        guard
-            case .media(let mediaSource) = source,
-            case .url(let url) = mediaSource,
-            let exportSession: AVAssetExportSession = AVAssetExportSession(
-                asset: AVAsset(url: url),
-                presetName: AVAssetExportPresetMediumQuality
-            )
-        else { throw AttachmentError.invalidData }
-        
-        let exportPath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "mp4")
-        let exportUrl: URL = URL(fileURLWithPath: exportPath)
-        exportSession.shouldOptimizeForNetworkUse = true
-        exportSession.outputFileType = AVFileType.mp4
-        exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
-        exportSession.outputURL = exportUrl
-        
-        return await withCheckedContinuation { continuation in
-            exportSession.exportAsynchronously {
-                continuation.resume(
-                    returning: PendingAttachment(
-                        source: .media(
-                            .videoUrl(
-                                exportUrl,
-                                .mpeg4Movie,
-                                sourceFilename,
-                                dependencies[singleton: .attachmentManager]
-                            )
-                        ),
-                        utType: .mpeg4Movie,
-                        sourceFilename: sourceFilename,
-                        using: dependencies
-                    )
-                )
-            }
-        }
-    }
-    
     // MARK: - Encryption and Preparation
     
     func needsPreparationForAttachmentUpload(transformations: Set<Transform>) throws -> Bool {
         switch source {
             case .file: return try fileNeedsPreparation(transformations)
-            case .voiceMessage, .displayPicture, .media: return try mediaNeedsPreparation(transformations)
+            case .voiceMessage, .media: return try mediaNeedsPreparation(transformations)
             case .text: return true /// Need to write to a file in order to upload as an attachment
         }
     }
@@ -619,12 +568,15 @@ public extension PendingAttachment {
         return false
     }
     
-    func prepare(transformations: Set<Transform>, using dependencies: Dependencies) throws -> PreparedAttachment {
+    func prepare(
+        transformations: Set<Transform>,
+        storeAtPendingAttachmentUploadPath: Bool = false,
+        using dependencies: Dependencies
+    ) throws -> PreparedAttachment {
         /// Perform any source-specific transformations and load the attachment data into memory
         let preparedData: Data
         
         switch source {
-            case .displayPicture: preparedData = try prepareImage(transformations)
             case .media where utType.isImage: preparedData = try prepareImage(transformations)
             case .media where utType.isAnimated: preparedData = try prepareImage(transformations)
             case .media where utType.isVideo: preparedData = try prepareVideo(transformations)
@@ -636,30 +588,30 @@ public extension PendingAttachment {
         
         /// Generate the temporary path to use while the upload is pending
         ///
-        /// **Note:** This is stored alongside other attachments rather that in the temporary directory because the
+        /// **Note:** This is stored alongside other attachments rather than in the temporary directory because the
         /// `AttachmentUploadJob` can exist between launches, but the temporary directory gets cleared on every launch)
         let attachmentId: String = (existingAttachmentId ?? UUID().uuidString)
-        let pendingUploadFilePath: String = try dependencies[singleton: .attachmentManager].pendingUploadPath(for: attachmentId)
+        let filePath: String = try (storeAtPendingAttachmentUploadPath ?
+            dependencies[singleton: .attachmentManager].pendingUploadPath(for: attachmentId) :
+            dependencies[singleton: .fileManager].temporaryFilePath()
+        )
         
         /// If we don't have the `encrypt` transform then we can just return the `preparedData` (which is unencrypted but should
         /// have all other `Transform` changes applied
         // FIXME: We should store attachments encrypted and decrypt them when we want to render/open them
         guard case .encrypt(let legacyEncryption, let encryptionDomain) = transformations.first(where: { $0.erased == .encrypt }) else {
-            let filePath: String = try dependencies[singleton: .fileManager].write(
-                dataToTemporaryFile: preparedData
-            )
+            try dependencies[singleton: .fileManager].write(data: preparedData, toPath: filePath)
             
             return PreparedAttachment(
                 attachment: try prepareAttachment(
                     id: attachmentId,
-                    downloadUrl: pendingUploadFilePath,
+                    downloadUrl: filePath,
                     byteCount: UInt(preparedData.count),
                     encryptionKey: nil,
                     digest: nil,
                     using: dependencies
                 ),
-                temporaryFilePath: filePath,
-                pendingUploadFilePath: pendingUploadFilePath
+                filePath: filePath
             )
         }
         
@@ -694,20 +646,21 @@ public extension PendingAttachment {
             encryptedData = (result.ciphertext, result.encryptionKey, Data())
         }
         
-        let filePath: String = try dependencies[singleton: .fileManager]
-            .write(dataToTemporaryFile: encryptedData.ciphertext)
+        try dependencies[singleton: .fileManager].write(
+            data: encryptedData.ciphertext,
+            toPath: filePath
+        )
         
         return PreparedAttachment(
             attachment: try prepareAttachment(
                 id: attachmentId,
-                downloadUrl: pendingUploadFilePath,
+                downloadUrl: filePath,
                 byteCount: UInt(preparedData.count),
                 encryptionKey: encryptedData.encryptionKey,
                 digest: encryptedData.digest,
                 using: dependencies
             ),
-            temporaryFilePath: filePath,
-            pendingUploadFilePath: pendingUploadFilePath
+            filePath: filePath
         )
     }
     
@@ -987,5 +940,59 @@ public extension PendingAttachment {
             mediaMetadata.hasValidFileSize &&
             mediaMetadata.hasValidDuration
         )
+
+// MARK: - Type Conversions
+
+public extension PendingAttachment {
+    func toText() -> String? {
+        /// Just to be safe ensure the file size isn't crazy large - since we have a character limit of 2,000 - 10,000 characters
+        /// (which is ~40Kb) a 100Kb limit should be sufficiend
+        guard (metadata?.fileSize ?? 0) < (1024 * 100) else { return nil }
+        
+        switch (source, source.visualMediaSource) {
+            case (.text(let text), _): return text
+            case (.file(let fileUrl), _): return try? String(contentsOf: fileUrl, encoding: .utf8)
+            case (_, .data(_, let data)): return String(data: data, encoding: .utf8)
+            case (.media, _), (.voiceMessage, _): return nil
+        }
+    }
+    
+    func toMp4Video(using dependencies: Dependencies) async throws -> PendingAttachment {
+        guard
+            case .media(let mediaSource) = source,
+            case .url(let url) = mediaSource,
+            let exportSession: AVAssetExportSession = AVAssetExportSession(
+                asset: AVAsset(url: url),
+                presetName: AVAssetExportPresetMediumQuality
+            )
+        else { throw AttachmentError.invalidData }
+        
+        let exportPath: String = dependencies[singleton: .fileManager]
+            .temporaryFilePath(fileExtension: "mp4")    // stringlint:disable
+        let exportUrl: URL = URL(fileURLWithPath: exportPath)
+        exportSession.shouldOptimizeForNetworkUse = true
+        exportSession.outputFileType = AVFileType.mp4
+        exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
+        exportSession.outputURL = exportUrl
+        
+        return await withCheckedContinuation { continuation in
+            exportSession.exportAsynchronously {
+                continuation.resume(
+                    returning: PendingAttachment(
+                        source: .media(
+                            .videoUrl(
+                                exportUrl,
+                                .mpeg4Movie,
+                                sourceFilename,
+                                dependencies[singleton: .attachmentManager]
+                            )
+                        ),
+                        utType: .mpeg4Movie,
+                        sourceFilename: sourceFilename,
+                        using: dependencies
+                    )
+                )
+            }
+        }
     }
 }

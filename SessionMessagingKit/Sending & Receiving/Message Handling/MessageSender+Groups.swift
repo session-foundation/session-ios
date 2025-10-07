@@ -38,7 +38,7 @@ extension MessageSender {
             let preparedAttachment: PreparedAttachment = try dependencies[singleton: .displayPictureManager]
                 .prepareDisplayPicture(attachment: pendingAttachment)
             displayPictureInfo = try await dependencies[singleton: .displayPictureManager]
-                .uploadDisplayPicture(attachment: preparedAttachment)
+                .uploadDisplayPicture(preparedAttachment: preparedAttachment)
         }
         
         let preparedGroupData: PreparedGroupData = try await dependencies[singleton: .storage].writeAsync { db in

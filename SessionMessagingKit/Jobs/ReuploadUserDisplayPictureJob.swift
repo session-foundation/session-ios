@@ -112,7 +112,7 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
             /// Since we made it here it means that refreshing the TTL failed so we may need to reupload the display picture
             do {
                 let pendingDisplayPicture: PendingAttachment = PendingAttachment(
-                    source: .displayPicture(.url(displayPictureUrl)),
+                    source: .media(.url(displayPictureUrl)),
                     using: dependencies
                 )
                 
@@ -149,12 +149,11 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                         attachment: pendingDisplayPicture,
                         transformations: [
                             .convertToStandardFormats,
-                            .resize(maxDimension: DisplayPictureManager.maxDimension),
-                            .encrypt(legacy: true, domain: .profilePicture)  // FIXME: Remove the `legacy` encryption option
+                            .resize(maxDimension: DisplayPictureManager.maxDimension)
                         ]
                     )
                 let result = try await dependencies[singleton: .displayPictureManager]
-                    .uploadDisplayPicture(attachment: preparedAttachment)
+                    .uploadDisplayPicture(preparedAttachment: preparedAttachment)
                 
                 /// Update the local state now that the display picture has finished uploading
                 try await Profile.updateLocal(

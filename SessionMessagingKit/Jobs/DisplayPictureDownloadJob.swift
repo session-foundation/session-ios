@@ -39,11 +39,9 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 let request: Network.PreparedRequest<Data> = try await dependencies[singleton: .storage].readAsync { db in
                     switch details.target {
                         case .profile(_, let url, _), .group(_, let url, _):
-                            // TODO: Support custom URLs
-                            guard
-                                let fileId: String = Network.FileServer.fileId(for: url),
-                                let downloadUrl: URL = URL(string: Network.FileServer.downloadUrlString(for: url, fileId: fileId))
-                            else { throw NetworkError.invalidURL }
+                            guard let downloadUrl: URL = URL(string: url) else {
+                                throw NetworkError.invalidURL
+                            }
                             
                             return try Network.preparedDownload(
                                 url: downloadUrl,
@@ -67,9 +65,9 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 }
                 try Task.checkCancellation()
                 
-                let downloadUrl: URL? = try? request.generateUrl()
+                let downloadUrl: String = ((try? request.generateUrl())?.absoluteString ?? request.path)
                 let filePath: String = try dependencies[singleton: .displayPictureManager]
-                    .path(for: (downloadUrl?.absoluteString ?? request.path))
+                    .path(for: downloadUrl)
                 
                 guard !dependencies[singleton: .fileManager].fileExists(atPath: filePath) else {
                     throw AttachmentError.alreadyDownloaded(downloadUrl)
@@ -90,11 +88,16 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 /// Get the decrypted data
                 guard
                     let decryptedData: Data = {
-                        switch details.target {
-                            case .community: return response    /// Community data is unencrypted
-                            case .profile(_, _, let encryptionKey), .group(_, _, let encryptionKey):
+                        switch (details.target, Network.FileServer.usesDeterministicEncryption(downloadUrl)) {
+                            case (.community, _): return response    /// Community data is unencrypted
+                            case (.profile(_, _, let encryptionKey), false), (.group(_, _, let encryptionKey), false):
                                 return dependencies[singleton: .crypto].generate(
-                                    .decryptedDataDisplayPicture(data: response, key: encryptionKey)
+                                    .legacyDecryptedDisplayPicture(data: response, key: encryptionKey)
+                                )
+                                
+                            case (.profile(_, _, let encryptionKey), true), (.group(_, _, let encryptionKey), true):
+                                return dependencies[singleton: .crypto].generate(
+                                    .decryptAttachment(ciphertext: response, key: encryptionKey)
                                 )
                         }
                     }()
@@ -192,7 +195,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     private static func writeChanges(
         _ db: ObservingDatabase,
         details: Details,
-        downloadUrl: URL?,
+        downloadUrl: String?,
         using dependencies: Dependencies
     ) throws {
         switch details.target {
@@ -230,7 +233,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 db.addConversationEvent(
                     id: OpenGroup.idFor(roomToken: roomToken, server: server),
-                    type: .updated(.displayPictureUrl(downloadUrl?.absoluteString))
+                    type: .updated(.displayPictureUrl(downloadUrl))
                 )
         }
     }
@@ -250,7 +253,7 @@ extension DisplayPictureDownloadJob {
                     return (
                         !url.isEmpty &&
                         Network.FileServer.fileId(for: url) != nil &&
-                        encryptionKey.count == DisplayPictureManager.aes256KeyByteLength
+                        encryptionKey.count == DisplayPictureManager.encryptionKeySize
                     )
                     
                 case .community(let imageId, _, _, _): return !imageId.isEmpty

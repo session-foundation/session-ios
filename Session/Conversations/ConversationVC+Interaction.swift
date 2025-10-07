@@ -511,7 +511,7 @@ extension ConversationVC:
         
         Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies = viewModel.dependencies] in
             do {
-                let convertedAttachment: PendingAttachment = try await pendingAttachment.compressAsMp4Video(
+                let convertedAttachment: PendingAttachment = try await pendingAttachment.toMp4Video(
                     using: dependencies
                 )
                 guard await !indicator.wasCancelled else { return }
@@ -1327,7 +1327,7 @@ extension ConversationVC:
                             try? AVAudioSession.sharedInstance().setCategory(.playback)
                             let viewController: DismissCallbackAVPlayerViewController = DismissCallbackAVPlayerViewController { [dependencies = viewModel.dependencies] in
                                 /// Sanity check to make sure we don't unintentionally remove a proper attachment file
-                                guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                                guard dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) else {
                                     return
                                 }
                                 
@@ -1387,7 +1387,7 @@ extension ConversationVC:
                 try? AVAudioSession.sharedInstance().setCategory(.playback)
                 let viewController: DismissCallbackAVPlayerViewController = DismissCallbackAVPlayerViewController { [dependencies = viewModel.dependencies] in
                     /// Sanity check to make sure we don't unintentionally remove a proper attachment file
-                    guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                    guard dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) else {
                         return
                     }
                     
@@ -2479,7 +2479,7 @@ extension ConversationVC:
                     didPickDocumentsAt: { [weak self, dependencies = viewModel.dependencies] _, _ in
                         validAttachments.forEach { attachment, path in
                             /// Sanity check to make sure we don't unintentionally remove a proper attachment file
-                            guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                            guard dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) else {
                                 return
                             }
                             
@@ -2538,7 +2538,7 @@ extension ConversationVC:
                         completionHandler: { [weak self, dependencies] _, _ in
                             validAttachments.forEach { attachment, path in
                                 /// Sanity check to make sure we don't unintentionally remove a proper attachment file
-                                guard path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) else {
+                                guard dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) else {
                                     return
                                 }
                                 
@@ -2924,7 +2924,7 @@ extension ConversationVC: UIDocumentInteractionControllerDelegate {
         
         /// Now that we are finished with it we want to remove the temporary file (just to be safe ensure that it starts with the
         /// `temporaryDirectory` so we don't accidentally delete a proper file if logic elsewhere changes)
-        if temporaryFileUrl.path.starts(with: viewModel.dependencies[singleton: .fileManager].temporaryDirectory) {
+        if viewModel.dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(temporaryFileUrl.path) {
             try? viewModel.dependencies[singleton: .fileManager].removeItem(atPath: temporaryFileUrl.path)
         }
     }

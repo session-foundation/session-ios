@@ -1750,7 +1750,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             default: break
         }
         
-        Task(priority: .userInitiated) { [weak self, threadId, dependencies] in
+        Task.detached(priority: .userInitiated) { [weak self, threadId, dependencies] in
             var targetUpdate: DisplayPictureManager.Update = displayPictureUpdate
             var indicator: ModalActivityIndicatorViewController?
             
@@ -1776,7 +1776,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         let preparedAttachment: PreparedAttachment = try dependencies[singleton: .displayPictureManager]
                             .prepareDisplayPicture(attachment: pendingAttachment)
                         let result = try await dependencies[singleton: .displayPictureManager]
-                            .uploadDisplayPicture(attachment: preparedAttachment)
+                            .uploadDisplayPicture(preparedAttachment: preparedAttachment)
                         await MainActor.run { onUploadComplete() }
                         
                         targetUpdate = .groupUpdateTo(
@@ -1844,9 +1844,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             }
             catch {}
             
-            await MainActor.run { [indicator] in
-                indicator?.dismiss(completion: {})
-            }
+            await indicator?.dismiss()
         }
     }
     

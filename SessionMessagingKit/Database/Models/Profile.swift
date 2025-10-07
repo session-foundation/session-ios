@@ -408,17 +408,20 @@ public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssocia
 public extension Profile {
     func with(
         name: String? = nil,
-        nickname: String?? = nil,
-        displayPictureUrl: String?? = nil
+        nickname: Update<String?> = .useExisting,
+        displayPictureUrl: Update<String?> = .useExisting,
+        displayPictureEncryptionKey: Update<Data?> = .useExisting,
+        profileLastUpdated: Update<TimeInterval?> = .useExisting,
+        blocksCommunityMessageRequests: Update<Bool?> = .useExisting
     ) -> Profile {
         return Profile(
             id: id,
             name: (name ?? self.name),
-            nickname: (nickname ?? self.nickname),
-            displayPictureUrl: (displayPictureUrl ?? self.displayPictureUrl),
-            displayPictureEncryptionKey: displayPictureEncryptionKey,
-            profileLastUpdated: profileLastUpdated,
-            blocksCommunityMessageRequests: blocksCommunityMessageRequests
+            nickname: nickname.or(self.nickname),
+            displayPictureUrl: displayPictureUrl.or(self.displayPictureUrl),
+            displayPictureEncryptionKey: displayPictureEncryptionKey.or(self.displayPictureEncryptionKey),
+            profileLastUpdated: profileLastUpdated.or(self.profileLastUpdated),
+            blocksCommunityMessageRequests: blocksCommunityMessageRequests.or(self.blocksCommunityMessageRequests)
         )
     }
 }

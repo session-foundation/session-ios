@@ -175,7 +175,8 @@ extension AttachmentUploadJob {
 public extension AttachmentUploadJob {
     typealias PreparedUpload = (
         request: Network.PreparedRequest<FileUploadResponse>,
-        attachment: PreparedAttachment
+        attachment: Attachment,
+        preparedAttachment: PreparedAttachment
     )
     
     enum Event {
@@ -188,19 +189,13 @@ public extension AttachmentUploadJob {
         using dependencies: Dependencies
     ) throws -> [Attachment] {
         return try attachments.compactMap { pendingAttachment in
-            /// Strip any metadata from the attachment
+            /// Strip any metadata from the attachment and store at a "Pending Upload" file path
             let preparedAttachment: PreparedAttachment = try pendingAttachment.prepare(
                 transformations: [
                     .stripImageMetadata
                 ],
+                storeAtPendingAttachmentUploadPath: true,
                 using: dependencies
-            )
-            
-            /// The attachment will have been stored in a temporary location during preparation so we need to move it to the
-            /// "pending upload" file path (which will be relocated to the deterministic final path after upload)
-            try dependencies[singleton: .fileManager].moveItem(
-                atPath: preparedAttachment.temporaryFilePath,
-                toPath: preparedAttachment.pendingUploadFilePath
             )
             
             return preparedAttachment.attachment
@@ -289,7 +284,7 @@ public extension AttachmentUploadJob {
             using: dependencies
         )
         let maybePreparedData: Data? = dependencies[singleton: .fileManager]
-            .contents(atPath: preparedAttachment.temporaryFilePath)
+            .contents(atPath: preparedAttachment.filePath)
         try Task.checkCancellation()
         
         guard let preparedData: Data = maybePreparedData else {
@@ -316,7 +311,6 @@ public extension AttachmentUploadJob {
                 )
                 
             default:
-                // TODO: Handle custom URLs
                 request = try Network.preparedUpload(data: preparedData, using: dependencies)
         }
         
@@ -329,11 +323,15 @@ public extension AttachmentUploadJob {
         
         /// If the `downloadUrl` previously had a value and we are updating it then we need to move the file from it's current location
         /// to the hash that would be generated for the new location
+        ///
+        /// **Note:** Attachments are currently stored unencrypted so we need to move the original `attachment` file to the
+        ///  `finalFilePath` rather than the encrypted one
+        // FIXME: Should probably store display pictures encrypted and decrypt on load
         let finalDownloadUrl: String = {
             let isPlaceholderUploadUrl: Bool = dependencies[singleton: .attachmentManager]
-                .isPlaceholderUploadUrl(preparedAttachment.attachment.downloadUrl)
+                .isPlaceholderUploadUrl(attachment.downloadUrl)
 
-            switch (preparedAttachment.attachment.downloadUrl, isPlaceholderUploadUrl, authMethod) {
+            switch (attachment.downloadUrl, isPlaceholderUploadUrl, authMethod) {
                 case (.some(let downloadUrl), false, _): return downloadUrl
                 case (_, _, let community as Authentication.community):
                     return Network.SOGS.downloadUrlString(
@@ -343,13 +341,12 @@ public extension AttachmentUploadJob {
                     )
                     
                 default:
-                    // TODO: Handle Custom URLs
                     return Network.FileServer.downloadUrlString(for: response.id)
             }
         }()
         
         if
-            let oldUrl: String = preparedAttachment.attachment.downloadUrl,
+            let oldUrl: String = attachment.downloadUrl,
             finalDownloadUrl != oldUrl,
             let oldPath: String = try? dependencies[singleton: .attachmentManager].path(for: oldUrl),
             let newPath: String = try? dependencies[singleton: .attachmentManager].path(for: finalDownloadUrl)
@@ -390,7 +387,7 @@ public extension AttachmentUploadJob {
         attachment: Attachment,
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
-    ) throws -> (request: Network.PreparedRequest<FileUploadResponse>, attachment: PreparedAttachment) {
+    ) throws -> (request: Network.PreparedRequest<FileUploadResponse>, attachment: Attachment, preparedAttachment: PreparedAttachment) {
         let endpoint: (any EndpointType) = {
             switch authMethod {
                 case let community as Authentication.community:
@@ -418,10 +415,10 @@ public extension AttachmentUploadJob {
                     endpoint: endpoint,
                     using: dependencies
                 ),
+                attachment,
                 PreparedAttachment(
                     attachment: attachment,
-                    temporaryFilePath: "",
-                    pendingUploadFilePath: ""
+                    filePath: ""
                 )
             )
         }
@@ -446,10 +443,10 @@ public extension AttachmentUploadJob {
                     endpoint: endpoint,
                     using: dependencies
                 ),
+                attachment,
                 PreparedAttachment(
                     attachment: attachment,
-                    temporaryFilePath: "",
-                    pendingUploadFilePath: ""
+                    filePath: ""
                 )
             )
         }
@@ -467,7 +464,7 @@ public extension AttachmentUploadJob {
             using: dependencies
         )
         let maybePreparedData: Data? = dependencies[singleton: .fileManager]
-            .contents(atPath: preparedAttachment.temporaryFilePath)
+            .contents(atPath: preparedAttachment.filePath)
         
         guard let preparedData: Data = maybePreparedData else {
             Log.error(.cat, "Couldn't retrieve prepared attachment data.")
@@ -488,12 +485,14 @@ public extension AttachmentUploadJob {
                         authMethod: communityAuth,
                         using: dependencies
                     ),
+                    attachment,
                     preparedAttachment
                 )
                 
             default:
                 return (
                     try Network.preparedUpload(data: preparedData, using: dependencies),
+                    attachment,
                     preparedAttachment
                 )
         }
@@ -501,6 +500,7 @@ public extension AttachmentUploadJob {
     
     @available(*, deprecated, message: "Replace with an async/await call to `upload`")
     static func processUploadResponse(
+        originalAttachment: Attachment,
         preparedAttachment: PreparedAttachment,
         authMethod: AuthenticationMethod,
         response: FileUploadResponse,
@@ -510,9 +510,9 @@ public extension AttachmentUploadJob {
         /// to the hash that would be generated for the new location
         let finalDownloadUrl: String = {
             let isPlaceholderUploadUrl: Bool = dependencies[singleton: .attachmentManager]
-                .isPlaceholderUploadUrl(preparedAttachment.attachment.downloadUrl)
+                .isPlaceholderUploadUrl(originalAttachment.downloadUrl)
 
-            switch (preparedAttachment.attachment.downloadUrl, isPlaceholderUploadUrl, authMethod) {
+            switch (originalAttachment.downloadUrl, isPlaceholderUploadUrl, authMethod) {
                 case (.some(let downloadUrl), false, _): return downloadUrl
                 case (_, _, let community as Authentication.community):
                     return Network.SOGS.downloadUrlString(
@@ -527,7 +527,7 @@ public extension AttachmentUploadJob {
         }()
         
         if
-            let oldUrl: String = preparedAttachment.attachment.downloadUrl,
+            let oldUrl: String = originalAttachment.downloadUrl,
             finalDownloadUrl != oldUrl,
             let oldPath: String = try? dependencies[singleton: .attachmentManager].path(for: oldUrl),
             let newPath: String = try? dependencies[singleton: .attachmentManager].path(for: finalDownloadUrl)

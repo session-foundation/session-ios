@@ -770,7 +770,7 @@ extension PendingAttachmentRailItem: GalleryRailItem {
         
         switch attachment.source {
             case .file, .voiceMessage, .text: break;
-            case .displayPicture(let dataSource), .media(let dataSource):
+            case .media(let dataSource):
                 Task.detached(priority: .userInitiated) { [attachment, attachmentManager = dependencies[singleton: .attachmentManager]] in
                     /// Can't thumbnail animated images so just load the full file in this case
                     if attachment.utType.isAnimated {

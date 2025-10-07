@@ -89,3 +89,84 @@ public extension Network {
         )
     }
 }
+
+// MARK: - Dev Settings
+
+public extension FeatureStorage {
+    static let customFileServer: FeatureConfig<Network.FileServer.Custom> = Dependencies.create(
+        identifier: "customFileServer"
+    )
+}
+
+public extension Network.FileServer {
+    struct Custom: Sendable, Equatable, Codable, FeatureOption {
+        public typealias RawValue = String
+        
+        private struct Values: Equatable, Codable {
+            public let url: String
+            public let pubkey: String
+        }
+        
+        public static let defaultOption: Custom = Custom(
+            url: "",
+            pubkey: ""
+        )
+        
+        public let title: String = "Custom File Server"
+        public let subtitle: String? = nil
+        private let values: Values
+        
+        public var url: String { values.url }
+        public var pubkey: String { values.pubkey }
+        public var isEmpty: Bool {
+            values.url.isEmpty &&
+            values.pubkey.isEmpty
+        }
+        public var isValid: Bool {
+            let pubkeyValid: Bool = (
+                Hex.isValid(values.pubkey) &&
+                values.pubkey.count == 64
+            )
+            
+            return (pubkeyValid && URL(string: url) != nil)
+        }
+        
+        /// This is needed to conform to `FeatureOption` so it can be saved to `UserDefaults`
+        public var rawValue: String {
+            (try? JSONEncoder().encode(values)).map { String(data: $0, encoding: .utf8) } ?? ""
+        }
+        
+        // MARK: - Initialization
+        
+        public init(url: String, pubkey: String) {
+            self.values = Values(url: url, pubkey: pubkey)
+        }
+        
+        public init?(rawValue: String) {
+            guard
+                let data: Data = rawValue.data(using: .utf8),
+                let decodedValues: Values = try? JSONDecoder().decode(Values.self, from: data)
+            else { return nil }
+            
+            self.values = decodedValues
+        }
+        
+        // MARK: - Functions
+        
+        public func with(
+            url: String? = nil,
+            pubkey: String? = nil
+        ) -> Custom {
+            return Custom(
+                url: (url ?? self.values.url),
+                pubkey: (pubkey ?? self.values.pubkey)
+            )
+        }
+        
+        // MARK: - Equality
+        
+        public static func == (lhs: Custom, rhs: Custom) -> Bool {
+            return (lhs.values == rhs.values)
+        }
+    }
+}

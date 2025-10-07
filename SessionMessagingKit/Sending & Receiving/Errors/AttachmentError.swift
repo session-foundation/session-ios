@@ -29,7 +29,7 @@ public enum AttachmentError: Error, CustomStringConvertible {
     case invalidAttachmentSource
     case invalidPath
     case writeFailed
-    case alreadyDownloaded(URL?)
+    case alreadyDownloaded(String?)
     case downloadNoLongerValid
     case databaseChangesFailed
     

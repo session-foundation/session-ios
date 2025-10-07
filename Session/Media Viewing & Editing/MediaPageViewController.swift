@@ -498,7 +498,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             }
             
             /// Sanity check to make sure we don't unintentionally remove a proper attachment file
-            if path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) {
+            if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(path) {
                 try? dependencies[singleton: .fileManager].removeItem(atPath: path)
             }
             

@@ -402,7 +402,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             
                             inviteMessage.profile = VisibleMessage.VMProfile(
                                 displayName: "TestName",
-                                profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                profileKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                     .map { _ in 1 }),
                                 profilePictureUrl: "https://www.oxen.io/1234",
                                 updateTimestampSeconds: 1234567890
@@ -431,7 +431,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                                 target: .profile(
                                                     id: "051111111111111111111111111111111" + "111111111111111111111111111111111",
                                                     url: "https://www.oxen.io/1234",
-                                                    encryptionKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                                    encryptionKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                                         .map { _ in 1 })
                                                 ),
                                                 timestamp: 1234567890
@@ -446,7 +446,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         it("schedules but does not start a displayPictureDownload job when not the main app") {
                             inviteMessage.profile = VisibleMessage.VMProfile(
                                 displayName: "TestName",
-                                profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                profileKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                     .map { _ in 1 }),
                                 profilePictureUrl: "https://www.oxen.io/1234",
                                 updateTimestampSeconds: 1234567890
@@ -475,7 +475,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                                 target: .profile(
                                                     id: "051111111111111111111111111111111" + "111111111111111111111111111111111",
                                                     url: "https://www.oxen.io/1234",
-                                                    encryptionKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                                    encryptionKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                                         .map { _ in 1 })
                                                 ),
                                                 timestamp: 1234567890

@@ -2,6 +2,7 @@
 
 import UIKit
 import UniformTypeIdentifiers
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigationControllerDelegate {
@@ -44,6 +45,10 @@ class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigati
             else {
                 let viewController: CropScaleImageViewController = CropScaleImageViewController(
                     srcImage: rawAvatar,
+                    dstSizePixels: CGSize(
+                        width: DisplayPictureManager.maxDimension,
+                        height: DisplayPictureManager.maxDimension
+                    ),
                     successCompletion: { cropFrame, resultImageData in
                         let croppedImagePath: String = imageUrl
                             .deletingLastPathComponent()

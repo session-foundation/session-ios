@@ -114,7 +114,7 @@ public class ModalActivityIndicatorViewController: OWSViewController {
         )
     }
 
-    @MainActor public func dismiss(completion: @escaping @MainActor () -> Void) {
+    @MainActor public func dismiss(completion: (@MainActor () -> Void)? = nil) {
         if !wasDimissed {
             // Only dismiss once.
             self.dismiss(animated: false, completion: completion)
@@ -122,7 +122,7 @@ public class ModalActivityIndicatorViewController: OWSViewController {
         }
         else {
             // If already dismissed, wait a beat then call completion.
-            completion()
+            completion?()
         }
     }
 

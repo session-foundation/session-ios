@@ -62,7 +62,7 @@ public class DisplayPictureManager {
     
     public static let maxBytes: UInt = (5 * 1000 * 1000)
     public static let maxDimension: CGFloat = 600
-    public static let aes256KeyByteLength: Int = 32
+    public static var encryptionKeySize: Int { LibSession.attachmentEncryptionKeySize }
     internal static let nonceLength: Int = 12
     internal static let tagLength: Int = 16
     
@@ -117,6 +117,12 @@ public class DisplayPictureManager {
             let urlString: String = urlString,
             !urlString.isEmpty
         else { throw AttachmentError.invalidPath }
+        
+        /// If the provided url is located in the temporary directory then it _is_ a valid path, so we should just return it directly instead
+        /// of generating a hash
+        guard !dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(urlString) else {
+            return urlString
+        }
         
         let urlHash = try {
             guard let cachedHash: String = cache.object(forKey: urlString as NSString) as? String else {
@@ -192,16 +198,30 @@ public class DisplayPictureManager {
             [
                 .compress,
                 .resize(maxDimension: DisplayPictureManager.maxDimension),
-                .stripImageMetadata,
-                .encrypt(legacy: true, domain: .profilePicture)  // FIXME: Remove the `legacy` encryption option
+                .stripImageMetadata
             ]
         )
         
-        return try attachment.prepare(transformations: finalTransfomations, using: dependencies)
+        let preparedAttachment: PreparedAttachment = try attachment.prepare(
+            transformations: finalTransfomations,
+            using: dependencies
+        )
+        
+        return preparedAttachment
     }
     
-    public func uploadDisplayPicture(attachment: PreparedAttachment) async throws -> UploadResult {
+    public func uploadDisplayPicture(preparedAttachment: PreparedAttachment) async throws -> UploadResult {
         let uploadResponse: FileUploadResponse
+        let pendingAttachment: PendingAttachment = try PendingAttachment(
+            attachment: preparedAttachment.attachment,
+            using: dependencies
+        )
+        let attachment: PreparedAttachment = try pendingAttachment.prepare(
+            transformations: [
+                .encrypt(legacy: true, domain: .profilePicture)  // FIXME: Remove the `legacy` encryption option
+            ],
+            using: dependencies
+        )
         
         /// Ensure we have an encryption key for the `PreparedAttachment` we want to use as a display picture
         guard let encryptionKey: Data = attachment.attachment.encryptionKey else {
@@ -211,7 +231,7 @@ public class DisplayPictureManager {
         do {
             /// Upload the data
             let data: Data = try dependencies[singleton: .fileManager]
-                .contents(atPath: attachment.temporaryFilePath) ?? { throw AttachmentError.invalidData }()
+                .contents(atPath: attachment.filePath) ?? { throw AttachmentError.invalidData }()
             let request: Network.PreparedRequest<FileUploadResponse> = try Network.preparedUpload(
                 data: data,
                 requestAndPathBuildTimeout: Network.fileUploadTimeout,
@@ -228,10 +248,14 @@ public class DisplayPictureManager {
         catch { throw AttachmentError.uploadFailed }
         
         /// Generate the `downloadUrl` and move the temporary file to it's expected destination
+        ///
+        /// **Note:** Display pictures are currently stored unencrypted so we need to move the original `preparedAttachment`
+        /// file to the `finalFilePath` rather than the encrypted one
+        // FIXME: Should probably store display pictures encrypted and decrypt on load
         let downloadUrl: String = Network.FileServer.downloadUrlString(for: uploadResponse.id)
         let finalFilePath: String = try dependencies[singleton: .displayPictureManager].path(for: downloadUrl)
         try dependencies[singleton: .fileManager].moveItem(
-            atPath: attachment.temporaryFilePath,
+            atPath: preparedAttachment.filePath,
             toPath: finalFilePath
         )
         

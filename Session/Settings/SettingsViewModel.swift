@@ -211,8 +211,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         groupedEvents?[.profile]?.forEach { event in
             switch (event.value as? ProfileEvent)?.change {
                 case .name(let name): profile = profile.with(name: name)
-                case .nickname(let nickname): profile = profile.with(nickname: nickname)
-                case .displayPictureUrl(let url): profile = profile.with(displayPictureUrl: url)
+                case .nickname(let nickname): profile = profile.with(nickname: .set(to: nickname))
+                case .displayPictureUrl(let url): profile = profile.with(displayPictureUrl: .set(to: url))
                 default: break
             }
         }
@@ -736,7 +736,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         let preparedAttachment: PreparedAttachment = try dependencies[singleton: .displayPictureManager]
             .prepareDisplayPicture(attachment: pendingAttachment)
         let result = try await dependencies[singleton: .displayPictureManager]
-            .uploadDisplayPicture(attachment: preparedAttachment)
+            .uploadDisplayPicture(preparedAttachment: preparedAttachment)
         
         return .currentUserUpdateTo(url: result.downloadUrl, key: result.encryptionKey, isReupload: false)
     }
@@ -759,6 +759,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     displayPictureUpdate: displayPictureUpdate,
                     using: dependencies
                 )
+                
+                await indicator.dismiss {
+                    onComplete()
+                }
             }
             catch {
                 let message: String = {

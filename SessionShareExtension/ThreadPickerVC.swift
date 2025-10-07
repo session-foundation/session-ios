@@ -395,7 +395,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     
                     return (visibleMessage, destination, interaction.id, authMethod, preparedUploads)
                 }
-                .flatMap { (message: Message, destination: Message.Destination, interactionId: Int64?, authMethod: AuthenticationMethod, preparedUploads: [AttachmentUploadJob.PreparedUpload]) -> AnyPublisher<(Message, Message.Destination, Int64?, AuthenticationMethod, [(PreparedAttachment, FileUploadResponse)]), Error> in
+                .flatMap { (message: Message, destination: Message.Destination, interactionId: Int64?, authMethod: AuthenticationMethod, preparedUploads: [AttachmentUploadJob.PreparedUpload]) -> AnyPublisher<(Message, Message.Destination, Int64?, AuthenticationMethod, [(Attachment, PreparedAttachment, FileUploadResponse)]), Error> in
                     guard !preparedUploads.isEmpty else {
                         return Just((message, destination, interactionId, authMethod, []))
                             .setFailureType(to: Error.self)
@@ -404,9 +404,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         
                     return Publishers
                         .MergeMany(
-                            preparedUploads.map { request, preparedAttachment in
+                            preparedUploads.map { request, attachment, preparedAttachment in
                                 request.send(using: dependencies).map { _, response in
-                                    (preparedAttachment, response)
+                                    (attachment, preparedAttachment, response)
                                 }
                             }
                         )
@@ -415,10 +415,11 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         .eraseToAnyPublisher()
                 }
                 .tryFlatMap { message, destination, interactionId, authMethod, uploadResults -> AnyPublisher<(Message, [Attachment]), Error> in
-                    let updatedAttachments: [(attachment: Attachment, fileId: String)] = try uploadResults.map { attachment, response in
+                    let updatedAttachments: [(attachment: Attachment, fileId: String)] = try uploadResults.map { attachment, preparedAttachment, response in
                         (
                             try AttachmentUploadJob.processUploadResponse(
-                                preparedAttachment: attachment,
+                                originalAttachment: attachment,
+                                preparedAttachment: preparedAttachment,
                                 authMethod: authMethod,
                                 response: response,
                                 using: dependencies

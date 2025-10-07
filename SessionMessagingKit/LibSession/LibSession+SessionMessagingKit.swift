@@ -18,8 +18,11 @@ public extension Cache {
     )
 }
 
-
 // MARK: - Convenience
+
+public extension LibSession {
+    static var attachmentEncryptionKeySize: Int { ATTACHMENT_ENCRYPT_KEY_SIZE }
+}
 
 public extension LibSession {
     static func parseCommunity(url: String) -> (room: String, server: String, publicKey: String)? {

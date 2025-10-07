@@ -40,7 +40,7 @@ public extension Network {
                 method: HTTPMethod,
                 url: URL,
                 server: String?,
-                queryParameters: [HTTPQueryParam: String] = [:],
+                queryParameters: [HTTPQueryParam: String],
                 headers: [HTTPHeader: String],
                 x25519PublicKey: String
             ) throws {
@@ -169,6 +169,7 @@ public extension Network {
                 method: .get,
                 url: url,
                 server: nil,
+                queryParameters: queryParameters,
                 headers: headers,
                 x25519PublicKey: x25519PublicKey
             ))

@@ -224,7 +224,7 @@ final class ShareNavController: UINavigationController {
             do {
                 let attachments: [PendingAttachment] = try await buildAttachments()
                 await ShareNavController.pendingAttachments.send(attachments)
-                await indicator.dismiss {}
+                await indicator.dismiss()
             }
             catch {
                 await indicator.dismiss { [weak self] in
@@ -495,7 +495,7 @@ final class ShareNavController: UINavigationController {
             !UTType.supportedVideoTypes.contains(pendingAttachment.utType)
         else { return pendingAttachment }
         
-        return try await pendingAttachment.compressAsMp4Video(using: dependencies)
+        return try await pendingAttachment.toMp4Video(using: dependencies)
     }
 
     private func buildAttachments() async throws -> [PendingAttachment] {

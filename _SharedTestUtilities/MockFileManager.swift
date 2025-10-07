@@ -31,6 +31,10 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
         return try mockThrowing(args: [data, fileExtension])
     }
     
+    func write(data: Data, toPath path: String) throws {
+        try mockThrowingNoReturn(args: [data, path])
+    }
+    
     // MARK: - Forwarded NSFileManager
     
     var currentDirectoryPath: String { mock() }

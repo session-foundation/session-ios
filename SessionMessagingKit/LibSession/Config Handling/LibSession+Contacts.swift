@@ -347,7 +347,7 @@ public extension LibSession {
                         let updatedProfile: Profile = info.profile,
                         dependencies[singleton: .appContext].isMainApp && (
                             oldAvatarUrl != (info.displayPictureUrl ?? "") ||
-                            oldAvatarKey != (info.displayPictureEncryptionKey ?? Data(repeating: 0, count: DisplayPictureManager.aes256KeyByteLength))
+                            oldAvatarKey != (info.displayPictureEncryptionKey ?? Data())
                         )
                     {
                         dependencies[singleton: .displayPictureManager].scheduleDownload(

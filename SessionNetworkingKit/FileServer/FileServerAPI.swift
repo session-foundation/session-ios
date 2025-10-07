@@ -46,6 +46,7 @@ public extension Network.FileServer {
                 endpoint: .directUrl(url),
                 destination: .serverDownload(
                     url: url,
+                    queryParameters: url.queryParameters,
                     x25519PublicKey: serverPubkey,
                     fileName: nil
                 )
