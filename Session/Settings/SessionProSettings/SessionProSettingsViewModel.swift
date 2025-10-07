@@ -353,7 +353,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     description: .init(
                                         font: .Body.smallRegular,
                                         attributedString: "processingRefundRequest"
-                                            .put(key: "platform_account", value: originatingPlatform.account)
+                                            .put(key: "platform", value: originatingPlatform.name)
                                             .localizedFormatted(Fonts.Body.smallRegular)
                                     ),
                                     trailingAccessory: .icon(.circleAlert, size: .large)

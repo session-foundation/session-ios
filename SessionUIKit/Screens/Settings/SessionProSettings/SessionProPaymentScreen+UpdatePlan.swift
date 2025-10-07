@@ -210,7 +210,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                     ) {
                         Text(
                             "viaStoreWebsite"
-                                .put(key: "platform_store", value: originatingPlatform.store)
+                                .put(key: "platform", value: originatingPlatform.name)
                                 .localized()
                         )
                         .font(.Body.baseBold)
@@ -245,7 +245,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
             Button {
                 openPlatformStoreWebsiteAction()
             } label: {
-                Text("openStoreWebsite".put(key: "platform_store", value: originatingPlatform.store).localized())
+                Text("viaStoreWebsite".put(key: "platform", value: originatingPlatform.name).localized())
                     .font(.Body.largeRegular)
                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                     .framing(

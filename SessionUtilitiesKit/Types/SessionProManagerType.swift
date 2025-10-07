@@ -104,5 +104,12 @@ public enum ClientPlatform: Sendable {
             case .Android: return "Android"
         }
     }
+    
+    public var name: String {
+        switch self {
+            case .iOS: return "Apple"
+            case .Android: return "Google"
+        }
+    }
 }
 

@@ -47,6 +47,13 @@ public extension SessionProPaymentScreenContent {
                 case .Android: return "Android"
             }
         }
+        
+        public var name: String {
+            switch self {
+                case .iOS: return "Apple"
+                case .Android: return "Google"
+            }
+        }
     }
     
     struct SessionProPlanInfo: Equatable {

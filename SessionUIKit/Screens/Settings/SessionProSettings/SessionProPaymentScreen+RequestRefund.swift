@@ -31,7 +31,7 @@ struct RequestRefundOriginatingPlatformContent: View {
                 AttributedText(
                     "proRefundingDescription"
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "platform_account", value: Constants.platform_account)
+                        .put(key: "platform", value: Constants.platform)
                         .put(key: "platform_store", value: Constants.platform_store)
                         .put(key: "app_name", value: Constants.app_name)
                         .localizedFormatted(Fonts.Body.baseRegular)
@@ -104,7 +104,7 @@ struct RequestRefundSuccessContent: View {
                 
                 Text(
                     "proRefundNextSteps"
-                        .put(key: "platform_account", value: Constants.platform_account)
+                        .put(key: "platform", value: Constants.platform)
                         .put(key: "pro", value: Constants.pro)
                         .put(key: "app_name", value: Constants.app_name)
                         .localized()
@@ -120,9 +120,8 @@ struct RequestRefundSuccessContent: View {
                 
                 AttributedText(
                     "proRefundSupport"
-                        .put(key: "platform_account", value: Constants.platform_account)
+                        .put(key: "platform", value: Constants.platform)
                         .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "platform_store", value: Constants.platform_store)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
                 .font(.Body.baseRegular)
@@ -284,7 +283,7 @@ struct RequestRefundNonOriginatingPlatformContent: View {
                         ) {
                             Text(
                                 "viaStoreWebsite"
-                                    .put(key: "platform_store", value: originatingPlatform.store)
+                                    .put(key: "platform", value: originatingPlatform.name)
                                     .localized()
                             )
                             .font(.Body.baseBold)
@@ -341,8 +340,8 @@ struct RequestRefundNonOriginatingPlatformContent: View {
             } label: {
                 Text(
                     isLessThan48Hours ?
-                        "openStoreWebsite"
-                            .put(key: "platform_store", value: originatingPlatform.store)
+                        "viaStoreWebsite"
+                            .put(key: "platform", value: originatingPlatform.name)
                             .localized() :
                         "requestRefund"
                             .localized()

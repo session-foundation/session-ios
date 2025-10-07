@@ -29,7 +29,7 @@ struct CancelPlanOriginatingPlatformContent: View {
                     "proCancellationDescription"
                         .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "pro", value: Constants.pro)
-                        .put(key: "platform_account", value: Constants.platform_account)
+                        .put(key: "platform", value: Constants.platform)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
                 .font(.Body.baseRegular)
@@ -172,7 +172,7 @@ struct CancelPlanNonOriginatingPlatformContent: View {
                     ) {
                         Text(
                             "viaStoreWebsite"
-                                .put(key: "platform_store", value: originatingPlatform.store)
+                                .put(key: "platform", value: originatingPlatform.name)
                                 .localized()
                         )
                         .font(.Body.baseBold)
@@ -207,7 +207,7 @@ struct CancelPlanNonOriginatingPlatformContent: View {
             Button {
                 openPlatformStoreWebsiteAction()
             } label: {
-                Text("openStoreWebsite".put(key: "platform_store", value: originatingPlatform.store).localized())
+                Text("viaStoreWebsite".put(key: "platform", value: originatingPlatform.name).localized())
                     .font(.Body.largeRegular)
                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                     .framing(
