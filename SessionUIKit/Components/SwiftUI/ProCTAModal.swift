@@ -270,7 +270,6 @@ public struct ProCTAModal: View {
 
 // MARK: - Variant
 
-<<<<<<< HEAD
 public extension ProCTAModal {
     enum Variant {
         case generic
@@ -340,18 +339,18 @@ public extension ProCTAModal {
                         .localized()
                 case .animatedProfileImage(let isSessionProActivated):
                     return isSessionProActivated ?
-                    "proAnimatedDisplayPicture".localized() :
-                    "proAnimatedDisplayPictureCallToActionDescription"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .localized()
+                        "proAnimatedDisplayPicture".localized() :
+                        "proAnimatedDisplayPictureCallToActionDescription"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized()
                 case .morePinnedConvos(let isGrandfathered):
                     return isGrandfathered ?
-                    "proCallToActionPinnedConversations"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .localized() :
-                    "proCallToActionPinnedConversationsMoreThan"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .localized()
+                        "proCallToActionPinnedConversations"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized() :
+                        "proCallToActionPinnedConversationsMoreThan"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localized()
                 case .groupLimit(let isAdmin, let isSessionProActivated):
                     switch (isAdmin, isSessionProActivated) {
                         case (_, true):
