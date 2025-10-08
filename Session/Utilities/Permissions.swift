@@ -24,7 +24,7 @@ extension Permissions {
             case .denied, .restricted:
                 guard
                     let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController),
-                    useCustomDeniedAlert == false
+                    !useCustomDeniedAlert
                 else {
                     onAuthorized?(false)
                     return false
