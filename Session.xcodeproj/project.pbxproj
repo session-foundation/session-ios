@@ -180,7 +180,6 @@
 		942BA9C12E4EA5CB007C4595 /* SessionLabelWithProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */; };
 		942BA9C22E53F694007C4595 /* SRCopyableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */; };
 		942BA9C42E55AB54007C4595 /* UILabel+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9C32E55AB51007C4595 /* UILabel+Utilities.swift */; };
-		94363E552E5D84010004EE43 /* TappableLabel+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E542E5D83F60004EE43 /* TappableLabel+SwiftUI.swift */; };
 		94363E5B2E6002750004EE43 /* SessionListScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E5A2E60026F0004EE43 /* SessionListScreen.swift */; };
 		94363E5E2E6002960004EE43 /* SessionListScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E5D2E6002940004EE43 /* SessionListScreen+Models.swift */; };
 		94363E622E60148A0004EE43 /* SessionProSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E612E6014880004EE43 /* SessionProSettingsViewModel.swift */; };
@@ -198,6 +197,8 @@
 		94519A952E851BF500F02723 /* SessionProPaymentScreen+UpdatePlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */; };
 		94519A972E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */; };
 		94519A992E8A1A4200F02723 /* SessionProPaymentScreen+CancelPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */; };
+		945E89D22E95D54700D8D907 /* SessionProPaymentScreen+Renew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */; };
+		945E89D42E95D97000D8D907 /* SessionProPaymentScreen+SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */; };
 		9463794A2E7131070017A014 /* SessionProManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946379492E71308B0017A014 /* SessionProManagerType.swift */; };
 		9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
@@ -1590,7 +1591,6 @@
 		942BA9BE2E4ABB9F007C4595 /* _045_LastProfileUpdateTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _045_LastProfileUpdateTimestamp.swift; sourceTree = "<group>"; };
 		942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLabelWithProBadge.swift; sourceTree = "<group>"; };
 		942BA9C32E55AB51007C4595 /* UILabel+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UILabel+Utilities.swift"; sourceTree = "<group>"; };
-		94363E542E5D83F60004EE43 /* TappableLabel+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TappableLabel+SwiftUI.swift"; sourceTree = "<group>"; };
 		94363E5A2E60026F0004EE43 /* SessionListScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListScreen.swift; sourceTree = "<group>"; };
 		94363E5D2E6002940004EE43 /* SessionListScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+Models.swift"; sourceTree = "<group>"; };
 		94363E612E6014880004EE43 /* SessionProSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProSettingsViewModel.swift; sourceTree = "<group>"; };
@@ -1609,6 +1609,8 @@
 		94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+RequestRefund.swift"; sourceTree = "<group>"; };
 		94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+CancelPlan.swift"; sourceTree = "<group>"; };
 		945D9C572D6FDBE7003C4C0C /* _020_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _020_AddJobUniqueHash.swift; sourceTree = "<group>"; };
+		945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Renew.swift"; sourceTree = "<group>"; };
+		945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+SharedViews.swift"; sourceTree = "<group>"; };
 		946379492E71308B0017A014 /* SessionProManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProManagerType.swift; sourceTree = "<group>"; };
 		9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Models.swift"; sourceTree = "<group>"; };
 		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
@@ -2913,7 +2915,6 @@
 			isa = PBXGroup;
 			children = (
 				9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */,
-				94363E542E5D83F60004EE43 /* TappableLabel+SwiftUI.swift */,
 				94D716812E8FA19D008294EE /* AttributedLabel.swift */,
 				942BA9402E4487EE007C4595 /* LightBox.swift */,
 				94B6BB032E3B208200E718BB /* Seperator+SwiftUI.swift */,
@@ -2970,6 +2971,8 @@
 			isa = PBXGroup;
 			children = (
 				9438D5562E6A6862008C7FFE /* SessionProPaymentScreen.swift */,
+				945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */,
+				945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */,
 				94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */,
 				94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */,
 				94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */,
@@ -6365,6 +6368,7 @@
 				94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */,
 				942256972C23F8DD00C0FDBF /* SessionSearchBar.swift in Sources */,
 				FD71165928E436E800B47552 /* ConfirmationModal.swift in Sources */,
+				945E89D22E95D54700D8D907 /* SessionProPaymentScreen+Renew.swift in Sources */,
 				FD981BD32DC9770E00564172 /* MentionUtilities.swift in Sources */,
 				7BBBDC44286EAD2D00747E59 /* TappableLabel.swift in Sources */,
 				FD8A5B252DC05B16004C689B /* Number+Utilities.swift in Sources */,
@@ -6456,6 +6460,7 @@
 				FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */,
 				9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */,
 				FD37E9CA28A1E4BD003AE748 /* Theme+ClassicLight.swift in Sources */,
+				945E89D42E95D97000D8D907 /* SessionProPaymentScreen+SharedViews.swift in Sources */,
 				94363E5B2E6002750004EE43 /* SessionListScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

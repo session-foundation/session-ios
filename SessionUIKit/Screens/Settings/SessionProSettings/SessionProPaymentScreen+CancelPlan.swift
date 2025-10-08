@@ -10,12 +10,16 @@ struct CancelPlanOriginatingPlatformContent: View {
     
     var body: some View {
         VStack(spacing: Values.mediumSmallSpacing) {
-            // TODO: Localised
-            Text("We’re sorry to see you cancel Pro. Here's what you need to know before canceling your Session Pro plan.")
-                .font(.Body.baseRegular)
-                .foregroundColor(themeColor: .textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.vertical, Values.smallSpacing)
+            Text(
+                "proCancelSorry"
+                    .put(key: "pro", value: Constants.pro)
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .localized()
+            )
+            .font(.Body.baseRegular)
+            .foregroundColor(themeColor: .textPrimary)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, Values.smallSpacing)
             
             VStack(
                 alignment: .leading,
@@ -71,12 +75,16 @@ struct CancelPlanNonOriginatingPlatformContent: View {
 
     var body: some View {
         VStack(spacing: Values.mediumSpacing) {
-            // TODO: Localised
-            Text("We’re sorry to see you cancel Pro. Here's what you need to know before canceling your Session Pro plan.")
-                .font(.Body.baseRegular)
-                .foregroundColor(themeColor: .textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.vertical, Values.smallSpacing)
+            Text(
+                "proCancelSorry"
+                    .put(key: "pro", value: Constants.pro)
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .localized()
+            )
+            .font(.Body.baseRegular)
+            .foregroundColor(themeColor: .textPrimary)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, Values.smallSpacing)
             
             VStack(
                 alignment: .leading,
@@ -105,97 +113,28 @@ struct CancelPlanNonOriginatingPlatformContent: View {
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textSecondary)
                 
-                HStack(
-                    alignment: .top,
-                    spacing: Values.mediumSpacing
-                ) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(themeColor: .value(.primary, alpha: 0.1))
-                        
-                        AttributedText(Lucide.Icon.smartphone.attributedString(size: 24))
-                            .foregroundColor(themeColor: .primary)
-                    }
-                    .frame(width: 34, height: 34)
-                    
-                    VStack(
-                        alignment: .leading,
-                        spacing: Values.verySmallSpacing
-                    ) {
-                        Text(
-                            "onDevice"
-                                .put(key: "device_type", value: originatingPlatform.deviceType)
-                                .localized()
-                        )
-                        .font(.Body.baseBold)
-                        .foregroundColor(themeColor: .textPrimary)
-                        
-                        Text(
-                            "onDeviceDescription"
-                                .put(key: "app_name", value: Constants.app_name)
-                                .put(key: "device_type", value: originatingPlatform.deviceType)
-                                .put(key: "platform_account", value: originatingPlatform.account)
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .localized()
-                        )
-                        .font(.Body.baseRegular)
-                        .foregroundColor(themeColor: .textPrimary)
-                        .multilineTextAlignment(.leading)
-                    }
-                }
-                .padding(Values.mediumSpacing)
-                .background(
-                    RoundedRectangle(cornerRadius: 11)
-                        .fill(themeColor: .inputButton_background)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 11)
-                        .stroke(themeColor: .borderSeparator)
+                ApproachCell(
+                    title: "onDevice"
+                        .put(key: "device_type", value: originatingPlatform.deviceType)
+                        .localized(),
+                    description: "onDeviceDescription"
+                        .put(key: "app_name", value: Constants.app_name)
+                        .put(key: "device_type", value: originatingPlatform.deviceType)
+                        .put(key: "platform_account", value: originatingPlatform.account)
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .localizedFormatted(),
+                    variant: .device
                 )
                 
-                HStack(
-                    alignment: .top,
-                    spacing: Values.mediumSpacing
-                ) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(themeColor: .value(.primary, alpha: 0.1))
-                        
-                        AttributedText(Lucide.Icon.globe.attributedString(size: 20))
-                            .foregroundColor(themeColor: .primary)
-                    }
-                    .frame(width: 34, height: 34)
-                    
-                    VStack(
-                        alignment: .leading,
-                        spacing: Values.verySmallSpacing
-                    ) {
-                        Text(
-                            "viaStoreWebsite"
-                                .put(key: "platform", value: originatingPlatform.name)
-                                .localized()
-                        )
-                        .font(.Body.baseBold)
-                        .foregroundColor(themeColor: .textPrimary)
-                        
-                        AttributedText(
-                            "viaStoreWebsiteDescription"
-                                .put(key: "platform_account", value: originatingPlatform.account)
-                                .put(key: "platform_store", value: originatingPlatform.store)
-                                .localizedFormatted(Fonts.Body.baseRegular)
-                        )
-                        .font(.Body.baseRegular)
-                        .multilineTextAlignment(.leading)
-                    }
-                }
-                .padding(Values.mediumSpacing)
-                .background(
-                    RoundedRectangle(cornerRadius: 11)
-                        .fill(themeColor: .inputButton_background)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 11)
-                        .stroke(themeColor: .borderSeparator)
+                ApproachCell(
+                    title: "viaStoreWebsite"
+                        .put(key: "platform", value: originatingPlatform.name)
+                        .localized(),
+                    description: "viaStoreWebsiteDescription"
+                        .put(key: "platform_account", value: originatingPlatform.account)
+                        .put(key: "platform_store", value: originatingPlatform.store)
+                        .localizedFormatted(Fonts.Body.baseRegular),
+                    variant: .website
                 )
             }
             .padding(Values.mediumSpacing)

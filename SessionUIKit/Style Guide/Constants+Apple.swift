@@ -17,4 +17,8 @@ public extension Constants {
     static let platform_store = "App Store"
     static let platform_name = "iOS"
     static let platform = "Apple"
+    static let android_platform_store = "Google Play"
+    static let android_platform_name = "Android"
+    static let android_platform = "Google"
+    static let IPA = "IPA"
 }

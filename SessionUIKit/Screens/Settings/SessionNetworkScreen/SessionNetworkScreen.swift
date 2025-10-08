@@ -157,7 +157,7 @@ extension SessionNetworkScreen {
                         .put(key: "network_name", value: Constants.network_name)
                         .put(key: "token_name_long", value: Constants.token_name_long)
                         .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "icon", value: "<icon>\(Lucide.Icon.squareArrowUpRight)</icon>")
+                        .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                         .localizedFormatted(Fonts.Body.largeRegular)
                 )
                 .font(Font.Body.largeRegular)

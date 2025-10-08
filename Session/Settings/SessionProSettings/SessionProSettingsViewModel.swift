@@ -426,7 +426,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 font: .Body.smallRegular,
                                 attributedString: "plusLoadsMoreDescription"
                                     .put(key: "pro", value: Constants.pro)
-                                    .put(key: "icon", value: "<icon>\(Lucide.Icon.squareArrowUpRight)</icon>")
+                                    .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                                     .localizedFormatted(Fonts.Body.smallRegular),
                                 color: .textSecondary
                             )
