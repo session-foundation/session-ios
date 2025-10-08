@@ -199,6 +199,7 @@
 		94519A992E8A1A4200F02723 /* SessionProPaymentScreen+CancelPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */; };
 		945E89D22E95D54700D8D907 /* SessionProPaymentScreen+Renew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */; };
 		945E89D42E95D97000D8D907 /* SessionProPaymentScreen+SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */; };
+		945E89D62E9602AB00D8D907 /* SessionProPaymentScreen+Purchase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */; };
 		9463794A2E7131070017A014 /* SessionProManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946379492E71308B0017A014 /* SessionProManagerType.swift */; };
 		9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
@@ -1611,6 +1612,7 @@
 		945D9C572D6FDBE7003C4C0C /* _020_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _020_AddJobUniqueHash.swift; sourceTree = "<group>"; };
 		945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Renew.swift"; sourceTree = "<group>"; };
 		945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+SharedViews.swift"; sourceTree = "<group>"; };
+		945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Purchase.swift"; sourceTree = "<group>"; };
 		946379492E71308B0017A014 /* SessionProManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProManagerType.swift; sourceTree = "<group>"; };
 		9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Models.swift"; sourceTree = "<group>"; };
 		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
@@ -2972,6 +2974,7 @@
 			children = (
 				9438D5562E6A6862008C7FFE /* SessionProPaymentScreen.swift */,
 				945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */,
+				945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */,
 				945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */,
 				94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */,
 				94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */,
@@ -6409,6 +6412,7 @@
 				FDA335F52D91157A007E0EB6 /* SessionImageView.swift in Sources */,
 				94519A972E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift in Sources */,
 				FD8A5B0D2DBF2CA1004C689B /* Localization.swift in Sources */,
+				945E89D62E9602AB00D8D907 /* SessionProPaymentScreen+Purchase.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
 				94AAB1512E1F753500A6FA18 /* CyclicGradientView.swift in Sources */,
 				FD8A5B1E2DBF4BBC004C689B /* ScreenLock+Errors.swift in Sources */,

@@ -45,15 +45,28 @@ public struct SessionProPaymentScreen: View {
                     
                     if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = dataModel.flow {
                         if originatingPlatform == .iOS {
-                            UpdatePlanOriginatingPlatformContent(
+                            SessionProPlanPurchaseContent(
                                 currentSelection: $currentSelection,
                                 isShowingTooltip: $isShowingTooltip,
                                 suppressUntil: $suppressUntil,
+                                title: (
+                                    isAutoRenewing ?
+                                        "proPlanActivatedAuto"
+                                            .put(key: "app_pro", value: Constants.app_pro)
+                                            .put(key: "current_plan", value: currentPlan.durationString)
+                                            .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localizedFormatted(Fonts.Body.baseRegular) :
+                                        "proPlanActivatedNotAuto"
+                                            .put(key: "app_pro", value: Constants.app_pro)
+                                            .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localizedFormatted(Fonts.Body.baseRegular)
+                                       ),
                                 currentPlan: currentPlan,
-                                currentPlanExpiredOn: expiredOn,
-                                isAutoRenewing: isAutoRenewing,
                                 sessionProPlans: dataModel.plans,
-                                updatePlanAction: { updatePlan() },
+                                actionButtonTitle: "updatePlan".localized(),
+                                purchaseAction: { updatePlan() },
                                 openTosPrivacyAction: { openTosPrivacy() }
                             )
                         } else {
