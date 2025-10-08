@@ -268,6 +268,10 @@ class PhotoCollectionContents {
                     return continuation.resume(throwing: error)
                 }
                 
+                if (info?[PHImageCancelledKey] as? Bool) == true {
+                    return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "Video request cancelled"))
+                }
+                
                 guard let avAsset: AVAsset = avAsset else {
                     return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "avAsset was unexpectedly nil"))
                 }
@@ -283,10 +287,8 @@ class PhotoCollectionContents {
                     Log.debug("[PhotoLibrary] Passthrough not available. Falling back to HighestQuality export preset.")
                 }
                 
-                if (info?[PHImageCancelledKey] as? Bool) == true {
-                    return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "Video request cancelled"))
-                }
-                
+                /// Apple likes to use special formats for media so in order to maintain compatibility with other clients we want to
+                /// convert the selected video into an `mp4`
                 guard let exportSession: AVAssetExportSession = AVAssetExportSession(asset: avAsset, presetName: bestExportPreset) else {
                     return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "exportSession was unexpectedly nil"))
                 }

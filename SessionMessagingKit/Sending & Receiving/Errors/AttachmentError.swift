@@ -23,6 +23,7 @@ public enum AttachmentError: Error, CustomStringConvertible {
     case couldNotParseImage
     case couldNotConvertToJpeg
     case couldNotConvertToMpeg4
+    case couldNotConvertToWebP
     case couldNotRemoveMetadata
     case invalidFileFormat
     case couldNotResizeImage
@@ -65,7 +66,8 @@ public enum AttachmentError: Error, CustomStringConvertible {
             case .invalidData, .missingData, .invalidFileFormat, .invalidImageData:
                 return "attachmentsErrorNotSupported".localized()
                 
-            case .couldNotConvertToJpeg, .couldNotParseImage, .couldNotConvertToMpeg4, .couldNotResizeImage:
+            case .couldNotConvertToJpeg, .couldNotParseImage, .couldNotConvertToMpeg4,
+                .couldNotConvertToWebP, .couldNotResizeImage:
                 return "attachmentsErrorOpen".localized()
                 
             case .couldNotRemoveMetadata:

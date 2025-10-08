@@ -67,7 +67,7 @@ public class ImageEditorModel {
             Log.error("[ImageEditorModel] Couldn't extract media data.")
             throw ImageEditorError.invalidInput
         }
-        guard attachment.utType.isImage && !attachment.utType.isAnimated else {
+        guard attachment.utType.isImage && attachment.duration == 0 else {
             Log.error("[ImageEditorModel] Invalid MIME type: \(attachment.utType.preferredMIMEType ?? "unknown").")
             throw ImageEditorError.invalidInput
         }

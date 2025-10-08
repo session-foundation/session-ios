@@ -4,6 +4,19 @@ import AVFoundation
 import UniformTypeIdentifiers
 
 public extension AVURLAsset {
+    var maxVideoTrackSize: CGSize {
+        var result: CGSize = .zero
+        
+        for track: AVAssetTrack in tracks(withMediaType: .video) {
+            let trackSize: CGSize = track.naturalSize
+            let transformedSize: CGSize = trackSize.applying(track.preferredTransform)
+            result.width = max(result.width, abs(transformedSize.width))
+            result.height = max(result.height, abs(transformedSize.height))
+        }
+        
+        return result
+    }
+    
     static func asset(for path: String, utType: UTType?, sourceFilename: String?, using dependencies: Dependencies) -> (asset: AVURLAsset, cleanup: () -> Void)? {
         if #available(iOS 17.0, *) {
             /// Since `mimeType` can be null we need to try to resolve it to a value

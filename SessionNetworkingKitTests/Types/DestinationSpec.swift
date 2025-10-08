@@ -15,19 +15,21 @@ class DestinationSpec: QuickSpec {
             context("when generating a path") {
                 // MARK: ---- adds a leading forward slash to the endpoint path
                 it("adds a leading forward slash to the endpoint path") {
-                    let result: String = Network.Destination.generatePathsAndParams(
+                    let result: String = Network.Destination.generatePathWithParamsAndFragments(
                         endpoint: TestEndpoint.test1,
-                        queryParameters: [:]
+                        queryParameters: [:],
+                        fragmentParameters: [:]
                     )
                     
                     expect(result).to(equal("/test1"))
                 }
                 
-                // MARK: ---- creates a valid URL with no query parameters
-                it("creates a valid URL with no query parameters") {
-                    let result: String = Network.Destination.generatePathsAndParams(
+                // MARK: ---- creates a valid URL with no query parameters or fragments
+                it("creates a valid URL with no query parameters or fragments") {
+                    let result: String = Network.Destination.generatePathWithParamsAndFragments(
                         endpoint: TestEndpoint.test1,
-                        queryParameters: [:]
+                        queryParameters: [:],
+                        fragmentParameters: [:]
                     )
                     
                     expect(result).to(equal("/test1"))
@@ -35,14 +37,43 @@ class DestinationSpec: QuickSpec {
                 
                 // MARK: ---- creates a valid URL when query parameters are provided
                 it("creates a valid URL when query parameters are provided") {
-                    let result: String = Network.Destination.generatePathsAndParams(
+                    let result: String = Network.Destination.generatePathWithParamsAndFragments(
                         endpoint: TestEndpoint.test1,
                         queryParameters: [
                             .testParam: "123"
-                        ]
+                        ],
+                        fragmentParameters: [:]
                     )
                     
                     expect(result).to(equal("/test1?testParam=123"))
+                }
+                
+                // MARK: ---- creates a valid URL when fragment parameters are provided
+                it("creates a valid URL when fragment parameters are provided") {
+                    let result: String = Network.Destination.generatePathWithParamsAndFragments(
+                        endpoint: TestEndpoint.test1,
+                        queryParameters: [:],
+                        fragmentParameters: [
+                            .testFrag: "456"
+                        ]
+                    )
+                    
+                    expect(result).to(equal("/test1#testFrag=456"))
+                }
+                
+                // MARK: ---- creates a valid URL when both query and fragment parameters are provided
+                it("creates a valid URL when both query and fragment parameters are provided") {
+                    let result: String = Network.Destination.generatePathWithParamsAndFragments(
+                        endpoint: TestEndpoint.test1,
+                        queryParameters: [
+                            .testParam: "123"
+                        ],
+                        fragmentParameters: [
+                            .testFrag: "456"
+                        ]
+                    )
+                    
+                    expect(result).to(equal("/test1?testParam=123#testFrag=456"))
                 }
             }
             
@@ -67,6 +98,10 @@ class DestinationSpec: QuickSpec {
 
 fileprivate extension HTTPQueryParam {
     static let testParam: HTTPQueryParam = "testParam"
+}
+
+fileprivate extension HTTPFragmentParam {
+    static let testFrag: HTTPFragmentParam = "testFrag"
 }
 
 fileprivate enum TestEndpoint: EndpointType {

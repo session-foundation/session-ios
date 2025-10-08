@@ -230,9 +230,10 @@ public extension Network {
             self.method = request.destination.method
             self.endpoint = request.endpoint
             self.endpointName = E.name
-            self.path = Destination.generatePathWithParams(
+            self.path = Destination.generatePathWithParamsAndFragments(
                 endpoint: endpoint,
-                queryParameters: request.destination.queryParameters
+                queryParameters: request.destination.queryParameters,
+                fragmentParameters: request.destination.fragmentParameters
             )
             self.headers = request.destination.headers
             
@@ -340,9 +341,10 @@ public extension Network {
         public func generateUrl() throws -> URL {
             switch destination {
                 case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                    let pathWithParams: String = Destination.generatePathWithParams(
+                    let pathWithParams: String = Destination.generatePathWithParamsAndFragments(
                         endpoint: endpoint,
-                        queryParameters: info.queryParameters
+                        queryParameters: info.queryParameters,
+                        fragmentParameters: info.fragmentParameters
                     )
                     
                     guard let url: URL = URL(string: "\(info.server)\(pathWithParams)") else {

@@ -89,12 +89,16 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
         return dependencies[feature: .showStringKeys]
     }
     
-    func asset(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)? {
-        return AVURLAsset.asset(
-            for: path,
-            utType: utType,
-            sourceFilename: sourceFilename,
-            using: dependencies
-        )
+    func assetInfo(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void)? {
+        guard
+            let result: (asset: AVURLAsset, cleanup: () -> Void) = AVURLAsset.asset(
+                for: path,
+                utType: utType,
+                sourceFilename: sourceFilename,
+                using: dependencies
+            )
+        else { return nil }
+        
+        return (result.asset, MediaUtils.isValidVideo(asset: result.asset), result.cleanup)
     }
 }

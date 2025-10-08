@@ -18,7 +18,7 @@ public actor SNUIKit {
         func cacheContextualActionInfo(tableViewHash: Int, sideKey: String, actionIndex: Int, actionInfo: Any)
         func removeCachedContextualActionInfo(tableViewHash: Int, keys: [String])
         func shouldShowStringKeys() -> Bool
-        func asset(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)?
+        func assetInfo(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void)?
     }
     
     @MainActor public static var mainWindow: UIWindow? = nil
@@ -68,9 +68,9 @@ public actor SNUIKit {
         return config.shouldShowStringKeys()
     }
     
-    internal static func asset(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)? {
+    internal static func assetInfo(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void)? {
         guard let config: ConfigType = self.config else { return nil }
         
-        return config.asset(for: path, utType: utType, sourceFilename: sourceFilename)
+        return config.assetInfo(for: path, utType: utType, sourceFilename: sourceFilename)
     }
 }

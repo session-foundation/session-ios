@@ -33,6 +33,9 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
     public static let maxAttachmentsAllowed: Int = 32
     
     private let dependencies: Dependencies
+    private let cache: StringCache = StringCache(
+        totalCostLimit: 5 * 1024 * 1024 /// Max 5MB of url to hash data (approx. 20,000 records)
+    )
     
     // MARK: - Initalization
     
@@ -76,9 +79,21 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
         else { return urlString }
         
         /// Otherwise we need to generate the deterministic file path based on the url provided
-        let urlHash = try dependencies[singleton: .crypto]
-            .tryGenerate(.hash(message: Array(urlString.utf8)))
-            .toHexString()
+        ///
+        /// **Note:** Now that download urls could contain fragments (or query params I guess) that could result in inconsistent paths
+        /// with old attachments so just to be safe we should strip them before generating the `urlHash`
+        let urlNoQueryOrFragment: String = urlString
+            .components(separatedBy: "?")[0]
+            .components(separatedBy: "#")[0]
+        let urlHash = try {
+            guard let cachedHash: String = cache.object(forKey: urlNoQueryOrFragment) else {
+                return try dependencies[singleton: .crypto]
+                    .tryGenerate(.hash(message: Array(urlNoQueryOrFragment.utf8)))
+                    .toHexString()
+            }
+            
+            return cachedHash
+        }()
         
         return URL(fileURLWithPath: sharedDataAttachmentsDirPath())
             .appendingPathComponent(urlHash)
@@ -466,7 +481,7 @@ public extension PendingAttachment {
         case convertToStandardFormats
         case resize(maxDimension: CGFloat)
         case stripImageMetadata
-        case encrypt(legacy: Bool, domain: Crypto.AttachmentDomain)
+        case encrypt(domain: Crypto.AttachmentDomain)
         
         fileprivate enum Erased: Equatable {
             case compress
@@ -577,8 +592,8 @@ public extension PendingAttachment {
         let preparedData: Data
         
         switch source {
-            case .media where utType.isImage: preparedData = try prepareImage(transformations)
             case .media where utType.isAnimated: preparedData = try prepareImage(transformations)
+            case .media where utType.isImage: preparedData = try prepareImage(transformations)
             case .media where utType.isVideo: preparedData = try prepareVideo(transformations)
             case .media where utType.isAudio:  preparedData = try prepareAudio(transformations)
             case .voiceMessage: preparedData = try prepareAudio(transformations)
@@ -599,7 +614,7 @@ public extension PendingAttachment {
         /// If we don't have the `encrypt` transform then we can just return the `preparedData` (which is unencrypted but should
         /// have all other `Transform` changes applied
         // FIXME: We should store attachments encrypted and decrypt them when we want to render/open them
-        guard case .encrypt(let legacyEncryption, let encryptionDomain) = transformations.first(where: { $0.erased == .encrypt }) else {
+        guard case .encrypt(let encryptionDomain) = transformations.first(where: { $0.erased == .encrypt }) else {
             try dependencies[singleton: .fileManager].write(data: preparedData, toPath: filePath)
             
             return PreparedAttachment(
@@ -619,17 +634,7 @@ public extension PendingAttachment {
         typealias EncryptionData = (ciphertext: Data, encryptionKey: Data, digest: Data)
         let encryptedData: EncryptionData
         
-        if legacyEncryption {
-            encryptedData = try dependencies[singleton: .crypto].tryGenerate(
-                .legacyEncryptAttachment(plaintext: preparedData)
-            )
-            
-            /// May as well throw here if we know the attachment is too large to send
-            guard encryptedData.ciphertext.count <= Network.maxFileSize else {
-                throw AttachmentError.fileSizeTooLarge
-            }
-        }
-        else {
+        if dependencies[feature: .deterministicAttachmentEncryption] {
             let encryptedSize: Int = try dependencies[singleton: .crypto].tryGenerate(
                 .expectedEncryptedAttachmentSize(plaintext: preparedData)
             )
@@ -644,6 +649,27 @@ public extension PendingAttachment {
             )
             
             encryptedData = (result.ciphertext, result.encryptionKey, Data())
+        }
+        else {
+            switch encryptionDomain {
+                case .attachment:
+                    encryptedData = try dependencies[singleton: .crypto].tryGenerate(
+                        .legacyEncryptedAttachment(plaintext: preparedData)
+                    )
+                
+                case .profilePicture:
+                    let encryptionKey: Data = try dependencies[singleton: .crypto]
+                        .tryGenerate(.randomBytes(DisplayPictureManager.encryptionKeySize))
+                    let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
+                        .legacyEncryptedDisplayPicture(data: preparedData, key: encryptionKey)
+                    )
+                    encryptedData = (ciphertext, encryptionKey, Data())
+            }
+            
+            /// May as well throw here if we know the attachment is too large to send
+            guard encryptedData.ciphertext.count <= Network.maxFileSize else {
+                throw AttachmentError.fileSizeTooLarge
+            }
         }
         
         try dependencies[singleton: .fileManager].write(
@@ -937,9 +963,10 @@ public extension PendingAttachment {
         
         return (
             mediaMetadata.hasValidPixelSize &&
-            mediaMetadata.hasValidFileSize &&
             mediaMetadata.hasValidDuration
         )
+    }
+}
 
 // MARK: - Type Conversions
 

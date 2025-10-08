@@ -309,8 +309,6 @@
 		C33FD9C2255A54EF00E217F9 /* SessionMessagingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */; };
 		C33FD9C4255A54EF00E217F9 /* SessionNetworkingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A59F255385C100C340D1 /* SessionNetworkingKit.framework */; };
 		C33FD9C5255A54EF00E217F9 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; };
-		C33FDC58255A582000E217F9 /* ReverseDispatchQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDA9E255A57FF00E217F9 /* ReverseDispatchQueue.swift */; };
-		C33FDD8D255A582000E217F9 /* OWSSignalAddress.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDBD3255A581800E217F9 /* OWSSignalAddress.swift */; };
 		C3402FE52559036600EA6424 /* SessionUIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C331FF1B2558F9D300070591 /* SessionUIKit.framework */; };
 		C34C8F7423A7830B00D82669 /* SpaceMono-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C34C8F7323A7830A00D82669 /* SpaceMono-Bold.ttf */; };
 		C3548F0824456AB6009433A8 /* UIView+Wrapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3548F0724456AB6009433A8 /* UIView+Wrapping.swift */; };
@@ -326,7 +324,6 @@
 		C38EF24D255B6D67007E1867 /* UIView+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF240255B6D67007E1867 /* UIView+OWS.swift */; };
 		C38EF24E255B6D67007E1867 /* Collection+OWS.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF241255B6D67007E1867 /* Collection+OWS.swift */; };
 		C38EF2B3255B6D9C007E1867 /* UIViewController+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF2B1255B6D9C007E1867 /* UIViewController+Utilities.swift */; };
-		C38EF32E255B6DBF007E1867 /* ImageCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF304255B6DBE007E1867 /* ImageCache.swift */; };
 		C38EF363255B6DCC007E1867 /* ModalActivityIndicatorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF349255B6DC7007E1867 /* ModalActivityIndicatorViewController.swift */; };
 		C38EF372255B6DCC007E1867 /* MediaMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF358255B6DCC007E1867 /* MediaMessageView.swift */; };
 		C38EF385255B6DD2007E1867 /* AttachmentTextToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF37C255B6DCF007E1867 /* AttachmentTextToolbar.swift */; };
@@ -1026,6 +1023,15 @@
 		FDE287532E94C5CB00442E03 /* Update.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE287522E94C5C900442E03 /* Update.swift */; };
 		FDE287552E94CFDB00442E03 /* URL+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE287542E94CFD400442E03 /* URL+Utilities.swift */; };
 		FDE287572E94D7B800442E03 /* DeveloperSettingsFileServerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE287562E94D7B200442E03 /* DeveloperSettingsFileServerViewModel.swift */; };
+		FDE287592E95BBAF00442E03 /* HTTPFragmentParam.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE287582E95BBA900442E03 /* HTTPFragmentParam.swift */; };
+		FDE2875B2E95BC3300442E03 /* HTTPFragmentParam+FileServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE2875A2E95BC2A00442E03 /* HTTPFragmentParam+FileServer.swift */; };
+		FDE2875D2E95CD3500442E03 /* StringCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE2875C2E95CD3300442E03 /* StringCache.swift */; };
+		FDE2875F2E96061E00442E03 /* ExtendExpirationResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE2875E2E96061A00442E03 /* ExtendExpirationResponse.swift */; };
+		FDE287612E970D5C00442E03 /* Async+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE287602E970D5900442E03 /* Async+Utilities.swift */; };
+		FDE287622E970D5C00442E03 /* Async+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE287602E970D5900442E03 /* Async+Utilities.swift */; };
+		FDE287632E970D5C00442E03 /* Async+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE287602E970D5900442E03 /* Async+Utilities.swift */; };
+		FDE287642E970D5C00442E03 /* Async+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE287602E970D5900442E03 /* Async+Utilities.swift */; };
+		FDE287662E970D9E00442E03 /* AsyncStream+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE287652E970D9A00442E03 /* AsyncStream+Utilities.swift */; };
 		FDE33BBC2D5C124900E56F42 /* DispatchTimeInterval+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE33BBB2D5C124300E56F42 /* DispatchTimeInterval+Utilities.swift */; };
 		FDE33BBE2D5C3AF100E56F42 /* _037_GroupsExpiredFlag.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE33BBD2D5C3AE800E56F42 /* _037_GroupsExpiredFlag.swift */; };
 		FDE519F72AB7CDC700450C53 /* Result+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE519F62AB7CDC700450C53 /* Result+Utilities.swift */; };
@@ -1676,12 +1682,10 @@
 		C33FD9AE255A548A00E217F9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C33FDA7A255A57FB00E217F9 /* NSRegularExpression+SSK.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "NSRegularExpression+SSK.swift"; sourceTree = "<group>"; };
 		C33FDA87255A57FC00E217F9 /* TypingIndicators.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TypingIndicators.swift; sourceTree = "<group>"; };
-		C33FDA9E255A57FF00E217F9 /* ReverseDispatchQueue.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ReverseDispatchQueue.swift; sourceTree = "<group>"; };
 		C33FDAFD255A580600E217F9 /* LRUCache.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LRUCache.swift; sourceTree = "<group>"; };
 		C33FDB3A255A580B00E217F9 /* PollerType.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PollerType.swift; sourceTree = "<group>"; };
 		C33FDB3F255A580C00E217F9 /* String+SSK.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+SSK.swift"; sourceTree = "<group>"; };
 		C33FDBA8255A581500E217F9 /* LinkPreviewDraft.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LinkPreviewDraft.swift; sourceTree = "<group>"; };
-		C33FDBD3255A581800E217F9 /* OWSSignalAddress.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OWSSignalAddress.swift; sourceTree = "<group>"; };
 		C33FDBDE255A581900E217F9 /* PushNotificationAPI.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PushNotificationAPI.swift; sourceTree = "<group>"; };
 		C34C8F7323A7830A00D82669 /* SpaceMono-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceMono-Bold.ttf"; sourceTree = "<group>"; };
 		C352A30825574D8400338F3E /* Message+Destination.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+Destination.swift"; sourceTree = "<group>"; };
@@ -1705,7 +1709,6 @@
 		C38EF2F5255B6DBC007E1867 /* OWSAudioPlayer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OWSAudioPlayer.h; path = SessionMessagingKit/Utilities/OWSAudioPlayer.h; sourceTree = SOURCE_ROOT; };
 		C38EF2F7255B6DBC007E1867 /* OWSAudioPlayer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OWSAudioPlayer.m; path = SessionMessagingKit/Utilities/OWSAudioPlayer.m; sourceTree = SOURCE_ROOT; };
 		C38EF2FB255B6DBD007E1867 /* OWSWindowManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = OWSWindowManager.h; path = SessionMessagingKit/Utilities/OWSWindowManager.h; sourceTree = SOURCE_ROOT; };
-		C38EF304255B6DBE007E1867 /* ImageCache.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ImageCache.swift; path = SignalUtilitiesKit/Utilities/ImageCache.swift; sourceTree = SOURCE_ROOT; };
 		C38EF306255B6DBE007E1867 /* OWSWindowManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = OWSWindowManager.m; path = SessionMessagingKit/Utilities/OWSWindowManager.m; sourceTree = SOURCE_ROOT; };
 		C38EF309255B6DBE007E1867 /* DeviceSleepManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DeviceSleepManager.swift; path = SessionMessagingKit/Utilities/DeviceSleepManager.swift; sourceTree = SOURCE_ROOT; };
 		C38EF349255B6DC7007E1867 /* ModalActivityIndicatorViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ModalActivityIndicatorViewController.swift; path = "SignalUtilitiesKit/Shared View Controllers/ModalActivityIndicatorViewController.swift"; sourceTree = SOURCE_ROOT; };
@@ -2295,6 +2298,12 @@
 		FDE287522E94C5C900442E03 /* Update.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Update.swift; sourceTree = "<group>"; };
 		FDE287542E94CFD400442E03 /* URL+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URL+Utilities.swift"; sourceTree = "<group>"; };
 		FDE287562E94D7B200442E03 /* DeveloperSettingsFileServerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsFileServerViewModel.swift; sourceTree = "<group>"; };
+		FDE287582E95BBA900442E03 /* HTTPFragmentParam.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPFragmentParam.swift; sourceTree = "<group>"; };
+		FDE2875A2E95BC2A00442E03 /* HTTPFragmentParam+FileServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPFragmentParam+FileServer.swift"; sourceTree = "<group>"; };
+		FDE2875C2E95CD3300442E03 /* StringCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringCache.swift; sourceTree = "<group>"; };
+		FDE2875E2E96061A00442E03 /* ExtendExpirationResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtendExpirationResponse.swift; sourceTree = "<group>"; };
+		FDE287602E970D5900442E03 /* Async+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Async+Utilities.swift"; sourceTree = "<group>"; };
+		FDE287652E970D9A00442E03 /* AsyncStream+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AsyncStream+Utilities.swift"; sourceTree = "<group>"; };
 		FDE33BBB2D5C124300E56F42 /* DispatchTimeInterval+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DispatchTimeInterval+Utilities.swift"; sourceTree = "<group>"; };
 		FDE33BBD2D5C3AE800E56F42 /* _037_GroupsExpiredFlag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _037_GroupsExpiredFlag.swift; sourceTree = "<group>"; };
 		FDE519F62AB7CDC700450C53 /* Result+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Result+Utilities.swift"; sourceTree = "<group>"; };
@@ -3816,9 +3825,6 @@
 				C38EF240255B6D67007E1867 /* UIView+OWS.swift */,
 				FD71161D28D9772700B47552 /* UIViewController+OWS.swift */,
 				C38EF2B1255B6D9C007E1867 /* UIViewController+Utilities.swift */,
-				C33FDBD3255A581800E217F9 /* OWSSignalAddress.swift */,
-				C38EF304255B6DBE007E1867 /* ImageCache.swift */,
-				C33FDA9E255A57FF00E217F9 /* ReverseDispatchQueue.swift */,
 				C38EF241255B6D67007E1867 /* Collection+OWS.swift */,
 				C38EF3AE255B6DE5007E1867 /* OrderedDictionary.swift */,
 				FDB3487D2BE856C800B716C2 /* UIBezierPath+Utilities.swift */,
@@ -3961,6 +3967,7 @@
 				94C58AC82D2E036E00609195 /* Permissions.swift */,
 				FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */,
 				FD78EA052DDEC8F100D55B50 /* AsyncSequence+Utilities.swift */,
+				FDE287652E970D9A00442E03 /* AsyncStream+Utilities.swift */,
 				FD7443452D07CA9F00862443 /* CGFloat+Utilities.swift */,
 				FD7443462D07CA9F00862443 /* CGPoint+Utilities.swift */,
 				FD7443472D07CA9F00862443 /* CGRect+Utilities.swift */,
@@ -4167,6 +4174,7 @@
 				FD6A38F02C2A66B100762359 /* KeychainStorage.swift */,
 				FD78EA032DDEC3C000D55B50 /* MultiTaskManager.swift */,
 				FD6F5B5F2E657A32009A8D01 /* StreamLifecycleManager.swift */,
+				FDE2875C2E95CD3300442E03 /* StringCache.swift */,
 				FD2272E92C351CA7004D8A6C /* Threading.swift */,
 				FDE287522E94C5C900442E03 /* Update.swift */,
 				FDAA16752AC28A3B00DDBF77 /* UserDefaultsType.swift */,
@@ -4400,6 +4408,7 @@
 			isa = PBXGroup;
 			children = (
 				FDC4383727B3863200C60D73 /* AppVersionResponse.swift */,
+				FDE2875E2E96061A00442E03 /* ExtendExpirationResponse.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -4763,6 +4772,7 @@
 		FD83B9BC27CF2215005E1583 /* _SharedTestUtilities */ = {
 			isa = PBXGroup;
 			children = (
+				FDE287602E970D5900442E03 /* Async+Utilities.swift */,
 				FD0150472CA243CB005B08A1 /* Mock.swift */,
 				FD0969F82A69FFE700C5C365 /* Mocked.swift */,
 				FD481A932CAE0ADD00ECC4CF /* MockAppContext.swift */,
@@ -5143,6 +5153,7 @@
 		FDEFDC6A2E8361D400EBCD81 /* Types */ = {
 			isa = PBXGroup;
 			children = (
+				FDE2875A2E95BC2A00442E03 /* HTTPFragmentParam+FileServer.swift */,
 				FDEFDC6B2E8361DB00EBCD81 /* HTTPHeader+FileServer.swift */,
 			);
 			path = Types;
@@ -5182,6 +5193,7 @@
 				FD2272A62C33E337004D8A6C /* HTTPHeader.swift */,
 				FD2272A72C33E337004D8A6C /* HTTPMethod.swift */,
 				FD22729A2C33E336004D8A6C /* HTTPQueryParam.swift */,
+				FDE287582E95BBA900442E03 /* HTTPFragmentParam.swift */,
 				FD2272982C33E336004D8A6C /* IPv4.swift */,
 				FD22729B2C33E336004D8A6C /* JSON.swift */,
 				FD2272992C33E336004D8A6C /* Network.swift */,
@@ -6312,12 +6324,10 @@
 				C38EF3C2255B6DE7007E1867 /* ImageEditorPaletteView.swift in Sources */,
 				C38EF363255B6DCC007E1867 /* ModalActivityIndicatorViewController.swift in Sources */,
 				C38EF3C1255B6DE7007E1867 /* ImageEditorBrushViewController.swift in Sources */,
-				C33FDD8D255A582000E217F9 /* OWSSignalAddress.swift in Sources */,
 				C38EF388255B6DD2007E1867 /* AttachmentApprovalViewController.swift in Sources */,
 				C38EF38C255B6DD2007E1867 /* ApprovalRailCellView.swift in Sources */,
 				C38EF3C7255B6DE7007E1867 /* ImageEditorCanvasView.swift in Sources */,
 				C38EF400255B6DF7007E1867 /* GalleryRailView.swift in Sources */,
-				C38EF32E255B6DBF007E1867 /* ImageCache.swift in Sources */,
 				C38EF3BA255B6DE7007E1867 /* ImageEditorItem.swift in Sources */,
 				C38EF24E255B6D67007E1867 /* Collection+OWS.swift in Sources */,
 				FD2272DD2C34EFFA004D8A6C /* AppSetup.swift in Sources */,
@@ -6334,7 +6344,6 @@
 				C38EF3BB255B6DE7007E1867 /* ImageEditorStrokeItem.swift in Sources */,
 				C38EF3C0255B6DE7007E1867 /* ImageEditorCropViewController.swift in Sources */,
 				C38EF3BD255B6DE7007E1867 /* ImageEditorTransform.swift in Sources */,
-				C33FDC58255A582000E217F9 /* ReverseDispatchQueue.swift in Sources */,
 				C38EF3F9255B6DF7007E1867 /* OWSLayerView.swift in Sources */,
 				C38EF3B9255B6DE7007E1867 /* ImageEditorPinchGestureRecognizer.swift in Sources */,
 				FDB3487E2BE856C800B716C2 /* UIBezierPath+Utilities.swift in Sources */,
@@ -6379,6 +6388,7 @@
 				FD6B92992E77A06E004463B5 /* Token.swift in Sources */,
 				FDB5DAF32A96DD4F002C8721 /* PreparedRequest+Sending.swift in Sources */,
 				FDF848C629405C5B007DCAE5 /* DeleteAllMessagesRequest.swift in Sources */,
+				FDE2875F2E96061E00442E03 /* ExtendExpirationResponse.swift in Sources */,
 				FDF848D429405C5B007DCAE5 /* DeleteAllBeforeResponse.swift in Sources */,
 				FD6B92AF2E77AA03004463B5 /* HTTPQueryParam+SOGS.swift in Sources */,
 				FD6B92B02E77AA03004463B5 /* Request+SOGS.swift in Sources */,
@@ -6437,6 +6447,7 @@
 				FD2272AF2C33E337004D8A6C /* JSON.swift in Sources */,
 				FD2272D62C34ED6A004D8A6C /* RetryWithDependencies.swift in Sources */,
 				FDF848D229405C5B007DCAE5 /* LegacyGetMessagesRequest.swift in Sources */,
+				FDE287592E95BBAF00442E03 /* HTTPFragmentParam.swift in Sources */,
 				FDF848E529405D6E007DCAE5 /* SnodeAPIError.swift in Sources */,
 				FD6B928C2E779DCC004463B5 /* FileServer.swift in Sources */,
 				FDE287552E94CFDB00442E03 /* URL+Utilities.swift in Sources */,
@@ -6455,6 +6466,7 @@
 				FD2272BA2C33E337004D8A6C /* HTTPHeader.swift in Sources */,
 				FDF848CD29405C5B007DCAE5 /* GetNetworkTimestampResponse.swift in Sources */,
 				FDF848DA29405C5B007DCAE5 /* GetMessagesResponse.swift in Sources */,
+				FDE2875B2E95BC3300442E03 /* HTTPFragmentParam+FileServer.swift in Sources */,
 				FD6B92C62E77AD0F004463B5 /* Crypto+FileServer.swift in Sources */,
 				FD2286682C37DA3B00BC06F7 /* LibSession+Networking.swift in Sources */,
 				FD2272A92C33E337004D8A6C /* ContentProxy.swift in Sources */,
@@ -6487,6 +6499,7 @@
 				FD2272C82C34EB0A004D8A6C /* Job.swift in Sources */,
 				FD2272C72C34EAF5004D8A6C /* ColumnExpressible.swift in Sources */,
 				FDB3486E2BE8457F00B716C2 /* BackgroundTaskManager.swift in Sources */,
+				FDE287662E970D9E00442E03 /* AsyncStream+Utilities.swift in Sources */,
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
 				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
 				FD2272D42C34ECE1004D8A6C /* BencodeEncoder.swift in Sources */,
@@ -6494,6 +6507,7 @@
 				FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */,
 				FDE754DC2C9BAF8A002A2623 /* CryptoError.swift in Sources */,
 				FDFF9FDF2A787F57005E0628 /* JSONEncoder+Utilities.swift in Sources */,
+				FDE2875D2E95CD3500442E03 /* StringCache.swift in Sources */,
 				FDE754CD2C9BAF37002A2623 /* UTType+Utilities.swift in Sources */,
 				FD42ECD62E3308B5002D03EA /* ObservableKey+SessionUtilitiesKit.swift in Sources */,
 				FDE754D22C9BAF53002A2623 /* JobDependencies.swift in Sources */,
@@ -7100,6 +7114,7 @@
 				9499E68B2DF92F4E00091434 /* ThreadNotificationSettingsViewModelSpec.swift in Sources */,
 				FD01504B2CA243CB005B08A1 /* Mock.swift in Sources */,
 				FD0969FA2A6A00B000C5C365 /* Mocked.swift in Sources */,
+				FDE287632E970D5C00442E03 /* Async+Utilities.swift in Sources */,
 				FD481A9A2CB4CAE500ECC4CF /* CommonSMKMockExtensions.swift in Sources */,
 				FD3FAB6C2AF1B28B00DC5421 /* MockFileManager.swift in Sources */,
 				FD23EA6128ED0B260058676E /* CombineExtensions.swift in Sources */,
@@ -7146,6 +7161,7 @@
 				FD23CE262A676B5B0000B97C /* DependenciesSpec.swift in Sources */,
 				FDDF074A29DAB36900E5E8B5 /* JobRunnerSpec.swift in Sources */,
 				FD0969FB2A6A00B100C5C365 /* Mocked.swift in Sources */,
+				FDE287622E970D5C00442E03 /* Async+Utilities.swift in Sources */,
 				FD0150292CA23DB7005B08A1 /* GRDBExtensions.swift in Sources */,
 				FDD23AEF2E459EC90057E853 /* _012_AddJobPriority.swift in Sources */,
 				FD481A942CAE0AE000ECC4CF /* MockAppContext.swift in Sources */,
@@ -7173,6 +7189,7 @@
 				FD6B92D32E77B270004463B5 /* UpdateMessageRequestSpec.swift in Sources */,
 				FDB5DB092A981F8D002C8721 /* MockCrypto.swift in Sources */,
 				FDAA167B2AC28E2F00DDBF77 /* SnodeRequestSpec.swift in Sources */,
+				FDE287642E970D5C00442E03 /* Async+Utilities.swift in Sources */,
 				FD6B92D02E77B23B004463B5 /* CapabilitiesResponse.swift in Sources */,
 				FD6B92D42E77B2C7004463B5 /* SOGSAPISpec.swift in Sources */,
 				FD65318C2AA025C500DFEEAA /* TestDependencies.swift in Sources */,
@@ -7256,6 +7273,7 @@
 				FD078E5427E197CA000769AF /* OpenGroupManagerSpec.swift in Sources */,
 				FD3C906727E416AF00CD579F /* BlindedIdLookupSpec.swift in Sources */,
 				FD83B9D227D59495005E1583 /* MockUserDefaults.swift in Sources */,
+				FDE287612E970D5C00442E03 /* Async+Utilities.swift in Sources */,
 				FD3FAB6D2AF1B28B00DC5421 /* MockFileManager.swift in Sources */,
 				FD78E9F22DDA9EA200D55B50 /* MockImageDataManager.swift in Sources */,
 			);

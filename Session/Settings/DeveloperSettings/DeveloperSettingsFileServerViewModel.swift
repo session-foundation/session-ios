@@ -290,33 +290,34 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                             initialValue: pendingState.customFileServer.url,
                             inputChecker: { text in
                                 guard URL(string: text) != nil else {
-                                    return "Value must be a valid url."
+                                    return "Value must be a valid url (with HTTP or HTTPS)."
                                 }
                                 
                                 return nil
                             }
                         ),
                         onChange: { [weak self] value in
-                            self?.updatedCustomServerPubkey = value
+                            self?.updatedCustomServerUrl = value.lowercased()
                         }
                     ),
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { [weak self] _ in
-                        guard let value: String = self?.updatedCustomServerUrl else {
-                            return false
-                        }
+                        guard
+                            let value: String = self?.updatedCustomServerUrl,
+                            let url: URL = URL(string: value)
+                        else { return false }
                         
-                        return (URL(string: value) != nil)
+                        return (url.scheme != nil && url.host != nil)
                     },
                     cancelStyle: .alert_text,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
                         guard
-                            let value: String = self?.updatedCustomServerPubkey,
+                            let value: String = self?.updatedCustomServerUrl,
                             URL(string: value) != nil
                         else {
                             modal.updateContent(
-                                withError: "Value must be a valid url."
+                                withError: "Value must be a valid url (with HTTP or HTTPS)."
                             )
                             return
                         }

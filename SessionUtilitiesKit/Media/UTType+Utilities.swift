@@ -100,10 +100,10 @@ public extension UTType {
     ].compactMap { $0 }.asSet()
     
     var isAnimated: Bool { UTType.supportedAnimatedImageTypes.contains(self) }
-    var isImage: Bool { UTType.supportedImageTypes.contains(self) }
-    var isVideo: Bool { UTType.supportedVideoTypes.contains(self) }
-    var isAudio: Bool { UTType.supportedAudioTypes.contains(self) }
-    var isText: Bool { UTType.supportedTextTypes.contains(self) }
+    var isImage: Bool { conforms(to: .image) }
+    var isVideo: Bool { conforms(to: .video) }
+    var isAudio: Bool { conforms(to: .audio) }
+    var isText: Bool { conforms(to: .text) }
     var isMicrosoftDoc: Bool { UTType.supportedMicrosoftDocTypes.contains(self) }
     var isVisualMedia: Bool { isImage || isVideo || isAnimated }
     var sessionMimeType: String? {

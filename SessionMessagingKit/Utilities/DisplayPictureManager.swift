@@ -67,19 +67,11 @@ public class DisplayPictureManager {
     internal static let tagLength: Int = 16
     
     private let dependencies: Dependencies
+    private let cache: StringCache = StringCache(
+        totalCostLimit: 5 * 1024 * 1024 /// Max 5MB of url to hash data (approx. 20,000 records)
+    )
     private let scheduleDownloads: PassthroughSubject<(), Never> = PassthroughSubject()
     private var scheduleDownloadsCancellable: AnyCancellable?
-    
-    /// `NSCache` has more nuanced memory management systems than just listening for `didReceiveMemoryWarningNotification`
-    /// and can clear out values gradually, it can also remove items based on their "cost" so is better suited than our custom `LRUCache`
-    ///
-    /// Additionally `NSCache` is thread safe so we don't need to do any custom `ThreadSafeObject` work to interact with it
-    private var cache: NSCache<NSString, NSString> = {
-        let result: NSCache<NSString, NSString> = NSCache()
-        result.totalCostLimit = 5 * 1024 * 1024 /// Max 5MB of url to hash data (approx. 20,000 records)
-        
-        return result
-    }()
     
     // MARK: - Initalization
     
@@ -124,10 +116,17 @@ public class DisplayPictureManager {
             return urlString
         }
         
+        /// Otherwise we need to generate the deterministic file path based on the url provided
+        ///
+        /// **Note:** Now that download urls could contain fragments (or query params I guess) that could result in inconsistent paths
+        /// with old attachments so just to be safe we should strip them before generating the `urlHash`
+        let urlNoQueryOrFragment: String = urlString
+            .components(separatedBy: "?")[0]
+            .components(separatedBy: "#")[0]
         let urlHash = try {
-            guard let cachedHash: String = cache.object(forKey: urlString as NSString) as? String else {
+            guard let cachedHash: String = cache.object(forKey: urlNoQueryOrFragment) else {
                 return try dependencies[singleton: .crypto]
-                    .tryGenerate(.hash(message: Array(urlString.utf8)))
+                    .tryGenerate(.hash(message: Array(urlNoQueryOrFragment.utf8)))
                     .toHexString()
             }
             
@@ -218,10 +217,15 @@ public class DisplayPictureManager {
         )
         let attachment: PreparedAttachment = try pendingAttachment.prepare(
             transformations: [
-                .encrypt(legacy: true, domain: .profilePicture)  // FIXME: Remove the `legacy` encryption option
+                .encrypt(domain: .profilePicture)
             ],
             using: dependencies
         )
+        
+        /// Clean up the file after the upload completes
+        defer {
+            try? dependencies[singleton: .fileManager].removeItem(atPath: attachment.filePath)
+        }
         
         /// Ensure we have an encryption key for the `PreparedAttachment` we want to use as a display picture
         guard let encryptionKey: Data = attachment.attachment.encryptionKey else {
@@ -232,7 +236,7 @@ public class DisplayPictureManager {
             /// Upload the data
             let data: Data = try dependencies[singleton: .fileManager]
                 .contents(atPath: attachment.filePath) ?? { throw AttachmentError.invalidData }()
-            let request: Network.PreparedRequest<FileUploadResponse> = try Network.preparedUpload(
+            let request: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer.preparedUpload(
                 data: data,
                 requestAndPathBuildTimeout: Network.fileUploadTimeout,
                 using: dependencies
@@ -252,7 +256,10 @@ public class DisplayPictureManager {
         /// **Note:** Display pictures are currently stored unencrypted so we need to move the original `preparedAttachment`
         /// file to the `finalFilePath` rather than the encrypted one
         // FIXME: Should probably store display pictures encrypted and decrypt on load
-        let downloadUrl: String = Network.FileServer.downloadUrlString(for: uploadResponse.id)
+        let downloadUrl: String = Network.FileServer.downloadUrlString(
+            for: uploadResponse.id,
+            using: dependencies
+        )
         let finalFilePath: String = try dependencies[singleton: .displayPictureManager].path(for: downloadUrl)
         try dependencies[singleton: .fileManager].moveItem(
             atPath: preparedAttachment.filePath,

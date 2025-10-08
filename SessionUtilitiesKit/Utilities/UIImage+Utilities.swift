@@ -32,7 +32,7 @@ public extension UIImage {
         // Get the size in pixels, not points
         let srcSize: CGSize = CGSize(width: normalizedRef.width, height: normalizedRef.height)
         let widthRatio: CGFloat = (srcSize.width / srcSize.height)
-        let heightRatio: CGFloat = (srcSize.height / srcSize.height)
+        let heightRatio: CGFloat = (srcSize.height / srcSize.width)
         let drawRect: CGRect = {
             guard widthRatio <= heightRatio else {
                 let targetWidth: CGFloat = (dstSize.height * srcSize.width / srcSize.height)

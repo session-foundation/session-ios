@@ -345,7 +345,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     <b>File TTL:</b> <span>\(dependencies[feature: .shortenFileTTL] ? "60 Seconds" : "14 Days")</span>
                     <b>Deterministic Encryption:</b> <span>\(dependencies[feature: .deterministicAttachmentEncryption] ? "Enabled" : "Disabled")</span>
-                    <b>File Server:</b> <span>\(dependencies[feature: .customFileServer].isValid ? dependencies[feature: .customFileServer].url : Network.FileServer.fileServer)</span>
+                    <b>File Server:</b> <span>\(Network.FileServer.server(using: dependencies))</span>
                     """,
                     trailingAccessory: .icon(.chevronRight),
                     onTap: { [weak self, dependencies] in

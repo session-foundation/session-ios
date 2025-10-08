@@ -43,7 +43,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                 throw NetworkError.invalidURL
                             }
                             
-                            return try Network.preparedDownload(
+                            return try Network.FileServer.preparedDownload(
                                 url: downloadUrl,
                                 using: dependencies
                             )
@@ -64,6 +64,11 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     }
                 }
                 try Task.checkCancellation()
+                
+                /// Check to make sure this download is a valid update before starting to download
+                try await dependencies[singleton: .storage].readAsync { db in
+                    try details.ensureValidUpdate(db, using: dependencies)
+                }
                 
                 let downloadUrl: String = ((try? request.generateUrl())?.absoluteString ?? request.path)
                 let filePath: String = try dependencies[singleton: .displayPictureManager]
@@ -88,7 +93,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 /// Get the decrypted data
                 guard
                     let decryptedData: Data = {
-                        switch (details.target, Network.FileServer.usesDeterministicEncryption(downloadUrl)) {
+                        switch (details.target, details.target.usesDeterministicEncryption) {
                             case (.community, _): return response    /// Community data is unencrypted
                             case (.profile(_, _, let encryptionKey), false), (.group(_, _, let encryptionKey), false):
                                 return dependencies[singleton: .crypto].generate(
@@ -249,14 +254,21 @@ extension DisplayPictureDownloadJob {
         
         var isValid: Bool {
             switch self {
+                case .community(let imageId, _, _, _): return !imageId.isEmpty
                 case .profile(_, let url, let encryptionKey), .group(_, let url, let encryptionKey):
                     return (
                         !url.isEmpty &&
                         Network.FileServer.fileId(for: url) != nil &&
                         encryptionKey.count == DisplayPictureManager.encryptionKeySize
                     )
-                    
-                case .community(let imageId, _, _, _): return !imageId.isEmpty
+            }
+        }
+        
+        var usesDeterministicEncryption: Bool {
+            switch self {
+                case .community: return false
+                case .profile(_, let url, _), .group(_, let url, _):
+                    return Network.FileServer.usesDeterministicEncryption(url)
             }
         }
         

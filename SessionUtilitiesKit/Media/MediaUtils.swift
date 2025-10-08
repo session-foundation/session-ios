@@ -67,6 +67,9 @@ public enum MediaUtils {
         /// The number of frames this media has (`1` for a static image)
         public let frameCount: Int
         
+        /// The duration of each frame (this will be an empty array for anything other than animated images)
+        public let frameDurations: [TimeInterval]
+        
         /// The duration of the content (will be `0` for static images)
         public let duration: TimeInterval
         
@@ -101,9 +104,6 @@ public enum MediaUtils {
                 pixelSize.height < CGFloat(SNUtilitiesKit.maxValidImageDimension)
             )
         }
-        
-        /// A flag indicating whether the media has a valid file size (ie. the max file size that an attachment can be)
-        public var hasValidFileSize: Bool { fileSize <= SNUtilitiesKit.maxFileSize }
         
         /// A flag indicating whether the media has a valid duration for it's type
         public var hasValidDuration: Bool {
@@ -147,13 +147,12 @@ public enum MediaUtils {
             self.pixelSize = CGSize(width: width, height: height)
             self.fileSize = fileSize
             self.frameCount = count
-            self.duration = {
-                guard count > 1 else { return 0 }
-                            
-                return (0..<count).reduce(0) { result, index in
-                    result + MediaUtils.getFrameDuration(from: source, at: index)
-                }
+            self.frameDurations = {
+                guard count > 1 else { return [] }
+                
+                return (0..<count).map { MediaUtils.getFrameDuration(from: source, at: $0) }
             }()
+            self.duration = frameDurations.reduce(0, +)
             self.hasUnsafeMetadata = {
                 let allKeys: Set<CFString> = Set(properties.keys)
                 
@@ -217,6 +216,7 @@ public enum MediaUtils {
             self.pixelSize = pixelSize
             self.fileSize = fileSize
             self.frameCount = 1
+            self.frameDurations = []
             self.duration = 0
             self.hasUnsafeMetadata = hasUnsafeMetadata
             self.depthBytes = depthBytes
@@ -232,6 +232,7 @@ public enum MediaUtils {
             self.pixelSize = image.size
             self.fileSize = 0  /// Unknown for `UIImage` in memory
             self.frameCount = 1
+            self.frameDurations = []
             self.duration = 0
             self.hasUnsafeMetadata = false  /// `UIImage` in memory has no file metadata
             self.depthBytes = {
@@ -282,20 +283,14 @@ public enum MediaUtils {
                 else { return nil }
                 
                 /// Get the maximum size of any video track in the file
-                var maxTrackSize: CGSize = .zero
-                
-                for track: AVAssetTrack in asset.tracks(withMediaType: .video) {
-                    let trackSize: CGSize = track.naturalSize
-                    let transformedSize: CGSize = trackSize.applying(track.preferredTransform)
-                    maxTrackSize.width = max(maxTrackSize.width, abs(transformedSize.width))
-                    maxTrackSize.height = max(maxTrackSize.height, abs(transformedSize.height))
-                }
+                var maxTrackSize: CGSize = asset.maxVideoTrackSize
                 
                 guard maxTrackSize.width > 0, maxTrackSize.height > 0 else { return nil }
                 
                 self.pixelSize = maxTrackSize
                 self.fileSize = fileSize
                 self.frameCount = -1 /// Rather than try to extract the frames, or give it an "incorrect" value, make it explicitly invalid
+                self.frameDurations = []
                 self.duration = (    /// According to the CMTime docs "value/timescale = seconds"
                     TimeInterval(asset.duration.value) / TimeInterval(asset.duration.timescale)
                 )
@@ -317,6 +312,7 @@ public enum MediaUtils {
                 self.pixelSize = .zero
                 self.fileSize = fileSize
                 self.frameCount = -1
+                self.frameDurations = []
                 
                 do { self.duration = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: path)).duration }
                 catch { return nil }
@@ -346,33 +342,11 @@ public enum MediaUtils {
         }
     }
     
-    public static func isVideoOfValidContentTypeAndSize(path: String, type: String?, using dependencies: Dependencies) -> Bool {
-        guard dependencies[singleton: .fileManager].fileExists(atPath: path) else {
-            Log.error(.media, "Media file missing.")
-            return false
-        }
-        guard let type: String = type, UTType.isVideo(type) else {
-            Log.error(.media, "Media file has invalid content type.")
-            return false
-        }
-        
-        guard let fileSize: UInt64 = dependencies[singleton: .fileManager].fileSize(of: path) else {
-            Log.error(.media, "Media file has unknown length.")
-            return false
-        }
-        return UInt(fileSize) <= SNUtilitiesKit.maxFileSize
-    }
-    
     public static func isValidVideo(asset: AVURLAsset) -> Bool {
-        var maxTrackSize = CGSize.zero
-        
-        for track: AVAssetTrack in asset.tracks(withMediaType: .video) {
-            let trackSize: CGSize = track.naturalSize
-            maxTrackSize.width = max(maxTrackSize.width, trackSize.width)
-            maxTrackSize.height = max(maxTrackSize.height, trackSize.height)
-        }
-        
-        return MediaMetadata(pixelSize: maxTrackSize, hasUnsafeMetadata: false).hasValidPixelSize
+        return MediaMetadata(
+            pixelSize: asset.maxVideoTrackSize,
+            hasUnsafeMetadata: false
+        ).hasValidPixelSize
     }
     
     /// Use `isValidVideo(asset: AVURLAsset)` if the `AVURLAsset` needs to be generated elsewhere in the code,
@@ -465,11 +439,7 @@ public extension MediaUtils.MediaMetadata {
             (utType.isImage || utType.isAnimated)
         else { return false }
         
-        return (
-            hasValidPixelSize &&
-            hasValidFileSize &&
-            hasValidDuration
-        )
+        return (hasValidPixelSize && hasValidDuration)
     }
 }
 

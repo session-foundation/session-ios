@@ -125,19 +125,19 @@ public actor ImageDataManager: ImageDataManagerType {
                 }
                 
                 /// Otherwise we need to generate a new one
-                let assetInfo: (asset: AVURLAsset, cleanup: () -> Void)? = SNUIKit.asset(
-                    for: url.path,
-                    utType: utType,
-                    sourceFilename: sourceFilename
-                )
-                
                 guard
-                    let asset: AVURLAsset = assetInfo?.asset,
-                    asset.isValidVideo
+                    let assetInfo: (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void) = SNUIKit.assetInfo(
+                        for: url.path,
+                        utType: utType,
+                        sourceFilename: sourceFilename
+                    )
                 else { return nil }
+                defer { assetInfo.cleanup() }
+                
+                guard assetInfo.isValidVideo else { return nil }
                 
                 let time: CMTime = CMTimeMake(value: 1, timescale: 60)
-                let generator: AVAssetImageGenerator = AVAssetImageGenerator(asset: asset)
+                let generator: AVAssetImageGenerator = AVAssetImageGenerator(asset: assetInfo.asset)
                 generator.appliesPreferredTrackTransform = true
                 
                 guard
@@ -152,7 +152,6 @@ public actor ImageDataManager: ImageDataManagerType {
                 let processedData: ProcessedImageData = ProcessedImageData(
                     type: .staticImage(decodedImage)
                 )
-                assetInfo?.cleanup()
                 
                 /// Since we generated a new thumbnail we should save it to disk
                 saveThumbnailToDisk(
@@ -794,25 +793,6 @@ public extension ImageDataManager {
 
 /// Needed for `actor` usage (ie. assume safe access)
 extension UIImage: @unchecked Sendable {}
-
-extension AVAsset {
-    var isValidVideo: Bool {
-        var maxTrackSize = CGSize.zero
-        
-        for track: AVAssetTrack in tracks(withMediaType: .video) {
-            let trackSize: CGSize = track.naturalSize
-            maxTrackSize.width = max(maxTrackSize.width, trackSize.width)
-            maxTrackSize.height = max(maxTrackSize.height, trackSize.height)
-        }
-        
-        return (
-            maxTrackSize.width >= 1 &&
-            maxTrackSize.height >= 1 &&
-            maxTrackSize.width < (3 * 1024) &&
-            maxTrackSize.height < (3 * 1024)
-        )
-    }
-}
 
 public extension ImageDataManager.DataSource {
     /// We need to ensure that the image size is "reasonable", otherwise trying to load it could cause out-of-memory crashes

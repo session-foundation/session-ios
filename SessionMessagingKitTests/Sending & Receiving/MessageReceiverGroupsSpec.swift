@@ -209,7 +209,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState var mockSwarmPoller: MockSwarmPoller! = MockSwarmPoller(
             initialSetup: { cache in
                 cache.when { $0.startIfNeeded() }.thenReturn(())
-                cache.when { $0.receivedPollResponse }.thenReturn(Just([]).eraseToAnyPublisher())
+                cache.when { $0.receivedPollResponse }.thenReturn(.singleValue(value: []))
             }
         )
         @TestState(cache: .groupPollers, in: dependencies) var mockGroupPollersCache: MockGroupPollerCache! = MockGroupPollerCache(

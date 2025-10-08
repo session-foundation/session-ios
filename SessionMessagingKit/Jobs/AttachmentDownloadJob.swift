@@ -119,7 +119,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                         )
                         
                     default:
-                        request = try Network.preparedDownload(
+                        request = try Network.FileServer.preparedDownload(
                             url: downloadUrl,
                             using: dependencies
                         )

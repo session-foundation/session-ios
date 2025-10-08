@@ -36,6 +36,15 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
         }
         
         Task {
+            guard
+                await dependencies[singleton: .currentUserPoller].successfulPollCount
+                    .first(where: { $0 > 0 }) != nil
+            else {
+                Log.info(.cat, "Deferred due to never receiving an initial poll response")
+                return scheduler.schedule {
+                    deferred(job)
+                }
+            }
             
             /// Retrieve the users profile data
             let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
@@ -73,15 +82,14 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
             
             /// Try to extend the TTL of the existing profile pic first
             do {
-                let request: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer.preparedExtend(
+                let request: Network.PreparedRequest<Network.FileServer.ExtendExpirationResponse> = try Network.FileServer.preparedExtend(
                     url: displayPictureUrl,
                     ttl: maxDisplayPictureTTL,
-                    serverPubkey: Network.FileServer.fileServerPublicKey,
                     using: dependencies
                 )
                 
                 // FIXME: Make this async/await when the refactored networking is merged
-                let response: FileUploadResponse = try await request
+                _ = try await request
                     .send(using: dependencies)
                     .values
                     .first(where: { _ in true })?.1 ?? { throw AttachmentError.uploadFailed }()

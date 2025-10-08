@@ -44,7 +44,8 @@ class PendingAttachmentRailItem: Equatable {
         // This will only apply for valid images.
         if
             ImageEditorModel.isFeatureEnabled &&
-            attachment.utType.isImage,
+            attachment.utType.isImage &&
+            attachment.duration == 0,
             case .media(let mediaSource) = attachment.source,
             case .url = mediaSource
         {

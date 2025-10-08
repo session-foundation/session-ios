@@ -247,7 +247,8 @@ public extension AttachmentUploadJob {
         /// uploaded (in this case the attachment has already been uploaded so just succeed)
         if
             attachment.state == .uploaded,
-            Network.FileServer.fileId(for: attachment.downloadUrl) != nil
+            Network.FileServer.fileId(for: attachment.downloadUrl) != nil,
+            !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl)
         {
             return attachment
         }
@@ -259,6 +260,7 @@ public extension AttachmentUploadJob {
         if
             attachment.state == .downloaded,
             Network.FileServer.fileId(for: attachment.downloadUrl) != nil,
+            !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl),
             (
                 !shouldEncrypt ||
                 attachment.encryptionKey != nil
@@ -278,8 +280,7 @@ public extension AttachmentUploadJob {
         )
         let preparedAttachment: PreparedAttachment = try pendingAttachment.prepare(
             transformations: Set([
-                // FIXME: Remove the `legacy` encryption option
-                (shouldEncrypt ? .encrypt(legacy: true, domain: .attachment) : nil)
+                (shouldEncrypt ? .encrypt(domain: .attachment) : nil)
             ].compactMap { $0 }),
             using: dependencies
         )
@@ -311,7 +312,10 @@ public extension AttachmentUploadJob {
                 )
                 
             default:
-                request = try Network.preparedUpload(data: preparedData, using: dependencies)
+                request = try Network.FileServer.preparedUpload(
+                    data: preparedData,
+                    using: dependencies
+                )
         }
         
         // FIXME: Make this async/await when the refactored networking is merged
@@ -341,7 +345,10 @@ public extension AttachmentUploadJob {
                     )
                     
                 default:
-                    return Network.FileServer.downloadUrlString(for: response.id)
+                    return Network.FileServer.downloadUrlString(
+                        for: response.id,
+                        using: dependencies
+                    )
             }
         }()
         
@@ -407,7 +414,8 @@ public extension AttachmentUploadJob {
         /// uploaded (in this case the attachment has already been uploaded so just succeed)
         if
             attachment.state == .uploaded,
-            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl)
+            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
+            !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl)
         {
             return (
                 try Network.PreparedRequest<FileUploadResponse>.cached(
@@ -430,6 +438,7 @@ public extension AttachmentUploadJob {
         if
             attachment.state == .downloaded,
             let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
+            !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl),
             (
                 !shouldEncrypt || (
                     attachment.encryptionKey != nil &&
@@ -458,8 +467,7 @@ public extension AttachmentUploadJob {
         )
         let preparedAttachment: PreparedAttachment = try pendingAttachment.prepare(
             transformations: Set([
-                // FIXME: Remove the `legacy` encryption option
-                (shouldEncrypt ? .encrypt(legacy: true, domain: .attachment) : nil)
+                (shouldEncrypt ? .encrypt(domain: .attachment) : nil)
             ].compactMap { $0 }),
             using: dependencies
         )
@@ -491,7 +499,10 @@ public extension AttachmentUploadJob {
                 
             default:
                 return (
-                    try Network.preparedUpload(data: preparedData, using: dependencies),
+                    try Network.FileServer.preparedUpload(
+                        data: preparedData,
+                        using: dependencies
+                    ),
                     attachment,
                     preparedAttachment
                 )
@@ -522,7 +533,10 @@ public extension AttachmentUploadJob {
                     )
                     
                 default:
-                    return Network.FileServer.downloadUrlString(for: response.id)
+                    return Network.FileServer.downloadUrlString(
+                        for: response.id,
+                        using: dependencies
+                    )
             }
         }()
         

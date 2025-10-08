@@ -23,6 +23,7 @@ public extension Network.SessionNetwork {
                     method: .get,
                     server: Network.SessionNetwork.networkAPIServer,
                     queryParameters: [:],
+                    fragmentParameters: [:],
                     x25519PublicKey: Network.SessionNetwork.networkAPIServerPublicKey
                 )
             ),
@@ -110,6 +111,7 @@ public extension Network.SessionNetwork {
                 method: info.method,
                 server: info.server,
                 queryParameters: info.queryParameters,
+                fragmentParameters: info.fragmentParameters,
                 headers: info.headers.updated(
                     with: try signatureHeaders(
                         url: url,

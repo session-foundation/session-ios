@@ -136,7 +136,7 @@ public class AttachmentPrepViewController: OWSViewController {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(screenTapped))
         mediaMessageView.addGestureRecognizer(tapGesture)
         
-        if attachment.utType.isImage, let editorView: ImageEditorView = imageEditorView {
+        if attachment.utType.isImage && attachment.duration == 0, let editorView: ImageEditorView = imageEditorView {
             view.addSubview(editorView)
             
             imageEditorUpdateNavigationBar()
@@ -200,7 +200,7 @@ public class AttachmentPrepViewController: OWSViewController {
             mediaMessageView.heightAnchor.constraint(equalTo: view.heightAnchor)
         ])
         
-        if attachment.utType.isImage, let editorView: ImageEditorView = imageEditorView {
+        if attachment.utType.isImage && attachment.duration == 0, let editorView: ImageEditorView = imageEditorView {
             let size: CGSize = (attachment.metadata?.pixelSize ?? CGSize.zero)
             let isPortrait: Bool = (size.height > size.width)
             
@@ -269,7 +269,7 @@ public class AttachmentPrepViewController: OWSViewController {
     // MARK: - Helpers
 
     var isZoomable: Bool {
-        return attachment.utType.isImage || attachment.utType.isVideo
+        return attachment.utType.isImage || attachment.utType.isAnimated || attachment.utType.isVideo
     }
 
     func zoomOut(animated: Bool) {

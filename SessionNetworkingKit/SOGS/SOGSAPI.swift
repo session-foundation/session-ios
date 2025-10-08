@@ -1393,6 +1393,7 @@ public extension Network.SOGS {
                         method: info.method,
                         server: info.server,
                         queryParameters: info.queryParameters,
+                        fragmentParameters: info.fragmentParameters,
                         headers: info.headers.updated(with: signatureHeaders),
                         x25519PublicKey: info.x25519PublicKey
                     )
@@ -1404,6 +1405,7 @@ public extension Network.SOGS {
                         method: info.method,
                         server: info.server,
                         queryParameters: info.queryParameters,
+                        fragmentParameters: info.fragmentParameters,
                         headers: info.headers.updated(with: signatureHeaders),
                         x25519PublicKey: info.x25519PublicKey
                     ),
@@ -1416,6 +1418,7 @@ public extension Network.SOGS {
                         method: info.method,
                         server: info.server,
                         queryParameters: info.queryParameters,
+                        fragmentParameters: info.fragmentParameters,
                         headers: info.headers.updated(with: signatureHeaders),
                         x25519PublicKey: info.x25519PublicKey
                     )

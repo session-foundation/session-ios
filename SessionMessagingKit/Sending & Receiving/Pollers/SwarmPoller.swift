@@ -11,7 +11,7 @@ import SessionUtilitiesKit
 public protocol SwarmPollerType {
     typealias PollResponse = [ProcessedMessage]
     
-    var receivedPollResponse: AnyPublisher<PollResponse, Never> { get }
+    nonisolated var receivedPollResponse: AsyncStream<PollResponse> { get }
     
     func startIfNeeded()
     func stop()
@@ -31,9 +31,8 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     public let pollerDestination: PollerDestination
     @ThreadSafeObject public var pollerDrainBehaviour: SwarmDrainBehaviour
     public let logStartAndStopCalls: Bool
-    public var receivedPollResponse: AnyPublisher<PollResponse, Never> {
-        receivedPollResponseSubject.eraseToAnyPublisher()
-    }
+    nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
+    nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
     
     public var isPolling: Bool = false
     public var pollCount: Int = 0
@@ -44,7 +43,8 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     private let namespaces: [Network.SnodeAPI.Namespace]
     private let customAuthMethod: AuthenticationMethod?
     private let shouldStoreMessages: Bool
-    private let receivedPollResponseSubject: PassthroughSubject<PollResponse, Never> = PassthroughSubject()
+    nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
+    nonisolated private let pollCountStream: CurrentValueAsyncStream<Int> = CurrentValueAsyncStream(0)
 
     // MARK: - Initialization
     
@@ -70,6 +70,13 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         self.customAuthMethod = customAuthMethod
         self.shouldStoreMessages = shouldStoreMessages
         self.logStartAndStopCalls = logStartAndStopCalls
+    }
+    
+    deinit {
+        // Send completion events to the observables
+        Task { [stream = responseStream] in
+            await stream.finishCurrentStreams()
+        }
     }
     
     // MARK: - Abstract Methods
@@ -218,8 +225,14 @@ public class SwarmPoller: SwarmPollerType & PollerType {
             }
             .handleEvents(
                 receiveOutput: { [weak self] (pollResult: PollResult) in
+                    let updatedPollCount: Int = ((self?.pollCount ?? 0) + 1)
+                    self?.pollCount = updatedPollCount
+                    
                     /// Notify any observers that we got a result
-                    self?.receivedPollResponseSubject.send(pollResult.response)
+                    Task { [weak self] in
+                        await self?.responseStream.send(pollResult.response)
+                        await self?.pollCountStream.send(updatedPollCount)
+                    }
                 }
             )
             .eraseToAnyPublisher()
@@ -387,8 +400,8 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 }
                 
                 /// Make sure to add any synchronously processed messages to the `finalProcessedMessages` as otherwise
-                /// they wouldn't be emitted by the `receivedPollResponseSubject`, also need to add the count to
-                /// `messageCount` to ensure it's not incorrect
+                /// they wouldn't be emitted by `receivedPollResponse`, also need to add the count to `messageCount` to
+                /// ensure it's not incorrect
                 finalProcessedMessages += processedMessages
                 messageCount += processedMessages.count
                 return nil

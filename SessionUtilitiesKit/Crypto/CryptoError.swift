@@ -4,6 +4,7 @@ import Foundation
 
 public enum CryptoError: Error {
     case invalidSeed
+    case invalidPublicKey
     case keyGenerationFailed
     case randomGenerationFailed
     case signatureGenerationFailed

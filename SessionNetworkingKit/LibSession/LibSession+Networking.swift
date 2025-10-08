@@ -582,9 +582,10 @@ private extension Network.Destination.ServerInfo {
         }
         
         let targetScheme: String = (self.scheme ?? "https")
-        let pathWithParams: String = Network.Destination.generatePathWithParams(
+        let pathWithParams: String = Network.Destination.generatePathWithParamsAndFragments(
             endpoint: endpoint,
-            queryParameters: queryParameters
+            queryParameters: queryParameters,
+            fragmentParameters: fragmentParameters,
         )
         let port: UInt16 = UInt16(self.port ?? (targetScheme == "https" ? 443 : 80))
         let headerKeys: [String] = headers.map { $0.key }
