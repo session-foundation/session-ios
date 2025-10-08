@@ -62,6 +62,7 @@ struct  SessionProPlanPurchaseContent: View {
             .foregroundColor(themeColor: .textSecondary)
             .multilineTextAlignment(.center)
             .padding(.horizontal, Values.smallSpacing)
+            .fixedSize(horizontal: false, vertical: true)
             .onTapGesture { openTosPrivacyAction() }
         }
     }

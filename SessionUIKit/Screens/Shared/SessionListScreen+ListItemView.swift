@@ -218,25 +218,20 @@ struct ListItemDataMatrix: View {
 
 struct ListItemButton: View {
     let title: String
-    let action: (() -> Void)?
     
     var body: some View {
-        Button {
-            action?()
-        } label: {
-            Text(title)
-                .font(.Body.largeRegular)
-                .foregroundColor(themeColor: .sessionButton_primaryFilledText)
-                .framing(
-                    maxWidth: .infinity,
-                    height: 50,
-                    alignment: .center
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 7)
-                        .fill(themeColor: .sessionButton_primaryFilledBackground)
-                )
-                .padding(.vertical, Values.smallSpacing)
-        }
+        Text(title)
+            .font(.Body.largeRegular)
+            .foregroundColor(themeColor: .sessionButton_primaryFilledText)
+            .framing(
+                maxWidth: .infinity,
+                height: 50,
+                alignment: .center
+            )
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(themeColor: .sessionButton_primaryFilledBackground)
+            )
+            .padding(.vertical, Values.smallSpacing)
     }
 }

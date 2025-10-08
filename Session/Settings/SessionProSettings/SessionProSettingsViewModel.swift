@@ -234,10 +234,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     state.currentProPlanState != .none ? nil :
                         SessionListScreenContent.ListItemInfo(
                             id: .continueButton,
-                            variant: .button(
-                                title: "theContinue".localized(),
-                                action: { [weak viewModel] in viewModel?.updateProPlan() }
-                            )
+                            variant: .button(title: "theContinue".localized()),
+                            onTap: { [weak viewModel] in viewModel?.updateProPlan() }
                         )
                 )
             ].compactMap { $0 }

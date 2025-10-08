@@ -89,7 +89,10 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                                 .foregroundColor(themeColor: .backgroundSecondary)
                                         )
                                 case .button(let title):
-                                    ListItemButton(title: title, action: element.onTap)
+                                    ListItemButton(title: title)
+                                        .onTapGesture {
+                                            element.onTap?()
+                                        }
                             }
                         }
                     }

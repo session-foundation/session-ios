@@ -43,8 +43,18 @@ public struct SessionProPaymentScreen: View {
                         }(),
                         description: dataModel.flow.description
                     )
-                    
-                    if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = dataModel.flow {
+                    if case .purchase = dataModel.flow {
+                        SessionProPlanPurchaseContent(
+                            currentSelection: $currentSelection,
+                            isShowingTooltip: $isShowingTooltip,
+                            suppressUntil: $suppressUntil,
+                            currentPlan: nil,
+                            sessionProPlans: dataModel.plans,
+                            actionButtonTitle: "Upgrade",
+                            purchaseAction: { updatePlan() },
+                            openTosPrivacyAction: { openTosPrivacy() }
+                        )
+                    } else if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = dataModel.flow {
                         if originatingPlatform == .iOS {
                             SessionProPlanPurchaseContent(
                                 currentSelection: $currentSelection,

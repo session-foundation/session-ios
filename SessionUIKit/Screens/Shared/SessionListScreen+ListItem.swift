@@ -62,38 +62,7 @@ public extension SessionListScreenContent {
             case cell(info: CellInfo)
             case logoWithPro(style: ListItemLogoWithPro.ThemeStyle, description: ThemedAttributedString?)
             case dataMatrix(info: [[DataMatrixInfo]])
-            case button(title: String, action: (() -> Void)?)
-            
-            public func hash(into hasher: inout Hasher) {
-                switch self {
-                    case .cell(let info):
-                        info.hash(into: &hasher)
-                    case .logoWithPro(let style, let description):
-                        style.hash(into: &hasher)
-                        description?.hash(into: &hasher)
-                    case .dataMatrix(let info):
-                        info.hash(into: &hasher)
-                    case .button(let title, _):
-                        title.hash(into: &hasher)
-                }
-            }
-            
-            public static func == (lhs: Variant, rhs: Variant) -> Bool {
-                switch (lhs, rhs) {
-                    case (.cell(let lhsInfo), .cell(let rhsInfo)):
-                        return lhsInfo == rhsInfo
-                    case (.logoWithPro(let lhsStyle, let lhsDescription), .logoWithPro(let rhsStyle, let rhsDescription)):
-                        return (
-                            lhsStyle == rhsStyle &&
-                            lhsDescription == rhsDescription
-                        )
-                    case (.dataMatrix(let lhsInfo), .dataMatrix(let rhsInfo)):
-                        return lhsInfo == rhsInfo
-                    case (.button(let lhsTitle, _), .button(let rhsTitle, _)):
-                        return lhsTitle == rhsTitle
-                    default: return false
-                }
-            }
+            case button(title: String)
         }
         
         let id: ID
