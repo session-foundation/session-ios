@@ -12,6 +12,7 @@ import Network
 extension Permissions {
     @MainActor @discardableResult public static func requestCameraPermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
+        useCustomDeniedAlert: Bool = false,
         using dependencies: Dependencies,
         onAuthorized: ((Bool) -> Void)? = nil
     ) -> Bool {
@@ -22,8 +23,12 @@ extension Permissions {
             
             case .denied, .restricted:
                 guard
-                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
-                else { return false }
+                    let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController),
+                    useCustomDeniedAlert == false
+                else {
+                    onAuthorized?(false)
+                    return false
+                }
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
@@ -335,6 +340,62 @@ extension Permissions {
                     }
                 }
             )
+        }
+    }
+    
+    // MARK: - Custom camera permission request dialog
+    public static func remindCameraAccessRequirement(using dependencies: Dependencies) {
+        /*
+         Only show when the folliwing conditions are true
+         - Remind me later is tapped when trying to enable camera on calls
+         - Not in background state
+         - Camera permission is not yet allowed
+         */
+        guard
+            dependencies[defaults: .standard, key: .shouldRemindGrantingCameraPermissionForCalls],
+            !dependencies[singleton: .appContext].isInBackground,
+            Permissions.camera == .denied
+        else {
+            return
+        }
+        
+        DispatchQueue.main.async { [dependencies] in
+            guard let controller = dependencies[singleton: .appContext].frontMostViewController else {
+                return
+            }
+            
+            dependencies[defaults: .standard, key: .shouldRemindGrantingCameraPermissionForCalls] = false
+            
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "enableCameraAccess".localized(),
+                    body: .text(
+                        "cameraAccessReminderMessage".localized(),
+                        scrollMode: .never
+                    ),
+                    confirmTitle: "openSettings".localized(),
+                    onConfirm: { _ in UIApplication.shared.openSystemSettings() }
+                )
+            )
+            controller.present(confirmationModal, animated: true, completion: nil)
+        }
+    }
+    
+    public static func showEnableCameraAccessInstructions(using dependencies: Dependencies) {
+        DispatchQueue.main.async {
+            guard let controller = dependencies[singleton: .appContext].frontMostViewController
+            else { return }
+            
+            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "enableCameraAccess".localized(),
+                    body: .text("cameraAccessInstructions"
+                            .localized()),
+                    confirmTitle: "openSettings".localized(),
+                    onConfirm: { _ in UIApplication.shared.openSystemSettings() }
+                )
+            )
+            controller.present(confirmationModal, animated: true, completion: nil)
         }
     }
 }

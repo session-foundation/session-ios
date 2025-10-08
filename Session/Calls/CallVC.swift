@@ -33,6 +33,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     
     var floatingViewVideoSource: FloatingViewVideoSource = .local
     
+    private var willEndToEnableCameraPermission: Bool = false
+    
     // MARK: - UI Components
     
     private lazy var floatingLocalVideoView: LocalVideoView = {
@@ -659,12 +661,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         }
         
         Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
-            DispatchQueue.main.async {
-                self?.dismiss(animated: true, completion: {
-                    self?.conversationVC?.becomeFirstResponder()
-                    self?.conversationVC?.showInputAccessoryView()
-                })
-            }
+            self?.shouldHandleCallDismiss()
         }
     }
     
@@ -687,12 +684,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             }
             
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
-                DispatchQueue.main.async {
-                    self?.dismiss(animated: true, completion: {
-                        self?.conversationVC?.becomeFirstResponder()
-                        self?.conversationVC?.showInputAccessoryView()
-                    })
-                }
+                self?.shouldHandleCallDismiss()
             }
         }
     }
@@ -734,15 +726,55 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             // Added delay of preview due to permission dialog alert dismissal on allow.
             // It causes issue on `VideoPreviewVC` presentation animation,
             // If camera permission is already allowed no animation delay is needed
-            var previewDelay = Permissions.camera == .undetermined ? 0.5 : 0
+            let previewDelay = Permissions.camera == .undetermined ? 0.5 : 0
             
-            Permissions.requestCameraPermissionIfNeeded(presentingViewController: self, using: dependencies) { [weak self] isAuthorized in
-                guard isAuthorized else { return }
+            Permissions.requestCameraPermissionIfNeeded(
+                useCustomDeniedAlert: true,
+                using: dependencies
+            ) { [weak self, dependencies] isAuthorized in
                 
-                DispatchQueue.main.asyncAfter(deadline: .now() + previewDelay) { [weak self] in
-                    let previewVC = VideoPreviewVC()
-                    previewVC.delegate = self
-                    self?.present(previewVC, animated: true, completion: nil)
+                let status = Permissions.camera
+
+                switch (isAuthorized, status) {
+                    case (false, .denied):
+                        guard let presentingViewController: UIViewController = (self?.navigationController ?? dependencies[singleton: .appContext].frontMostViewController)
+                        else { return }
+
+                        DispatchQueue.main.async {
+                            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "cameraAccessRequired".localized(),
+                                    body: .attributedText(
+                                        "cameraAccessDeniedMessage"
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .localizedFormatted(),
+                                        scrollMode: .never
+                                    ),
+                                    confirmTitle: "endCallToEnable".localized(),
+                                    confirmStyle: .danger,
+                                    cancelTitle: "Remind Me Later", // stringlint:ignore
+                                    cancelStyle: .alert_text,
+                                    onConfirm: { _ in
+                                        self?.willEndToEnableCameraPermission = true
+                                        
+                                        self?.endCall()
+                                    },
+                                    onCancel: { modal in
+                                        dependencies[defaults: .standard, key: .shouldRemindGrantingCameraPermissionForCalls] = true
+                                        modal.dismiss(animated: true)
+                                    }
+                                )
+                            )
+                            presentingViewController.present(confirmationModal, animated: true, completion: nil)
+                        }
+                    case (true, _):
+                        DispatchQueue.main.asyncAfter(deadline: .now() + previewDelay) { [weak self] in
+                            let previewVC = VideoPreviewVC()
+                            previewVC.delegate = self
+                            self?.present(previewVC, animated: true, completion: nil)
+                        }
+                        break
+                    default: break
                 }
             }
         }
@@ -871,6 +903,21 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             self.operationPanel.alpha = isHidden ? 1 : 0
             self.responsePanel.alpha = isHidden ? 1 : 0
             self.callDurationLabel.alpha = isHidden ? 1 : 0
+        }
+    }
+    
+    private func shouldHandleCallDismiss() {
+        DispatchQueue.main.async { [weak self, dependencies] in
+            self?.dismiss(animated: true, completion: {
+                self?.conversationVC?.becomeFirstResponder()
+                self?.conversationVC?.showInputAccessoryView()
+                
+                if self?.willEndToEnableCameraPermission == true {
+                    Permissions.showEnableCameraAccessInstructions(using: dependencies)
+                } else {
+                    Permissions.remindCameraAccessRequirement(using: dependencies)
+                }
+            })
         }
     }
     
