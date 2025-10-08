@@ -10,16 +10,6 @@ struct RenewPlanNoBillingAccessContent: View {
 
     var body: some View {
         VStack(spacing: Values.mediumSpacing) {
-            Text(
-                "proPlanRenewStart"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .localized()
-            )
-            .font(.Body.baseRegular)
-            .foregroundColor(themeColor: .textPrimary)
-            .multilineTextAlignment(.center)
-            .padding(.vertical, Values.smallSpacing)
-            
             VStack(
                 alignment: .leading,
                 spacing: Values.mediumSpacing
@@ -96,7 +86,7 @@ struct RenewPlanNoBillingAccessContent: View {
             Button {
                 openPlatformStoreWebsiteAction()
             } label: {
-                Text("viaStoreWebsite".put(key: "platform", value: Constants.platform).localized())
+                Text("openPlatformStoreWebsite".put(key: "platform_store", value: Constants.platform).localized())
                     .font(.Body.largeRegular)
                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                     .framing(

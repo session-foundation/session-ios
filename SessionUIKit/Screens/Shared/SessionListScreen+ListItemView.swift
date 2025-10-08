@@ -2,6 +2,8 @@
 
 import SwiftUI
 
+// MARK: - ListItemCell
+
 struct ListItemCell: View {
     let info: SessionListScreenContent.CellInfo
     let height: CGFloat
@@ -89,6 +91,8 @@ struct ListItemCell: View {
     }
 }
 
+// MARK: - ListItemLogoWithPro
+
 public struct ListItemLogoWithPro: View {
     public enum ThemeStyle {
         case normal
@@ -110,9 +114,11 @@ public struct ListItemLogoWithPro: View {
     }
     
     let style: ThemeStyle
+    let description: ThemedAttributedString?
     
-    public init(style: ThemeStyle = .normal) {
+    public init(style: ThemeStyle = .normal, description: ThemedAttributedString?) {
         self.style = style
+        self.description = description
     }
     
     public var body: some View {
@@ -151,10 +157,20 @@ public struct ListItemLogoWithPro: View {
                 
                 SessionProBadge_SwiftUI(size: .medium, themeBackgroundColor: style.themeColor)
             }
+            
+            if let description {
+                AttributedText(description)
+                    .font(.Body.baseRegular)
+                    .foregroundColor(themeColor: .textPrimary)
+                    .multilineTextAlignment(.center)
+                    .padding(.vertical, Values.largeSpacing)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .center)
     }
 }
+
+// MARK: - ListItemDataMatrix
 
 struct ListItemDataMatrix: View {
     let info: [[SessionListScreenContent.DataMatrixInfo]]
@@ -194,6 +210,33 @@ struct ListItemDataMatrix: View {
             .padding(.horizontal, Values.mediumSpacing)
             .padding(.vertical, Values.smallSpacing)
             .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+// MARK: - ListItemButton
+
+struct ListItemButton: View {
+    let title: String
+    let action: (() -> Void)?
+    
+    var body: some View {
+        Button {
+            action?()
+        } label: {
+            Text(title)
+                .font(.Body.largeRegular)
+                .foregroundColor(themeColor: .sessionButton_primaryFilledText)
+                .framing(
+                    maxWidth: .infinity,
+                    height: 50,
+                    alignment: .center
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(themeColor: .sessionButton_primaryFilledBackground)
+                )
+                .padding(.vertical, Values.smallSpacing)
         }
     }
 }

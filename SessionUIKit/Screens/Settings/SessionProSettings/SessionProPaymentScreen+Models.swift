@@ -21,6 +21,38 @@ public extension SessionProPaymentScreenContent {
         case cancel(
             originatingPlatform: ClientPlatform
         )
+        
+        var description: ThemedAttributedString {
+            switch self {
+            case .purchase:
+                ThemedAttributedString(string: "Choose the plan that’s right for you, longer plans have bigger discounts.")
+            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _):
+                isAutoRenewing ?
+                    "proPlanActivatedAuto"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "current_plan", value: currentPlan.durationString)
+                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(Fonts.Body.baseRegular) :
+                    "proPlanActivatedNotAuto"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(Fonts.Body.baseRegular)
+            case .renew:
+                "proPlanRenewStart"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+            case .refund:
+                "proRefundDescription"
+                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+            case .cancel(let originatingPlatform):
+                "proCancelSorry"
+                    .put(key: "pro", value: Constants.pro)
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+            }
+        }
     }
     
     enum ClientPlatform: Equatable {
@@ -29,29 +61,29 @@ public extension SessionProPaymentScreenContent {
         
         public var store: String {
             switch self {
-                case .iOS: return "Apple App"
-                case .Android: return "Google Play"
+                case .iOS: return Constants.platform_store
+                case .Android: return Constants.android_platform_store
             }
         }
         
         public var account: String {
             switch self {
-                case .iOS: return "Apple Account"
-                case .Android: return "Google Account"
+                case .iOS: return Constants.platform_account
+                case .Android: return Constants.android_platform_account
             }
         }
         
         public var deviceType: String {
             switch self {
-                case .iOS: return "iOS"
-                case .Android: return "Android"
+                case .iOS: return Constants.platform
+                case .Android: return Constants.android_platform
             }
         }
         
         public var name: String {
             switch self {
-                case .iOS: return "Apple"
-                case .Android: return "Google"
+                case .iOS: return Constants.platform_name
+                case .Android: return Constants.android_platform_name
             }
         }
     }

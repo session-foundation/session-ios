@@ -8,6 +8,7 @@ public protocol SessionProManagerType: AnyObject {
     var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> { get }
     var sessionProPlans: [SessionProPlan] { get }
     func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
+    func cancelPro(completion: ((_ result: Bool) -> Void)?)
 }
 
 public enum SessionProPlanState: Equatable, Sendable {

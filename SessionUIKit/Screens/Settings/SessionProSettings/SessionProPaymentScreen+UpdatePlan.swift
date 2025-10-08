@@ -14,23 +14,6 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
 
     var body: some View {
         VStack(spacing: Values.mediumSpacing) {
-            AttributedText(
-                isAutoRenewing ?
-                    "proPlanActivatedAutoShort"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "current_plan", value: currentPlan.durationString)
-                        .put(key: "date", value: currentPlanExpiredOn.formatted("MMM dd, yyyy"))
-                        .localizedFormatted(Fonts.Body.baseRegular) :
-                    "proPlanExpireDate"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "date", value: currentPlanExpiredOn.formatted("MMM dd, yyyy"))
-                        .localizedFormatted(Fonts.Body.baseRegular)
-            )
-            .font(.Body.baseRegular)
-            .foregroundColor(themeColor: .textPrimary)
-            .multilineTextAlignment(.center)
-            .padding(.vertical, Values.smallSpacing)
-            
             VStack(
                 alignment: .leading,
                 spacing: Values.mediumSpacing
@@ -83,11 +66,16 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                     variant: .website
                 )
             }
+            .padding(Values.mediumSpacing)
+            .background(
+                RoundedRectangle(cornerRadius: 11)
+                    .fill(themeColor: .backgroundSecondary)
+            )
 
             Button {
                 openPlatformStoreWebsiteAction()
             } label: {
-                Text("viaStoreWebsite".put(key: "platform", value: originatingPlatform.name).localized())
+                Text("openPlatformStoreWebsite".put(key: "platform_store", value: originatingPlatform.store).localized())
                     .font(.Body.largeRegular)
                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                     .framing(

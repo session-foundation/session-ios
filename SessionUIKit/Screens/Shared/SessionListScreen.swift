@@ -80,14 +80,16 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                             .foregroundColor(themeColor: .borderSeparator)
                                             .padding(.horizontal, Values.mediumSpacing)
                                     }
-                                case .logoWithPro(let style):
-                                    ListItemLogoWithPro(style: style)
+                                case .logoWithPro(let style, let description):
+                                    ListItemLogoWithPro(style: style, description: description)
                                 case .dataMatrix(let info):
                                     ListItemDataMatrix(info: info)
                                         .background(
                                             Rectangle()
                                                 .foregroundColor(themeColor: .backgroundSecondary)
                                         )
+                                case .button(let title):
+                                    ListItemButton(title: title, action: element.onTap)
                             }
                         }
                     }

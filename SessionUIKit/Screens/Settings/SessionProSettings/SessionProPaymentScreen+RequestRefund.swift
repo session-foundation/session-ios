@@ -10,12 +10,6 @@ struct RequestRefundOriginatingPlatformContent: View {
     
     var body: some View {
         VStack(spacing: Values.mediumSmallSpacing) {
-            Text("proRefundDescription".localized())
-                .font(.Body.baseRegular)
-                .foregroundColor(themeColor: .textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.vertical, Values.smallSpacing)
-            
             VStack(
                 alignment: .leading,
                 spacing: Values.verySmallSpacing
@@ -88,12 +82,6 @@ struct RequestRefundSuccessContent: View {
     
     var body: some View {
         VStack(spacing: Values.mediumSmallSpacing) {
-            Text("proRequestedRefund".localized())
-                .font(.Body.baseRegular)
-                .foregroundColor(themeColor: .textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.vertical, Values.smallSpacing)
-            
             VStack(
                 alignment: .leading,
                 spacing: Values.mediumSpacing
@@ -169,12 +157,6 @@ struct RequestRefundNonOriginatingPlatformContent: View {
     
     var body: some View {
         VStack(spacing: Values.mediumSpacing) {
-            Text("proRefundDescription".localized())
-                .font(.Body.baseRegular)
-                .foregroundColor(themeColor: .textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.vertical, Values.smallSpacing)
-            
             VStack(
                 alignment: .leading,
                 spacing: Values.mediumSpacing
@@ -270,8 +252,8 @@ struct RequestRefundNonOriginatingPlatformContent: View {
             } label: {
                 Text(
                     isLessThan48Hours ?
-                        "viaStoreWebsite"
-                            .put(key: "platform", value: originatingPlatform.name)
+                        "openPlatformStoreWebsite"
+                            .put(key: "platform_store", value: originatingPlatform.store)
                             .localized() :
                         "requestRefund"
                             .localized()

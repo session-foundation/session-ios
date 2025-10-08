@@ -83,6 +83,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     
     public enum ListItem: Differentiable {
         case logoWithPro
+        case continueButton
         
         case proStats
         
@@ -219,10 +220,27 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 case .expired: .disabled
                                 default: .normal
                             }
+                        }(),
+                        description: {
+                            switch state.currentProPlanState {
+                                case .none:
+                                    ThemedAttributedString(string: "Want to use Session to its fullest potential? \nUpgrade to Session Pro Beta to gain access to loads exclusive perks and features.")
+                                default: nil
+                            }
                         }()
                     )
+                ),
+                (
+                    state.currentProPlanState != .none ? nil :
+                        SessionListScreenContent.ListItemInfo(
+                            id: .continueButton,
+                            variant: .button(
+                                title: "theContinue".localized(),
+                                action: { [weak viewModel] in viewModel?.updateProPlan() }
+                            )
+                        )
                 )
-            ]
+            ].compactMap { $0 }
         )
         
         let proStats: SectionModel = SectionModel(
@@ -493,7 +511,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         return switch state.currentProPlanState {
             case .none:
-                [ logo, proSettings, proFeatures, help ]
+                [ logo, proFeatures, help ]
             case .active:
                 [ logo, proStats, proSettings, proFeatures, proManagement, help ]
             case .expired:

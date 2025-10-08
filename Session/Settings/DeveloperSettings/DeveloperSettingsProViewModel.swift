@@ -308,10 +308,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         if !state.mockCurrentUserSessionPro {
                             dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
                         } else {
-                            dependencies.set(
-                                feature: .mockCurrentUserSessionPro,
-                                to: false
-                            )
+                            dependencies[singleton: .sessionProState].cancelPro(completion: nil)
                         }
                     }
                 ),

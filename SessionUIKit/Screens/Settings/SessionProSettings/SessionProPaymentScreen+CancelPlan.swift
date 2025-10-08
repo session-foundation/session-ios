@@ -10,17 +10,6 @@ struct CancelPlanOriginatingPlatformContent: View {
     
     var body: some View {
         VStack(spacing: Values.mediumSmallSpacing) {
-            Text(
-                "proCancelSorry"
-                    .put(key: "pro", value: Constants.pro)
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .localized()
-            )
-            .font(.Body.baseRegular)
-            .foregroundColor(themeColor: .textPrimary)
-            .multilineTextAlignment(.center)
-            .padding(.vertical, Values.smallSpacing)
-            
             VStack(
                 alignment: .leading,
                 spacing: 0
@@ -75,17 +64,6 @@ struct CancelPlanNonOriginatingPlatformContent: View {
 
     var body: some View {
         VStack(spacing: Values.mediumSpacing) {
-            Text(
-                "proCancelSorry"
-                    .put(key: "pro", value: Constants.pro)
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .localized()
-            )
-            .font(.Body.baseRegular)
-            .foregroundColor(themeColor: .textPrimary)
-            .multilineTextAlignment(.center)
-            .padding(.vertical, Values.smallSpacing)
-            
             VStack(
                 alignment: .leading,
                 spacing: Values.mediumSpacing
@@ -146,7 +124,7 @@ struct CancelPlanNonOriginatingPlatformContent: View {
             Button {
                 openPlatformStoreWebsiteAction()
             } label: {
-                Text("viaStoreWebsite".put(key: "platform", value: originatingPlatform.name).localized())
+                Text("openPlatformStoreWebsite".put(key: "platform_store", value: originatingPlatform.store).localized())
                     .font(.Body.largeRegular)
                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                     .framing(

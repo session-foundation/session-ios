@@ -10,7 +10,6 @@ struct  SessionProPlanPurchaseContent: View {
     @Binding var isShowingTooltip: Bool
     @Binding var suppressUntil: Date
     
-    let title: ThemedAttributedString
     let currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo?
     let sessionProPlans: [SessionProPaymentScreenContent.SessionProPlanInfo]
     let actionButtonTitle: String
@@ -19,12 +18,6 @@ struct  SessionProPlanPurchaseContent: View {
     
     var body: some View {
         VStack(spacing: Values.mediumSmallSpacing) {
-            AttributedText(title)
-                .font(.Body.baseRegular)
-                .foregroundColor(themeColor: .textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.vertical, Values.smallSpacing)
-            
             ForEach(sessionProPlans.indices, id: \.self) { index in
                 PlanCell(
                     currentSelection: $currentSelection,

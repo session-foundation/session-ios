@@ -78,6 +78,13 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         completion?(true)
     }
     
+    public func cancelPro(completion: ((_ result: Bool) -> Void)?) {
+        dependencies.set(feature: .mockCurrentUserSessionPro, to: false)
+        self.sessionProStateSubject.send(.none)
+        self.shouldAnimateImageSubject.send(false)
+        completion?(true)
+    }
+    
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
