@@ -130,7 +130,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let purchaseStatus: String?
         let purchaseTransactionId: String?
         
-        let mockCurrentUserSessionPro: Bool
+        let mockCurrentUserSessionPro: SessionProStateMock
         let allUsersSessionPro: Bool
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
@@ -144,7 +144,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         public let observedKeys: Set<ObservableKey> = [
             .feature(.sessionProEnabled),
             .updateScreen(DeveloperSettingsProViewModel.self),
-            .feature(.mockCurrentUserSessionPro),
+            .feature(.mockCurrentUserSessionProState),
             .feature(.allUsersSessionPro)
         ]
         
@@ -158,7 +158,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 purchaseStatus: nil,
                 purchaseTransactionId: nil,
                 
-                mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
+                mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
                 allUsersSessionPro: dependencies[feature: .allUsersSessionPro]
             )
         }
@@ -198,7 +198,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             purchaseError: purchaseError,
             purchaseStatus: purchaseStatus,
             purchaseTransactionId: purchaseTransactionId,
-            mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
+            mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
             allUsersSessionPro: dependencies[feature: .allUsersSessionPro]
         )
     }
@@ -300,16 +300,21 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     subtitle: """
                     Mock current user a Session Pro user locally.
                     """,
-                    trailingAccessory: .toggle(
-                        state.mockCurrentUserSessionPro,
-                        oldValue: previousState.mockCurrentUserSessionPro
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        if !state.mockCurrentUserSessionPro {
-                            dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
-                        } else {
-                            dependencies[singleton: .sessionProState].cancelPro(completion: nil)
-                        }
+                    trailingAccessory: .dropDown { state.mockCurrentUserSessionPro.title },
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        viewModel?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: SessionListViewModel<SessionProStateMock>(
+                                    title: "Session Pro State",
+                                    options: SessionProStateMock.allCases,
+                                    behaviour: .autoDismiss(
+                                        initialSelection: state.mockCurrentUserSessionPro,
+                                        onOptionSelected: viewModel?.updateSessionProState
+                                    ),
+                                    using: dependencies
+                                )
+                            )
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -341,7 +346,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public static func disableDeveloperMode(using dependencies: Dependencies) {
         let features: [FeatureConfig<Bool>] = [
             .sessionProEnabled,
-            .mockCurrentUserSessionPro,
             .allUsersSessionPro
         ]
         
@@ -350,17 +354,34 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             
             dependencies.set(feature: feature, to: nil)
         }
+        
+        guard dependencies.hasSet(feature: .mockCurrentUserSessionProState) else { return }
+        dependencies.set(feature: .mockCurrentUserSessionProState, to: nil)
     }
     
     private func updateSessionProEnabled(current: Bool) {
         dependencies.set(feature: .sessionProEnabled, to: !current)
         
-        if dependencies.hasSet(feature: .mockCurrentUserSessionPro) {
-            dependencies.set(feature: .mockCurrentUserSessionPro, to: nil)
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProState) {
+            dependencies.set(feature: .mockCurrentUserSessionProState, to: nil)
         }
         
         if dependencies.hasSet(feature: .allUsersSessionPro) {
             dependencies.set(feature: .allUsersSessionPro, to: nil)
+        }
+    }
+    
+    private func updateSessionProState(to state: SessionProStateMock) {
+        dependencies.set(feature: .mockCurrentUserSessionProState, to: state)
+        switch state {
+            case .none:
+                dependencies[singleton: .sessionProState].cancelPro(completion: nil)
+            case .active:
+                dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+            case .expired:
+                dependencies[singleton: .sessionProState].expirePro(completion: nil)
+            case .refunding:
+                dependencies[singleton: .sessionProState].requestRefund(completion: nil)
         }
     }
     

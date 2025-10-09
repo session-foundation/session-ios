@@ -61,7 +61,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     }
     
     public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) {
-        dependencies.set(feature: .mockCurrentUserSessionPro, to: true)
+        dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
         self.sessionProStateSubject.send(
             SessionProPlanState.active(
                 currentPlan: SessionProPlan(
@@ -79,8 +79,27 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     }
     
     public func cancelPro(completion: ((_ result: Bool) -> Void)?) {
-        dependencies.set(feature: .mockCurrentUserSessionPro, to: false)
+        dependencies.set(feature: .mockCurrentUserSessionProState, to: SessionProStateMock.none)
         self.sessionProStateSubject.send(.none)
+        self.shouldAnimateImageSubject.send(false)
+        completion?(true)
+    }
+    
+    public func requestRefund(completion: ((_ result: Bool) -> Void)?) {
+        dependencies.set(feature: .mockCurrentUserSessionProState, to: .refunding)
+        self.sessionProStateSubject.send(
+            SessionProPlanState.refunding(
+                originatingPlatform: .iOS,
+                requestedAt: Date()
+            )
+        )
+        self.shouldAnimateImageSubject.send(true)
+        completion?(true)
+    }
+    
+    public func expirePro(completion: ((_ result: Bool) -> Void)?) {
+        dependencies.set(feature: .mockCurrentUserSessionProState, to: .expired)
+        self.sessionProStateSubject.send(.expired)
         self.shouldAnimateImageSubject.send(false)
         completion?(true)
     }

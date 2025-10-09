@@ -9,6 +9,8 @@ public protocol SessionProManagerType: AnyObject {
     var sessionProPlans: [SessionProPlan] { get }
     func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
     func cancelPro(completion: ((_ result: Bool) -> Void)?)
+    func requestRefund(completion: ((_ result: Bool) -> Void)?)
+    func expirePro(completion: ((_ result: Bool) -> Void)?)
 }
 
 public enum SessionProPlanState: Equatable, Sendable {
@@ -112,5 +114,28 @@ public enum ClientPlatform: Sendable {
             case .Android: return "Google"
         }
     }
+}
+
+// MARK: - Developer Settings
+
+public enum SessionProStateMock: String, Sendable, Codable, CaseIterable, FeatureOption {
+    case none
+    case active
+    case expired
+    case refunding
+    
+    public static var defaultOption: SessionProStateMock = .none
+    
+    // stringlint:ignore_contents
+    public var title: String {
+        switch self {
+            case .none: return "None"
+            case .active: return "Active"
+            case .expired: return "Expired"
+            case .refunding: return "Refunding"
+        }
+    }
+    
+    public var subtitle: String? { return nil }
 }
 

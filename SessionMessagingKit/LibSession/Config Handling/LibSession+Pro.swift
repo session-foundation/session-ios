@@ -23,7 +23,7 @@ public extension LibSession {
 public extension LibSessionCacheType {
     var isSessionPro: Bool {
         guard dependencies[feature: .sessionProEnabled] else { return false }
-        return dependencies[feature: .mockCurrentUserSessionPro]
+        return [ .active, .refunding ].contains(dependencies[feature: .mockCurrentUserSessionProState])
     }
     
     func validateProProof(for message: Message?) -> Bool {

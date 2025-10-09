@@ -86,8 +86,8 @@ public extension FeatureStorage {
         identifier: "sessionPro"
     )
     
-    static let mockCurrentUserSessionPro: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "mockCurrentUserSessionPro"
+    static let mockCurrentUserSessionProState: FeatureConfig<SessionProStateMock> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProState"
     )
     
     static let allUsersSessionPro: FeatureConfig<Bool> = Dependencies.create(

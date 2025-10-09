@@ -169,7 +169,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 .profile(userSessionId.hexString),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
-                .feature(.mockCurrentUserSessionPro),
+                .feature(.mockCurrentUserSessionProState),
                 .setting(.developerModeEnabled),
                 .setting(.hideRecoveryPasswordPermanently)
                 // TODO: [PRO] Need to observe changes to the users pro status
@@ -264,8 +264,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 
                 forceOffline = updatedValue
             }
-            else if event.key == .feature(.mockCurrentUserSessionPro) {
-                guard let updatedValue: Bool = event.value as? Bool else { return }
+            else if event.key == .feature(.mockCurrentUserSessionProState) {
+                guard let updatedValue: SessionProStateMock = event.value as? SessionProStateMock else { return }
                 
                 sessionProPlanState = dependencies[singleton: .sessionProState].sessionProStateSubject.value
             }
