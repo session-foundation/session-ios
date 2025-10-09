@@ -142,7 +142,21 @@ final class NukeDataModal: Modal {
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "clearDataAll".localized(),
-                body: .text("clearDeviceAndNetworkConfirm".localized()),
+                body: .attributedText(
+                    {
+                        switch dependencies[singleton: .sessionProState].sessionProStateSubject.value {
+                            case .active, .refunding:
+                                "proClearAllDataNetwork"
+                                    .put(key: "app_pro", value: Constants.app_pro)
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localizedFormatted()
+                            default:
+                                "clearDeviceAndNetworkConfirm"
+                                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                        }
+                    }(),
+                    scrollMode: .never
+                ),
                 confirmTitle: "clear".localized(),
                 confirmStyle: .danger,
                 cancelStyle: .alert_text,
@@ -155,18 +169,46 @@ final class NukeDataModal: Modal {
     }
     
     private func clearDeviceOnly() {
-        ModalActivityIndicatorViewController.present(fromViewController: self, canCancel: false) { [weak self, dependencies] _ in
-            ConfigurationSyncJob
-                .run(swarmPublicKey: dependencies[cache: .general].sessionId.hexString, using: dependencies)
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receive(on: DispatchQueue.main)
-                .sinkUntilComplete(
-                    receiveCompletion: { _ in
-                        NukeDataModal.deleteAllLocalData(using: dependencies)
-                        self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+        switch dependencies[singleton: .sessionProState].sessionProStateSubject.value {
+            case .active, .refunding:
+                let confirmationModal: ConfirmationModal = ConfirmationModal(
+                    info: ConfirmationModal.Info(
+                        title: "clearDataAll".localized(),
+                        body: .attributedText(
+                            "proClearAllDataDevice"
+                                .put(key: "app_pro", value: Constants.app_pro)
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(),
+                            scrollMode: .never
+                        ),
+                        confirmTitle: "clear".localized(),
+                        confirmStyle: .danger,
+                        cancelStyle: .alert_text,
+                        dismissOnConfirm: false
+                    ) { [weak self] confirmationModal in
+                        self?.clearLocalAccount(presentedViewController: confirmationModal)
                     }
                 )
+                present(confirmationModal, animated: true, completion: nil)
+            default:
+                self.clearLocalAccount(presentedViewController: self)
         }
+    }
+    
+    private func clearLocalAccount(presentedViewController: UIViewController) {
+        ModalActivityIndicatorViewController
+            .present(fromViewController: presentedViewController, canCancel: false) { [weak self, dependencies] _ in
+                ConfigurationSyncJob
+                    .run(swarmPublicKey: dependencies[cache: .general].sessionId.hexString, using: dependencies)
+                    .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+                    .receive(on: DispatchQueue.main)
+                    .sinkUntilComplete(
+                        receiveCompletion: { _ in
+                            NukeDataModal.deleteAllLocalData(using: dependencies)
+                            self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                        }
+                    )
+            }
     }
     
     private func clearEntireAccount(presentedViewController: UIViewController) {

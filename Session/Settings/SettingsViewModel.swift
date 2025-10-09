@@ -35,7 +35,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         self.dependencies = dependencies
         self.internalState = State.initialState(
             userSessionId: dependencies[cache: .general].sessionId,
-            isSessionPro: dependencies[cache: .libSession].isSessionPro
+            sessionProPlanState: dependencies[singleton: .sessionProState].sessionProStateSubject.value
         )
         
         bindState()
@@ -154,7 +154,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public struct State: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
-        let isSessionPro: Bool
+        let sessionProPlanState: SessionProPlanState
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let developerModeEnabled: Bool
@@ -176,11 +176,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             ]
         }
         
-        static func initialState(userSessionId: SessionId, isSessionPro: Bool) -> State {
+        static func initialState(userSessionId: SessionId, sessionProPlanState: SessionProPlanState) -> State {
             return State(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
-                isSessionPro: isSessionPro,
+                sessionProPlanState: sessionProPlanState,
                 serviceNetwork: .mainnet,
                 forceOffline: false,
                 developerModeEnabled: false,
@@ -214,7 +214,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     ) async -> State {
         /// Store mutable copies of the data to update
         var profile: Profile = previousState.profile
-        var isSessionPro: Bool = previousState.isSessionPro
+        var sessionProPlanState: SessionProPlanState = previousState.sessionProPlanState
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
         var developerModeEnabled: Bool = previousState.developerModeEnabled
@@ -267,7 +267,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             else if event.key == .feature(.mockCurrentUserSessionPro) {
                 guard let updatedValue: Bool = event.value as? Bool else { return }
                 
-                isSessionPro = updatedValue
+                sessionProPlanState = dependencies[singleton: .sessionProState].sessionProStateSubject.value
             }
         }
         
@@ -275,7 +275,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return State(
             userSessionId: previousState.userSessionId,
             profile: profile,
-            isSessionPro: isSessionPro,
+            sessionProPlanState: sessionProPlanState,
             serviceNetwork: serviceNetwork,
             forceOffline: forceOffline,
             developerModeEnabled: developerModeEnabled,
@@ -320,10 +320,28 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         state.profile.displayName(),
                         font: .titleLarge,
                         alignment: .center,
-                        trailingImage: (state.isSessionPro ?
-                            ("ProBadge", { SessionProBadge(size: .medium).toImage(using: viewModel.dependencies) }) :
-                            nil
-                        )
+                        trailingImage: {
+                            switch state.sessionProPlanState {
+                            case .none:
+                                return nil
+                            case .active, .refunding:
+                                return (
+                                    "ProBadge",
+                                    {
+                                        SessionProBadge(size: .medium)
+                                            .toImage(using: viewModel.dependencies)
+                                    }
+                                )
+                            case .expired:
+                                return (
+                                    "ProBadge",
+                                    {
+                                        SessionProBadge(size: .medium, themeBackgroundColor: .disabled)
+                                            .toImage(using: viewModel.dependencies)
+                                    }
+                                )
+                            }
+                        }()
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
@@ -405,7 +423,22 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 SessionCell.Info(
                     id: .sessionPro,
                     leadingAccessory: .proBadge(size: .small),
-                    title: Constants.app_pro,
+                    title: {
+                        switch state.sessionProPlanState {
+                            case .none:
+                                return "upgradeSession"
+                                    .put(key: "app_name", value: Constants.app_name)
+                                    .localized()
+                            case .active, .refunding:
+                                return "sessionProBeta"
+                                    .put(key: "app_pro", value: Constants.app_pro)
+                                    .localized()
+                            case .expired:
+                                return "proRenewBeta"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized()
+                        }
+                    }(),
                     styling: SessionCell.StyleInfo(
                         tintColor: .primary
                     ),
