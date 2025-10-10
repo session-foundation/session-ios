@@ -117,6 +117,12 @@ public class Dependencies {
     
     // MARK: - Instance management
     
+    public func has<S>(singleton: SingletonConfig<S>) -> Bool {
+        let key: DependencyStorage.Key = DependencyStorage.Key.Variant.singleton.key(singleton.identifier)
+        
+        return (_storage.performMap({ $0.instances[key]?.value(as: S.self) }) != nil)
+    }
+    
     public func warmCache<M, I>(cache: CacheConfig<M, I>) {
         _ = getOrCreate(cache)
     }

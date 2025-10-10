@@ -127,6 +127,9 @@ public class ScreenLockWindow {
         }
     }
     
+    /// Checks if app has been unlocked
+    public func checkIfScreenIsUnlocked() -> Bool { !isScreenLockLocked }
+    
     // MARK: - Functions
 
     private func determineDesiredUIState() -> ScreenLockViewController.State {
