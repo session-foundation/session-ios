@@ -21,6 +21,7 @@ public enum AttachmentError: Error, CustomStringConvertible {
     case fileSizeTooLarge
     case invalidData
     case couldNotParseImage
+    case couldNotConvert
     case couldNotConvertToJpeg
     case couldNotConvertToMpeg4
     case couldNotConvertToWebP
@@ -33,6 +34,8 @@ public enum AttachmentError: Error, CustomStringConvertible {
     case alreadyDownloaded(String?)
     case downloadNoLongerValid
     case databaseChangesFailed
+    case conversionTimeout
+    case conversionResultedInLargerFile
     
     case invalidMediaSource
     case invalidDimensions
@@ -57,6 +60,8 @@ public enum AttachmentError: Error, CustomStringConvertible {
             case .alreadyDownloaded: return "File already downloaded."
             case .downloadNoLongerValid: return "Download is no longer valid."
             case .databaseChangesFailed: return "Database changes failed."
+            case .conversionTimeout: return "Conversion timed out."
+            case .conversionResultedInLargerFile: return "Conversion resulted in a larger file."
             
             case .invalidMediaSource: return "Invalid media source."
             case .invalidDimensions: return "Invalid dimensions."
@@ -66,7 +71,7 @@ public enum AttachmentError: Error, CustomStringConvertible {
             case .invalidData, .missingData, .invalidFileFormat, .invalidImageData:
                 return "attachmentsErrorNotSupported".localized()
                 
-            case .couldNotConvertToJpeg, .couldNotParseImage, .couldNotConvertToMpeg4,
+            case .couldNotConvert, .couldNotConvertToJpeg, .couldNotParseImage, .couldNotConvertToMpeg4,
                 .couldNotConvertToWebP, .couldNotResizeImage:
                 return "attachmentsErrorOpen".localized()
                 

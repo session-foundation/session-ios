@@ -12,7 +12,7 @@ import Nimble
 @testable import SessionMessagingKit
 @testable import SessionNetworkingKit
 
-class MessageSenderGroupsSpec: QuickSpec {
+class MessageSenderGroupsSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -65,7 +65,15 @@ class MessageSenderGroupsSpec: QuickSpec {
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
                     .thenReturn(Network.BatchResponse.mockConfigSyncResponse)
                 network
                     .when { $0.getSwarm(for: .any) }
@@ -107,6 +115,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                         )
                     )
                 crypto
+                    .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                    .thenReturn(Array(Data(hex: TestConstants.serverPublicKey)))
+                crypto
                     .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                     .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
                 crypto
@@ -125,7 +136,7 @@ class MessageSenderGroupsSpec: QuickSpec {
                     .when { $0.generate(.uuid()) }
                     .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
                 crypto
-                    .when { $0.generate(.encryptedDataDisplayPicture(data: .any, key: .any)) }
+                    .when { $0.generate(.legacyEncryptedDisplayPicture(data: .any, key: .any)) }
                     .thenReturn(TestConstants.validImageData)
                 crypto
                     .when { $0.generate(.ciphertextForGroupMessage(groupSessionId: .any, message: .any)) }
@@ -250,17 +261,16 @@ class MessageSenderGroupsSpec: QuickSpec {
                 
                 // MARK: ---- loads the state into the cache
                 it("loads the state into the cache") {
-                    MessageSender
-                        .createGroup(
-                            name: "TestGroupName",
-                            description: nil,
-                            displayPictureData: nil,
-                            members: [
-                                ("051111111111111111111111111111111111111111111111111111111111111111", nil)
-                            ],
-                            using: dependencies
-                        )
-                        .sinkAndStore(in: &disposables)
+                    _ = try? await MessageSender.createGroup(
+                        name: "TestGroupName",
+                        description: nil,
+                        displayPicture: nil,
+                        displayPictureCropRect: nil,
+                        members: [
+                            ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                        ],
+                        using: dependencies
+                    )
                     
                     expect(mockLibSessionCache)
                         .to(call(.exactly(times: 1), matchingParameters: .atLeast(2)) { cache in
@@ -278,21 +288,19 @@ class MessageSenderGroupsSpec: QuickSpec {
                 
                 // MARK: ---- returns the created thread
                 it("returns the created thread") {
-                    MessageSender
-                        .createGroup(
+                    let thread: SessionThread? = await expect {
+                        try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPictureData: nil,
+                            displayPicture: nil,
+                            displayPictureCropRect: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
                             using: dependencies
                         )
-                        .handleEvents(receiveOutput: { result in thread = result })
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
+                    }.toEventuallyNot(throwError()).retrieveValue()
                     
-                    expect(error).to(beNil())
                     expect(thread).toNot(beNil())
                     expect(thread?.id).to(equal(groupId.hexString))
                     expect(thread?.variant).to(equal(.group))
@@ -305,18 +313,18 @@ class MessageSenderGroupsSpec: QuickSpec {
                 
                 // MARK: ---- stores the thread in the db
                 it("stores the thread in the db") {
-                    MessageSender
-                        .createGroup(
+                    await expect {
+                        try await MessageSender.createGroup(
                             name: "Test",
                             description: nil,
-                            displayPictureData: nil,
+                            displayPicture: nil,
+                            displayPictureCropRect: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
                             using: dependencies
                         )
-                        .handleEvents(receiveOutput: { result in thread = result })
-                        .sinkAndStore(in: &disposables)
+                    }.toEventuallyNot(throwError())
                     
                     let dbValue: SessionThread? = mockStorage.read { db in try SessionThread.fetchOne(db) }
                     expect(dbValue).to(equal(thread))
@@ -332,17 +340,18 @@ class MessageSenderGroupsSpec: QuickSpec {
                 
                 // MARK: ---- stores the group in the db
                 it("stores the group in the db") {
-                    MessageSender
-                        .createGroup(
+                    await expect {
+                        try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPictureData: nil,
+                            displayPicture: nil,
+                            displayPictureCropRect: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
                             using: dependencies
                         )
-                        .sinkAndStore(in: &disposables)
+                    }.toEventuallyNot(throwError())
                     
                     let dbValue: ClosedGroup? = mockStorage.read { db in try ClosedGroup.fetchOne(db) }
                     expect(dbValue?.id).to(equal(groupId.hexString))
@@ -357,17 +366,18 @@ class MessageSenderGroupsSpec: QuickSpec {
                 
                 // MARK: ---- stores the group members in the db
                 it("stores the group members in the db") {
-                    MessageSender
-                        .createGroup(
+                    await expect {
+                        try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPictureData: nil,
+                            displayPicture: nil,
+                            displayPictureCropRect: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
                             using: dependencies
                         )
-                        .sinkAndStore(in: &disposables)
+                    }.toEventuallyNot(throwError())
                     
                     expect(mockStorage.read { db in try GroupMember.fetchSet(db) })
                         .to(equal([
@@ -390,17 +400,18 @@ class MessageSenderGroupsSpec: QuickSpec {
                 
                 // MARK: ---- starts the group poller
                 it("starts the group poller") {
-                    MessageSender
-                        .createGroup(
+                    await expect {
+                        try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPictureData: nil,
+                            displayPicture: nil,
+                            displayPictureCropRect: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
                             using: dependencies
                         )
-                        .sinkAndStore(in: &disposables)
+                    }.toEventuallyNot(throwError())
                     
                     expect(mockSwarmPoller)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { poller in
@@ -477,23 +488,25 @@ class MessageSenderGroupsSpec: QuickSpec {
                         return preparedRequest
                     }!
                     
-                    MessageSender
-                        .createGroup(
+                    await expect {
+                        try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPictureData: nil,
+                            displayPicture: nil,
+                            displayPictureCropRect: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
                             using: dependencies
                         )
-                        .sinkAndStore(in: &disposables)
+                    }.toEventuallyNot(throwError())
                     
                     expect(mockNetwork)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                             network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
+                                endpoint: Network.SnodeAPI.Endpoint.sequence,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
                                 requestTimeout: expectedRequest.requestTimeout,
                                 requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                             )
@@ -504,42 +517,48 @@ class MessageSenderGroupsSpec: QuickSpec {
                 context("and the group configuration sync fails") {
                     beforeEach {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(MockNetwork.errorResponse())
                     }
                     
                     // MARK: ------ throws an error
                     it("throws an error") {
-                        MessageSender
-                            .createGroup(
+                        await expect {
+                            try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
-                                displayPictureData: nil,
+                                displayPicture: nil,
+                                displayPictureCropRect: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],
                                 using: dependencies
                             )
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(error).to(matchError(TestError.mock))
+                        }.toEventually(throwError(TestError.mock))
                     }
                     
                     // MARK: ------ removes the config state
                     it("removes the config state") {
-                        MessageSender
-                            .createGroup(
+                        await expect {
+                            try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
-                                displayPictureData: nil,
+                                displayPicture: nil,
+                                displayPictureCropRect: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],
                                 using: dependencies
                             )
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
+                        }.toEventually(throwError(TestError.mock))
                         
                         expect(mockLibSessionCache)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { cache in
@@ -549,18 +568,18 @@ class MessageSenderGroupsSpec: QuickSpec {
                     
                     // MARK: ------ removes the data from the database
                     it("removes the data from the database") {
-                        MessageSender
-                            .createGroup(
+                        await expect {
+                            try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
-                                displayPictureData: nil,
+                                displayPicture: nil,
+                                displayPictureCropRect: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],
                                 using: dependencies
                             )
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
+                        }.toEventually(throwError(TestError.mock))
                         
                         let threads: [SessionThread]? = mockStorage.read { db in try SessionThread.fetchAll(db) }
                         let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
@@ -577,27 +596,28 @@ class MessageSenderGroupsSpec: QuickSpec {
                     // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
                     mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                     
-                    MessageSender
-                        .createGroup(
+                    await expect {
+                        try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
-                            displayPictureData: nil,
+                            displayPicture: nil,
+                            displayPictureCropRect: nil,
                             members: [
                                 ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                             ],
                             using: dependencies
                         )
-                        .mapError { error.setting(to: $0) }
-                        .sinkAndStore(in: &disposables)
+                    }.toEventually(throwError(TestError.mock))
                     
-                    let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network
+                    let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer
                         .preparedUpload(data: TestConstants.validImageData, using: dependencies)
                     
                     expect(mockNetwork)
                         .toNot(call { network in
                             network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
+                                endpoint: Network.FileServer.Endpoint.file,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
                                 requestTimeout: expectedRequest.requestTimeout,
                                 requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                             )
@@ -609,23 +629,31 @@ class MessageSenderGroupsSpec: QuickSpec {
                     // MARK: ------ uploads the image
                     it("uploads the image") {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
                         
-                        MessageSender
-                            .createGroup(
+                        await expect {
+                            try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
-                                displayPictureData: TestConstants.validImageData,
+                                displayPicture: .data("Test", TestConstants.validImageData),
+                                displayPictureCropRect: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],
                                 using: dependencies
                             )
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
+                        }.toEventuallyNot(throwError())
                         
-                        let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network
+                        let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer
                             .preparedUpload(
                                 data: TestConstants.validImageData,
                                 requestAndPathBuildTimeout: Network.fileUploadTimeout,
@@ -635,8 +663,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                         expect(mockNetwork)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                                 network.send(
-                                    expectedRequest.body,
-                                    to: expectedRequest.destination,
+                                    endpoint: Network.FileServer.Endpoint.file,
+                                    destination: expectedRequest.destination,
+                                    body: expectedRequest.body,
                                     requestTimeout: expectedRequest.requestTimeout,
                                     requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                                 )
@@ -648,21 +677,29 @@ class MessageSenderGroupsSpec: QuickSpec {
                         // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
                         mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
                         
-                        MessageSender
-                            .createGroup(
+                        await expect {
+                            try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
-                                displayPictureData: TestConstants.validImageData,
+                                displayPicture: .data("Test", TestConstants.validImageData),
+                                displayPictureCropRect: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],
                                 using: dependencies
                             )
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
+                        }.toEventuallyNot(throwError())
                         
                         let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                         
@@ -674,39 +711,44 @@ class MessageSenderGroupsSpec: QuickSpec {
                     // MARK: ------ fails if the image fails to upload
                     it("fails if the image fails to upload") {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(Fail(error: NetworkError.unknown).eraseToAnyPublisher())
                         
-                        MessageSender
-                            .createGroup(
+                        await expect {
+                            try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
-                                displayPictureData: TestConstants.validImageData,
+                                displayPicture: .data("Test", TestConstants.validImageData),
+                                displayPictureCropRect: nil,
                                 members: [
                                     ("051111111111111111111111111111111111111111111111111111111111111111", nil)
                                 ],
                                 using: dependencies
                             )
-                            .mapError { error.setting(to: $0) }
-                            .sinkAndStore(in: &disposables)
-                        
-                        expect(error).to(matchError(AttachmentError.uploadFailed))
+                        }.toEventually(throwError(AttachmentError.uploadFailed))
                     }
                 }
                 
                 // MARK: ---- schedules member invite jobs
                 it("schedules member invite jobs") {
-                    MessageSender
-                        .createGroup(
-                            name: "TestGroupName",
-                            description: nil,
-                            displayPictureData: nil,
-                            members: [
-                                ("051111111111111111111111111111111111111111111111111111111111111111", nil)
-                            ],
-                            using: dependencies
-                        )
-                        .sinkAndStore(in: &disposables)
+                    _ = try? await MessageSender.createGroup(
+                        name: "TestGroupName",
+                        description: nil,
+                        displayPicture: nil,
+                        displayPictureCropRect: nil,
+                        members: [
+                            ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                        ],
+                        using: dependencies
+                    )
                     
                     expect(mockJobRunner)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { jobRunner in
@@ -791,23 +833,23 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
                         
-                        MessageSender
-                            .createGroup(
-                                name: "TestGroupName",
-                                description: nil,
-                                displayPictureData: nil,
-                                members: [
-                                    ("051111111111111111111111111111111111111111111111111111111111111111", nil)
-                                ],
-                                using: dependencies
-                            )
-                            .sinkAndStore(in: &disposables)
+                        _ = try? await MessageSender.createGroup(
+                            name: "TestGroupName",
+                            description: nil,
+                            displayPicture: nil,
+                            displayPictureCropRect: nil,
+                            members: [
+                                ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                            ],
+                            using: dependencies
+                        )
                         
                         expect(mockNetwork)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                                 network.send(
-                                    expectedRequest.body,
-                                    to: expectedRequest.destination,
+                                    endpoint: Network.PushNotification.Endpoint.subscribe,
+                                    destination: expectedRequest.destination,
+                                    body: expectedRequest.body,
                                     requestTimeout: expectedRequest.requestTimeout,
                                     requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                                 )
@@ -825,22 +867,22 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(false)
                         
-                        MessageSender
-                            .createGroup(
-                                name: "TestGroupName",
-                                description: nil,
-                                displayPictureData: nil,
-                                members: [
-                                    ("051111111111111111111111111111111111111111111111111111111111111111", nil)
-                                ],
-                                using: dependencies
-                            )
-                            .sinkAndStore(in: &disposables)
+                        _ = try? await MessageSender.createGroup(
+                            name: "TestGroupName",
+                            description: nil,
+                            displayPicture: nil,
+                            displayPictureCropRect: nil,
+                            members: [
+                                ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                            ],
+                            using: dependencies
+                        )
                         
                         expect(mockNetwork).toNot(call { network in
                             network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
+                                endpoint: Network.PushNotification.Endpoint.subscribe,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
                                 requestTimeout: expectedRequest.requestTimeout,
                                 requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                             )
@@ -858,22 +900,22 @@ class MessageSenderGroupsSpec: QuickSpec {
                             .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                             .thenReturn(true)
                         
-                        MessageSender
-                            .createGroup(
-                                name: "TestGroupName",
-                                description: nil,
-                                displayPictureData: nil,
-                                members: [
-                                    ("051111111111111111111111111111111111111111111111111111111111111111", nil)
-                                ],
-                                using: dependencies
-                            )
-                            .sinkAndStore(in: &disposables)
+                        _ = try? await MessageSender.createGroup(
+                            name: "TestGroupName",
+                            description: nil,
+                            displayPicture: nil,
+                            displayPictureCropRect: nil,
+                            members: [
+                                ("051111111111111111111111111111111111111111111111111111111111111111", nil)
+                            ],
+                            using: dependencies
+                        )
                         
                         expect(mockNetwork).toNot(call { network in
                             network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
+                                endpoint: Network.PushNotification.Endpoint.subscribe,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
                                 requestTimeout: expectedRequest.requestTimeout,
                                 requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                             )
@@ -886,7 +928,15 @@ class MessageSenderGroupsSpec: QuickSpec {
             context("when adding members to a group") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                requestTimeout: .any,
+                                requestAndPathBuildTimeout: .any
+                            )
+                        }
                         .thenReturn(Network.BatchResponse.mockAddMemberConfigSyncResponse)
                     
                     // Rekey a couple of times to increase the key generation to 1
@@ -994,7 +1044,15 @@ class MessageSenderGroupsSpec: QuickSpec {
                 context("and granting access to historic messages") {
                     beforeEach {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(Network.BatchResponse.mockAddMemberHistoricConfigSyncResponse)
                     }
                     
@@ -1093,8 +1151,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                         expect(mockNetwork)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                                 network.send(
-                                    expectedRequest.body,
-                                    to: expectedRequest.destination,
+                                    endpoint: Network.SnodeAPI.Endpoint.sequence,
+                                    destination: expectedRequest.destination,
+                                    body: expectedRequest.body,
                                     requestTimeout: expectedRequest.requestTimeout,
                                     requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                                 )
@@ -1206,7 +1265,15 @@ class MessageSenderGroupsSpec: QuickSpec {
                 context("and not granting access to historic messages") {
                     beforeEach {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(Network.BatchResponse.mockAddMemberConfigSyncResponse)
                     }
                     
@@ -1286,8 +1353,9 @@ class MessageSenderGroupsSpec: QuickSpec {
                     expect(mockNetwork)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                             network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
+                                endpoint: Network.SnodeAPI.Endpoint.sequence,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
                                 requestTimeout: expectedRequest.requestTimeout,
                                 requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                             )

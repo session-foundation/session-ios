@@ -215,7 +215,7 @@ class PhotoCollectionContents {
         options.isNetworkAccessAllowed = true
         options.deliveryMode = .highQualityFormat
         
-        return try await withCheckedThrowingContinuation { [imageManager] continuation in
+        let pendingAttachment: PendingAttachment = try await withCheckedThrowingContinuation { [imageManager] continuation in
             imageManager.requestImageDataAndOrientation(for: asset, options: options) { imageData, dataUTI, orientation, info in
                 if let error: Error = info?[PHImageErrorKey] as? Error {
                     return continuation.resume(throwing: error)
@@ -252,6 +252,36 @@ class PhotoCollectionContents {
                 )
             }
         }
+        
+        /// Apple likes to use special formats for media so in order to maintain compatibility with other clients we want to
+        /// convert the selected image into a `WebP` if it's not one of the supported output types
+        guard UTType.supportedOutputImageTypes.contains(pendingAttachment.utType) else {
+            /// Since we need to convert the file we should clean up the temporary one we created earlier (the conversion will create
+            /// a new one)
+            defer {
+                switch pendingAttachment.source {
+                    case .file(let url), .media(.url(let url)):
+                        if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(url.path) {
+                            try? dependencies[singleton: .fileManager].removeItem(atPath: url.path)
+                        }
+                    default: break
+                }
+            }
+            
+            let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                operations: [.convert(to: .webPLossy)],
+                using: dependencies
+            )
+            
+            return PendingAttachment(
+                source: .media(.url(URL(fileURLWithPath: preparedAttachment.filePath))),
+                utType: .webP,
+                sourceFilename: pendingAttachment.sourceFilename,
+                using: dependencies
+            )
+        }
+        
+        return pendingAttachment
     }
 
     private func requestVideoDataSource(
@@ -277,51 +307,38 @@ class PhotoCollectionContents {
                 }
                 
                 let compatiblePresets = AVAssetExportSession.exportPresets(compatibleWith: avAsset)
-                var bestExportPreset: String
+                let bestExportPreset: String = (compatiblePresets.contains(AVAssetExportPresetPassthrough) ?
+                    AVAssetExportPresetPassthrough :
+                    AVAssetExportPresetHighestQuality
+                )
+                let exportPath: String = dependencies[singleton: .fileManager].temporaryFilePath()
                 
-                if compatiblePresets.contains(AVAssetExportPresetPassthrough) {
-                    bestExportPreset = AVAssetExportPresetPassthrough
-                    Log.debug("[PhotoLibrary] Using Passthrough export preset.")
-                } else {
-                    bestExportPreset = AVAssetExportPresetHighestQuality
-                    Log.debug("[PhotoLibrary] Passthrough not available. Falling back to HighestQuality export preset.")
-                }
-                
-                /// Apple likes to use special formats for media so in order to maintain compatibility with other clients we want to
-                /// convert the selected video into an `mp4`
-                guard let exportSession: AVAssetExportSession = AVAssetExportSession(asset: avAsset, presetName: bestExportPreset) else {
-                    return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "exportSession was unexpectedly nil"))
-                }
-                
-                exportSession.outputFileType = AVFileType.mp4
-                exportSession.metadataItemFilter = AVMetadataItemFilter.forSharing()
-                
-                let exportPath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: "mp4") // stringlint:ignore
-                let exportURL = URL(fileURLWithPath: exportPath)
-                exportSession.outputURL = exportURL
-                
-                Log.debug("[PhotoLibrary] Starting video export")
-                exportSession.exportAsynchronously { [weak exportSession] in
-                    Log.debug("[PhotoLibrary] Completed video export")
-                    
-                    guard exportSession?.status == .completed else {
-                        return continuation.resume(throwing: PhotoLibraryError.assertionError(description: "Failed to build data source for exported video URL"))
-                    }
-                    
-                    continuation.resume(
-                        returning: PendingAttachment(
-                            source: .media(
-                                .videoUrl(
-                                    exportURL,
-                                    .mpeg4Movie,
-                                    nil,
-                                    dependencies[singleton: .attachmentManager]
-                                )
-                            ),
-                            utType: .mpeg4Movie,
-                            using: dependencies
+                Task {
+                    do {
+                        /// Apple likes to use special formats for media so in order to maintain compatibility with other clients we want to
+                        /// convert the selected video into an `mp4`
+                        try await PendingAttachment.convertToMpeg4(
+                            asset: avAsset,
+                            presetName: bestExportPreset,
+                            filePath: exportPath
                         )
-                    )
+                        
+                        continuation.resume(
+                            returning: PendingAttachment(
+                                source: .media(
+                                    .videoUrl(
+                                        URL(fileURLWithPath: exportPath),
+                                        .mpeg4Movie,
+                                        nil,
+                                        dependencies[singleton: .attachmentManager]
+                                    )
+                                ),
+                                utType: .mpeg4Movie,
+                                using: dependencies
+                            )
+                        )
+                    }
+                    catch { continuation.resume(throwing: error) }
                 }
             }
         }

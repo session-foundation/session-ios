@@ -58,7 +58,15 @@ class CommunityPollerSpec: AsyncSpec {
             initialSetup: { network in
                 // Delay for 10 seconds because we don't want the Poller to get stuck in a recursive loop
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
                     .thenReturn(
                         MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil))
                             .delay(for: .seconds(10), scheduler: DispatchQueue.main)

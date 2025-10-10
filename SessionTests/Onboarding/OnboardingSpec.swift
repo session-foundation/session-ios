@@ -117,7 +117,15 @@ class OnboardingSpec: AsyncSpec {
                 )
                 
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
                     .thenReturn(MockNetwork.batchResponseData(
                         with: [
                             (
@@ -484,8 +492,8 @@ class OnboardingSpec: AsyncSpec {
                 await expect(mockNetwork)
                     .toEventually(call(.exactly(times: 1), matchingParameters: .atLeast(3)) {
                         $0.send(
-                            Data(base64Encoded: base64EncodedDataString),
-                            to: Network.Destination.snode(
+                            endpoint: Network.SnodeAPI.Endpoint.batch,
+                            destination: Network.Destination.snode(
                                 LibSession.Snode(
                                     ip: "1.2.3.4",
                                     quicPort: 1234,
@@ -493,6 +501,7 @@ class OnboardingSpec: AsyncSpec {
                                 ),
                                 swarmPublicKey: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"
                             ),
+                            body: Data(base64Encoded: base64EncodedDataString),
                             requestTimeout: 10,
                             requestAndPathBuildTimeout: nil
                         )

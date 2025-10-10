@@ -206,7 +206,7 @@ extension ConversationVC:
 
     // MARK: - Blocking
     
-    @discardableResult func showBlockedModalIfNeeded() -> Bool {
+    @MainActor @discardableResult func showBlockedModalIfNeeded() -> Bool {
         guard
             self.viewModel.threadData.threadVariant == .contact &&
             self.viewModel.threadData.threadIsBlocked == true
@@ -426,7 +426,63 @@ extension ConversationVC:
                     UTType.supportedVideoTypes.contains(pendingAttachment.utType) &&
                     !UTType.supportedOutputVideoTypes.contains(pendingAttachment.utType)
                 {
-                    self?.showAttachmentApprovalDialogAfterProcessingVideo(pendingAttachment)
+                    let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(
+                        canCancel: true
+                    )
+                    self?.present(indicator, animated: false)
+                    
+                    Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies] in
+                        do {
+                            let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                                operations: [.convert(to: .mp4)],
+                                using: dependencies
+                            )
+                            guard await !indicator.wasCancelled else { return }
+                            
+                            let convertedAttachment: PendingAttachment = PendingAttachment(
+                                source: .media(
+                                    .videoUrl(
+                                        URL(fileURLWithPath: preparedAttachment.filePath),
+                                        .mpeg4Movie,
+                                        pendingAttachment.sourceFilename,
+                                        dependencies[singleton: .attachmentManager]
+                                    )
+                                ),
+                                utType: .mpeg4Movie,
+                                sourceFilename: pendingAttachment.sourceFilename,
+                                using: dependencies
+                            )
+                            try convertedAttachment.ensureExpectedEncryptedSize(
+                                domain: .attachment,
+                                maxFileSize: Network.maxFileSize,
+                                using: dependencies
+                            )
+                            
+                            await indicator.dismiss {
+                                self?.showAttachmentApprovalDialog(for: [ convertedAttachment ])
+                            }
+                        }
+                        catch {
+                            await indicator.dismiss {
+                                self?.showErrorAlert(for: error)
+                            }
+                        }
+                    }
+                    return
+                }
+                
+                /// Validate the expected attachment size before proceeding
+                do {
+                    try pendingAttachment.ensureExpectedEncryptedSize(
+                        domain: .attachment,
+                        maxFileSize: Network.maxFileSize,
+                        using: dependencies
+                    )
+                }
+                catch {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.showErrorAlert(for: error)
+                    }
                     return
                 }
                 
@@ -501,31 +557,6 @@ extension ConversationVC:
         navController.modalPresentationStyle = .fullScreen
         
         present(navController, animated: true, completion: nil)
-    }
-
-    func showAttachmentApprovalDialogAfterProcessingVideo(_ pendingAttachment: PendingAttachment) {
-        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(
-            canCancel: true
-        )
-        present(indicator, animated: false)
-        
-        Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies = viewModel.dependencies] in
-            do {
-                let convertedAttachment: PendingAttachment = try await pendingAttachment.toMp4Video(
-                    using: dependencies
-                )
-                guard await !indicator.wasCancelled else { return }
-                
-                await indicator.dismiss {
-                    self?.showAttachmentApprovalDialog(for: [ convertedAttachment ])
-                }
-            }
-            catch {
-                await indicator.dismiss {
-                    self?.showErrorAlert(for: error)
-                }
-            }
-        }
     }
     
     // MARK: - InputViewDelegate
@@ -651,7 +682,7 @@ extension ConversationVC:
         present(confirmationModal, animated: true, completion: nil)
     }
 
-    func sendMessage(
+    @MainActor func sendMessage(
         text: String,
         attachments: [PendingAttachment] = [],
         linkPreviewDraft: LinkPreviewDraft? = nil,
@@ -659,6 +690,18 @@ extension ConversationVC:
         hasPermissionToSendSeed: Bool = false
     ) {
         guard !showBlockedModalIfNeeded() else { return }
+        
+        /// Validate the expected attachment size before proceeding
+        do {
+            try attachments.forEach { attachment in
+                try attachment.ensureExpectedEncryptedSize(
+                    domain: .attachment,
+                    maxFileSize: Network.maxFileSize,
+                    using: viewModel.dependencies
+                )
+            }
+        }
+        catch { return showErrorAlert(for: error) }
         
         let processedText: String = replaceMentions(in: text.trimmingCharacters(in: .whitespacesAndNewlines))
         
@@ -690,37 +733,36 @@ extension ConversationVC:
         }
         
         // Clearing this out immediately to make this appear more snappy
-        DispatchQueue.main.async { [weak self] in
-            self?.snInputView.text = ""
-            self?.snInputView.quoteDraftInfo = nil
+        snInputView.text = ""
+        snInputView.quoteDraftInfo = nil
 
-            self?.resetMentions()
-            self?.scrollToBottom(isAnimated: false)
-        }
-
+        resetMentions()
+        scrollToBottom(isAnimated: false)
+        
         // Optimistically insert the outgoing message (this will trigger a UI update)
         self.viewModel.sentMessageBeforeUpdate = true
         let sentTimestampMs: Int64 = viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        let optimisticData: ConversationViewModel.OptimisticMessageData = self.viewModel.optimisticallyAppendOutgoingMessage(
-            text: processedText,
-            sentTimestampMs: sentTimestampMs,
-            attachments: attachments,
-            linkPreviewDraft: linkPreviewDraft,
-            quoteModel: quoteModel
-        )
         
-        // If this was a message request then approve it
-        approveMessageRequestIfNeeded(
-            for: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
-            displayName: self.viewModel.threadData.displayName,
-            isDraft: (self.viewModel.threadData.threadIsDraft == true),
-            timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
-        ).sinkUntilComplete(
-            receiveCompletion: { [weak self] _ in
-                self?.sendMessage(optimisticData: optimisticData)
-            }
-        )
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
+            
+            let optimisticData: ConversationViewModel.OptimisticMessageData = await viewModel.optimisticallyAppendOutgoingMessage(
+                text: processedText,
+                sentTimestampMs: sentTimestampMs,
+                attachments: attachments,
+                linkPreviewDraft: linkPreviewDraft,
+                quoteModel: quoteModel
+            )
+            await approveMessageRequestIfNeeded(
+                for: self.viewModel.threadData.threadId,
+                threadVariant: self.viewModel.threadData.threadVariant,
+                displayName: self.viewModel.threadData.displayName,
+                isDraft: (self.viewModel.threadData.threadIsDraft == true),
+                timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
+            )
+            
+            await sendMessage(optimisticData: optimisticData)
+        }
     }
     
     private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) {
@@ -2939,22 +2981,20 @@ extension ConversationVC {
         displayName: String,
         isDraft: Bool,
         timestampMs: Int64
-    ) -> AnyPublisher<Void, Never> {
-        let updateNavigationBackStack: () -> Void = {
-            // Remove the 'SessionTableViewController<MessageRequestsViewModel>' from the nav hierarchy if present
-            DispatchQueue.main.async { [weak self] in
-                if
-                    let viewControllers: [UIViewController] = self?.navigationController?.viewControllers,
-                    let messageRequestsIndex = viewControllers
-                        .firstIndex(where: { viewCon -> Bool in
-                            (viewCon as? SessionViewModelAccessible)?.viewModelType == MessageRequestsViewModel.self
-                        }),
-                    messageRequestsIndex > 0
-                {
-                    var newViewControllers = viewControllers
-                    newViewControllers.remove(at: messageRequestsIndex)
-                    self?.navigationController?.viewControllers = newViewControllers
-                }
+    ) async {
+        let updateNavigationBackStack: @MainActor () -> Void = { [weak self] in
+            /// Remove the `SessionTableViewController<MessageRequestsViewModel>` from the nav hierarchy if present
+            if
+                let viewControllers: [UIViewController] = self?.navigationController?.viewControllers,
+                let messageRequestsIndex = viewControllers
+                    .firstIndex(where: { viewCon -> Bool in
+                        (viewCon as? SessionViewModelAccessible)?.viewModelType == MessageRequestsViewModel.self
+                    }),
+                messageRequestsIndex > 0
+            {
+                var newViewControllers = viewControllers
+                newViewControllers.remove(at: messageRequestsIndex)
+                self?.navigationController?.viewControllers = newViewControllers
             }
         }
         
@@ -2962,145 +3002,145 @@ extension ConversationVC {
             case .contact:
                 /// If the contact doesn't exist then we should create it so we can store the `isApproved` state (it'll be updated
                 /// with correct profile info if they accept the message request so this shouldn't cause weird behaviours)
+                let maybeContact: Contact? = try? await viewModel.dependencies[singleton: .storage].readAsync { [dependencies = viewModel.dependencies] db in
+                    Contact.fetchOrCreate(db, id: threadId, using: dependencies)
+                }
+                
                 guard
-                    let contact: Contact = viewModel.dependencies[singleton: .storage].read({ [dependencies = viewModel.dependencies] db in
-                        Contact.fetchOrCreate(db, id: threadId, using: dependencies)
-                    }),
+                    let contact: Contact = maybeContact,
                     !contact.isApproved
-                else { return Just(()).eraseToAnyPublisher() }
+                else { return }
                 
-                return viewModel.dependencies[singleton: .storage]
-                    .writePublisher { [dependencies = viewModel.dependencies] db in
-                        /// If this isn't a draft thread (ie. sending a message request) then send a `messageRequestResponse`
-                        /// back to the sender (this allows the sender to know that they have been approved and can now use this
-                        /// contact in closed groups)
-                        if !isDraft {
-                            _ = try? Interaction(
-                                threadId: threadId,
-                                threadVariant: threadVariant,
-                                authorId: dependencies[cache: .general].sessionId.hexString,
-                                variant: .infoMessageRequestAccepted,
-                                body: "messageRequestYouHaveAccepted"
-                                    .put(key: "name", value: displayName)
-                                    .localized(),
-                                timestampMs: timestampMs,
-                                using: dependencies
-                            ).inserted(db)
-                            
-                            try MessageSender.send(
-                                db,
-                                message: MessageRequestResponse(
-                                    isApproved: true,
-                                    sentTimestampMs: UInt64(timestampMs)
-                                ),
-                                interactionId: nil,
-                                threadId: threadId,
-                                threadVariant: threadVariant,
-                                using: dependencies
-                            )
-                        }
+                try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+                    /// If this isn't a draft thread (ie. sending a message request) then send a `messageRequestResponse`
+                    /// back to the sender (this allows the sender to know that they have been approved and can now use this
+                    /// contact in closed groups)
+                    if !isDraft {
+                        _ = try? Interaction(
+                            threadId: threadId,
+                            threadVariant: threadVariant,
+                            authorId: dependencies[cache: .general].sessionId.hexString,
+                            variant: .infoMessageRequestAccepted,
+                            body: "messageRequestYouHaveAccepted"
+                                .put(key: "name", value: displayName)
+                                .localized(),
+                            timestampMs: timestampMs,
+                            using: dependencies
+                        ).inserted(db)
                         
-                        // Default 'didApproveMe' to true for the person approving the message request
-                        let updatedDidApproveMe: Bool = (contact.didApproveMe || !isDraft)
-                        try contact.upsert(db)
-                        try Contact
-                            .filter(id: contact.id)
-                            .updateAllAndConfig(
-                                db,
-                                Contact.Columns.isApproved.set(to: true),
-                                Contact.Columns.didApproveMe.set(to: updatedDidApproveMe),
-                                using: dependencies
-                            )
-                        db.addContactEvent(id: contact.id, change: .isApproved(true))
-                        db.addContactEvent(id: contact.id, change: .didApproveMe(updatedDidApproveMe))
-                        db.addEvent(contact.id, forKey: .messageRequestAccepted)
-                    }
-                    .map { _ in () }
-                    .catch { _ in Just(()).eraseToAnyPublisher() }
-                    .handleEvents(
-                        receiveOutput: { _ in
-                            // Update the UI
-                            updateNavigationBackStack()
-                        }
-                    )
-                    .eraseToAnyPublisher()
-                
-            case .group:
-                // If the group is not in the invited state then don't bother doing anything
-                guard
-                    let group: ClosedGroup = viewModel.dependencies[singleton: .storage].read({ db in
-                        try ClosedGroup.fetchOne(db, id: threadId)
-                    }),
-                    group.invited == true
-                else { return Just(()).eraseToAnyPublisher() }
-                
-                return viewModel.dependencies[singleton: .storage]
-                    .writePublisher { [dependencies = viewModel.dependencies] db in
-                        /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a
-                        /// duplicate one from inside the group history)
-                        try Interaction.deleteWhere(
+                        try MessageSender.send(
                             db,
-                            .filter(Interaction.Columns.threadId == group.id),
-                            .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
-                        )
-                        
-                        /// Optimistically insert a `standard` member for the current user in this group (it'll be update to the correct
-                        /// one once we receive the first `GROUP_MEMBERS` config message but adding it here means the `canWrite`
-                        /// state of the group will continue to be `true` while we wait on the initial poll to get back)
-                        try GroupMember(
-                            groupId: group.id,
-                            profileId: dependencies[cache: .general].sessionId.hexString,
-                            role: .standard,
-                            roleStatus: .accepted,
-                            isHidden: false
-                        ).upsert(db)
-                        
-                        /// If this isn't a draft thread (ie. sending a message request) and the user is not an admin then schedule
-                        /// sending a `GroupUpdateInviteResponseMessage` to the group (this allows other members to
-                        /// know that the user has joined the group)
-                        if !isDraft && group.groupIdentityPrivateKey == nil {
-                            try MessageSender.send(
-                                db,
-                                message: GroupUpdateInviteResponseMessage(
-                                    isApproved: true,
-                                    sentTimestampMs: UInt64(timestampMs)
-                                ),
-                                interactionId: nil,
-                                threadId: threadId,
-                                threadVariant: threadVariant,
-                                using: dependencies
-                            )
-                        }
-                        
-                        /// Actually trigger the approval
-                        try ClosedGroup.approveGroupIfNeeded(
-                            db,
-                            group: group,
+                            message: MessageRequestResponse(
+                                isApproved: true,
+                                sentTimestampMs: UInt64(timestampMs)
+                            ),
+                            interactionId: nil,
+                            threadId: threadId,
+                            threadVariant: threadVariant,
                             using: dependencies
                         )
                     }
-                    .map { _ in () }
-                    .catch { _ in Just(()).eraseToAnyPublisher() }
-                    .handleEvents(
-                        receiveOutput: { _ in
-                            // Update the UI
-                            updateNavigationBackStack()
-                        }
-                    )
-                    .eraseToAnyPublisher()
+                    
+                    // Default 'didApproveMe' to true for the person approving the message request
+                    let updatedDidApproveMe: Bool = (contact.didApproveMe || !isDraft)
+                    try contact.upsert(db)
+                    try Contact
+                        .filter(id: contact.id)
+                        .updateAllAndConfig(
+                            db,
+                            Contact.Columns.isApproved.set(to: true),
+                            Contact.Columns.didApproveMe.set(to: updatedDidApproveMe),
+                            using: dependencies
+                        )
+                    db.addContactEvent(id: contact.id, change: .isApproved(true))
+                    db.addContactEvent(id: contact.id, change: .didApproveMe(updatedDidApproveMe))
+                    db.addEvent(contact.id, forKey: .messageRequestAccepted)
+                }
                 
-            default: return Just(()).eraseToAnyPublisher()
+                // Update the UI
+                await MainActor.run {
+                    updateNavigationBackStack()
+                }
+                return
+                
+            case .group:
+                // If the group is not in the invited state then don't bother doing anything
+                let maybeGroup: ClosedGroup? = try? await viewModel.dependencies[singleton: .storage].readAsync { db in
+                    try ClosedGroup.fetchOne(db, id: threadId)
+                }
+                
+                guard
+                    let group: ClosedGroup = maybeGroup,
+                    group.invited == true
+                else { return }
+                
+                try? await viewModel.dependencies[singleton: .storage].writeAsync { [dependencies = viewModel.dependencies] db in
+                    /// Remove any existing `infoGroupInfoInvited` interactions from the group (don't want to have a
+                    /// duplicate one from inside the group history)
+                    try Interaction.deleteWhere(
+                        db,
+                        .filter(Interaction.Columns.threadId == group.id),
+                        .filter(Interaction.Columns.variant == Interaction.Variant.infoGroupInfoInvited)
+                    )
+                    
+                    /// Optimistically insert a `standard` member for the current user in this group (it'll be update to the correct
+                    /// one once we receive the first `GROUP_MEMBERS` config message but adding it here means the `canWrite`
+                    /// state of the group will continue to be `true` while we wait on the initial poll to get back)
+                    try GroupMember(
+                        groupId: group.id,
+                        profileId: dependencies[cache: .general].sessionId.hexString,
+                        role: .standard,
+                        roleStatus: .accepted,
+                        isHidden: false
+                    ).upsert(db)
+                    
+                    /// If this isn't a draft thread (ie. sending a message request) and the user is not an admin then schedule
+                    /// sending a `GroupUpdateInviteResponseMessage` to the group (this allows other members to
+                    /// know that the user has joined the group)
+                    if !isDraft && group.groupIdentityPrivateKey == nil {
+                        try MessageSender.send(
+                            db,
+                            message: GroupUpdateInviteResponseMessage(
+                                isApproved: true,
+                                sentTimestampMs: UInt64(timestampMs)
+                            ),
+                            interactionId: nil,
+                            threadId: threadId,
+                            threadVariant: threadVariant,
+                            using: dependencies
+                        )
+                    }
+                    
+                    /// Actually trigger the approval
+                    try ClosedGroup.approveGroupIfNeeded(
+                        db,
+                        group: group,
+                        using: dependencies
+                    )
+                }
+                
+                // Update the UI
+                await MainActor.run {
+                    updateNavigationBackStack()
+                }
+                return
+                
+            default: break
         }
     }
 
     func acceptMessageRequest() {
-        approveMessageRequestIfNeeded(
-            for: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
-            displayName: self.viewModel.threadData.displayName,
-            isDraft: (self.viewModel.threadData.threadIsDraft == true),
-            timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        ).sinkUntilComplete()
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
+            
+            await approveMessageRequestIfNeeded(
+                for: self.viewModel.threadData.threadId,
+                threadVariant: self.viewModel.threadData.threadVariant,
+                displayName: self.viewModel.threadData.displayName,
+                isDraft: (self.viewModel.threadData.threadIsDraft == true),
+                timestampMs: viewModel.dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            )
+        }
     }
 
     func declineMessageRequest() {

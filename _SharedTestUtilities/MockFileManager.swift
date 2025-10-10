@@ -23,11 +23,15 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
         return mock(args: [path])
     }
     
+    func isLocatedInTemporaryDirectory(_ path: String) -> Bool {
+        return mock(args: [path])
+    }
+    
     func temporaryFilePath(fileExtension: String?) -> String {
         return mock(args: [fileExtension])
     }
     
-    func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String? {
+    func write(data: Data, toTemporaryFileWithExtension fileExtension: String?) throws -> String {
         return try mockThrowing(args: [data, fileExtension])
     }
     
@@ -115,6 +119,7 @@ extension Mock where T == FileManagerType {
         self.when { try $0.protectFileOrFolder(at: .any, fileProtectionType: .any) }.thenReturn(())
         self.when { $0.fileExists(atPath: .any) }.thenReturn(false)
         self.when { $0.fileExists(atPath: .any, isDirectory: .any) }.thenReturn(false)
+        self.when { $0.isLocatedInTemporaryDirectory(.any) }.thenReturn(false)
         self.when { $0.temporaryFilePath(fileExtension: .any) }.thenReturn("tmpFile")
         self.when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }.thenReturn(true)
         self.when { try $0.setAttributes(.any, ofItemAtPath: .any) }.thenReturn(())

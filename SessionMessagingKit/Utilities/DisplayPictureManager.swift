@@ -39,7 +39,7 @@ public class DisplayPictureManager {
         case currentUserUpdateTo(url: String, key: Data, isReupload: Bool)
         
         case groupRemove
-        case groupUploadImage(ImageDataManager.DataSource)
+        case groupUploadImage(source: ImageDataManager.DataSource, cropRect: CGRect?)
         case groupUpdateTo(url: String, key: Data)
         
         static func from(_ profile: VisibleMessage.VMProfile, fallback: Update, using dependencies: Dependencies) -> Update {
@@ -187,26 +187,118 @@ public class DisplayPictureManager {
     
     // MARK: - Uploading
     
-    public func prepareDisplayPicture(
-        attachment: PendingAttachment,
-        transformations: Set<PendingAttachment.Transform>? = nil
-    ) throws -> PreparedAttachment {
-        /// If we weren't given custom transformations then use the default ones for display pictures
-        let finalTransfomations: Set<PendingAttachment.Transform> = (
-            transformations ??
-            [
-                .compress,
-                .resize(maxDimension: DisplayPictureManager.maxDimension),
-                .stripImageMetadata
+    private static func standardOperations(cropRect: CGRect?) -> Set<PendingAttachment.Operation> {
+        return [
+            .convert(to: .webPLossy(
+                maxDimension: DisplayPictureManager.maxDimension,
+                cropRect: cropRect
+            )),
+            .stripImageMetadata
+        ]
+    }
+    
+    public func reuploadNeedsPreparation(attachment: PendingAttachment) -> Bool {
+        /// When re-uploading we only want to check if the file needs to be resized or converted to `WebP` to avoid a situation where
+        /// different clients end up "ping-ponging" changes to the display picture
+        return attachment.needsPreparation(
+            operations: [
+                .convert(to: .webPLossy(maxDimension: DisplayPictureManager.maxDimension))
             ]
         )
+    }
+    
+    public func prepareDisplayPicture(
+        attachment: PendingAttachment,
+        fallbackIfConversionTakesTooLong: Bool = false,
+        cropRect: CGRect? = nil
+    ) async throws -> PreparedAttachment {
+        /// If we don't want the fallbacks then just run the standard operations
+        guard fallbackIfConversionTakesTooLong else {
+            return try await attachment.prepare(
+                operations: DisplayPictureManager.standardOperations(cropRect: cropRect),
+                using: dependencies
+            )
+        }
         
-        let preparedAttachment: PreparedAttachment = try attachment.prepare(
-            transformations: finalTransfomations,
+        /// The desired output for a profile picture is a `WebP` at the specified size (and `cropRect`) that is generated in under `5s`
+        do {
+            let result: PreparedAttachment = try await withThrowingTaskGroup { [dependencies] group in
+                group.addTask {
+                    return try await attachment.prepare(
+                        operations: DisplayPictureManager.standardOperations(cropRect: cropRect),
+                        using: dependencies
+                    )
+                }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(5))
+                    throw AttachmentError.conversionTimeout
+                }
+                defer { group.cancelAll() }
+                
+                return try await group.first(where: { _ in true }) ?? {
+                    throw AttachmentError.couldNotConvert
+                }()
+            }
+            let preparedSize: UInt64? = dependencies[singleton: .fileManager].fileSize(of: result.filePath)
+            
+            guard (preparedSize ?? UInt64.max) < attachment.fileSize else {
+                throw AttachmentError.conversionResultedInLargerFile
+            }
+            
+            return result
+        }
+        catch AttachmentError.conversionTimeout {}              /// Expected case
+        catch AttachmentError.conversionResultedInLargerFile {} /// Expected case
+        catch { throw error }
+        
+        /// If the original file was a `GIF` then we should see if we can just resize/crop that instead, but since we've already waited
+        /// for `5s` we only want to give `2s` for this conversion
+        ///
+        /// **Note:** In this case we want to ignore any error and just fallback to the original file (with metadata stripped)
+        if attachment.utType == .gif {
+            let maybeResult: PreparedAttachment? = try? await withThrowingTaskGroup { [dependencies] group in
+                group.addTask {
+                    return try await attachment.prepare(
+                        operations: [
+                            .convert(to: .gif(
+                                maxDimension: DisplayPictureManager.maxDimension,
+                                cropRect: cropRect
+                            )),
+                            .stripImageMetadata
+                        ],
+                        using: dependencies
+                    )
+                }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(2))
+                    throw AttachmentError.conversionTimeout
+                }
+                defer { group.cancelAll() }
+                
+                return try await group.first(where: { _ in true }) ?? {
+                    throw AttachmentError.couldNotConvert
+                }()
+            }
+            
+            /// Only return the resized GIF if it's smaller than the original (the current GIF encoding we use is just the built-in iOS
+            /// encoding which isn't very advanced, as such some GIFs can end up quite large, even if they are cropped versions
+            /// of other GIFs - this is likely due to the lack of "frame differencing" support)
+            if
+                let result: PreparedAttachment = maybeResult,
+                let preparedSize: UInt64 = dependencies[singleton: .fileManager]
+                    .fileSize(of: result.filePath),
+                preparedSize < attachment.fileSize
+            {
+                return result
+            }
+        }
+        
+        /// If we weren't able to generate the `WebP` (or resized `GIF` if the source was a `GIF`) then just use the original source
+        /// with metadata stripped
+        return try await attachment.prepare(
+            operations: [.stripImageMetadata],
             using: dependencies
         )
-        
-        return preparedAttachment
     }
     
     public func uploadDisplayPicture(preparedAttachment: PreparedAttachment) async throws -> UploadResult {
@@ -215,8 +307,8 @@ public class DisplayPictureManager {
             attachment: preparedAttachment.attachment,
             using: dependencies
         )
-        let attachment: PreparedAttachment = try pendingAttachment.prepare(
-            transformations: [
+        let attachment: PreparedAttachment = try await pendingAttachment.prepare(
+            operations: [
                 .encrypt(domain: .profilePicture)
             ],
             using: dependencies

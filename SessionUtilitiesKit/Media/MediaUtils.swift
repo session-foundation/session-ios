@@ -50,8 +50,11 @@ public enum MediaUtils {
         kCGImagePropertyHasAlpha,
         kCGImagePropertyColorModel,
         kCGImagePropertyOrientation,
+        kCGImagePropertyGIFLoopCount,
+        kCGImagePropertyGIFHasGlobalColorMap,
         kCGImagePropertyGIFDelayTime,
-        kCGImagePropertyGIFUnclampedDelayTime
+        kCGImagePropertyGIFUnclampedDelayTime,
+        kCGImageDestinationLossyCompressionQuality
     ]
     
     public struct MediaMetadata: Sendable, Equatable, Hashable {

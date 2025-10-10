@@ -223,6 +223,16 @@ final class ShareNavController: UINavigationController {
             
             do {
                 let attachments: [PendingAttachment] = try await buildAttachments()
+                
+                /// Validate the expected attachment sizes before proceeding
+                try attachments.forEach { attachment in
+                    try attachment.ensureExpectedEncryptedSize(
+                        domain: .attachment,
+                        maxFileSize: Network.maxFileSize,
+                        using: self.dependencies
+                    )
+                }
+                
                 await ShareNavController.pendingAttachments.send(attachments)
                 await indicator.dismiss()
             }
@@ -255,7 +265,8 @@ final class ShareNavController: UINavigationController {
         Log.error("Failed to share due to error: \(error)")
         let errorTitle: String = {
             switch error {
-                case NetworkError.maxFileSizeExceeded: return "attachmentsErrorSending".localized()
+                case NetworkError.maxFileSizeExceeded, AttachmentError.fileSizeTooLarge:
+                    return "attachmentsErrorSending".localized()
                 case AttachmentError.noAttachment, AttachmentError.encryptionFailed:
                     return Constants.app_name
                 
@@ -266,7 +277,9 @@ final class ShareNavController: UINavigationController {
         }()
         let errorText: String = {
             switch error {
-                case NetworkError.maxFileSizeExceeded: return "attachmentsErrorSize".localized()
+                case NetworkError.maxFileSizeExceeded, AttachmentError.fileSizeTooLarge:
+                    return "attachmentsErrorSize".localized()
+                    
                 case AttachmentError.noAttachment, AttachmentError.encryptionFailed:
                     return "attachmentsErrorSending".localized()
                 
@@ -489,13 +502,76 @@ final class ShareNavController: UINavigationController {
             }
         }
         
-        /// If the attachment is a video that isn't in the `supportedVideoTypes` then we should try to convert it
-        guard
-            pendingAttachment.utType.isVideo &&
-            !UTType.supportedVideoTypes.contains(pendingAttachment.utType)
-        else { return pendingAttachment }
+        /// Apple likes to use special formats for media so in order to maintain compatibility with other clients we want to
+        /// convert videos to `MPEG4` and images to `WebP` if it's not one of the supported output types
+        let utType: UTType = pendingAttachment.utType
+        let frameCount: Int = {
+            switch pendingAttachment.metadata {
+                case .media(let metadata): return metadata.frameCount
+                default: return 1
+            }
+        }()
+
+        if utType.isVideo && !UTType.supportedOutputVideoTypes.contains(utType) {
+            /// Since we need to convert the file we should clean up the temporary one we created earlier (the conversion will create
+            /// a new one)
+            defer {
+                switch pendingAttachment.source {
+                    case .file(let url), .media(.url(let url)):
+                        if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(url.path) {
+                            try? dependencies[singleton: .fileManager].removeItem(atPath: url.path)
+                        }
+                    default: break
+                }
+            }
+            
+            let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                operations: [.convert(to: .mp4)],
+                using: dependencies
+            )
+            
+            return PendingAttachment(
+                source: .media(
+                    .videoUrl(
+                        URL(fileURLWithPath: preparedAttachment.filePath),
+                        .mpeg4Movie,
+                        pendingAttachment.sourceFilename,
+                        dependencies[singleton: .attachmentManager]
+                    )
+                ),
+                utType: .mpeg4Movie,
+                sourceFilename: pendingAttachment.sourceFilename,
+                using: dependencies
+            )
+        }
         
-        return try await pendingAttachment.toMp4Video(using: dependencies)
+        if utType.isImage && frameCount == 1 && !UTType.supportedOutputImageTypes.contains(utType) {
+            /// Since we need to convert the file we should clean up the temporary one we created earlier (the conversion will create
+            /// a new one)
+            defer {
+                switch pendingAttachment.source {
+                    case .file(let url), .media(.url(let url)):
+                        if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(url.path) {
+                            try? dependencies[singleton: .fileManager].removeItem(atPath: url.path)
+                        }
+                    default: break
+                }
+            }
+            
+            let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                operations: [.convert(to: .webPLossy)],
+                using: dependencies
+            )
+            
+            return PendingAttachment(
+                source: .media(.url(URL(fileURLWithPath: preparedAttachment.filePath))),
+                utType: .webP,
+                sourceFilename: pendingAttachment.sourceFilename,
+                using: dependencies
+            )
+        }
+        
+        return pendingAttachment
     }
 
     private func buildAttachments() async throws -> [PendingAttachment] {

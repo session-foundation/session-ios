@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import PhotosUI
 import Combine
 import Lucide
 import GRDB
@@ -25,9 +26,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     private var onDisplayPictureSelected: ((ConfirmationModal.ValueUpdate) -> Void)?
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImageDataPicked: { [weak self] identifier, resultImageData in
-            self?.onDisplayPictureSelected?(.image(identifier: identifier, data: resultImageData))
-        }
+        onImagePicked: { [weak self] source, cropRect in
+            self?.onDisplayPictureSelected?(.image(source: source, cropRect: cropRect))
+        },
+        using: dependencies
     )
     
     // MARK: - Initialization
@@ -1703,9 +1705,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, let style, _, _, _):
                                 self?.updateGroupDisplayPicture(
-                                    displayPictureUpdate: .groupUploadImage(source),
+                                    displayPictureUpdate: .groupUploadImage(
+                                        source: source,
+                                        cropRect: style.cropRect
+                                    ),
                                     onUploadComplete: { [weak modal] in
                                         Task { @MainActor in modal?.close() }
                                     }
@@ -1731,9 +1736,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     @MainActor private func showPhotoLibraryForAvatar() {
         Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
             DispatchQueue.main.async {
-                let picker: UIImagePickerController = UIImagePickerController()
-                picker.sourceType = .photoLibrary
-                picker.mediaTypes = [ "public.image" ]  // stringlint:disable
+                var configuration: PHPickerConfiguration = PHPickerConfiguration()
+                configuration.selectionLimit = 1
+                configuration.filter = .any(of: [.images, .livePhotos])
+                
+                let picker: PHPickerViewController = PHPickerViewController(configuration: configuration)
                 picker.delegate = self?.imagePickerHandler
                 
                 self?.transitionToScreen(picker, transitionType: .present)
@@ -1761,7 +1768,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         throw AttachmentError.invalidStartState
                         
                     case .groupRemove, .groupUpdateTo: break
-                    case .groupUploadImage(let source):
+                    case .groupUploadImage(let source, let cropRect):
                         /// Show a blocking loading indicator while uploading but not while updating or syncing the group configs
                         indicator = await MainActor.run { [weak self] in
                             let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
@@ -1773,8 +1780,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             source: .media(source),
                             using: dependencies
                         )
-                        let preparedAttachment: PreparedAttachment = try dependencies[singleton: .displayPictureManager]
-                            .prepareDisplayPicture(attachment: pendingAttachment)
+                        let preparedAttachment: PreparedAttachment = try await dependencies[singleton: .displayPictureManager]
+                            .prepareDisplayPicture(
+                                attachment: pendingAttachment,
+                                fallbackIfConversionTakesTooLong: true,
+                                cropRect: cropRect
+                            )
                         let result = try await dependencies[singleton: .displayPictureManager]
                             .uploadDisplayPicture(preparedAttachment: preparedAttachment)
                         await MainActor.run { onUploadComplete() }

@@ -54,7 +54,15 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
                     .thenReturn(MockNetwork.response(data: encryptedData))
             }
         )
@@ -65,7 +73,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
             initialSetup: { crypto in
                 crypto.when { $0.generate(.uuid()) }.thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000001234"))
                 crypto
-                    .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                    .when { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
                     .thenReturn(imageData)
                 crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn("TestHash".bytes)
                 crypto
@@ -82,6 +90,9 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 crypto
                     .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
                     .thenReturn("TestSogsSignature".bytes)
+                crypto
+                    .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                    .thenReturn(Array(Data(hex: TestConstants.serverPublicKey)))
             }
         )
         
@@ -492,7 +503,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         timestamp: 0
                     )
                 )
-                let expectedRequest: Network.PreparedRequest<Data> = try Network.preparedDownload(
+                let expectedRequest: Network.PreparedRequest<Data> = try Network.FileServer.preparedDownload(
                     url: URL(string: "http://filev2.getsession.org/file/1234")!,
                     using: dependencies
                 )
@@ -509,8 +520,11 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 expect(mockNetwork)
                     .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                         network.send(
-                            expectedRequest.body,
-                            to: expectedRequest.destination,
+                            endpoint: Network.FileServer.Endpoint.directUrl(
+                                URL(string: "http://filev2.getsession.org/file/1234")!
+                            ),
+                            destination: expectedRequest.destination,
+                            body: expectedRequest.body,
                             requestTimeout: expectedRequest.requestTimeout,
                             requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                         )
@@ -572,8 +586,9 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 expect(mockNetwork)
                     .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                         network.send(
-                            expectedRequest.body,
-                            to: expectedRequest.destination,
+                            endpoint: Network.SOGS.Endpoint.roomFileIndividual("testRoom", "12"),
+                            destination: expectedRequest.destination,
+                            body: expectedRequest.body,
                             requestTimeout: expectedRequest.requestTimeout,
                             requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                         )
@@ -622,7 +637,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 context("when it fails to decrypt the data") {
                     beforeEach {
                         mockCrypto
-                            .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                            .when { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
                             .thenReturn(nil)
                     }
                     
@@ -641,7 +656,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                 context("when it decrypts invalid image data") {
                     beforeEach {
                         mockCrypto
-                            .when { $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any)) }
+                            .when { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
                             .thenReturn(Data([1, 2, 3]))
                     }
                     
@@ -738,7 +753,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockCrypto)
                                 .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
                                 })
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
@@ -766,7 +781,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockCrypto)
                                 .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
                                 })
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
@@ -803,7 +818,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockCrypto)
                                 .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
                                 })
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
@@ -839,7 +854,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("saves the picture") {
                             expect(mockCrypto)
                                 .to(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
                                 })
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(
@@ -936,7 +951,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockCrypto)
                                 .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
                                 })
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
@@ -963,7 +978,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockCrypto)
                                 .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
                                 })
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
@@ -1004,7 +1019,7 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         it("does not save the picture") {
                             expect(mockCrypto)
                                 .toNot(call {
-                                    $0.generate(.decryptedDataDisplayPicture(data: .any, key: .any))
+                                    $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))
                                 })
                             expect(mockFileManager)
                                 .toNot(call { $0.createFile(atPath: .any, contents: .any, attributes: .any) })
@@ -1092,7 +1107,15 @@ class DisplayPictureDownloadJobSpec: QuickSpec {
                         
                         // SOGS doesn't encrypt it's images so replace the encrypted mock response
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(MockNetwork.response(data: imageData))
                     }
                     

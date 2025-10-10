@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import PhotosUI
 import Combine
 import Lucide
 import GRDB
@@ -20,9 +21,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     private var onDisplayPictureSelected: ((ConfirmationModal.ValueUpdate) -> Void)?
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImageDataPicked: { [weak self] identifier, resultImageData in
-            self?.onDisplayPictureSelected?(.image(identifier: identifier, data: resultImageData))
-        }
+        onImagePicked: { [weak self] source, cropRect in
+            self?.onDisplayPictureSelected?(.image(source: source, cropRect: cropRect))
+        },
+        using: dependencies
     )
     
     /// This value is the current state of the view
@@ -690,12 +692,15 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, let style, _, _, _):
                                 self?.updateProfile(
                                     displayPictureUpdateGenerator: { [weak self] in
                                         guard let self = self else { throw AttachmentError.uploadFailed }
                                         
-                                        return try await uploadDisplayPicture(source: source)
+                                        return try await uploadDisplayPicture(
+                                            source: source,
+                                            cropRect: style.cropRect
+                                        )
                                     },
                                     onComplete: { [weak modal] in modal?.close() }
                                 )
@@ -718,9 +723,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     @MainActor private func showPhotoLibraryForAvatar() {
         Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
             DispatchQueue.main.async {
-                let picker: UIImagePickerController = UIImagePickerController()
-                picker.sourceType = .photoLibrary
-                picker.mediaTypes = [ "public.image" ]  // stringlint:ignore
+                var configuration: PHPickerConfiguration = PHPickerConfiguration()
+                configuration.selectionLimit = 1
+                configuration.filter = .any(of: [.images, .livePhotos])
+                
+                let picker: PHPickerViewController = PHPickerViewController(configuration: configuration)
                 picker.delegate = self?.imagePickerHandler
                 
                 self?.transitionToScreen(picker, transitionType: .present)
@@ -728,13 +735,19 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         }
     }
     
-    fileprivate func uploadDisplayPicture(source: ImageDataManager.DataSource) async throws -> DisplayPictureManager.Update {
+    fileprivate func uploadDisplayPicture(
+        source: ImageDataManager.DataSource,
+        cropRect: CGRect?
+    ) async throws -> DisplayPictureManager.Update {
         let pendingAttachment: PendingAttachment = PendingAttachment(
             source: .media(source),
             using: dependencies
         )
-        let preparedAttachment: PreparedAttachment = try dependencies[singleton: .displayPictureManager]
-            .prepareDisplayPicture(attachment: pendingAttachment)
+        let preparedAttachment: PreparedAttachment = try await dependencies[singleton: .displayPictureManager].prepareDisplayPicture(
+            attachment: pendingAttachment,
+            fallbackIfConversionTakesTooLong: true,
+            cropRect: cropRect
+        )
         let result = try await dependencies[singleton: .displayPictureManager]
             .uploadDisplayPicture(preparedAttachment: preparedAttachment)
         

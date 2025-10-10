@@ -2,7 +2,7 @@
 
 import Foundation
 
-public struct HTTPQueryParam: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+public struct HTTPQueryParam: RawRepresentable, Codable, ExpressibleByStringLiteral, Hashable {
     public let rawValue: String
     
     public init(_ rawValue: String) { self.rawValue = rawValue }

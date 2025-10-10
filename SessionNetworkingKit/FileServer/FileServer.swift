@@ -19,9 +19,12 @@ public extension Network {
         }
         
         internal static func edPublicKey(using dependencies: Dependencies) -> String {
-            guard dependencies[feature: .customFileServer].isValid else {
-                return defaultEdPublicKey
-            }
+            let customPubkey: String = dependencies[feature: .customFileServer].pubkey
+            
+            guard
+                dependencies[feature: .customFileServer].isValid,
+                !customPubkey.isEmpty   /// An empty `pubkey` will be considered value (as we just fallback to the default)
+            else { return defaultEdPublicKey }
             
             return dependencies[feature: .customFileServer].pubkey
         }
@@ -130,7 +133,12 @@ public extension Network.FileServer {
                 values.pubkey.count == 64
             )
             
-            return (pubkeyValid && URL(string: url) != nil)
+            return (
+                URL(string: url) != nil && (
+                    values.pubkey.isEmpty ||    /// Default pubkey would be used if empty
+                    pubkeyValid
+                )
+            )
         }
         
         /// This is needed to conform to `FeatureOption` so it can be saved to `UserDefaults`

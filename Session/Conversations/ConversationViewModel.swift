@@ -722,7 +722,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         attachments: [PendingAttachment]?,
         linkPreviewDraft: LinkPreviewDraft?,
         quoteModel: QuotedReplyModel?
-    ) -> OptimisticMessageData {
+    ) async -> OptimisticMessageData {
         // Generate the optimistic data
         let optimisticMessageId: UUID = UUID()
         let threadData: SessionThreadViewModel = self.internalThreadData
@@ -745,11 +745,18 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             isProMessage: dependencies[cache: .libSession].isSessionPro,
             using: dependencies
         )
-        let optimisticAttachments: [Attachment]? = try? attachments.map {
-            try AttachmentUploadJob.preparePriorToUpload(attachments: $0, using: dependencies)
+        var optimisticAttachments: [Attachment]?
+        var linkPreviewAttachment: Attachment?
+        
+        if let pendingAttachments: [PendingAttachment] = attachments {
+            optimisticAttachments = try? await AttachmentUploadJob.preparePriorToUpload(
+                attachments: pendingAttachments,
+                using: dependencies
+            )
         }
-        let linkPreviewAttachment: Attachment? = linkPreviewDraft.map { draft in
-            try? LinkPreview.generateAttachmentIfPossible(
+        
+        if let draft: LinkPreviewDraft = linkPreviewDraft {
+            linkPreviewAttachment = try? await LinkPreview.generateAttachmentIfPossible(
                 urlString: draft.urlString,
                 imageData: draft.jpegImageData,
                 type: .jpeg,

@@ -511,8 +511,16 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 profileView.setDataManager(dataManager)
                 profileView.update(
                     ProfilePictureView.Info(
-                        source: (source ?? placeholder),
-                        icon: icon
+                        source: {
+                            guard
+                                let source: ImageDataManager.DataSource = source,
+                                source.contentExists
+                            else { return placeholder }
+                            
+                            return source
+                        }(),
+                        icon: icon,
+                        cropRect: style.cropRect
                     )
                 )
                 internalOnBodyTap = onClick
@@ -632,16 +640,19 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc private func imageViewTapped() {
         internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
             switch (valueUpdate, info.body) {
-                case (.image(let updatedIdentifier, let updatedData), .image(_, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick)):
+                case (.image(let source, let cropRect), .image(_, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick)):
                     self?.updateContent(
                         with: info.with(
                             body: .image(
-                                source: updatedData.map {
-                                    ImageDataManager.DataSource.data(updatedIdentifier, $0)
-                                },
+                                source: source,
                                 placeholder: placeholder,
                                 icon: icon,
-                                style: style,
+                                style: {
+                                    switch style {
+                                        case .inherit: return .inherit
+                                        case .circular: return .circular(cropRect: cropRect)
+                                    }
+                                }(),
                                 accessibility: accessibility,
                                 dataManager: dataManager,
                                 onClick: onClick
@@ -737,7 +748,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
 public extension ConfirmationModal {
     enum ValueUpdate {
         case input(String)
-        case image(identifier: String, data: Data?)
+        case image(source: ImageDataManager.DataSource, cropRect: CGRect?)
     }
     
     struct Info: Equatable, Hashable {
@@ -958,8 +969,18 @@ public extension ConfirmationModal.Info {
         }
         public enum ImageStyle: Equatable, Hashable {
             case inherit
-            case circular
+            case circular(cropRect: CGRect?)
+            
+            public static var circular: ImageStyle { return .circular(cropRect: nil) }
+            
+            public var cropRect: CGRect? {
+                switch self {
+                    case .inherit: return nil
+                    case .circular(let rect): return rect
+                }
+            }
         }
+        
         public struct RadioOptionInfo: Equatable, Hashable {
             public let title: String
             public let enabled: Bool

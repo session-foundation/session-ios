@@ -132,7 +132,7 @@ public extension LinkPreview {
         return (floor(sentTimestampMs / 1000 / LinkPreview.timstampResolution) * LinkPreview.timstampResolution)
     }
     
-    static func generateAttachmentIfPossible(urlString: String, imageData: Data?, type: UTType, using dependencies: Dependencies) throws -> Attachment? {
+    static func generateAttachmentIfPossible(urlString: String, imageData: Data?, type: UTType, using dependencies: Dependencies) async throws -> Attachment? {
         guard let imageData: Data = imageData, !imageData.isEmpty else { return nil }
         
         let pendingAttachment: PendingAttachment = PendingAttachment(
@@ -140,11 +140,9 @@ public extension LinkPreview {
             utType: type,
             using: dependencies
         )
-        let preparedAttachment: PreparedAttachment = try pendingAttachment.prepare(
-            transformations: [
-                .compress,
-                .convertToStandardFormats,
-                .resize(maxDimension: LinkPreview.maxImageDimension),
+        let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+            operations: [
+                .convert(to: .webPLossy(maxDimension: LinkPreview.maxImageDimension)),
                 .stripImageMetadata
             ],
             using: dependencies

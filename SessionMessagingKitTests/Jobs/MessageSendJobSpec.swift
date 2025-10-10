@@ -378,13 +378,24 @@ class MessageSendJobSpec: QuickSpec {
                             var didDefer: Bool = false
                             
                             mockStorage.write { db in
-                                try attachment
-                                    .with(
-                                        state: .uploaded,
-                                        downloadUrl: nil,
-                                        using: dependencies
-                                    )
-                                    .upsert(db)
+                                try Attachment(
+                                    id: attachment.id,
+                                    serverId: attachment.serverId,
+                                    variant: attachment.variant,
+                                    state: .uploaded,
+                                    contentType: attachment.contentType,
+                                    byteCount: attachment.byteCount,
+                                    creationTimestamp: attachment.creationTimestamp,
+                                    sourceFilename: attachment.sourceFilename,
+                                    downloadUrl: nil,
+                                    width: attachment.width,
+                                    height: attachment.height,
+                                    duration: attachment.duration,
+                                    isVisualMedia: attachment.isVisualMedia,
+                                    isValid: attachment.isValid,
+                                    encryptionKey: attachment.encryptionKey,
+                                    digest: attachment.digest
+                                ).upsert(db)
                             }
                             
                             MessageSendJob.run(

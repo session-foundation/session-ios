@@ -31,12 +31,12 @@ public extension Crypto.Generator {
     private static var aesCBCIvLength: Int { 16 }
     private static var aesKeySize: Int { 32 }
     
-    static func expectedEncryptedAttachmentSize(plaintext: Data) -> Crypto.Generator<Int> {
+    static func expectedEncryptedAttachmentSize(plaintextSize: Int) -> Crypto.Generator<Int> {
         return Crypto.Generator(
             id: "expectedEncryptedAttachmentSize",
-            args: [plaintext]
+            args: [plaintextSize]
         ) { dependencies in
-            return session_attachment_encrypted_size(plaintext.count)
+            return session_attachment_encrypted_size(plaintextSize)
         }
     }
     
@@ -75,6 +75,18 @@ public extension Crypto.Generator {
             }
             
             return (Data(cEncryptedData), Data(cEncryptionKey))
+        }
+    }
+    
+    @available(*, deprecated, message: "This encryption method is deprecated and will be removed in a future release.")
+    static func legacyExpectedEncryptedAttachmentSize(
+        plaintextSize: Int
+    ) -> Crypto.Generator<Int> {
+        return Crypto.Generator(
+            id: "legacyExpectedEncryptedAttachmentSize",
+            args: [plaintextSize]
+        ) { dependencies in
+            return max(541, Int(floor(pow(1.05, ceil(log(Double(plaintextSize)) / log(1.05))))))
         }
     }
     
@@ -156,7 +168,19 @@ public extension Crypto.Generator {
             return (Data(encryptedPaddedData), outKey, Data(digest))
         }
     }
-
+    
+    @available(*, deprecated, message: "This encryption method is deprecated and will be removed in a future release.")
+    static func legacyEncryptedDisplayPictureSize(
+        plaintextSize: Int
+    ) -> Crypto.Generator<Int> {
+        return Crypto.Generator(
+            id: "legacyEncryptedDisplayPictureSize",
+            args: [plaintextSize]
+        ) { dependencies in
+            return (plaintextSize + DisplayPictureManager.nonceLength + DisplayPictureManager.tagLength)
+        }
+    }
+    
     @available(*, deprecated, message: "This encryption method is deprecated and will be removed in a future release.")
     static func legacyEncryptedDisplayPicture(
         data: Data,

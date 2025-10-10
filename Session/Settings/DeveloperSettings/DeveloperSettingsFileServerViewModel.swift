@@ -259,7 +259,7 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                     id: .customFileServerPubkey,
                     title: "Custom File Server Public Key",
                     subtitle: """
-                    The public key to use for the above custom File Server
+                    The public key to use for the above custom File Server (if empty then the pubkey for the default file server will be used)
                     
                     <b>Current:</b> <span>\(state.pendingState.customFileServer.pubkey.isEmpty ? "Default" : state.pendingState.customFileServer.pubkey)</span>
                     """,
@@ -309,7 +309,12 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                         
                         return (url.scheme != nil && url.host != nil)
                     },
-                    cancelStyle: .alert_text,
+                    cancelTitle: (pendingState.customFileServer.url.isEmpty ?
+                        "cancel".localized() :
+                        "remove".localized()
+                    ),
+                    cancelStyle: (pendingState.customFileServer.url.isEmpty ? .alert_text : .danger),
+                    hasCloseButton: !pendingState.customFileServer.url.isEmpty,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
                         guard
@@ -330,6 +335,19 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                                 customFileServer: pendingState.customFileServer.with(
                                     url: value
                                 )
+                            )
+                        )
+                    },
+                    onCancel: { [dependencies] modal in
+                        modal.dismiss(animated: true)
+                        
+                        guard !pendingState.customFileServer.url.isEmpty else { return }
+                        
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
+                            value: pendingState.with(
+                                customFileServer: pendingState.customFileServer.with(url: "")
                             )
                         )
                     }
@@ -378,7 +396,12 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                             value.trimmingCharacters(in: .whitespacesAndNewlines).count == 64
                         )
                     },
-                    cancelStyle: .alert_text,
+                    cancelTitle: (pendingState.customFileServer.pubkey.isEmpty ?
+                        "cancel".localized() :
+                        "remove".localized()
+                    ),
+                    cancelStyle: (pendingState.customFileServer.pubkey.isEmpty ? .alert_text : .danger),
+                    hasCloseButton: !pendingState.customFileServer.pubkey.isEmpty,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
                         guard
@@ -400,6 +423,19 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                                 customFileServer: pendingState.customFileServer.with(
                                     pubkey: value
                                 )
+                            )
+                        )
+                    },
+                    onCancel: { [dependencies] modal in
+                        modal.dismiss(animated: true)
+                        
+                        guard !pendingState.customFileServer.pubkey.isEmpty else { return }
+                        
+                        dependencies.notifyAsync(
+                            priority: .immediate,
+                            key: .updateScreen(DeveloperSettingsFileServerViewModel.self),
+                            value: pendingState.with(
+                                customFileServer: pendingState.customFileServer.with(pubkey: "")
                             )
                         )
                     }

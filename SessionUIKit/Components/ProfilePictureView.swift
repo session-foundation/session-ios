@@ -10,6 +10,7 @@ public final class ProfilePictureView: UIView {
         let themeTintColor: ThemeValue?
         let inset: UIEdgeInsets
         let icon: ProfileIcon
+        let cropRect: CGRect?
         let backgroundColor: ThemeValue?
         let forcedBackgroundColor: ForcedThemeValue?
         
@@ -19,6 +20,7 @@ public final class ProfilePictureView: UIView {
             themeTintColor: ThemeValue? = nil,
             inset: UIEdgeInsets = .zero,
             icon: ProfileIcon = .none,
+            cropRect: CGRect? = nil,
             backgroundColor: ThemeValue? = nil,
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
@@ -27,6 +29,7 @@ public final class ProfilePictureView: UIView {
             self.themeTintColor = themeTintColor
             self.inset = inset
             self.icon = icon
+            self.cropRect = cropRect
             self.backgroundColor = backgroundColor
             self.forcedBackgroundColor = forcedBackgroundColor
         }
@@ -117,18 +120,7 @@ public final class ProfilePictureView: UIView {
             self.widthConstraint.constant = (customWidth ?? self.size.viewSize)
         }
     }
-    override public var clipsToBounds: Bool {
-        didSet {
-            imageContainerView.clipsToBounds = clipsToBounds
-            additionalImageContainerView.clipsToBounds = clipsToBounds
-            
-            imageContainerView.layer.cornerRadius = (clipsToBounds ?
-                (additionalImageContainerView.isHidden ? (size.imageSize / 2) : (size.multiImageSize / 2)) :
-                0
-            )
-            imageContainerView.layer.cornerRadius = (clipsToBounds ? (size.multiImageSize / 2) : 0)
-        }
-    }
+    
     public override var isHidden: Bool {
         didSet {
             widthConstraint.constant = (isHidden ? 0 : size.viewSize)
@@ -431,11 +423,9 @@ public final class ProfilePictureView: UIView {
     private func prepareForReuse() {
         imageView.image = nil
         imageView.contentMode = .scaleAspectFill
-        imageContainerView.clipsToBounds = clipsToBounds
         imageContainerView.themeBackgroundColor = .backgroundSecondary
         additionalImageContainerView.isHidden = true
         additionalImageView.image = nil
-        additionalImageContainerView.clipsToBounds = clipsToBounds
         
         imageViewTopConstraint.isActive = false
         imageViewLeadingConstraint.isActive = false
@@ -478,7 +468,14 @@ public final class ProfilePictureView: UIView {
             case (.image(_, let image), .some(let renderingMode)):
                 imageView.image = image?.withRenderingMode(renderingMode)
                 
-            case (.some(let source), _): imageView.loadImage(source)
+            case (.some(let source), _):
+                imageView.loadImage(source) { [weak self, weak imageView = self.imageView] _ in
+                    self?.applyCropTransform(
+                        to: imageView,
+                        source: source,
+                        cropRect: info.cropRect
+                    )
+                }
                 
             default: imageView.image = nil
         }
@@ -497,11 +494,18 @@ public final class ProfilePictureView: UIView {
             }
         }
         
+        // Apply crop transform if needed
+        applyCropTransform(
+            to: imageView,
+            source: info.source,
+            cropRect: info.cropRect
+        )
+        
         // Check if there is a second image (if not then set the size and finish)
         guard let additionalInfo: Info = additionalInfo else {
             imageViewWidthConstraint.constant = size.imageSize
             imageViewHeightConstraint.constant = size.imageSize
-            imageContainerView.layer.cornerRadius = (imageContainerView.clipsToBounds ? (size.imageSize / 2) : 0)
+            imageContainerView.layer.cornerRadius = (size.imageSize / 2)
             return
         }
         
@@ -524,7 +528,13 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
-                additionalImageView.loadImage(source)
+                additionalImageView.loadImage(source) { [weak self, weak imageView = self.additionalImageView] _ in
+                    self?.applyCropTransform(
+                        to: imageView,
+                        source: additionalInfo.source,
+                        cropRect: additionalInfo.cropRect
+                    )
+                }
                 additionalImageContainerView.isHidden = false
                 
             default:
@@ -549,6 +559,11 @@ public final class ProfilePictureView: UIView {
                 default: break
             }
         }
+        applyCropTransform(
+            to: additionalImageView,
+            source: additionalInfo.source,
+            cropRect: additionalInfo.cropRect
+        )
         
         imageViewTopConstraint.isActive = true
         imageViewLeadingConstraint.isActive = true
@@ -557,14 +572,55 @@ public final class ProfilePictureView: UIView {
         
         imageViewWidthConstraint.constant = size.multiImageSize
         imageViewHeightConstraint.constant = size.multiImageSize
-        imageContainerView.layer.cornerRadius = (imageContainerView.clipsToBounds ? (size.multiImageSize / 2) : 0)
+        imageContainerView.layer.cornerRadius = (size.multiImageSize / 2)
         additionalImageViewWidthConstraint.constant = size.multiImageSize
         additionalImageViewHeightConstraint.constant = size.multiImageSize
-        additionalImageContainerView.layer.cornerRadius = (additionalImageContainerView.clipsToBounds ?
-            (size.multiImageSize / 2) :
-            0
-        )
+        additionalImageContainerView.layer.cornerRadius = (size.multiImageSize / 2)
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
+    }
+    
+    private func applyCropTransform(
+        to imageView: SessionImageView?,
+        source: ImageDataManager.DataSource?,
+        cropRect: CGRect?
+    ) {
+        guard
+            let imageView: UIImageView = imageView,
+            let cropRect: CGRect = cropRect,
+            cropRect != CGRect(x: 0, y: 0, width: 1, height: 1)
+        else {
+            imageView?.transform = .identity
+            return
+        }
+        
+        // Calculate scale to fill container with cropped portion
+        let scaleX = 1.0 / cropRect.width
+        let scaleY = 1.0 / cropRect.height
+        let scale = max(scaleX, scaleY)
+        
+        // Center of crop rect in normalized coordinates (0-1)
+        let cropCenterNormalizedX = cropRect.origin.x + cropRect.width / 2
+        let cropCenterNormalizedY = cropRect.origin.y + cropRect.height / 2
+        
+        // The imageView's frame determines how the image is initially displayed
+        // We need to work in the imageView's coordinate space
+        let imageViewSize = imageView.bounds.size
+        
+        // Calculate where the crop center is in the imageView's coordinate space
+        let cropCenterInViewX = cropCenterNormalizedX * imageViewSize.width
+        let cropCenterInViewY = cropCenterNormalizedY * imageViewSize.height
+        
+        // We want the crop center to be at the imageView's center after transform
+        let targetCenterX = imageViewSize.width / 2
+        let targetCenterY = imageViewSize.height / 2
+        
+        // Translation needed (in pre-scaled coordinate space)
+        let translateX = (targetCenterX - cropCenterInViewX) / scale
+        let translateY = (targetCenterY - cropCenterInViewY) / scale
+        
+        // Apply transform
+        imageView.transform = CGAffineTransform(scaleX: scale, y: scale)
+            .translatedBy(x: translateX, y: translateY)
     }
 }
 

@@ -9,6 +9,15 @@ import Nimble
 
 class DestinationSpec: QuickSpec {
     override class func spec() {
+        // MARK: Configuration
+
+        @TestState var dependencies: TestDependencies! = TestDependencies()
+        
+        @TestState var urlRequest: URLRequest?
+        @TestState var preparedRequest: Network.PreparedRequest<TestType>!
+        @TestState var request: Request<NoBody, TestEndpoint>!
+        @TestState var responseInfo: ResponseInfoType! = Network.ResponseInfo(code: 200, headers: [:])
+        
         // MARK: - a Destination
         describe("a Destination") {
             // MARK: -- when generating a path
@@ -81,13 +90,27 @@ class DestinationSpec: QuickSpec {
             context("for a server") {
                 // MARK: ---- throws an error if the generated URL is invalid
                 it("throws an error if the generated URL is invalid") {
-                    expect {
-                        _ = try Network.Destination.server(
+                    request = try Request<NoBody, TestEndpoint>(
+                        endpoint: .testParams("test", 123),
+                        destination: .server(
+                            method: .post,
                             server: "ftp:// test Server",
+                            queryParameters: [:],
+                            headers: [
+                                "TestCustomHeader": "TestCustom",
+                                HTTPHeader.testHeader: "Test"
+                            ],
                             x25519PublicKey: ""
-                        ).withGeneratedUrl(for: TestEndpoint.testParams("test", 123))
-                    }
-                    .to(throwError(NetworkError.invalidURL))
+                        ),
+                        body: nil
+                    )
+                    preparedRequest = try! Network.PreparedRequest(
+                        request: request,
+                        responseType: TestType.self,
+                        using: dependencies
+                    )
+                    
+                    expect { try preparedRequest.generateUrl() }.to(throwError(NetworkError.invalidURL))
                 }
             }
         }
@@ -95,6 +118,10 @@ class DestinationSpec: QuickSpec {
 }
 
 // MARK: - Test Types
+
+fileprivate extension HTTPHeader {
+    static let testHeader: HTTPHeader = "TestHeader"
+}
 
 fileprivate extension HTTPQueryParam {
     static let testParam: HTTPQueryParam = "testParam"

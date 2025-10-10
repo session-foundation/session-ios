@@ -2,7 +2,7 @@
 
 import Foundation
 
-public struct HTTPFragmentParam: RawRepresentable, ExpressibleByStringLiteral, Hashable {
+public struct HTTPFragmentParam: RawRepresentable, Codable, ExpressibleByStringLiteral, Hashable {
     public let rawValue: String
     
     public init(_ rawValue: String) { self.rawValue = rawValue }

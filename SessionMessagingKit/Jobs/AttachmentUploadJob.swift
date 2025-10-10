@@ -187,19 +187,23 @@ public extension AttachmentUploadJob {
     static func preparePriorToUpload(
         attachments: [PendingAttachment],
         using dependencies: Dependencies
-    ) throws -> [Attachment] {
-        return try attachments.compactMap { pendingAttachment in
+    ) async throws -> [Attachment] {
+        var result: [Attachment] = []
+        
+        for pendingAttachment in attachments {
             /// Strip any metadata from the attachment and store at a "Pending Upload" file path
-            let preparedAttachment: PreparedAttachment = try pendingAttachment.prepare(
-                transformations: [
+            let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                operations: [
                     .stripImageMetadata
                 ],
                 storeAtPendingAttachmentUploadPath: true,
                 using: dependencies
             )
             
-            return preparedAttachment.attachment
+            result.append(preparedAttachment.attachment)
         }
+        
+        return result
     }
     
     static func link(
@@ -235,7 +239,7 @@ public extension AttachmentUploadJob {
         authMethod: AuthenticationMethod,
         onEvent: ((Event) async throws -> Void)?,
         using dependencies: Dependencies
-    ) async throws -> Attachment {
+    ) async throws -> (attachment: Attachment, response: FileUploadResponse) {
         let shouldEncrypt: Bool = {
             switch authMethod {
                 case is Authentication.community: return false
@@ -247,10 +251,10 @@ public extension AttachmentUploadJob {
         /// uploaded (in this case the attachment has already been uploaded so just succeed)
         if
             attachment.state == .uploaded,
-            Network.FileServer.fileId(for: attachment.downloadUrl) != nil,
+            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
             !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl)
         {
-            return attachment
+            return (attachment, FileUploadResponse(id: fileId, uploaded: nil, expires: nil))
         }
         
         /// If the attachment is a downloaded attachment, check if it came from the server and if so just succeed immediately (no use
@@ -259,14 +263,14 @@ public extension AttachmentUploadJob {
         /// **Note:** The most common cases for this will be for `LinkPreviews`
         if
             attachment.state == .downloaded,
-            Network.FileServer.fileId(for: attachment.downloadUrl) != nil,
+            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
             !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl),
             (
                 !shouldEncrypt ||
                 attachment.encryptionKey != nil
             )
         {
-            return attachment
+            return (attachment, FileUploadResponse(id: fileId, uploaded: nil, expires: nil))
         }
         
         /// If we have gotten here then we need to upload
@@ -278,10 +282,8 @@ public extension AttachmentUploadJob {
             attachment: attachment,
             using: dependencies
         )
-        let preparedAttachment: PreparedAttachment = try pendingAttachment.prepare(
-            transformations: Set([
-                (shouldEncrypt ? .encrypt(domain: .attachment) : nil)
-            ].compactMap { $0 }),
+        let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+            operations: (shouldEncrypt ? [.encrypt(domain: .attachment)] : []),
             using: dependencies
         )
         let maybePreparedData: Data? = dependencies[singleton: .fileManager]
@@ -386,190 +388,7 @@ public extension AttachmentUploadJob {
         try await onEvent?(.success(uploadedAttachment, interactionId: interactionId))
         try Task.checkCancellation()
         
-        return uploadedAttachment
-    }
-    
-    @available(*, deprecated, message: "Replace with an async/await call to `upload`")
-    static func preparedUpload(
-        attachment: Attachment,
-        authMethod: AuthenticationMethod,
-        using dependencies: Dependencies
-    ) throws -> (request: Network.PreparedRequest<FileUploadResponse>, attachment: Attachment, preparedAttachment: PreparedAttachment) {
-        let endpoint: (any EndpointType) = {
-            switch authMethod {
-                case let community as Authentication.community:
-                    return Network.SOGS.Endpoint.roomFile(community.roomToken)
-                    
-                default: return Network.FileServer.Endpoint.file
-            }
-        }()
-        let shouldEncrypt: Bool = {
-            switch authMethod {
-                case is Authentication.community: return false
-                default: return true
-            }
-        }()
-        
-        /// This can occur if an `AttachmentUploadJob` was explicitly created for a message dependant on the attachment being
-        /// uploaded (in this case the attachment has already been uploaded so just succeed)
-        if
-            attachment.state == .uploaded,
-            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
-            !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl)
-        {
-            return (
-                try Network.PreparedRequest<FileUploadResponse>.cached(
-                    FileUploadResponse(id: fileId, uploaded: nil, expires: nil),
-                    endpoint: endpoint,
-                    using: dependencies
-                ),
-                attachment,
-                PreparedAttachment(
-                    attachment: attachment,
-                    filePath: ""
-                )
-            )
-        }
-        
-        /// If the attachment is a downloaded attachment, check if it came from the server and if so just succeed immediately (no use
-        /// re-uploading an attachment that is already present on the server) - or if we want it to be encrypted and it's not then encrypt it
-        ///
-        /// **Note:** The most common cases for this will be for `LinkPreviews`
-        if
-            attachment.state == .downloaded,
-            let fileId: String = Network.FileServer.fileId(for: attachment.downloadUrl),
-            !dependencies[singleton: .attachmentManager].isPlaceholderUploadUrl(attachment.downloadUrl),
-            (
-                !shouldEncrypt || (
-                    attachment.encryptionKey != nil &&
-                    attachment.digest != nil
-                )
-            )
-        {
-            return (
-                try Network.PreparedRequest.cached(
-                    FileUploadResponse(id: fileId, uploaded: nil, expires: nil),
-                    endpoint: endpoint,
-                    using: dependencies
-                ),
-                attachment,
-                PreparedAttachment(
-                    attachment: attachment,
-                    filePath: ""
-                )
-            )
-        }
-        
-        /// Encrypt the attachment if needed
-        let pendingAttachment: PendingAttachment = try PendingAttachment(
-            attachment: attachment,
-            using: dependencies
-        )
-        let preparedAttachment: PreparedAttachment = try pendingAttachment.prepare(
-            transformations: Set([
-                (shouldEncrypt ? .encrypt(domain: .attachment) : nil)
-            ].compactMap { $0 }),
-            using: dependencies
-        )
-        let maybePreparedData: Data? = dependencies[singleton: .fileManager]
-            .contents(atPath: preparedAttachment.filePath)
-        
-        guard let preparedData: Data = maybePreparedData else {
-            Log.error(.cat, "Couldn't retrieve prepared attachment data.")
-            throw AttachmentError.invalidData
-        }
-            
-        /// Ensure the file size is smaller than our upload limit
-        Log.info(.cat, "File size: \(preparedData.count) bytes.")
-        guard preparedData.count <= Network.maxFileSize else { throw NetworkError.maxFileSizeExceeded }
-        
-        /// Return the request and the prepared attachment
-        switch authMethod {
-            case let communityAuth as Authentication.community:
-                return (
-                    try Network.SOGS.preparedUpload(
-                        data: preparedData,
-                        roomToken: communityAuth.roomToken,
-                        authMethod: communityAuth,
-                        using: dependencies
-                    ),
-                    attachment,
-                    preparedAttachment
-                )
-                
-            default:
-                return (
-                    try Network.FileServer.preparedUpload(
-                        data: preparedData,
-                        using: dependencies
-                    ),
-                    attachment,
-                    preparedAttachment
-                )
-        }
-    }
-    
-    @available(*, deprecated, message: "Replace with an async/await call to `upload`")
-    static func processUploadResponse(
-        originalAttachment: Attachment,
-        preparedAttachment: PreparedAttachment,
-        authMethod: AuthenticationMethod,
-        response: FileUploadResponse,
-        using dependencies: Dependencies
-    ) throws -> Attachment {
-        /// If the `downloadUrl` previously had a value and we are updating it then we need to move the file from it's current location
-        /// to the hash that would be generated for the new location
-        let finalDownloadUrl: String = {
-            let isPlaceholderUploadUrl: Bool = dependencies[singleton: .attachmentManager]
-                .isPlaceholderUploadUrl(originalAttachment.downloadUrl)
-
-            switch (originalAttachment.downloadUrl, isPlaceholderUploadUrl, authMethod) {
-                case (.some(let downloadUrl), false, _): return downloadUrl
-                case (_, _, let community as Authentication.community):
-                    return Network.SOGS.downloadUrlString(
-                        for: response.id,
-                        server: community.server,
-                        roomToken: community.roomToken
-                    )
-                    
-                default:
-                    return Network.FileServer.downloadUrlString(
-                        for: response.id,
-                        using: dependencies
-                    )
-            }
-        }()
-        
-        if
-            let oldUrl: String = originalAttachment.downloadUrl,
-            finalDownloadUrl != oldUrl,
-            let oldPath: String = try? dependencies[singleton: .attachmentManager].path(for: oldUrl),
-            let newPath: String = try? dependencies[singleton: .attachmentManager].path(for: finalDownloadUrl)
-        {
-            try dependencies[singleton: .fileManager].moveItem(atPath: oldPath, toPath: newPath)
-        }
-        
-        return Attachment(
-            id: preparedAttachment.attachment.id,
-            serverId: response.id,
-            variant: preparedAttachment.attachment.variant,
-            state: .uploaded,
-            contentType: preparedAttachment.attachment.contentType,
-            byteCount: preparedAttachment.attachment.byteCount,
-            creationTimestamp: (
-                preparedAttachment.attachment.creationTimestamp ??
-                (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-            ),
-            sourceFilename: preparedAttachment.attachment.sourceFilename,
-            downloadUrl: finalDownloadUrl,
-            width: preparedAttachment.attachment.width,
-            height: preparedAttachment.attachment.height,
-            duration: preparedAttachment.attachment.duration,
-            isVisualMedia: preparedAttachment.attachment.isVisualMedia,
-            isValid: preparedAttachment.attachment.isValid,
-            encryptionKey: preparedAttachment.attachment.encryptionKey,
-            digest: preparedAttachment.attachment.digest
-        )
+        return (uploadedAttachment, response)
     }
     
     /// This function performs the standard database actions when various upload events occur

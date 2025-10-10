@@ -420,7 +420,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
             (id, self.contacts.first { $0.profileId == id }?.profile)
         }
         
-        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController(onAppear: { _ in })
+        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController()
         navigationController?.present(indicator, animated: false)
         
         Task(priority: .userInitiated) { [weak self] in
@@ -431,6 +431,7 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                     name: name,
                     description: nil,
                     displayPicture: nil,
+                    displayPictureCropRect: nil,
                     members: selectedProfiles,
                     using: dependencies
                 )

@@ -21,6 +21,7 @@ extension MessageSender {
         name: String,
         description: String?,
         displayPicture: ImageDataManager.DataSource?,
+        displayPictureCropRect: CGRect?,
         members: [(String, Profile?)],
         using dependencies: Dependencies
     ) async throws -> SessionThread {
@@ -35,8 +36,8 @@ extension MessageSender {
                 source: .media(source),
                 using: dependencies
             )
-            let preparedAttachment: PreparedAttachment = try dependencies[singleton: .displayPictureManager]
-                .prepareDisplayPicture(attachment: pendingAttachment)
+            let preparedAttachment: PreparedAttachment = try await dependencies[singleton: .displayPictureManager]
+                .prepareDisplayPicture(attachment: pendingAttachment, cropRect: displayPictureCropRect)
             displayPictureInfo = try await dependencies[singleton: .displayPictureManager]
                 .uploadDisplayPicture(preparedAttachment: preparedAttachment)
         }

@@ -125,14 +125,11 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                 )
                 
                 guard
-                    try profile.profileLastUpdated == 0 ||
+                    profile.profileLastUpdated == 0 ||
                     dependencies.dateNow.timeIntervalSince(lastUpdated) > maxReuploadFrequency ||
                     dependencies[feature: .shortenFileTTL] ||
-                    pendingDisplayPicture.needsPreparationForAttachmentUpload(
-                        transformations: [
-                            .convertToStandardFormats,
-                            .resize(maxDimension: DisplayPictureManager.maxDimension)
-                        ]
+                    dependencies[singleton: .displayPictureManager].reuploadNeedsPreparation(
+                        attachment: pendingDisplayPicture
                     )
                 else {
                     /// Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck in a loop endlessly
@@ -152,14 +149,8 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                 }
                 
                 /// Prepare and upload the display picture
-                let preparedAttachment: PreparedAttachment = try dependencies[singleton: .displayPictureManager]
-                    .prepareDisplayPicture(
-                        attachment: pendingDisplayPicture,
-                        transformations: [
-                            .convertToStandardFormats,
-                            .resize(maxDimension: DisplayPictureManager.maxDimension)
-                        ]
-                    )
+                let preparedAttachment: PreparedAttachment = try await dependencies[singleton: .displayPictureManager]
+                    .prepareDisplayPicture(attachment: pendingDisplayPicture)
                 let result = try await dependencies[singleton: .displayPictureManager]
                     .uploadDisplayPicture(preparedAttachment: preparedAttachment)
                 
