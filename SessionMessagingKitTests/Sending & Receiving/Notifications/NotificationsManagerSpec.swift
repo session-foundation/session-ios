@@ -1344,6 +1344,7 @@ class NotificationsManagerSpec: QuickSpec {
                             threadVariant: .contact,
                             identifier: "05\(TestConstants.publicKey)-TestId",
                             category: .incomingMessage,
+                            groupingIdentifier: .threadId("05\(TestConstants.publicKey)"),
                             title: "0588...c65b",
                             body: "Test",
                             sound: .note,
@@ -1400,6 +1401,7 @@ class NotificationsManagerSpec: QuickSpec {
                             threadVariant: .contact,
                             identifier: "00000000-0000-0000-0000-000000000001",
                             category: .incomingMessage,
+                            groupingIdentifier: .threadId("05\(TestConstants.publicKey)"),
                             title: "0588...c65b",
                             body: "emojiReactsNotification"
                                 .put(key: "emoji", value: "A")
