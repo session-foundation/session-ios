@@ -93,6 +93,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         case recentReactionEmoji
         case wasKickedFromGroup
         case groupIsDestroyed
+        case isContactApproved
     }
     
     public struct MessageInputState: Equatable {
@@ -197,6 +198,9 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     public let recentReactionEmoji: [String]?
     public let wasKickedFromGroup: Bool?
     public let groupIsDestroyed: Bool?
+    
+    /// Flag indicates that the contact's message request has been approved
+    public let isContactApproved: Bool?
     
     // UI specific logic
     
@@ -602,6 +606,7 @@ public extension SessionThreadViewModel {
         self.recentReactionEmoji = nil
         self.wasKickedFromGroup = false
         self.groupIsDestroyed = false
+        self.isContactApproved = false
     }
 }
 
@@ -679,7 +684,8 @@ public extension SessionThreadViewModel {
             currentUserSessionIds: currentUserSessionIds,
             recentReactionEmoji: recentReactionEmoji,
             wasKickedFromGroup: wasKickedFromGroup,
-            groupIsDestroyed: groupIsDestroyed
+            groupIsDestroyed: groupIsDestroyed,
+            isContactApproved: isContactApproved
         )
     }
 }
@@ -2067,13 +2073,14 @@ public extension SessionThreadViewModel {
         
         /// **Note:** The `numColumnsBeforeProfiles` value **MUST** match the number of fields before
         /// the `contactProfile` entry below otherwise the query will fail to parse and might throw
-        let numColumnsBeforeProfiles: Int = 8
+        let numColumnsBeforeProfiles: Int = 9
         let request: SQLRequest<ViewModel> = """
             SELECT
                 100 AS \(Column.rank),
                 
                 \(contact[.rowId]) AS \(ViewModel.Columns.rowId),
                 \(contact[.id]) AS \(ViewModel.Columns.threadId),
+                \(contact[.isApproved]) AS \(ViewModel.Columns.isContactApproved),
                 \(SessionThread.Variant.contact) AS \(ViewModel.Columns.threadVariant),
                 IFNULL(\(thread[.creationDateTimestamp]), \(currentTimestamp)) AS \(ViewModel.Columns.threadCreationDateTimestamp),
                 '' AS \(ViewModel.Columns.threadMemberNames),
