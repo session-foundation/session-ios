@@ -68,7 +68,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
             initialSetup: { network in
                 network
                     .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                    .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1")))
+                    .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", expires: nil)))
                 network
                     .when { $0.getSwarm(for: .any) }
                     .thenReturn([
@@ -404,7 +404,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 displayName: "TestName",
                                 profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
                                     .map { _ in 1 }),
-                                profilePictureUrl: "https://www.oxen.io/1234"
+                                profilePictureUrl: "https://www.oxen.io/1234",
+                                updateTimestampSeconds: 1234567890
                             )
                             
                             mockStorage.write { db in
@@ -447,7 +448,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 displayName: "TestName",
                                 profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
                                     .map { _ in 1 }),
-                                profilePictureUrl: "https://www.oxen.io/1234"
+                                profilePictureUrl: "https://www.oxen.io/1234",
+                                updateTimestampSeconds: 1234567890
                             )
                             
                             mockStorage.write { db in
@@ -646,6 +648,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         threadVariant: .group,
                                         identifier: "\(groupId.hexString)-1",
                                         category: .incomingMessage,
+                                        groupingIdentifier: .messageRequest,
                                         title: Constants.app_name,
                                         body: "messageRequestsNew".localized(),
                                         sound: .defaultNotificationSound,
@@ -797,6 +800,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         threadVariant: .group,
                                         identifier: "\(groupId.hexString)-1",
                                         category: .incomingMessage,
+                                        groupingIdentifier: .threadId(groupId.hexString),
                                         title: "notificationsIosGroup"
                                             .put(key: "name", value: "0511...1111")
                                             .put(key: "conversation_name", value: "TestGroupName")
