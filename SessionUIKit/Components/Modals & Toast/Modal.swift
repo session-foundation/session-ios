@@ -151,11 +151,19 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
     public static func createButton(title: String, titleColor: ThemeValue) -> UIButton {
         let result: UIButton = UIButton()
         result.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
+        result.titleLabel?.numberOfLines = 0
+        result.titleLabel?.textAlignment = .center
         result.setTitle(title, for: .normal)
         result.setThemeTitleColor(titleColor, for: .normal)
         result.setThemeBackgroundColor(.alert_buttonBackground, for: .normal)
         result.setThemeBackgroundColor(.highlighted(.alert_buttonBackground), for: .highlighted)
         result.set(.height, to: Values.alertButtonHeight)
+        result.contentEdgeInsets = UIEdgeInsets(
+            top: 0,
+            left: Values.mediumSpacing,
+            bottom: 0,
+            right: Values.mediumSpacing
+        )
                 
         return result
     }
