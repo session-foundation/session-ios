@@ -33,11 +33,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     
     var floatingViewVideoSource: FloatingViewVideoSource = .local
     
-    // Use a local bool flag (set to true) instead of passing it from `endCall`.
-    // This prevents a race condition between `handleEndCallMessage` and `endCall`,
-    // since `handleEndCallMessage`, triggered by `call.hasEndedDidChange`, may fire first.
-    private var shouldShowCameraPermissionInstructions = false
-    
     // MARK: - UI Components
     
     private lazy var floatingLocalVideoView: LocalVideoView = {
@@ -670,9 +665,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             self.callInfoLabelStackView.alpha = 1
         }
         
-        Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
-            self?.shouldHandleCallDismiss()
-        }
+        self.shouldHandleCallDismiss(delay: 2)
     }
     
     @objc private func answerCall() {
@@ -686,15 +679,13 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         }
     }
     
-    @objc private func endCall() {
+    @objc private func endCall(presentCameraRequestDialog: Bool = false) {
         dependencies[singleton: .callManager].endCall(call) { [weak self, dependencies] error in
+            self?.shouldHandleCallDismiss(delay: 1, presentCameraRequestDialog: presentCameraRequestDialog)
+            
             if let _ = error {
                 self?.call.endSessionCall()
                 dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .declinedElsewhere)
-            }
-            
-            Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
-                self?.shouldHandleCallDismiss()
             }
         }
     }
@@ -771,9 +762,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                                     cancelTitle: "remindMeLater".localized(),
                                     cancelStyle: .alert_text,
                                     onConfirm: { _ in
-                                        self?.shouldShowCameraPermissionInstructions = true
-                                        
-                                        self?.endCall()
+                                        self?.endCall(presentCameraRequestDialog: true)
                                     },
                                     onCancel: { modal in
                                         dependencies[defaults: .standard, key: .shouldRemindGrantingCameraPermissionForCalls] = true
@@ -922,13 +911,15 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         }
     }
     
-    private func shouldHandleCallDismiss(_ presentCameraRequestDialog: Bool = false) {
-        DispatchQueue.main.async { [weak self, dependencies] in
+    private func shouldHandleCallDismiss(delay: TimeInterval, presentCameraRequestDialog: Bool = false) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(Int(delay))) { [weak self, dependencies] in
+            guard self?.presentingViewController != nil else { return }
+            
             self?.dismiss(animated: true, completion: {
                 self?.conversationVC?.becomeFirstResponder()
                 self?.conversationVC?.showInputAccessoryView()
 
-                if self?.shouldShowCameraPermissionInstructions == true {
+                if presentCameraRequestDialog {
                     Permissions.showEnableCameraAccessInstructions(using: dependencies)
                 } else {
                     Permissions.remindCameraAccessRequirement(using: dependencies)
