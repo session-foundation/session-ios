@@ -744,7 +744,7 @@ public extension LibSession {
                                     
                                 case .contacts(let conf):
                                     return try LibSession
-                                        .extractContacts(from: conf, serverTimestampMs: -1, using: dependencies)
+                                        .extractContacts(from: conf, using: dependencies)
                                         .reduce(into: [:]) { result, next in
                                             result[.contact(next.key)] = next.value.contact
                                             result[.profile(next.key)] = next.value.profile
@@ -794,16 +794,14 @@ public extension LibSession {
                         try handleUserProfileUpdate(
                             db,
                             in: config,
-                            oldState: oldState,
-                            serverTimestampMs: latestServerTimestampMs
+                            oldState: oldState
                         )
                         
                     case .contacts:
                         try handleContactsUpdate(
                             db,
                             in: config,
-                            oldState: oldState,
-                            serverTimestampMs: latestServerTimestampMs
+                            oldState: oldState
                         )
                         
                     case .convoInfoVolatile:
@@ -815,8 +813,7 @@ public extension LibSession {
                     case .userGroups:
                         try handleUserGroupsUpdate(
                             db,
-                            in: config,
-                            serverTimestampMs: latestServerTimestampMs
+                            in: config
                         )
                         
                     case .groupInfo:
@@ -1041,10 +1038,12 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?)
     
     var displayName: String? { get }
+    
     func updateProfile(
         displayName: String,
         displayPictureUrl: String?,
-        displayPictureEncryptionKey: Data?
+        displayPictureEncryptionKey: Data?,
+        isReuploadProfilePicture: Bool
     ) throws
     
     func canPerformChange(
@@ -1184,7 +1183,12 @@ public extension LibSessionCacheType {
     }
     
     func updateProfile(displayName: String) throws {
-        try updateProfile(displayName: displayName, displayPictureUrl: nil, displayPictureEncryptionKey: nil)
+        try updateProfile(
+            displayName: displayName,
+            displayPictureUrl: nil,
+            displayPictureEncryptionKey: nil,
+            isReuploadProfilePicture: false
+        )
     }
     
     var profile: Profile {
@@ -1319,7 +1323,8 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func updateProfile(
         displayName: String,
         displayPictureUrl: String?,
-        displayPictureEncryptionKey: Data?
+        displayPictureEncryptionKey: Data?,
+        isReuploadProfilePicture: Bool
     ) throws {}
     
     func canPerformChange(

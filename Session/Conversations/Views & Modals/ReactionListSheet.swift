@@ -453,11 +453,12 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                     authorId.truncated(threadVariant: self.messageViewModel.threadVariant)
                 ),
                 trailingAccessory: (!canRemoveEmoji ? nil :
-                    .icon(
-                        Lucide.image(icon: .x, size: IconSize.medium.size)?
-                            .withRenderingMode(.alwaysTemplate),
-                        size: .medium
-                    )
+                        .icon(
+                            Lucide.image(icon: .x, size: IconSize.medium.size)?
+                                .withRenderingMode(.alwaysTemplate),
+                            size: .medium,
+                            pinEdges: [.right]
+                        )
                 ),
                 styling: SessionCell.StyleInfo(backgroundStyle: .edgeToEdge),
                 isEnabled: (self.messageViewModel.currentUserSessionIds ?? []).contains(authorId)

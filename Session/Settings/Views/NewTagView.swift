@@ -34,7 +34,7 @@ final class NewTagView: UIView {
     
     private func setupUI() {
         addSubview(newTagLabel)
-        newTagLabel.pin(.leading, to: .leading, of: self, withInset: -(Values.mediumSpacing + Values.verySmallSpacing))
+        newTagLabel.pin(.leading, to: .leading, of: self, withInset: -Values.mediumSmallSpacing)
         newTagLabel.pin([ UIView.VerticalEdge.top, UIView.VerticalEdge.bottom, UIView.HorizontalEdge.trailing ], to: self)
     }
     

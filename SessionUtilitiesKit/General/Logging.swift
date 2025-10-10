@@ -192,8 +192,7 @@ public enum Log {
         else { return logFiles[0] }
         
         // The file is too small so lets create a temp file to share instead
-        let tempDirectory: String = NSTemporaryDirectory()
-        let tempFilePath: String = URL(fileURLWithPath: tempDirectory)
+        let tempFilePath: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
             .appendingPathComponent(URL(fileURLWithPath: logFiles[1]).lastPathComponent)
             .path
         
@@ -730,8 +729,7 @@ public actor Logger: LoggerType {
         }()
         
         /// Clean up the message if needed (replace double periods with single, trim whitespace, truncate pubkeys)
-        let cleanedMessage: String = logPrefix
-            .appending(message)
+        let cleanedMessage: String = message
             .replacingOccurrences(of: "...", with: "|||")
             .replacingOccurrences(of: "..", with: ".")
             .replacingOccurrences(of: "|||", with: "...")

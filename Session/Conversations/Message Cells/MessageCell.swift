@@ -10,11 +10,16 @@ public enum SwipeState {
     case cancelled
 }
 
+public enum GestureRecognizerType {
+    case tap, longPress, doubleTap
+}
+
 public class MessageCell: UITableViewCell {
     var dependencies: Dependencies?
     var viewModel: MessageViewModel?
     weak var delegate: MessageCellDelegate?
     open var contextSnapshotView: UIView? { return nil }
+    open var allowedGestureRecognizers: Set<GestureRecognizerType> { return [] } // Override to have gestures
 
     // MARK: - Lifecycle
     
@@ -41,7 +46,32 @@ public class MessageCell: UITableViewCell {
     }
 
     func setUpGestureRecognizers() {
-        // To be overridden by subclasses
+        var tapGestureRecognizer: UITapGestureRecognizer?
+        var doubleTapGestureRecognizer: UITapGestureRecognizer?
+        
+        if allowedGestureRecognizers.contains(.tap) {
+            let tapGesture: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+            tapGesture.numberOfTapsRequired = 1
+            addGestureRecognizer(tapGesture)
+            tapGestureRecognizer = tapGesture
+        }
+        
+        if allowedGestureRecognizers.contains(.doubleTap) {
+            let doubleTapGesture: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
+            doubleTapGesture.numberOfTapsRequired = 2
+            addGestureRecognizer(doubleTapGesture)
+            doubleTapGestureRecognizer = doubleTapGesture
+        }
+        
+        if allowedGestureRecognizers.contains(.longPress) {
+            let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
+            addGestureRecognizer(longPressGesture)
+        }
+        
+        // If we have both tap and double tap gestures then the single tap should fail if a double tap occurs
+        if let tapGesture: UITapGestureRecognizer = tapGestureRecognizer, let doubleTapGesture: UITapGestureRecognizer = doubleTapGestureRecognizer {
+            tapGesture.require(toFail: doubleTapGesture)
+        }
     }
 
     // MARK: - Updating
@@ -59,6 +89,7 @@ public class MessageCell: UITableViewCell {
         showExpandedReactions: Bool,
         shouldExpanded: Bool,
         lastSearchText: String?,
+        tableSize: CGSize,
         using dependencies: Dependencies
     ) {
         preconditionFailure("Must be overridden by subclasses.")
@@ -93,6 +124,16 @@ public class MessageCell: UITableViewCell {
                 return CallMessageCell.self
         }
     }
+    
+    // MARK: - Gesture events
+    @objc
+    func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {}
+
+    @objc
+    func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {}
+
+    @objc
+    func handleDoubleTap() {}
 }
 
 // MARK: - MessageCellDelegate
@@ -104,7 +145,7 @@ protocol MessageCellDelegate: ReactionDelegate {
     func handleItemSwiped(_ cellViewModel: MessageViewModel, state: SwipeState)
     func openUrl(_ urlString: String)
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel)
-    func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?)
+    func showUserProfileModal(for cellViewModel: MessageViewModel)
     func showReactionList(_ cellViewModel: MessageViewModel, selectedReaction: EmojiWithSkinTones?)
     func needsLayout(for cellViewModel: MessageViewModel, expandingReactions: Bool)
     func handleReadMoreButtonTapped(_ cell: UITableViewCell, for cellViewModel: MessageViewModel)

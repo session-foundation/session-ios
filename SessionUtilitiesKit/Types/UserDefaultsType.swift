@@ -186,6 +186,9 @@ public extension UserDefaults.DateKey {
     /// The date/time when the users profile picture was last uploaded to the server (used to rate-limit re-uploading)
     static let lastProfilePictureUpload: UserDefaults.DateKey = "lastProfilePictureUpload"
     
+    /// The date/time when the users profile picture expires on the server
+    static let profilePictureExpiresDate: UserDefaults.DateKey = "profilePictureExpiresDate"
+    
     /// The date/time when any open group last had a successful poll (used as a fallback date/time if the open group hasn't been polled
     /// this session)
     static let lastOpen: UserDefaults.DateKey = "lastOpen"

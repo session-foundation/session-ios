@@ -136,6 +136,11 @@ public final class InputViewButton: UIView {
         )
     }
     
+    public func updateAppearance(isEnabled: Bool) {
+        iconImageView.themeTintColor = isEnabled ? .textPrimary : .disabled
+        backgroundView.themeBackgroundColor = isEnabled ? .inputButton_background : .disabled
+    }
+    
     // MARK: - Interaction
     
     // We want to detect both taps and long presses
@@ -192,8 +197,8 @@ public final class InputViewButton: UIView {
 // MARK: - Delegate
 
 public protocol InputViewButtonDelegate: AnyObject {
-    func handleInputViewButtonTapped(_ inputViewButton: InputViewButton)
-    func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?)
-    func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?)
-    func handleInputViewButtonLongPressEnded(_ inputViewButton: InputViewButton, with touch: UITouch?)
+    @MainActor func handleInputViewButtonTapped(_ inputViewButton: InputViewButton)
+    @MainActor func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?)
+    @MainActor func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?)
+    @MainActor func handleInputViewButtonLongPressEnded(_ inputViewButton: InputViewButton, with touch: UITouch?)
 }

@@ -503,71 +503,75 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             Log.error("[MediaPageViewController] currentViewController was unexpectedly nil")
             return
         }
-        guard
-            let path: String = try? viewModel.dependencies[singleton: .attachmentManager].createTemporaryFileForOpening(
-                downloadUrl: currentViewController.galleryItem.attachment.downloadUrl,
-                mimeType: currentViewController.galleryItem.attachment.contentType,
-                sourceFilename: currentViewController.galleryItem.attachment.sourceFilename
-            ),
-            viewModel.dependencies[singleton: .fileManager].fileExists(atPath: path)
-        else { return }
         
-        let shareVC = UIActivityViewController(activityItems: [ URL(fileURLWithPath: path) ], applicationActivities: nil)
-        
-        if UIDevice.current.isIPad {
-            shareVC.excludedActivityTypes = []
-            shareVC.popoverPresentationController?.permittedArrowDirections = []
-            shareVC.popoverPresentationController?.sourceView = self.view
-            shareVC.popoverPresentationController?.sourceRect = self.view.bounds
-        }
-        
-        shareVC.completionWithItemsHandler = { [dependencies = viewModel.dependencies] activityType, completed, returnedItems, activityError in
-            if let activityError = activityError {
-                Log.error("[MediaPageViewController] Failed to share with activityError: \(activityError)")
-            }
-            else if completed {
-                Log.info("[MediaPageViewController] Did share with activityType: \(activityType.debugDescription)")
-            }
-            
-            /// Sanity check to make sure we don't unintentionally remove a proper attachment file
-            if path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) {
-                try? dependencies[singleton: .fileManager].removeItem(atPath: path)
-            }
-            
-            /// Notify any conversations to update if a message was sent via Session
-            UIActivityViewController.notifyIfNeeded(completed, using: dependencies)
-            
+        DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies = viewModel.dependencies] in
             guard
-                let activityType = activityType,
-                activityType == .saveToCameraRoll,
-                currentViewController.galleryItem.interactionVariant == .standardIncoming,
-                self.viewModel.threadVariant == .contact
+                let path: String = try? dependencies[singleton: .attachmentManager].createTemporaryFileForOpening(
+                    downloadUrl: currentViewController.galleryItem.attachment.downloadUrl,
+                    mimeType: currentViewController.galleryItem.attachment.contentType,
+                    sourceFilename: currentViewController.galleryItem.attachment.sourceFilename
+                ),
+                dependencies[singleton: .fileManager].fileExists(atPath: path)
             else { return }
             
-            let threadId: String = self.viewModel.threadId
-            let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
-            
-            dependencies[singleton: .storage].writeAsync { db in
-                try MessageSender.send(
-                    db,
-                    message: DataExtractionNotification(
-                        kind: .mediaSaved(
-                            timestamp: UInt64(currentViewController.galleryItem.interactionTimestampMs)
-                        ),
-                        sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                    )
-                    .with(DisappearingMessagesConfiguration
-                        .fetchOne(db, id: threadId)?
-                        .forcedWithDisappearAfterReadIfNeeded()
-                    ),
-                    interactionId: nil, // Show no interaction for the current user
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    using: dependencies
-                )
+            DispatchQueue.main.async { [weak self] in
+                let shareVC = UIActivityViewController(activityItems: [ URL(fileURLWithPath: path) ], applicationActivities: nil)
+                
+                if UIDevice.current.isIPad, let view: UIView = self?.view {
+                    shareVC.excludedActivityTypes = []
+                    shareVC.popoverPresentationController?.permittedArrowDirections = []
+                    shareVC.popoverPresentationController?.sourceView = view
+                    shareVC.popoverPresentationController?.sourceRect = view.bounds
+                }
+                
+                shareVC.completionWithItemsHandler = { activityType, completed, returnedItems, activityError in
+                    if let activityError = activityError {
+                        Log.error("[MediaPageViewController] Failed to share with activityError: \(activityError)")
+                    }
+                    else if completed {
+                        Log.info("[MediaPageViewController] Did share with activityType: \(activityType.debugDescription)")
+                    }
+                    
+                    /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                    if path.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) {
+                        try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+                    }
+                    
+                    /// Notify any conversations to update if a message was sent via Session
+                    UIActivityViewController.notifyIfNeeded(completed, using: dependencies)
+                    
+                    guard
+                        let activityType = activityType,
+                        activityType == .saveToCameraRoll,
+                        currentViewController.galleryItem.interactionVariant == .standardIncoming,
+                        self?.viewModel.threadVariant == .contact,
+                        let threadId: String = self?.viewModel.threadId,
+                        let threadVariant: SessionThread.Variant = self?.viewModel.threadVariant
+                    else { return }
+                    
+                    dependencies[singleton: .storage].writeAsync { db in
+                        try MessageSender.send(
+                            db,
+                            message: DataExtractionNotification(
+                                kind: .mediaSaved(
+                                    timestamp: UInt64(currentViewController.galleryItem.interactionTimestampMs)
+                                ),
+                                sentTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                            )
+                            .with(DisappearingMessagesConfiguration
+                                .fetchOne(db, id: threadId)?
+                                .forcedWithDisappearAfterReadIfNeeded()
+                            ),
+                            interactionId: nil, // Show no interaction for the current user
+                            threadId: threadId,
+                            threadVariant: threadVariant,
+                            using: dependencies
+                        )
+                    }
+                }
+                self?.present(shareVC, animated: true, completion: nil)
             }
         }
-        self.present(shareVC, animated: true, completion: nil)
     }
 
     @objc public func didPressDelete(_ sender: Any) {

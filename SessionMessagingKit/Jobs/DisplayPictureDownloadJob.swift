@@ -48,7 +48,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             using: dependencies
                         )
                         
-                    case .community(let fileId, let roomToken, let server):
+                    case .community(let fileId, let roomToken, let server, let skipAuthentication):
                         guard
                             let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
                                 .fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server))
@@ -58,11 +58,12 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             fileId: fileId,
                             roomToken: roomToken,
                             authMethod: Authentication.community(info: info),
+                            skipAuthentication: skipAuthentication,
                             using: dependencies
                         )
                 }
             }
-            .tryMap { (preparedDownload: Network.PreparedRequest<Data>) -> Network.PreparedRequest<(Data, String, URL?)> in
+            .tryMap { (preparedDownload: Network.PreparedRequest<Data>) -> Network.PreparedRequest<(Data, String, URL?, Date?)> in
                 guard
                     let filePath: String = try? dependencies[singleton: .displayPictureManager].path(
                         for: (preparedDownload.destination.url?.absoluteString)
@@ -74,15 +75,15 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     throw DisplayPictureError.alreadyDownloaded(preparedDownload.destination.url)
                 }
                 
-                return preparedDownload.map { _, data in
-                    (data, filePath, preparedDownload.destination.url)
+                return preparedDownload.map { info, data in
+                    (data, filePath, preparedDownload.destination.url, Date.fromHTTPExpiresHeaders(info.headers["Expires"]))
                 }
             }
             .flatMap { $0.send(using: dependencies) }
             .map { _, result in result }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
-            .flatMapStorageReadPublisher(using: dependencies) { (db: ObservingDatabase, result: (Data, String, URL?)) -> (Data, String, URL?) in
+            .flatMapStorageReadPublisher(using: dependencies) { (db: ObservingDatabase, result: (Data, String, URL?, Date?)) -> (Data, String, URL?, Date?) in
                 /// Check to make sure this download is still a valid update
                 guard details.isValidUpdate(db, using: dependencies) else {
                     throw DisplayPictureError.updateNoLongerValid
@@ -90,7 +91,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 
                 return result
             }
-            .tryMap { (data: Data, filePath: String, downloadUrl: URL?) -> URL? in
+            .tryMap { (data: Data, filePath: String, downloadUrl: URL?, expires: Date?) -> (URL?, Date?) in
                 guard
                     let decryptedData: Data = {
                         switch details.target {
@@ -118,15 +119,16 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 }
                 
-                return downloadUrl
+                return (downloadUrl, expires)
             }
-            .flatMapStorageWritePublisher(using: dependencies) { (db: ObservingDatabase, downloadUrl: URL?) in
+            .flatMapStorageWritePublisher(using: dependencies) { (db: ObservingDatabase, result: (downloadUrl: URL?, expires: Date?)) in
                 /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
                 /// the `downloadUrl` changing)
                 try writeChanges(
                     db,
                     details: details,
-                    downloadUrl: downloadUrl,
+                    downloadUrl: result.downloadUrl,
+                    expires: result.expires,
                     using: dependencies
                 )
             }
@@ -143,6 +145,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                         db,
                                         details: details,
                                         downloadUrl: downloadUrl,
+                                        expires: nil,
                                         using: dependencies
                                     )
                                 },
@@ -179,6 +182,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
         _ db: ObservingDatabase,
         details: Details,
         downloadUrl: URL?,
+        expires: Date?,
         using dependencies: Dependencies
     ) throws {
         switch details.target {
@@ -189,11 +193,15 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         db,
                         Profile.Columns.displayPictureUrl.set(to: url),
                         Profile.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
-                        Profile.Columns.displayPictureLastUpdated.set(to: details.timestamp),
+                        Profile.Columns.profileLastUpdated.set(to: details.timestamp),
                         using: dependencies
                     )
                 db.addProfileEvent(id: id, change: .displayPictureUrl(url))
                 db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
+            
+                if dependencies[cache: .general].sessionId.hexString == id, let expires: Date = expires {
+                    dependencies[defaults: .standard, key: .profilePictureExpiresDate] = expires
+                }
                 
             case .group(let id, let url, let encryptionKey):
                 _ = try? ClosedGroup
@@ -206,7 +214,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
                 
-            case .community(_, let roomToken, let server):
+            case .community(_, let roomToken, let server, _):
                 _ = try? OpenGroup
                     .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
                     .updateAllAndConfig(
@@ -228,7 +236,7 @@ extension DisplayPictureDownloadJob {
     public enum Target: Codable, Hashable, CustomStringConvertible {
         case profile(id: String, url: String, encryptionKey: Data)
         case group(id: String, url: String, encryptionKey: Data)
-        case community(imageId: String, roomToken: String, server: String)
+        case community(imageId: String, roomToken: String, server: String, skipAuthentication: Bool = false)
         
         var isValid: Bool {
             switch self {
@@ -239,7 +247,7 @@ extension DisplayPictureDownloadJob {
                         encryptionKey.count == DisplayPictureManager.aes256KeyByteLength
                     )
                     
-                case .community(let imageId, _, _): return !imageId.isEmpty
+                case .community(let imageId, _, _, _): return !imageId.isEmpty
             }
         }
         
@@ -249,14 +257,14 @@ extension DisplayPictureDownloadJob {
             switch self {
                 case .profile(let id, _, _): return "profile: \(id)"
                 case .group(let id, _, _): return "group: \(id)"
-                case .community(_, let roomToken, let server): return "room: \(roomToken) on server: \(server)"
+                case .community(_, let roomToken, let server, _): return "room: \(roomToken) on server: \(server)"
             }
         }
     }
     
     public struct Details: Codable, Hashable {
         public let target: Target
-        public let timestamp: TimeInterval
+        public let timestamp: TimeInterval?
         
         // MARK: - Hashable
         
@@ -269,16 +277,17 @@ extension DisplayPictureDownloadJob {
         
         // MARK: - Initialization
         
-        public init?(target: Target, timestamp: TimeInterval) {
+        public init?(target: Target, timestamp: TimeInterval?) {
             guard target.isValid else { return nil }
             
             self.target = {
                 switch target {
-                    case .community(let imageId, let roomToken, let server):
+                    case .community(let imageId, let roomToken, let server, let skipAuthentication):
                         return .community(
                             imageId: imageId,
                             roomToken: roomToken,
-                            server: server.lowercased()   // Always in lowercase on `OpenGroup`
+                            server: server.lowercased(),   // Always in lowercase on `OpenGroup`
+                            skipAuthentication: skipAuthentication
                         )
                         
                     default: return target
@@ -295,7 +304,7 @@ extension DisplayPictureDownloadJob {
                         let key: Data = profile.displayPictureEncryptionKey,
                         let details: Details = Details(
                             target: .profile(id: profile.id, url: url, encryptionKey: key),
-                            timestamp: (profile.displayPictureLastUpdated ?? 0)
+                            timestamp: (profile.profileLastUpdated ?? 0)
                         )
                     else { return nil }
                     
@@ -339,11 +348,16 @@ extension DisplayPictureDownloadJob {
                 case .profile(let id, let url, let encryptionKey):
                     guard let latestProfile: Profile = try? Profile.fetchOne(db, id: id) else { return false }
                     
+                    /// If the data matches what is stored in the database then we should be fine to consider it valid (it may be that
+                    /// we are re-downloading a profile due to some invalid state)
+                    let dataMatches: Bool = (
+                        encryptionKey == latestProfile.displayPictureEncryptionKey &&
+                        url == latestProfile.displayPictureUrl
+                    )
+                    
                     return (
-                        timestamp >= (latestProfile.displayPictureLastUpdated ?? 0) || (
-                            encryptionKey == latestProfile.displayPictureEncryptionKey &&
-                            url == latestProfile.displayPictureUrl
-                        )
+                        Profile.shouldUpdateProfile(timestamp, profile: latestProfile, using: dependencies) ||
+                        dataMatches
                     )
                     
                 case .group(let id, let url,_):
@@ -358,7 +372,7 @@ extension DisplayPictureDownloadJob {
                     
                     return (url == latestDisplayPictureUrl)
                     
-                case .community(let imageId, let roomToken, let server):
+                case .community(let imageId, let roomToken, let server, _):
                     guard
                         let latestImageId: String = try? OpenGroup
                             .select(.imageId)

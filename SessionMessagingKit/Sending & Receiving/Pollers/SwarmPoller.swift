@@ -386,16 +386,17 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     }
                 }
                 
-                /// Make sure to add any synchronously processed messages to the `finalProcessedMessages`
-                /// as otherwise they wouldn't be emitted by the `receivedPollResponseSubject`
+                /// Make sure to add any synchronously processed messages to the `finalProcessedMessages` as otherwise
+                /// they wouldn't be emitted by the `receivedPollResponseSubject`, also need to add the count to
+                /// `messageCount` to ensure it's not incorrect
                 finalProcessedMessages += processedMessages
+                messageCount += processedMessages.count
                 return nil
             }
             .flatMap { $0 }
         
         /// If we don't want to store the messages then no need to continue (don't want to create message receive jobs or mess with cached hashes)
         guard shouldStoreMessages && !forceSynchronousProcessing else {
-            messageCount += allProcessedMessages.count
             finalProcessedMessages += allProcessedMessages
             return ([], [], (finalProcessedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
         }

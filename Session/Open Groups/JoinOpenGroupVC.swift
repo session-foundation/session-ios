@@ -83,10 +83,8 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         // presentation type is `fullScreen`
         var navBarHeight: CGFloat {
             switch modalPresentationStyle {
-            case .fullScreen:
-                return navigationController?.navigationBar.frame.size.height ?? 0
-            default:
-                return 0
+                case .fullScreen: return (navigationController?.navigationBar.frame.size.height ?? 0)
+                default: return 0
             }
         }
         
@@ -119,7 +117,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
         pageVCView.pin(.bottom, to: .bottom, of: view)
         
         let statusBarHeight: CGFloat = UIApplication.shared.statusBarFrame.size.height
-        let height: CGFloat = ((navigationController?.view.bounds.height ?? 0) - navBarHeight - TabBar.snHeight - statusBarHeight)
+        let height: CGFloat = ((navigationController?.view.bounds.height ?? 0) - (navigationController?.navigationBar.frame.size.height ?? 0) - TabBar.snHeight - statusBarHeight)
         let size: CGSize = CGSize(width: UIScreen.main.bounds.width, height: height)
         enterURLVC.constrainSize(to: size)
         scanQRCodePlaceholderVC.constrainSize(to: size)

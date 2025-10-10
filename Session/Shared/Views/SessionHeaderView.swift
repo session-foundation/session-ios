@@ -61,14 +61,18 @@ class SessionHeaderView: UITableViewHeaderFooterView {
     private func setupLayout() {
         titleLabel.pin(.top, to: .top, of: contentView, withInset: Values.mediumSpacing)
         titleLabelLeadingConstraint = titleLabel.pin(.leading, to: .leading, of: contentView)
-        titleLabelTrailingConstraint = titleLabel.pin(.trailing, to: .trailing, of: contentView)
+        titleLabelTrailingConstraint = titleLabel
+            .pin(.trailing, to: .trailing, of: contentView)
+            .setting(priority: .defaultHigh)
         titleLabel
             .pin(.bottom, to: .bottom, of: contentView, withInset: -Values.mediumSpacing)
             .setting(priority: .defaultHigh)
         
         titleSeparator.center(.vertical, in: contentView)
         titleSeparatorLeadingConstraint = titleSeparator.pin(.leading, to: .leading, of: contentView)
-        titleSeparatorTrailingConstraint = titleSeparator.pin(.trailing, to: .trailing, of: contentView)
+        titleSeparatorTrailingConstraint = titleSeparator
+            .pin(.trailing, to: .trailing, of: contentView)
+            .setting(priority: .defaultHigh)
         
         loadingIndicator.center(in: contentView)
     }

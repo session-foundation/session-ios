@@ -55,7 +55,7 @@ public extension AVURLAsset {
                     finalExtension = fileExtension
             }
             
-            let tmpPath: String = URL(fileURLWithPath: NSTemporaryDirectory())
+            let tmpPath: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
                 .appendingPathComponent(URL(fileURLWithPath: path).lastPathComponent)
                 .appendingPathExtension(finalExtension)
                 .path

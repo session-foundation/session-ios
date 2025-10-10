@@ -117,7 +117,8 @@ public class MediaView: UIView {
         let result: GradientView = GradientView()
         result.themeBackgroundGradient = [
             .value(.black, alpha: 0),
-            .value(.black, alpha: 0.4)
+            .value(.black, alpha: 0.75),
+            .value(.black, alpha: 0.75)
         ]
         result.isHidden = true
         
@@ -129,7 +130,6 @@ public class MediaView: UIView {
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.text = attachment.duration.map { Format.duration($0) }
         result.themeTextColor = .white
-        result.isHidden = true
         
         return result
     }()
@@ -162,14 +162,12 @@ public class MediaView: UIView {
         errorIconView.center(in: self)
         
         addSubview(durationBackgroundView)
-        durationBackgroundView.set(.height, to: 40)
         durationBackgroundView.pin(.leading, to: .leading, of: imageView)
         durationBackgroundView.pin(.trailing, to: .trailing, of: imageView)
         durationBackgroundView.pin(.bottom, to: .bottom, of: imageView)
         
-        addSubview(durationLabel)
-        durationLabel.pin(.trailing, to: .trailing, of: imageView, withInset: -Values.smallSpacing)
-        durationLabel.pin(.bottom, to: .bottom, of: imageView, withInset: -Values.smallSpacing)
+        durationBackgroundView.addSubview(durationLabel)
+        durationLabel.pin(to: durationBackgroundView, withInset: Values.smallSpacing)
         
         addSubview(playButtonIcon)
         playButtonIcon.set(.width, to: 72)
@@ -215,13 +213,12 @@ public class MediaView: UIView {
             !loadingIndicator.isHidden ||
             !attachment.isVideo
         )
-        durationLabel.isHidden = (
+        durationBackgroundView.isHidden = (
             shouldSupressControls ||
             attachment.duration == nil ||
             !loadingIndicator.isHidden ||
             !attachment.isVideo
         )
-        durationBackgroundView.isHidden = durationLabel.isHidden
     }
 
     @MainActor

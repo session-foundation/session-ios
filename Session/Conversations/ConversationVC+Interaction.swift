@@ -22,7 +22,8 @@ extension ConversationVC:
     ContextMenuActionDelegate,
     SendMediaNavDelegate,
     AttachmentApprovalViewControllerDelegate,
-    GifPickerViewControllerDelegate
+    GifPickerViewControllerDelegate,
+    UIGestureRecognizerDelegate
 {
     // MARK: - Open Settings
     
@@ -31,6 +32,11 @@ extension ConversationVC:
         guard viewModel.threadData.threadRequiresApproval == false else { return }
 
         openSettingsFromTitleView()
+    }
+    
+    // Handle taps outside of tableview cell to dismiss keyboard
+    @MainActor @objc func dismissKeyboardOnTap() {
+        _ = self.snInputView.resignFirstResponder()
     }
     
     @MainActor func openSettingsFromTitleView() {
@@ -104,6 +110,20 @@ extension ConversationVC:
             )
         )
         navigationController?.pushViewController(viewController, animated: true)
+    }
+    
+    // MARK: - External keyboard
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            guard let key = press.key else { continue }
+
+            if key.keyCode == .keyboardReturnOrEnter && key.modifierFlags.isEmpty {
+                // Enter only -> send
+                handleSendButtonTapped()
+                return
+            }
+        }
+        super.pressesBegan(presses, with: event)
     }
     
     // MARK: - Call
@@ -231,27 +251,8 @@ extension ConversationVC:
         return true
     }
     
-    // MARK: - Session Pro CTA
-    
-    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
-        let dependencies: Dependencies = viewModel.dependencies
-        guard dependencies[feature: .sessionProEnabled] && (!viewModel.isSessionPro) else {
-            return false
-        }
-        self.hideInputAccessoryView()
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
-                variant: .longerMessages,
-                dataManager: viewModel.dependencies[singleton: .imageDataManager],
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
-                }
-            )
-        )
-        present(sessionProModal, animated: true, completion: nil)
-        
+    // MARK: - UIGestureRecognizerDelegate
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
         return true
     }
 
@@ -525,21 +526,35 @@ extension ConversationVC:
     
     // MARK: - InputViewDelegate
     
-    func handleDisabledInputTapped() {
+    @MainActor func handleDisabledInputTapped() {
         guard viewModel.threadData.threadIsBlocked == true else { return }
         
         self.showBlockedModalIfNeeded()
     }
     
-    func handleCharacterLimitLabelTapped() {
-        guard !showSessionProCTAIfNeeded() else { return }
+    @MainActor func handleCharacterLimitLabelTapped() {
+        guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
         
         self.hideInputAccessoryView()
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: viewModel.isSessionPro
+            isSessionPro: viewModel.isCurrentUserSessionPro
         )
-        let limit: Int = (viewModel.isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
+        let limit: Int = (viewModel.isCurrentUserSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -571,7 +586,7 @@ extension ConversationVC:
         present(confirmationModal, animated: true, completion: nil)
     }
     
-    func handleDisabledAttachmentButtonTapped() {
+    @MainActor func handleDisabledAttachmentButtonTapped() {
         /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
         /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
         /// to prevent this happening in the future we've added this toast when pressing on the disabled button
@@ -588,7 +603,7 @@ extension ConversationVC:
         )
     }
     
-    func handleDisabledVoiceMessageButtonTapped() {
+    @MainActor func handleDisabledVoiceMessageButtonTapped() {
         /// This logic was added because an Apple reviewer rejected an emergency update as they thought these buttons were
         /// unresponsive (even though there is copy on the screen communicating that they are intentionally disabled) - in order
         /// to prevent this happening in the future we've added this toast when pressing on the disabled button
@@ -607,12 +622,12 @@ extension ConversationVC:
 
     // MARK: --Message Sending
     
-    func handleSendButtonTapped() {
+    @MainActor func handleSendButtonTapped() {
         guard LibSession.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: viewModel.isSessionPro
+            isSessionPro: viewModel.isCurrentUserSessionPro
         ) >= 0 else {
-            showModalForMessagesExceedingCharacterLimit(isSessionPro: viewModel.isSessionPro)
+            showModalForMessagesExceedingCharacterLimit(isSessionPro: viewModel.isCurrentUserSessionPro)
             return
         }
         
@@ -623,8 +638,22 @@ extension ConversationVC:
         )
     }
     
-    func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
-        guard !showSessionProCTAIfNeeded() else { return }
+    @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
+        guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
         
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -800,6 +829,7 @@ extension ConversationVC:
                 // FIXME: Remove this once we don't generate unique Profile entries for the current users blinded ids
                 if (try? SessionId.Prefix(from: optimisticData.interaction.authorId)) != .standard {
                     let currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+                    let sentTimestamp: TimeInterval = (Double(optimisticData.interaction.timestampMs) / 1000)
                     
                     try? Profile.updateIfNeeded(
                         db,
@@ -810,7 +840,7 @@ extension ConversationVC:
                             fallback: .none,
                             using: dependencies
                         ),
-                        sentTimestamp: (Double(optimisticData.interaction.timestampMs) / 1000),
+                        profileUpdateTimestamp: (currentUserProfile.profileLastUpdated ?? sentTimestamp),
                         using: dependencies
                     )
                 }
@@ -859,7 +889,7 @@ extension ConversationVC:
         }
     }
 
-    func showLinkPreviewSuggestionModal() {
+    @MainActor func showLinkPreviewSuggestionModal() {
         // Hides accessory view while link preview confirmation is presented
         hideInputAccessoryView()
         
@@ -889,7 +919,7 @@ extension ConversationVC:
         present(linkPreviewModal, animated: true, completion: nil)
     }
     
-    func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
+    @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
         // Note: If there is a 'draft' message then we don't want it to trigger the typing indicator to
         // appear (as that is not expected/correct behaviour)
         guard !viewIsAppearing else { return }
@@ -915,7 +945,7 @@ extension ConversationVC:
     
     // MARK: --Attachments
     
-    func didPasteImageFromPasteboard(_ image: UIImage) {
+    @MainActor func didPasteImageFromPasteboard(_ image: UIImage) {
         guard let imageData = image.jpegData(compressionQuality: 1.0) else { return }
         
         let dataSource = DataSourceValue(data: imageData, dataType: .jpeg, using: viewModel.dependencies)
@@ -936,7 +966,7 @@ extension ConversationVC:
 
     // MARK: --Mentions
     
-    func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView) {
+    @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView) {
         guard let currentMentionStartIndex = currentMentionStartIndex else { return }
         
         mentions.append(mentionInfo)
@@ -1053,6 +1083,14 @@ extension ConversationVC:
             }
             return
         }
+        
+        if !self.isFirstResponder {
+            // Force this object to become the First Responder. This is necessary
+            // to trigger the display of its associated inputAccessoryView
+            // and/or inputView.
+            self.becomeFirstResponder()
+        }
+        
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1
@@ -1063,7 +1101,7 @@ extension ConversationVC:
     }
 
     // MARK: MessageCellDelegate
-
+    
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
         // Show the unblock modal if needed
         guard self.viewModel.threadData.threadIsBlocked != true else {
@@ -1550,6 +1588,113 @@ extension ConversationVC:
     
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel) {
         reply(cellViewModel, completion: nil)
+    }
+    
+    func showUserProfileModal(for cellViewModel: MessageViewModel) {
+        guard viewModel.threadData.threadCanWrite == true else { return }
+        // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
+        guard (try? SessionId.Prefix(from: cellViewModel.authorId)) != .blinded25 else { return }
+        
+        let dependencies: Dependencies = viewModel.dependencies
+        
+        let (info, _) = ProfilePictureView.getProfilePictureInfo(
+            size: .hero,
+            publicKey: cellViewModel.authorId,
+            threadVariant: .contact,    // Always show the display picture in 'contact' mode
+            displayPictureUrl: nil,
+            profile: cellViewModel.profile,
+            using: dependencies
+        )
+        
+        guard let profileInfo: ProfilePictureView.Info = info else { return }
+        
+        let (sessionId, blindedId): (String?, String?) = {
+            guard
+                (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15,
+                let openGroupServer: String = cellViewModel.threadOpenGroupServer,
+                let openGroupPublicKey: String = cellViewModel.threadOpenGroupPublicKey
+            else {
+                return (cellViewModel.authorId, nil)
+            }
+            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].write { db in
+                try BlindedIdLookup.fetchOrCreate(
+                    db,
+                    blindedId: cellViewModel.authorId,
+                    openGroupServer: openGroupServer,
+                    openGroupPublicKey: openGroupPublicKey,
+                    isCheckingForOutbox: false,
+                    using: dependencies
+                )
+            }
+            return (lookup?.sessionId, cellViewModel.authorId.truncated(prefix: 10, suffix: 10))
+        }()
+        
+        let (displayName, contactDisplayName): (String?, String?) = {
+            guard let sessionId: String = sessionId else {
+                return (cellViewModel.authorName, nil)
+            }
+            
+            let profile: Profile? = dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId)}
+            
+            return (
+                (profile?.displayName(for: .contact) ?? cellViewModel.authorName),
+                profile?.displayName(for: .contact, ignoringNickname: true)
+            )
+        }()
+        
+        let qrCodeImage: UIImage? = {
+            guard let sessionId: String = sessionId else { return nil }
+            return QRCode.generate(for: sessionId, hasBackground: false, iconName: "SessionWhite40") // stringlint:ignore
+        }()
+        
+        let isMessasgeRequestsEnabled: Bool = {
+            guard cellViewModel.threadVariant == .community else { return true }
+            return cellViewModel.profile?.blocksCommunityMessageRequests != true
+        }()
+        
+        self.hideInputAccessoryView()
+        let userProfileModal: ModalHostingViewController = ModalHostingViewController(
+            modal: UserProfileModal(
+                info: .init(
+                    sessionId: sessionId,
+                    blindedId: blindedId,
+                    qrCodeImage: qrCodeImage,
+                    profileInfo: profileInfo,
+                    displayName: displayName,
+                    contactDisplayName: contactDisplayName,
+                    isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
+                    isMessageRequestsEnabled: isMessasgeRequestsEnabled,
+                    onStartThread: { [weak self] in
+                        self?.startThread(
+                            with: cellViewModel.authorId,
+                            openGroupServer: cellViewModel.threadOpenGroupServer,
+                            openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
+                        )
+                    },
+                    onProBadgeTapped: { [weak self, dependencies] in
+                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                            .generic,
+                            dismissType: .single,
+                            beforePresented: { [weak self] in
+                                self?.hideInputAccessoryView()
+                            },
+                            afterClosed: { [weak self] in
+                                self?.showInputAccessoryView()
+                                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                            },
+                            presenting: { modal in
+                                dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
+                            }
+                        )
+                    }
+                ),
+                dataManager: dependencies[singleton: .imageDataManager],
+                afterClosed: { [weak self] in
+                    self?.showInputAccessoryView()
+                }
+            )
+        )
+        present(userProfileModal, animated: true, completion: nil)
     }
     
     func startThread(

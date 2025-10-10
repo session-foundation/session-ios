@@ -40,7 +40,10 @@ final class SimplifiedConversationCell: UITableViewCell {
     }()
     
     private lazy var profilePictureView: ProfilePictureView = {
-        let view: ProfilePictureView = ProfilePictureView(size: .list, dataManager: nil)
+        let view: ProfilePictureView = ProfilePictureView(
+            size: .list,
+            dataManager: nil
+        )
         view.translatesAutoresizingMaskIntoConstraints = false
         
         return view

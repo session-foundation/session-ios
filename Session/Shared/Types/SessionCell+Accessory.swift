@@ -754,6 +754,7 @@ public extension SessionCell.AccessoryConfig {
 public extension SessionCell.Accessory {
     enum Size {
         case fixed(width: CGFloat, height: CGFloat)
+        case minWidth(height: CGFloat)
         case fillWidth(height: CGFloat)
         case fillWidthWrapHeight
     }
@@ -778,19 +779,6 @@ public extension SessionCell.Accessory.CustomViewInfo {
     func createView(maxContentWidth: CGFloat, using dependencies: Dependencies) -> UIView {
         let view: View = View.create(maxContentWidth: maxContentWidth, using: dependencies)
         view.update(with: self)
-        
-        switch View.size {
-            case .fixed(let width, let height):
-                view.set(.width, to: width)
-                view.set(.height, to: height)
-                
-            case .fillWidth(let height):
-                view.set(.height, to: height)
-                
-            case .fillWidthWrapHeight:
-                view.setContentHugging(.vertical, to: .required)
-                view.setCompressionResistance(.vertical, to: .required)
-        }
         
         return view
     }

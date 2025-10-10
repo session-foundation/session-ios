@@ -106,7 +106,7 @@ final class ReactionContainerView: UIView {
         
         mainStackView.pin(.top, to: .top, of: self)
         mainStackView.pin(.leading, to: .leading, of: self)
-        mainStackView.pin(.trailing, to: .trailing, of: self)
+        mainStackView.pin(.trailing, to: .trailing, of: self).setting(priority: .defaultHigh)
         mainStackView.pin(.bottom, to: .bottom, of: self, withInset: -Values.verySmallSpacing)
         reactionContainerView.set(.width, to: .width, of: mainStackView)
         collapseButton.set(.width, to: .width, of: mainStackView)
@@ -123,6 +123,8 @@ final class ReactionContainerView: UIView {
         self.showNumbers = showNumbers
         self.reactionViews = []
         self.reactionContainerView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        
+        guard !reactions.isEmpty else { return }
         
         let collapsedCount: Int = {
             // If there are already more than 'maxEmojiBeforeCollapse' then no need to calculate, just

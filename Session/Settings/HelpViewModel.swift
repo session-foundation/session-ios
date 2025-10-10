@@ -220,15 +220,25 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             
             guard
                 let latestLogFilePath: String = await Log.logFilePath(using: dependencies),
-                let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController
+                let viewController: UIViewController = dependencies[singleton: .appContext].frontMostViewController,
+                let sanitizedLogFilePath = try? dependencies[singleton: .attachmentManager]
+                    .createTemporaryFileForOpening(filePath: latestLogFilePath) // Creates a copy of the log file with whitespaces on the filename removed
             else { return }
             
             let showShareSheet: () -> () = {
                 let shareVC = UIActivityViewController(
-                    activityItems: [ URL(fileURLWithPath: latestLogFilePath) ],
+                    activityItems: [
+                        URL(fileURLWithPath: sanitizedLogFilePath)
+                    ],
                     applicationActivities: nil
                 )
                 shareVC.completionWithItemsHandler = { _, success, _, _ in
+                    /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                    if sanitizedLogFilePath.hasPrefix(dependencies[singleton: .fileManager].temporaryDirectory) {
+                        /// Deletes file copy of the log file
+                        try? dependencies[singleton: .fileManager].removeItem(atPath: sanitizedLogFilePath)
+                    }
+                    
                     UIActivityViewController.notifyIfNeeded(success, using: dependencies)
                     onShareComplete?()
                 }

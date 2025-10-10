@@ -19,18 +19,35 @@ final class CallMessageCell: MessageCell {
     
     override var contextSnapshotView: UIView? { return container }
     
+    override var allowedGestureRecognizers: Set<GestureRecognizerType> {
+        return [
+            .longPress,
+            .tap
+        ]
+    }
+    
     // MARK: - UI
     
     private lazy var topConstraint: NSLayoutConstraint = mainStackView.pin(.top, to: .top, of: self, withInset: CallMessageCell.inset)
-    private lazy var iconImageViewWidthConstraint: NSLayoutConstraint = iconImageView.set(.width, to: 0)
-    private lazy var iconImageViewHeightConstraint: NSLayoutConstraint = iconImageView.set(.height, to: 0)
-    private lazy var infoImageViewWidthConstraint: NSLayoutConstraint = infoImageView.set(.width, to: 0)
-    private lazy var infoImageViewHeightConstraint: NSLayoutConstraint = infoImageView.set(.height, to: 0)
     
-    private lazy var iconImageView: UIImageView = UIImageView()
+    private lazy var iconImageView: UIImageView = {
+        let result: UIImageView = UIImageView()
+        result.themeTintColor = .textPrimary
+        result.set(.width, to: CallMessageCell.iconSize)
+        result.set(.height, to: CallMessageCell.iconSize)
+        result.setContentHugging(.horizontal, to: .required)
+        result.setCompressionResistance(.horizontal, to: .required)
+        
+        return result
+    }()
+    
     private lazy var infoImageView: LucideIconView = {
         let result: LucideIconView = LucideIconView(icon: .info, size: Self.iconSize)
         result.themeTintColor = .textPrimary
+        result.set(.width, to: CallMessageCell.iconSize)
+        result.set(.height, to: CallMessageCell.iconSize)
+        result.setContentHugging(.horizontal, to: .required)
+        result.setCompressionResistance(.horizontal, to: .required)
         
         return result
     }()
@@ -53,38 +70,25 @@ final class CallMessageCell: MessageCell {
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
         result.numberOfLines = 0
+        result.setContentHugging(.horizontal, to: .defaultLow)
+        result.setCompressionResistance(.horizontal, to: .defaultLow)
         
         return result
     }()
     
-    private lazy var container: UIView = {
-        let result: UIView = UIView()
+    private lazy var contentStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [iconImageView, label, infoImageView])
+        result.axis = .horizontal
+        result.alignment = .center
+        result.spacing = CallMessageCell.horizontalInset
+        
+        return result
+    }()
+    
+    private lazy var container: UIStackView = {
+        let result: UIStackView = UIStackView()
         result.themeBackgroundColor = .backgroundSecondary
         result.layer.cornerRadius = 18
-        result.addSubview(label)
-        
-        label.pin(.top, to: .top, of: result, withInset: CallMessageCell.verticalInset)
-        label.pin(
-            .left,
-            to: .left,
-            of: result,
-            withInset: ((CallMessageCell.horizontalInset * 2) + infoImageView.bounds.size.width)
-        )
-        label.pin(
-            .right,
-            to: .right,
-            of: result,
-            withInset: -((CallMessageCell.horizontalInset * 2) + infoImageView.bounds.size.width)
-        )
-        label.pin(.bottom, to: .bottom, of: result, withInset: -CallMessageCell.verticalInset)
-        
-        result.addSubview(iconImageView)
-        iconImageView.center(.vertical, in: result)
-        iconImageView.pin(.left, to: .left, of: result, withInset: CallMessageCell.horizontalInset)
-        
-        result.addSubview(infoImageView)
-        infoImageView.center(.vertical, in: result)
-        infoImageView.pin(.right, to: .right, of: result, withInset: -CallMessageCell.horizontalInset)
         
         return result
     }()
@@ -103,23 +107,18 @@ final class CallMessageCell: MessageCell {
     override func setUpViewHierarchy() {
         super.setUpViewHierarchy()
         
-        iconImageViewWidthConstraint.isActive = true
-        iconImageViewHeightConstraint.isActive = true
+        container.addSubview(contentStackView)
         addSubview(mainStackView)
         
+        contentStackView.pin(.top, to: .top, of: container, withInset: CallMessageCell.verticalInset)
+        contentStackView.pin(.leading, to: .leading, of: container, withInset: CallMessageCell.horizontalInset)
+        contentStackView.pin(.trailing, to: .trailing, of: container, withInset: -CallMessageCell.horizontalInset)
+        contentStackView.pin(.bottom, to: .bottom, of: container, withInset: -CallMessageCell.verticalInset)
+
         topConstraint.isActive = true
         mainStackView.pin(.left, to: .left, of: self, withInset: CallMessageCell.margin)
         mainStackView.pin(.right, to: .right, of: self, withInset: -CallMessageCell.margin)
         mainStackView.pin(.bottom, to: .bottom, of: self, withInset: -CallMessageCell.inset)
-    }
-    
-    override func setUpGestureRecognizers() {
-        let longPressRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
-        addGestureRecognizer(longPressRecognizer)
-        
-        let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        tapGestureRecognizer.numberOfTapsRequired = 1
-        addGestureRecognizer(tapGestureRecognizer)
     }
     
     // MARK: - Updating
@@ -130,6 +129,7 @@ final class CallMessageCell: MessageCell {
         showExpandedReactions: Bool,
         shouldExpanded: Bool,
         lastSearchText: String?,
+        tableSize: CGSize,
         using dependencies: Dependencies
     ) {
         guard
@@ -168,8 +168,7 @@ final class CallMessageCell: MessageCell {
                 default: return nil
             }
         }()
-        iconImageViewWidthConstraint.constant = (iconImageView.image != nil ? CallMessageCell.iconSize : 0)
-        iconImageViewHeightConstraint.constant = (iconImageView.image != nil ? CallMessageCell.iconSize : 0)
+        iconImageView.isHidden = (iconImageView.image == nil)
         
         let shouldShowInfoIcon: Bool = (
             (
@@ -180,8 +179,7 @@ final class CallMessageCell: MessageCell {
                 Permissions.microphone != .granted
             )
         )
-        infoImageViewWidthConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
-        infoImageViewHeightConstraint.constant = (shouldShowInfoIcon ? CallMessageCell.iconSize : 0)
+        infoImageView.isHidden = !shouldShowInfoIcon
         
         label.text = cellViewModel.body
         
@@ -210,7 +208,7 @@ final class CallMessageCell: MessageCell {
     
     // MARK: - Interaction
     
-    @objc func handleLongPress(_ gestureRecognizer: UITapGestureRecognizer) {
+    override func handleLongPress(_ gestureRecognizer: UILongPressGestureRecognizer) {
         if [ .ended, .cancelled, .failed ].contains(gestureRecognizer.state) {
             isHandlingLongPress = false
             return
@@ -221,7 +219,7 @@ final class CallMessageCell: MessageCell {
         isHandlingLongPress = true
     }
     
-    @objc private func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+    override func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard
             let dependencies: Dependencies = self.dependencies,
             let cellViewModel: MessageViewModel = self.viewModel,

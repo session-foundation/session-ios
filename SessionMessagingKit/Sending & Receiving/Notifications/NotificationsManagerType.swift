@@ -351,7 +351,7 @@ public extension NotificationsManagerType {
             threadId: threadId,
             threadVariant: threadVariant
         )
-        
+
         /// Ensure we should be showing a notification for the thread
         try ensureWeShouldShowNotification(
             message: message,
@@ -383,6 +383,10 @@ public extension NotificationsManagerType {
                     }
                 }(),
                 category: .incomingMessage,
+                groupingIdentifier: (isMessageRequest ?
+                    .messageRequest :
+                    .threadId(threadId)
+                ),
                 title: try notificationTitle(
                     cat: cat,
                     message: message,

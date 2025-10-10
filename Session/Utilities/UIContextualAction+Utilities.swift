@@ -715,7 +715,11 @@ public extension UIContextualAction {
                                                     return .deleteGroupAndContent
                                                 case (.group, _, _): return .leaveGroupAsync
                                                 
-                                                case (.contact, _, _): return .deleteContactConversationAndContact
+                                                case (.contact, true, _):
+                                                    return .deleteContactConversationAndContact
+                                                    
+                                                case (.contact, false, _):
+                                                    return .deleteContactConversationAndMarkHidden
                                             }
                                         }()
                                         

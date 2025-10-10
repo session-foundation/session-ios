@@ -365,7 +365,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             .backgroundPrimary,
             .backgroundPrimary
         ]
-        result.set(.height, to: 92)
         
         return result
     }()
@@ -383,6 +382,16 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.setTitle("recreateGroup".localized(), for: .normal)
         result.addTarget(self, action: #selector(recreateLegacyGroupTapped), for: .touchUpInside)
         result.accessibilityIdentifier = "Legacy Groups Recreate Button"
+        
+        return result
+    }()
+    
+    // Handle taps outside of tableview cell
+    private lazy var tableViewTapGesture: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer()
+        result.delegate = self
+        result.addTarget(self, action: #selector(dismissKeyboardOnTap))
+        result.cancelsTouchesInView = false
         
         return result
     }()
@@ -537,6 +546,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 object: nil
             )
         }
+        
+        // Gesture
+        view.addGestureRecognizer(tableViewTapGesture)
 
         self.viewModel.navigatableState.setupBindings(viewController: self, disposables: &self.viewModel.disposables)
         
@@ -826,7 +838,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         {
             if updatedThreadData.threadCanWrite == true {
                 self.showInputAccessoryView()
-            } else {
+            } else if updatedThreadData.threadCanWrite == false && updatedThreadData.threadVariant != .community {
                 self.hideInputAccessoryView()
             }
            
@@ -1494,7 +1506,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         // If we explicitly can't write to the thread then the input will be hidden but they keyboard
         // still reports that it takes up size, so just report 0 height in that case
-        if viewModel.threadData.threadCanWrite == false {
+        if viewModel.threadData.threadCanWrite == false && viewModel.threadData.threadVariant != .community {
             keyboardEndFrame = CGRect(
                 x: UIScreen.main.bounds.minX,
                 y: UIScreen.main.bounds.maxY,
@@ -1580,7 +1592,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         // value will break things)
         let tableViewBottom: CGFloat = (tableView.contentSize.height - tableView.bounds.height + tableView.contentInset.bottom)
         
-        if tableView.contentOffset.y < (tableViewBottom - 5) {
+        // Added `insetDifference > 0` to remove sudden table collapse and overscroll
+        if tableView.contentOffset.y < (tableViewBottom - 5) && insetDifference > 0 {
             tableView.contentOffset.y += insetDifference
         }
         
@@ -1706,6 +1719,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     shouldExpanded: viewModel.messageExpandedInteractionIds
                         .contains(cellViewModel.id),
                     lastSearchText: viewModel.lastSearchedText,
+                    tableSize: tableView.bounds.size,
                     using: viewModel.dependencies
                 )
                 cell.delegate = self

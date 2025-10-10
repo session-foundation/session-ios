@@ -91,6 +91,7 @@ final class QuoteView: UIView {
         mainStackView.isLayoutMarginsRelativeArrangement = true
         mainStackView.layoutMargins = UIEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: smallSpacing)
         mainStackView.alignment = .center
+        mainStackView.setCompressionResistance(.vertical, to: .required)
         
         // Content view
         let contentView = UIView()
@@ -224,6 +225,7 @@ final class QuoteView: UIView {
         authorLabel.lineBreakMode = .byTruncatingTail
         authorLabel.isHidden = (authorLabel.text == nil)
         authorLabel.numberOfLines = 1
+        authorLabel.setCompressionResistance(.vertical, to: .required)
         
         let labelStackView = UIStackView(arrangedSubviews: [ authorLabel, bodyLabel ])
         labelStackView.axis = .vertical
@@ -231,6 +233,7 @@ final class QuoteView: UIView {
         labelStackView.distribution = .equalCentering
         labelStackView.isLayoutMarginsRelativeArrangement = true
         labelStackView.layoutMargins = UIEdgeInsets(top: labelStackViewVMargin, left: 0, bottom: labelStackViewVMargin, right: 0)
+        labelStackView.setCompressionResistance(.vertical, to: .required)
         mainStackView.addArrangedSubview(labelStackView)
         
         // Constraints
