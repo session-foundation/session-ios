@@ -136,6 +136,11 @@ public final class InputViewButton: UIView {
         )
     }
     
+    public func updateAppearance(isEnabled: Bool) {
+        iconImageView.themeTintColor = isEnabled ? .textPrimary : .disabled
+        backgroundView.themeBackgroundColor = isEnabled ? .inputButton_background : .disabled
+    }
+    
     // MARK: - Interaction
     
     // We want to detect both taps and long presses
