@@ -251,7 +251,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         welcomeLabel.font = .systemFont(ofSize: Values.smallFontSize)
         welcomeLabel.text = "onboardingBubbleWelcomeToSession"
             .put(key: "app_name", value: Constants.app_name)
-            .put(key: "emoji", value: "")
+            .put(key: "emoji", value: "👋")
             .localized()
         welcomeLabel.themeTextColor = .sessionButton_text
         welcomeLabel.textAlignment = .center
