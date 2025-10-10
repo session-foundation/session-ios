@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Lucide
 
 public class HostWrapper: ObservableObject {
     public weak var controller: UIViewController?
@@ -117,7 +118,10 @@ open class SessionHostingViewController<Content>: UIHostingController<ModifiedCo
     }
     
     public func setUpDismissingButton(on postion: NavigationItemPosition) {
-        let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
+        let closeIcon = Lucide.image(icon: .x, size: IconSize.medium.size)?
+            .withRenderingMode(.alwaysTemplate)
+        
+        let closeButton = UIBarButtonItem(image: closeIcon, style: .plain, target: self, action: #selector(close))
         closeButton.themeTintColor = .textPrimary
         switch postion {
             case .left:

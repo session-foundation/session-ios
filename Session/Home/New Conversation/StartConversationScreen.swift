@@ -1,6 +1,7 @@
 // Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Lucide
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
@@ -28,7 +29,7 @@ struct StartConversationScreen: View {
                             .putNumber(1)
                             .localized()
                         NewConversationCell(
-                            image: "Message", // stringlint:ignore
+                            image: Lucide.image(icon: .messageSquare, size: IconSize.medium.size),
                             title: title
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(
@@ -50,7 +51,7 @@ struct StartConversationScreen: View {
                             .padding(.trailing, -Values.largeSpacing)
                         
                         NewConversationCell(
-                            image: "Group",
+                            image: UIImage(named: "users-group-custom"),
                             title: "groupCreate".localized()
                         ) {
                             let viewController = NewClosedGroupVC(using: dependencies)
@@ -68,7 +69,7 @@ struct StartConversationScreen: View {
                             .padding(.trailing, -Values.largeSpacing)
                         
                         NewConversationCell(
-                            image: "Globe", // stringlint:ignore
+                            image: Lucide.image(icon: .globe, size: IconSize.medium.size),
                             title: "communityJoin".localized()
                         ) {
                             let viewController = JoinOpenGroupVC(using: dependencies)
@@ -86,7 +87,7 @@ struct StartConversationScreen: View {
                             .padding(.trailing, -Values.largeSpacing)
                         
                         NewConversationCell(
-                            image: "icon_invite", // stringlint:ignore
+                            image: Lucide.image(icon: .userRoundPlus, size: IconSize.medium.size),
                             title: "sessionInviteAFriend".localized()
                         ) {
                             let viewController: SessionHostingViewController = SessionHostingViewController(
@@ -130,7 +131,7 @@ struct StartConversationScreen: View {
 }
 
 fileprivate struct NewConversationCell: View {
-    let image: String
+    let image: UIImage?
     let title: String
     let action: () -> ()
     
@@ -143,10 +144,13 @@ fileprivate struct NewConversationCell: View {
                 spacing: Values.smallSpacing
             ) {
                 ZStack(alignment: .center) {
-                    Image(image)
-                        .renderingMode(.template)
-                        .foregroundColor(themeColor: .textPrimary)
-                        .frame(width: 25, height: 24, alignment: .bottom)
+                    if let icon = image {
+                        Image(uiImage: icon)
+                            .resizable()
+                            .renderingMode(.template)
+                            .foregroundColor(themeColor: .textPrimary)
+                            .frame(width: 25, height: 24, alignment: .bottom)
+                    }
                 }
                 .frame(width: 38, height: 38, alignment: .leading)
                 

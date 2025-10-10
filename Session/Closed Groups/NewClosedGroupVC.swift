@@ -2,6 +2,7 @@
 
 import UIKit
 import Combine
+import Lucide
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -228,7 +229,10 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         setNavBarTitle("groupCreate".localized(), customFontSize: customTitleFontSize)
         
         if !hideCloseButton {
-            let closeButton = UIBarButtonItem(image: #imageLiteral(resourceName: "X"), style: .plain, target: self, action: #selector(close))
+            let closeIcon = Lucide.image(icon: .x, size: IconSize.medium.size)?
+                .withRenderingMode(.alwaysTemplate)
+            
+            let closeButton = UIBarButtonItem(image: closeIcon, style: .plain, target: self, action: #selector(close))
             closeButton.themeTintColor = .textPrimary
             navigationItem.rightBarButtonItem = closeButton
             navigationItem.leftBarButtonItem?.accessibilityIdentifier = "Cancel"

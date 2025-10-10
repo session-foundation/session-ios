@@ -1,6 +1,7 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUtilitiesKit
 
 @objc
@@ -92,13 +93,13 @@ public class ImageEditorView: UIView {
             return []
         }
 
-        let undoButton = navigationBarButton(imageName: "image_editor_undo",
+        let undoButton = navigationBarButton(image: Lucide.image(icon: .rotateCcw, size: 32),
                                              selector: #selector(didTapUndo(sender:)))
-        let brushButton = navigationBarButton(imageName: "image_editor_brush",
+        let brushButton = navigationBarButton(image: Lucide.image(icon: .brush, size: 32),
                                               selector: #selector(didTapBrush(sender:)))
-        let cropButton = navigationBarButton(imageName: "image_editor_crop",
+        let cropButton = navigationBarButton(image: Lucide.image(icon: .crop, size: 32),
                                              selector: #selector(didTapCrop(sender:)))
-        let newTextButton = navigationBarButton(imageName: "image_editor_text",
+        let newTextButton = navigationBarButton(image: Lucide.image(icon: .caseSensitive, size: 32),
                                                 selector: #selector(didTapNewText(sender:)))
 
         var buttons: [UIView]

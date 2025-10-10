@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -41,7 +42,8 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
     
     private lazy var arrowLeft: UIButton = {
         let result = UIButton(type: .custom)
-        result.setImage(UIImage(systemName: "chevron.left")?.withRenderingMode(.alwaysTemplate), for: .normal)
+        result.setImage(Lucide.image(icon: .chevronLeft, size: self.info.arrowsSize.height)?
+            .withRenderingMode(.alwaysTemplate), for: .normal)
         result.addTarget(self, action: #selector(scrollToPreviousSlice), for: .touchUpInside)
         result.themeTintColor = .textPrimary
         result.set(.width, to: self.info.arrowsSize.width)
@@ -53,7 +55,8 @@ final class SessionCarouselView: UIView, UIScrollViewDelegate {
 
     private lazy var arrowRight: UIButton = {
         let result = UIButton(type: .custom)
-        result.setImage(UIImage(systemName: "chevron.right")?.withRenderingMode(.alwaysTemplate), for: .normal)
+        result.setImage(Lucide.image(icon: .chevronRight, size: self.info.arrowsSize.height)?
+            .withRenderingMode(.alwaysTemplate), for: .normal)
         result.addTarget(self, action: #selector(scrollToNextSlice), for: .touchUpInside)
         result.themeTintColor = .textPrimary
         result.set(.width, to: self.info.arrowsSize.width)

@@ -41,7 +41,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         .withConfiguration(
             UIButton.Configuration
                 .plain()
-                .withImage(UIImage(named: "AnswerCall")?.withRenderingMode(.alwaysTemplate))
+                .withImage(UIImage(named: "phone-fill-answer-custom")?.withRenderingMode(.alwaysTemplate))
                 .withContentInsets(NSDirectionalEdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
         )
         .withConfigurationUpdateHandler { button in
@@ -65,7 +65,7 @@ final class IncomingCallBanner: UIView, UIGestureRecognizerDelegate {
         .withConfiguration(
             UIButton.Configuration
                 .plain()
-                .withImage(UIImage(named: "EndCall")?.withRenderingMode(.alwaysTemplate))
+                .withImage(UIImage(named: "phone-fill-custom")?.withRenderingMode(.alwaysTemplate))
                 .withContentInsets(NSDirectionalEdgeInsets(top: 13, leading: 9, bottom: 13, trailing: 9))
         )
         .withConfigurationUpdateHandler { button in

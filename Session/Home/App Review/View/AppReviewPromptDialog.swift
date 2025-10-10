@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 
 class AppReviewPromptDialog: UIView {
@@ -14,7 +15,7 @@ class AppReviewPromptDialog: UIView {
         .withConfiguration(
             UIButton.Configuration
                 .plain()
-                .withImage(UIImage(named: "X")?.withRenderingMode(.alwaysTemplate))
+                .withImage(Lucide.image(icon: .x, size: Self.closeSize)?.withRenderingMode(.alwaysTemplate))
                 .withContentInsets(NSDirectionalEdgeInsets(top: 6, leading: 6, bottom: 6, trailing: 6))
         )
         .withConfigurationUpdateHandler { button in

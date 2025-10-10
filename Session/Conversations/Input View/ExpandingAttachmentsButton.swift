@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 
 final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
@@ -42,7 +43,11 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     }()
     lazy var gifButtonContainer = container(for: gifButton)
     lazy var documentButton: InputViewButton = {
-        let result = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_document_black"), delegate: self, hasOpaqueBackground: true)
+        let result = InputViewButton(
+            icon: Lucide.image(icon: .file, size: InputViewButton.expandedSize),
+            delegate: self,
+            hasOpaqueBackground: true
+        )
         result.accessibilityIdentifier = "Documents folder"
         result.accessibilityLabel = "Files"
         result.isAccessibilityElement = true
@@ -51,7 +56,11 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     }()
     lazy var documentButtonContainer = container(for: documentButton)
     lazy var libraryButton: InputViewButton = {
-        let result = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_camera_roll_black"), delegate: self, hasOpaqueBackground: true)
+        let result = InputViewButton(
+            icon: Lucide.image(icon: .images, size: InputViewButton.expandedSize),
+            delegate: self,
+            hasOpaqueBackground: true
+        )
         result.accessibilityIdentifier = "Images folder"
         result.accessibilityLabel = "Photo library"
         result.isAccessibilityElement = true
@@ -60,7 +69,11 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     }()
     lazy var libraryButtonContainer = container(for: libraryButton)
     lazy var cameraButton: InputViewButton = {
-        let result = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_camera_black"), delegate: self, hasOpaqueBackground: true)
+        let result = InputViewButton(
+            icon: Lucide.image(icon: .camera, size: InputViewButton.expandedSize),
+            delegate: self,
+            hasOpaqueBackground: true
+        )
         result.accessibilityIdentifier = "Select camera button"
         result.accessibilityLabel = "Camera"
         result.isAccessibilityElement = true
@@ -69,7 +82,10 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
     }()
     lazy var cameraButtonContainer = container(for: cameraButton)
     lazy var mainButton: InputViewButton = {
-        let result = InputViewButton(icon: #imageLiteral(resourceName: "ic_plus_24"), delegate: self)
+        let result = InputViewButton(
+            icon: Lucide.image(icon: .plus, size: InputViewButton.expandedSize),
+            delegate: self
+        )
         result.accessibilityLabel = "Add attachment"
         
         return result

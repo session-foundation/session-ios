@@ -32,10 +32,29 @@ public class OWSButton: UIButton {
         setImage(imageName: imageName)
         self.themeTintColor = tintColor
     }
+    
+    public init(image: UIImage?, tintColor: ThemeValue?, block: @escaping () -> Void = { }) {
+        super.init(frame: .zero)
+
+        self.block = block
+        addTarget(self, action: #selector(didTap), for: .touchUpInside)
+
+        setImage(image: image)
+        
+        self.themeTintColor = tintColor
+    }
 
     public func setImage(imageName: String) {
         setImage(
             UIImage(named: imageName)?
+                .withRenderingMode(.alwaysTemplate),
+            for: .normal
+        )
+    }
+    
+    public func setImage(image: UIImage?) {
+        setImage(
+            image?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )

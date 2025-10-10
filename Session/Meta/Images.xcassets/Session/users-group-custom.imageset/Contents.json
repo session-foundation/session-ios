@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "users-group-custom.pdf",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
