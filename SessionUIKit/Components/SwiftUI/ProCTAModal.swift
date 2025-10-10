@@ -219,15 +219,13 @@ public struct ProCTAModal: View {
                             SessionProBadge_SwiftUI(size: .large)
                             
                             Text("proActivated".localized())
-                                .font(.system(size: Values.largeFontSize))
-                                .bold()
+                                .font(.Headings.H4)
                                 .foregroundColor(themeColor: .textPrimary)
                         }
                     } else {
                         HStack(spacing: Values.smallSpacing) {
                             Text("upgradeTo".localized())
-                                .font(.system(size: Values.largeFontSize))
-                                .bold()
+                                .font(.Headings.H4)
                                 .foregroundColor(themeColor: .textPrimary)
                             
                             SessionProBadge_SwiftUI(size: .large)
@@ -239,7 +237,7 @@ public struct ProCTAModal: View {
                         if case .animatedProfileImage(let isSessionProActivated) = variant, isSessionProActivated {
                             HStack(spacing: Values.verySmallSpacing) {
                                 Text("proAlreadyPurchased".localized())
-                                    .font(.system(size: Values.smallFontSize))
+                                    .font(.Body.largeRegular)
                                     .foregroundColor(themeColor: .textSecondary)
                                 
                                 SessionProBadge_SwiftUI(size: .small)
@@ -247,7 +245,7 @@ public struct ProCTAModal: View {
                         }
                         
                         Text(variant.subtitle)
-                            .font(.system(size: Values.smallFontSize))
+                            .font(.Body.largeRegular)
                             .foregroundColor(themeColor: .textSecondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
@@ -273,7 +271,7 @@ public struct ProCTAModal: View {
                                     }
                                     
                                     Text(variant.benefits[index])
-                                        .font(.system(size: Values.smallFontSize))
+                                        .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
                             }
@@ -291,10 +289,10 @@ public struct ProCTAModal: View {
                         GeometryReader { geometry in
                             HStack {
                                 Button {
-                                    close()
+                                    close(nil)
                                 } label: {
                                     Text("close".localized())
-                                        .font(.system(size: Values.mediumFontSize))
+                                        .font(.Body.baseRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
                                 .frame(
@@ -321,11 +319,11 @@ public struct ProCTAModal: View {
                                     if result {
                                         afterUpgrade?()
                                     }
-                                    close()
+                                    close(nil)
                                 }
                             } label: {
                                 Text("theContinue".localized())
-                                    .font(.system(size: Values.mediumFontSize))
+                                    .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                                     .framing(
                                         maxWidth: .infinity,
@@ -340,10 +338,10 @@ public struct ProCTAModal: View {
 
                             // Cancel Button
                             Button {
-                                close()
+                                close(nil)
                             } label: {
                                 Text("cancel".localized())
-                                    .font(.system(size: Values.mediumFontSize))
+                                    .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .textPrimary)
                                     .framing(
                                         maxWidth: .infinity,
@@ -369,6 +367,44 @@ public protocol SessionProManagerType: AnyObject {
     var isSessionProSubject: CurrentValueSubject<Bool, Never> { get }
     var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
     func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
+    @discardableResult @MainActor func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        dismissType: Modal.DismissType,
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool
+}
+
+// MARK: - Convenience
+public extension SessionProManagerType {
+    @discardableResult @MainActor func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool {
+        showSessionProCTAIfNeeded(
+            variant,
+            dismissType: .recursive,
+            beforePresented: beforePresented,
+            afterClosed: afterClosed,
+            presenting: presenting
+        )
+    }
+    
+    @discardableResult @MainActor func showSessionProCTAIfNeeded(
+        _ variant: ProCTAModal.Variant,
+        presenting: ((UIViewController) -> Void)?
+    ) -> Bool {
+        showSessionProCTAIfNeeded(
+            variant,
+            dismissType: .recursive,
+            beforePresented: nil,
+            afterClosed: nil,
+            presenting: presenting
+        )
+    }
 }
 
 struct ProCTAModal_Previews: PreviewProvider {

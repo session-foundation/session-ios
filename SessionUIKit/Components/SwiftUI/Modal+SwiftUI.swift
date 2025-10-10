@@ -6,7 +6,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
     let host: HostWrapper
     let dismissType: Modal.DismissType
     let afterClosed: (() -> Void)?
-    let content: (@escaping () -> Void) -> Content
+    let content: (@escaping ((() -> Void)?) -> Void) -> Content
 
     let cornerRadius: CGFloat = 11
     let shadowRadius: CGFloat = 10
@@ -16,11 +16,21 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
 
     public var body: some View {
         ZStack {
+            // Background
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+                .onTapGesture { close() }
+            
+            // Modal
             VStack {
                 Spacer()
                 
                 VStack(spacing: 0) {
-                    content{ close() }
+                    content { internalAfterClosed in
+                        close(internalAfterClosed)
+                    }
                 }
                 .backgroundColor(themeColor: .alert_background)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
@@ -40,8 +50,6 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
             maxWidth: .infinity,
             maxHeight: .infinity
         )
-        .background(.ultraThinMaterial)
-        .onTapGesture { close() }
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .global)
                 .onEnded { value in
@@ -50,14 +58,11 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                     }
                 }
         )
-        .onDisappear {
-            afterClosed?()
-        }
     }
 
     // MARK: - Dismiss Logic
 
-    private func close() {
+    private func close(_ internalAfterClosed: (() -> Void)? = nil) {
         // Recursively dismiss all modals (ie. find the first modal presented by a non-modal
         // and get that to dismiss it's presented view controller)
         var targetViewController: UIViewController? = host.controller
@@ -70,7 +75,13 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                 }
         }
         
-        targetViewController?.presentingViewController?.dismiss(animated: true)
+        targetViewController?.presentingViewController?.dismiss(
+            animated: true,
+            completion: {
+                afterClosed?()
+                internalAfterClosed?()
+            }
+        )
     }
 }
 
