@@ -4,6 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtilitiesKit
+import SessionUIKit
 
 // MARK: - Log.Category
 
@@ -17,6 +18,7 @@ public enum UpdateProfilePictureJob: JobExecutor {
     public static let maxFailureCount: Int = -1
     public static let requiresThreadId: Bool = false
     public static let requiresInteractionId: Bool = false
+    public static let maxTTL: TimeInterval = (14 * 24 * 60 * 60)
     
     public static func run<S: Scheduler>(
         _ job: Job,
@@ -31,11 +33,38 @@ public enum UpdateProfilePictureJob: JobExecutor {
             return deferred(job) // Don't need to do anything if it's not the main app
         }
         
-        // Only re-upload the profile picture if enough time has passed since the last upload
-        guard
-            let lastProfilePictureUpload: Date = dependencies[defaults: .standard, key: .lastProfilePictureUpload],
-            dependencies.dateNow.timeIntervalSince(lastProfilePictureUpload) > (14 * 24 * 60 * 60)
-        else {
+        let expirationDate: Date? = dependencies[defaults: .standard, key: .profilePictureExpiresDate]
+        let lastUploadDate: Date? = dependencies[defaults: .standard, key: .lastProfilePictureUpload]
+        let expired: Bool = (expirationDate.map({ dependencies.dateNow.timeIntervalSince($0) > 0 }) == true)
+        let exceededMaxTTL: Bool = (lastUploadDate.map({ dependencies.dateNow.timeIntervalSince($0) > Self.maxTTL }) == true)
+        
+        if (expired || exceededMaxTTL) {
+            /// **Note:** The `lastProfilePictureUpload` value is updated in `DisplayPictureManager`
+            let profile = dependencies.mutate(cache: .libSession) { $0.profile }
+            let displayPictureUpdate: DisplayPictureManager.Update = profile.displayPictureUrl
+                .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
+                .map { dependencies[singleton: .fileManager].contents(atPath: $0) }
+                .map { .currentUserUploadImageData(data: $0, isReupload: true)}
+                .defaulting(to: .none)
+            
+            Profile
+                .updateLocal(
+                    displayPictureUpdate: displayPictureUpdate,
+                    using: dependencies
+                )
+                .subscribe(on: scheduler, using: dependencies)
+                .receive(on: scheduler, using: dependencies)
+                .sinkUntilComplete(
+                    receiveCompletion: { result in
+                        switch result {
+                            case .failure(let error): failure(job, error, false)
+                            case .finished:
+                                Log.info(.cat, "Profile successfully updated")
+                                success(job, false)
+                        }
+                    }
+                )
+        } else {
             // Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck
             // in a loop endlessly deferring the job
             if let jobId: Int64 = job.id {
@@ -45,35 +74,14 @@ public enum UpdateProfilePictureJob: JobExecutor {
                         .updateAll(db, Job.Columns.nextRunTimestamp.set(to: 0))
                 }
             }
+            
+            if expirationDate != nil {
+                Log.info(.cat, "Deferred as current picture hasn't expired")
+            } else {
+                Log.info(.cat, "Deferred as not enough time has passed since the last update")
+            }
 
-            Log.info(.cat, "Deferred as not enough time has passed since the last update")
             return deferred(job)
         }
-        
-        /// **Note:** The `lastProfilePictureUpload` value is updated in `DisplayPictureManager`
-        let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
-        let displayPictureUpdate: DisplayPictureManager.Update = profile.displayPictureUrl
-            .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
-            .map { dependencies[singleton: .fileManager].contents(atPath: $0) }
-            .map { .currentUserUploadImageData($0) }
-            .defaulting(to: .none)
-        
-        Profile
-            .updateLocal(
-                displayPictureUpdate: displayPictureUpdate,
-                using: dependencies
-            )
-            .subscribe(on: scheduler, using: dependencies)
-            .receive(on: scheduler, using: dependencies)
-            .sinkUntilComplete(
-                receiveCompletion: { result in
-                    switch result {
-                        case .failure(let error): failure(job, error, false)
-                        case .finished:
-                            Log.info(.cat, "Profile successfully updated")
-                            success(job, false)
-                    }
-                }
-            )
     }
 }

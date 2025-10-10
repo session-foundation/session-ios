@@ -1678,11 +1678,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         },
                         icon: .rightPlus,
                         style: .circular,
+                        description: nil,
                         accessibility: Accessibility(
                             identifier: "Image picker",
                             label: "Image picker"
                         ),
                         dataManager: dependencies[singleton: .imageDataManager],
+                        onProBageTapped: nil,
                         onClick: { [weak self] onDisplayPictureSelected in
                             self?.onDisplayPictureSelected = onDisplayPictureSelected
                             self?.showPhotoLibraryForAvatar()
@@ -1691,7 +1693,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
                             default: return false
                         }
                     },
@@ -1701,7 +1703,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, _, _, _, _):
+                            case .image(.some(let source), _, _, _, _, _, _, _, _):
                                 guard let imageData: Data = source.imageData else { return }
                                 
                                 self?.updateGroupDisplayPicture(
@@ -1766,9 +1768,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     case .groupUploadImageData(let data):
                         /// Show a blocking loading indicator while uploading but not while updating or syncing the group configs
                         return dependencies[singleton: .displayPictureManager]
-                            .prepareAndUploadDisplayPicture(imageData: data)
+                            .prepareAndUploadDisplayPicture(imageData: data, compression: true)
                             .showingBlockingLoading(in: self?.navigatableState)
-                            .map { url, filePath, key -> DisplayPictureManager.Update in
+                            .map { url, filePath, key, _ -> DisplayPictureManager.Update in
                                 .groupUpdateTo(url: url, key: key, filePath: filePath)
                             }
                             .mapError { $0 as Error }
