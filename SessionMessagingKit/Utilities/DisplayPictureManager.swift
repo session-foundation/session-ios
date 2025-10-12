@@ -198,11 +198,14 @@ public class DisplayPictureManager {
     }
     
     public func reuploadNeedsPreparation(attachment: PendingAttachment) -> Bool {
-        /// When re-uploading we only want to check if the file needs to be resized or converted to `WebP` to avoid a situation where
-        /// different clients end up "ping-ponging" changes to the display picture
+        /// When re-uploading we only want to check if the file needs to be resized or converted to `WebP`/`GIF` to avoid a situation
+        /// where different clients end up "ping-ponging" changes to the display picture
+        ///
+        /// **Note:** The `UTType` check behaves as an `OR`
         return attachment.needsPreparation(
             operations: [
-                .convert(to: .webPLossy(maxDimension: DisplayPictureManager.maxDimension))
+                .convert(to: .webPLossy(maxDimension: DisplayPictureManager.maxDimension)),
+                .convert(to: .gif(maxDimension: DisplayPictureManager.maxDimension))
             ]
         )
     }

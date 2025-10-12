@@ -539,10 +539,22 @@ public extension PendingAttachment {
                 default: return false
             }
         }
+        
+        func utType(metadata: MediaUtils.MediaMetadata) -> UTType {
+            switch self {
+                case .current: return (metadata.utType ?? .invalid)
+                case .mp4: return .mpeg4Movie
+                case .webPLossy, .webPLossless: return .webP
+                case .gif: return .gif
+            }
+        }
     }
     
     // MARK: - Encryption and Preparation
     
+    /// Checks whether the attachment would need preparation based on the provided `operations`
+    ///
+    /// **Note:** Any `convert` checks behave as an `OR`
     func needsPreparation(operations: Set<Operation>) -> Bool {
         switch (source, metadata) {
             case (_, .media(let mediaMetadata)):
@@ -585,54 +597,94 @@ public extension PendingAttachment {
         /// called which will throw due to the invalid size
         guard metadata.hasValidPixelSize else { return true }
         
-        for operation in operations {
-            switch operation {
-                case .encrypt: return true
-                case .convert(let format):
-                    let maxImageDimension: CGFloat = max(
-                        metadata.pixelSize.width,
-                        metadata.pixelSize.height
-                    )
-                    
-                    switch format {
-                        case .current: continue /// Keep in the current format
-                        case .mp4:
-                            guard metadata.utType != .mpeg4Movie else { continue }
+        let erasedOperations: Set<Operation.Erased> = Set(operations.map { $0.erased })
+        
+        /// Encryption always needs to happen
+        guard !erasedOperations.contains(.encrypt) else { return true }
+        
+        /// Check if we have unsafe metadata to strip (we don't currently strip metadata from animated images)
+        if
+            erasedOperations.contains(.stripImageMetadata) &&
+            metadata.frameCount == 1 &&
+            metadata.hasUnsafeMetadata
+        {
+            return true
+        }
+        
+        /// Otherwise we need to check the `convert` operations provided (these should behave as an `OR` to allow us to support
+        /// multiple possible "allowed" formats
+        typealias FormatRequirements = (formats: Set<UTType>, maxDimension: CGFloat?, cropRect: CGRect?)
+        let fullRect: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+        let formatRequirements: FormatRequirements = operations
+            .filter { $0.erased == .convert }
+            .reduce(FormatRequirements([], nil, nil)) { result, next in
+                guard case .convert(let format) = next else { return result }
+                
+                switch format {
+                    case .current, .mp4:
+                        return (
+                            result.formats.inserting(format.utType(metadata: metadata)),
+                            result.maxDimension,
+                            result.cropRect
+                        )
+                        
+                    case .webPLossy(let maxDimension, let cropRect, _),
+                        .webPLossless(let maxDimension, let cropRect, _),
+                        .gif(let maxDimension, let cropRect, _):
+                        let finalMax: CGFloat?
+                        let finalCrop: CGRect?
+                        let validCurrentCrop: CGRect? = (result.cropRect != nil && result.cropRect != fullRect ?
+                            result.cropRect :
+                            nil
+                        )
+                        let validNextCrop: CGRect? = (cropRect != nil && cropRect != fullRect ?
+                            cropRect :
+                            nil
+                        )
+                        
+                        switch (result.maxDimension, maxDimension) {
+                            case (.some(let current), .some(let nextMax)): finalMax = min(current, nextMax)
+                            case (.some(let current), .none): finalMax = current
+                            case (.none, .some(let nextMax)): finalMax = nextMax
+                            case (.none, .none): finalMax = nil
+                        }
+                        
+                        switch (validCurrentCrop, validNextCrop) {
+                            case (.some(let current), .some(let nextCrop)):
+                                /// Smallest area wins
+                                let currentArea: CGFloat = (current.width * current.height)
+                                let nextArea: CGFloat = (nextCrop.width * nextCrop.height)
+                                finalCrop = (currentArea < nextArea ? current : nextCrop)
                             
-                            return true
-                            
-                        case .webPLossy(let maxDimension, let cropRect, _),
-                            .webPLossless(let maxDimension, let cropRect, _):
-                            if metadata.utType != .webP { return true }
-                            if maxImageDimension > (maxDimension ?? CGFloat.greatestFiniteMagnitude) {
-                                return true
-                            }
-                            if cropRect != nil && cropRect != CGRect(x: 0, y: 0, width: 1, height: 1) {
-                                return true
-                            }
-                            
-                            /// Already in the desired format
-                            continue
-                            
-                        case .gif(let maxDimension, let cropRect, _):
-                            if metadata.utType != .gif { return true }
-                            if maxImageDimension > (maxDimension ?? CGFloat.greatestFiniteMagnitude) {
-                                return true
-                            }
-                            if cropRect != nil && cropRect != CGRect(x: 0, y: 0, width: 1, height: 1) {
-                                return true
-                            }
-                            
-                            /// Already in the desired format
-                            continue
-                    }
-                    
-                case .stripImageMetadata:
-                    /// We don't currently strip metadata from animated images
-                    guard metadata.frameCount == 1 else { continue }
-                    
-                    return metadata.hasUnsafeMetadata
+                            case (.some(let current), .none): finalCrop = current
+                            case (.none, .some(let nextCrop)): finalCrop = nextCrop
+                            case (.none, .none): finalCrop = nil
+                        }
+                        
+                        return (
+                            result.formats.inserting(format.utType(metadata: metadata)),
+                            finalMax,
+                            finalCrop
+                        )
+                }
             }
+        
+        /// If the format doesn't match one of the desired formats then convert
+        guard formatRequirements.formats.contains(metadata.utType ?? .invalid) else { return true }
+        
+        /// If the source is too large then we need to scale
+        let maxImageDimension: CGFloat = max(
+            metadata.pixelSize.width,
+            metadata.pixelSize.height
+        )
+        
+        if let maxDimension: CGFloat = formatRequirements.maxDimension, maxImageDimension > maxDimension {
+            return true
+        }
+        
+        /// If we want to crop
+        if let cropRect: CGRect = formatRequirements.cropRect, cropRect != fullRect {
+            return true
         }
         
         /// None of the requested `operations` were needed so the file doesn't need preparation

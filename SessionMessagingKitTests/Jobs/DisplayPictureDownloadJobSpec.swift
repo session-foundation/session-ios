@@ -491,12 +491,20 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             
             // MARK: -- generates a FileServer download request correctly
             it("generates a FileServer download request correctly") {
+                profile = Profile(
+                    id: "1234",
+                    name: "test",
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil
+                )
+                mockStorage.write { db in try profile.insert(db) }
                 job = Job(
                     variant: .displayPictureDownload,
                     shouldBeUnique: true,
                     details: DisplayPictureDownloadJob.Details(
                         target: .profile(
-                            id: "",
+                            id: "1234",
                             url: "http://filev2.getsession.org/file/1234",
                             encryptionKey: encryptionKey
                         ),
@@ -508,15 +516,17 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     using: dependencies
                 )
                 
+                var receivedResult: Bool = false
                 DisplayPictureDownloadJob.run(
                     job,
                     scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
+                    success: { _, _ in receivedResult = true },
+                    failure: { _, _, _ in receivedResult = true },
+                    deferred: { _ in receivedResult = true },
                     using: dependencies
                 )
                 
+                await expect(receivedResult).toEventually(beTrue())
                 await expect(mockNetwork)
                     .toEventually(call(.exactly(times: 1), matchingParameters: .all) { network in
                         network.send(
@@ -540,6 +550,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         publicKey: TestConstants.serverPublicKey,
                         isActive: false,
                         name: "test",
+                        imageId: "12",
                         userCount: 0,
                         infoUpdates: 0
                     ).insert(db)
@@ -574,15 +585,17 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     )
                 }!
                 
+                var receivedResult: Bool = false
                 DisplayPictureDownloadJob.run(
                     job,
                     scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
+                    success: { _, _ in receivedResult = true },
+                    failure: { _, _, _ in receivedResult = true },
+                    deferred: { _ in receivedResult = true },
                     using: dependencies
                 )
                 
+                await expect(receivedResult).toEventually(beTrue())
                 await expect(mockNetwork)
                     .toEventually(call(.exactly(times: 1), matchingParameters: .all) { network in
                         network.send(
@@ -753,6 +766,8 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         
                         // MARK: -------- does not save the picture
                         it("does not save the picture") {
+                            /// Succeeds as the download has been superseded
+                            await expect(jobResult).toEventually(equal(.succeeded))
                             expect(mockCrypto)
                                 .toNot(call {
                                     $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any))

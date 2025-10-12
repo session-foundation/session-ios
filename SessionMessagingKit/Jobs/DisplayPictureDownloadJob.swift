@@ -367,7 +367,14 @@ extension DisplayPictureDownloadJob {
         fileprivate func ensureValidUpdate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
             switch self.target {
                 case .profile(let id, let url, let encryptionKey):
-                    guard let latestProfile: Profile = try? Profile.fetchOne(db, id: id) else {
+                    /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
+                    /// there before falling back to the one fetched from the database
+                    let maybeLatestProfile: Profile? = try? (
+                        dependencies.mutate(cache: .libSession) { $0.profile(contactId: id) } ??
+                        Profile.fetchOne(db, id: id)
+                    )
+                    
+                    guard let latestProfile: Profile = maybeLatestProfile else {
                         throw AttachmentError.downloadNoLongerValid
                     }
                     
