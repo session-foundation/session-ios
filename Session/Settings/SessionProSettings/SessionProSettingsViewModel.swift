@@ -252,14 +252,14 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             [
                                 SessionListScreenContent.DataMatrixInfo(
                                     leadingAccessory: .icon(
-                                        UIImage(named: "ic_user_group"),
+                                        .messageSquare,
                                         size: .large,
                                         customTint: .primary,
                                     ),
                                     title: .init(
-                                        "proGroupsUpgraded"
-                                            .putNumber(state.numberOfGroupsUpgraded)
-                                            .put(key: "total", value: state.numberOfGroupsUpgraded)
+                                        "proLongerMessagesSent"
+                                            .putNumber(state.numberOfLongerMessagesSent)
+                                            .put(key: "total", value: state.numberOfLongerMessagesSent)
                                             .localized(),
                                         font: .Headings.H9
                                     )
@@ -297,16 +297,17 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 ),
                                 SessionListScreenContent.DataMatrixInfo(
                                     leadingAccessory: .icon(
-                                        .messageSquare,
+                                        UIImage(named: "ic_user_group"),
                                         size: .large,
-                                        customTint: .primary,
+                                        customTint: .disabled,
                                     ),
                                     title: .init(
-                                        "proLongerMessagesSent"
-                                            .putNumber(state.numberOfLongerMessagesSent)
-                                            .put(key: "total", value: state.numberOfLongerMessagesSent)
+                                        "proGroupsUpgraded"
+                                            .putNumber(state.numberOfGroupsUpgraded)
+                                            .put(key: "total", value: state.numberOfGroupsUpgraded)
                                             .localized(),
-                                        font: .Headings.H9
+                                        font: .Headings.H9,
+                                        color: .disabled
                                     )
                                 )
                             ]

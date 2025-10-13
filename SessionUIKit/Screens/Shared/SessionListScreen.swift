@@ -7,7 +7,6 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     @StateObject private var viewModel: ViewModel
     @ObservedObject private var state: SessionListScreenContent.ListItemDataState<ViewModel.Section, ViewModel.ListItem>
     @State var isShowingTooltip: Bool = false
-    @State var tooltipContentFrame: CGRect = CGRect.zero
     @State var tooltipContent: String = ""
     
     /// There is an issue on `.onAnyInteraction` of the List and `.onTapGuesture` of the TooltipsIcon. The `.onAnyInteraction` will be called first when tapping the TooltipsIcon to dismiss a tooltip.
@@ -126,36 +125,12 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                         .padding(.vertical, Values.smallSpacing)
                         .frame(maxWidth: 270)
                 }
-                .overlay(
-                    GeometryReader { geometry in
-                        Color.clear
-                            .onAppear {
-                                self.tooltipContentFrame = geometry.frame(in: .global)
-                            }
-                            .onChange(of: tooltipContent) { _ in
-                                self.tooltipContentFrame = geometry.frame(in: .global)
-                            }
-                    }
-                )
             },
             backgroundThemeColor: .toast_background,
             isPresented: $isShowingTooltip,
-            frame: $tooltipContentFrame,
             position: .topRight,
             viewId: tooltipViewId
         )
     }
 }
 
-//#if DEBUG
-//extension SessionListScreenContent {
-//    class PreviewViewModel: ViewModelType {
-//    }
-//}
-//
-//#Preview {
-//    SessionListScreen(
-//        viewModel: SessionListScreenContent.PreviewViewModel()
-//    )
-//}
-//#endif

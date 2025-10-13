@@ -76,6 +76,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             )
         )
         self.shouldAnimateImageSubject.send(true)
+        dependencies.setAsync(.isProBadgeEnabled, true)
         completion?(true)
     }
     

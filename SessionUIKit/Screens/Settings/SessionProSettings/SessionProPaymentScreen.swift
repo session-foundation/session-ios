@@ -7,7 +7,6 @@ public struct SessionProPaymentScreen: View {
     @EnvironmentObject var host: HostWrapper
     @State var currentSelection: Int
     @State private var isShowingTooltip: Bool = false
-    @State var tooltipContentFrame: CGRect = CGRect.zero
     
     /// There is an issue on `.onAnyInteraction` of the List and `.onTapGuesture` of the TooltipsIcon. The `.onAnyInteraction` will be called first when tapping the TooltipsIcon to dismiss a tooltip.
     /// This will result in the tooltip will show again right after it dismissed when tapping the TooltipsIcon. This `suppressUntil` is a workaround to fix this issue.
@@ -145,18 +144,9 @@ public struct SessionProPaymentScreen: View {
                             .frame(maxWidth: 250)
                         }
                     }
-                    .overlay(
-                        GeometryReader { geometry in
-                            Color.clear // Invisible overlay
-                                .onAppear {
-                                    self.tooltipContentFrame = geometry.frame(in: .global)
-                                }
-                        }
-                    )
                 },
                 backgroundThemeColor: .toast_background,
                 isPresented: $isShowingTooltip,
-                frame: $tooltipContentFrame,
                 position: .topRight,
                 offset: 50,
                 viewId: tooltipViewId
@@ -192,9 +182,7 @@ public struct SessionProPaymentScreen: View {
                     onConfirm: { _ in
                         self.viewModel.purchase(
                             planInfo: updatedPlan,
-                            success: {
-                                
-                            },
+                            success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
                             failure: {
                                 
                             }
@@ -203,17 +191,32 @@ public struct SessionProPaymentScreen: View {
                 )
             )
             self.host.controller?.present(confirmationModal, animated: true)
-        } else if case .purchase = viewModel.dataModel.flow {
+        }
+        
+        if
+            [ .purchase, .renew ].contains(viewModel.dataModel.flow),
+            let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: Date())
+        {
             self.viewModel.purchase(
                 planInfo: updatedPlan,
-                success: {
-                    
-                },
+                success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
                 failure: {
                     
                 }
             )
         }
+    }
+    
+    private func onPaymentSuccess(expiredOn: Date) {
+        let viewController: SessionHostingViewController = SessionHostingViewController(
+            rootView: SessionProPlanUpdatedScreen(
+                flow: self.viewModel.dataModel.flow,
+                expiredOn: expiredOn
+            )
+        )
+        viewController.modalTransitionStyle = .crossDissolve
+        viewController.modalPresentationStyle = .overFullScreen
+        self.host.controller?.present(viewController, animated: true)
     }
     
     private func openTosPrivacy() {

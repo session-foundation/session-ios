@@ -188,7 +188,6 @@ extension SessionNetworkScreen {
         @Binding var isRefreshing: Bool
         @Binding var lastRefreshWasSuccessful: Bool
         @Binding var isShowingTooltip: Bool
-        @State var tooltipContentFrame: CGRect = CGRect.zero
         
         let tooltipViewId: String = "SessionNetworkScreenToolTip" // stringlint:ignore
         let scaleRatio: CGFloat = max(UIScreen.main.bounds.width / 390, 1.0)
@@ -469,18 +468,9 @@ extension SessionNetworkScreen {
                             Accessibility(identifier: "Tooltip info")
                         )
                     }
-                    .overlay(
-                        GeometryReader { geometry in
-                            Color.clear // Invisible overlay
-                                .onAppear {
-                                    self.tooltipContentFrame = geometry.frame(in: .global)
-                                }
-                        }
-                    )
                 },
                 backgroundThemeColor: .toast_background,
                 isPresented: $isShowingTooltip,
-                frame: $tooltipContentFrame,
                 position: .top,
                 viewId: tooltipViewId
             )

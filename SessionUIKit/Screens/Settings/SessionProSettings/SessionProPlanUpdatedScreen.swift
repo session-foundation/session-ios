@@ -18,6 +18,22 @@ public struct SessionProPlanUpdatedScreen: View {
                 ""
         }
     }
+    var desription: ThemedAttributedString {
+        switch flow {
+            case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform):
+                "proAllSetDescription"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "pro", value: Constants.pro)
+                    .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                    .localizedFormatted(Fonts.Body.baseRegular)
+            case .renew:
+                "proPlanRenewSupport"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "network_name", value: Constants.network_name)
+                    .localizedFormatted(Fonts.Body.baseRegular)
+            default: fatalError("Unexpected case \(flow)")
+        }
+    }
     
     public var body: some View {
         ZStack(alignment: .top) {
@@ -52,17 +68,11 @@ public struct SessionProPlanUpdatedScreen: View {
                     .font(.Headings.H6)
                     .foregroundColor(themeColor: .textPrimary)
                 
-                AttributedText(
-                    "proAllSetDescription"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "pro", value: Constants.pro)
-                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                        .localizedFormatted(Fonts.Body.baseRegular)
-                )
-                .font(.Body.baseRegular)
-                .foregroundColor(themeColor: .textPrimary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Values.mediumSpacing)
+                AttributedText(desription)
+                    .font(.Body.baseRegular)
+                    .foregroundColor(themeColor: .textPrimary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Values.mediumSpacing)
                 
                 Button {
                     self.host.controller?.dismiss(animated: true)
