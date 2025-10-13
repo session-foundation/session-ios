@@ -37,6 +37,15 @@ extension String {
         }
         return result
     }
+    
+    // Remove whitesspaces and replace with "_"
+    public var replacingWhitespacesWithUnderscores: String {
+        let sanitizedFileNameComponents = components(separatedBy: .whitespaces)
+        
+        return sanitizedFileNameComponents
+            .filter { !$0.isEmpty } // Remove empty strings if multiple spaces were adjacent
+            .joined(separator: "_") // stringlint:ignore
+    }
 }
 
 extension SignalAttachmentError: LocalizedError {

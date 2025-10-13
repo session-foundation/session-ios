@@ -190,8 +190,8 @@ extension SessionNetworkScreen {
         @Binding var isShowingTooltip: Bool
         @State var tooltipContentFrame: CGRect = CGRect.zero
         
-        let tooltipViewId: String = "tooltip" // stringlint:ignore
-        let scaleRatio: CGFloat = max(UIScreen.main.bounds.width / 390, 1.0) 
+        let tooltipViewId: String = "SessionNetworkScreenToolTip" // stringlint:ignore
+        let scaleRatio: CGFloat = max(UIScreen.main.bounds.width / 390, 1.0)
         
         var body: some View {
             HStack(

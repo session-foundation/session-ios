@@ -48,12 +48,26 @@ public extension ProfilePictureView {
         )
         
         switch (explicitPath, publicKey.isEmpty, threadVariant) {
-            case (.some(let path), _, _):
+            // TODO: Deal with this case later when implement group related Pro features
+            case (.some(let path), _, .legacyGroup), (.some(let path), _, .group): fallthrough
+            case (.some(let path), _, .community):
                 /// If we are given an explicit `displayPictureUrl` then only use that
                 return (Info(
                     source: .url(URL(fileURLWithPath: path)),
+                    animationBehaviour: .generic(true),
                     icon: profileIcon
                 ), nil)
+            
+            case (.some(let path), _, _):
+                /// If we are given an explicit `displayPictureUrl` then only use that
+                return (
+                    Info(
+                        source: .url(URL(fileURLWithPath: path)),
+                        animationBehaviour: ProfilePictureView.animationBehaviour(from: profile, using: dependencies),
+                        icon: profileIcon
+                    ),
+                    nil
+                )
             
             case (_, _, .community):
                 return (
@@ -62,9 +76,10 @@ public extension ProfilePictureView {
                             switch size {
                                 case .navigation, .message: return .image("SessionWhite16", #imageLiteral(resourceName: "SessionWhite16"))
                                 case .list: return .image("SessionWhite24", #imageLiteral(resourceName: "SessionWhite24"))
-                                case .hero: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
+                                case .hero, .modal: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
                             }
                         }(),
+                        animationBehaviour: .generic(true),
                         inset: UIEdgeInsets(
                             top: 12,
                             left: 12,
@@ -101,7 +116,11 @@ public extension ProfilePictureView {
                 }()
                 
                 return (
-                    Info(source: source, icon: profileIcon),
+                    Info(
+                        source: source,
+                        animationBehaviour: ProfilePictureView.animationBehaviour(from: profile, using: dependencies),
+                        icon: profileIcon
+                    ),
                     additionalProfile
                         .map { other in
                             let source: ImageDataManager.DataSource = {
@@ -120,11 +139,16 @@ public extension ProfilePictureView {
                                 return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
                             }()
                             
-                            return Info(source: source, icon: additionalProfileIcon)
+                            return Info(
+                                source: source,
+                                animationBehaviour: ProfilePictureView.animationBehaviour(from: other, using: dependencies),
+                                icon: additionalProfileIcon
+                            )
                         }
                         .defaulting(
                             to: Info(
                                 source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
+                                animationBehaviour: .generic(false),
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
@@ -156,7 +180,29 @@ public extension ProfilePictureView {
                     return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
                 }()
                 
-                return (Info(source: source, icon: profileIcon), nil)
+                return (
+                    Info(
+                        source: source,
+                        animationBehaviour: ProfilePictureView.animationBehaviour(from: profile, using: dependencies),
+                        icon: profileIcon),
+                    nil
+                )
+        }
+    }
+}
+
+public extension ProfilePictureView {
+    static func animationBehaviour(from profile: Profile?, using dependencies: Dependencies) -> Info.AnimationBehaviour {
+        guard dependencies[feature: .sessionProEnabled] else { return .generic(true) }
+
+        switch profile {
+            case .none: return .generic(false)
+            
+            case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
+                return .currentUser(dependencies[singleton: .sessionProState])
+                
+            case .some(let profile):
+                return .contact(dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }))
         }
     }
 }
