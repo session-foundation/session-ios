@@ -297,18 +297,28 @@ public class SessionImageView: UIImageView {
                 self.animationFrames = nil
                 self.animationFrameDurations = nil
             
-            case .animatedImage(let frames, let durations):
-                self.image = frames.first
-                self.animationFrames = frames
+            case .animatedImage(let firstFrame, let durations, let allFramesStream):
+                self.image = firstFrame
                 self.animationFrameDurations = durations
+                self.animationFrames = Array(repeating: nil, count: durations.count)
+                self.animationFrames?[0] = firstFrame
                 self.currentFrameIndex = 0
                 self.accumulatedTime = 0
                 
-                guard self.shouldAnimateImage else { return }
+                guard durations.count > 1 else {
+                    stopAnimationLoop()
+                    return
+                }
                 
-                switch frames.count {
-                    case 1...: startAnimationLoop()
-                    default: stopAnimationLoop()    /// Treat as a static image
+                streamConsumptionTask = Task { @MainActor in
+                    for await frames in allFramesStream.stream {
+                        guard !Task.isCancelled else { break }
+                        
+                        guard self.shouldAnimateImage else { continue }
+                        
+                        self.animationFrames = frames
+                        startAnimationLoop()
+                    }
                 }
                 
             case .bufferedAnimatedImage(let firstFrame, let durations, let bufferedFrameStream):
@@ -316,6 +326,8 @@ public class SessionImageView: UIImageView {
                 self.animationFrameDurations = durations
                 self.animationFrames = Array(repeating: nil, count: durations.count)
                 self.animationFrames?[0] = firstFrame
+                self.currentFrameIndex = 0
+                self.accumulatedTime = 0
                 
                 guard durations.count > 1 else {
                     stopAnimationLoop()

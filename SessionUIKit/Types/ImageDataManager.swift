@@ -299,38 +299,57 @@ public actor ImageDataManager: ImageDataManagerType {
                     let decodedFirstFrameImage: UIImage = predecode(cgImage: firstFrameCgImage, using: decodingContext)
                 else { return nil }
                 
-                /// If the memory usage of the full animation when is small enough then we should fully decode and cache the decoded
+                /// If the memory usage of the full animation is small enough then we should fully decode and cache the decoded
                 /// result in memory, otherwise we don't want to cache the decoded data, but instead want to generate a buffered stream
                 /// of frame data to start playing the animation as soon as possible whilst we continue to decode in the background
-                let decodedMemoryCost: Int = (firstFrameCgImage.width * firstFrameCgImage.height * 4 * count)
                 let durations: [TimeInterval] = getFrameDurations(from: source, count: count)
+                let decodedMemoryCost: Int = ProcessedImageData.calculateCost(
+                    forPixelSize: CGSize(width: firstFrameCgImage.width, height: firstFrameCgImage.height),
+                    count: durations.count,
+                    bitsPerPixel: firstFrameCgImage.bitsPerPixel
+                )
                 
                 guard decodedMemoryCost > decodedAnimationCacheLimit else {
-                    var frames: [UIImage] = [decodedFirstFrameImage]
-                    
-                    for i in 1..<count {
-                        autoreleasepool {
-                            guard
-                                let cgImage: CGImage = CGImageSourceCreateImageAtIndex(source, i, nil),
-                                let decoded: UIImage = predecode(cgImage: cgImage, using: decodingContext)
-                            else {
-                                /// If a frame fails then use the previous frame as a fallback, otherwise fail as it was the first frame
-                                /// which failed
-                                guard let lastFrame: UIImage = frames.last else { return }
+                    let fullAnimationStream = FullAnimationAsyncStream(
+                        priority: .userInitiated,
+                        firstFrame: decodedFirstFrameImage,
+                        decode: {
+                            var frames: [UIImage] = [decodedFirstFrameImage]
+                            
+                            for i in 1..<count {
+                                guard !Task.isCancelled else { return frames }
                                 
-                                frames.append(lastFrame)
-                                return
+                                autoreleasepool {
+                                    guard
+                                        let cgImage: CGImage = CGImageSourceCreateImageAtIndex(source, i, nil),
+                                        let decoded: UIImage = predecode(cgImage: cgImage, using: decodingContext)
+                                    else {
+                                        /// If a frame fails then use the previous frame as a fallback, otherwise fail as it was the first frame
+                                        /// which failed
+                                        guard let lastFrame: UIImage = frames.last else { return }
+                                        
+                                        frames.append(lastFrame)
+                                        return
+                                    }
+                                    
+                                    frames.append(decoded)
+                                }
                             }
-                            frames.append(decoded)
+                            
+                            return frames
                         }
-                    }
+                    )
                     
                     return ProcessedImageData(
-                        type: .animatedImage(frames: frames, durations: durations)
+                        type: .animatedImage(
+                            firstFrame: decodedFirstFrameImage,
+                            durations: durations,
+                            allFramesStream: fullAnimationStream
+                        )
                     )
                 }
                 
-                /// Kick off out buffered frame loading logic for the animation
+                /// Kick off our buffered frame loading logic for the animation
                 let stream: AsyncStream<BufferedFrameStreamEvent> = AsyncStream { continuation in
                     let task = Task.detached(priority: .userInitiated) {
                         var (frameIndexesToBuffer, probeFrames) = await self.calculateHeuristicBuffer(
@@ -701,7 +720,11 @@ public extension ImageDataManager {
 public extension ImageDataManager {
     enum DataType {
         case staticImage(UIImage)
-        case animatedImage(frames: [UIImage], durations: [TimeInterval])
+        case animatedImage(
+            firstFrame: UIImage,
+            durations: [TimeInterval],
+            allFramesStream: FullAnimationAsyncStream
+        )
         case bufferedAnimatedImage(
             firstFrame: UIImage,
             durations: [TimeInterval],
@@ -748,11 +771,19 @@ public extension ImageDataManager {
             switch type {
                 case .staticImage(let image):
                     frameCount = 1
-                    estimatedCacheCost = ProcessedImageData.calculateCost(for: [image])
+                    estimatedCacheCost = ProcessedImageData.calculateCost(
+                        forPixelSize: image.size,
+                        count: 1,
+                        bitsPerPixel: (image.cgImage?.bitsPerPixel ?? 32)
+                    )
                     
-                case .animatedImage(let frames, _):
-                    frameCount = frames.count
-                    estimatedCacheCost = ProcessedImageData.calculateCost(for: frames)
+                case .animatedImage(let firstFrame, let durations, _):
+                    frameCount = durations.count
+                    estimatedCacheCost = ProcessedImageData.calculateCost(
+                        forPixelSize: firstFrame.size,
+                        count: durations.count,
+                        bitsPerPixel: (firstFrame.cgImage?.bitsPerPixel ?? 32)
+                    )
                     
                 case .bufferedAnimatedImage(_, let durations, _):
                     frameCount = durations.count
@@ -760,15 +791,15 @@ public extension ImageDataManager {
             }
         }
         
-        static func calculateCost(for images: [UIImage]) -> Int {
-            return images.reduce(0) { totalCost, image in
-                guard let cgImage: CGImage = image.cgImage else { return totalCost }
-                
-                let bytesPerPixel: Int = (cgImage.bitsPerPixel / 8)
-                let imagePixels: Int = (cgImage.width * cgImage.height)
-                
-                return totalCost + (imagePixels * (bytesPerPixel > 0 ? bytesPerPixel : 4))
-            }
+        static func calculateCost(
+            forPixelSize size: CGSize,
+            count: Int,
+            bitsPerPixel: Int = 32
+        ) -> Int {
+            let imagePixels: Int = Int(size.width * size.height)
+            let bytesPerPixel: Int = (bitsPerPixel / 8)
+            
+            return (count * (imagePixels * bytesPerPixel))
         }
     }
 }
@@ -881,4 +912,72 @@ public protocol ImageDataManagerType {
 public protocol ThumbnailManager: Sendable {
     func existingThumbnailImage(url: URL, size: ImageDataManager.ThumbnailSize) -> UIImage?
     func saveThumbnail(data: Data, size: ImageDataManager.ThumbnailSize, url: URL)
+}
+
+// MARK: FullAnimationAsyncStream
+
+public actor FullAnimationAsyncStream {
+    private var continuations: [UUID: AsyncStream<[UIImage]>.Continuation] = [:]
+    private var frames: [UIImage]?
+    
+    /// This being `nonisolated(unsafe)` is ok because it only gets set in `init` or accessed from isolated methods (`send`
+    /// and `cancel`)
+    private nonisolated(unsafe) var decodingTask: Task<Void, Never>?
+    
+    public init(
+        priority: TaskPriority? = nil,
+        firstFrame: UIImage,
+        decode: @escaping @Sendable () async -> [UIImage]
+    ) {
+        decodingTask = Task.detached(priority: priority) { [weak self] in
+            guard let self else { return }
+            
+            let remainingFrames: [UIImage] = await decode()
+            
+            guard !Task.isCancelled else { return }
+            
+            await self.send([firstFrame] + remainingFrames)
+        }
+    }
+    
+    public func send(_ value: [UIImage]) {
+        frames = value
+        continuations.values.forEach {
+            $0.yield(value)
+            $0.finish()
+        }
+        continuations.removeAll()
+        decodingTask = nil
+    }
+    
+    public func cancel() {
+        decodingTask?.cancel()
+        continuations.values.forEach { $0.finish() }
+        continuations.removeAll()
+    }
+    
+    public nonisolated var stream: AsyncStream<[UIImage]> {
+        AsyncStream { continuation in
+            let id = UUID()
+            Task {
+                if let value = await self.frames {
+                    continuation.yield(value)
+                    continuation.finish()
+                } else {
+                    await self.addContinuation(id: id, continuation: continuation)
+                }
+            }
+            continuation.onTermination = { _ in
+                Task { await self.removeContinuation(id: id) }
+            }
+        }
+    }
+    
+    private func addContinuation(id: UUID, continuation: AsyncStream<[UIImage]>.Continuation) {
+        continuations[id] = continuation
+    }
+    
+    private func removeContinuation(id: UUID) {
+        continuations.removeValue(forKey: id)
+    }
 }

@@ -81,14 +81,23 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
                     self.loadedImage = image
                 }
             
-            case .animatedImage(let frames, let durations) where frames.count > 1:
+            case .animatedImage(let firstFrame, let durations, let allFramesStream) where durations.count > 1:
                 await MainActor.run {
-                    self.animationFrames = frames
+                    self.loadedImage = firstFrame
                     self.animationFrameDurations = durations
-                    self.loadedImage = frames.first
+                    self.animationFrames = Array(repeating: nil, count: durations.count)
+                    self.animationFrames?[0] = firstFrame
+                }
+                
+                for await frames in allFramesStream.stream {
+                    guard !Task.isCancelled else { break }
                     
-                    if self.shouldAnimateImage {
-                        self.isAnimating = true /// Activate the `TimelineView`
+                    await MainActor.run {
+                        self.animationFrames = frames
+                        
+                        guard self.shouldAnimateImage else { return }
+                        
+                        self.isAnimating = true
                     }
                 }
                 
@@ -114,9 +123,9 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
                     }
                 }
                 
-            case .animatedImage(let frames, _):
+            case .animatedImage(let firstFrame, _, _):
                 await MainActor.run {
-                    self.loadedImage = frames.first
+                    self.loadedImage = firstFrame
                 }
                 
             case .bufferedAnimatedImage(let firstFrame, _, _):
