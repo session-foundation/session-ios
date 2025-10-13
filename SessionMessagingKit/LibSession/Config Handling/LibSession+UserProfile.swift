@@ -237,11 +237,12 @@ public extension LibSession.Cache {
         var profilePic: user_profile_pic = user_profile_pic()
         profilePic.set(\.url, to: displayPictureUrl)
         profilePic.set(\.key, to: displayPictureEncryptionKey)
-        if isReuploadProfilePicture {
-            user_profile_set_reupload_pic(conf, profilePic)
-        } else {
+        // FIXME: Add this back once `profile_update` is getting set again
+//        if isReuploadProfilePicture {
+//            user_profile_set_reupload_pic(conf, profilePic)
+//        } else {
             user_profile_set_pic(conf, profilePic)
-        }
+//        }
         
         try LibSessionError.throwIfNeeded(conf)
         
