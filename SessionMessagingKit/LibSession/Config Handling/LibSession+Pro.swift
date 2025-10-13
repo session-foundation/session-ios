@@ -22,17 +22,18 @@ public extension LibSession {
 
 public extension LibSessionCacheType {
     var isSessionPro: Bool {
-        if dependencies.hasSet(feature: .mockCurrentUserSessionPro) {
-            return dependencies[feature: .mockCurrentUserSessionPro]
-        }
-        return false
+        guard dependencies[feature: .sessionProEnabled] else { return false }
+        return dependencies[feature: .mockCurrentUserSessionPro]
     }
     
-    func validateProProof(_ proProof: String?) -> Bool {
-        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
-            return dependencies[feature: .treatAllIncomingMessagesAsProMessages]
-        }
-        return false
+    func validateProProof(for message: Message?) -> Bool {
+        guard let message = message, dependencies[feature: .sessionProEnabled] else { return false }
+        return dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+    }
+    
+    func validateProProof(for profile: Profile?) -> Bool {
+        guard let profile = profile, dependencies[feature: .sessionProEnabled] else { return false }
+        return dependencies[feature: .treatAllIncomingMessagesAsProMessages]
     }
     
     func getProProof() -> String? {

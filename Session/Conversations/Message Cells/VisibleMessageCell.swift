@@ -1034,26 +1034,17 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
 
         let location = gestureRecognizer.location(in: self)
+        let tappedAuthorName: Bool = (
+            authorLabel.bounds.contains(authorLabel.convert(location, from: self)) &&
+            !(cellViewModel.senderName ?? "").isEmpty
+        )
+        let tappedProfilePicture: Bool = (
+            profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)) &&
+            cellViewModel.shouldShowProfile
+        )
         
-        if profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)), cellViewModel.shouldShowProfile {
-            // For open groups only attempt to start a conversation if the author has a blinded id
-            guard cellViewModel.threadVariant != .community else {
-                // FIXME: Add in support for opening a conversation with a 'blinded25' id
-                guard (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15 else { return }
-                
-                delegate?.startThread(
-                    with: cellViewModel.authorId,
-                    openGroupServer: cellViewModel.threadOpenGroupServer,
-                    openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
-                )
-                return
-            }
-            
-            delegate?.startThread(
-                with: cellViewModel.authorId,
-                openGroupServer: nil,
-                openGroupPublicKey: nil
-            )
+        if tappedAuthorName || tappedProfilePicture {
+            delegate?.showUserProfileModal(for: cellViewModel)
         }
         else if replyButton.alpha > 0 && replyButton.bounds.contains(replyButton.convert(location, from: self)) {
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred()

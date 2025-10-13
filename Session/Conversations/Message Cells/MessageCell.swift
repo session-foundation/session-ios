@@ -145,7 +145,7 @@ protocol MessageCellDelegate: ReactionDelegate {
     func handleItemSwiped(_ cellViewModel: MessageViewModel, state: SwipeState)
     func openUrl(_ urlString: String)
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel)
-    func startThread(with sessionId: String, openGroupServer: String?, openGroupPublicKey: String?)
+    func showUserProfileModal(for cellViewModel: MessageViewModel)
     func showReactionList(_ cellViewModel: MessageViewModel, selectedReaction: EmojiWithSkinTones?)
     func needsLayout(for cellViewModel: MessageViewModel, expandingReactions: Bool)
     func handleReadMoreButtonTapped(_ cell: UITableViewCell, for cellViewModel: MessageViewModel)

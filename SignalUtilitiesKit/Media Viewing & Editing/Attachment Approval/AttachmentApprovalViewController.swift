@@ -638,31 +638,22 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         self.approvalDelegate?.attachmentApprovalDidCancel(self)
     }
     
-    // MARK: - Session Pro CTA
-    
-    @discardableResult @MainActor func showSessionProCTAIfNeeded() -> Bool {
-        guard dependencies[feature: .sessionProEnabled] && (!isSessionPro) else {
-            return false
-        }
-        self.hideInputAccessoryView()
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
-                variant: .longerMessages,
-                dataManager: dependencies[singleton: .imageDataManager],
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                    self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
-                }
-            )
-        )
-        present(sessionProModal, animated: true, completion: nil)
-        
-        return true
-    }
-    
     @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
-        guard !showSessionProCTAIfNeeded() else { return }
+        guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
         
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -689,7 +680,22 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
 extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
     @MainActor func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar) {
-        guard !showSessionProCTAIfNeeded() else { return }
+        guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
+        
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(

@@ -172,7 +172,8 @@ public final class MessageSender {
                         VisibleMessage.VMProfile(
                             displayName: profile.name,
                             profileKey: profile.displayPictureEncryptionKey,
-                            profilePictureUrl: profile.displayPictureUrl
+                            profilePictureUrl: profile.displayPictureUrl,
+                            updateTimestampSeconds: profile.profileLastUpdated
                         )
                     }
         }
@@ -271,6 +272,7 @@ public final class MessageSender {
                     displayName: profile.name,
                     profileKey: profile.displayPictureEncryptionKey,
                     profilePictureUrl: profile.displayPictureUrl,
+                    updateTimestampSeconds: profile.profileLastUpdated,
                     blocksCommunityMessageRequests: !checkForCommunityMessageRequests
                 )
             }
@@ -336,7 +338,8 @@ public final class MessageSender {
                         VisibleMessage.VMProfile(
                             displayName: profile.name,
                             profileKey: profile.displayPictureEncryptionKey,
-                            profilePictureUrl: profile.displayPictureUrl
+                            profilePictureUrl: profile.displayPictureUrl,
+                            updateTimestampSeconds: profile.profileLastUpdated
                         )
                     }
             

@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-public enum SNMessagingKit { // Just to make the external API nice
+public enum SNMessagingKit {
     public static let migrations: [Migration.Type] = [
         _001_SUK_InitialSetupMigration.self,
         _002_SUK_SetupStandardJobs.self,
@@ -47,7 +47,8 @@ public enum SNMessagingKit { // Just to make the external API nice
         _041_RenameTableSettingToKeyValueStore.self,
         _042_MoveSettingsToLibSession.self,
         _043_RenameAttachments.self,
-        _044_AddProMessageFlag.self
+        _044_AddProMessageFlag.self,
+        _045_LastProfileUpdateTimestamp.self
     ]
     
     public static func configure(using dependencies: Dependencies) {

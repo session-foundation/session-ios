@@ -217,12 +217,25 @@ public class SessionCell: UITableViewCell {
     public override func layoutSubviews() {
         super.layoutSubviews()
         
+        if titleLabel.preferredMaxLayoutWidth != titleLabel.bounds.width {
+            titleLabel.preferredMaxLayoutWidth = titleLabel.bounds.width
+        }
+        
+        if subtitleLabel.preferredMaxLayoutWidth != subtitleLabel.bounds.width {
+            subtitleLabel.preferredMaxLayoutWidth = subtitleLabel.bounds.width
+        }
+        
+        if expandableDescriptionLabel.preferredMaxLayoutWidth != expandableDescriptionLabel.bounds.width {
+            expandableDescriptionLabel.preferredMaxLayoutWidth = expandableDescriptionLabel.bounds.width
+        }
+        
         // Need to force the contentStackView to layout if needed as it might not have updated it's
         // sizing yet
         self.contentStackView.layoutIfNeeded()
         repositionExtraView(titleExtraView, for: titleLabel)
         repositionExtraView(subtitleExtraView, for: subtitleLabel)
         self.titleStackView.layoutIfNeeded()
+        self.layoutIfNeeded()
     }
     
     private func repositionExtraView(_ targetView: UIView?, for label: UILabel) {
@@ -319,6 +332,8 @@ public class SessionCell: UITableViewCell {
         subtitleLabel.isHidden = true
         expandableDescriptionLabel.isHidden = true
         botSeparator.isHidden = true
+        
+        invalidateIntrinsicContentSize()
     }
     
     @MainActor public func update<ID: Hashable & Differentiable>(
