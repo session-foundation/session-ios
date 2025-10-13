@@ -2352,102 +2352,7 @@ extension ConversationVC:
         /// Retrieve the deletion actions for the selected message(s) of there are any
         let messagesToDelete: [MessageViewModel] = [cellViewModel]
         
-        guard let deletionBehaviours: MessageViewModel.DeletionBehaviours = self.viewModel.deletionActions(for: messagesToDelete) else {
-            return
-        }
-        
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: deletionBehaviours.title,
-                body: .radio(
-                    explanation: ThemedAttributedString(string: deletionBehaviours.body),
-                    warning: deletionBehaviours.warning.map { ThemedAttributedString(string: $0) },
-                    options: deletionBehaviours.actions.map { action in
-                        ConfirmationModal.Info.Body.RadioOptionInfo(
-                            title: action.title,
-                            enabled: action.state != .disabled,
-                            selected: action.state == .enabledAndDefaultSelected,
-                            accessibility: action.accessibility
-                        )
-                    }
-                ),
-                confirmTitle: "delete".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "cancel".localized(),
-                cancelStyle: .alert_text,
-                dismissOnConfirm: false,
-                onConfirm: { [weak self, dependencies = viewModel.dependencies] modal in
-                    /// Determine the selected action index
-                    let selectedIndex: Int = {
-                        switch modal.info.body {
-                            case .radio(_, _, let options):
-                                return options
-                                    .enumerated()
-                                    .first(where: { _, value in value.selected })
-                                    .map { index, _ in index }
-                                    .defaulting(to: 0)
-                            
-                            default: return 0
-                        }
-                    }()
-                    
-                    /// Stop the messages audio if needed
-                    messagesToDelete.forEach { cellViewModel in
-                        self?.viewModel.stopAudioIfNeeded(for: cellViewModel)
-                    }
-                    
-                    /// Trigger the deletion behaviours
-                    deletionBehaviours
-                        .publisherForAction(at: selectedIndex, using: dependencies)
-                        .showingBlockingLoading(
-                            in: deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) ?
-                                self?.viewModel.navigatableState :
-                                nil
-                        )
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                DispatchQueue.main.async {
-                                    switch result {
-                                        case .finished:
-                                            modal.dismiss(animated: true) {
-                                                /// Dispatch after a delay because becoming the first responder can cause
-                                                /// an odd appearance animation
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
-                                                    self?.viewModel.showToast(
-                                                        text: "deleteMessageDeleted"
-                                                            .putNumber(messagesToDelete.count)
-                                                            .localized(),
-                                                        backgroundColor: .backgroundSecondary,
-                                                        inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                                    )
-                                                }
-                                            }
-                                            
-                                        case .failure:
-                                            self?.viewModel.showToast(
-                                                text: "deleteMessageFailed"
-                                                    .putNumber(messagesToDelete.count)
-                                                    .localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                    }
-                                    completion?()
-                                }
-                            }
-                        )
-                },
-                afterClosed: { [weak self] in
-                    self?.becomeFirstResponder()
-                }
-            )
-        )
-        
-        /// Show the modal after a small delay so it doesn't look as weird with the context menu dismissal
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
-            self?.present(modal, animated: true)
-            self?.resignFirstResponder()
-        }
+        onDelete(messagesToDelete, completion: completion)
     }
 
     func save(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
@@ -3347,5 +3252,139 @@ extension ConversationVC: MediaPresentationContextProvider {
 
     func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
         return self.navigationController?.navigationBar.generateSnapshot(in: coordinateSpace)
+    }
+    
+    
+    // MARK: - Delete Messages
+    func deleteAttachments(_ ids: Set<Int64>, completion: @escaping () -> Void) {
+        let messagesToDelete: [MessageViewModel] = viewModel.interactionData
+            .flatMap { $0.elements }
+            .filter { ids.contains($0.id) }
+        
+        onDelete(messagesToDelete, fromAttachments: true) {
+            completion()
+        }
+    }
+    
+    func onDelete(_ messagesToDelete: [MessageViewModel], fromAttachments: Bool = false, completion: (() -> Void)? = nil) {
+        guard let topViewController = viewModel.dependencies[singleton: .appContext].frontMostViewController else {
+            return
+        }
+        
+        guard let deletionBehaviours: MessageViewModel.DeletionBehaviours = self.viewModel.deletionActions(for: messagesToDelete) else {
+            return
+        }
+        
+        var alertContentForDeletion: (title: String, body: String) {
+            guard fromAttachments else {
+                return (
+                    deletionBehaviours.title,
+                    deletionBehaviours.body
+                )
+            }
+            
+            // If items to delete contains other messages aside from attachments w/ message
+            return (
+                "deleteAttachments"
+                    .putNumber(messagesToDelete.count)
+                    .localized(),
+                "deleteAttachmentsDescription"
+                    .putNumber(messagesToDelete.count)
+                    .localized()
+            )
+        }
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: alertContentForDeletion.title,
+                body: .radio(
+                    explanation: ThemedAttributedString(string: alertContentForDeletion.body),
+                    warning: deletionBehaviours.warning.map { ThemedAttributedString(string: $0) },
+                    options: deletionBehaviours.actions.map { action in
+                        ConfirmationModal.Info.Body.RadioOptionInfo(
+                            title: action.title,
+                            enabled: action.state != .disabled,
+                            selected: action.state == .enabledAndDefaultSelected,
+                            accessibility: action.accessibility
+                        )
+                    }
+                ),
+                confirmTitle: "delete".localized(),
+                confirmStyle: .danger,
+                cancelTitle: "cancel".localized(),
+                cancelStyle: .alert_text,
+                dismissOnConfirm: false,
+                onConfirm: { [weak self, dependencies = viewModel.dependencies] modal in
+                    /// Determine the selected action index
+                    let selectedIndex: Int = {
+                        switch modal.info.body {
+                            case .radio(_, _, let options):
+                                return options
+                                    .enumerated()
+                                    .first(where: { _, value in value.selected })
+                                    .map { index, _ in index }
+                                    .defaulting(to: 0)
+                            
+                            default: return 0
+                        }
+                    }()
+                    
+                    /// Stop the messages audio if needed
+                    messagesToDelete.forEach { cellViewModel in
+                        self?.viewModel.stopAudioIfNeeded(for: cellViewModel)
+                    }
+                    
+                    /// Trigger the deletion behaviours
+                    deletionBehaviours
+                        .publisherForAction(at: selectedIndex, using: dependencies)
+                        .showingBlockingLoading(
+                            in: deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) ?
+                                self?.viewModel.navigatableState :
+                                nil
+                        )
+                        .sinkUntilComplete(
+                            receiveCompletion: { result in
+                                DispatchQueue.main.async {
+                                    switch result {
+                                        case .finished:
+                                            modal.dismiss(animated: true) {
+                                                /// Dispatch after a delay because becoming the first responder can cause
+                                                /// an odd appearance animation
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
+                                                    self?.viewModel.showToast(
+                                                        text: "deleteMessageDeleted"
+                                                            .putNumber(messagesToDelete.count)
+                                                            .localized(),
+                                                        backgroundColor: .backgroundSecondary,
+                                                        inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                                    )
+                                                }
+                                            }
+                                            
+                                        case .failure:
+                                            self?.viewModel.showToast(
+                                                text: "deleteMessageFailed"
+                                                    .putNumber(messagesToDelete.count)
+                                                    .localized(),
+                                                backgroundColor: .backgroundSecondary,
+                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            )
+                                    }
+                                    completion?()
+                                }
+                            }
+                        )
+                },
+                afterClosed: { [weak self] in
+                    self?.becomeFirstResponder()
+                }
+            )
+        )
+        
+        /// Show the modal after a small delay so it doesn't look as weird with the context menu dismissal
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+            topViewController.present(modal, animated: true)
+            self?.resignFirstResponder()
+        }
     }
 }

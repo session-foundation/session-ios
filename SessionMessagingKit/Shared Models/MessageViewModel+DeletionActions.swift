@@ -171,32 +171,6 @@ public extension MessageViewModel.DeletionBehaviours {
                     }
                 }()
                 
-                var alertContentForDeletion: (title: String, body: String) {
-                    // Get only attachments with associated message
-                    let attachments = cellViewModels.filter { $0.attachments != nil && $0.body?.isEmpty == false }
-                    
-                    if !attachments.isEmpty && attachments.count == cellViewModels.count {
-                        return (
-                            "deleteAttachments"
-                                .putNumber(attachments.count)
-                                .localized(),
-                            "deleteAttachmentsDescription"
-                                .putNumber(attachments.count)
-                                .localized(),
-                        )
-                    }
-                    
-                    // If items to delete contains other messages aside from attachments w/ message
-                    return (
-                        "deleteMessage"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                        "deleteMessageConfirm"
-                            .putNumber(cellViewModels.count)
-                            .localized(),
-                    )
-                }
-                
                 switch (state, isAdmin) {
                     /// User selects messages including a control, pending or “deleted” message
                     case (.containsLocalOnlyMessages, _):
@@ -261,9 +235,13 @@ public extension MessageViewModel.DeletionBehaviours {
                     /// User selects messages including only their own messages
                     case (.outgoingOnly, _):
                         return MessageViewModel.DeletionBehaviours(
-                            title: alertContentForDeletion.title,
+                            title: "deleteMessage"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
                             warning: nil,
-                            body: alertContentForDeletion.body,
+                            body: "deleteMessageConfirm"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
                             actions: [
                                 NamedAction(
                                     title: "deleteMessageDeviceOnly".localized(),
@@ -300,11 +278,15 @@ public extension MessageViewModel.DeletionBehaviours {
                     /// User selects messages including ones from other users
                     case (.containsIncoming, false):
                         return MessageViewModel.DeletionBehaviours(
-                            title: alertContentForDeletion.title,
+                            title: "deleteMessage"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
                             warning: "deleteMessageWarning"
                                 .putNumber(cellViewModels.count)
                                 .localized(),
-                            body: alertContentForDeletion.body,
+                            body: "deleteMessageDescriptionDevice"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
                             actions: [
                                 NamedAction(
                                     title: "deleteMessageDeviceOnly".localized(),
@@ -331,9 +313,13 @@ public extension MessageViewModel.DeletionBehaviours {
                     /// Admin can multi-select their own messages and messages from other users
                     case (.containsIncoming, true):
                         return MessageViewModel.DeletionBehaviours(
-                            title: alertContentForDeletion.title,
+                            title: "deleteMessage"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
                             warning: nil,
-                            body: alertContentForDeletion.body,
+                            body: "deleteMessageConfirm"
+                                .putNumber(cellViewModels.count)
+                                .localized(),
                             actions: [
                                 NamedAction(
                                     title: "deleteMessageDeviceOnly".localized(),

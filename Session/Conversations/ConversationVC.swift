@@ -557,6 +557,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         // conversation settings then we don't need to worry about the conversation getting marked as
         // when when the user returns back through this view controller
         self.viewModel.markAsRead(target: .thread, timestampMs: nil)
+        
+        // Message deletion
+        self.viewModel.dependencies[singleton: .attachmentManager].willTriggerDeleteOption = { [weak self] (items, completion) in
+            self?.deleteAttachments(items, completion: completion)
+        }
     }
     
     override func viewWillAppear(_ animated: Bool) {

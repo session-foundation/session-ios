@@ -30,6 +30,9 @@ public extension Log.Category {
 public final class AttachmentManager: Sendable, ThumbnailManager {
     private let dependencies: Dependencies
     
+    // Hook for the listener class
+    public var willTriggerDeleteOption: ((Set<Int64>, @escaping () -> Void) -> Void)? = nil
+    
     // MARK: - Initalization
     
     init(using dependencies: Dependencies) {

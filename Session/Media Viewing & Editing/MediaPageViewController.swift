@@ -567,44 +567,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 
     @objc public func didPressDelete(_ sender: Any) {
         guard let itemToDelete: MediaGalleryViewModel.Item = self.currentItem else { return }
-        
-        let actionSheet: UIAlertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        let deleteAction = UIAlertAction(
-            title: "clearMessagesForMe".localized(),
-            style: .destructive
-        ) { [dependencies = viewModel.dependencies] _ in
-            dependencies[singleton: .storage].writeAsync { db in
-                _ = try Attachment
-                    .filter(id: itemToDelete.attachment.id)
-                    .deleteAll(db)
-                
-                // Add the garbage collection job to delete orphaned attachment files
-                dependencies[singleton: .jobRunner].add(
-                    db,
-                    job: Job(
-                        variant: .garbageCollection,
-                        behaviour: .runOnce,
-                        details: GarbageCollectionJob.Details(
-                            typesToCollect: [.orphanedAttachmentFiles]
-                        )
-                    ),
-                    canStartJob: true
-                )
-                
-                // Delete any interactions which had all of their attachments removed
-                try Interaction.deleteWhere(
-                    db,
-                    .filter(Interaction.Columns.id == itemToDelete.interactionId),
-                    .hasAttachments(false)
-                )
-            }
-        }
-        actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
-        actionSheet.addAction(deleteAction)
-
-        Modal.setupForIPadIfNeeded(actionSheet, targetView: self.view)
-        self.present(actionSheet, animated: true)
+        viewModel.dependencies[singleton: .attachmentManager].deleteAttachments([itemToDelete]) {}
     }
+    
 
     // MARK: - Video interaction
 
