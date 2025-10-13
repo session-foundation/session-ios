@@ -247,6 +247,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         let result = UIStackView(arrangedSubviews: [ confirmButton, cancelButton ])
         result.axis = .horizontal
         result.distribution = .fillEqually
+        result.isLayoutMarginsRelativeArrangement = true
+        result.layoutMargins = UIEdgeInsets(
+            top: Values.smallSpacing,
+            left: 0,
+            bottom: Values.smallSpacing,
+            right: 0
+        )
         
         return result
     }()
