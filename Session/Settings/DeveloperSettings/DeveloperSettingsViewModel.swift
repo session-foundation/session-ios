@@ -96,7 +96,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         case communityPollLimit
         
-        
         case versionBlindedID
         case scheduleLocalNotification
         
@@ -201,6 +200,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let developerMode: Bool
         let versionBlindedID: String?
         
+        let shortenFileTTL: Bool
         let animationsEnabled: Bool
         let showStringKeys: Bool
         let truncatePubkeysInLogs: Bool
@@ -244,6 +244,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     cache.get(.developerModeEnabled)
                 },
                 versionBlindedID: versionBlindedID,
+                shortenFileTTL: dependencies[feature: .shortenFileTTL],
                 animationsEnabled: dependencies[feature: .animationsEnabled],
                 showStringKeys: dependencies[feature: .showStringKeys],
                 truncatePubkeysInLogs: dependencies[feature: .truncatePubkeysInLogs],

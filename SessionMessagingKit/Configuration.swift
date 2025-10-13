@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-public enum SNMessagingKit { // Just to make the external API nice
+public enum SNMessagingKit {
     public static let migrations: [Migration.Type] = [
         _001_SUK_InitialSetupMigration.self,
         _002_SUK_SetupStandardJobs.self,

@@ -73,9 +73,9 @@ internal struct PopoverOffset: ViewModifier {
     var originBounds: CGRect
     var position: ViewPosition
     var arrowLength: CGFloat
-    
+
     func body(content: Content) -> some View {
-        return content
+        content
             .offset(
                 x: self.offsetXFor(
                     position: position,
@@ -90,35 +90,40 @@ internal struct PopoverOffset: ViewModifier {
                     arrowLength: arrowLength
                 )
             )
-        
     }
-    
+
     func offsetXFor(position: ViewPosition, frame: CGRect, originBounds: CGRect, arrowLength: CGFloat) -> CGFloat {
-        var offsetX: CGFloat = 0
+        let triangleSideLength : CGFloat = arrowLength / CGFloat(sqrt(0.75))
+        let arrowOffSet: CGFloat = 30 - triangleSideLength + frame.size.height / 2
         switch position {
             case .top, .bottom:
-                offsetX = originBounds.minX + (originBounds.size.width  - frame.size.width) / 2
+                // Center horizontally
+                return originBounds.minX + (originBounds.size.width  - frame.size.width) / 2
+            case .topLeft, .bottomLeft:
+                // Align right
+                return originBounds.maxX - frame.size.width + arrowOffSet - triangleSideLength / 2
+            case .topRight, .bottomRight:
+                // Align left
+                return originBounds.minX - arrowOffSet + triangleSideLength / 2
             case .none:
-                offsetX = 0
+                return 0
         }
-        
-        return offsetX
     }
-       
-    func offsetYFor(position: ViewPosition, frame: CGRect, originBounds: CGRect, arrowLength: CGFloat)->CGFloat {
-        var offsetY:CGFloat = 0
+
+    func offsetYFor(position: ViewPosition, frame: CGRect, originBounds: CGRect, arrowLength: CGFloat) -> CGFloat {
         switch position {
-            case .top:
-                offsetY =  originBounds.minY - frame.size.height - arrowLength
-            case .bottom:
-                offsetY = originBounds.minY  + originBounds.size.height + arrowLength
+            case .top, .topLeft, .topRight:
+                // Position above origin + arrow
+                return originBounds.minY - frame.size.height - arrowLength
+            case .bottom, .bottomLeft, .bottomRight:
+                // Position below origin + arrow
+                return originBounds.maxY + arrowLength
             case .none:
-                offsetY = 0
+                return 0
         }
-           
-        return offsetY
     }
 }
+
 
 public struct AnchorView: ViewModifier {
     let viewId: String

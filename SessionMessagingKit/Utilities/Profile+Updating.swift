@@ -122,9 +122,10 @@ public extension Profile {
         suppressUserProfileConfigUpdate: Bool = false,
         using dependencies: Dependencies
     ) throws {
-        let isCurrentUser = (publicKey == dependencies[cache: .general].sessionId.hexString)
-        let profile: Profile = (isCurrentUser ?
-            dependencies.mutate(cache: .libSession) { $0.profile } :
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let isCurrentUser = (publicKey == userSessionId.hexString)
+        let profile: Profile = (
+            dependencies.mutate(cache: .libSession) { $0.profile(contactId: publicKey) } ??
             Profile.fetchOrCreate(db, id: publicKey)
         )
         var updatedProfile: Profile = profile
@@ -172,8 +173,8 @@ public extension Profile {
                     db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
                 }
             
-            case (.contactUpdateTo(let url, let key), false),
-                (.currentUserUpdateTo(let url, let key, _), true):
+            case (.contactUpdateTo(let url, let key, let proProof), false),
+                (.currentUserUpdateTo(let url, let key, let proProof, _), true):
                 /// If we have already downloaded the image then no need to download it again (the database records will be updated
                 /// once the download completes)
                 let fileExists: Bool = ((try? dependencies[singleton: .displayPictureManager]
@@ -207,6 +208,8 @@ public extension Profile {
                     }
                 }
             
+            // TODO: Handle Pro Proof update
+            
             /// Don't want profiles in messages to modify the current users profile info so ignore those cases
             default: break
         }
@@ -233,14 +236,14 @@ public extension Profile {
             /// trigger the update
             if !suppressUserProfileConfigUpdate, isCurrentUser {
                 try dependencies.mutate(cache: .libSession) { cache in
-                    try cache.performAndPushChange(db, for: .userProfile, sessionId: dependencies[cache: .general].sessionId) { _ in
+                    try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
                         try cache.updateProfile(
                             displayName: updatedProfile.name,
                             displayPictureUrl: updatedProfile.displayPictureUrl,
                             displayPictureEncryptionKey: updatedProfile.displayPictureEncryptionKey,
                             isReuploadProfilePicture: {
                                 switch displayPictureUpdate {
-                                    case .currentUserUpdateTo(_, _, let isReupload): return isReupload
+                                    case .currentUserUpdateTo(_, _, _, let isReupload): return isReupload
                                     default: return false
                                 }
                             }()

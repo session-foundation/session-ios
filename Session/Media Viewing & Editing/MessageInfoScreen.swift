@@ -456,7 +456,12 @@ struct MessageBubble: View {
     
     var body: some View {
         ZStack {
-            let maxWidth: CGFloat = (VisibleMessageCell.getMaxWidth(for: messageViewModel) - 2 * Self.inset)
+            let maxWidth: CGFloat = (
+                VisibleMessageCell.getMaxWidth(
+                    for: messageViewModel,
+                    cellWidth: UIScreen.main.bounds.width
+                ) - 2 * Self.inset
+            )
             
             VStack(
                 alignment: .leading,

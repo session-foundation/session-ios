@@ -38,6 +38,17 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var proImageTapGestureRecognizer: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer(
+            target: self,
+            action: #selector(proImageTapped)
+        )
+        proDescriptionLabelContainer.addGestureRecognizer(result)
+        result.isEnabled = false
+        
+        return result
+    }()
+    
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
@@ -174,6 +185,21 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
+    private lazy var proDescriptionLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.themeTextColor = .textSecondary
+        
+        return result
+    }()
+    
+    private lazy var proDescriptionLabelContainer: UIView = {
+        let result: UIView = UIView()
+        result.isHidden = true
+        
+        return result
+    }()
+    
     private lazy var imageViewContainer: UIView = {
         let result: UIView = UIView()
         result.isHidden = true
@@ -181,7 +207,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         return result
     }()
     
-    private lazy var profileView: ProfilePictureView = ProfilePictureView(size: .hero, dataManager: nil)
+    private lazy var profileView: ProfilePictureView = ProfilePictureView(
+        size: .modal,
+        dataManager: nil
+    )
     
     private lazy var textToConfirmContainer: UIView = {
         let result: UIView = UIView()
@@ -218,6 +247,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         let result = UIStackView(arrangedSubviews: [ confirmButton, cancelButton ])
         result.axis = .horizontal
         result.distribution = .fillEqually
+        result.isLayoutMarginsRelativeArrangement = true
+        result.layoutMargins = UIEdgeInsets(
+            top: Values.smallSpacing,
+            left: 0,
+            bottom: Values.smallSpacing,
+            right: 0
+        )
         
         return result
     }()
@@ -233,6 +269,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textToConfirmContainer,
                 textViewContainer,
                 textViewErrorLabel,
+                proDescriptionLabelContainer,
                 imageViewContainer
             ]
         )
@@ -300,12 +337,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     }
     
     public override func populateContentView() {
-        let gestureRecogniser: UITapGestureRecognizer = UITapGestureRecognizer(
-            target: self,
-            action: #selector(contentViewTapped)
-        )
-        contentView.addGestureRecognizer(gestureRecogniser)
-        
         contentView.addSubview(mainStackView)
         contentView.addSubview(closeButton)
         
@@ -341,8 +372,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         imageViewContainer.addSubview(profileView)
         profileView.center(.horizontal, in: imageViewContainer)
-        profileView.pin(.top, to: .top, of: imageViewContainer)
-        profileView.pin(.bottom, to: .bottom, of: imageViewContainer)
+        profileView.pin(.top, to: .top, of: imageViewContainer, withInset: 20)
+        profileView.pin(.bottom, to: .bottom, of: imageViewContainer, withInset: -20)
+        
+        proDescriptionLabelContainer.addSubview(proDescriptionLabel)
+        proDescriptionLabel.center(.horizontal, in: proDescriptionLabelContainer)
+        proDescriptionLabel.pin(.top, to: .top, of: proDescriptionLabelContainer)
+        proDescriptionLabel.pin(.bottom, to: .bottom, of: proDescriptionLabelContainer)
         
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
@@ -501,11 +537,14 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                     contentStackView.addArrangedSubview(radioButton)
                 }
                 
-            case .image(let source, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick):
+            case .image(let source, let placeholder, let icon, let style, let description, let accessibility, let dataManager, _, let onClick):
                 imageViewContainer.isAccessibilityElement = (accessibility != nil)
                 imageViewContainer.accessibilityIdentifier = accessibility?.identifier
                 imageViewContainer.accessibilityLabel = accessibility?.label
                 mainStackView.spacing = 0
+                contentStackView.spacing = Values.verySmallSpacing
+                proDescriptionLabelContainer.isHidden = (description == nil)
+                proDescriptionLabel.attributedText = description
                 imageViewContainer.isHidden = false
                 profileView.clipsToBounds = (style == .circular)
                 profileView.setDataManager(dataManager)
@@ -519,6 +558,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                             
                             return source
                         }(),
+                        animationBehaviour: .generic(true), // Force the animate the avatar in modals
                         icon: icon,
                         cropRect: style.cropRect
                     )
@@ -526,6 +566,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 internalOnBodyTap = onClick
                 contentTapGestureRecognizer.isEnabled = false
                 imageViewTapGestureRecognizer.isEnabled = true
+                proImageTapGestureRecognizer.isEnabled = true
             
             case .inputConfirmation(let explanation, let textToConfirm):
                 explanationLabel.themeAttributedText = explanation
@@ -640,29 +681,37 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc private func imageViewTapped() {
         internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
             switch (valueUpdate, info.body) {
-                case (.image(let source, let cropRect), .image(_, let placeholder, let icon, let style, let accessibility, let dataManager, let onClick)):
+                case (.image(let source, let cropRect), .image(_, let placeholder, let icon, let style, let description, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
                     self?.updateContent(
                         with: info.with(
                             body: .image(
                                 source: source,
                                 placeholder: placeholder,
-                                icon: icon,
+                                icon: .pencil,
                                 style: {
                                     switch style {
                                         case .inherit: return .inherit
                                         case .circular: return .circular(cropRect: cropRect)
                                     }
                                 }(),
+                                description: description,
                                 accessibility: accessibility,
                                 dataManager: dataManager,
+                                onProBageTapped: onProBadgeTapped,
                                 onClick: onClick
-                            )
+                            ),
+                            cancelTitle: "clear".localized()
                         )
                     )
                     
                 default: break
             }
         })
+    }
+    
+    @objc private func proImageTapped() {
+        guard case .image(_, _, _, _, let description, _, _, let onProBadgeTapped, _) = info.body, (description != nil) else { return }
+        onProBadgeTapped?()
     }
     
     @objc internal func confirmationPressed() {
@@ -808,6 +857,7 @@ public extension ConfirmationModal {
         
         public func with(
             body: Body? = nil,
+            cancelTitle: String? = nil,
             onConfirm: ((ConfirmationModal) -> ())? = nil,
             onCancel: ((ConfirmationModal) -> ())? = nil,
             afterClosed: (() -> ())? = nil
@@ -819,7 +869,7 @@ public extension ConfirmationModal {
                 confirmTitle: self.confirmTitle,
                 confirmStyle: self.confirmStyle,
                 confirmEnabled: self.confirmEnabled,
-                cancelTitle: self.cancelTitle,
+                cancelTitle: (cancelTitle ?? self.cancelTitle),
                 cancelStyle: self.cancelStyle,
                 cancelEnabled: self.cancelEnabled,
                 hasCloseButton: self.hasCloseButton,
@@ -1030,8 +1080,10 @@ public extension ConfirmationModal.Info {
             placeholder: ImageDataManager.DataSource?,
             icon: ProfilePictureView.ProfileIcon = .none,
             style: ImageStyle,
+            description: NSAttributedString?,
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
+            onProBageTapped: (() -> Void)?,
             onClick: (@MainActor (@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
         )
         
@@ -1066,12 +1118,13 @@ public extension ConfirmationModal.Info {
                         lhsOptions == rhsOptions
                     )
                     
-                case (.image(let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsAccessibility, _, _), .image(let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsAccessibility, _, _)):
+                case (.image(let lhsSource, let lhsPlaceholder, let lhsIcon, let lhsStyle, let lhsShowPro,  let lhsAccessibility, _, _, _), .image(let rhsSource, let rhsPlaceholder, let rhsIcon, let rhsStyle, let rhsShowPro, let rhsAccessibility, _, _, _)):
                     return (
                         lhsSource == rhsSource &&
                         lhsPlaceholder == rhsPlaceholder &&
                         lhsIcon == rhsIcon &&
                         lhsStyle == rhsStyle &&
+                        lhsShowPro == rhsShowPro &&
                         lhsAccessibility == rhsAccessibility
                     )
                     
@@ -1099,11 +1152,12 @@ public extension ConfirmationModal.Info {
                     warning.hash(into: &hasher)
                     options.hash(into: &hasher)
                 
-                case .image(let source, let placeholder, let icon, let style, let accessibility, _, _):
+                case .image(let source, let placeholder, let icon, let style, let showPro, let accessibility, _, _, _):
                     source.hash(into: &hasher)
                     placeholder.hash(into: &hasher)
                     icon.hash(into: &hasher)
                     style.hash(into: &hasher)
+                    showPro.hash(into: &hasher)
                     accessibility.hash(into: &hasher)
                 
                 case .inputConfirmation(let explanation, let textToConfirm):

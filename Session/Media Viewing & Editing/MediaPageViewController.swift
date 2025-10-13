@@ -504,16 +504,15 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             
             /// Notify any conversations to update if a message was sent via Session
             UIActivityViewController.notifyIfNeeded(completed, using: dependencies)
-            
+    
             guard
                 let activityType = activityType,
                 activityType == .saveToCameraRoll,
                 currentViewController.galleryItem.interactionVariant == .standardIncoming,
-                self.viewModel.threadVariant == .contact
+                self?.viewModel.threadVariant == .contact,
+                let threadId: String = self?.viewModel.threadId,
+                let threadVariant: SessionThread.Variant = self?.viewModel.threadVariant
             else { return }
-            
-            let threadId: String = self.viewModel.threadId
-            let threadVariant: SessionThread.Variant = self.viewModel.threadVariant
             
             dependencies[singleton: .storage].writeAsync { db in
                 try MessageSender.send(

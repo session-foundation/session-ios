@@ -34,7 +34,9 @@ public class SessionCell: UITableViewCell {
     private lazy var contentStackViewWidthConstraint: NSLayoutConstraint = contentStackView.set(.width, lessThanOrEqualTo: .width, of: cellBackgroundView)
     private lazy var leadingAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: leadingAccessoryView)
     private lazy var trailingAccessoryFillConstraint: NSLayoutConstraint = contentStackView.set(.height, to: .height, of: trailingAccessoryView)
-    private lazy var accessoryWidthMatchConstraint: NSLayoutConstraint = leadingAccessoryView.set(.width, to: .width, of: trailingAccessoryView)
+    private lazy var accessoryWidthMatchConstraint: NSLayoutConstraint = leadingAccessoryView
+        .set(.width, to: .width, of: trailingAccessoryView)
+        .setting(priority: .defaultHigh)
     
     private let cellBackgroundView: UIView = {
         let result: UIView = UIView()
@@ -84,10 +86,10 @@ public class SessionCell: UITableViewCell {
         let result: UIStackView = UIStackView()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.axis = .vertical
-        result.distribution = .equalSpacing
+        result.distribution = .fill
         result.alignment = .fill
-        result.setContentHugging(to: .defaultLow)
-        result.setCompressionResistance(to: .defaultLow)
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
         
         return result
     }()
@@ -98,8 +100,8 @@ public class SessionCell: UITableViewCell {
         result.isUserInteractionEnabled = false
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
-        result.setContentHugging(to: .defaultLow)
-        result.setCompressionResistance(to: .defaultLow)
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
         
         return result
     }()
@@ -112,8 +114,8 @@ public class SessionCell: UITableViewCell {
         result.themeTextColor = .textPrimary
         result.numberOfLines = 0
         result.isHidden = true
-        result.setContentHugging(to: .defaultLow)
-        result.setCompressionResistance(to: .defaultLow)
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
         
         return result
     }()
@@ -126,8 +128,8 @@ public class SessionCell: UITableViewCell {
         result.numberOfLines = 0
         result.maxNumberOfLines = 3
         result.isHidden = true
-        result.setContentHugging(to: .defaultLow)
-        result.setCompressionResistance(to: .defaultLow)
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
         
         return result
     }()
@@ -173,11 +175,11 @@ public class SessionCell: UITableViewCell {
         
         contentStackView.addArrangedSubview(leadingAccessoryView)
         contentStackView.addArrangedSubview(titleStackView)
-        contentStackView.addArrangedSubview(expandableDescriptionLabel)
         contentStackView.addArrangedSubview(trailingAccessoryView)
         
         titleStackView.addArrangedSubview(titleLabel)
         titleStackView.addArrangedSubview(subtitleLabel)
+        titleStackView.addArrangedSubview(expandableDescriptionLabel)
         
         setupLayout()
     }
@@ -186,7 +188,9 @@ public class SessionCell: UITableViewCell {
         cellBackgroundView.pin(.top, to: .top, of: contentView)
         backgroundLeftConstraint = cellBackgroundView.pin(.leading, to: .leading, of: contentView)
         backgroundRightConstraint = cellBackgroundView.pin(.trailing, to: .trailing, of: contentView)
-        cellBackgroundView.pin(.bottom, to: .bottom, of: contentView)
+        cellBackgroundView
+            .pin(.bottom, to: .bottom, of: contentView)
+            .setting(priority: .defaultHigh)
         
         cellSelectedBackgroundView.pin(to: cellBackgroundView)
         
@@ -213,12 +217,25 @@ public class SessionCell: UITableViewCell {
     public override func layoutSubviews() {
         super.layoutSubviews()
         
+        if titleLabel.preferredMaxLayoutWidth != titleLabel.bounds.width {
+            titleLabel.preferredMaxLayoutWidth = titleLabel.bounds.width
+        }
+        
+        if subtitleLabel.preferredMaxLayoutWidth != subtitleLabel.bounds.width {
+            subtitleLabel.preferredMaxLayoutWidth = subtitleLabel.bounds.width
+        }
+        
+        if expandableDescriptionLabel.preferredMaxLayoutWidth != expandableDescriptionLabel.bounds.width {
+            expandableDescriptionLabel.preferredMaxLayoutWidth = expandableDescriptionLabel.bounds.width
+        }
+        
         // Need to force the contentStackView to layout if needed as it might not have updated it's
         // sizing yet
         self.contentStackView.layoutIfNeeded()
         repositionExtraView(titleExtraView, for: titleLabel)
         repositionExtraView(subtitleExtraView, for: subtitleLabel)
         self.titleStackView.layoutIfNeeded()
+        self.layoutIfNeeded()
     }
     
     private func repositionExtraView(_ targetView: UIView?, for label: UILabel) {
@@ -257,6 +274,7 @@ public class SessionCell: UITableViewCell {
         // Remove and re-add the 'subtitleExtraView' to clear any old constraints
         targetView.removeFromSuperview()
         contentView.addSubview(targetView)
+        targetView.layoutIfNeeded()
         
         targetView.pin(
             .top,
@@ -268,7 +286,7 @@ public class SessionCell: UITableViewCell {
             .leading,
             to: .leading,
             of: label,
-            withInset: lastGlyphRect.maxX
+            withInset: lastGlyphRect.maxX + 2   // Padding
         )
     }
     
@@ -314,12 +332,14 @@ public class SessionCell: UITableViewCell {
         subtitleLabel.isHidden = true
         expandableDescriptionLabel.isHidden = true
         botSeparator.isHidden = true
+        
+        invalidateIntrinsicContentSize()
     }
     
-    public func update<ID: Hashable & Differentiable>(
+    @MainActor public func update<ID: Hashable & Differentiable>(
         with info: Info<ID>,
         tableSize: CGSize,
-        onToggleExpansion: (() -> Void)? = nil,
+        onToggleExpansion: (@MainActor () -> Void)? = nil,
         using dependencies: Dependencies
     ) {
         /// Need to do this here as `prepareForReuse` doesn't always seem to get called
@@ -342,7 +362,7 @@ public class SessionCell: UITableViewCell {
         
         // Layout (do this before setting up the content so we can calculate the expected widths if needed)
         contentStackViewLeadingConstraint.isActive = (info.styling.alignment == .leading)
-        contentStackViewTrailingConstraint.isActive = (info.styling.alignment == .leading)
+        contentStackViewTrailingConstraint.isActive = contentStackViewLeadingConstraint.isActive
         contentStackViewHorizontalCenterConstraint.constant = ((info.styling.customPadding?.leading ?? 0) + (info.styling.customPadding?.trailing ?? 0))
         contentStackViewHorizontalCenterConstraint.isActive = (info.styling.alignment == .centerHugging)
         contentStackViewWidthConstraint.constant = -(abs((info.styling.customPadding?.leading ?? 0) + (info.styling.customPadding?.trailing ?? 0)) * 2) // Double the center offset to keep within bounds
@@ -355,14 +375,6 @@ public class SessionCell: UITableViewCell {
                 default: return false
             }
         }()
-        titleLabel.setContentHuggingPriority(
-            (info.trailingAccessory != nil ? .defaultLow : .required),
-            for: .horizontal
-        )
-        titleLabel.setContentCompressionResistancePriority(
-            (info.trailingAccessory != nil ? .defaultLow : .required),
-            for: .horizontal
-        )
         contentStackViewTopConstraint.constant = {
             if let customPadding: CGFloat = info.styling.customPadding?.top {
                 return customPadding
@@ -521,7 +533,7 @@ public class SessionCell: UITableViewCell {
             maxContentWidth: (tableSize.width - contentStackViewHorizontalInset),
             using: dependencies
         )
-        titleStackView.isHidden = (info.title == nil && info.subtitle == nil)
+        titleStackView.isHidden = (info.title == nil && info.subtitle == nil && info.description == nil)
         titleLabel.isUserInteractionEnabled = (info.title?.interaction == .copy)
         titleLabel.font = info.title?.font
         titleLabel.text = info.title?.text
@@ -549,7 +561,8 @@ public class SessionCell: UITableViewCell {
         expandableDescriptionLabel.accessibilityIdentifier = info.description?.accessibility?.identifier
         expandableDescriptionLabel.accessibilityLabel = info.description?.accessibility?.label
         expandableDescriptionLabel.isHidden = (info.description == nil)
-        expandableDescriptionLabel.onToggleExpansion = (info.description?.interaction == .expandable ? onToggleExpansion : nil)
+        expandableDescriptionLabel.onToggleExpansion = (info.description?.interaction == .expandable ?
+            onToggleExpansion : nil)
         trailingAccessoryView.update(
             with: info.trailingAccessory,
             tintColor: info.styling.tintColor,

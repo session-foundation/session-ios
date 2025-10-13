@@ -180,11 +180,17 @@ public extension UserDefaults.BoolKey {
     
     /// Idicates whether app review prompt was ignored or no iteraction was done to dismiss it (closed app)
     static let didActionAppReviewPrompt: UserDefaults.BoolKey = "didActionAppReviewPrompt"
+    
+    /// Indicates wheter the user should be reminded to grant camera permission for calls
+    static let shouldRemindGrantingCameraPermissionForCalls: UserDefaults.BoolKey = "shouldRemindGrantingCameraPermissionForCalls"
 }
 
 public extension UserDefaults.DateKey {
     /// The date/time when we re-uploaded or extended the TTL of the users display picture (used for rate-limiting)
     static let lastUserDisplayPictureRefresh: UserDefaults.DateKey = "lastProfilePictureUpload"
+    
+    /// The date/time when the users profile picture expires on the server
+    static let profilePictureExpiresDate: UserDefaults.DateKey = "profilePictureExpiresDate"
     
     /// The date/time when any open group last had a successful poll (used as a fallback date/time if the open group hasn't been polled
     /// this session)

@@ -1041,6 +1041,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?)
     
     var displayName: String? { get }
+    
     func updateProfile(
         displayName: String,
         displayPictureUrl: String?,

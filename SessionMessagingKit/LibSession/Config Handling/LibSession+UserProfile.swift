@@ -68,6 +68,7 @@ internal extension LibSessionCacheType {
                 return .currentUserUpdateTo(
                     url: displayPictureUrl,
                     key: displayPic.get(\.key),
+                    sessionProProof: getProProof(), // TODO: double check if this is needed after Pro Proof is implemented
                     isReupload: false
                 )
             }(),
@@ -239,7 +240,6 @@ public extension LibSession.Cache {
             case false: user_profile_set_pic(conf, profilePic)
         }
         
-        user_profile_set_pic(conf, profilePic)
         try LibSessionError.throwIfNeeded(conf)
         
         /// Add a pending observation to notify any observers of the change once it's committed

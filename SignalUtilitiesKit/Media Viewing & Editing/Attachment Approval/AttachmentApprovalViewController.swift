@@ -283,14 +283,14 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     
     // MARK: - Contents
     
-    private func updateContents() {
+    @MainActor private func updateContents() {
         updateNavigationBar()
         updateInputAccessory()
     }
 
     // MARK: - Input Accessory
 
-    public func updateInputAccessory() {
+    @MainActor public func updateInputAccessory() {
         var currentPageViewController: AttachmentPrepViewController?
         
         if pageViewControllers?.count == 1 {
@@ -437,7 +437,8 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             animated: animated
         ) { [weak self] finished in
             completion?(finished)
-            self?.updateContents()
+            
+            Task { @MainActor [weak self] in self?.updateContents() }
         }
     }
 
@@ -643,31 +644,22 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         self.approvalDelegate?.attachmentApprovalDidCancel(self)
     }
     
-    // MARK: - Session Pro CTA
-    
-    @discardableResult func showSessionProCTAIfNeeded() -> Bool {
-        guard dependencies[feature: .sessionProEnabled] && (!isSessionPro) else {
-            return false
+    @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
+        guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
         }
-        self.hideInputAccessoryView()
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
-                variant: .longerMessages,
-                dataManager: dependencies[singleton: .imageDataManager],
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                    self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
-                }
-            )
-        )
-        present(sessionProModal, animated: true, completion: nil)
-        
-        return true
-    }
-    
-    func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
-        guard !showSessionProCTAIfNeeded() else { return }
         
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -693,8 +685,23 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 // MARK: - AttachmentTextToolbarDelegate
 
 extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
-    func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar) {
-        guard !showSessionProCTAIfNeeded() else { return }
+    @MainActor func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar) {
+        guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+            .longerMessages,
+            beforePresented: { [weak self] in
+                self?.hideInputAccessoryView()
+            },
+            afterClosed: { [weak self] in
+                self?.showInputAccessoryView()
+                self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+            },
+            presenting: { [weak self] modal in
+                self?.present(modal, animated: true)
+            }
+        ) else {
+            return
+        }
+        
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -715,7 +722,7 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
         present(confirmationModal, animated: true, completion: nil)
     }
 
-    func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar) {
+    @MainActor func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar) {
         guard
             let text = attachmentTextToolbar.text,
             LibSession.numberOfCharactersLeft(
@@ -743,7 +750,7 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
         )
     }
 
-    func attachmentTextToolbarDidChange(_ attachmentTextToolbar: AttachmentTextToolbar) {
+    @MainActor func attachmentTextToolbarDidChange(_ attachmentTextToolbar: AttachmentTextToolbar) {
         approvalDelegate?.attachmentApproval(self, didChangeMessageText: attachmentTextToolbar.text)
     }
 }
@@ -751,11 +758,11 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
 // MARK: -
 
 extension AttachmentApprovalViewController: AttachmentPrepViewControllerDelegate {
-    func prepViewControllerUpdateNavigationBar() {
+    @MainActor func prepViewControllerUpdateNavigationBar() {
         updateNavigationBar()
     }
 
-    func prepViewControllerUpdateControls() {
+    @MainActor func prepViewControllerUpdateControls() {
         updateInputAccessory()
     }
 }

@@ -12,6 +12,7 @@ public extension VisibleMessage {
         public let profilePictureUrl: String?
         public let updateTimestampSeconds: TimeInterval?
         public let blocksCommunityMessageRequests: Bool?
+        public let sessionProProof: String?
         
         // MARK: - Initialization
 
@@ -20,7 +21,8 @@ public extension VisibleMessage {
             profileKey: Data? = nil,
             profilePictureUrl: String? = nil,
             updateTimestampSeconds: TimeInterval? = nil,
-            blocksCommunityMessageRequests: Bool? = nil
+            blocksCommunityMessageRequests: Bool? = nil,
+            sessionProProof: String? = nil
         ) {
             let hasUrlAndKey: Bool = (profileKey != nil && profilePictureUrl != nil)
             
@@ -29,6 +31,7 @@ public extension VisibleMessage {
             self.profilePictureUrl = (hasUrlAndKey ? profilePictureUrl : nil)
             self.updateTimestampSeconds = updateTimestampSeconds
             self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
+            self.sessionProProof = sessionProProof
         }
 
         // MARK: - Proto Conversion
@@ -44,7 +47,8 @@ public extension VisibleMessage {
                 profileKey: proto.profileKey,
                 profilePictureUrl: profileProto.profilePicture,
                 updateTimestampSeconds: TimeInterval(profileProto.lastUpdateSeconds),
-                blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil)
+                blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ? proto.blocksCommunityMessageRequests : nil),
+                sessionProProof: nil // TODO: Add Session Pro Proof to profile proto
             )
         }
 
@@ -96,7 +100,8 @@ public extension VisibleMessage {
                 displayName: displayName,
                 profileKey: proto.profileKey,
                 profilePictureUrl: profileProto.profilePicture,
-                updateTimestampSeconds: TimeInterval(profileProto.lastUpdateSeconds)
+                updateTimestampSeconds: TimeInterval(profileProto.lastUpdateSeconds),
+                sessionProProof: nil // TODO: Add Session Pro Proof to profile proto
             )
         }
         

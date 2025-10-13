@@ -25,6 +25,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         
         case displayPictureUrl
         case displayPictureEncryptionKey
+        
         case profileLastUpdated
         
         case blocksCommunityMessageRequests
@@ -53,6 +54,10 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     /// A flag indicating whether this profile has reported that it blocks community message requests
     public let blocksCommunityMessageRequests: Bool?
     
+    /// The Pro Proof for when this profile is updated
+    // TODO: Implement this when the structure of Session Pro Proof is determined
+    public let sessionProProof: String?
+    
     // MARK: - Initialization
     
     public init(
@@ -62,7 +67,8 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         displayPictureUrl: String? = nil,
         displayPictureEncryptionKey: Data? = nil,
         profileLastUpdated: TimeInterval? = nil,
-        blocksCommunityMessageRequests: Bool? = nil
+        blocksCommunityMessageRequests: Bool? = nil,
+        sessionProProof: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -71,6 +77,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         self.displayPictureEncryptionKey = displayPictureEncryptionKey
         self.profileLastUpdated = profileLastUpdated
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
+        self.sessionProProof = sessionProProof
     }
 }
 
@@ -154,9 +161,15 @@ public extension Profile {
         
         if
             let displayPictureEncryptionKey: Data = displayPictureEncryptionKey,
-            let displayPictureUrl: String = displayPictureUrl {
+            let displayPictureUrl: String = displayPictureUrl
+        {
             dataMessageProto.setProfileKey(displayPictureEncryptionKey)
             profileProto.setProfilePicture(displayPictureUrl)
+            // TODO: Add ProProof if needed
+        }
+        
+        if let profileLastUpdated: TimeInterval = profileLastUpdated {
+            profileProto.setLastUpdateSeconds(UInt64(profileLastUpdated))
         }
         
         do {
@@ -204,7 +217,8 @@ public extension Profile {
             displayPictureUrl: nil,
             displayPictureEncryptionKey: nil,
             profileLastUpdated: nil,
-            blocksCommunityMessageRequests: nil
+            blocksCommunityMessageRequests: nil,
+            sessionProProof: nil
         )
     }
     
@@ -421,7 +435,8 @@ public extension Profile {
             displayPictureUrl: displayPictureUrl.or(self.displayPictureUrl),
             displayPictureEncryptionKey: displayPictureEncryptionKey.or(self.displayPictureEncryptionKey),
             profileLastUpdated: profileLastUpdated.or(self.profileLastUpdated),
-            blocksCommunityMessageRequests: blocksCommunityMessageRequests.or(self.blocksCommunityMessageRequests)
+            blocksCommunityMessageRequests: blocksCommunityMessageRequests.or(self.blocksCommunityMessageRequests),
+            sessionProProof: self.sessionProProof
         )
     }
 }

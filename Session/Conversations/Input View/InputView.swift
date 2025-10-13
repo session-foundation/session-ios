@@ -306,12 +306,12 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     // MARK: - Updating
     
-    func inputTextViewDidChangeSize(_ inputTextView: InputTextView) {
+    @MainActor func inputTextViewDidChangeSize(_ inputTextView: InputTextView) {
         invalidateIntrinsicContentSize()
         self.bottomStackView?.alignment = (inputTextView.contentSize.height > inputTextView.minHeight) ? .top : .center
     }
 
-    func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
+    @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
         let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         sendButton.isHidden = !hasText
         voiceMessageButtonContainer.isHidden = hasText
@@ -320,7 +320,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         delegate?.inputTextViewDidChangeContent(inputTextView)
     }
     
-    func updateNumberOfCharactersLeft(_ text: String) {
+    @MainActor func updateNumberOfCharactersLeft(_ text: String) {
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
             for: text.trimmingCharacters(in: .whitespacesAndNewlines),
             isSessionPro: dependencies[cache: .libSession].isSessionPro
@@ -331,7 +331,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
     }
 
-    func didPasteImageDataFromPasteboard(_ inputTextView: InputTextView, imageData: Data) {
+    @MainActor func didPasteImageDataFromPasteboard(_ inputTextView: InputTextView, imageData: Data) {
         delegate?.didPasteImageDataFromPasteboard(imageData)
     }
 
@@ -475,8 +475,13 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
         UIView.animate(withDuration: 0.3) { [weak self] in
             self?.bottomStackView?.arrangedSubviews.forEach { $0.alpha = (updatedInputState.allowedInputTypes != .none ? 1 : 0) }
+            
             self?.attachmentsButton.alpha = (updatedInputState.allowedInputTypes == .all ? 1 : 0.4)
+            self?.attachmentsButton.mainButton.updateAppearance(isEnabled: updatedInputState.allowedInputTypes == .all)
+            
             self?.voiceMessageButton.alpha =  (updatedInputState.allowedInputTypes == .all ? 1 : 0.4)
+            self?.voiceMessageButton.updateAppearance(isEnabled: updatedInputState.allowedInputTypes == .all)
+            
             self?.disabledInputLabel.alpha = (updatedInputState.allowedInputTypes != .none ? 0 : Values.mediumOpacity)
         }
     }
@@ -514,14 +519,14 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         return super.point(inside: point, with: event)
     }
 
-    func handleInputViewButtonTapped(_ inputViewButton: InputViewButton) {
+    @MainActor func handleInputViewButtonTapped(_ inputViewButton: InputViewButton) {
         if inputViewButton == sendButton { delegate?.handleSendButtonTapped() }
         if inputViewButton == voiceMessageButton && inputState.allowedInputTypes != .all {
             delegate?.handleDisabledVoiceMessageButtonTapped()
         }
     }
 
-    func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?) {
+    @MainActor func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?) {
         guard inputViewButton == voiceMessageButton else { return }
         guard inputState.allowedInputTypes == .all else { return }
         
@@ -532,7 +537,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         delegate?.startVoiceMessageRecording()
     }
 
-    func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?) {
+    @MainActor func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?) {
         guard
             let voiceMessageRecordingView: VoiceMessageRecordingView = voiceMessageRecordingView,
             inputViewButton == voiceMessageButton,
@@ -542,7 +547,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         voiceMessageRecordingView.handleLongPressMoved(to: location)
     }
 
-    func handleInputViewButtonLongPressEnded(_ inputViewButton: InputViewButton, with touch: UITouch?) {
+    @MainActor func handleInputViewButtonLongPressEnded(_ inputViewButton: InputViewButton, with touch: UITouch?) {
         guard
             let voiceMessageRecordingView: VoiceMessageRecordingView = voiceMessageRecordingView,
             inputViewButton == voiceMessageButton,
@@ -626,7 +631,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         }
     }
 
-    func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView) {
+    @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView) {
         delegate?.handleMentionSelected(mentionInfo, from: view)
     }
     
@@ -662,12 +667,12 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 // MARK: - Delegate
 
 protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageRecordingViewDelegate {
-    func showLinkPreviewSuggestionModal()
-    func handleSendButtonTapped()
-    func handleDisabledInputTapped()
-    func handleDisabledVoiceMessageButtonTapped()
-    func handleCharacterLimitLabelTapped()
-    func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
-    func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
-    func didPasteImageDataFromPasteboard(_ imageData: Data)
+    @MainActor func showLinkPreviewSuggestionModal()
+    @MainActor func handleSendButtonTapped()
+    @MainActor func handleDisabledInputTapped()
+    @MainActor func handleDisabledVoiceMessageButtonTapped()
+    @MainActor func handleCharacterLimitLabelTapped()
+    @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
+    @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
+    @MainActor func didPasteImageDataFromPasteboard(_ image: UIImage)
 }

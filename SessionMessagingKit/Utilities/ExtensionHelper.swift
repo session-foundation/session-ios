@@ -105,26 +105,30 @@ public class ExtensionHelper: ExtensionHelperType {
     
     private func read(from path: String) throws -> Data {
         /// Load in the data and `encKey` and reset the `encKey` as soon as the function ends
-        guard
-            var encKey: [UInt8] = (try? dependencies[singleton: .keychain]
-                .getOrGenerateEncryptionKey(
-                    forKey: .extensionEncryptionKey,
-                    length: encryptionKeyLength,
-                    cat: .cat
-                )).map({ Array($0) })
-        else { throw ExtensionHelperError.noEncryptionKey }
+        guard var encKey: [UInt8] = (try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .extensionEncryptionKey,
+            length: encryptionKeyLength,
+            cat: .cat
+        )).map({ Array($0) }) else {
+            Log.error(.cat, "Failed to retrieve encryption key")
+            throw ExtensionHelperError.noEncryptionKey
+        }
         defer { encKey.resetBytes(in: 0..<encKey.count) }
 
-        guard
-            let ciphertext: Data = dependencies[singleton: .fileManager]
-                .contents(atPath: path),
-            let plaintext: Data = dependencies[singleton: .crypto].generate(
-                .plaintextWithXChaCha20(
-                    ciphertext: ciphertext,
-                    encKey: encKey
-                )
+        guard let ciphertext: Data = dependencies[singleton: .fileManager].contents(atPath: path) else {
+            Log.error(.cat, "Failed to read contents of file")
+            throw ExtensionHelperError.failedToReadFromFile
+        }
+        
+        guard let plaintext: Data = dependencies[singleton: .crypto].generate(
+            .plaintextWithXChaCha20(
+                ciphertext: ciphertext,
+                encKey: encKey
             )
-        else { throw ExtensionHelperError.failedToReadFromFile }
+        ) else {
+            Log.error(.cat, "Failed to decrypt contents of file")
+            throw ExtensionHelperError.failedToReadFromFile
+        }
         
         return plaintext
     }
@@ -181,8 +185,14 @@ public class ExtensionHelper: ExtensionHelperType {
     public func loadUserMetadata() -> UserMetadata? {
         guard let plaintext: Data = try? read(from: metadataPath) else { return nil }
         
-        return try? JSONDecoder(using: dependencies)
-            .decode(UserMetadata.self, from: plaintext)
+        do {
+            return try JSONDecoder(using: dependencies)
+                .decode(UserMetadata.self, from: plaintext)
+        }
+        catch {
+            Log.error(.cat, "Failed to parse UserMetadata")
+            return nil
+        }
     }
     
     // MARK: - Deduping

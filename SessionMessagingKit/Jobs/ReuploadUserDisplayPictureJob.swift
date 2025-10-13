@@ -100,6 +100,7 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                     displayPictureUpdate: .currentUserUpdateTo(
                         url: displayPictureUrl.absoluteString,
                         key: displayPictureEncryptionKey,
+                        sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() },
                         isReupload: true
                     ),
                     using: dependencies
@@ -159,6 +160,7 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                     displayPictureUpdate: .currentUserUpdateTo(
                         url: result.downloadUrl,
                         key: result.encryptionKey,
+                        sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() },
                         isReupload: true
                     ),
                     using: dependencies

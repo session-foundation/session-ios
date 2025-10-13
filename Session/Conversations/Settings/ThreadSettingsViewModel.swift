@@ -214,7 +214,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
-                        customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                        customPadding: SessionCell.Padding(
+                            leading: 0,
+                            bottom: Values.smallSpacing
+                        ),
                         backgroundStyle: .noBackground
                     ),
                     onTap: { [weak self] in
@@ -1680,11 +1683,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         },
                         icon: .rightPlus,
                         style: .circular,
+                        description: nil,
                         accessibility: Accessibility(
                             identifier: "Image picker",
                             label: "Image picker"
                         ),
                         dataManager: dependencies[singleton: .imageDataManager],
+                        onProBageTapped: nil,
                         onClick: { [weak self] onDisplayPictureSelected in
                             self?.onDisplayPictureSelected = onDisplayPictureSelected
                             self?.showPhotoLibraryForAvatar()
@@ -1695,7 +1700,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         switch info.body {
                             case .image(let source, _, _, _, _, _, _):
                                 return (source?.contentExists == true)
-                                
+                            
                             default: return false
                         }
                     },

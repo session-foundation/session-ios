@@ -9,9 +9,8 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 protocol AttachmentPrepViewControllerDelegate: AnyObject {
-    func prepViewControllerUpdateNavigationBar()
-
-    func prepViewControllerUpdateControls()
+    @MainActor func prepViewControllerUpdateNavigationBar()
+    @MainActor func prepViewControllerUpdateControls()
 }
 
 // MARK: -
@@ -219,12 +218,16 @@ public class AttachmentPrepViewController: OWSViewController {
          
         if attachment.utType.isVideo || attachment.utType.isAudio {
             let playButtonSize: CGFloat = Values.scaleFromIPhone5(70)
+            let playButtonVerticalOffset = (attachment.utType.isAudio ?
+                0 :
+                -AttachmentPrepViewController.verticalCenterOffset
+            )
             
             NSLayoutConstraint.activate([
                 playButton.centerXAnchor.constraint(equalTo: contentContainerView.centerXAnchor),
                 playButton.centerYAnchor.constraint(
                     equalTo: contentContainerView.centerYAnchor,
-                    constant: -AttachmentPrepViewController.verticalCenterOffset
+                    constant: playButtonVerticalOffset
                 ),
                 playButton.widthAnchor.constraint(equalToConstant: playButtonSize),
                 playButton.heightAnchor.constraint(equalToConstant: playButtonSize),

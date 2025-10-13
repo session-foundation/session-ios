@@ -553,15 +553,18 @@ public class HomeViewModel: NavigatableStateHolder {
     // MARK: - Handle App review
     @MainActor
     func viewDidAppear() {
-        guard state.pendingAppReviewPromptState != nil else { return }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
-            guard let updatedState: AppReviewPromptState = self?.state.pendingAppReviewPromptState else { return }
-            
-            dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = false
-            
-            self?.handlePromptChangeState(updatedState)
+        if state.pendingAppReviewPromptState != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
+                guard let updatedState: AppReviewPromptState = self?.state.pendingAppReviewPromptState else { return }
+                
+                dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = false
+                
+                self?.handlePromptChangeState(updatedState)
+            }
         }
+        
+        // Camera reminder
+        willShowCameraPermissionReminder()
     }
 
     func scheduleAppReviewRetry() {
@@ -706,6 +709,20 @@ public class HomeViewModel: NavigatableStateHolder {
         }
     }
     
+    // Camera permission
+    func willShowCameraPermissionReminder() {
+        guard
+            dependencies[singleton: .screenLock].checkIfScreenIsUnlocked(), // Show camera access reminder when app has been unlocked
+            !dependencies[defaults: .appGroup, key: .isCallOngoing] // Checks if there is still an ongoing call
+        else {
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [dependencies] in
+            Permissions.remindCameraAccessRequirement(using: dependencies)
+        }
+    }
+    
     @MainActor
     @objc func didReturnFromBackground() {
         // Observe changes to app state retry and flags when app goes to bg to fg
@@ -718,6 +735,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 self?.handlePromptChangeState(updatedState)
             }
         }
+        
+        // Camera reminder
+        willShowCameraPermissionReminder()
     }
 
     // MARK: - Functions

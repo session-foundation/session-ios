@@ -365,7 +365,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             .backgroundPrimary,
             .backgroundPrimary
         ]
-        result.set(.height, to: 92)
         
         return result
     }()
@@ -839,7 +838,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         {
             if updatedThreadData.threadCanWrite == true {
                 self.showInputAccessoryView()
-            } else {
+            } else if updatedThreadData.threadCanWrite == false && updatedThreadData.threadVariant != .community {
                 self.hideInputAccessoryView()
             }
            
@@ -1507,7 +1506,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         // If we explicitly can't write to the thread then the input will be hidden but they keyboard
         // still reports that it takes up size, so just report 0 height in that case
-        if viewModel.threadData.threadCanWrite == false {
+        if viewModel.threadData.threadCanWrite == false && viewModel.threadData.threadVariant != .community {
             keyboardEndFrame = CGRect(
                 x: UIScreen.main.bounds.minX,
                 y: UIScreen.main.bounds.maxY,
@@ -1720,6 +1719,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     shouldExpanded: viewModel.messageExpandedInteractionIds
                         .contains(cellViewModel.id),
                     lastSearchText: viewModel.lastSearchedText,
+                    tableSize: tableView.bounds.size,
                     using: viewModel.dependencies
                 )
                 cell.delegate = self

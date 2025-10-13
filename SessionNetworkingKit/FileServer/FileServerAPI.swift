@@ -15,7 +15,7 @@ public extension Network.FileServer {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<FileUploadResponse> {
         var headers: [HTTPHeader: String] = [:]
-                
+        
         if dependencies[feature: .shortenFileTTL] {
             headers = [.fileCustomTTL: "60"]
         }
