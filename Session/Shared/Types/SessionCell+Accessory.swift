@@ -676,8 +676,6 @@ public extension SessionCell.AccessoryConfig {
         public let additionalProfile: Profile?
         public let additionalProfileIcon: ProfilePictureView.ProfileIcon
         
-        override public var shouldFitToEdge: Bool { true }
-        
         fileprivate init(
             id: String,
             size: ProfilePictureView.Size,

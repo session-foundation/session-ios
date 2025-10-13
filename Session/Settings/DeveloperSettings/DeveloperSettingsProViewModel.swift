@@ -73,6 +73,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case purchaseProSubscription
         case manageProSubscriptions
         case restoreProSubscription
+        case requestRefund
         
         case proStatus
         case allUsersSessionPro
@@ -88,6 +89,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .purchaseProSubscription: return "purchaseProSubscription"
                 case .manageProSubscriptions: return "manageProSubscriptions"
                 case .restoreProSubscription: return "restoreProSubscription"
+                case .requestRefund: return "requestRefund"
                     
                 case .proStatus: return "proStatus"
                 case .allUsersSessionPro: return "allUsersSessionPro"
@@ -106,6 +108,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .purchaseProSubscription: result.append(.purchaseProSubscription); fallthrough
                 case .manageProSubscriptions: result.append(.manageProSubscriptions); fallthrough
                 case .restoreProSubscription: result.append(.restoreProSubscription); fallthrough
+                case .requestRefund: result.append(.requestRefund); fallthrough
                     
                 case .proStatus: result.append(.proStatus); fallthrough
                 case .allUsersSessionPro: result.append(.allUsersSessionPro)
@@ -116,7 +119,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     }
     
     public enum DeveloperSettingsProEvent: Hashable {
-        case purchasedProduct([Product], Product?, String?, String?, UInt64?)
+        case purchasedProduct([Product], Product?, String?, String?, Transaction?)
+        case refundTransaction(Transaction.RefundRequestStatus)
     }
     
     // MARK: - Content
@@ -128,7 +132,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let purchasedProduct: Product?
         let purchaseError: String?
         let purchaseStatus: String?
-        let purchaseTransactionId: String?
+        let purchaseTransaction: Transaction?
+        let refundRequestStatus: Transaction.RefundRequestStatus?
         
         let mockCurrentUserSessionPro: SessionProStateMock
         let allUsersSessionPro: Bool
@@ -156,7 +161,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 purchasedProduct: nil,
                 purchaseError: nil,
                 purchaseStatus: nil,
-                purchaseTransactionId: nil,
+                purchaseTransaction: nil,
+                refundRequestStatus: nil,
                 
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
                 allUsersSessionPro: dependencies[feature: .allUsersSessionPro]
@@ -176,18 +182,22 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         var purchasedProduct: Product? = previousState.purchasedProduct
         var purchaseError: String? = previousState.purchaseError
         var purchaseStatus: String? = previousState.purchaseStatus
-        var purchaseTransactionId: String? = previousState.purchaseTransactionId
+        var purchaseTransaction: Transaction? = previousState.purchaseTransaction
+        var refundRequestStatus: Transaction.RefundRequestStatus? = previousState.refundRequestStatus
         
         events.forEach { event in
             guard let eventValue: DeveloperSettingsProEvent = event.value as? DeveloperSettingsProEvent else { return }
             
             switch eventValue {
-                case .purchasedProduct(let receivedProducts, let purchased, let error, let status, let id):
+                case .purchasedProduct(let receivedProducts, let purchased, let error, let status, let transaction):
                     products = receivedProducts
                     purchasedProduct = purchased
                     purchaseError = error
                     purchaseStatus = status
-                    purchaseTransactionId = id.map { "\($0)" }
+                    purchaseTransaction = transaction
+                    
+                case .refundTransaction(let status):
+                    refundRequestStatus = status
             }
         }
         
@@ -197,7 +207,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             purchasedProduct: purchasedProduct,
             purchaseError: purchaseError,
             purchaseStatus: purchaseStatus,
-            purchaseTransactionId: purchaseTransactionId,
+            purchaseTransaction: purchaseTransaction,
+            refundRequestStatus: refundRequestStatus,
             mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
             allUsersSessionPro: dependencies[feature: .allUsersSessionPro]
         )
@@ -243,9 +254,17 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             "<disabled>N/A</disabled>"
         )
         let transactionId: String = (
-            state.purchaseTransactionId.map { "<span>\($0)</span>" } ??
+            state.purchaseTransaction.map { "<span>\($0.id)</span>" } ??
             "<disabled>N/A</disabled>"
         )
+        let refundStatus: String = {
+            switch state.refundRequestStatus {
+                case .success: return "<span>Success (Does not mean approved)</span>"
+                case .userCancelled: return "<span>User Cancelled</span>"
+                case .none: return "<disabled>N/A</disabled>"
+                @unknown default: return "<disabled>N/A</disabled>"
+            }
+        }()
         let subscriptions: SectionModel = SectionModel(
             model: .subscriptions,
             elements: [
@@ -286,6 +305,20 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     trailingAccessory: .highlightingBackgroundLabel(title: "Restore"),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.restoreSubscriptions() }
+                    }
+                ),
+                SessionCell.Info(
+                    id: .requestRefund,
+                    title: "Request Refund",
+                    subtitle: """
+                    Request a refund for a Session Pro subscription via the App Store.
+                    
+                    <b>Status:</b>\(refundStatus)
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Request"),
+                    isEnabled: (state.purchaseTransaction != nil),
+                    onTap: { [weak viewModel] in
+                        Task { await viewModel?.requestRefund() }
                     }
                 )
             ]
@@ -407,7 +440,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     let transaction = try verificationResult.payloadValue
                     dependencies.notifyAsync(
                         key: .updateScreen(DeveloperSettingsProViewModel.self),
-                        value: DeveloperSettingsProEvent.purchasedProduct(products, product, nil, "Successful", transaction.id)
+                        value: DeveloperSettingsProEvent.purchasedProduct(products, product, nil, "Successful", transaction)
                     )
                     await transaction.finish()
                     
@@ -441,13 +474,12 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     }
     
     private func manageSubscriptions() async {
-        guard let scene: UIWindowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+        guard let scene: UIWindowScene = await UIApplication.shared.connectedScenes.first as? UIWindowScene else {
             return Log.error("[DevSettings] Unable to show manage subscriptions: Unable to get UIWindowScene")
         }
         
         do {
             try await AppStore.showManageSubscriptions(in: scene)
-            print("AS")
         }
         catch {
             Log.error("[DevSettings] Unable to show manage subscriptions: \(error)")
@@ -460,6 +492,24 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
         catch {
             Log.error("[DevSettings] Unable to show manage subscriptions: \(error)")
+        }
+    }
+    
+    private func requestRefund() async {
+        guard let transaction: Transaction = await internalState.purchaseTransaction else { return }
+        guard let scene: UIWindowScene = await UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+            return Log.error("[DevSettings] Unable to show manage subscriptions: Unable to get UIWindowScene")
+        }
+        
+        do {
+            let result = try await transaction.beginRefundRequest(in: scene)
+            dependencies.notifyAsync(
+                key: .updateScreen(DeveloperSettingsProViewModel.self),
+                value: DeveloperSettingsProEvent.refundTransaction(result)
+            )
+        }
+        catch {
+            Log.error("[DevSettings] Unable to request refund: \(error)")
         }
     }
 }

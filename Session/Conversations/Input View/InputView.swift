@@ -482,8 +482,13 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
         UIView.animate(withDuration: 0.3) { [weak self] in
             self?.bottomStackView?.arrangedSubviews.forEach { $0.alpha = (updatedInputState.allowedInputTypes != .none ? 1 : 0) }
+            
             self?.attachmentsButton.alpha = (updatedInputState.allowedInputTypes == .all ? 1 : 0.4)
+            self?.attachmentsButton.mainButton.updateAppearance(isEnabled: updatedInputState.allowedInputTypes == .all)
+            
             self?.voiceMessageButton.alpha =  (updatedInputState.allowedInputTypes == .all ? 1 : 0.4)
+            self?.voiceMessageButton.updateAppearance(isEnabled: updatedInputState.allowedInputTypes == .all)
+            
             self?.disabledInputLabel.alpha = (updatedInputState.allowedInputTypes != .none ? 0 : Values.mediumOpacity)
         }
     }

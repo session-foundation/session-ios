@@ -304,7 +304,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
-                        customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                        customPadding: SessionCell.Padding(
+                            leading: 0,
+                            bottom: Values.smallSpacing
+                        ),
                         backgroundStyle: .noBackground
                     ),
                     accessibility: Accessibility(

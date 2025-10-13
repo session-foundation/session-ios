@@ -28,6 +28,7 @@ final class CallMissedTipsModal: Modal {
         result.text = "callsMissedCallFrom"
             .put(key: "name", value: caller)
             .localized()
+        result.accessibilityIdentifier = "Modal heading"
         result.themeTextColor = .textPrimary
         result.textAlignment = .center
         
@@ -44,6 +45,7 @@ final class CallMissedTipsModal: Modal {
         result.themeAttributedText = "callsYouMissedCallPermissions"
             .put(key: "name", value: caller)
             .localizedFormatted(in: result)
+        result.accessibilityIdentifier = "Modal description"
         
         return result
     }()
