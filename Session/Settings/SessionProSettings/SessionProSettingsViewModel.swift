@@ -90,6 +90,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         case updatePlan
         case refundRequested
         case renewPlan
+        case recoverPlan
         case proBadge
         
         case largerGroups
@@ -317,86 +318,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         let proSettings: SectionModel = SectionModel(
             model: .proSettings,
-            elements: [
-                {
-                    switch state.currentProPlanState {
-                    case .none: nil
-                    case .active(_, let expiredOn, _, _):
-                        SessionListScreenContent.ListItemInfo(
-                            id: .updatePlan,
-                            variant: .cell(
-                                info: .init(
-                                    title: .init("updatePlan".localized(), font: .Headings.H8),
-                                    description: .init(
-                                        font: .Body.smallRegular,
-                                        attributedString: "proAutoRenewTime"
-                                            .put(key: "pro", value: Constants.pro)
-                                            .put(key: "time", value: expiredOn.timeIntervalSinceNow.formatted(format: .long, minimumUnit: .day))
-                                            .localizedFormatted(Fonts.Body.smallRegular)
-                                    ),
-                                    trailingAccessory: .icon(.chevronRight, size: .large)
-                                )
-                            ),
-                            onTap: { [weak viewModel] in viewModel?.updateProPlan() }
-                        )
-                    case .expired:
-                        SessionListScreenContent.ListItemInfo(
-                            id: .refundRequested,
-                            variant: .cell(
-                                info: .init(
-                                    title: .init(
-                                        "proPlanRenew"
-                                            .put(key: "pro", value: Constants.pro)
-                                            .localized(),
-                                        font: .Headings.H8,
-                                        color: .primary
-                                    ),
-                                    trailingAccessory: .icon(
-                                        .circlePlus,
-                                        size: .large,
-                                        customTint: .primary
-                                    )
-                                )
-                            ),
-                            onTap: { [weak viewModel] in viewModel?.updateProPlan() }
-                        )
-                    case .refunding(let originatingPlatform, _):
-                        SessionListScreenContent.ListItemInfo(
-                            id: .refundRequested,
-                            variant: .cell(
-                                info: .init(
-                                    title: .init("proRequestedRefund".localized(), font: .Headings.H8),
-                                    description: .init(
-                                        font: .Body.smallRegular,
-                                        attributedString: "processingRefundRequest"
-                                            .put(key: "platform", value: originatingPlatform.name)
-                                            .localizedFormatted(Fonts.Body.smallRegular)
-                                    ),
-                                    trailingAccessory: .icon(.circleAlert, size: .large)
-                                )
-                            ),
-                            onTap: { [weak viewModel] in viewModel?.updateProPlan() }
-                        )
-                    }
-                    
-                }(),
-                SessionListScreenContent.ListItemInfo(
-                    id: .proBadge,
-                    variant: .cell(
-                        info: .init(
-                            title: .init("proBadge".put(key: "pro", value: Constants.pro).localized(), font: .Headings.H8),
-                            description: .init("proBadgeVisible".put(key: "app_pro", value: Constants.app_pro).localized(), font: .Body.smallRegular),
-                            trailingAccessory: .toggle(
-                                state.isProBadgeEnabled,
-                                oldValue: previousState.isProBadgeEnabled
-                            )
-                        )
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.setAsync(.isProBadgeEnabled, !state.isProBadgeEnabled)
-                    }
-                )
-            ].compactMap { $0 }
+            elements: getProSettingsElements(state: state, previousState: previousState, viewModel: viewModel)
         )
         
         let proFeatures: SectionModel = SectionModel(
@@ -455,28 +377,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         let proManagement: SectionModel = SectionModel(
             model: .proManagement,
-            elements: [
-                SessionListScreenContent.ListItemInfo(
-                    id: .cancelPlan,
-                    variant: .cell(
-                        info: .init(
-                            title: .init("cancelPlan".localized(), font: .Headings.H8, color: .danger),
-                            trailingAccessory: .icon(.circleX, size: .large, customTint: .danger)
-                        )
-                    ),
-                    onTap: { [weak viewModel] in viewModel?.cancelPlan() }
-                ),
-                SessionListScreenContent.ListItemInfo(
-                    id: .requestRefund,
-                    variant: .cell(
-                        info: .init(
-                            title: .init("requestRefund".localized(), font: .Headings.H8, color: .danger),
-                            trailingAccessory: .icon(.circleAlert, size: .large, customTint: .danger)
-                        )
-                    ),
-                    onTap: { [weak viewModel] in viewModel?.requestRefund() }
-                )
-            ]
+            elements: getProManagementElements(state: state, viewModel: viewModel)
         )
         
         let help: SectionModel = SectionModel(
@@ -513,9 +414,157 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             case .active:
                 [ logo, proStats, proSettings, proFeatures, proManagement, help ]
             case .expired:
-                [ logo, proSettings, proFeatures, help ]
+                [ logo, proManagement, proFeatures, help ]
             case .refunding:
                 [ logo, proStats, proSettings, proFeatures, help ]
+        }
+    }
+    
+    // MARK: - Pro Settings Elements
+    
+    private static func getProSettingsElements(
+        state: ViewModelState,
+        previousState: ViewModelState,
+        viewModel: SessionProSettingsViewModel
+    ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
+        return [
+            {
+                switch state.currentProPlanState {
+                case .none: nil
+                case .active(_, let expiredOn, _, _):
+                    SessionListScreenContent.ListItemInfo(
+                        id: .updatePlan,
+                        variant: .cell(
+                            info: .init(
+                                title: .init("updatePlan".localized(), font: .Headings.H8),
+                                description: .init(
+                                    font: .Body.smallRegular,
+                                    attributedString: "proAutoRenewTime"
+                                        .put(key: "pro", value: Constants.pro)
+                                        .put(key: "time", value: expiredOn.timeIntervalSinceNow.formatted(format: .long, minimumUnit: .day))
+                                        .localizedFormatted(Fonts.Body.smallRegular)
+                                ),
+                                trailingAccessory: .icon(.chevronRight, size: .large)
+                            )
+                        ),
+                        onTap: { [weak viewModel] in viewModel?.updateProPlan() }
+                    )
+                case .expired:
+                    nil
+                case .refunding(let originatingPlatform, _):
+                    SessionListScreenContent.ListItemInfo(
+                        id: .refundRequested,
+                        variant: .cell(
+                            info: .init(
+                                title: .init("proRequestedRefund".localized(), font: .Headings.H8),
+                                description: .init(
+                                    font: .Body.smallRegular,
+                                    attributedString: "processingRefundRequest"
+                                        .put(key: "platform", value: originatingPlatform.name)
+                                        .localizedFormatted(Fonts.Body.smallRegular)
+                                ),
+                                trailingAccessory: .icon(.circleAlert, size: .large)
+                            )
+                        ),
+                        onTap: { [weak viewModel] in viewModel?.updateProPlan() }
+                    )
+                }
+            }(),
+            SessionListScreenContent.ListItemInfo(
+                id: .proBadge,
+                variant: .cell(
+                    info: .init(
+                        title: .init("proBadge".put(key: "pro", value: Constants.pro).localized(), font: .Headings.H8),
+                        description: .init("proBadgeVisible".put(key: "app_pro", value: Constants.app_pro).localized(), font: .Body.smallRegular),
+                        trailingAccessory: .toggle(
+                            state.isProBadgeEnabled,
+                            oldValue: previousState.isProBadgeEnabled
+                        )
+                    )
+                ),
+                onTap: { [dependencies = viewModel.dependencies] in
+                    dependencies.setAsync(.isProBadgeEnabled, !state.isProBadgeEnabled)
+                }
+            )
+        ].compactMap { $0 }
+    }
+    
+    // MARK: - Pro Management Elements
+    
+    private static func getProManagementElements(
+        state: ViewModelState,
+        viewModel: SessionProSettingsViewModel
+    ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
+        return switch state.currentProPlanState {
+            case .none: []
+            case .active(_, _, let isAutoRenewing, _):
+                [
+                    !isAutoRenewing ? nil :
+                        SessionListScreenContent.ListItemInfo(
+                            id: .cancelPlan,
+                            variant: .cell(
+                                info: .init(
+                                    title: .init("cancelPlan".localized(), font: .Headings.H8, color: .danger),
+                                    trailingAccessory: .icon(.circleX, size: .large, customTint: .danger)
+                                )
+                            ),
+                            onTap: { [weak viewModel] in viewModel?.cancelPlan() }
+                        ),
+                    SessionListScreenContent.ListItemInfo(
+                        id: .requestRefund,
+                        variant: .cell(
+                            info: .init(
+                                title: .init("requestRefund".localized(), font: .Headings.H8, color: .danger),
+                                trailingAccessory: .icon(.circleAlert, size: .large, customTint: .danger)
+                            )
+                        ),
+                        onTap: { [weak viewModel] in viewModel?.requestRefund() }
+                    )
+                ].compactMap { $0 }
+            case .expired:
+                [
+                    SessionListScreenContent.ListItemInfo(
+                        id: .renewPlan,
+                        variant: .cell(
+                            info: .init(
+                                title: .init(
+                                    "proPlanRenew"
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localized(),
+                                    font: .Headings.H8,
+                                    color: .primary
+                                ),
+                                trailingAccessory: .icon(
+                                    .circlePlus,
+                                    size: .large,
+                                    customTint: .primary
+                                )
+                            )
+                        ),
+                        onTap: { [weak viewModel] in viewModel?.updateProPlan() }
+                    ),
+                    SessionListScreenContent.ListItemInfo(
+                        id: .recoverPlan,
+                        variant: .cell(
+                            info: .init(
+                                title: .init(
+                                    "proPlanRecover"
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localized(),
+                                    font: .Headings.H8,
+                                    color: .textPrimary
+                                ),
+                                trailingAccessory: .icon(
+                                    .refreshCcw,
+                                    size: .large,
+                                    customTint: .textPrimary
+                                )
+                            )
+                        ),
+                        onTap: { [weak viewModel] in viewModel?.recoverProPlan() }
+                    ),
+                ]
+            case .refunding: []
         }
     }
 }
@@ -562,6 +611,10 @@ extension SessionProSettingsViewModel {
             )
         )
         self.transitionToScreen(viewController)
+    }
+    
+    func recoverProPlan() {
+        
     }
     
     func cancelPlan() {
@@ -667,7 +720,14 @@ extension SessionProSettingsViewModel {
                     }(),
                     title: "proBadges".localized(),
                     description: "proBadgesDescription".put(key: "app_name", value: Constants.app_name).localized(),
-                    accessory: .proBadgeLeading
+                    accessory: .proBadgeLeading(
+                        themeBackgroundColor: {
+                            return switch state {
+                                case .expired: .disabled
+                                default: .primary
+                            }
+                        }()
+                    )
                 ),
                 ProFeaturesInfo(
                     id: .unlimitedPins,
@@ -731,6 +791,19 @@ extension SessionProPlan {
                 }
             }()
         )
+    }
+    
+    func from(info: SessionProPaymentScreenContent.SessionProPlanInfo) -> SessionProPlan {
+        let variant: SessionProPlan.Variant = {
+            switch info.duration {
+                case 1: return .oneMonth
+                case 3: return .threeMonths
+                case 12: return .twelveMonths
+                default: fatalError("Unhandled SessionProPlan.Variant.Duration case")
+            }
+        }()
+        
+        return SessionProPlan(variant: variant)
     }
 }
 

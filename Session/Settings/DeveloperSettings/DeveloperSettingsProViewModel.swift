@@ -377,7 +377,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             case .none:
                 dependencies[singleton: .sessionProState].cancelPro(completion: nil)
             case .active:
-                dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+                dependencies[singleton: .sessionProState].upgradeToPro(
+                    plan: SessionProPlan(variant: .threeMonths),
+                    completion: nil
+                )
             case .expired:
                 dependencies[singleton: .sessionProState].expirePro(completion: nil)
             case .refunding:

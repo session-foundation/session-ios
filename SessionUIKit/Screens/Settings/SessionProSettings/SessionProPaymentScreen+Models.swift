@@ -89,7 +89,7 @@ public extension SessionProPaymentScreenContent {
     }
     
     struct SessionProPlanInfo: Equatable {
-        let duration: Int
+        public let duration: Int
         var durationString: String {
             let formatter = DateComponentsFormatter()
             formatter.unitsStyle = .full

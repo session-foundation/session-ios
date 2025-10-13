@@ -223,6 +223,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         if isInitialFetch {
             serviceNetwork = dependencies[feature: .serviceNetwork]
             forceOffline = dependencies[feature: .forceOffline]
+            sessionProPlanState = dependencies[singleton: .sessionProState].sessionProStateSubject.value
             
             dependencies.mutate(cache: .libSession) { libSession in
                 profile = libSession.profile

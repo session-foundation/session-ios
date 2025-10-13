@@ -34,42 +34,43 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.sessionProStateSubject = CurrentValueSubject(
-            dependencies[cache: .libSession].isSessionPro ?
-                SessionProPlanState.active(
-                    currentPlan: SessionProPlan(
-                        variant: .threeMonths,
-                        price: SessionProPlan.Variant.threeMonths.price,
-                        discountPercent: SessionProPlan.Variant.threeMonths.discountPercent
-                    ),
-                    expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
-                    isAutoRenewing: true,
-                    originatingPlatform: .Android
-                ) :
-                SessionProPlanState.none
-        )
+        switch dependencies[feature: .mockCurrentUserSessionProState] {
+            case .none:
+                self.sessionProStateSubject = CurrentValueSubject(SessionProPlanState.none)
+            case .active:
+                self.sessionProStateSubject = CurrentValueSubject(
+                        SessionProPlanState.active(
+                            currentPlan: SessionProPlan(variant: .threeMonths),
+                            expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+                            isAutoRenewing: true,
+                            originatingPlatform: .Android
+                        )
+                )
+            case .expired:
+                self.sessionProStateSubject = CurrentValueSubject(SessionProPlanState.expired)
+            case .refunding:
+                self.sessionProStateSubject = CurrentValueSubject(
+                    SessionProPlanState.refunding(
+                        originatingPlatform: .Android,
+                        requestedAt: Calendar.current.date(byAdding: .hour, value: -1, to: Date())!
+                    )
+                )
+        }
+        
         self.sessionProPlans = SessionProPlan.Variant.allCases.map {
-            SessionProPlan(
-                variant: $0,
-                price: $0.price,
-                discountPercent: $0.discountPercent
-            )
+            SessionProPlan(variant: $0)
         }
         self.shouldAnimateImageSubject = CurrentValueSubject(
             dependencies[cache: .libSession].isSessionPro
         )
     }
     
-    public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) {
+    public func upgradeToPro(plan: SessionProPlan, completion: ((_ result: Bool) -> Void)?) {
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
         self.sessionProStateSubject.send(
             SessionProPlanState.active(
-                currentPlan: SessionProPlan(
-                    variant: .threeMonths,
-                    price: SessionProPlan.Variant.threeMonths.price,
-                    discountPercent: SessionProPlan.Variant.threeMonths.discountPercent
-                ),
-                expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+                currentPlan: plan,
+                expiredOn: Calendar.current.date(byAdding: .month, value: plan.variant.duration, to: Date())!,
                 isAutoRenewing: true,
                 originatingPlatform: .iOS
             )
@@ -79,8 +80,17 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     }
     
     public func cancelPro(completion: ((_ result: Bool) -> Void)?) {
-        dependencies.set(feature: .mockCurrentUserSessionProState, to: SessionProStateMock.none)
-        self.sessionProStateSubject.send(.none)
+        guard case .active(let currentPlan, let expiredOn, _, let originatingPlatform) = self.sessionProStateSubject.value else {
+            return
+        }
+        self.sessionProStateSubject.send(
+            SessionProPlanState.active(
+                currentPlan: currentPlan,
+                expiredOn: expiredOn,
+                isAutoRenewing: false,
+                originatingPlatform: originatingPlatform
+            )
+        )
         self.shouldAnimateImageSubject.send(false)
         completion?(true)
     }

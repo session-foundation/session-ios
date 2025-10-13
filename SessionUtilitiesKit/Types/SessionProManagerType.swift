@@ -7,7 +7,7 @@ public protocol SessionProManagerType: AnyObject {
     var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never> { get }
     var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> { get }
     var sessionProPlans: [SessionProPlan] { get }
-    func upgradeToPro(completion: ((_ result: Bool) -> Void)?)
+    func upgradeToPro(plan: SessionProPlan, completion: ((_ result: Bool) -> Void)?)
     func cancelPro(completion: ((_ result: Bool) -> Void)?)
     func requestRefund(completion: ((_ result: Bool) -> Void)?)
     func expirePro(completion: ((_ result: Bool) -> Void)?)
@@ -69,13 +69,9 @@ public struct SessionProPlan: Equatable, Sendable {
     }
     
     public let variant: Variant
-    public let price: Double
-    public let discountPercent: Int?
     
-    public init(variant: Variant, price: Double, discountPercent: Int?) {
+    public init(variant: Variant) {
         self.variant = variant
-        self.price = price
-        self.discountPercent = discountPercent
     }
     
     public static func == (lhs: Self, rhs: Self) -> Bool {

@@ -6,8 +6,8 @@ import Lucide
 public extension SessionListScreenContent {
     struct TextInfo: Hashable, Equatable {
         public enum Accessory: Hashable, Equatable {
-            case proBadgeLeading
-            case proBadgeTrailing
+            case proBadgeLeading(themeBackgroundColor: ThemeValue)
+            case proBadgeTrailing(themeBackgroundColor: ThemeValue)
             case none
         }
         

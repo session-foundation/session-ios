@@ -17,8 +17,8 @@ struct ListItemCell: View {
             VStack(alignment: .leading, spacing: 0) {
                 if let title = info.title {
                     HStack(spacing: Values.verySmallSpacing) {
-                        if title.accessory == .proBadgeLeading {
-                            SessionProBadge_SwiftUI(size: .mini)
+                        if case .proBadgeLeading(let themeBackgroundColor) = title.accessory  {
+                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
                         
                         if let text = title.text {
@@ -37,16 +37,16 @@ struct ListItemCell: View {
                                 .fixedSize()
                         }
                         
-                        if title.accessory == .proBadgeTrailing {
-                            SessionProBadge_SwiftUI(size: .mini)
+                        if case .proBadgeTrailing(let themeBackgroundColor) = title.accessory  {
+                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
                     }
                 }
                 
                 if let description = info.description {
                     HStack(spacing: Values.verySmallSpacing) {
-                        if description.accessory == .proBadgeLeading {
-                            SessionProBadge_SwiftUI(size: .mini)
+                        if case .proBadgeLeading(let themeBackgroundColor) = description.accessory {
+                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
                         
                         if let text = description.text {
@@ -65,8 +65,8 @@ struct ListItemCell: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         
-                        if description.accessory == .proBadgeTrailing {
-                            SessionProBadge_SwiftUI(size: .mini)
+                        if case .proBadgeTrailing(let themeBackgroundColor) = description.accessory {
+                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
                     }
                 }

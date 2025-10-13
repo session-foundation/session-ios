@@ -526,7 +526,10 @@ struct MessageInfoScreen: View {
                 variant: proCTAVariant,
                 dataManager: dependencies[singleton: .imageDataManager],
                 onConfirm: { [dependencies] in
-                    dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+                    dependencies[singleton: .sessionProState].upgradeToPro(
+                        plan: SessionProPlan(variant: .threeMonths),
+                        completion: nil
+                    )
                 }
             )
         )

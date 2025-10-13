@@ -1992,7 +1992,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             ),
                             dataManager: dependencies[singleton: .imageDataManager],
                             onConfirm: { [dependencies] in
-                                dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+                                dependencies[singleton: .sessionProState].upgradeToPro(
+                                    plan: SessionProPlan(variant: .threeMonths),
+                                    completion: nil
+                                )
                             }
                         )
                     )
@@ -2085,7 +2088,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 variant: variant,
                 dataManager: dependencies[singleton: .imageDataManager],
                 onConfirm: { [dependencies] in
-                    dependencies[singleton: .sessionProState].upgradeToPro(completion: nil)
+                    dependencies[singleton: .sessionProState].upgradeToPro(
+                        plan: SessionProPlan(variant: .threeMonths),
+                        completion: nil
+                    )
                 }
             )
         )

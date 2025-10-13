@@ -5,6 +5,7 @@ import Lucide
 
 public struct SessionProPaymentScreen: View {
     @EnvironmentObject var host: HostWrapper
+    @Environment(\.openURL) private var openURL
     @State var currentSelection: Int
     @State private var isShowingTooltip: Bool = false
     @State var tooltipContentFrame: CGRect = CGRect.zero
@@ -17,9 +18,14 @@ public struct SessionProPaymentScreen: View {
     private let coordinateSpaceName: String = "SessionProPaymentScreen" // stringlint:ignore
     
     private let dataModel: SessionProPaymentScreenContent.DataModel
+    private let purchaseHandler: ((SessionProPaymentScreenContent.SessionProPlanInfo) -> Void)?
     
-    public init(dataModel: SessionProPaymentScreenContent.DataModel) {
+    public init(
+        dataModel: SessionProPaymentScreenContent.DataModel,
+        purchaseHandler: ((SessionProPaymentScreenContent.SessionProPlanInfo) -> Void)? = nil
+    ) {
         self.dataModel = dataModel
+        self.purchaseHandler = purchaseHandler
         if
             case .update(let currentPlan, _, _, _) = dataModel.flow,
             let indexOfCurrentPlan = dataModel.plans.firstIndex(of: currentPlan)
@@ -51,6 +57,17 @@ public struct SessionProPaymentScreen: View {
                             currentPlan: nil,
                             sessionProPlans: dataModel.plans,
                             actionButtonTitle: "Upgrade",
+                            purchaseAction: { updatePlan() },
+                            openTosPrivacyAction: { openTosPrivacy() }
+                        )
+                    } else if case .renew = dataModel.flow {
+                        SessionProPlanPurchaseContent(
+                            currentSelection: $currentSelection,
+                            isShowingTooltip: $isShowingTooltip,
+                            suppressUntil: $suppressUntil,
+                            currentPlan: nil,
+                            sessionProPlans: dataModel.plans,
+                            actionButtonTitle: "renew".localized(),
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
                         )
@@ -179,29 +196,65 @@ public struct SessionProPaymentScreen: View {
                         scrollMode: .never
                     ),
                     confirmTitle: "updatePlan".localized(),
-                    onConfirm: { [host = self.host] _ in
-                        let viewController: SessionHostingViewController = SessionHostingViewController(
-                            rootView: SessionProPlanUpdatedScreen(
-                                flow: dataModel.flow,
-                                expiredOn: expiredOn
-                            )
-                        )
-                        viewController.modalTransitionStyle = .crossDissolve
-                        viewController.modalPresentationStyle = .overFullScreen
-                        host.controller?.present(viewController, animated: true)
-                    }
+                    onConfirm: { _ in self.purchaseHandler?(updatedPlan) }
                 )
             )
-            
             self.host.controller?.present(confirmationModal, animated: true)
+        } else if case .purchase = dataModel.flow {
+            self.purchaseHandler?(updatedPlan)
         }
     }
     
     private func openTosPrivacy() {
-        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "urlOpen".localized(),
+                body: .text("urlOpenBrowser".localized()),
+                confirmTitle: "onboardingTos".localized(),
+                confirmStyle: .textPrimary,
+                cancelTitle: "onboardingPrivacy".localized(),
+                cancelStyle: .textPrimary,
+                hasCloseButton: true,
+                onConfirm: { _ in
+                    if let url: URL = URL(string: "https://getsession.org/terms-of-service") {
+                        openURL(url)
+                    }
+                },
+                onCancel: { modal in
+                    if let url: URL = URL(string: "https://getsession.org/privacy-policy") {
+                        openURL(url)
+                    }
+                    modal.close()
+                }
+            )
+        )
+        self.host.controller?.present(modal, animated: true)
     }
     
     private func openPlatformStoreWebsite() {
+        guard let url: URL = URL(string: Constants.google_play_store_subscriptions_url) else { return }
         
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "urlOpen".localized(),
+                body: .attributedText(
+                    "urlOpenDescription"
+                        .put(key: "url", value: url.absoluteString)
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
+                    scrollMode: .automatic
+                ),
+                confirmTitle: "open".localized(),
+                confirmStyle: .danger,
+                cancelTitle: "urlCopy".localized(),
+                cancelStyle: .alert_text,
+                onConfirm:  { _ in openURL(url) },
+                onCancel: { modal in
+                    UIPasteboard.general.string = url.absoluteString
+                    modal.close()
+                }
+            )
+        )
+        
+        self.host.controller?.present(modal, animated: true)
     }
 }
