@@ -62,6 +62,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case reactionInfo
         case cellType
         case authorName
+        case authorNameSuppressedId
         case senderName
         case canHaveProfile
         case shouldShowProfile
@@ -153,6 +154,9 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     
     /// This value includes the author name information
     public let authorName: String
+    
+    /// This value includes the author name information with the `id` suppressed (if it was present)
+    public let authorNameSuppressedId: String
 
     /// This value will be used to populate the author label, if it's null then the label will be hidden
     ///
@@ -250,6 +254,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             reactionInfo: (reactionInfo ?? self.reactionInfo),
             cellType: self.cellType,
             authorName: self.authorName,
+            authorNameSuppressedId: self.authorNameSuppressedId,
             senderName: self.senderName,
             canHaveProfile: self.canHaveProfile,
             shouldShowProfile: self.shouldShowProfile,
@@ -311,6 +316,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             reactionInfo: self.reactionInfo,
             cellType: self.cellType,
             authorName: self.authorName,
+            authorNameSuppressedId: self.authorNameSuppressedId,
             senderName: self.senderName,
             canHaveProfile: self.canHaveProfile,
             shouldShowProfile: self.shouldShowProfile,
@@ -370,6 +376,13 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             name: self.authorNameInternal,
             nickname: nil,      // Folded into 'authorName' within the Query
             suppressId: false   // Show the id next to the author name if desired
+        )
+        let authorDisplayNameSuppressedId: String = Profile.displayName(
+            for: self.threadVariant,
+            id: self.authorId,
+            name: self.authorNameInternal,
+            nickname: nil,      // Folded into 'authorName' within the Query
+            suppressId: true    // Exclude the id next to the author name
         )
         let shouldShowDateBeforeThisModel: Bool = {
             guard self.isTypingIndicator != true else { return false }
@@ -495,6 +508,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             reactionInfo: self.reactionInfo,
             cellType: cellType,
             authorName: authorDisplayName,
+            authorNameSuppressedId: authorDisplayNameSuppressedId,
             senderName: {
                 // Only show for group threads
                 guard isGroupThread else { return nil }
@@ -750,6 +764,7 @@ public extension MessageViewModel {
         
         self.cellType = cellType
         self.authorName = ""
+        self.authorNameSuppressedId = ""
         self.senderName = nil
         self.canHaveProfile = false
         self.shouldShowProfile = false
@@ -834,6 +849,7 @@ public extension MessageViewModel {
         
         self.cellType = .textOnlyMessage
         self.authorName = ""
+        self.authorNameSuppressedId = ""
         self.senderName = nil
         self.canHaveProfile = false
         self.shouldShowProfile = false
@@ -992,6 +1008,7 @@ public extension MessageViewModel {
                     -- query from crashing when decoding we need to provide default values
                     \(CellType.textOnlyMessage) AS \(ViewModel.Columns.cellType),
                     '' AS \(ViewModel.Columns.authorName),
+                    '' AS \(ViewModel.Columns.authorNameSuppressedId),
                     false AS \(ViewModel.Columns.canHaveProfile),
                     false AS \(ViewModel.Columns.shouldShowProfile),
                     false AS \(ViewModel.Columns.shouldShowDateHeader),
