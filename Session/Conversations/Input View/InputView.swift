@@ -674,5 +674,5 @@ protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageReco
     @MainActor func handleCharacterLimitLabelTapped()
     @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
-    @MainActor func didPasteImageDataFromPasteboard(_ image: UIImage)
+    @MainActor func didPasteImageDataFromPasteboard(_ imageData: Data)
 }

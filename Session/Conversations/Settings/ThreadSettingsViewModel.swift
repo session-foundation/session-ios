@@ -23,11 +23,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     private let didTriggerSearch: () -> ()
     private var updatedName: String?
     private var updatedDescription: String?
-    private var onDisplayPictureSelected: ((ConfirmationModal.ValueUpdate) -> Void)?
+    private var onDisplayPictureSelected: ((ImageDataManager.DataSource, CGRect?) -> Void)?
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
         onImagePicked: { [weak self] source, cropRect in
-            self?.onDisplayPictureSelected?(.image(source: source, cropRect: cropRect))
+            self?.onDisplayPictureSelected?(source, cropRect)
         },
         using: dependencies
     )
@@ -1669,48 +1669,75 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         guard dependencies[feature: .updatedGroupsAllowDisplayPicture] else { return }
         
         let iconName: String = "profile_placeholder" // stringlint:ignore
+        var hasSetNewProfilePicture: Bool = false
+        let currentSource: ImageDataManager.DataSource? = {
+            let source: ImageDataManager.DataSource? = currentUrl
+                .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
+                .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) }
+            
+            return (source?.contentExists == true ? source : nil)
+        }()
+        let body: ConfirmationModal.Info.Body = .image(
+            source: nil,
+            placeholder: (
+                currentSource ??
+                Lucide.image(icon: .image, size: 40).map { image in
+                    ImageDataManager.DataSource.image(
+                        iconName,
+                        image
+                            .withTintColor(#colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1), renderingMode: .alwaysTemplate)
+                            .withCircularBackground(backgroundColor: #colorLiteral(red: 0.1764705882, green: 0.1764705882, blue: 0.1764705882, alpha: 1))
+                    )
+                }
+            ),
+            icon: (currentUrl != nil ? .pencil : .rightPlus),
+            style: .circular,
+            description: nil,   // FIXME: Need to add Group Pro display pic description
+            accessibility: Accessibility(
+                identifier: "Upload",
+                label: "Upload"
+            ),
+            dataManager: dependencies[singleton: .imageDataManager],
+            onProBageTapped: nil,   // FIXME: Need to add Group Pro display pic CTA
+            onClick: { [weak self] onDisplayPictureSelected in
+                self?.onDisplayPictureSelected = { source, cropRect in
+                    onDisplayPictureSelected(.image(
+                        source: source,
+                        cropRect: cropRect,
+                        replacementIcon: .pencil,
+                        replacementCancelTitle: "clear".localized()
+                    ))
+                    hasSetNewProfilePicture = true
+                }
+                self?.showPhotoLibraryForAvatar()
+            }
+        )
         
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
                     title: "groupSetDisplayPicture".localized(),
-                    body: .image(
-                        source: currentUrl
-                            .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
-                            .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) },
-                        placeholder: UIImage(named: iconName).map {
-                            ImageDataManager.DataSource.image(iconName, $0)
-                        },
-                        icon: .rightPlus,
-                        style: .circular,
-                        description: nil,
-                        accessibility: Accessibility(
-                            identifier: "Image picker",
-                            label: "Image picker"
-                        ),
-                        dataManager: dependencies[singleton: .imageDataManager],
-                        onProBageTapped: nil,
-                        onClick: { [weak self] onDisplayPictureSelected in
-                            self?.onDisplayPictureSelected = onDisplayPictureSelected
-                            self?.showPhotoLibraryForAvatar()
-                        }
-                    ),
+                    body: body,
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _):
-                                return (source?.contentExists == true)
-                            
+                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: .bool(currentUrl != nil),
+                    cancelEnabled: (currentUrl != nil ? .bool(true) : .afterChange { info in
+                        switch info.body {
+                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
+                            default: return false
+                        }
+                    }),
                     hasCloseButton: true,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, let style, _, _, _):
+                            case .image(.some(let source), _, _, let style, _, _, _, _, _):
+                                // FIXME: Need to add Group Pro display pic CTA
                                 self?.updateGroupDisplayPicture(
                                     displayPictureUpdate: .groupUploadImage(
                                         source: source,
@@ -1725,12 +1752,22 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                         }
                     },
                     onCancel: { [weak self] modal in
-                        self?.updateGroupDisplayPicture(
-                            displayPictureUpdate: .groupRemove,
-                            onUploadComplete: { [weak modal] in
-                                Task { @MainActor in modal?.close() }
-                            }
-                        )
+                        if hasSetNewProfilePicture {
+                            modal.updateContent(
+                                with: modal.info.with(
+                                    body: body,
+                                    cancelTitle: "remove".localized()
+                                )
+                            )
+                            hasSetNewProfilePicture = false
+                        } else {
+                            self?.updateGroupDisplayPicture(
+                                displayPictureUpdate: .groupRemove,
+                                onUploadComplete: { [weak modal] in
+                                    Task { @MainActor in modal?.close() }
+                                }
+                            )
+                        }
                     }
                 )
             ),

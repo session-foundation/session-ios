@@ -734,12 +734,10 @@ public extension ImageDataManager {
 // MARK: - ImageDataManager.isAnimatedImage
 
 public extension ImageDataManager {
-    static func isAnimatedImage(_ imageData: Data?) -> Bool {
-        guard let data: Data = imageData, let imageSource = CGImageSourceCreateWithData(data as CFData, nil) else {
-            return false
-        }
-        let frameCount = CGImageSourceGetCount(imageSource)
-        return frameCount > 1
+    static func isAnimatedImage(_ source: ImageDataManager.DataSource) -> Bool {
+        guard let imageSource: CGImageSource = source.createImageSource() else { return false }
+        
+        return (CGImageSourceGetCount(imageSource) > 1)
     }
 }
 

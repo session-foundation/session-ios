@@ -681,13 +681,13 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc private func imageViewTapped() {
         internalOnBodyTap?({ [weak self, info = self.info] valueUpdate in
             switch (valueUpdate, info.body) {
-                case (.image(let source, let cropRect), .image(_, let placeholder, let icon, let style, let description, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
+                case (.image(let source, let cropRect, let replacementIcon, let replacementCancelTitle), .image(_, let placeholder, let icon, let style, let description, let accessibility, let dataManager, let onProBadgeTapped, let onClick)):
                     self?.updateContent(
                         with: info.with(
                             body: .image(
                                 source: source,
                                 placeholder: placeholder,
-                                icon: .pencil,
+                                icon: (replacementIcon ?? icon),
                                 style: {
                                     switch style {
                                         case .inherit: return .inherit
@@ -700,7 +700,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                 onProBageTapped: onProBadgeTapped,
                                 onClick: onClick
                             ),
-                            cancelTitle: "clear".localized()
+                            cancelTitle: replacementCancelTitle /// Will only replace if it has a value
                         )
                     )
                     
@@ -797,7 +797,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
 public extension ConfirmationModal {
     enum ValueUpdate {
         case input(String)
-        case image(source: ImageDataManager.DataSource, cropRect: CGRect?)
+        case image(source: ImageDataManager.DataSource, cropRect: CGRect?, replacementIcon: ProfilePictureView.ProfileIcon?, replacementCancelTitle: String?)
     }
     
     struct Info: Equatable, Hashable {

@@ -489,7 +489,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
             shareVC.popoverPresentationController?.sourceRect = self.view.bounds
         }
         
-        shareVC.completionWithItemsHandler = { [dependencies = viewModel.dependencies] activityType, completed, returnedItems, activityError in
+        shareVC.completionWithItemsHandler = { [weak self, dependencies = viewModel.dependencies] activityType, completed, returnedItems, activityError in
             if let activityError = activityError {
                 Log.error("[MediaPageViewController] Failed to share with activityError: \(activityError)")
             }

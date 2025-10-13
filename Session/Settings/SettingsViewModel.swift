@@ -18,11 +18,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
     private var updatedName: String?
-    private var onDisplayPictureSelected: ((ConfirmationModal.ValueUpdate) -> Void)?
+    private var onDisplayPictureSelected: ((ImageDataManager.DataSource, CGRect?) -> Void)?
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
         onImagePicked: { [weak self] source, cropRect in
-            self?.onDisplayPictureSelected?(.image(source: source, cropRect: cropRect))
+            self?.onDisplayPictureSelected?(source, cropRect)
         },
         using: dependencies
     )
@@ -658,19 +658,26 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     private func updateProfilePicture(currentUrl: String?) {
         let iconName: String = "profile_placeholder" // stringlint:ignore
         var hasSetNewProfilePicture: Bool = false
-        let body: ConfirmationModal.Info.Body = .image(
-            source: nil,
-            placeholder: currentUrl
+        let currentSource: ImageDataManager.DataSource? = {
+            let source: ImageDataManager.DataSource? = currentUrl
                 .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
                 .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) }
-                .defaulting(to: Lucide.image(icon: .image, size: 40).map { image in
+            
+            return (source?.contentExists == true ? source : nil)
+        }()
+        let body: ConfirmationModal.Info.Body = .image(
+            source: nil,
+            placeholder: (
+                currentSource ??
+                Lucide.image(icon: .image, size: 40).map { image in
                     ImageDataManager.DataSource.image(
                         iconName,
                         image
                             .withTintColor(#colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1), renderingMode: .alwaysTemplate)
                             .withCircularBackground(backgroundColor: #colorLiteral(red: 0.1764705882, green: 0.1764705882, blue: 0.1764705882, alpha: 1))
                     )
-                }),
+                }
+            ),
             icon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: {
@@ -711,8 +718,13 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 }
             },
             onClick: { [weak self] onDisplayPictureSelected in
-                self?.onDisplayPictureSelected = { valueUpdate in
-                    onDisplayPictureSelected(valueUpdate)
+                self?.onDisplayPictureSelected = { source, cropRect in
+                    onDisplayPictureSelected(.image(
+                        source: source,
+                        cropRect: cropRect,
+                        replacementIcon: .pencil,
+                        replacementCancelTitle: "clear".localized()
+                    ))
                     hasSetNewProfilePicture = true
                 }
                 self?.showPhotoLibraryForAvatar()
@@ -732,17 +744,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: (currentUrl != nil) ? .bool(true) : .afterChange { info in
+                    cancelEnabled: (currentUrl != nil ? .bool(true) : .afterChange { info in
                         switch info.body {
                             case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
-                    },
+                    }),
                     hasCloseButton: true,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, let style, _, _, _):
+                            case .image(.some(let source), _, _, let style, _, _, _, _, _):
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
                                 
                                 guard (
@@ -831,7 +843,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         let result = try await dependencies[singleton: .displayPictureManager]
             .uploadDisplayPicture(preparedAttachment: preparedAttachment)
         
-        return .currentUserUpdateTo(url: result.downloadUrl, key: result.encryptionKey, isReupload: false)
+        return .currentUserUpdateTo(
+            url: result.downloadUrl,
+            key: result.encryptionKey,
+            sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() },
+            isReupload: false
+        )
     }
     
     @MainActor fileprivate func updateProfile(
