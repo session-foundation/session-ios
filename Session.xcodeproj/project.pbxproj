@@ -248,6 +248,7 @@
 		94D716822E8FA1A0008294EE /* AttributedLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D716812E8FA19D008294EE /* AttributedLabel.swift */; };
 		94D716862E933958008294EE /* SessionProBadge+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D716852E93394B008294EE /* SessionProBadge+Utilities.swift */; };
 		94D716912E9379BA008294EE /* MentionUtilities+Attributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D716902E9379A4008294EE /* MentionUtilities+Attributes.swift */; };
+		94D955EB2E9CA5E000DEE66E /* SessionProPaymentScreen+ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D955EA2E9CA5DA00DEE66E /* SessionProPaymentScreen+ViewModel.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1660,6 +1661,7 @@
 		94D716812E8FA19D008294EE /* AttributedLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttributedLabel.swift; sourceTree = "<group>"; };
 		94D716852E93394B008294EE /* SessionProBadge+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProBadge+Utilities.swift"; sourceTree = "<group>"; };
 		94D716902E9379A4008294EE /* MentionUtilities+Attributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MentionUtilities+Attributes.swift"; sourceTree = "<group>"; };
+		94D955EA2E9CA5DA00DEE66E /* SessionProPaymentScreen+ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+ViewModel.swift"; sourceTree = "<group>"; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -2963,6 +2965,7 @@
 		94363E602E6014630004EE43 /* SessionProSettings */ = {
 			isa = PBXGroup;
 			children = (
+				94D955EA2E9CA5DA00DEE66E /* SessionProPaymentScreen+ViewModel.swift */,
 				94363E612E6014880004EE43 /* SessionProSettingsViewModel.swift */,
 				94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */,
 			);
@@ -7105,6 +7108,7 @@
 				45C0DC1E1E69011F00E04C47 /* UIStoryboard+OWS.swift in Sources */,
 				FDE754B02C9B96B4002A2623 /* WebRTCSession.swift in Sources */,
 				B835246E25C38ABF0089A44F /* ConversationVC.swift in Sources */,
+				94D955EB2E9CA5E000DEE66E /* SessionProPaymentScreen+ViewModel.swift in Sources */,
 				7B7037432834B81F000DCF35 /* ReactionContainerView.swift in Sources */,
 				7BBBDC462875600700747E59 /* DocumentTitleViewController.swift in Sources */,
 				FD71163F28E2C82C00B47552 /* SessionHeaderView.swift in Sources */,

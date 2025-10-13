@@ -604,9 +604,12 @@ extension SessionProSettingsViewModel {
     func updateProPlan() {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPaymentScreen(
-                dataModel: .init(
-                    flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(),
-                    plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                viewModel: SessionProPaymentScreenContent.ViewModel(
+                    dependencies: dependencies,
+                    dataModel: .init(
+                        flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(),
+                        plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                    )
                 )
             )
         )
@@ -620,16 +623,19 @@ extension SessionProSettingsViewModel {
     func cancelPlan() {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPaymentScreen(
-                dataModel: .init(
-                    flow: .cancel(
-                        originatingPlatform: {
-                            switch dependencies[singleton: .sessionProState].sessionProStateSubject.value.originatingPlatform {
-                                case .iOS: return .iOS
-                                case .Android: return .Android
-                            }
-                        }()
-                    ),
-                    plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                viewModel: SessionProPaymentScreenContent.ViewModel(
+                    dependencies: dependencies,
+                    dataModel: .init(
+                        flow: .cancel(
+                            originatingPlatform: {
+                                switch dependencies[singleton: .sessionProState].sessionProStateSubject.value.originatingPlatform {
+                                    case .iOS: return .iOS
+                                    case .Android: return .Android
+                                }
+                            }()
+                        ),
+                        plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                    )
                 )
             )
         )
@@ -639,17 +645,20 @@ extension SessionProSettingsViewModel {
     func requestRefund() {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPaymentScreen(
-                dataModel: .init(
-                    flow: .refund(
-                        originatingPlatform: {
-                            switch dependencies[singleton: .sessionProState].sessionProStateSubject.value.originatingPlatform {
-                                case .iOS: return .iOS
-                                case .Android: return .Android
-                            }
-                        }(),
-                        requestedAt: nil
-                    ),
-                    plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                viewModel: SessionProPaymentScreenContent.ViewModel(
+                    dependencies: dependencies,
+                    dataModel: .init(
+                        flow: .refund(
+                            originatingPlatform: {
+                                switch dependencies[singleton: .sessionProState].sessionProStateSubject.value.originatingPlatform {
+                                    case .iOS: return .iOS
+                                    case .Android: return .Android
+                                }
+                            }(),
+                            requestedAt: nil
+                        ),
+                        plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                    )
                 )
             )
         )
@@ -793,7 +802,7 @@ extension SessionProPlan {
         )
     }
     
-    func from(info: SessionProPaymentScreenContent.SessionProPlanInfo) -> SessionProPlan {
+    static func from(_ info: SessionProPaymentScreenContent.SessionProPlanInfo) -> SessionProPlan {
         let variant: SessionProPlan.Variant = {
             switch info.duration {
                 case 1: return .oneMonth

@@ -130,5 +130,14 @@ public extension SessionProPaymentScreenContent {
             return lhs.flow == rhs.flow
         }
     }
+    
+    protocol ViewModelType: AnyObject {
+        var dataModel: DataModel { get set }
+        var isRefreshing: Bool { get set }
+        var errorString: String? { get set }
+        
+        func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?)
+        func openURL(_ url: URL)
+    }
 }
 

@@ -5,7 +5,6 @@ import Lucide
 
 public struct SessionProPaymentScreen: View {
     @EnvironmentObject var host: HostWrapper
-    @Environment(\.openURL) private var openURL
     @State var currentSelection: Int
     @State private var isShowingTooltip: Bool = false
     @State var tooltipContentFrame: CGRect = CGRect.zero
@@ -17,18 +16,13 @@ public struct SessionProPaymentScreen: View {
     let tooltipViewId: String = "SessionProPaymentScreenToolTip" // stringlint:ignore
     private let coordinateSpaceName: String = "SessionProPaymentScreen" // stringlint:ignore
     
-    private let dataModel: SessionProPaymentScreenContent.DataModel
-    private let purchaseHandler: ((SessionProPaymentScreenContent.SessionProPlanInfo) -> Void)?
+    private let viewModel: SessionProPaymentScreenContent.ViewModelType
     
-    public init(
-        dataModel: SessionProPaymentScreenContent.DataModel,
-        purchaseHandler: ((SessionProPaymentScreenContent.SessionProPlanInfo) -> Void)? = nil
-    ) {
-        self.dataModel = dataModel
-        self.purchaseHandler = purchaseHandler
+    public init(viewModel: SessionProPaymentScreenContent.ViewModelType) {
+        self.viewModel = viewModel
         if
-            case .update(let currentPlan, _, _, _) = dataModel.flow,
-            let indexOfCurrentPlan = dataModel.plans.firstIndex(of: currentPlan)
+            case .update(let currentPlan, _, _, _) = viewModel.dataModel.flow,
+            let indexOfCurrentPlan = viewModel.dataModel.plans.firstIndex(of: currentPlan)
         {
             self.currentSelection = indexOfCurrentPlan
         } else {
@@ -42,43 +36,43 @@ public struct SessionProPaymentScreen: View {
                 VStack(spacing: Values.mediumSmallSpacing) {
                     ListItemLogoWithPro(
                         style: {
-                            switch dataModel.flow {
+                            switch viewModel.dataModel.flow {
                                 case .refund, .cancel: return .disabled
                                 default: return .normal
                             }
                         }(),
-                        description: dataModel.flow.description
+                        description: viewModel.dataModel.flow.description
                     )
-                    if case .purchase = dataModel.flow {
+                    if case .purchase = viewModel.dataModel.flow {
                         SessionProPlanPurchaseContent(
                             currentSelection: $currentSelection,
                             isShowingTooltip: $isShowingTooltip,
                             suppressUntil: $suppressUntil,
                             currentPlan: nil,
-                            sessionProPlans: dataModel.plans,
+                            sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "Upgrade",
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
                         )
-                    } else if case .renew = dataModel.flow {
+                    } else if case .renew = viewModel.dataModel.flow {
                         SessionProPlanPurchaseContent(
                             currentSelection: $currentSelection,
                             isShowingTooltip: $isShowingTooltip,
                             suppressUntil: $suppressUntil,
                             currentPlan: nil,
-                            sessionProPlans: dataModel.plans,
+                            sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "renew".localized(),
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
                         )
-                    } else if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = dataModel.flow {
+                    } else if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = viewModel.dataModel.flow {
                         if originatingPlatform == .iOS {
                             SessionProPlanPurchaseContent(
                                 currentSelection: $currentSelection,
                                 isShowingTooltip: $isShowingTooltip,
                                 suppressUntil: $suppressUntil,
                                 currentPlan: currentPlan,
-                                sessionProPlans: dataModel.plans,
+                                sessionProPlans: viewModel.dataModel.plans,
                                 actionButtonTitle: "updatePlan".localized(),
                                 purchaseAction: { updatePlan() },
                                 openTosPrivacyAction: { openTosPrivacy() }
@@ -92,7 +86,7 @@ public struct SessionProPaymentScreen: View {
                                 openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
                             )
                         }
-                    } else if case .refund(let originatingPlatform, let requestedAt) = dataModel.flow {
+                    } else if case .refund(let originatingPlatform, let requestedAt) = viewModel.dataModel.flow {
                         if originatingPlatform == .iOS {
                             RequestRefundOriginatingPlatformContent(
                                 requestRefundAction: {}
@@ -104,7 +98,7 @@ public struct SessionProPaymentScreen: View {
                                 openPlatformStoreWebsiteAction: {}
                             )
                         }
-                    } else if case .cancel(let originatingPlatform) = dataModel.flow {
+                    } else if case .cancel(let originatingPlatform) = viewModel.dataModel.flow {
                         if originatingPlatform == .iOS {
                             CancelPlanOriginatingPlatformContent(
                                 cancelPlanAction: {}
@@ -136,7 +130,7 @@ public struct SessionProPaymentScreen: View {
             .popoverView(
                 content: {
                     ZStack {
-                        if case .update(let currentPlan, _, _, _) = dataModel.flow, let discountPercent = currentPlan.discountPercent {
+                        if case .update(let currentPlan, _, _, _) = viewModel.dataModel.flow, let discountPercent = currentPlan.discountPercent {
                             Text(
                                 "proDiscountTooltip"
                                     .put(key: "percent", value: discountPercent)
@@ -171,10 +165,9 @@ public struct SessionProPaymentScreen: View {
     }
     
     private func updatePlan() {
-        let updatedPlan = dataModel.plans[currentSelection]
-        
+        let updatedPlan = viewModel.dataModel.plans[currentSelection]
         if
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = dataModel.flow,
+            case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = viewModel.dataModel.flow,
             let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: expiredOn)
         {
             let confirmationModal = ConfirmationModal(
@@ -196,12 +189,30 @@ public struct SessionProPaymentScreen: View {
                         scrollMode: .never
                     ),
                     confirmTitle: "updatePlan".localized(),
-                    onConfirm: { _ in self.purchaseHandler?(updatedPlan) }
+                    onConfirm: { _ in
+                        self.viewModel.purchase(
+                            planInfo: updatedPlan,
+                            success: {
+                                
+                            },
+                            failure: {
+                                
+                            }
+                        )
+                    }
                 )
             )
             self.host.controller?.present(confirmationModal, animated: true)
-        } else if case .purchase = dataModel.flow {
-            self.purchaseHandler?(updatedPlan)
+        } else if case .purchase = viewModel.dataModel.flow {
+            self.viewModel.purchase(
+                planInfo: updatedPlan,
+                success: {
+                    
+                },
+                failure: {
+                    
+                }
+            )
         }
     }
     
@@ -217,12 +228,12 @@ public struct SessionProPaymentScreen: View {
                 hasCloseButton: true,
                 onConfirm: { _ in
                     if let url: URL = URL(string: "https://getsession.org/terms-of-service") {
-                        openURL(url)
+                        viewModel.openURL(url)
                     }
                 },
                 onCancel: { modal in
                     if let url: URL = URL(string: "https://getsession.org/privacy-policy") {
-                        openURL(url)
+                        viewModel.openURL(url)
                     }
                     modal.close()
                 }
@@ -247,7 +258,7 @@ public struct SessionProPaymentScreen: View {
                 confirmStyle: .danger,
                 cancelTitle: "urlCopy".localized(),
                 cancelStyle: .alert_text,
-                onConfirm:  { _ in openURL(url) },
+                onConfirm:  { _ in viewModel.openURL(url) },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
                     modal.close()
