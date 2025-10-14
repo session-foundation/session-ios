@@ -77,6 +77,7 @@ class SendMediaNavigationController: UINavigationController {
     // MARK: -
 
     public weak var sendMediaNavDelegate: SendMediaNavDelegate?
+    public weak var sendMediaNavDataSource: SendMediaNavDataSource?
 
     public class func showingCameraFirst(threadId: String, threadVariant: SessionThread.Variant, using dependencies: Dependencies) -> SendMediaNavigationController {
         let navController = SendMediaNavigationController(threadId: threadId, threadVariant: threadVariant, using: dependencies)
@@ -245,6 +246,7 @@ class SendMediaNavigationController: UINavigationController {
         else { return false }
         
         approvalViewController.approvalDelegate = self
+        approvalViewController.approvalDataSource = self
         approvalViewController.messageText = sendMediaNavDelegate.sendMediaNavInitialMessageText(self)
 
         pushViewController(approvalViewController, animated: true)
@@ -425,7 +427,8 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
     }
 }
 
-extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegate {
+extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegate, AttachmentApprovalViewControllerDataSource {
+    // MARK: - AttachmentApprovalViewControllerDelegate
     func attachmentApproval(_ attachmentApproval: AttachmentApprovalViewController, didChangeMessageText newMessageText: String?) {
         sendMediaNavDelegate?.sendMediaNav(self, didChangeMessageText: newMessageText)
     }
@@ -475,6 +478,11 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
         mediaLibraryViewController.batchSelectModeDidChange()
 
         popViewController(animated: true)
+    }
+    
+    // MARK: - AttachmentApprovalViewControllerDataSource
+    func attachmentApprovalQouteAccessoryView(_ deleteHandler: @escaping () -> Void) -> UIView? {
+        sendMediaNavDataSource?.sendMediaNavQouteAccessoryView(deleteHandler)
     }
 }
 
@@ -798,4 +806,8 @@ protocol SendMediaNavDelegate: AnyObject {
 
     func sendMediaNavInitialMessageText(_ sendMediaNavigationController: SendMediaNavigationController) -> String?
     func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didChangeMessageText newMessageText: String?)
+}
+
+protocol SendMediaNavDataSource: AnyObject {
+    func sendMediaNavQouteAccessoryView(_ deleteHandler: @escaping () -> Void) -> UIView?
 }

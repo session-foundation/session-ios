@@ -9,25 +9,32 @@ protocol AttachmentApprovalInputAccessoryViewDelegate: AnyObject {
     func attachmentApprovalInputUpdateMediaRail()
 }
 
+protocol AttachmentApprovalInputAccessoryViewDataSource: AnyObject {
+    func attachmentApprovalQouteAccessoryView(onDeleteHandler handler: @escaping () -> Void) -> UIView?
+}
+
 // MARK: -
 
 class AttachmentApprovalInputAccessoryView: UIView {
 
     weak var delegate: AttachmentApprovalInputAccessoryViewDelegate?
+    weak var dataSource: AttachmentApprovalInputAccessoryViewDataSource?
 
     let attachmentTextToolbar: AttachmentTextToolbar
     let galleryRailView: GalleryRailView
+    private lazy var additionalContentContainer = UIView()
 
     var isEditingMediaMessage: Bool {
         return attachmentTextToolbar.inputView?.isFirstResponder ?? false
     }
 
     private var currentAttachmentItem: SignalAttachmentItem?
-
+    
     let kGalleryRailViewHeight: CGFloat = 72
 
-    required init(delegate: AttachmentTextToolbarDelegate, using dependencies: Dependencies) {
+    required init(delegate: AttachmentTextToolbarDelegate, dataSource: AttachmentApprovalInputAccessoryViewDataSource?, using dependencies: Dependencies) {
         attachmentTextToolbar = AttachmentTextToolbar(delegate: delegate, using: dependencies)
+        self.dataSource = dataSource
 
         galleryRailView = GalleryRailView()
         galleryRailView.scrollFocusMode = .keepWithinBounds
@@ -64,7 +71,11 @@ class AttachmentApprovalInputAccessoryView: UIView {
         separator.pin(.leading, to: .leading, of: self)
         separator.pin(.trailing, to: .trailing, of: self)
 
-        let stackView = UIStackView(arrangedSubviews: [galleryRailView, attachmentTextToolbar])
+        let stackView = UIStackView(arrangedSubviews: [
+            galleryRailView,
+            additionalContentContainer,
+            attachmentTextToolbar
+        ])
         stackView.axis = .vertical
 
         addSubview(stackView)
@@ -83,6 +94,8 @@ class AttachmentApprovalInputAccessoryView: UIView {
         galleryRailBlockingView.pin(.left, to: .left, of: stackView)
         galleryRailBlockingView.pin(.right, to: .right, of: stackView)
         galleryRailBlockingView.pin(.bottom, to: .bottom, of: stackView)
+        
+        setupQuoteAccessoryViewIfAny()
     }
 
     // MARK: 
@@ -100,6 +113,25 @@ class AttachmentApprovalInputAccessoryView: UIView {
         self.shouldHideControls = shouldHideControls
 
         updateFirstResponder()
+    }
+    
+    // MARK: - Additional accessory view
+    private func setupQuoteAccessoryViewIfAny() {
+        additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
+
+        let view = dataSource?.attachmentApprovalQouteAccessoryView { [weak self] in
+            self?.additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
+        }
+
+        guard let quoteView = view else { return }
+        
+        let hInset: CGFloat = 6 // Slight visual adjustment
+
+        additionalContentContainer.addSubview(quoteView)
+        quoteView.pin(.leading, to: .leading, of: additionalContentContainer, withInset: hInset)
+        quoteView.pin(.top, to: .top, of: additionalContentContainer, withInset: 12)
+        quoteView.pin(.trailing, to: .trailing, of: additionalContentContainer, withInset: -hInset)
+        quoteView.pin(.bottom, to: .bottom, of: additionalContentContainer, withInset: -6)
     }
 
     // MARK: 

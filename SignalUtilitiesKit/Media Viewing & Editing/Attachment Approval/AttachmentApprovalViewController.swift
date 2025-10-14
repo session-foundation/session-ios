@@ -42,6 +42,10 @@ public protocol AttachmentApprovalViewControllerDelegate: AnyObject {
     func attachmentApprovalDidTapAddMore(_ attachmentApproval: AttachmentApprovalViewController)
 }
 
+public protocol AttachmentApprovalViewControllerDataSource: AnyObject {
+    func attachmentApprovalQouteAccessoryView(_ deleteHandler: @escaping () -> Void) -> UIView?
+}
+
 // MARK: -
 
 @objc
@@ -77,6 +81,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private let disableLinkPreviewImageDownload: Bool
 
     public weak var approvalDelegate: AttachmentApprovalViewControllerDelegate?
+    public weak var approvalDataSource: AttachmentApprovalViewControllerDataSource?
     
     let attachmentItemCollection: AttachmentItemCollection
 
@@ -183,6 +188,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         threadVariant: SessionThread.Variant,
         attachments: [SignalAttachment],
         approvalDelegate: AttachmentApprovalViewControllerDelegate,
+        approvalDataSource: AttachmentApprovalViewControllerDataSource?,
         disableLinkPreviewImageDownload: Bool,
         using dependencies: Dependencies
     ) -> UINavigationController? {
@@ -195,6 +201,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             using: dependencies
         ) else { return nil }
         vc.approvalDelegate = approvalDelegate
+        vc.approvalDataSource = approvalDataSource
         
         let navController = StyledNavigationController(rootViewController: vc)
         
@@ -206,7 +213,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private let kSpacingBetweenItems: CGFloat = 20
     
     private lazy var bottomToolView: AttachmentApprovalInputAccessoryView = {
-        let bottomToolView = AttachmentApprovalInputAccessoryView(delegate: self, using: dependencies)
+        let bottomToolView = AttachmentApprovalInputAccessoryView(delegate: self, dataSource: self, using: dependencies)
         bottomToolView.delegate = self
         bottomToolView.attachmentTextToolbar.delegate = self
         bottomToolView.galleryRailView.delegate = self
@@ -855,5 +862,11 @@ extension AttachmentApprovalViewController: ApprovalRailCellViewDelegate {
 extension AttachmentApprovalViewController: AttachmentApprovalInputAccessoryViewDelegate {
     public func attachmentApprovalInputUpdateMediaRail() {
         updateMediaRail()
+    }
+}
+
+extension AttachmentApprovalViewController: AttachmentApprovalInputAccessoryViewDataSource {
+    func attachmentApprovalQouteAccessoryView(onDeleteHandler handler: @escaping () -> Void) -> UIView? {
+        return approvalDataSource?.attachmentApprovalQouteAccessoryView(handler)
     }
 }

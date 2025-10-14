@@ -175,6 +175,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     lazy var snInputView: InputView = InputView(
         threadVariant: self.viewModel.initialThreadVariant,
         delegate: self,
+        dataSource: self,
         using: self.viewModel.dependencies
     )
 

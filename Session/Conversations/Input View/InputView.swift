@@ -16,7 +16,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private var disposables: Set<AnyCancellable> = Set()
     private let dependencies: Dependencies
     private let threadVariant: SessionThread.Variant
+    
     private weak var delegate: InputViewDelegate?
+    private weak var dataSource: InputViewDataSource?
+    
     private var sessionProState: SessionProManagerType?
     
     var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
@@ -202,10 +205,16 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     // MARK: - Initialization
     
-    init(threadVariant: SessionThread.Variant, delegate: InputViewDelegate, using dependencies: Dependencies) {
+    init(
+        threadVariant: SessionThread.Variant,
+        delegate: InputViewDelegate,
+        dataSource: InputViewDataSource?,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
         self.threadVariant = threadVariant
         self.delegate = delegate
+        self.dataSource = dataSource
         self.sessionProState = dependencies[singleton: .sessionProState]
         
         super.init(frame: CGRect.zero)
@@ -343,23 +352,14 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
         linkPreviewInfo = nil
         
-        guard let quoteDraftInfo = quoteDraftInfo else { return }
+        let view = dataSource?.shouldShowQuoteAccessoryView {
+            self.quoteDraftInfo = nil
+        }
+        
+        guard let quoteView = view else { return }
         
         let hInset: CGFloat = 6 // Slight visual adjustment
 
-        let quoteView: QuoteView = QuoteView(
-            for: .draft,
-            authorId: quoteDraftInfo.model.authorId,
-            quotedText: quoteDraftInfo.model.body,
-            threadVariant: threadVariant,
-            currentUserSessionIds: quoteDraftInfo.model.currentUserSessionIds,
-            direction: (quoteDraftInfo.isOutgoing ? .outgoing : .incoming),
-            attachment: quoteDraftInfo.model.attachment,
-            using: dependencies
-        ) { [weak self] in
-            self?.quoteDraftInfo = nil
-        }
-        
         additionalContentContainer.addSubview(quoteView)
         quoteView.pin(.leading, to: .leading, of: additionalContentContainer, withInset: hInset)
         quoteView.pin(.top, to: .top, of: additionalContentContainer, withInset: 12)
@@ -675,4 +675,9 @@ protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageReco
     @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
     @MainActor func didPasteImageFromPasteboard(_ image: UIImage)
+}
+
+public protocol InputViewDataSource: AnyObject {
+    @MainActor
+    func shouldShowQuoteAccessoryView(withDeleteHandler handler:@escaping () -> Void) -> UIView?
 }

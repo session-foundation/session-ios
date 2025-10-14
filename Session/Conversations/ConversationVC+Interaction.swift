@@ -445,6 +445,7 @@ extension ConversationVC:
                     using: dependencies
                 )
                 sendMediaNavController.sendMediaNavDelegate = self
+                sendMediaNavController.sendMediaNavDataSource = self
                 sendMediaNavController.modalPresentationStyle = .fullScreen
                 self?.present(sendMediaNavController, animated: true, completion: nil)
             }
@@ -466,6 +467,7 @@ extension ConversationVC:
             using: self.viewModel.dependencies
         )
         sendMediaNavController.sendMediaNavDelegate = self
+        sendMediaNavController.sendMediaNavDataSource = self
         sendMediaNavController.modalPresentationStyle = .fullScreen
         
         present(sendMediaNavController, animated: true, completion: nil)
@@ -483,6 +485,7 @@ extension ConversationVC:
             threadVariant: self.viewModel.threadData.threadVariant,
             attachments: attachments,
             approvalDelegate: self,
+            approvalDataSource: self,
             disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
             using: self.viewModel.dependencies
         ) else { return }
@@ -959,6 +962,7 @@ extension ConversationVC:
             threadVariant: self.viewModel.threadData.threadVariant,
             attachments: [ attachment ],
             approvalDelegate: self,
+            approvalDataSource: self,
             disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
             using: self.viewModel.dependencies
         ) else { return }
@@ -3484,5 +3488,49 @@ extension ConversationVC: MediaPresentationContextProvider {
 
     func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
         return self.navigationController?.navigationBar.generateSnapshot(in: coordinateSpace)
+    }
+}
+
+// MARK: - Qoute accessory handling
+extension ConversationVC: InputViewDataSource, AttachmentApprovalViewControllerDataSource, SendMediaNavDataSource {
+    func generateQouteAccessoryView(_ deleteHandler: @escaping () -> Void) -> UIView? {
+        guard let quoteDraftInfo = snInputView.quoteDraftInfo else {
+            return nil
+        }
+        
+        let quoteView: QuoteView = QuoteView(
+            for: .draft,
+            authorId: quoteDraftInfo.model.authorId,
+            quotedText: quoteDraftInfo.model.body,
+            threadVariant: self.viewModel.threadData.threadVariant,
+            currentUserSessionIds: quoteDraftInfo.model.currentUserSessionIds,
+            direction: (quoteDraftInfo.isOutgoing ? .outgoing : .incoming),
+            attachment: quoteDraftInfo.model.attachment,
+            using: viewModel.dependencies
+        ) {
+            deleteHandler()
+        }
+        
+        return quoteView
+    }
+    
+    // MARK: - InputViewDataSource
+    func shouldShowQuoteAccessoryView(withDeleteHandler handler: @escaping () -> Void) -> UIView? {
+        generateQouteAccessoryView(handler)
+    }
+    
+    // MARK: - AttachmentApprovalViewControllerDataSource
+    func attachmentApprovalQouteAccessoryView(_ deleteHandler: @escaping () -> Void) -> UIView? {
+        generateQouteAccessoryView { [weak self] in
+            self?.snInputView.quoteDraftInfo = nil
+            deleteHandler()
+        }
+    }
+    
+    func sendMediaNavQouteAccessoryView(_ deleteHandler: @escaping () -> Void) -> UIView? {
+        generateQouteAccessoryView { [weak self] in
+            self?.snInputView.quoteDraftInfo = nil
+            deleteHandler()
+        }
     }
 }
