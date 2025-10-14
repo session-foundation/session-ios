@@ -124,6 +124,44 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 }
                 
+                /// Remove the old display picture (since we are replacing it)
+                let existingProfileUrl: String? = try? await dependencies[singleton: .storage].readAsync { db in
+                    switch details.target {
+                        case .profile(let id, _, _):
+                            return try? Profile
+                                .filter(id: id)
+                                .select(.displayPictureUrl)
+                                .asRequest(of: String.self)
+                                .fetchOne(db)
+                            
+                        case .group(let id, _, _):
+                            return try? ClosedGroup
+                                .filter(id: id)
+                                .select(.displayPictureUrl)
+                                .asRequest(of: String.self)
+                                .fetchOne(db)
+                            
+                        case .community(_, let roomToken, let server, _):
+                            return try? OpenGroup
+                                .filter(id: OpenGroup.idFor(roomToken: roomToken, server: server))
+                                .select(.displayPictureOriginalUrl)
+                                .asRequest(of: String.self)
+                                .fetchOne(db)
+                    }
+                }
+                if
+                    let existingProfileUrl: String = existingProfileUrl,
+                    let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
+                        .path(for: existingProfileUrl)
+                {
+                    Task.detached(priority: .low) {
+                        await dependencies[singleton: .imageDataManager].removeImage(
+                            identifier: existingFilePath
+                        )
+                        try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
+                    }
+                }
+                
                 /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
                 /// the `downloadUrl` changing)
                 try await dependencies[singleton: .storage].writeAsync { db in

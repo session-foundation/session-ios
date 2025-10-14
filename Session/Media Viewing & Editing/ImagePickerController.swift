@@ -40,7 +40,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
         self.dependencies = dependencies
         collectionViewFlowLayout = type(of: self).buildLayout()
         photoCollection = library.defaultPhotoCollection()
-        photoCollectionContents = photoCollection.contents()
+        photoCollectionContents = photoCollection.contents(using: dependencies)
 
         super.init(collectionViewLayout: collectionViewFlowLayout)
     }
@@ -401,7 +401,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     // MARK: - PhotoLibraryDelegate
 
     func photoLibraryDidChange(_ photoLibrary: PhotoLibrary) {
-        photoCollectionContents = photoCollection.contents()
+        photoCollectionContents = photoCollection.contents(using: dependencies)
         collectionView?.reloadData()
     }
 
@@ -410,7 +410,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
     var isShowingCollectionPickerController: Bool = false
     
     lazy var collectionPickerController: SessionTableViewController = SessionTableViewController(
-        viewModel: PhotoCollectionPickerViewModel(library: library, using: dependencies) { [weak self] collection in
+        viewModel: PhotoCollectionPickerViewModel(library: library, using: dependencies) { [weak self, dependencies] collection in
             guard self?.photoCollection != collection else {
                 self?.hideCollectionPicker()
                 return
@@ -420,7 +420,7 @@ class ImagePickerGridController: UICollectionViewController, PhotoLibraryDelegat
             self?.clearCollectionViewSelection()
 
             self?.photoCollection = collection
-            self?.photoCollectionContents = collection.contents()
+            self?.photoCollectionContents = collection.contents(using: dependencies)
 
             self?.titleView.text = collection.localizedTitle()
 

@@ -27,7 +27,7 @@ class PhotoMediaSize {
 }
 
 class PhotoPickerAssetItem: PhotoGridItem {
-
+    let dependencies: Dependencies
     let asset: PHAsset
     let photoCollectionContents: PhotoCollectionContents
     let size: ImageDataManager.ThumbnailSize
@@ -37,8 +37,10 @@ class PhotoPickerAssetItem: PhotoGridItem {
         asset: PHAsset,
         photoCollectionContents: PhotoCollectionContents,
         size: ImageDataManager.ThumbnailSize,
-        pixelDimension: CGFloat
+        pixelDimension: CGFloat,
+        using dependencies: Dependencies
     ) {
+        self.dependencies = dependencies
         self.asset = asset
         self.photoCollectionContents = photoCollectionContents
         self.size = size
@@ -49,18 +51,19 @@ class PhotoPickerAssetItem: PhotoGridItem {
 
     var isVideo: Bool { asset.mediaType == .video }
     var source: ImageDataManager.DataSource {
-        return .asyncSource(self.asset.localIdentifier) { [photoCollectionContents, asset, size, pixelDimension] in
+        return .asyncSource(self.asset.localIdentifier) { [photoCollectionContents, asset, size, pixelDimension, dependencies] in
             await photoCollectionContents.requestThumbnail(
                 for: asset,
                 size: size,
-                thumbnailSize: CGSize(width: pixelDimension, height: pixelDimension)
+                pixelDimension: pixelDimension,
+                using: dependencies
             )
         }
     }
 }
 
 class PhotoCollectionContents {
-
+    private let dependencies: Dependencies
     let fetchResult: PHFetchResult<PHAsset>
     let localizedTitle: String?
 
@@ -69,7 +72,8 @@ class PhotoCollectionContents {
         case unsupportedMediaType
     }
 
-    init(fetchResult: PHFetchResult<PHAsset>, localizedTitle: String?) {
+    init(fetchResult: PHFetchResult<PHAsset>, localizedTitle: String?, using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.fetchResult = fetchResult
         self.localizedTitle = localizedTitle
     }
@@ -111,7 +115,8 @@ class PhotoCollectionContents {
             asset: mediaAsset,
             photoCollectionContents: self,
             size: size,
-            pixelDimension: pixelDimension
+            pixelDimension: pixelDimension,
+            using: dependencies
         )
     }
 
@@ -122,7 +127,8 @@ class PhotoCollectionContents {
             asset: mediaAsset,
             photoCollectionContents: self,
             size: size,
-            pixelDimension: pixelDimension
+            pixelDimension: pixelDimension,
+            using: dependencies
         )
     }
 
@@ -133,20 +139,26 @@ class PhotoCollectionContents {
             asset: mediaAsset,
             photoCollectionContents: self,
             size: size,
-            pixelDimension: pixelDimension
+            pixelDimension: pixelDimension,
+            using: dependencies
         )
     }
 
     // MARK: ImageManager
     
-    func requestThumbnail(for asset: PHAsset, size: ImageDataManager.ThumbnailSize, thumbnailSize: CGSize) async -> ImageDataManager.DataSource? {
+    func requestThumbnail(
+        for asset: PHAsset,
+        size: ImageDataManager.ThumbnailSize,
+        pixelDimension: CGFloat,
+        using dependencies: Dependencies
+    ) async -> ImageDataManager.DataSource? {
         var hasResumed: Bool = false
         
         /// The `requestImage` function will always return a static thumbnail so if it's an animated image then we need custom
-        /// handling (the default PhotoKit resizing can't resize animated images so we need to return the original file)
+        /// handling (the default PhotoKit resizing can't resize animated images so we need to do it ourselves)
         switch asset.utType?.isAnimated {
             case .some(true):
-                return await withCheckedContinuation { [imageManager] continuation in
+                let maybeData: Data? = await withCheckedContinuation { [imageManager] continuation in
                     let options = PHImageRequestOptions()
                     options.deliveryMode = .highQualityFormat
                     options.isNetworkAccessAllowed = true
@@ -160,11 +172,26 @@ class PhotoCollectionContents {
                             return
                         }
                         
-                        // Successfully fetched the data, resume with the animated result
+                        // Successfully fetched the data
                         hasResumed = true
-                        continuation.resume(returning: .data(asset.localIdentifier, data))
+                        continuation.resume(returning: data)
                     }
                 }
+                
+                guard
+                    let data: Data = maybeData,
+                    let path: String = try? dependencies[singleton: .attachmentManager]
+                        .path(for: asset.localIdentifier)
+                else { return nil }
+                do {
+                    let generatedFileName: String = URL(fileURLWithPath: path).lastPathComponent
+                    let fileUrl: URL = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
+                        .appendingPathComponent(generatedFileName)
+                    try dependencies[singleton: .fileManager].write(data: data, toPath: fileUrl.path)
+                    
+                    return .urlThumbnail(fileUrl, size, dependencies[singleton: .attachmentManager])
+                }
+                catch { return nil }
                 
             default:
                 return await withCheckedContinuation { [imageManager] continuation in
@@ -177,7 +204,7 @@ class PhotoCollectionContents {
                     
                     imageManager.requestImage(
                         for: asset,
-                        targetSize: thumbnailSize,
+                        targetSize: CGSize(width: pixelDimension, height: pixelDimension),
                         contentMode: .aspectFill,
                         options: options
                     ) { image, info in
@@ -268,8 +295,11 @@ class PhotoCollectionContents {
                 }
             }
             
+            let targetFormat: PendingAttachment.ConversionFormat = (dependencies[feature: .usePngInsteadOfWebPForFallbackImageType] ?
+                .png : .webPLossy
+            )
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
-                operations: [.convert(to: .webPLossy)],
+                operations: [.convert(to: targetFormat)],
                 using: dependencies
             )
             
@@ -375,12 +405,16 @@ class PhotoCollection {
     }
 
     // stringlint:ignore_contents
-    func contents() -> PhotoCollectionContents {
+    func contents(using dependencies: Dependencies) -> PhotoCollectionContents {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
         let fetchResult = PHAsset.fetchAssets(in: collection, options: options)
 
-        return PhotoCollectionContents(fetchResult: fetchResult, localizedTitle: localizedTitle())
+        return PhotoCollectionContents(
+            fetchResult: fetchResult,
+            localizedTitle: localizedTitle(),
+            using: dependencies
+        )
     }
 }
 
@@ -444,7 +478,7 @@ class PhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
         return photoCollection
     }
 
-    func allPhotoCollections() -> [PhotoCollection] {
+    func allPhotoCollections(using dependencies: Dependencies) -> [PhotoCollection] {
         var collections = [PhotoCollection]()
         var collectionIds = Set<String>()
 
@@ -462,7 +496,7 @@ class PhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
                 return
             }
             let photoCollection = PhotoCollection(id: collectionId, collection: assetCollection)
-            guard !hideIfEmpty || photoCollection.contents().assetCount > 0 else {
+            guard !hideIfEmpty || photoCollection.contents(using: dependencies).assetCount > 0 else {
                 return
             }
 

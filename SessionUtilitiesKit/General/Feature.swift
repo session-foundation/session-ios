@@ -105,6 +105,10 @@ public extension FeatureStorage {
     static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(
         identifier: "simulateAppReviewLimit"
     )
+    
+    static let usePngInsteadOfWebPForFallbackImageType: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "usePngInsteadOfWebPForFallbackImageType"
+    )
 }
 
 // MARK: - FeatureOption

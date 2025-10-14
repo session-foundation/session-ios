@@ -83,8 +83,8 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
         /// **Note:** Now that download urls could contain fragments (or query params I guess) that could result in inconsistent paths
         /// with old attachments so just to be safe we should strip them before generating the `urlHash`
         let urlNoQueryOrFragment: String = urlString
-            .components(separatedBy: "?")[0]
-            .components(separatedBy: "#")[0]
+            .components(separatedBy: "?")[0]    // stringlint:disable
+            .components(separatedBy: "#")[0]    // stringlint:disable
         let urlHash = try {
             guard let cachedHash: String = cache.object(forKey: urlNoQueryOrFragment) else {
                 return try dependencies[singleton: .crypto]
@@ -221,25 +221,77 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
     
     // MARK: - ThumbnailManager
     
-    private func thumbnailUrl(for url: URL, size: ImageDataManager.ThumbnailSize) throws -> URL {
-        guard !url.lastPathComponent.isEmpty else { throw AttachmentError.invalidPath }
+    private func thumbnailPath(for name: String, size: ImageDataManager.ThumbnailSize) throws -> String {
+        guard !name.isEmpty else { throw AttachmentError.invalidPath }
         
         /// Thumbnails are written to the caches directory, so that iOS can remove them if necessary
-        return URL(fileURLWithPath: SessionFileManager.cachesDirectoryPath)
-            .appendingPathComponent(url.lastPathComponent)
-            .appendingPathComponent("thumbnail-\(size).jpg") // stringlint:ignore
+        let thumbnailsUrl: URL = URL(fileURLWithPath: SessionFileManager.cachesDirectoryPath)
+            .appendingPathComponent(name)
+        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: thumbnailsUrl.path)
+        
+        return thumbnailsUrl
+            .appendingPathComponent("thumbnail-\(size)") // stringlint:ignore
+            .path
     }
 
-    public func existingThumbnailImage(url: URL, size: ImageDataManager.ThumbnailSize) -> UIImage? {
-        guard let thumbnailUrl: URL = try? thumbnailUrl(for: url, size: size) else { return nil }
+    public func existingThumbnail(name: String, size: ImageDataManager.ThumbnailSize) -> ImageDataManager.DataSource? {
+        guard
+            let thumbnailPath: String = try? thumbnailPath(for: name, size: size),
+            dependencies[singleton: .fileManager].fileExists(atPath: thumbnailPath)
+        else { return nil }
         
-        return UIImage(contentsOfFile: thumbnailUrl.path)
+        return .url(URL(fileURLWithPath: thumbnailPath))
     }
     
-    public func saveThumbnail(data: Data, size: ImageDataManager.ThumbnailSize, url: URL) {
-        guard let thumbnailUrl: URL = try? thumbnailUrl(for: url, size: size) else { return }
+    public func saveThumbnail(
+        name: String,
+        frames: [UIImage],
+        durations: [TimeInterval],
+        hasAlpha: Bool?,
+        size: ImageDataManager.ThumbnailSize
+    ) {
+        guard
+            let thumbnailPath: String = try? thumbnailPath(for: name, size: size), (
+                frames.count == durations.count ||
+                frames.count == 1
+            )
+        else { return }
         
-        try? data.write(to: thumbnailUrl)
+        let finalFrames: [CGImage] = frames.compactMap { $0.cgImage }
+        
+        /// Writing a `WebP` is much slower than writing a `GIF` (up to 3-4 times slower) but in many cases the resulting `WebP`
+        /// file would end up smaller (about 3 times smaller) - since we are generating a thumbnail the output _generally_ shouldn't be
+        /// that large (and the OS can purge files these thumbnails when it wants) so we default to `GIF` thumbnails here due to encoding
+        /// speed unless the source has alpha (in which case we need to use `WebP` as `GIF` doesn't have proper alpha support). By
+        /// spending less time encoding `GIF` would result in less battery drain that encoding to `WebP` would
+        ///
+        /// **Note:** The `WebP` encoding runs much slower on debug builds compared to release builds (can be 10 times slower)
+        if hasAlpha == true {
+            try? PendingAttachment.writeFramesAsWebPToFile(
+                frames: finalFrames,
+                metadata: MediaUtils.MediaMetadata(
+                    pixelSize: (frames.first?.size ?? .zero),
+                    frameDurations: (frames.count == 1 ? [0] : durations),
+                    hasUnsafeMetadata: false
+                ),
+                encodeWebPLossless: false,
+                encodeCompressionQuality: PendingAttachment.ConversionFormat.defaultWebPCompressionQuality,
+                filePath: thumbnailPath,
+                using: dependencies
+            )
+        }
+        else {
+            try? PendingAttachment.writeFramesAsGifToFile(
+                frames: finalFrames,
+                metadata: MediaUtils.MediaMetadata(
+                    pixelSize: (frames.first?.size ?? .zero),
+                    frameDurations: (frames.count == 1 ? [0] : durations),
+                    hasUnsafeMetadata: false
+                ),
+                compressionQuality: PendingAttachment.ConversionFormat.defaultGifCompressionQuality,
+                filePath: thumbnailPath
+            )
+        }
     }
     
     // MARK: - Validity
@@ -530,6 +582,7 @@ public extension PendingAttachment {
     enum ConversionFormat: Sendable, Equatable, Hashable {
         case current
         case mp4
+        case png(maxDimension: CGFloat?, cropRect: CGRect?)
         
         /// A `compressionQuality` value of `0` gives the smallest size and `1` the largest
         case webPLossy(maxDimension: CGFloat?, cropRect: CGRect?, compressionQuality: CGFloat)
@@ -539,8 +592,16 @@ public extension PendingAttachment {
         
         case gif(maxDimension: CGFloat?, cropRect: CGRect?, compressionQuality: CGFloat)
         
-        private static let defaultWebPCompressionQuality: CGFloat = 0.8
-        private static let defaultWebPCompressionEffort: CGFloat = 0.25
+        public static var png: ConversionFormat { .png(maxDimension: nil, cropRect: nil) }
+        public static func png(maxDimension: CGFloat?) -> ConversionFormat {
+            .png(maxDimension: maxDimension, cropRect: nil)
+        }
+        public static func png(cropRect: CGRect?) -> ConversionFormat {
+            .png(maxDimension: nil, cropRect: cropRect)
+        }
+        
+        fileprivate static let defaultWebPCompressionQuality: CGFloat = 0.8
+        fileprivate static let defaultWebPCompressionEffort: CGFloat = 0.25
         
         public static var webPLossy: ConversionFormat {
             .webPLossy(maxDimension: nil, cropRect: nil, compressionQuality: defaultWebPCompressionQuality)
@@ -556,7 +617,7 @@ public extension PendingAttachment {
             .webPLossless(maxDimension: maxDimension, cropRect: cropRect, compressionEffort: defaultWebPCompressionEffort)
         }
         
-        private static let defaultGifCompressionQuality: CGFloat = 0.8
+        fileprivate static let defaultGifCompressionQuality: CGFloat = 0.8
         public static var gif: ConversionFormat {
             .gif(maxDimension: nil, cropRect: nil, compressionQuality: defaultGifCompressionQuality)
         }
@@ -575,6 +636,7 @@ public extension PendingAttachment {
             switch self {
                 case .current: return (metadata.utType ?? .invalid)
                 case .mp4: return .mpeg4Movie
+                case .png: return .png
                 case .webPLossy, .webPLossless: return .webP
                 case .gif: return .gif
             }
@@ -659,7 +721,8 @@ public extension PendingAttachment {
                             result.cropRect
                         )
                         
-                    case .webPLossy(let maxDimension, let cropRect, _),
+                    case .png(let maxDimension, let cropRect),
+                        .webPLossy(let maxDimension, let cropRect, _),
                         .webPLossless(let maxDimension, let cropRect, _),
                         .gif(let maxDimension, let cropRect, _):
                         let finalMax: CGFloat?
@@ -1192,7 +1255,7 @@ public extension PendingAttachment {
                     using: dependencies
                 )
                 
-            case (.webPLossy, _), (.webPLossless, _), (.gif, _), (_, false):
+            case (.png, _), (.webPLossy, _), (.webPLossless, _), (.gif, _), (_, false):
                 return try await createImage(
                     source: source,
                     metadata: metadata,
@@ -1216,7 +1279,7 @@ public extension PendingAttachment {
         switch format {
             case .mp4: break
             case .current: throw AttachmentError.invalidFileFormat
-            case .webPLossy, .webPLossless, .gif: throw AttachmentError.couldNotConvert
+            case .png, .webPLossy, .webPLossless, .gif: throw AttachmentError.couldNotConvert
         }
         
         /// Ensure we _actually_ need to make changes first
@@ -1244,7 +1307,7 @@ public extension PendingAttachment {
         let targetCropRect: CGRect?
         
         switch format {
-            case .gif(let maxDimension, let cropRect, _), .webPLossy(let maxDimension, let cropRect, _),
+            case .png(let maxDimension, let cropRect), .gif(let maxDimension, let cropRect, _), .webPLossy(let maxDimension, let cropRect, _),
                 .webPLossless(let maxDimension, let cropRect, _):
                 targetMaxDimension = maxDimension
                 targetCropRect = cropRect
@@ -1373,6 +1436,13 @@ public extension PendingAttachment {
                 switch format {
                     case .current: throw AttachmentError.invalidFileFormat
                     case .mp4: throw AttachmentError.couldNotConvert
+                    case .png:
+                        try PendingAttachment.writeFramesAsPngToFile(
+                            frames: frames,
+                            metadata: metadata,
+                            filePath: filePath
+                        )
+                    
                     case .gif(_, _, let quality):
                         try PendingAttachment.writeFramesAsGifToFile(
                             frames: frames,
@@ -1382,15 +1452,14 @@ public extension PendingAttachment {
                         )
                         
                     case .webPLossy(_, _, let quality), .webPLossless(_, _, let quality):
-                        let outputData: Data = try PendingAttachment.convertToWebP(
+                        try PendingAttachment.writeFramesAsWebPToFile(
                             frames: frames,
                             metadata: metadata,
                             encodeWebPLossless: format.webPIsLossless,
-                            encodeCompressionQuality: quality
+                            encodeCompressionQuality: quality,
+                            filePath: filePath,
+                            using: dependencies
                         )
-                        
-                        /// Write the converted data to a temporary file
-                        try dependencies[singleton: .fileManager].write(data: outputData, toPath: filePath)
                 }
             }
         }
@@ -1398,14 +1467,35 @@ public extension PendingAttachment {
         try await task.value
     }
     
-    private static func writeFramesAsGifToFile(
+    fileprivate static func writeFramesAsPngToFile(
+        frames: [CGImage],
+        metadata: MediaUtils.MediaMetadata,
+        filePath: String
+    ) throws {
+        guard frames.count == 1 else { throw AttachmentError.invalidData }
+        guard
+            let destination: CGImageDestination = CGImageDestinationCreateWithURL(
+                URL(fileURLWithPath: filePath) as CFURL,
+                UTType.png.identifier as CFString,
+                1,
+                nil
+            )
+        else { throw AttachmentError.couldNotResizeImage }
+        
+        CGImageDestinationAddImage(destination, frames[0], nil)
+        
+        guard CGImageDestinationFinalize(destination) else {
+            throw AttachmentError.couldNotResizeImage
+        }
+    }
+    
+    fileprivate static func writeFramesAsGifToFile(
         frames: [CGImage],
         metadata: MediaUtils.MediaMetadata,
         compressionQuality: CGFloat,
         filePath: String
     ) throws {
         guard frames.count == metadata.frameDurations.count else { throw AttachmentError.invalidData }
-        
         guard
             let destination: CGImageDestination = CGImageDestinationCreateWithURL(
                 URL(fileURLWithPath: filePath) as CFURL,
@@ -1444,12 +1534,14 @@ public extension PendingAttachment {
         }
     }
     
-    private static func convertToWebP(
+    fileprivate static func writeFramesAsWebPToFile(
         frames: [CGImage],
         metadata: MediaUtils.MediaMetadata,
         encodeWebPLossless: Bool,
-        encodeCompressionQuality: CGFloat
-    ) throws -> Data {
+        encodeCompressionQuality: CGFloat,
+        filePath: String,
+        using dependencies: Dependencies
+    ) throws {
         guard frames.count == metadata.frameDurations.count else { throw AttachmentError.invalidData }
         
         /// Convert to an image (`SDImageWebPCoder` only supports encoding a `UIImage`)
@@ -1471,7 +1563,7 @@ public extension PendingAttachment {
         }
     
         /// Peform the encoding
-        return try SDImageWebPCoder.shared.encodedData(
+        let outputData: Data = try SDImageWebPCoder.shared.encodedData(
             with: imageToProcess,
             format: .webP,
             options: [
@@ -1479,6 +1571,9 @@ public extension PendingAttachment {
                 .encodeCompressionQuality: encodeCompressionQuality
             ]
         ) ?? { throw AttachmentError.couldNotConvertToWebP }()
+        
+        /// Write the converted data to a temporary file
+        try dependencies[singleton: .fileManager].write(data: outputData, toPath: filePath)
     }
     
     static func convertToMpeg4(

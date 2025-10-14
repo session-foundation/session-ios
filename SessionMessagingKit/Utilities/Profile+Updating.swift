@@ -197,6 +197,20 @@ public extension Profile {
                 }
                 else {
                     if url != profile.displayPictureUrl {
+                        /// Remove the old display picture (since we are replacing it)
+                        if
+                            let existingProfileUrl: String = updatedProfile.displayPictureUrl,
+                            let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
+                                .path(for: existingProfileUrl)
+                        {
+                            Task.detached(priority: .low) {
+                                await dependencies[singleton: .imageDataManager].removeImage(
+                                    identifier: existingFilePath
+                                )
+                                try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
+                            }
+                        }
+                        
                         updatedProfile = updatedProfile.with(displayPictureUrl: .set(to: url))
                         profileChanges.append(Profile.Columns.displayPictureUrl.set(to: url))
                         db.addProfileEvent(id: publicKey, change: .displayPictureUrl(url))

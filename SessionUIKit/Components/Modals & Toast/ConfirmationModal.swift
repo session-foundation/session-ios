@@ -251,7 +251,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         result.layoutMargins = UIEdgeInsets(
             top: Values.smallSpacing,
             left: 0,
-            bottom: Values.smallSpacing,
+            bottom: 0,
             right: 0
         )
         

@@ -112,8 +112,8 @@ public class PhotoGridViewCell: UICollectionViewCell {
         self.item = item
         imageView.setDataManager(dependencies[singleton: .imageDataManager])
         imageView.themeBackgroundColor = .textSecondary
-        imageView.loadImage(item.source) { [weak imageView] processedData in
-            imageView?.themeBackgroundColor = (processedData != nil ? .clear : .textSecondary)
+        imageView.loadImage(item.source) { [weak imageView] buffer in
+            imageView?.themeBackgroundColor = (buffer != nil ? .clear : .textSecondary)
         }
         
         contentTypeBadgeView.isHidden = !item.isVideo

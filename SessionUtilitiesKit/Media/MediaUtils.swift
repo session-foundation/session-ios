@@ -208,6 +208,7 @@ public enum MediaUtils {
         public init(
             pixelSize: CGSize,
             fileSize: UInt64 = 0,
+            frameDurations: [TimeInterval] = [0],
             hasUnsafeMetadata: Bool,
             depthBytes: CGFloat? = nil,
             hasAlpha: Bool? = nil,
@@ -217,8 +218,8 @@ public enum MediaUtils {
         ) {
             self.pixelSize = pixelSize
             self.fileSize = fileSize
-            self.frameDurations = [0]
-            self.duration = 0
+            self.frameDurations = frameDurations
+            self.duration = frameDurations.reduce(0, +)
             self.hasUnsafeMetadata = hasUnsafeMetadata
             self.depthBytes = depthBytes
             self.hasAlpha = hasAlpha

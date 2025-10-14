@@ -558,8 +558,11 @@ final class ShareNavController: UINavigationController {
                 }
             }
             
+            let targetFormat: PendingAttachment.ConversionFormat = (dependencies[feature: .usePngInsteadOfWebPForFallbackImageType] ?
+                .png : .webPLossy
+            )
             let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
-                operations: [.convert(to: .webPLossy)],
+                operations: [.convert(to: targetFormat)],
                 using: dependencies
             )
             

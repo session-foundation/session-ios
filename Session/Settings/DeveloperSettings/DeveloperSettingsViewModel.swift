@@ -82,6 +82,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case copyAppGroupPath
         case resetAppReviewPrompt
         case simulateAppReviewLimit
+        case usePngInsteadOfWebPForFallbackImageType
         
         case defaultLogLevel
         case advancedLogging
@@ -123,6 +124,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .copyAppGroupPath: return "copyAppGroupPath"
                 case .resetAppReviewPrompt: return "resetAppReviewPrompt"
                 case .simulateAppReviewLimit: return "simulateAppReviewLimit"
+                case .usePngInsteadOfWebPForFallbackImageType: return "usePngInsteadOfWebPForFallbackImageType"
                 
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
@@ -167,6 +169,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .copyAppGroupPath: result.append(.copyAppGroupPath); fallthrough
                 case .resetAppReviewPrompt: result.append(.resetAppReviewPrompt); fallthrough
                 case .simulateAppReviewLimit: result.append(.simulateAppReviewLimit); fallthrough
+                case .usePngInsteadOfWebPForFallbackImageType:
+                    result.append(usePngInsteadOfWebPForFallbackImageType); fallthrough
                 
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
@@ -220,6 +224,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let forceSlowDatabaseQueries: Bool
         
         let updateSimulateAppReviewLimit: Bool
+        let usePngInsteadOfWebPForFallbackImageType: Bool
     }
     
     let title: String = "Developer Settings"
@@ -262,7 +267,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 communityPollLimit: dependencies[feature: .communityPollLimit],
                 
                 forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries],
-                updateSimulateAppReviewLimit: dependencies[feature: .simulateAppReviewLimit]
+                updateSimulateAppReviewLimit: dependencies[feature: .simulateAppReviewLimit],
+                usePngInsteadOfWebPForFallbackImageType: dependencies[feature: .usePngInsteadOfWebPForFallbackImageType]
             )
         }
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
@@ -464,6 +470,25 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         )
                     }
                 ),
+                SessionCell.Info(
+                    id: .usePngInsteadOfWebPForFallbackImageType,
+                    title: "Use PNG instead of WebP for fallback image type",
+                    subtitle: """
+                    Controls whether we should encode to PNG and GIF when sending less common image types (eg. HEIC/HEIF).
+                    
+                    This is beneficial to enable when testing Debug builds as the WebP encoding is an order of magnitude slower than in Release builds.
+                    """,
+                    trailingAccessory: .toggle(
+                        current.usePngInsteadOfWebPForFallbackImageType,
+                        oldValue: previous?.usePngInsteadOfWebPForFallbackImageType
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .usePngInsteadOfWebPForFallbackImageType,
+                            to: !current.usePngInsteadOfWebPForFallbackImageType
+                        )
+                    }
+                )
             ]
         )
         let logging: SectionModel = SectionModel(
@@ -814,6 +839,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     guard dependencies.hasSet(feature: .simulateAppReviewLimit) else { return }
                     
                     updateFlag(for: .simulateAppReviewLimit, to: nil)
+                    
+                case .usePngInsteadOfWebPForFallbackImageType:
+                    guard dependencies.hasSet(feature: .usePngInsteadOfWebPForFallbackImageType) else { return }
+                    
+                    updateFlag(for: .usePngInsteadOfWebPForFallbackImageType, to: nil)
                     
                 case .defaultLogLevel: updateDefaulLogLevel(to: nil)    // Always reset
                 case .loggingCategory: resetLoggingCategories()         // Always reset

@@ -120,8 +120,10 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
             
             /// Since we made it here it means that refreshing the TTL failed so we may need to reupload the display picture
             do {
+                let filePath: String = try dependencies[singleton: .displayPictureManager]
+                    .path(for: displayPictureUrl.absoluteString)
                 let pendingDisplayPicture: PendingAttachment = PendingAttachment(
-                    source: .media(.url(displayPictureUrl)),
+                    source: .media(.url(URL(fileURLWithPath: filePath))),
                     using: dependencies
                 )
                 

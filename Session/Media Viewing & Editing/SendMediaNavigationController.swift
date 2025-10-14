@@ -213,7 +213,7 @@ class SendMediaNavigationController: UINavigationController {
         return attachmentDraftCollection.attachmentDrafts.map { $0.attachment }
     }
 
-    private lazy var mediaLibrarySelections = OrderedDictionary<PHAsset, MediaLibrarySelection>() // Lazy to avoid https://bugs.swift.org/browse/SR-6657
+    private lazy var mediaLibrarySelections = OrderedDictionary<String, MediaLibrarySelection>() // Lazy to avoid https://bugs.swift.org/browse/SR-6657
 
     // MARK: Child VC's
 
@@ -258,6 +258,36 @@ class SendMediaNavigationController: UINavigationController {
     }
 
     private func didRequestExit() {
+        /// Kick off a task to clean up any temporary files we had created
+        let mediaLibrarySelections: [MediaLibrarySelection] = self.mediaLibrarySelections.orderedValues
+        
+        if !mediaLibrarySelections.isEmpty {
+            Task.detached(priority: .utility) { [fileManager = dependencies[singleton: .fileManager]] in
+                let attachmentResults = await withTaskGroup { group in
+                    mediaLibrarySelections.forEach { selection in
+                        group.addTask { await selection.retrievalTask.result }
+                    }
+                    
+                    return await group.reduce(into: []) { result, next in result.append(next) }
+                }
+                
+                for result in attachmentResults {
+                    switch result {
+                        case .failure: break
+                        case .success(let info):
+                            switch info.attachment.visualMediaSource {
+                                case .url(let url):
+                                    if fileManager.isLocatedInTemporaryDirectory(url.path) {
+                                        try? fileManager.removeItem(atPath: url.path)
+                                    }
+                                    
+                                default: break
+                            }
+                    }
+                }
+            }
+        }
+        
         self.sendMediaNavDelegate?.sendMediaNavDidCancel(self)
     }
 }
@@ -335,13 +365,13 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
         didRequestExit()
     }
 
-    func showApprovalAfterProcessingAnyMediaLibrarySelections() {
+    @MainActor func showApprovalAfterProcessingAnyMediaLibrarySelections() {
         let mediaLibrarySelections: [MediaLibrarySelection] = self.mediaLibrarySelections.orderedValues
         let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController()
         self.present(indicator, animated: false)
         
         loadMediaTask?.cancel()
-        loadMediaTask = Task(priority: .userInitiated) { [weak self, indicator] in
+        loadMediaTask = Task.detached(priority: .userInitiated) { [weak self, indicator] in
             do {
                 let attachments = try await withThrowingTaskGroup { group in
                     mediaLibrarySelections.forEach { selection in
@@ -353,7 +383,7 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
                 guard !Task.isCancelled else { return }
                 
                 Log.debug("[SendMediaNavigationController] Built all attachments")
-                indicator.dismiss {
+                await indicator.dismiss {
                     self?.attachmentDraftCollection.selectedFromPicker(attachments: attachments)
                     
                     guard self?.pushApprovalViewController() == true else {
@@ -371,7 +401,7 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
             }
             catch {
                 Log.error("[SendMediaNavigationController] Failed to prepare attachments. error: \(error)")
-                indicator.dismiss { [weak self] in
+                await indicator.dismiss { [weak self] in
                     let modal: ConfirmationModal = ConfirmationModal(
                         targetView: self?.view,
                         info: ConfirmationModal.Info(
@@ -387,21 +417,21 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
     }
 
     func imagePicker(_ imagePicker: ImagePickerGridController, isAssetSelected asset: PHAsset) -> Bool {
-        return mediaLibrarySelections.hasValue(forKey: asset)
+        return mediaLibrarySelections.hasValue(forKey: asset.localIdentifier)
     }
 
     func imagePicker(_ imagePicker: ImagePickerGridController, didSelectAsset asset: PHAsset, retrievalTask: Task<MediaLibraryAttachment, Error>) {
-        guard !mediaLibrarySelections.hasValue(forKey: asset) else { return }
+        guard !mediaLibrarySelections.hasValue(forKey: asset.localIdentifier) else { return }
 
         let libraryMedia = MediaLibrarySelection(asset: asset, retrievalTask: retrievalTask)
-        mediaLibrarySelections.append(key: asset, value: libraryMedia)
+        mediaLibrarySelections.append(key: asset.localIdentifier, value: libraryMedia)
         updateButtons(topViewController: imagePicker)
     }
 
     func imagePicker(_ imagePicker: ImagePickerGridController, didDeselectAsset asset: PHAsset) {
-        guard mediaLibrarySelections.hasValue(forKey: asset) else { return }
+        guard mediaLibrarySelections.hasValue(forKey: asset.localIdentifier) else { return }
         
-        mediaLibrarySelections.remove(key: asset)
+        mediaLibrarySelections.remove(key: asset.localIdentifier)
         updateButtons(topViewController: imagePicker)
     }
 
@@ -436,7 +466,7 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
         switch removedDraft.source {
             case .camera(attachment: _): break
             case .picker(attachment: let pickerAttachment):
-                mediaLibrarySelections.remove(key: pickerAttachment.asset)
+                mediaLibrarySelections.remove(key: pickerAttachment.asset.localIdentifier)
         }
 
         attachmentDraftCollection.remove(attachment: attachment)
