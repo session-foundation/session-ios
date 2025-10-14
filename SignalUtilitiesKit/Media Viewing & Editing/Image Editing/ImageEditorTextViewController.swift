@@ -1,6 +1,7 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -228,9 +229,9 @@ public class ImageEditorTextViewController: OWSViewController, VAlignTextViewDel
     }
 
     private func updateNavigationBar() {
-        let undoButton = navigationBarButton(imageName: "image_editor_undo",
+        let undoButton = navigationBarButton(image: Lucide.image(icon: .rotateCcw, size: 32),
                                              selector: #selector(didTapUndo(sender:)))
-        let doneButton = navigationBarButton(imageName: "image_editor_checkmark_full",
+        let doneButton = navigationBarButton(image: Lucide.image(icon: .circleCheck, size: 32),
                                              selector: #selector(didTapDone(sender:)))
 
         let navigationBarItems = [undoButton, doneButton]

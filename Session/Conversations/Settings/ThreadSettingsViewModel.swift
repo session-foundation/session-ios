@@ -1091,7 +1091,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     SessionCell.Info(
                         id: .debugDeleteAttachmentsBeforeNow,
                         leadingAccessory: .icon(
-                            Lucide.image(icon: .trash2, size: 24)?
+                            Lucide.image(icon: .trash2, size: IconSize.medium.size)?
                                 .withRenderingMode(.alwaysTemplate),
                             customTint: .danger
                         ),

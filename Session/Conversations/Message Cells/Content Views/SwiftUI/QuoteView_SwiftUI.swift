@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -90,23 +91,16 @@ struct QuoteView_SwiftUI: View {
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        let fallbackImageName: String = (attachment.isAudio ? "attachment_audio" : "actionsheet_document_black")
-                        
-                        if let image = UIImage(named: fallbackImageName)?.withRenderingMode(.alwaysTemplate) {
-                            Image(uiImage: image)
-                                .foregroundColor(themeColor: {
-                                    switch info.mode {
-                                        case .regular: return (info.direction == .outgoing ?
-                                            .messageBubble_outgoingText :
-                                                .messageBubble_incomingText
-                                        )
-                                        case .draft: return .textPrimary
-                                    }
-                                }())
-                        }
-                        else {
-                            Color.clear
-                        }
+                        LucideIcon((attachment.isAudio ? .mic : .file), size: Self.iconSize)
+                            .foregroundColor(themeColor: {
+                                switch info.mode {
+                                    case .regular: return (info.direction == .outgoing ?
+                                        .messageBubble_outgoingText :
+                                            .messageBubble_incomingText
+                                    )
+                                    case .draft: return .textPrimary
+                                }
+                            }())
                     }
                     .frame(
                         width: Self.iconSize,
@@ -187,15 +181,13 @@ struct QuoteView_SwiftUI: View {
                         onCancel?()
                     },
                     label: {
-                        if let image = UIImage(named: "X")?.withRenderingMode(.alwaysTemplate) {
-                            Image(uiImage: image)
-                                .foregroundColor(themeColor: .textPrimary)
-                                .frame(
-                                    width: Self.cancelButtonSize,
-                                    height: Self.cancelButtonSize,
-                                    alignment: .center
-                                )
-                        }
+                        LucideIcon(.x, size: Self.cancelButtonSize)
+                            .foregroundColor(themeColor: .textPrimary)
+                            .frame(
+                                width: Self.cancelButtonSize,
+                                height: Self.cancelButtonSize,
+                                alignment: .center
+                            )
                     }
                 )
             }

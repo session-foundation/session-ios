@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
@@ -161,12 +162,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return result
     }()
 
-    private lazy var replyIconImageView: UIImageView = {
-        let result = UIImageView()
+    private lazy var replyIconImageView: LucideIconView = {
         let size = VisibleMessageCell.replyButtonSize
+        
+        let result = LucideIconView(icon: .reply, size: size)
         result.set(.width, to: size)
         result.set(.height, to: size)
-        result.image = UIImage(named: "ic_reply")?.withRenderingMode(.alwaysTemplate)
         result.themeTintColor = .textPrimary
         
         return result

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import NVActivityIndicatorView
 import SessionUIKit
 import SessionMessagingKit
@@ -70,7 +71,7 @@ final class LinkPreviewView: UIView {
     private lazy var cancelButton: UIButton = {
         let result: UIButton = UIButton(type: .custom)
         result.setImage(
-            UIImage(named: "X")?
+            Lucide.image(icon: .x, size: LinkPreviewView.cancelButtonSize)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -156,7 +157,7 @@ final class LinkPreviewView: UIView {
         var image: UIImage? = state.image
         let stateHasImage: Bool = (image != nil)
         if image == nil && (state is LinkPreview.DraftState || state is LinkPreview.SentState) {
-            image = UIImage(named: "Link")?.withRenderingMode(.alwaysTemplate)
+            image = Lucide.image(icon: .link, size: 32)?.withRenderingMode(.alwaysTemplate)
         }
         
         // Image view

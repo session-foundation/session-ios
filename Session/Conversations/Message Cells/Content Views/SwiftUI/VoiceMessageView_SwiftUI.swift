@@ -36,7 +36,7 @@ struct VoiceMessageView_SwiftUI: View {
                             width: Self.toggleContainerSize,
                             height: Self.toggleContainerSize
                         )
-                    if let toggleImage: UIImage = UIImage(named: isPlaying ? "Pause" : "Play")?.withRenderingMode(.alwaysTemplate) {
+                    if let toggleImage: UIImage = UIImage(systemName: isPlaying ? "pause" : "play.fill")?.withRenderingMode(.alwaysTemplate) {
                         Image(uiImage: toggleImage)
                             .resizable()
                             .foregroundColor(themeColor: .textPrimary)

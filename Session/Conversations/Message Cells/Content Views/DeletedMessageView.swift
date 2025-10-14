@@ -31,10 +31,7 @@ final class DeletedMessageView: UIView {
     }
     
     private func setUpViewHierarchy(textColor: ThemeValue, variant: Interaction.Variant, maxWidth: CGFloat) {
-        let trashIcon = Lucide.image(icon: .trash2, size: DeletedMessageView.iconSize)?
-            .withRenderingMode(.alwaysTemplate)
-        
-        let imageView = UIImageView(image: trashIcon)
+        let imageView = LucideIconView(icon: .trash2, size: DeletedMessageView.iconSize)
         imageView.themeTintColor = textColor
         imageView.alpha = Values.highOpacity
         imageView.contentMode = .scaleAspectFit

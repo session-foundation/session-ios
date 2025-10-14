@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import Combine
+import Lucide
 import NVActivityIndicatorView
 import SessionNetworkingKit
 import SessionMessagingKit
@@ -81,8 +82,8 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         return result
     }()
     
-    private lazy var errorImageView: UIImageView = {
-        let result: UIImageView = UIImageView(image: #imageLiteral(resourceName: "warning").withRenderingMode(.alwaysTemplate))
+    private lazy var errorImageView: LucideIconView = {
+        let result: LucideIconView = LucideIconView(icon: .triangleAlert)
         result.themeTintColor = .danger
         
         return result

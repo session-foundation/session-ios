@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 
@@ -62,11 +63,8 @@ public struct LinkPreviewView_SwiftUI: View {
                             height: imageSize
                         )
                         .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
-                } else if
-                    state is LinkPreview.DraftState || state is LinkPreview.SentState,
-                    let defaultImage: UIImage = UIImage(named: "Link")?.withRenderingMode(.alwaysTemplate)
-                {
-                    Image(uiImage: defaultImage)
+                } else if state is LinkPreview.DraftState || state is LinkPreview.SentState {
+                    LucideIcon(.link, size: IconSize.medium.size)
                         .foregroundColor(
                             themeColor: isOutgoing ?
                                 .messageBubble_outgoingText :
@@ -108,7 +106,7 @@ public struct LinkPreviewView_SwiftUI: View {
                     Button(action: {
                         onCancel?()
                     }, label: {
-                        if let image: UIImage = UIImage(named: "X")?.withRenderingMode(.alwaysTemplate) {
+                        if let image = Lucide.image(icon: .x, size: IconSize.medium.size)?.withRenderingMode(.alwaysTemplate) {
                             Image(uiImage: image)
                                 .foregroundColor(themeColor: .textPrimary)
                         }

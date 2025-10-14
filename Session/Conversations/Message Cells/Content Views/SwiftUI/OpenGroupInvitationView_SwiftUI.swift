@@ -1,6 +1,7 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -32,31 +33,27 @@ struct OpenGroupInvitationView_SwiftUI: View {
         self.textColor = textColor
         self.isOutgoing = isOutgoing
     }
-    
+
     var body: some View {
         HStack(
             alignment: .center,
             spacing: Values.mediumSpacing
         ) {
             // Icon
-            if let iconImage = UIImage(named: isOutgoing ? "Globe" : "Plus")?
-                .withRenderingMode(.alwaysTemplate)
-            {
-                Circle()
-                    .fill(themeColor: (isOutgoing ? .messageBubble_overlay : .primary))
-                    .frame(
-                        width: Self.iconImageViewSize,
-                        height: Self.iconImageViewSize
-                    )
-                    .overlay {
-                        Image(uiImage: iconImage)
-                            .foregroundColor(themeColor: (isOutgoing ? .messageBubble_outgoingText : .textPrimary))
-                            .frame(
-                                width: Self.iconSize,
-                                height: Self.iconSize
-                            )
-                    }
-            }
+            Circle()
+                .fill(themeColor: (isOutgoing ? .messageBubble_overlay : .primary))
+                .frame(
+                    width: Self.iconImageViewSize,
+                    height: Self.iconImageViewSize
+                )
+                .overlay {
+                    LucideIcon(isOutgoing ? .globe : .plus, size: Self.iconSize)
+                        .foregroundColor(themeColor: (isOutgoing ? .messageBubble_outgoingText : .textPrimary))
+                        .frame(
+                            width: Self.iconSize,
+                            height: Self.iconSize
+                        )
+                }
             
             // Text
             VStack(

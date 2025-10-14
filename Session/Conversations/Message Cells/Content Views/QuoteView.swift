@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -99,7 +100,7 @@ final class QuoteView: UIView {
         
         if let attachment: Attachment = attachment {
             let isAudio: Bool = attachment.isAudio
-            let fallbackImageName: String = (isAudio ? "attachment_audio" : "actionsheet_document_black") // stringlint:ignore
+
             let imageContainerView: UIView = UIView()
             imageContainerView.themeBackgroundColor = .messageBubble_overlay
             imageContainerView.layer.cornerRadius = VisibleMessageCell.smallCornerRadius
@@ -108,8 +109,11 @@ final class QuoteView: UIView {
             imageContainerView.set(.height, to: thumbnailSize)
             mainStackView.addArrangedSubview(imageContainerView)
             
+            let fallbackIcon: Lucide.Icon = (isAudio ? .mic : .file)
+            
             let imageView: SessionImageView = SessionImageView(
-                image: UIImage(named: fallbackImageName)?.withRenderingMode(.alwaysTemplate),
+                image: Lucide.image(icon: fallbackIcon, size: Self.iconSize)?
+                    .withRenderingMode(.alwaysTemplate),
                 dataManager: dependencies[singleton: .imageDataManager]
             )
             imageView.themeTintColor = {
@@ -239,7 +243,8 @@ final class QuoteView: UIView {
         if mode == .draft {
             // Cancel button
             let cancelButton = UIButton(type: .custom)
-            cancelButton.setImage(UIImage(named: "X")?.withRenderingMode(.alwaysTemplate), for: .normal)
+            cancelButton.setImage(Lucide.image(icon: .x, size: Self.iconSize)?
+                .withRenderingMode(.alwaysTemplate), for: .normal)
             cancelButton.themeTintColor = .textPrimary
             cancelButton.set(.width, to: cancelButtonSize)
             cancelButton.set(.height, to: cancelButtonSize)

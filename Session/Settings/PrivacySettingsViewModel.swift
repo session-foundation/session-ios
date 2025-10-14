@@ -2,6 +2,7 @@
 
 import Foundation
 import Combine
+import Lucide
 import GRDB
 import LocalAuthentication
 import DifferenceKit
@@ -83,7 +84,7 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
         [
             SessionNavItem(
                 id: .close,
-                image: UIImage(named: "X")?
+                image: Lucide.image(icon: .x, size: IconSize.medium.size)?
                     .withRenderingMode(.alwaysTemplate),
                 style: .plain,
                 accessibilityIdentifier: "Close button"

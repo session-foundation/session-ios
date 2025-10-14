@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 
@@ -34,7 +35,8 @@ public extension Interaction.State {
 
             case (.sent, false, _):
                 return (
-                    UIImage(systemName: "checkmark.circle"),
+                    Lucide.image(icon: .circleCheck, size: 12)?
+                        .withRenderingMode(.alwaysTemplate),
                     "disappearingMessagesSent".localized(),
                     .messageBubble_deliveryStatus
                 )
@@ -48,14 +50,16 @@ public extension Interaction.State {
                 
             case (.failed, _, _):
                 return (
-                    UIImage(systemName: "exclamationmark.triangle"),
+                    Lucide.image(icon: .triangleAlert, size: 12)?
+                        .withRenderingMode(.alwaysTemplate),
                     "messageStatusFailedToSend".localized(),
                     .danger
                 )
                 
             case (.failedToSync, _, _):
                 return (
-                    UIImage(systemName: "exclamationmark.triangle"),
+                    Lucide.image(icon: .triangleAlert, size: 12)?
+                        .withRenderingMode(.alwaysTemplate),
                     "messageStatusFailedToSync".localized(),
                     .warning
                 )

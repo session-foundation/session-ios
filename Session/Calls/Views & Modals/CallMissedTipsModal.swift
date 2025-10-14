@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionUtilitiesKit
 
@@ -11,10 +12,8 @@ final class CallMissedTipsModal: Modal {
     
     private lazy var tipsIconContainerView: UIView = UIView()
     
-    private lazy var tipsIconImageView: UIImageView = {
-        let result: UIImageView = UIImageView(
-            image: UIImage(named: "Tips")?.withRenderingMode(.alwaysTemplate)
-        )
+    private lazy var tipsIconImageView: LucideIconView = {
+        let result = LucideIconView(icon: .lightbulb)
         result.themeTintColor = .textPrimary
         result.set(.width, to: 19)
         result.set(.height, to: 28)

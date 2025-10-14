@@ -102,7 +102,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     lazy var leftNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = [
         SessionNavItem(
             id: .close,
-            image: UIImage(named: "X")?
+            image: Lucide.image(icon: .x, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             accessibilityIdentifier: "Close button"
@@ -112,7 +112,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = [
         SessionNavItem(
             id: .qrCode,
-            image: UIImage(named: "QRCode")?
+            image: Lucide.image(icon: .qrCode, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             accessibilityIdentifier: "View QR code",

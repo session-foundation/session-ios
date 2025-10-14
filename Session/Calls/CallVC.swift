@@ -3,6 +3,7 @@
 import UIKit
 import MediaPlayer
 import AVKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -82,10 +83,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         result.themeBackgroundColor = .backgroundSecondary
         result.makeViewDraggable()
         
-        let noVideoIcon: UIImageView = UIImageView(
-            image: UIImage(systemName: "video.slash")?
-                .withRenderingMode(.alwaysTemplate)
-        )
+        let noVideoIcon = LucideIconView(icon: .videoOff, size: 28)
         noVideoIcon.themeTintColor = .textPrimary
         noVideoIcon.set(.width, to: 34)
         noVideoIcon.set(.height, to: 28)
@@ -98,10 +96,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         result.addSubview(floatingRemoteVideoView)
         floatingRemoteVideoView.pin(to: result)
         
-        let swappingVideoIcon: UIImageView = UIImageView(
-            image: UIImage(systemName: "arrow.2.squarepath")?
-                .withRenderingMode(.alwaysTemplate)
-        )
+        let swappingVideoIcon = LucideIconView(icon: .repeat2, size: 12)
         swappingVideoIcon.themeTintColor = .textPrimary
         swappingVideoIcon.set(.width, to: 16)
         swappingVideoIcon.set(.height, to: 12)
@@ -145,7 +140,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var minimizeButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            UIImage(named: "Minimize")?
+            Lucide.image(icon: .minimize2, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -164,7 +159,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         result.accessibilityIdentifier = "Answer call"
         result.accessibilityLabel = "Answer call"
         result.setImage(
-            UIImage(named: "AnswerCall")?
+            UIImage(named: "phone-fill-answer-custom")?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -184,7 +179,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         let result = UIButton(type: .custom)
         result.accessibilityLabel = "End call button"
         result.setImage(
-            UIImage(named: "EndCall")?
+            UIImage(named: "phone-fill-custom")?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -210,7 +205,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         let result = UIButton(type: .custom)
         result.isEnabled = call.isVideoEnabled
         result.setImage(
-            UIImage(named: "SwitchCamera")?
+            Lucide.image(icon: .switchCamera, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -227,7 +222,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var switchAudioButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            UIImage(named: "AudioOff")?
+            Lucide.image(icon: .micOff, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -250,7 +245,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var videoButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            UIImage(named: "VideoCall")?
+            Lucide.image(icon: .video, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -278,7 +273,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     private lazy var routePickerButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setImage(
-            UIImage(named: "Speaker")?
+            Lucide.image(icon: .volume2, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
@@ -867,33 +862,43 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             
             switch currentOutput.portType {
                 case .builtInSpeaker:
-                    let image = UIImage(named: "Speaker")?.withRenderingMode(.alwaysTemplate)
+                    let image = Lucide.image(icon: .volume2, size: IconSize.medium.size)?
+                        .withRenderingMode(.alwaysTemplate)
+                    
                     routePickerButton.setImage(image, for: .normal)
                     routePickerButton.themeTintColor = .backgroundSecondary
                     routePickerButton.themeBackgroundColor = .textPrimary
                     
                 case .headphones:
-                    let image = UIImage(named: "Headsets")?.withRenderingMode(.alwaysTemplate)
+                    let image = UIImage(named: "Headsets")?
+                        .withRenderingMode(.alwaysTemplate)
+                    
                     routePickerButton.setImage(image, for: .normal)
                     routePickerButton.themeTintColor = .backgroundSecondary
                     routePickerButton.themeBackgroundColor = .textPrimary
                     
                 case .bluetoothLE: fallthrough
                 case .bluetoothA2DP:
-                    let image = UIImage(named: "Bluetooth")?.withRenderingMode(.alwaysTemplate)
+                    let image = UIImage(named: "Bluetooth")?
+                        .withRenderingMode(.alwaysTemplate)
+                    
                     routePickerButton.setImage(image, for: .normal)
                     routePickerButton.themeTintColor = .backgroundSecondary
                     routePickerButton.themeBackgroundColor = .textPrimary
                     
                 case .bluetoothHFP:
-                    let image = UIImage(named: "Airpods")?.withRenderingMode(.alwaysTemplate)
+                    let image = UIImage(named: "Airpods")?
+                        .withRenderingMode(.alwaysTemplate)
+                    
                     routePickerButton.setImage(image, for: .normal)
                     routePickerButton.themeTintColor = .backgroundSecondary
                     routePickerButton.themeBackgroundColor = .textPrimary
                     
                 case .builtInReceiver: fallthrough
                 default:
-                    let image = UIImage(named: "Speaker")?.withRenderingMode(.alwaysTemplate)
+                    let image = Lucide.image(icon: .volume2, size: IconSize.medium.size)?
+                        .withRenderingMode(.alwaysTemplate)
+                    
                     routePickerButton.setImage(image, for: .normal)
                     routePickerButton.themeTintColor = .textPrimary
                     routePickerButton.themeBackgroundColor = .backgroundSecondary
