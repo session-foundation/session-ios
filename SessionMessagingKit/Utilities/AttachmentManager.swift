@@ -1333,12 +1333,12 @@ public extension PendingAttachment {
             let estimatedFrameMemory: CGFloat = (targetSize.width * targetSize.height * 4)
             let batchSize: Int = max(2, min(8, Int(50_000_000 / estimatedFrameMemory)))
             var frames: [CGImage] = []
-            frames.reserveCapacity(metadata.frameDurations.count)
+            frames.reserveCapacity(metadata.frameCount)
             
-            for batchStart in stride(from: 0, to: metadata.frameDurations.count, by: batchSize) {
+            for batchStart in stride(from: 0, to: metadata.frameCount, by: batchSize) {
                 typealias FrameResult = (index: Int, frame: CGImage)
                 
-                let batchEnd: Int = min(batchStart + batchSize, metadata.frameDurations.count)
+                let batchEnd: Int = min(batchStart + batchSize, metadata.frameCount)
                 let batchFrames: [CGImage] = try await withThrowingTaskGroup(of: FrameResult.self) { group in
                     for i in batchStart..<batchEnd {
                         group.addTask {
@@ -1450,6 +1450,8 @@ public extension PendingAttachment {
         encodeWebPLossless: Bool,
         encodeCompressionQuality: CGFloat
     ) throws -> Data {
+        guard frames.count == metadata.frameDurations.count else { throw AttachmentError.invalidData }
+        
         /// Convert to an image (`SDImageWebPCoder` only supports encoding a `UIImage`)
         let sdFrames: [SDImageFrame] = frames.enumerated().map { index, frame in
             autoreleasepool {
@@ -1457,7 +1459,7 @@ public extension PendingAttachment {
                     image: UIImage(
                         cgImage: frame,
                         scale: 1,
-                        orientation: (metadata.orientation ?? .up)
+                        orientation: .up /// Since we loaded the frame as a CGImage the orientation will be stripped
                     ),
                     duration: metadata.frameDurations[index]
                 )

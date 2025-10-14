@@ -67,10 +67,7 @@ public enum MediaUtils {
         /// file type when written to disk)
         public let fileSize: UInt64
         
-        /// The number of frames this media has (`1` for a static image)
-        public let frameCount: Int
-        
-        /// The duration of each frame (this will be an empty array for anything other than animated images)
+        /// The duration of each frame (this will contain a single element of `0` for static images, and be empty for anything else)
         public let frameDurations: [TimeInterval]
         
         /// The duration of the content (will be `0` for static images)
@@ -94,6 +91,9 @@ public enum MediaUtils {
         /// The type of the media content
         public let utType: UTType?
         
+        /// The number of frames this media has
+        public var frameCount: Int { frameDurations.count }
+        
         /// A flag indicating whether the media has valid dimensions (this is primarily here to avoid a "GIF bomb" situation)
         public var hasValidPixelSize: Bool {
             /// If the content isn't visual media then it should have a `zero` size
@@ -114,7 +114,7 @@ public enum MediaUtils {
                 return (duration > 0)
             }
             
-            if utType?.isAnimated == true && frameCount > 1 {
+            if utType?.isAnimated == true && frameDurations.count > 1 {
                 return (duration > 0)
             }
             
@@ -149,9 +149,8 @@ public enum MediaUtils {
             
             self.pixelSize = CGSize(width: width, height: height)
             self.fileSize = fileSize
-            self.frameCount = count
             self.frameDurations = {
-                guard count > 1 else { return [] }
+                guard count > 1 else { return [0] }
                 
                 return (0..<count).map { MediaUtils.getFrameDuration(from: source, at: $0) }
             }()
@@ -218,8 +217,7 @@ public enum MediaUtils {
         ) {
             self.pixelSize = pixelSize
             self.fileSize = fileSize
-            self.frameCount = 1
-            self.frameDurations = []
+            self.frameDurations = [0]
             self.duration = 0
             self.hasUnsafeMetadata = hasUnsafeMetadata
             self.depthBytes = depthBytes
@@ -234,8 +232,7 @@ public enum MediaUtils {
             
             self.pixelSize = image.size
             self.fileSize = 0  /// Unknown for `UIImage` in memory
-            self.frameCount = 1
-            self.frameDurations = []
+            self.frameDurations = [0]
             self.duration = 0
             self.hasUnsafeMetadata = false  /// `UIImage` in memory has no file metadata
             self.depthBytes = {
@@ -292,8 +289,7 @@ public enum MediaUtils {
                 
                 self.pixelSize = maxTrackSize
                 self.fileSize = fileSize
-                self.frameCount = -1 /// Rather than try to extract the frames, or give it an "incorrect" value, make it explicitly invalid
-                self.frameDurations = []
+                self.frameDurations = [] /// Rather than try to extract the frames, or give it an "incorrect" value, make it explicitly invalid
                 self.duration = (    /// According to the CMTime docs "value/timescale = seconds"
                     TimeInterval(asset.duration.value) / TimeInterval(asset.duration.timescale)
                 )
@@ -314,7 +310,6 @@ public enum MediaUtils {
                 
                 self.pixelSize = .zero
                 self.fileSize = fileSize
-                self.frameCount = -1
                 self.frameDurations = []
                 
                 do { self.duration = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: path)).duration }

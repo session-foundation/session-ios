@@ -142,9 +142,11 @@ public enum AttachmentDownloadJob: JobExecutor {
                 
                 /// Decrypt the data if needed
                 let plaintext: Data
+                let usesDeterministicEncryption: Bool = Network.FileServer
+                    .usesDeterministicEncryption(attachment.downloadUrl)
                 
-                switch (attachment.encryptionKey, attachment.digest) {
-                    case (.some(let key), .some(let digest)) where !key.isEmpty && !digest.isEmpty:
+                switch (attachment.encryptionKey, attachment.digest, usesDeterministicEncryption) {
+                    case (.some(let key), .some(let digest), false) where !key.isEmpty:
                         plaintext = try dependencies[singleton: .crypto].tryGenerate(
                             .legacyDecryptAttachment(
                                 ciphertext: response,
@@ -154,7 +156,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                             )
                         )
                         
-                    case (.some(let key), _) where !key.isEmpty:
+                    case (.some(let key), _, true) where !key.isEmpty:
                         plaintext = try dependencies[singleton: .crypto].tryGenerate(
                             .decryptAttachment(
                                 ciphertext: response,
