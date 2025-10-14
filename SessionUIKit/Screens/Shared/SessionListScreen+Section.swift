@@ -13,7 +13,7 @@ public extension SessionListScreenContent {
     
     enum ListSectionStyle: Equatable, Hashable, Differentiable {
         case none
-        case titleWithTooltips(content: String)
+        case titleWithTooltips(info: TooltipInfo)
         case titleNoBackgroundContent
         
         var height: CGFloat {

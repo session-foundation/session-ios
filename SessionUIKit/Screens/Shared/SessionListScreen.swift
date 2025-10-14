@@ -7,13 +7,15 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     @StateObject private var viewModel: ViewModel
     @ObservedObject private var state: SessionListScreenContent.ListItemDataState<ViewModel.Section, ViewModel.ListItem>
     @State var isShowingTooltip: Bool = false
-    @State var tooltipContent: String = ""
+    @State var tooltipContent: ThemedAttributedString = ThemedAttributedString()
+    @State var tooltipViewId: String = ""
+    @State var tooltipPosition: ViewPosition = .top
+    @State var tooltipArrowOffset: CGFloat = 30
     
     /// There is an issue on `.onAnyInteraction` of the List and `.onTapGuesture` of the TooltipsIcon. The `.onAnyInteraction` will be called first when tapping the TooltipsIcon to dismiss a tooltip.
     /// This will result in the tooltip will show again right after it dismissed when tapping the TooltipsIcon. This `suppressUntil` is a workaround to fix this issue.
     @State var suppressUntil: Date = .distantPast
     
-    private let tooltipViewId: String = "SessionListScreen.SectionHeader.ToolTips" // stringlint:ignore
     private let coordinateSpaceName: String = "SessionListScreen" // stringlint:ignore
     
     public init(viewModel: ViewModel) {
@@ -34,19 +36,29 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 .foregroundColor(themeColor: .textSecondary)
                                 .padding(.horizontal, Values.smallSpacing)
                             
-                            if case .titleWithTooltips(let content) = section.model.style {
+                            if case .titleWithTooltips(let info) = section.model.style {
                                 Image(systemName: "questionmark.circle")
                                     .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .textSecondary)
-                                    .anchorView(viewId: tooltipViewId)
+                                    .anchorView(viewId: info.id)
                                     .accessibility(
-                                        Accessibility(identifier: "Tooltip")
+                                        Accessibility(identifier: "Section Header Tooltip")
                                     )
                                     .onTapGesture {
                                         guard Date() >= suppressUntil else { return }
-                                        tooltipContent = content
+                                        suppressUntil = Date().addingTimeInterval(0.2)
+                                        guard tooltipViewId != info.id else {
+                                            withAnimation {
+                                                isShowingTooltip = false
+                                            }
+                                            return
+                                        }
+                                        tooltipContent = info.content
+                                        tooltipPosition = info.position
+                                        tooltipViewId = info.id
+                                        tooltipArrowOffset = 30
                                         withAnimation {
-                                            isShowingTooltip.toggle()
+                                            isShowingTooltip = true
                                         }
                                     }
                             }
@@ -82,11 +94,74 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 case .logoWithPro(let style, let description):
                                     ListItemLogoWithPro(style: style, description: description)
                                 case .dataMatrix(let info):
-                                    ListItemDataMatrix(info: info)
-                                        .background(
-                                            Rectangle()
-                                                .foregroundColor(themeColor: .backgroundSecondary)
-                                        )
+                                    VStack(spacing: 0) {
+                                        ForEach(info.indices, id: \.self) { rowIndex in
+                                            let row: [SessionListScreenContent.DataMatrixInfo] = info[rowIndex]
+                                            HStack(spacing: Values.mediumSpacing) {
+                                                ForEach(row.indices, id: \.self) { columnIndex in
+                                                    let item: SessionListScreenContent.DataMatrixInfo = row[columnIndex]
+                                                    HStack(spacing: Values.mediumSpacing) {
+                                                        if let leadingAccessory = item.leadingAccessory {
+                                                            leadingAccessory.accessoryView()
+                                                        }
+                                                        
+                                                        if let title = item.title, let text = title.text {
+                                                            Text(text)
+                                                                .font(title.font)
+                                                                .multilineTextAlignment(title.alignment)
+                                                                .foregroundColor(themeColor: title.color)
+                                                                .accessibility(title.accessibility)
+                                                        }
+                                                        
+                                                        if let trailingAccessory = item.trailingAccessory {
+                                                            trailingAccessory.accessoryView()
+                                                        }
+                                                        
+                                                        if let tooltipInfo = item.tooltipInfo {
+                                                            Spacer()
+                                                            
+                                                            Image(systemName: "questionmark.circle")
+                                                                .font(.Body.baseRegular)
+                                                                .foregroundColor(themeColor: tooltipInfo.tintColor)
+                                                                .anchorView(viewId: tooltipInfo.id)
+                                                                .accessibility(
+                                                                    Accessibility(identifier: "Data Matrix Tooltip")
+                                                                )
+                                                                .onTapGesture {
+                                                                    guard Date() >= suppressUntil else { return }
+                                                                    suppressUntil = Date().addingTimeInterval(0.2)
+                                                                    guard tooltipViewId != tooltipInfo.id else {
+                                                                        withAnimation {
+                                                                            isShowingTooltip = false
+                                                                        }
+                                                                        return
+                                                                    }
+                                                                    tooltipContent = tooltipInfo.content
+                                                                    tooltipPosition = tooltipInfo.position
+                                                                    tooltipViewId = tooltipInfo.id
+                                                                    tooltipArrowOffset = 16
+                                                                    withAnimation {
+                                                                        isShowingTooltip = true
+                                                                    }
+                                                                }
+                                                        }
+                                                    }
+                                                    .frame(
+                                                        maxWidth: .infinity,
+                                                        alignment: .leading
+                                                    )
+                                                }
+                                            }
+                                            .padding(.vertical, Values.smallSpacing)
+                                        }
+                                        .padding(.horizontal, Values.mediumSpacing)
+                                        .padding(.vertical, Values.smallSpacing)
+                                        .frame(maxWidth: .infinity)
+                                    }
+                                    .background(
+                                        Rectangle()
+                                            .foregroundColor(themeColor: .backgroundSecondary)
+                                    )
                                 case .button(let title):
                                     ListItemButton(title: title)
                                         .onTapGesture {
@@ -108,8 +183,9 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
         .modifier(HideScrollIndicators())
         .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
             guard self.isShowingTooltip else { return }
+            guard Date() >= suppressUntil else { return }
             suppressUntil = Date().addingTimeInterval(0.2)
-            withAnimation(.spring()) {
+            withAnimation {
                 self.isShowingTooltip = false
             }
         }
@@ -117,18 +193,19 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
         .popoverView(
             content: {
                 ZStack {
-                    Text(tooltipContent)
+                    AttributedText(tooltipContent)
                         .font(.Body.smallRegular)
                         .multilineTextAlignment(.center)
                         .foregroundColor(themeColor: .textPrimary)
-                        .padding(.horizontal, Values.smallSpacing)
+                        .padding(.horizontal, Values.mediumSpacing)
                         .padding(.vertical, Values.smallSpacing)
                         .frame(maxWidth: 270)
                 }
             },
             backgroundThemeColor: .toast_background,
             isPresented: $isShowingTooltip,
-            position: .topRight,
+            position: tooltipPosition,
+            offset: tooltipArrowOffset,
             viewId: tooltipViewId
         )
     }

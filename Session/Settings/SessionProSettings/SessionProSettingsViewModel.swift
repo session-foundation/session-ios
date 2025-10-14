@@ -65,7 +65,17 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
-                case .proStats: return .titleWithTooltips(content: "proStatsTooltip".put(key: "pro", value: Constants.pro).localized())
+                case .proStats:
+                    return .titleWithTooltips(
+                        info: .init(
+                            id: "SessionListScreen.SectionHeader.ToolTip", // stringlint:ignore
+                            content: "proStatsTooltip"
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(),
+                            tintColor: .textSecondary,
+                            position: .topRight
+                        )
+                    )
                 case .proSettings, .proFeatures, .proManagement, .help: return .titleNoBackgroundContent
                 default: return .none
             }
@@ -308,6 +318,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             .localized(),
                                         font: .Headings.H9,
                                         color: .disabled
+                                    ),
+                                    tooltipInfo: .init(
+                                        id: "SessionListScreen.DataMatrix.UpgradedGroups.ToolTip", // stringlint:ignore
+                                        content: "proLargerGroupsTooltip"
+                                            .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
+                                        tintColor: .disabled,
+                                        position: .topLeft
                                     )
                                 )
                             ]

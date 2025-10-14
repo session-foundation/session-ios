@@ -208,4 +208,3 @@ struct PopoverViewOriginPreference  {
     /// popover origin view bounds Anchor.
     var bounds: Anchor<CGRect>
 }
-

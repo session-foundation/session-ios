@@ -170,7 +170,7 @@ public struct UserProfileModal: View {
                             }
                             
                             if let contactDisplayName: String = info.contactDisplayName, contactDisplayName != displayName {
-                                Text("(\(contactDisplayName))") // stringlint:ignroe
+                                Text("(\(contactDisplayName))") // stringlint:ignore
                                     .font(.Body.smallRegular)
                                     .foregroundColor(themeColor: .textSecondary)
                                     .multilineTextAlignment(.center)

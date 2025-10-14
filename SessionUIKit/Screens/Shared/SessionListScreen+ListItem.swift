@@ -45,15 +45,18 @@ public extension SessionListScreenContent {
         let leadingAccessory: ListItemAccessory?
         let title: TextInfo?
         let trailingAccessory: ListItemAccessory?
+        let tooltipInfo: TooltipInfo?
         
         public init(
             leadingAccessory: ListItemAccessory? = nil,
             title: TextInfo? = nil,
             trailingAccessory: ListItemAccessory? = nil,
+            tooltipInfo: TooltipInfo? = nil
         ) {
             self.leadingAccessory = leadingAccessory
             self.title = title
             self.trailingAccessory = trailingAccessory
+            self.tooltipInfo = tooltipInfo
         }
     }
     

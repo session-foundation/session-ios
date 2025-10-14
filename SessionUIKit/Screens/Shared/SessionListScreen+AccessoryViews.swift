@@ -4,6 +4,25 @@ import SwiftUI
 import Lucide
 
 public extension SessionListScreenContent {
+    struct TooltipInfo: Hashable, Equatable {
+        let id: String
+        let content: ThemedAttributedString
+        let tintColor: ThemeValue
+        let position: ViewPosition
+        
+        public init(
+            id: String,
+            content: ThemedAttributedString,
+            tintColor: ThemeValue,
+            position: ViewPosition
+        ) {
+            self.id = id
+            self.content = content
+            self.tintColor = tintColor
+            self.position = position
+        }
+    }
+    
     struct TextInfo: Hashable, Equatable {
         public enum Accessory: Hashable, Equatable {
             case proBadgeLeading(themeBackgroundColor: ThemeValue)
