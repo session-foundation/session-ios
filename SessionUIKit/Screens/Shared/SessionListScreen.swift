@@ -94,70 +94,15 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 case .logoWithPro(let style, let description):
                                     ListItemLogoWithPro(style: style, description: description)
                                 case .dataMatrix(let info):
-                                    VStack(spacing: 0) {
-                                        ForEach(info.indices, id: \.self) { rowIndex in
-                                            let row: [SessionListScreenContent.DataMatrixInfo] = info[rowIndex]
-                                            HStack(spacing: Values.mediumSpacing) {
-                                                ForEach(row.indices, id: \.self) { columnIndex in
-                                                    let item: SessionListScreenContent.DataMatrixInfo = row[columnIndex]
-                                                    HStack(spacing: Values.mediumSpacing) {
-                                                        if let leadingAccessory = item.leadingAccessory {
-                                                            leadingAccessory.accessoryView()
-                                                        }
-                                                        
-                                                        if let title = item.title, let text = title.text {
-                                                            Text(text)
-                                                                .font(title.font)
-                                                                .multilineTextAlignment(title.alignment)
-                                                                .foregroundColor(themeColor: title.color)
-                                                                .accessibility(title.accessibility)
-                                                        }
-                                                        
-                                                        if let trailingAccessory = item.trailingAccessory {
-                                                            trailingAccessory.accessoryView()
-                                                        }
-                                                        
-                                                        if let tooltipInfo = item.tooltipInfo {
-                                                            Spacer()
-                                                            
-                                                            Image(systemName: "questionmark.circle")
-                                                                .font(.Body.baseRegular)
-                                                                .foregroundColor(themeColor: tooltipInfo.tintColor)
-                                                                .anchorView(viewId: tooltipInfo.id)
-                                                                .accessibility(
-                                                                    Accessibility(identifier: "Data Matrix Tooltip")
-                                                                )
-                                                                .onTapGesture {
-                                                                    guard Date() >= suppressUntil else { return }
-                                                                    suppressUntil = Date().addingTimeInterval(0.2)
-                                                                    guard tooltipViewId != tooltipInfo.id else {
-                                                                        withAnimation {
-                                                                            isShowingTooltip = false
-                                                                        }
-                                                                        return
-                                                                    }
-                                                                    tooltipContent = tooltipInfo.content
-                                                                    tooltipPosition = tooltipInfo.position
-                                                                    tooltipViewId = tooltipInfo.id
-                                                                    tooltipArrowOffset = 16
-                                                                    withAnimation {
-                                                                        isShowingTooltip = true
-                                                                    }
-                                                                }
-                                                        }
-                                                    }
-                                                    .frame(
-                                                        maxWidth: .infinity,
-                                                        alignment: .leading
-                                                    )
-                                                }
-                                            }
-                                            .padding(.vertical, Values.smallSpacing)
-                                        }
-                                        .padding(.horizontal, Values.mediumSpacing)
-                                        .padding(.vertical, Values.smallSpacing)
-                                        .frame(maxWidth: .infinity)
-                                    }
+                                    ListItemDataMatrix(
+                                        isShowingTooltip: $isShowingTooltip,
+                                        tooltipContent: $tooltipContent,
+                                        tooltipViewId: $tooltipViewId,
+                                        tooltipPosition: $tooltipPosition,
+                                        tooltipArrowOffset: $tooltipArrowOffset,
+                                        suppressUntil: $suppressUntil,
+                                        info: info
+                                    )
                                     .background(
                                         Rectangle()
                                             .foregroundColor(themeColor: .backgroundSecondary)
