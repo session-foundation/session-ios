@@ -256,22 +256,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             } else {
                                 self?.showQRCodeLightBox(for: threadViewModel)
                             }
-
-                            // If we already have a display picture then the main profile gets the icon
-                            return (threadViewModel.threadDisplayPictureUrl != nil ? .rightPlus : .none)
-                        }(),
-                        additionalProfile: threadViewModel.additionalProfile,
-//                        additionalProfileIcon: {
-//                            guard
-//                                threadViewModel.threadVariant == .group &&
-//                                currentUserIsClosedGroupAdmin &&
-//                                dependencies[feature: .updatedGroupsAllowDisplayPicture]
-//                            else { return .none }
-//                            
-//                            // No display picture means the dual-profile so the additionalProfile gets the icon
-//                            return .rightPlus
-//                        }(),
-                        accessibility: nil
+                        },
                     )
                 :
                     SessionCell.Info(
