@@ -232,11 +232,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
         )
-        result.setImage(
-            Lucide.image(icon: .micOff, size: IconSize.medium.size)?
-                .withRenderingMode(.alwaysTemplate),
-            for: .selected
-        )
         result.themeTintColor = (call.isMuted ?
             .white :
             .textPrimary
@@ -259,11 +254,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             Lucide.image(icon: .videoOff, size: IconSize.medium.size)?
                 .withRenderingMode(.alwaysTemplate),
             for: .normal
-        )
-        result.setImage(
-            Lucide.image(icon: .video, size: IconSize.medium.size)?
-                .withRenderingMode(.alwaysTemplate),
-            for: .selected
         )
         result.themeTintColor = .textPrimary
         result.themeBackgroundColor = .backgroundSecondary
@@ -746,13 +736,16 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
              : fullScreenLocalVideoView).alpha = 0
             
             floatingViewContainer.isHidden = !call.isRemoteVideoEnabled
-
             cameraManager.stop()
             videoButton.themeTintColor = .textPrimary
             videoButton.themeBackgroundColor = .backgroundSecondary
+            videoButton.setImage(
+                Lucide.image(icon: .videoOff, size: IconSize.medium.size)?
+                    .withRenderingMode(.alwaysTemplate),
+                for: .normal
+            )
             switchCameraButton.isEnabled = false
             call.isVideoEnabled = false
-            videoButton.isSelected = false
         }
         else {
             guard Permissions.requestCameraPermissionIfNeeded(using: dependencies) else {
@@ -785,9 +778,13 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         cameraManager.start()
         videoButton.themeTintColor = .backgroundSecondary
         videoButton.themeBackgroundColor = .textPrimary
+        videoButton.setImage(
+            Lucide.image(icon: .video, size: IconSize.medium.size)?
+                .withRenderingMode(.alwaysTemplate),
+            for: .normal
+        )
         switchCameraButton.isEnabled = true
         call.isVideoEnabled = true
-        videoButton.isSelected = true
     }
     
     @objc private func switchVideo() {
@@ -834,7 +831,11 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             call.isMuted = true
         }
         
-        switchAudioButton.isSelected = call.isMuted
+        switchAudioButton.setImage(
+            Lucide.image(icon: call.isMuted ? .micOff: .mic, size: IconSize.medium.size)?
+                .withRenderingMode(.alwaysTemplate),
+            for: .normal
+        )
     }
     
     @objc private func switchRoute() {
