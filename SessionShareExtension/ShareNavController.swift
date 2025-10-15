@@ -735,4 +735,20 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
         
         return (result.asset, MediaUtils.isValidVideo(asset: result.asset), result.cleanup)
     }
+    
+    func mediaDecoderDefaultImageOptions() -> CFDictionary {
+        return dependencies[singleton: .mediaDecoder].defaultImageOptions
+    }
+    
+    func mediaDecoderDefaultThumbnailOptions(maxDimension: CGFloat) -> CFDictionary {
+        return dependencies[singleton: .mediaDecoder].defaultThumbnailOptions(maxDimension: maxDimension)
+    }
+    
+    func mediaDecoderSource(for url: URL) -> CGImageSource? {
+        return dependencies[singleton: .mediaDecoder].source(for: url)
+    }
+    
+    func mediaDecoderSource(for data: Data) -> CGImageSource? {
+        return dependencies[singleton: .mediaDecoder].source(for: data)
+    }
 }

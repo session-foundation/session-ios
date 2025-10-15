@@ -425,22 +425,11 @@ public actor ImageDataManager: ImageDataManagerType {
     ) -> CGImage? {
         /// If we don't have a `maxDimension` then we should just load the full image
         guard let maxDimension: CGFloat = maxDimensionInPixels else {
-            let options: CFDictionary = [
-                kCGImageSourceShouldCache: false,
-                kCGImageSourceShouldCacheImmediately: false
-            ] as CFDictionary
-            
-            return CGImageSourceCreateImageAtIndex(source, index, options)
+            return CGImageSourceCreateImageAtIndex(source, index, SNUIKit.mediaDecoderDefaultImageOptions())
         }
         
         /// Otherwise we should create a thumbnail
-        let options: CFDictionary = [
-            kCGImageSourceShouldCache: false,
-            kCGImageSourceShouldCacheImmediately: false,
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxDimension
-        ] as CFDictionary
+        let options: CFDictionary? = SNUIKit.mediaDecoderDefaultThumbnailOptions(maxDimension: maxDimension)
 
         return CGImageSourceCreateThumbnailAtIndex(source, index, options)
     }
@@ -634,15 +623,10 @@ public extension ImageDataManager {
         }
         
         public func createImageSource() -> CGImageSource? {
-            let finalOptions: CFDictionary = [
-                kCGImageSourceShouldCache: false,
-                kCGImageSourceShouldCacheImmediately: false
-            ] as CFDictionary
-            
             switch self {
-                case .url(let url): return CGImageSourceCreateWithURL(url as CFURL, finalOptions)
-                case .data(_, let data): return CGImageSourceCreateWithData(data as CFData, finalOptions)
-                case .urlThumbnail(let url, _, _): return CGImageSourceCreateWithURL(url as CFURL, finalOptions)
+                case .url(let url): return SNUIKit.mediaDecoderSource(for: url)
+                case .data(_, let data): return SNUIKit.mediaDecoderSource(for: data)
+                case .urlThumbnail(let url, _, _): return SNUIKit.mediaDecoderSource(for: url)
                     
                 // These cases have special handling which doesn't use `createImageSource`
                 case .icon, .image, .videoUrl, .placeholderIcon, .asyncSource: return nil

@@ -40,11 +40,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
             }
         )
-        @TestState var imageData: Data! = Data(
-            hex: "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c" +
-            "489000000017352474200aece1ce90000000d49444154185763f8cfc0f01f0005000" +
-            "1ffa65c9b5d0000000049454e44ae426082"
-        )
         @TestState var encryptionKey: Data! = Data(hex: "c8e52eb1016702a663ac9a1ab5522daa128ab40762a514de271eddf598e3b8d4")
         @TestState var encryptedData: Data! = Data(
             hex: "778921bdd0e432227b53ee49c23421aeb796b7e5663468ff79daffb1af08cd1" +
@@ -75,7 +70,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 crypto.when { $0.generate(.uuid()) }.thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000001234"))
                 crypto
                     .when { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
-                    .thenReturn(imageData)
+                    .thenReturn(TestConstants.validImageData)
                 crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn("TestHash".bytes)
                 crypto
                     .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
@@ -96,12 +91,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     .thenReturn(Array(Data(hex: TestConstants.serverPublicKey)))
             }
         )
-        
         @TestState(singleton: .imageDataManager, in: dependencies) var mockImageDataManager: MockImageDataManager! = MockImageDataManager(
             initialSetup: { imageDataManager in
                 imageDataManager
                     .when { await $0.load(.any) }
                     .thenReturn(nil)
+                imageDataManager
+                    .when { await $0.removeImage(identifier: .any) }
+                    .thenReturn(())
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
@@ -611,7 +608,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
             
             // MARK: -- checking if a downloaded display picture is valid
             context("checking if a downloaded display picture is valid") {
-                @TestState var jobResult: JobRunner.JobResult! = .notFound
+                @TestState var jobResult: JobRunner.JobResult?
                 
                 beforeEach {
                     profile = Profile(
@@ -673,7 +670,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     beforeEach {
                         mockCrypto
                             .when { $0.generate(.legacyDecryptedDisplayPicture(data: .any, key: .any)) }
-                            .thenReturn(Data([1, 2, 3]))
+                            .thenReturn(TestConstants.invalidImageData)
                     }
                     
                     // MARK: ------ does not save the picture
@@ -710,7 +707,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         .to(call(.exactly(times: 1), matchingParameters: .all) { mockFileManager in
                             mockFileManager.createFile(
                                 atPath: "/test/DisplayPictures/5465737448617368",
-                                contents: imageData,
+                                contents: TestConstants.validImageData,
                                 attributes: nil
                             )
                         })
@@ -877,7 +874,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(
                                     atPath: "/test/DisplayPictures/5465737448617368",
-                                    contents: imageData,
+                                    contents: TestConstants.validImageData,
                                     attributes: nil
                                 )
                             })
@@ -1134,7 +1131,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     requestAndPathBuildTimeout: .any
                                 )
                             }
-                            .thenReturn(MockNetwork.response(data: imageData))
+                            .thenReturn(MockNetwork.response(data: TestConstants.validImageData))
                     }
                     
                     // MARK: ------ that does not exist
@@ -1202,7 +1199,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                                 $0.createFile(
                                     atPath: "/test/DisplayPictures/5465737448617368",
-                                    contents: imageData,
+                                    contents: TestConstants.validImageData,
                                     attributes: nil
                                 )
                             })

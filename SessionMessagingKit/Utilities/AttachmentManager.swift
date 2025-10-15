@@ -990,11 +990,12 @@ public extension PendingAttachment {
         /// every frame which would have a negative impact on sending things like GIF attachments since it's fairly slow)
         if operations.contains(.stripImageMetadata) && !utType.isAnimated {
             let outputData: NSMutableData = NSMutableData()
-
+            let options: CFDictionary? = dependencies[singleton: .mediaDecoder].defaultImageOptions
+            
             guard
                 let source: CGImageSource = targetSource.createImageSource(),
                 let sourceType: String = CGImageSourceGetType(source) as? String,
-                let cgImage: CGImage = CGImageSourceCreateImageAtIndex(source, 0, nil),
+                let cgImage: CGImage = CGImageSourceCreateImageAtIndex(source, 0, options),
                 let destination = CGImageDestinationCreateWithData(outputData as CFMutableData, sourceType as CFString, 1, nil)
             else { throw AttachmentError.invalidData }
             
@@ -1348,10 +1349,6 @@ public extension PendingAttachment {
         let task: Task<Void, Error> = Task.detached(priority: .userInitiated) {
             /// Extract the source
             let imageSource: CGImageSource
-            let options: CFDictionary = [
-                kCGImageSourceShouldCache: false,
-                kCGImageSourceShouldCacheImmediately: false
-            ] as CFDictionary
             let targetSize: CGSize = (
                 targetMaxDimension.map { CGSize(width: $0, height: $0) } ??
                 metadata.pixelSize
@@ -1375,17 +1372,17 @@ public extension PendingAttachment {
                         let data = image.pngData()
                     else { throw AttachmentError.invalidData }
                     
-                    imageSource = try CGImageSourceCreateWithData(data as CFData, options) ?? {
+                    imageSource = try dependencies[singleton: .mediaDecoder].source(for: data) ?? {
                         throw AttachmentError.invalidData
                     }()
                     
                 case .url(let url):
-                    imageSource = try CGImageSourceCreateWithURL(url as CFURL, options) ?? {
+                    imageSource = try dependencies[singleton: .mediaDecoder].source(for: url) ?? {
                         throw AttachmentError.invalidData
                     }()
                     
                 case .data(_, let data):
-                    imageSource = try CGImageSourceCreateWithData(data as CFData, options) ?? {
+                    imageSource = try dependencies[singleton: .mediaDecoder].source(for: data) ?? {
                         throw AttachmentError.invalidData
                     }()
                     
@@ -1393,6 +1390,7 @@ public extension PendingAttachment {
             }
             
             /// Process frames in parallel (in batches) to balance performance and memory usage
+            let options: CFDictionary? = dependencies[singleton: .mediaDecoder].defaultImageOptions
             let estimatedFrameMemory: CGFloat = (targetSize.width * targetSize.height * 4)
             let batchSize: Int = max(2, min(8, Int(50_000_000 / estimatedFrameMemory)))
             var frames: [CGImage] = []

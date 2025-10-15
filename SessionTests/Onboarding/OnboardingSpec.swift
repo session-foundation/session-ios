@@ -608,23 +608,13 @@ class OnboardingSpec: AsyncSpec {
                 ]))
             }
             
-            // MARK: -- creates a profile record for the current user
-            it("creates a profile record for the current user") {
+            // MARK: -- does not insert a profile record into the database for the current user
+            it("does not insert a profile record into the database for the current user") {
                 let result: [Profile]? = mockStorage.read { db in
                     try Profile.fetchAll(db)
                 }
                 
-                expect(result).to(equal([
-                    Profile(
-                        id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
-                        name: "TestCompleteName",
-                        nickname: nil,
-                        displayPictureUrl: nil,
-                        displayPictureEncryptionKey: nil,
-                        profileLastUpdated: 1234567890,
-                        blocksCommunityMessageRequests: nil
-                    )
-                ]))
+                expect(result).to(beEmpty())
             }
             
             // MARK: -- creates a thread for Note to Self
@@ -652,17 +642,19 @@ class OnboardingSpec: AsyncSpec {
             
             // MARK: -- has the correct profile in libSession
             it("has the correct profile in libSession") {
-                expect(dependencies.mutate(cache: .libSession) { $0.profile }).to(equal(
+                let profile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+                expect(profile).to(equal(
                     Profile(
                         id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                         name: "TestCompleteName",
                         nickname: nil,
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
-                        profileLastUpdated: nil,
+                        profileLastUpdated: profile.profileLastUpdated,
                         blocksCommunityMessageRequests: nil
                     )
                 ))
+                expect(profile.profileLastUpdated).toNot(beNil())
             }
             
             // MARK: -- saves a config dump to the database

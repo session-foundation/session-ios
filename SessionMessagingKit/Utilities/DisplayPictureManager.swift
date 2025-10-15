@@ -318,9 +318,9 @@ public class DisplayPictureManager {
         )
         
         /// Clean up the file after the upload completes
-        defer {
-            try? dependencies[singleton: .fileManager].removeItem(atPath: attachment.filePath)
-        }
+        defer { try? dependencies[singleton: .fileManager].removeItem(atPath: attachment.filePath) }
+        
+        try Task.checkCancellation()
         
         /// Ensure we have an encryption key for the `PreparedAttachment` we want to use as a display picture
         guard let encryptionKey: Data = attachment.attachment.encryptionKey else {
@@ -346,6 +346,8 @@ public class DisplayPictureManager {
         catch NetworkError.maxFileSizeExceeded { throw AttachmentError.fileSizeTooLarge }
         catch { throw AttachmentError.uploadFailed }
         
+        try Task.checkCancellation()
+        
         /// Generate the `downloadUrl` and move the temporary file to it's expected destination
         ///
         /// **Note:** Display pictures are currently stored unencrypted so we need to move the original `preparedAttachment`
@@ -362,8 +364,8 @@ public class DisplayPictureManager {
         )
         
         /// Load the data into the `imageDataManager` (assuming we will use it elsewhere in the UI)
-        Task.detached(priority: .userInitiated) { [imageDataManager = dependencies[singleton: .imageDataManager]] in
-            await imageDataManager.load(.url(URL(fileURLWithPath: finalFilePath)))
+        Task.detached(priority: .userInitiated) { [dependencies] in
+            await dependencies[singleton: .imageDataManager].load(.url(URL(fileURLWithPath: finalFilePath)))
         }
         
         return (downloadUrl, finalFilePath, encryptionKey)

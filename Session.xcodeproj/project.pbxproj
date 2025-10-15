@@ -705,6 +705,10 @@
 		FD5E93D22C12B0580038C25A /* AppVersionResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC4383727B3863200C60D73 /* AppVersionResponse.swift */; };
 		FD61FCF92D308CC9005752DE /* GroupMemberSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD61FCF82D308CC5005752DE /* GroupMemberSpec.swift */; };
 		FD636C672E9DAC4100965D56 /* HTTPFragmentParam+FileServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD636C662E9DAC4100965D56 /* HTTPFragmentParam+FileServer.swift */; };
+		FD636C692E9F0D1400965D56 /* MockMediaDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD636C682E9F0D1100965D56 /* MockMediaDecoder.swift */; };
+		FD636C6A2E9F0D1400965D56 /* MockMediaDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD636C682E9F0D1100965D56 /* MockMediaDecoder.swift */; };
+		FD636C6B2E9F0D1400965D56 /* MockMediaDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD636C682E9F0D1100965D56 /* MockMediaDecoder.swift */; };
+		FD636C6C2E9F0D1400965D56 /* MockMediaDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD636C682E9F0D1100965D56 /* MockMediaDecoder.swift */; };
 		FD65318A2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
 		FD65318B2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
 		FD65318C2AA025C500DFEEAA /* TestDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD6531892AA025C500DFEEAA /* TestDependencies.swift */; };
@@ -2055,6 +2059,7 @@
 		FD61FCF82D308CC5005752DE /* GroupMemberSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupMemberSpec.swift; sourceTree = "<group>"; };
 		FD61FCFA2D34A5DE005752DE /* _023_SplitSnodeReceivedMessageInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _023_SplitSnodeReceivedMessageInfo.swift; sourceTree = "<group>"; };
 		FD636C662E9DAC4100965D56 /* HTTPFragmentParam+FileServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPFragmentParam+FileServer.swift"; sourceTree = "<group>"; };
+		FD636C682E9F0D1100965D56 /* MockMediaDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockMediaDecoder.swift; sourceTree = "<group>"; };
 		FD6531892AA025C500DFEEAA /* TestDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDependencies.swift; sourceTree = "<group>"; };
 		FD6673FC2D77F54400041530 /* ScreenLockViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLockViewController.swift; sourceTree = "<group>"; };
 		FD6673FE2D77F9BE00041530 /* ScreenLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenLock.swift; sourceTree = "<group>"; };
@@ -4799,6 +4804,7 @@
 				FD49E2452B05C1D500FFBBB5 /* MockKeychain.swift */,
 				FD0150372CA24328005B08A1 /* MockJobRunner.swift */,
 				FDB11A552DD17C3000BEF49F /* MockLogger.swift */,
+				FD636C682E9F0D1100965D56 /* MockMediaDecoder.swift */,
 				FD83B9BD27CF2243005E1583 /* TestConstants.swift */,
 				FD6531892AA025C500DFEEAA /* TestDependencies.swift */,
 				FD9DD2702A72516D00ECB68E /* TestExtensions.swift */,
@@ -7125,6 +7131,7 @@
 				FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */,
 				FD23CE332A67C4D90000B97C /* MockNetwork.swift in Sources */,
 				FD71161528D00D6700B47552 /* ThreadDisappearingMessagesViewModelSpec.swift in Sources */,
+				FD636C692E9F0D1400965D56 /* MockMediaDecoder.swift in Sources */,
 				FD01503A2CA24328005B08A1 /* MockJobRunner.swift in Sources */,
 				FD23EA5E28ED00FD0058676E /* NimbleExtensions.swift in Sources */,
 				FD481A9B2CB4CAF100ECC4CF /* CustomArgSummaryDescribable+SessionMessagingKit.swift in Sources */,
@@ -7171,6 +7178,7 @@
 				FD0150402CA2433D005B08A1 /* BencodeDecoderSpec.swift in Sources */,
 				FD0150412CA2433D005B08A1 /* BencodeEncoderSpec.swift in Sources */,
 				FD0150422CA2433D005B08A1 /* VersionSpec.swift in Sources */,
+				FD636C6A2E9F0D1400965D56 /* MockMediaDecoder.swift in Sources */,
 				FD42ECD42E32FF2E002D03EA /* StringUtilitiesSpec.swift in Sources */,
 				FD23EA6328ED0B260058676E /* CombineExtensions.swift in Sources */,
 				FD0150482CA243CB005B08A1 /* Mock.swift in Sources */,
@@ -7195,6 +7203,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FDB5DB062A981C67002C8721 /* PreparedRequestSendingSpec.swift in Sources */,
+				FD636C6C2E9F0D1400965D56 /* MockMediaDecoder.swift in Sources */,
 				FD49E2482B05C1D500FFBBB5 /* MockKeychain.swift in Sources */,
 				FDB5DB082A981F8B002C8721 /* Mocked.swift in Sources */,
 				FD6B92CD2E77B22D004463B5 /* SOGSMessageSpec.swift in Sources */,
@@ -7246,6 +7255,7 @@
 				FD96F3A529DBC3DC00401309 /* MessageSendJobSpec.swift in Sources */,
 				FDE754A82C9B964D002A2623 /* MessageReceiverGroupsSpec.swift in Sources */,
 				FD01504C2CA243CB005B08A1 /* Mock.swift in Sources */,
+				FD636C6B2E9F0D1400965D56 /* MockMediaDecoder.swift in Sources */,
 				FD981BC92DC4641100564172 /* ExtensionHelperSpec.swift in Sources */,
 				FD981BCB2DC4A21C00564172 /* MessageDeduplicationSpec.swift in Sources */,
 				FD83B9C727CF3F10005E1583 /* CapabilitySpec.swift in Sources */,

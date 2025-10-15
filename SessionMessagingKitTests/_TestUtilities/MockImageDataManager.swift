@@ -8,14 +8,14 @@ import SessionUIKit
 class MockImageDataManager: Mock<ImageDataManagerType>, ImageDataManagerType {
     @discardableResult func load(
         _ source: ImageDataManager.DataSource
-    ) async -> ImageDataManager.ProcessedImageData? {
+    ) async -> ImageDataManager.FrameBuffer? {
         return mock(args: [source])
     }
     
     @MainActor
     func load(
         _ source: ImageDataManager.DataSource,
-        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void
+        onComplete: @MainActor @escaping (ImageDataManager.FrameBuffer?) -> Void
     ) {
         mockNoReturn(args: [source], untrackedArgs: [onComplete])
     }
@@ -24,7 +24,7 @@ class MockImageDataManager: Mock<ImageDataManagerType>, ImageDataManagerType {
         mockNoReturn(args: [image, identifier])
     }
     
-    func cachedImage(identifier: String) async -> ImageDataManager.ProcessedImageData? {
+    func cachedImage(identifier: String) async -> ImageDataManager.FrameBuffer? {
         return mock(args: [identifier])
     }
     

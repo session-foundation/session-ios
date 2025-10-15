@@ -32,7 +32,7 @@ public extension CryptoType {
     }
     
     func generateResult<R>(_ generator: Crypto.Generator<R>) -> Result<R, Error> {
-        return Result(try tryGenerate(generator))
+        return Result { try tryGenerate(generator) }
     }
 }
 

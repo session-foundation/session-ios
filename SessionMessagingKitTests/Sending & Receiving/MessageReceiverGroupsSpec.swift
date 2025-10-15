@@ -437,7 +437,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                             shouldBeUnique: true,
                                             details: DisplayPictureDownloadJob.Details(
                                                 target: .profile(
-                                                    id: "051111111111111111111111111111111" + "111111111111111111111111111111111",
+                                                    id: "TestProfileId",
                                                     url: "https://www.oxen.io/1234",
                                                     encryptionKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                                         .map { _ in 1 })
@@ -481,7 +481,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                             shouldBeUnique: true,
                                             details: DisplayPictureDownloadJob.Details(
                                                 target: .profile(
-                                                    id: "051111111111111111111111111111111" + "111111111111111111111111111111111",
+                                                    id: "TestProfileId",
                                                     url: "https://www.oxen.io/1234",
                                                     encryptionKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                                         .map { _ in 1 })
@@ -2163,7 +2163,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     let profiles: [Profile]? = mockStorage.read { db in try Profile.fetchAll(db) }
                     expect(profiles?.map { $0.id }).to(equal([
                         "05\(TestConstants.publicKey)",
-                        "051111111111111111111111111111111111111111111111111111111111111112"
+                        "TestProfileId"
                     ]))
                     expect(profiles?.map { $0.name }).to(equal(["TestCurrentUser", "TestOtherMember"]))
                 }

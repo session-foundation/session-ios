@@ -35,6 +35,7 @@ class DatabaseSpec: QuickSpec {
             userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
             using: dependencies
         )
+        @TestState(singleton: .mediaDecoder, in: dependencies) var mockMediaDecoder: MockMediaDecoder! = MockMediaDecoder(initialSetup: { $0.defaultInitialSetup() })
         @TestState var initialResult: Result<Void, Error>! = nil
         @TestState var finalResult: Result<Void, Error>! = nil
         

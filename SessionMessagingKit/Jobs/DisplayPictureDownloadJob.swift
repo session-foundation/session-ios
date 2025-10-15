@@ -118,7 +118,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 else { throw AttachmentError.invalidData }
                 
                 /// Kick off a task to load the image into the cache (assuming we want to render it soon)
-                Task.detached(priority: .userInitiated) {
+                Task.detached(priority: .userInitiated) { [dependencies] in
                     await dependencies[singleton: .imageDataManager].load(
                         .url(URL(fileURLWithPath: filePath))
                     )

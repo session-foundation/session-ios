@@ -404,12 +404,6 @@ extension Onboarding {
                             /// Clear the `lastNameUpdate` timestamp and forcibly set the `displayName` provided
                             /// during the onboarding step (we do this after handling the config message because we want
                             /// the value provided during onboarding to superseed any retrieved from the config)
-                            try Profile
-                                .fetchOrCreate(db, id: userSessionId.hexString)
-                                .upsert(db)
-                            try Profile
-                                .filter(id: userSessionId.hexString)
-                                .updateAll(db, Profile.Columns.profileLastUpdated.set(to: nil))
                             try Profile.updateIfNeeded(
                                 db,
                                 publicKey: userSessionId.hexString,

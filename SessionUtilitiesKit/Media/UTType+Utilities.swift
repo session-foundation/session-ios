@@ -158,9 +158,9 @@ public extension UTType {
         self = result
     }
     
-    init?(imageData: Data) {
+    init?(imageData: Data, using dependencies: Dependencies) {
         guard
-            let imageSource: CGImageSource = CGImageSourceCreateWithData(imageData as CFData, nil),
+            let imageSource: CGImageSource = dependencies[singleton: .mediaDecoder].source(for: imageData),
             let typeString: String = CGImageSourceGetType(imageSource) as? String,
             let result: UTType = UTType(typeString)
         else { return nil }

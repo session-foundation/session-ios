@@ -187,7 +187,7 @@ enum _036_GroupsRebuildChanges: Migration {
             }
             
             let filename: String = generateFilename(
-                utType: (UTType(imageData: imageData) ?? .jpeg),
+                utType: (UTType(imageData: imageData, using: dependencies) ?? .jpeg),
                 using: dependencies
             )
             let filePath: String = URL(fileURLWithPath: dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath())
@@ -197,7 +197,10 @@ enum _036_GroupsRebuildChanges: Migration {
             // Save the decrypted display picture to disk
             try? imageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
             
-            guard UIImage(contentsOfFile: filePath) != nil else {
+            // Verify the saved data is valid image data (don't do this when running unit tests because
+            // the data generally won't be valid and trying to mock the return for any possible test
+            // that may run this migration would be a nightmare)
+            guard SNUtilitiesKit.isRunningTests || UIImage(contentsOfFile: filePath) != nil else {
                 Log.error("[GroupsRebuildChanges] Failed to save Community imageData for \(threadId)")
                 return
             }

@@ -4,6 +4,7 @@ import Foundation
 import Combine
 import GRDB
 import SessionUtil
+import SessionUIKit
 import SessionUtilitiesKit
 
 import Quick
@@ -26,6 +27,12 @@ class MessageSenderGroupsSpec: AsyncSpec {
         @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
             dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
             dependencies.forceSynchronous = true
+            
+            SNUtilitiesKit.configure(
+                networkMaxFileSize: Network.maxFileSize,
+                maxValidImageDimention: 123456789,
+                using: dependencies
+            )
         }
         @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
             customWriter: try! DatabaseQueue(),
@@ -136,6 +143,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     .when { $0.generate(.uuid()) }
                     .thenReturn(UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
                 crypto
+                    .when { $0.generate(.legacyEncryptedDisplayPictureSize(plaintextSize: .any)) }
+                    .thenReturn(1024)
+                crypto
                     .when { $0.generate(.legacyEncryptedDisplayPicture(data: .any, key: .any)) }
                     .thenReturn(TestConstants.validImageData)
                 crypto
@@ -245,6 +255,14 @@ class MessageSenderGroupsSpec: AsyncSpec {
         @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
             initialSetup: { $0.defaultInitialSetup() }
         )
+        @TestState(singleton: .imageDataManager, in: dependencies) var mockImageDataManager: MockImageDataManager! = MockImageDataManager(
+            initialSetup: { imageDataManager in
+                imageDataManager
+                    .when { await $0.load(.any) }
+                    .thenReturn(ImageDataManager.FrameBuffer(image: UIImage(data: TestConstants.validImageData)!))
+            }
+        )
+        @TestState(singleton: .mediaDecoder, in: dependencies) var mockMediaDecoder: MockMediaDecoder! = MockMediaDecoder(initialSetup: { $0.defaultInitialSetup() })
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var error: Error?
         @TestState var thread: SessionThread?
@@ -288,7 +306,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- returns the created thread
                 it("returns the created thread") {
-                    let thread: SessionThread? = await expect {
+                    let result = await Result {
                         try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
@@ -299,7 +317,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             ],
                             using: dependencies
                         )
-                    }.toEventuallyNot(throwError()).retrieveValue()
+                    }
+                    let thread: SessionThread? = await expect { try result.get() }
+                        .toNot(throwError())
+                        .retrieveValue()
                     
                     expect(thread).toNot(beNil())
                     expect(thread?.id).to(equal(groupId.hexString))
@@ -313,7 +334,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- stores the thread in the db
                 it("stores the thread in the db") {
-                    await expect {
+                    let result = await Result {
                         try await MessageSender.createGroup(
                             name: "Test",
                             description: nil,
@@ -324,7 +345,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             ],
                             using: dependencies
                         )
-                    }.toEventuallyNot(throwError())
+                    }
+                    let thread: SessionThread? = await expect { try result.get() }
+                        .toNot(throwError())
+                        .retrieveValue()
                     
                     let dbValue: SessionThread? = mockStorage.read { db in try SessionThread.fetchOne(db) }
                     expect(dbValue).to(equal(thread))
@@ -340,7 +364,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- stores the group in the db
                 it("stores the group in the db") {
-                    await expect {
+                    let result = await Result {
                         try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
@@ -351,7 +375,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             ],
                             using: dependencies
                         )
-                    }.toEventuallyNot(throwError())
+                    }
+                    expect { try result.get() }.toNot(throwError())
                     
                     let dbValue: ClosedGroup? = mockStorage.read { db in try ClosedGroup.fetchOne(db) }
                     expect(dbValue?.id).to(equal(groupId.hexString))
@@ -366,7 +391,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- stores the group members in the db
                 it("stores the group members in the db") {
-                    await expect {
+                    let result = await Result {
                         try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
@@ -377,7 +402,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             ],
                             using: dependencies
                         )
-                    }.toEventuallyNot(throwError())
+                    }
+                    expect { try result.get() }.toNot(throwError())
                     
                     expect(mockStorage.read { db in try GroupMember.fetchSet(db) })
                         .to(equal([
@@ -400,7 +426,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 
                 // MARK: ---- starts the group poller
                 it("starts the group poller") {
-                    await expect {
+                    let result = await Result {
                         try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
@@ -411,7 +437,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             ],
                             using: dependencies
                         )
-                    }.toEventuallyNot(throwError())
+                    }
+                    expect { try result.get() }.toNot(throwError())
                     
                     expect(mockSwarmPoller)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { poller in
@@ -488,7 +515,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         return preparedRequest
                     }!
                     
-                    await expect {
+                    let result = await Result {
                         try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
@@ -499,7 +526,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             ],
                             using: dependencies
                         )
-                    }.toEventuallyNot(throwError())
+                    }
+                    expect { try result.get() }.toNot(throwError())
                     
                     expect(mockNetwork)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { network in
@@ -531,7 +559,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ throws an error
                     it("throws an error") {
-                        await expect {
+                        let result = await Result {
                             try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
@@ -542,12 +570,13 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 ],
                                 using: dependencies
                             )
-                        }.toEventually(throwError(TestError.mock))
+                        }
+                        expect { try result.get() }.to(throwError(TestError.mock))
                     }
                     
                     // MARK: ------ removes the config state
                     it("removes the config state") {
-                        await expect {
+                        let result = await Result {
                             try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
@@ -558,7 +587,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 ],
                                 using: dependencies
                             )
-                        }.toEventually(throwError(TestError.mock))
+                        }
+                        expect { try result.get() }.to(throwError(TestError.mock))
                         
                         expect(mockLibSessionCache)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { cache in
@@ -568,7 +598,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     
                     // MARK: ------ removes the data from the database
                     it("removes the data from the database") {
-                        await expect {
+                        let result = await Result {
                             try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
@@ -579,7 +609,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 ],
                                 using: dependencies
                             )
-                        }.toEventually(throwError(TestError.mock))
+                        }
+                        expect { try result.get() }.to(throwError(TestError.mock))
                         
                         let threads: [SessionThread]? = mockStorage.read { db in try SessionThread.fetchAll(db) }
                         let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
@@ -596,7 +627,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
                     mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                     
-                    await expect {
+                    let result = await Result {
                         try await MessageSender.createGroup(
                             name: "TestGroupName",
                             description: nil,
@@ -607,7 +638,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             ],
                             using: dependencies
                         )
-                    }.toEventually(throwError(TestError.mock))
+                    }
+                    expect { try result.get() }.toNot(throwError())
                     
                     let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer
                         .preparedUpload(data: TestConstants.validImageData, using: dependencies)
@@ -628,6 +660,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 context("with an image") {
                     // MARK: ------ uploads the image
                     it("uploads the image") {
+                        // Prevent the ConfigSyncJob network request by making the libSession cache appear empty
+                        mockLibSessionCache.when { $0.isEmpty }.thenReturn(true)
                         mockNetwork
                             .when {
                                 $0.send(
@@ -639,8 +673,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 )
                             }
                             .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
+                        mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(TestConstants.validImageData)
                         
-                        await expect {
+                        let result = await Result {
                             try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
@@ -651,7 +686,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 ],
                                 using: dependencies
                             )
-                        }.toEventuallyNot(throwError())
+                        }
+                        expect { try result.get() }.toNot(throwError())
                         
                         let expectedRequest: Network.PreparedRequest<FileUploadResponse> = try Network.FileServer
                             .preparedUpload(
@@ -688,7 +724,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             }
                             .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
                         
-                        await expect {
+                        let result = await Result {
                             try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
@@ -699,7 +735,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 ],
                                 using: dependencies
                             )
-                        }.toEventuallyNot(throwError())
+                        }
+                        expect { try result.get() }.toNot(throwError())
                         
                         let groups: [ClosedGroup]? = mockStorage.read { db in try ClosedGroup.fetchAll(db) }
                         
@@ -722,7 +759,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                             }
                             .thenReturn(Fail(error: NetworkError.unknown).eraseToAnyPublisher())
                         
-                        await expect {
+                        let result = await Result {
                             try await MessageSender.createGroup(
                                 name: "TestGroupName",
                                 description: nil,
@@ -733,7 +770,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 ],
                                 using: dependencies
                             )
-                        }.toEventually(throwError(AttachmentError.uploadFailed))
+                        }
+                        expect { try result.get() }.to(throwError(AttachmentError.uploadFailed))
                     }
                 }
                 

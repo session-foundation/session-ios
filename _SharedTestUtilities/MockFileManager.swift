@@ -119,10 +119,14 @@ extension Mock where T == FileManagerType {
         self.when { try $0.protectFileOrFolder(at: .any, fileProtectionType: .any) }.thenReturn(())
         self.when { $0.fileExists(atPath: .any) }.thenReturn(false)
         self.when { $0.fileExists(atPath: .any, isDirectory: .any) }.thenReturn(false)
+        self.when { $0.fileSize(of: .any) }.thenReturn(1024)
         self.when { $0.isLocatedInTemporaryDirectory(.any) }.thenReturn(false)
         self.when { $0.temporaryFilePath(fileExtension: .any) }.thenReturn("tmpFile")
         self.when { $0.createFile(atPath: .any, contents: .any, attributes: .any) }.thenReturn(true)
+        self.when { try $0.write(dataToTemporaryFile: .any) }.thenReturn("tmpFile")
+        self.when { try $0.write(data: .any, toPath: .any) }.thenReturn(())
         self.when { try $0.setAttributes(.any, ofItemAtPath: .any) }.thenReturn(())
+        self.when { try $0.copyItem(atPath: .any, toPath: .any) }.thenReturn(())
         self.when { try $0.moveItem(atPath: .any, toPath: .any) }.thenReturn(())
         self.when {
             _ = try $0.replaceItem(

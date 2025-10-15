@@ -5,6 +5,15 @@
 import UIKit
 import AVFoundation
 
+// MARK: - Singleton
+
+public extension Singleton {
+    static let mediaDecoder: SingletonConfig<MediaDecoderType> = Dependencies.create(
+        identifier: "mediaDecoder",
+        createInstance: { _ in MediaDecoder() }
+    )
+}
+
 // MARK: - Log.Category
 
 public extension Log.Category {
@@ -326,14 +335,9 @@ public enum MediaUtils {
             }
             
             /// Load the image source and use that initializer to extract the metadata
-            let options: CFDictionary = [
-                kCGImageSourceShouldCache: false,
-                kCGImageSourceShouldCacheImmediately: false
-            ] as CFDictionary
-            
             guard
                 let fileSize: UInt64 = dependencies[singleton: .fileManager].fileSize(of: path),
-                let imageSource = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, options),
+                let imageSource = dependencies[singleton: .mediaDecoder].source(forPath: path),
                 let metadata: MediaMetadata = MediaMetadata(source: imageSource, fileSize: fileSize)
             else { return nil }
             
@@ -454,5 +458,47 @@ private extension UIImage.Orientation {
             case .right: self = .right
             case .rightMirrored: self = .rightMirrored
         }
+    }
+}
+
+// MARK: - MediaDecoder
+
+public protocol MediaDecoderType {
+    var defaultImageOptions: CFDictionary { get }
+    
+    func defaultThumbnailOptions(maxDimension: CGFloat) -> CFDictionary
+    
+    func source(for url: URL) -> CGImageSource?
+    func source(for data: Data) -> CGImageSource?
+}
+
+public extension MediaDecoderType {
+    func source(forPath path: String) -> CGImageSource? {
+        return source(for: URL(fileURLWithPath: path))
+    }
+}
+
+public final class MediaDecoder: MediaDecoderType {
+    public let defaultImageOptions: CFDictionary = [
+        kCGImageSourceShouldCache: false,
+        kCGImageSourceShouldCacheImmediately: false
+    ] as CFDictionary
+    
+    public func defaultThumbnailOptions(maxDimension: CGFloat) -> CFDictionary {
+        return [
+            kCGImageSourceShouldCache: false,
+            kCGImageSourceShouldCacheImmediately: false,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDimension
+        ] as CFDictionary
+    }
+    
+    public func source(for url: URL) -> CGImageSource? {
+        return CGImageSourceCreateWithURL(url as CFURL, defaultImageOptions)
+    }
+    
+    public func source(for data: Data) -> CGImageSource? {
+        return CGImageSourceCreateWithData(data as CFData, defaultImageOptions)
     }
 }
