@@ -373,7 +373,7 @@ extension SendMediaNavigationController: ImagePickerGridControllerDelegate {
         loadMediaTask?.cancel()
         loadMediaTask = Task.detached(priority: .userInitiated) { [weak self, indicator] in
             do {
-                let attachments = try await withThrowingTaskGroup { group in
+                let attachments: [MediaLibraryAttachment] = try await withThrowingTaskGroup(of: MediaLibraryAttachment.self) { group in
                     mediaLibrarySelections.forEach { selection in
                         group.addTask { try await selection.retrievalTask.value }
                     }

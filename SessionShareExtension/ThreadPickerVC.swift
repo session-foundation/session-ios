@@ -420,7 +420,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 /// Perform any uploads that are needed
                 let uploadedAttachments: [(attachment: Attachment, fileId: String)] = (shareData.attachmentsNeedingUpload.isEmpty ?
                     [] :
-                    try await withThrowingTaskGroup { group in
+                    try await withThrowingTaskGroup(of: (attachment: Attachment, response: FileUploadResponse).self) { group in
                         shareData.attachmentsNeedingUpload.forEach { attachment in
                             group.addTask {
                                 try await AttachmentUploadJob.upload(
