@@ -1173,6 +1173,7 @@
 		FDFE75B42ABD46B600655640 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9D127D59495005E1583 /* MockUserDefaults.swift */; };
 		FDFE75B52ABD46B700655640 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9D127D59495005E1583 /* MockUserDefaults.swift */; };
 		FDFF9FDF2A787F57005E0628 /* JSONEncoder+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */; };
+		FE4234C92E9CDECD00F2C9F7 /* AttachmentManager+AttachmentDeleter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE4234C82E9CDECD00F2C9F7 /* AttachmentManager+AttachmentDeleter.swift */; };
 		FED288F32E4C28CF00C31171 /* AppReviewPromptDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F22E4C28CF00C31171 /* AppReviewPromptDialog.swift */; };
 		FED288F82E4C3BE100C31171 /* AppReviewPromptModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F72E4C3BE100C31171 /* AppReviewPromptModel.swift */; };
 /* End PBXBuildFile section */
@@ -2467,6 +2468,7 @@
 		FDFDE129282D056B0098B17F /* MediaZoomAnimationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaZoomAnimationController.swift; sourceTree = "<group>"; };
 		FDFE75B02ABD2D2400655640 /* _030_MakeBrokenProfileTimestampsNullable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _030_MakeBrokenProfileTimestampsNullable.swift; sourceTree = "<group>"; };
 		FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "JSONEncoder+Utilities.swift"; sourceTree = "<group>"; };
+		FE4234C82E9CDECD00F2C9F7 /* AttachmentManager+AttachmentDeleter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AttachmentManager+AttachmentDeleter.swift"; sourceTree = "<group>"; };
 		FED288F22E4C28CF00C31171 /* AppReviewPromptDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReviewPromptDialog.swift; sourceTree = "<group>"; };
 		FED288F72E4C3BE100C31171 /* AppReviewPromptModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReviewPromptModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -3234,6 +3236,7 @@
 				FD7115EA28C5D78E00B47552 /* ThreadSettingsViewModel.swift */,
 				9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */,
 				FD7115F328C71EB200B47552 /* ThreadDisappearingMessagesSettingsViewModel.swift */,
+				FE4234C82E9CDECD00F2C9F7 /* AttachmentManager+AttachmentDeleter.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -7075,6 +7078,7 @@
 				7B0EFDF0275084AA00FFAAE7 /* CallMessageCell.swift in Sources */,
 				C3AAFFF225AE99710089E6DD /* AppDelegate.swift in Sources */,
 				FD10AF0C2AF32B9A007709E5 /* SessionListViewModel.swift in Sources */,
+				FE4234C92E9CDECD00F2C9F7 /* AttachmentManager+AttachmentDeleter.swift in Sources */,
 				942256822C23F8BB00C0FDBF /* InviteAFriendScreen.swift in Sources */,
 				B8BB82A5238F627000BA5194 /* HomeVC.swift in Sources */,
 				4521C3C01F59F3BA00B4C582 /* TextFieldHelper.swift in Sources */,

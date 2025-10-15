@@ -231,6 +231,8 @@ extension AllMediaViewController: MediaTileViewControllerDelegate {
             )
         }
         else {
+            self.navigationItem.hidesBackButton = false
+            
             self.navigationItem.rightBarButtonItem = UIBarButtonItem(
                 title: "select".localized(),
                 style: .plain,

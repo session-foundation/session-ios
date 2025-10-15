@@ -705,51 +705,10 @@ public class MediaTileViewController: UIViewController, UICollectionViewDataSour
         let items: [MediaGalleryViewModel.Item] = indexPaths.map {
             self.viewModel.galleryData[$0.section].elements[$0.item]
         }
-        let confirmationTitle: String = "deleteMessage"
-            .putNumber(indexPaths.count)
-            .localized()
-
-        let deleteAction = UIAlertAction(title: confirmationTitle, style: .destructive) { [weak self, threadId = viewModel.threadId, dependencies = viewModel.dependencies] _ in
-            dependencies[singleton: .storage].writeAsync { db in
-                _ = try Attachment
-                    .filter(ids: items.map { $0.attachment.id })
-                    .deleteAll(db)
-                
-                items.forEach { item in
-                    db.addAttachmentEvent(id: item.attachment.id, messageId: item.interactionId, type: .deleted)
-                }
-                
-                // Add the garbage collection job to delete orphaned attachment files
-                dependencies[singleton: .jobRunner].add(
-                    db,
-                    job: Job(
-                        variant: .garbageCollection,
-                        behaviour: .runOnce,
-                        details: GarbageCollectionJob.Details(
-                            typesToCollect: [.orphanedAttachmentFiles]
-                        )
-                    ),
-                    canStartJob: true
-                )
-                
-                // Delete any interactions which had all of their attachments removed
-                try Interaction.deleteWhere(
-                    db,
-                    .filter(items.map { $0.interactionId }.contains(Interaction.Columns.id)),
-                    .filter(Interaction.Columns.threadId == threadId),
-                    .hasAttachments(false)
-                )
-            }
-            
+  
+        viewModel.dependencies[singleton: .attachmentManager].deleteAttachments(items) { [weak self] in
             self?.endSelectMode()
         }
-
-        let actionSheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        actionSheet.addAction(deleteAction)
-        actionSheet.addAction(UIAlertAction(title: "cancel".localized(), style: .cancel))
-
-        Modal.setupForIPadIfNeeded(actionSheet, targetView: self.view)
-        self.present(actionSheet, animated: true)
     }
 }
 
