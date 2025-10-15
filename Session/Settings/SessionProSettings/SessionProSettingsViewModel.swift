@@ -140,7 +140,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             .setting(.pinnedConversationsCounter),
             .setting(.proBadgesSentCounter),
             .setting(.longerMessagesSentCounter),
-            .setting(.isProBadgeEnabled)
+            .setting(.isProBadgeEnabled),
+            .feature(.mockCurrentUserSessionProState) // TODO: real data from libSession
         ]
         
         static func initialState() -> ViewModelState {
@@ -179,7 +180,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 numberOfProBadgesSent = db[.proBadgesSentCounter] ?? 0
                 numberOfLongerMessagesSent = db[.longerMessagesSentCounter] ?? 0
             }
-            currentProPlanState = dependencies[singleton: .sessionProState].sessionProStateSubject.value
         }
         
         /// Process any event changes
@@ -200,10 +200,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 case .setting(.isProBadgeEnabled):
                     guard let updatedValue = event.value as? Bool else { return }
                     isProBadgeEnabled = updatedValue
-                    
                 default: break
             }
         }
+        
+        currentProPlanState = dependencies[singleton: .sessionProState].sessionProStateSubject.value
         
         return ViewModelState(
             numberOfGroupsUpgraded: numberOfGroupsUpgraded,
@@ -635,7 +636,36 @@ extension SessionProSettingsViewModel {
     }
     
     func recoverProPlan() {
-        
+        dependencies[singleton: .sessionProState].recoverPro { [weak self] result in
+            let modal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: (result ? "Pro Access Recovered".localized() : "Pro Access Not Found".localized()),
+                    body: .text(
+                        (
+                            result ?
+                            "Session detected and recovered Pro access for your account. Your Pro status has been restored!"
+                                .localized() :
+                            "Session detected that your account does not have Pro access. If you believe this is a mistake, please reach out to Session support for assistance."
+                                .localized()
+                        ),
+                        scrollMode: .never
+                    ),
+                    confirmTitle: (result ? nil : "helpSupport".localized()),
+                    cancelTitle: (result ? "okay".localized() : "close".localized()),
+                    cancelStyle: (result ? .textPrimary : .danger),
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self] modal in
+                        guard result == false else {
+                            return modal.dismiss(animated: true)
+                        }
+                        
+                        self?.openUrl(Constants.session_pro_recovery_support_url)
+                    }
+                )
+            )
+                
+            self?.transitionToScreen(modal, transitionType: .present)
+        }
     }
     
     func cancelPlan() {

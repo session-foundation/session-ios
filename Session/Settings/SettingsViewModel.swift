@@ -1000,7 +1000,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
-                    
                     modal.dismiss(animated: true)
                 }
             )
@@ -1036,7 +1035,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
-                    
                     modal.dismiss(animated: true)
                 }
             )

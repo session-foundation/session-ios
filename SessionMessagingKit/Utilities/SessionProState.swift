@@ -115,6 +115,17 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         completion?(true)
     }
     
+    public func recoverPro(completion: ((_ result: Bool) -> Void)?) {
+        guard dependencies[feature: .proPlanToRecover] == true else {
+            completion?(false)
+            return
+        }
+        upgradeToPro(
+            plan: SessionProPlan(variant: .threeMonths),
+            completion: completion
+        )
+    }
+    
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,

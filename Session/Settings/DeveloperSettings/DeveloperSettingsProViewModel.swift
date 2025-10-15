@@ -77,6 +77,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         case proStatus
         case allUsersSessionPro
+        case proPlanToRecover
         
         // MARK: - Conformance
         
@@ -93,6 +94,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .proStatus: return "proStatus"
                 case .allUsersSessionPro: return "allUsersSessionPro"
+                case .proPlanToRecover: return "proPlanToRecover"
             }
         }
         
@@ -111,7 +113,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .requestRefund: result.append(.requestRefund); fallthrough
                     
                 case .proStatus: result.append(.proStatus); fallthrough
-                case .allUsersSessionPro: result.append(.allUsersSessionPro)
+                case .allUsersSessionPro: result.append(.allUsersSessionPro); fallthrough
+                case .proPlanToRecover: result.append(.proPlanToRecover)
             }
             
             return result
@@ -137,6 +140,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         let mockCurrentUserSessionPro: SessionProStateMock
         let allUsersSessionPro: Bool
+        let proPlanToRecover: Bool
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -150,7 +154,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.sessionProEnabled),
             .updateScreen(DeveloperSettingsProViewModel.self),
             .feature(.mockCurrentUserSessionProState),
-            .feature(.allUsersSessionPro)
+            .feature(.allUsersSessionPro),
+            .feature(.proPlanToRecover)
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
@@ -165,7 +170,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 refundRequestStatus: nil,
                 
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
-                allUsersSessionPro: dependencies[feature: .allUsersSessionPro]
+                allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
+                proPlanToRecover: dependencies[feature: .proPlanToRecover]
             )
         }
     }
@@ -210,7 +216,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             purchaseTransaction: purchaseTransaction,
             refundRequestStatus: refundRequestStatus,
             mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
-            allUsersSessionPro: dependencies[feature: .allUsersSessionPro]
+            allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
+            proPlanToRecover: dependencies[feature: .proPlanToRecover]
         )
     }
     
@@ -367,8 +374,31 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                             to: !state.allUsersSessionPro
                         )
                     }
-                )
-            ]
+                ),
+                {
+                    switch state.mockCurrentUserSessionPro {
+                        case .none, .expired:
+                            SessionCell.Info(
+                                id: .proPlanToRecover,
+                                title: "Pro plan to recover",
+                                subtitle: """
+                                Mock a pro plan to recover for pro state `None` and `Expired`.
+                                """,
+                                trailingAccessory: .toggle(
+                                    state.proPlanToRecover,
+                                    oldValue: previousState.proPlanToRecover
+                                ),
+                                onTap: { [dependencies = viewModel.dependencies] in
+                                    dependencies.set(
+                                        feature: .proPlanToRecover,
+                                        to: !state.proPlanToRecover
+                                    )
+                                }
+                            )
+                        default: nil
+                    }
+                }()
+            ].compactMap { $0 }
         )
         
         return [general, subscriptions, features]

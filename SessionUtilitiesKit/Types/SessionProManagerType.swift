@@ -11,6 +11,7 @@ public protocol SessionProManagerType: AnyObject {
     func cancelPro(completion: ((_ result: Bool) -> Void)?)
     func requestRefund(completion: ((_ result: Bool) -> Void)?)
     func expirePro(completion: ((_ result: Bool) -> Void)?)
+    func recoverPro(completion: ((_ result: Bool) -> Void)?)
 }
 
 public enum SessionProPlanState: Equatable, Sendable {

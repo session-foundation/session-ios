@@ -10,6 +10,7 @@ public extension Constants {
     static let session_pro_roadmap = "https://getsession.org/pro-roadmap"
     static let session_pro_faq_url = "https://getsession.org/faq#pro"
     static let session_pro_support_url = "https://getsession.org/pro-form"
+    static let session_pro_recovery_support_url = "https://sessionapp.zendesk.com/hc/sections/4416517450649-Support"
     static let session_feedback_url = "https://getsession.org/feedback"
     static let app_store_refund_support = "https://support.apple.com/118224"
     static let google_play_store_subscriptions_url = "https://play.google.com/store/account/subscriptions?package=network.loki.messenger"

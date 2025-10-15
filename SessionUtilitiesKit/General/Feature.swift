@@ -90,6 +90,10 @@ public extension FeatureStorage {
         identifier: "mockCurrentUserSessionProState"
     )
     
+    static let proPlanToRecover: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "proPlanToRecover"
+    )
+    
     static let allUsersSessionPro: FeatureConfig<Bool> = Dependencies.create(
         identifier: "allUsersSessionPro"
     )
