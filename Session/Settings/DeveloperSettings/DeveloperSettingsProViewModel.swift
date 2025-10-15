@@ -78,6 +78,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case proStatus
         case allUsersSessionPro
         case proPlanToRecover
+        case mockInstalledFromIPA
+        case originatingPlatform
         
         // MARK: - Conformance
         
@@ -95,6 +97,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .proStatus: return "proStatus"
                 case .allUsersSessionPro: return "allUsersSessionPro"
                 case .proPlanToRecover: return "proPlanToRecover"
+                case .mockInstalledFromIPA: return "mockInstalledFromIPA"
+                case .originatingPlatform: return "originatingPlatform"
             }
         }
         
@@ -114,7 +118,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .proStatus: result.append(.proStatus); fallthrough
                 case .allUsersSessionPro: result.append(.allUsersSessionPro); fallthrough
-                case .proPlanToRecover: result.append(.proPlanToRecover)
+                case .proPlanToRecover: result.append(.proPlanToRecover); fallthrough
+                case .mockInstalledFromIPA: result.append(mockInstalledFromIPA); fallthrough
+                case .originatingPlatform: result.append(.originatingPlatform)
             }
             
             return result
@@ -141,6 +147,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let mockCurrentUserSessionPro: SessionProStateMock
         let allUsersSessionPro: Bool
         let proPlanToRecover: Bool
+        let mockInstalledFromIPA: Bool
+        let originatingPlatform: ClientPlatform
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -155,7 +163,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .updateScreen(DeveloperSettingsProViewModel.self),
             .feature(.mockCurrentUserSessionProState),
             .feature(.allUsersSessionPro),
-            .feature(.proPlanToRecover)
+            .feature(.proPlanToRecover),
+            .feature(.mockInstalledFromIPA),
+            .feature(.proPlanOriginatingPlatform)
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
@@ -171,7 +181,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
                 allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
-                proPlanToRecover: dependencies[feature: .proPlanToRecover]
+                proPlanToRecover: dependencies[feature: .proPlanToRecover],
+                mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
+                originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
             )
         }
     }
@@ -217,7 +229,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             refundRequestStatus: refundRequestStatus,
             mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
             allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
-            proPlanToRecover: dependencies[feature: .proPlanToRecover]
+            proPlanToRecover: dependencies[feature: .proPlanToRecover],
+            mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
+            originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
         )
     }
     
@@ -397,7 +411,44 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                             )
                         default: nil
                     }
-                }()
+                }(),
+                (
+                    state.mockCurrentUserSessionPro == .none ? nil :
+                        SessionCell.Info(
+                            id: .originatingPlatform,
+                            title: "Originating Platform",
+                            trailingAccessory: .dropDown { state.originatingPlatform.title },
+                            onTap: { [dependencies = viewModel.dependencies] in
+                                dependencies.set(
+                                    feature: .proPlanOriginatingPlatform,
+                                    to: {
+                                        switch state.originatingPlatform {
+                                            case .Android: return .iOS
+                                            case .iOS: return .Android
+                                        }
+                                    }()
+                                )
+                            }
+                        )
+                ),
+                SessionCell.Info(
+                    id: .mockInstalledFromIPA,
+                    title: "Mock installed from IPA",
+                    subtitle: """
+                    Mock current app is installed from IPA,
+                    which means NO billing access.
+                    """,
+                    trailingAccessory: .toggle(
+                        state.mockInstalledFromIPA,
+                        oldValue: previousState.mockInstalledFromIPA
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .mockInstalledFromIPA,
+                            to: !state.mockInstalledFromIPA
+                        )
+                    }
+                )
             ].compactMap { $0 }
         )
         

@@ -80,7 +80,7 @@ public struct SessionProPlan: Equatable, Sendable {
     }
 }
 
-public enum ClientPlatform: Sendable {
+public enum ClientPlatform: String, Sendable {
     case iOS
     case Android
     
@@ -133,6 +133,12 @@ public enum SessionProStateMock: String, Sendable, Codable, CaseIterable, Featur
         }
     }
     
+    public var subtitle: String? { return nil }
+}
+
+extension ClientPlatform: FeatureOption {
+    public static var defaultOption: ClientPlatform = .iOS
+    public var title: String { deviceType }
     public var subtitle: String? { return nil }
 }
 

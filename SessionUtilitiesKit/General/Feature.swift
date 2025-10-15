@@ -90,6 +90,15 @@ public extension FeatureStorage {
         identifier: "mockCurrentUserSessionProState"
     )
     
+    static let proPlanOriginatingPlatform: FeatureConfig<ClientPlatform> = Dependencies.create(
+        identifier: "proPlanOriginatingPlatform"
+    )
+    
+    static let mockInstalledFromIPA: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "mockInstalledFromIPA",
+        defaultOption: false
+    )
+    
     static let proPlanToRecover: FeatureConfig<Bool> = Dependencies.create(
         identifier: "proPlanToRecover"
     )

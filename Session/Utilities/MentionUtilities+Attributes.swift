@@ -84,8 +84,10 @@ public extension MentionUtilities {
 
 public extension HighlightMentionView {
     func toImage(using dependencies: Dependencies) -> UIImage {
-        let themePrimaryColor = dependencies.mutate(cache: .libSession) { libSession -> Theme.PrimaryColor? in libSession.get(.themePrimaryColor)}
-        let cacheKey: String = "Mention.CurrentUser.\(themePrimaryColor.defaulting(to: .defaultPrimaryColor))" // stringlint:ignore
+        let themePrimaryColor: Theme.PrimaryColor = dependencies
+            .mutate(cache: .libSession) { $0.get(.themePrimaryColor) }
+            .defaulting(to: .defaultPrimaryColor)
+        let cacheKey: String = "Mention.CurrentUser.\(themePrimaryColor)" // stringlint:ignore
         
         if let cachedImage = dependencies[cache: .generalUI].get(for: cacheKey) {
             return cachedImage
