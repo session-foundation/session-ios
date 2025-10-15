@@ -388,120 +388,25 @@ public final class MessageSender {
             message.isValid(isSending: true),
             let sentTimestampMs: UInt64 = message.sentTimestampMs
         else { throw MessageSenderError.invalidMessage }
-        
-        let plaintext: Data = try {
-            switch (namespace, destination) {
-                case (.revokedRetrievableGroupMessages, _):
-                    return try BencodeEncoder(using: dependencies).encode(message)
-                    
-                case (_, .openGroup), (_, .openGroupInbox):
-                    guard
-                        let proto: SNProtoContent = try message.toProto()?
-                            .addingAttachmentsIfNeeded(message, attachments?.map { $0.attachment })
-                    else { throw MessageSenderError.protoConversionFailed }
-                    
-                    return try Result(proto.serializedData().paddedMessageBody())
-                        .mapError { MessageSenderError.other(nil, "Couldn't serialize proto", $0) }
-                        .successOrThrow()
-                    
-                default:
-                    guard
-                        let proto: SNProtoContent = try message.toProto()?
-                            .addingAttachmentsIfNeeded(message, attachments?.map { $0.attachment })
-                    else { throw MessageSenderError.protoConversionFailed }
-                    
-                    return try Result(proto.serializedData())
-                        .map { serialisedData -> Data in
-                            switch destination {
-                                case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
-                                    return serialisedData
-                                    
-                                default: return serialisedData.paddedMessageBody()
-                            }
-                        }
-                        .mapError { MessageSenderError.other(nil, "Couldn't serialize proto", $0) }
-                        .successOrThrow()
-            }
-        }()
-        
-        switch (destination, namespace) {
-            /// Updated group messages should be wrapped _before_ encrypting
-            case (.closedGroup(let groupId), .groupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:
-                let messageData: Data = try Result(
-                    MessageWrapper.wrap(
-                        type: .closedGroupMessage,
-                        timestampMs: sentTimestampMs,
-                        content: plaintext,
-                        wrapInWebSocketMessage: false
-                    )
-                )
-                .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }
-                .successOrThrow()
-                
-                let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
-                    .ciphertextForGroupMessage(
-                        groupSessionId: SessionId(.group, hex: groupId),
-                        message: Array(messageData)
-                    )
-                )
-                return ciphertext
-                
-            /// `revokedRetrievableGroupMessages` should be sent in plaintext (their content has custom encryption)
-            case (.closedGroup(let groupId), .revokedRetrievableGroupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:
-                return plaintext
-                
-            // Standard one-to-one messages and legacy groups (which used a `05` prefix)
-            case (.contact, .default), (.syncMessage, _), (.closedGroup, _):
-                let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
-                    .ciphertextWithSessionProtocol(
-                        plaintext: plaintext,
-                        destination: destination
-                    )
-                )
-                
-                return try Result(
-                    try MessageWrapper.wrap(
-                        type: try {
-                            switch destination {
-                                case .contact, .syncMessage: return .sessionMessage
-                                case .closedGroup: return .closedGroupMessage
-                                default: throw MessageSenderError.invalidMessage
-                            }
-                        }(),
-                        timestampMs: sentTimestampMs,
-                        senderPublicKey: {
-                            switch destination {
-                                case .closedGroup: return try authMethod.swarmPublicKey // Needed for Android
-                                default: return ""                     // Empty for all other cases
-                            }
-                        }(),
-                        content: ciphertext
-                    )
-                )
-                .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }
-                .successOrThrow()
-            
-            /// Community messages should be sent in plaintext
-            case (.openGroup, _): return plaintext
-            
-            /// Blinded community messages have their own special encryption
-            case (.openGroupInbox(_, let serverPublicKey, let recipientBlindedPublicKey), _):
-                return try dependencies[singleton: .crypto].generateResult(
-                    .ciphertextWithSessionBlindingProtocol(
-                        plaintext: plaintext,
-                        recipientBlindedId: recipientBlindedPublicKey,
-                        serverPublicKey: serverPublicKey
-                    )
-                )
-                .mapError { MessageSenderError.other(nil, "Couldn't encrypt message for destination: \(destination)", $0) }
-                .successOrThrow()
-                
-            /// Config messages should be sent directly rather than via this method
-            case (.closedGroup(let groupId), _) where (try? SessionId.Prefix(from: groupId)) == .group:
-                throw MessageSenderError.invalidConfigMessageHandling
-                
-            /// Config messages should be sent directly rather than via this method
-            case (.contact, _): throw MessageSenderError.invalidConfigMessageHandling
+
+        /// Messages sent to `revokedRetrievableGroupMessages` should be sent directly instead of via the `MessageSender`
+        guard namespace != .revokedRetrievableGroupMessages else {
+            throw MessageSenderError.invalidDestination
         }
+        
+        /// Add attachments if needed and convert to serialised proto data
+        guard
+            let plaintext: Data = try? message.toProto()?
+                .addingAttachmentsIfNeeded(message, attachments?.map { $0.attachment })?
+                .serializedData()
+        else { throw MessageSenderError.protoConversionFailed }
+        
+        return try dependencies[singleton: .crypto].tryGenerate(
+            .ciphertextForDestination(
+                plaintext: Array(plaintext),
+                destination: destination,
+                sentTimestampMs: sentTimestampMs
+            )
+        )
     }
 }

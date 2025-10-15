@@ -11,51 +11,6 @@ import SessionUtilitiesKit
 // MARK: - Encryption
 
 public extension Crypto.Generator {
-    static func ciphertextWithSessionProtocol(
-        plaintext: Data,
-        destination: Message.Destination
-    ) -> Crypto.Generator<Data> {
-        return Crypto.Generator(
-            id: "ciphertextWithSessionProtocol",
-            args: [plaintext, destination]
-        ) { dependencies in
-            let destinationX25519PublicKey: Data = try {
-                switch destination {
-                    case .contact(let publicKey): return Data(SessionId(.standard, hex: publicKey).publicKey)
-                    case .syncMessage: return Data(dependencies[cache: .general].sessionId.publicKey)
-                    case .closedGroup: throw MessageSenderError.deprecatedLegacyGroup
-                    default: throw MessageSenderError.signingFailed
-                }
-            }()
-
-            var cPlaintext: [UInt8] = Array(plaintext)
-            var cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
-            var cDestinationPubKey: [UInt8] = Array(destinationX25519PublicKey)
-            var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
-            var ciphertextLen: Int = 0
-
-            guard !cEd25519SecretKey.isEmpty else { throw MessageSenderError.noUserED25519KeyPair }
-            guard
-                cEd25519SecretKey.count == 64,
-                cDestinationPubKey.count == 32,
-                session_encrypt_for_recipient_deterministic(
-                    &cPlaintext,
-                    cPlaintext.count,
-                    &cEd25519SecretKey,
-                    &cDestinationPubKey,
-                    &maybeCiphertext,
-                    &ciphertextLen
-                ),
-                ciphertextLen > 0,
-                let ciphertext: Data = maybeCiphertext.map({ Data(bytes: $0, count: ciphertextLen) })
-            else { throw MessageSenderError.encryptionFailed }
-
-            free(UnsafeMutableRawPointer(mutating: maybeCiphertext))
-
-            return ciphertext
-        }
-    }
-
     static func ciphertextWithMultiEncrypt(
         messages: [Data],
         toRecipients recipients: [SessionId],

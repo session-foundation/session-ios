@@ -94,40 +94,116 @@ public extension Crypto.Generator {
         }
     }
     
-    static func ciphertextForGroupMessage(
-        groupSessionId: SessionId,
-        message: [UInt8]
-    ) -> Crypto.Generator<Data> {
+    static func ciphertextForDestination<I: DataProtocol, R: RangeReplaceableCollection>(
+        plaintext: I,
+        destination: Message.Destination,
+        sentTimestampMs: UInt64
+    ) throws -> Crypto.Generator<R> where R.Element == UInt8 {
         return Crypto.Generator(
-            id: "ciphertextForGroupMessage",
-            args: [groupSessionId, message]
+            id: "ciphertextForDestination",
+            args: []
         ) { dependencies in
-            return try dependencies.mutate(cache: .libSession) { cache in
-                guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
-                }
-                guard case .groupKeys(let conf, _, _) = config else {
-                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
-                }
-                
-                var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
-                var ciphertextLen: Int = 0
-                groups_keys_encrypt_message(
-                    conf,
-                    message,
-                    message.count,
-                    &maybeCiphertext,
-                    &ciphertextLen
-                )
-                
-                guard
-                    ciphertextLen > 0,
-                    let ciphertext: Data = maybeCiphertext
-                        .map({ Data(bytes: $0, count: ciphertextLen) })
-                else { throw MessageSenderError.encryptionFailed }
-                
-                return ciphertext
-            } ?? { throw MessageSenderError.encryptionFailed }()
+            let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+            
+            guard !cEd25519SecretKey.isEmpty else { throw MessageSenderError.noUserED25519KeyPair }
+            
+            let cPlaintext: [UInt8] = Array(plaintext)
+            var error: [CChar] = [CChar](repeating: 0, count: 256)
+            var result: session_protocol_encoded_for_destination
+            
+            switch destination {
+                case .contact(let pubkey):
+                    var cPubkey: bytes33 = bytes33()
+                    cPubkey.set(\.data, to: Data(hex: pubkey))
+                    result = session_protocol_encode_for_1o1(
+                        cPlaintext,
+                        cPlaintext.count,
+                        cEd25519SecretKey,
+                        cEd25519SecretKey.count,
+                        sentTimestampMs,
+                        &cPubkey,
+                        nil,
+                        0,
+                        &error,
+                        error.count
+                    )
+                    
+                case .syncMessage:
+                    var cPubkey: bytes33 = bytes33()
+                    cPubkey.set(\.data, to: Data(hex: dependencies[cache: .general].sessionId.hexString))
+                    result = session_protocol_encode_for_1o1(
+                        cPlaintext,
+                        cPlaintext.count,
+                        cEd25519SecretKey,
+                        cEd25519SecretKey.count,
+                        sentTimestampMs,
+                        &cPubkey,
+                        nil,
+                        0,
+                        &error,
+                        error.count
+                    )
+                    
+                case .closedGroup(let pubkey):
+                    let currentGroupEncPrivateKey: [UInt8] = try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.latestGroupKey(groupSessionId: SessionId(.group, hex: pubkey))
+                    }
+                    
+                    var cPubkey: bytes33 = bytes33()
+                    var cCurrentGroupEncPrivateKey: bytes32 = bytes32()
+                    cPubkey.set(\.data, to: Data(hex: pubkey))
+                    cCurrentGroupEncPrivateKey.set(\.data, to: currentGroupEncPrivateKey)
+                    result = session_protocol_encode_for_group(
+                        cPlaintext,
+                        cPlaintext.count,
+                        cEd25519SecretKey,
+                        cEd25519SecretKey.count,
+                        sentTimestampMs,
+                        &cPubkey,
+                        &cCurrentGroupEncPrivateKey,
+                        nil,
+                        0,
+                        &error,
+                        error.count
+                    )
+                    
+                case .openGroupInbox(_, let serverPubkey, let recipientPubkey):
+                    var cServerPubkey: bytes32 = bytes32()
+                    var cRecipientPubkey: bytes33 = bytes33()
+                    cServerPubkey.set(\.data, to: Data(hex: serverPubkey))
+                    cRecipientPubkey.set(\.data, to: Data(hex: recipientPubkey))
+                    result = session_protocol_encode_for_community_inbox(
+                        cPlaintext,
+                        cPlaintext.count,
+                        cEd25519SecretKey,
+                        cEd25519SecretKey.count,
+                        sentTimestampMs,
+                        &cRecipientPubkey,
+                        &cServerPubkey,
+                        nil,
+                        0,
+                        &error,
+                        error.count
+                    )
+                    
+                case .openGroup:
+                    result = session_protocol_encode_for_community(
+                        cPlaintext,
+                        cPlaintext.count,
+                        nil,
+                        0,
+                        &error,
+                        error.count
+                    )
+            }
+            defer { session_protocol_encode_for_destination_free(&result) }
+            
+            guard result.success else {
+                Log.error(.messageSender, "Failed to encrypt due to error: \(String(cString: error))")
+                throw MessageSenderError.encryptionFailed
+            }
+            
+            return R(UnsafeBufferPointer(start: result.ciphertext.data, count: result.ciphertext.size))
         }
     }
     
@@ -203,3 +279,7 @@ public extension Crypto.Verification {
         }
     }
 }
+
+extension bytes32: CAccessible & CMutable {}
+extension bytes33: CAccessible & CMutable {}
+extension bytes64: CAccessible & CMutable {}

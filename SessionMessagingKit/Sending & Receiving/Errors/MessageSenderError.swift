@@ -16,6 +16,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
     case attachmentsNotUploaded
     case attachmentsInvalid
     case blindingFailed
+    case invalidDestination
     
     // Closed groups
     case noThread
@@ -48,6 +49,7 @@ public enum MessageSenderError: Error, CustomStringConvertible, Equatable {
             case .attachmentsNotUploaded: return "Attachments for this message have not been uploaded (MessageSenderError.attachmentsNotUploaded)."
             case .attachmentsInvalid: return "Attachments Invalid (MessageSenderError.attachmentsInvalid)."
             case .blindingFailed: return "Couldn't blind the sender (MessageSenderError.blindingFailed)."
+            case .invalidDestination: return "Invalid destination (MessageSenderError.invalidDestination)."
             
             // Closed groups
             case .noThread: return "Couldn't find a thread associated with the given group public key (MessageSenderError.noThread)."

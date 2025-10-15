@@ -204,6 +204,21 @@ internal extension LibSession {
 // MARK: - State Accses
 
 public extension LibSession.Cache {
+    func latestGroupKey(groupSessionId: SessionId) throws -> [UInt8] {
+        guard let config: LibSession.Config = config(for: .groupKeys, sessionId: groupSessionId) else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+        }
+        guard case .groupKeys(let conf, _, _) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
+        }
+        
+        let result: span_u8 = groups_keys_group_enc_key(conf);
+        
+        guard result.size > 0 else { throw CryptoError.invalidKey }
+        
+        return Array(UnsafeBufferPointer(start: result.data, count: result.size))
+    }
+    
     func isAdmin(groupSessionId: SessionId) -> Bool {
         guard case .groupKeys(let conf, _, _) = config(for: .groupKeys, sessionId: groupSessionId) else {
             return false
@@ -212,3 +227,5 @@ public extension LibSession.Cache {
         return groups_keys_is_admin(conf)
     }
 }
+
+extension span_u8: @retroactive CAccessible {}

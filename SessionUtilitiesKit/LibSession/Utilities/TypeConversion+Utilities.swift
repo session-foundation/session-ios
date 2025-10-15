@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import SessionUtil
 
 // MARK: - String
 
@@ -83,9 +84,21 @@ public protocol CAccessible {
     func get(_ keyPath: KeyPath<Self, CUChar32>) -> Data
     func get(_ keyPath: KeyPath<Self, CUChar32>) -> [UInt8]
     func getHex(_ keyPath: KeyPath<Self, CUChar32>) -> String
+    func get(_ keyPath: KeyPath<Self, bytes32>) -> Data
+    func get(_ keyPath: KeyPath<Self, bytes32>) -> [UInt8]
+    func getHex(_ keyPath: KeyPath<Self, bytes32>) -> String
+    func get(_ keyPath: KeyPath<Self, CUChar33>) -> Data
+    func get(_ keyPath: KeyPath<Self, CUChar33>) -> [UInt8]
+    func getHex(_ keyPath: KeyPath<Self, CUChar33>) -> String
+    func get(_ keyPath: KeyPath<Self, bytes33>) -> Data
+    func get(_ keyPath: KeyPath<Self, bytes33>) -> [UInt8]
+    func getHex(_ keyPath: KeyPath<Self, bytes33>) -> String
     func get(_ keyPath: KeyPath<Self, CUChar64>) -> Data
     func get(_ keyPath: KeyPath<Self, CUChar64>) -> [UInt8]
     func getHex(_ keyPath: KeyPath<Self, CUChar64>) -> String
+    func get(_ keyPath: KeyPath<Self, bytes64>) -> Data
+    func get(_ keyPath: KeyPath<Self, bytes64>) -> [UInt8]
+    func getHex(_ keyPath: KeyPath<Self, bytes64>) -> String
     func get(_ keyPath: KeyPath<Self, CUChar100>) -> Data
     func get(_ keyPath: KeyPath<Self, CUChar100>) -> [UInt8]
     func getHex(_ keyPath: KeyPath<Self, CUChar100>) -> String
@@ -93,9 +106,21 @@ public protocol CAccessible {
     func get(_ keyPath: KeyPath<Self, CUChar32>, nullIfEmpty: Bool) -> Data?
     func get(_ keyPath: KeyPath<Self, CUChar32>, nullIfEmpty: Bool) -> [UInt8]?
     func getHex(_ keyPath: KeyPath<Self, CUChar32>, nullIfEmpty: Bool) -> String?
+    func get(_ keyPath: KeyPath<Self, bytes32>, nullIfEmpty: Bool) -> Data?
+    func get(_ keyPath: KeyPath<Self, bytes32>, nullIfEmpty: Bool) -> [UInt8]?
+    func getHex(_ keyPath: KeyPath<Self, bytes32>, nullIfEmpty: Bool) -> String?
+    func get(_ keyPath: KeyPath<Self, CUChar33>, nullIfEmpty: Bool) -> Data?
+    func get(_ keyPath: KeyPath<Self, CUChar33>, nullIfEmpty: Bool) -> [UInt8]?
+    func getHex(_ keyPath: KeyPath<Self, CUChar33>, nullIfEmpty: Bool) -> String?
+    func get(_ keyPath: KeyPath<Self, bytes33>, nullIfEmpty: Bool) -> Data?
+    func get(_ keyPath: KeyPath<Self, bytes33>, nullIfEmpty: Bool) -> [UInt8]?
+    func getHex(_ keyPath: KeyPath<Self, bytes33>, nullIfEmpty: Bool) -> String?
     func get(_ keyPath: KeyPath<Self, CUChar64>, nullIfEmpty: Bool) -> Data?
     func get(_ keyPath: KeyPath<Self, CUChar64>, nullIfEmpty: Bool) -> [UInt8]?
     func getHex(_ keyPath: KeyPath<Self, CUChar64>, nullIfEmpty: Bool) -> String?
+    func get(_ keyPath: KeyPath<Self, bytes64>, nullIfEmpty: Bool) -> Data?
+    func get(_ keyPath: KeyPath<Self, bytes64>, nullIfEmpty: Bool) -> [UInt8]?
+    func getHex(_ keyPath: KeyPath<Self, bytes64>, nullIfEmpty: Bool) -> String?
     func get(_ keyPath: KeyPath<Self, CUChar100>, nullIfEmpty: Bool) -> Data?
     func get(_ keyPath: KeyPath<Self, CUChar100>, nullIfEmpty: Bool) -> [UInt8]?
     func getHex(_ keyPath: KeyPath<Self, CUChar100>, nullIfEmpty: Bool) -> String?
@@ -135,9 +160,21 @@ public extension CAccessible {
     func get(_ keyPath: KeyPath<Self, CUChar32>) -> Data { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CUChar32>) -> [UInt8] { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func getHex(_ keyPath: KeyPath<Self, CUChar32>) -> String { withUnsafePointer(to: self) { $0.getHex(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, bytes32>) -> Data { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, bytes32>) -> [UInt8] { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func getHex(_ keyPath: KeyPath<Self, bytes32>) -> String { withUnsafePointer(to: self) { $0.getHex(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, CUChar33>) -> Data { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, CUChar33>) -> [UInt8] { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func getHex(_ keyPath: KeyPath<Self, CUChar33>) -> String { withUnsafePointer(to: self) { $0.getHex(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, bytes33>) -> Data { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, bytes33>) -> [UInt8] { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func getHex(_ keyPath: KeyPath<Self, bytes33>) -> String { withUnsafePointer(to: self) { $0.getHex(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CUChar64>) -> Data { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CUChar64>) -> [UInt8] { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func getHex(_ keyPath: KeyPath<Self, CUChar64>) -> String { withUnsafePointer(to: self) { $0.getHex(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, bytes64>) -> Data { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, bytes64>) -> [UInt8] { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func getHex(_ keyPath: KeyPath<Self, bytes64>) -> String { withUnsafePointer(to: self) { $0.getHex(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CUChar100>) -> Data { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CUChar100>) -> [UInt8] { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func getHex(_ keyPath: KeyPath<Self, CUChar100>) -> String { withUnsafePointer(to: self) { $0.getHex(keyPath) } }
@@ -151,6 +188,33 @@ public extension CAccessible {
     func getHex(_ keyPath: KeyPath<Self, CUChar32>, nullIfEmpty: Bool = false) -> String? {
         withUnsafePointer(to: self) { $0.getHex(keyPath, nullIfEmpty: nullIfEmpty) }
     }
+    func get(_ keyPath: KeyPath<Self, bytes32>, nullIfEmpty: Bool = false) -> Data? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func get(_ keyPath: KeyPath<Self, bytes32>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func getHex(_ keyPath: KeyPath<Self, bytes32>, nullIfEmpty: Bool = false) -> String? {
+        withUnsafePointer(to: self) { $0.getHex(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func get(_ keyPath: KeyPath<Self, CUChar33>, nullIfEmpty: Bool = false) -> Data? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func get(_ keyPath: KeyPath<Self, CUChar33>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func getHex(_ keyPath: KeyPath<Self, CUChar33>, nullIfEmpty: Bool = false) -> String? {
+        withUnsafePointer(to: self) { $0.getHex(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func get(_ keyPath: KeyPath<Self, bytes33>, nullIfEmpty: Bool = false) -> Data? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func get(_ keyPath: KeyPath<Self, bytes33>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func getHex(_ keyPath: KeyPath<Self, bytes33>, nullIfEmpty: Bool = false) -> String? {
+        withUnsafePointer(to: self) { $0.getHex(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
     func get(_ keyPath: KeyPath<Self, CUChar64>, nullIfEmpty: Bool = false) -> Data? {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
     }
@@ -158,6 +222,15 @@ public extension CAccessible {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
     }
     func getHex(_ keyPath: KeyPath<Self, CUChar64>, nullIfEmpty: Bool = false) -> String? {
+        withUnsafePointer(to: self) { $0.getHex(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func get(_ keyPath: KeyPath<Self, bytes64>, nullIfEmpty: Bool = false) -> Data? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func get(_ keyPath: KeyPath<Self, bytes64>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func getHex(_ keyPath: KeyPath<Self, bytes64>, nullIfEmpty: Bool = false) -> String? {
         withUnsafePointer(to: self) { $0.getHex(keyPath, nullIfEmpty: nullIfEmpty) }
     }
     func get(_ keyPath: KeyPath<Self, CUChar100>, nullIfEmpty: Bool = false) -> Data? {
@@ -189,7 +262,11 @@ public protocol CMutable {
     // Data variants
     
     mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, CUChar32>, to value: T?)
+    mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, bytes32>, to value: T?)
+    mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, CUChar33>, to value: T?)
+    mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, bytes33>, to value: T?)
     mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, CUChar64>, to value: T?)
+    mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, bytes64>, to value: T?)
     mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, CUChar100>, to value: T?)
 }
 
@@ -206,7 +283,23 @@ public extension CMutable {
         withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
     }
     
+    mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, bytes32>, to value: T?) {
+        withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
+    }
+    
+    mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, CUChar33>, to value: T?) {
+        withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
+    }
+    
+    mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, bytes33>, to value: T?) {
+        withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
+    }
+    
     mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, CUChar64>, to value: T?) {
+        withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
+    }
+    
+    mutating func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Self, bytes64>, to value: T?) {
         withUnsafeMutablePointer(to: &self) { $0.set(keyPath, to: value) }
     }
     
@@ -273,9 +366,21 @@ public extension UnsafeMutablePointer {
     func get(_ keyPath: KeyPath<Pointee, CUChar32>) -> Data { UnsafePointer(self).get(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CUChar32>) -> [UInt8] { UnsafePointer(self).get(keyPath) }
     func getHex(_ keyPath: KeyPath<Pointee, CUChar32>) -> String { UnsafePointer(self).getHex(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, bytes32>) -> Data { UnsafePointer(self).get(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, bytes32>) -> [UInt8] { UnsafePointer(self).get(keyPath) }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes32>) -> String { UnsafePointer(self).getHex(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, CUChar33>) -> Data { UnsafePointer(self).get(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, CUChar33>) -> [UInt8] { UnsafePointer(self).get(keyPath) }
+    func getHex(_ keyPath: KeyPath<Pointee, CUChar33>) -> String { UnsafePointer(self).getHex(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, bytes33>) -> Data { UnsafePointer(self).get(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, bytes33>) -> [UInt8] { UnsafePointer(self).get(keyPath) }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes33>) -> String { UnsafePointer(self).getHex(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CUChar64>) -> Data { UnsafePointer(self).get(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CUChar64>) -> [UInt8] { UnsafePointer(self).get(keyPath) }
     func getHex(_ keyPath: KeyPath<Pointee, CUChar64>) -> String { UnsafePointer(self).getHex(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, bytes64>) -> Data { UnsafePointer(self).get(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, bytes64>) -> [UInt8] { UnsafePointer(self).get(keyPath) }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes64>) -> String { UnsafePointer(self).getHex(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CUChar100>) -> Data { UnsafePointer(self).get(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CUChar100>) -> [UInt8] { UnsafePointer(self).get(keyPath) }
     func getHex(_ keyPath: KeyPath<Pointee, CUChar100>) -> String { UnsafePointer(self).getHex(keyPath) }
@@ -289,6 +394,33 @@ public extension UnsafeMutablePointer {
     func getHex(_ keyPath: KeyPath<Pointee, CUChar32>, nullIfEmpty: Bool = false) -> String? {
         UnsafePointer(self).getHex(keyPath, nullIfEmpty: nullIfEmpty)
     }
+    func get(_ keyPath: KeyPath<Pointee, bytes32>, nullIfEmpty: Bool = false) -> Data? {
+        UnsafePointer(self).get(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, bytes32>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        UnsafePointer(self).get(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes32>, nullIfEmpty: Bool = false) -> String? {
+        UnsafePointer(self).getHex(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, CUChar33>, nullIfEmpty: Bool = false) -> Data? {
+        UnsafePointer(self).get(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, CUChar33>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        UnsafePointer(self).get(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func getHex(_ keyPath: KeyPath<Pointee, CUChar33>, nullIfEmpty: Bool = false) -> String? {
+        UnsafePointer(self).getHex(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, bytes33>, nullIfEmpty: Bool = false) -> Data? {
+        UnsafePointer(self).get(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, bytes33>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        UnsafePointer(self).get(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes33>, nullIfEmpty: Bool = false) -> String? {
+        UnsafePointer(self).getHex(keyPath, nullIfEmpty: nullIfEmpty)
+    }
     func get(_ keyPath: KeyPath<Pointee, CUChar64>, nullIfEmpty: Bool = false) -> Data? {
         UnsafePointer(self).get(keyPath, nullIfEmpty: nullIfEmpty)
     }
@@ -296,6 +428,15 @@ public extension UnsafeMutablePointer {
         UnsafePointer(self).get(keyPath, nullIfEmpty: nullIfEmpty)
     }
     func getHex(_ keyPath: KeyPath<Pointee, CUChar64>, nullIfEmpty: Bool = false) -> String? {
+        UnsafePointer(self).getHex(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, bytes64>, nullIfEmpty: Bool = false) -> Data? {
+        UnsafePointer(self).get(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, bytes64>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        UnsafePointer(self).get(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes64>, nullIfEmpty: Bool = false) -> String? {
         UnsafePointer(self).getHex(keyPath, nullIfEmpty: nullIfEmpty)
     }
     func get(_ keyPath: KeyPath<Pointee, CUChar100>, nullIfEmpty: Bool = false) -> Data? {
@@ -328,7 +469,23 @@ public extension UnsafeMutablePointer {
         setData(keyPath, value.map { Data($0) }, length: 32)
     }
     
+    func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Pointee, bytes32>, to value: T?) {
+        setData(keyPath, value.map { Data($0) }, length: 32)
+    }
+    
+    func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Pointee, CUChar33>, to value: T?) {
+        setData(keyPath, value.map { Data($0) }, length: 33)
+    }
+    
+    func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Pointee, bytes33>, to value: T?) {
+        setData(keyPath, value.map { Data($0) }, length: 33)
+    }
+    
     func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Pointee, CUChar64>, to value: T?) {
+        setData(keyPath, value.map { Data($0) }, length: 64)
+    }
+    
+    func set<T: DataProtocol>(_ keyPath: WritableKeyPath<Pointee, bytes64>, to value: T?) {
         setData(keyPath, value.map { Data($0) }, length: 64)
     }
     
@@ -371,9 +528,21 @@ public extension UnsafePointer {
     func get(_ keyPath: KeyPath<Pointee, CUChar32>) -> Data { getData(keyPath, length: 32) }
     func get(_ keyPath: KeyPath<Pointee, CUChar32>) -> [UInt8] { Array(getData(keyPath, length: 32)) }
     func getHex(_ keyPath: KeyPath<Pointee, CUChar32>) -> String { getData(keyPath, length: 32).toHexString() }
+    func get(_ keyPath: KeyPath<Pointee, bytes32>) -> Data { getData(keyPath, length: 32) }
+    func get(_ keyPath: KeyPath<Pointee, bytes32>) -> [UInt8] { Array(getData(keyPath, length: 32)) }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes32>) -> String { getData(keyPath, length: 32).toHexString() }
+    func get(_ keyPath: KeyPath<Pointee, CUChar33>) -> Data { getData(keyPath, length: 33) }
+    func get(_ keyPath: KeyPath<Pointee, CUChar33>) -> [UInt8] { Array(getData(keyPath, length: 33)) }
+    func getHex(_ keyPath: KeyPath<Pointee, CUChar33>) -> String { getData(keyPath, length: 33).toHexString() }
+    func get(_ keyPath: KeyPath<Pointee, bytes33>) -> Data { getData(keyPath, length: 33) }
+    func get(_ keyPath: KeyPath<Pointee, bytes33>) -> [UInt8] { Array(getData(keyPath, length: 33)) }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes33>) -> String { getData(keyPath, length: 33).toHexString() }
     func get(_ keyPath: KeyPath<Pointee, CUChar64>) -> Data { getData(keyPath, length: 64) }
     func get(_ keyPath: KeyPath<Pointee, CUChar64>) -> [UInt8] { Array(getData(keyPath, length: 64)) }
     func getHex(_ keyPath: KeyPath<Pointee, CUChar64>) -> String { getData(keyPath, length: 64).toHexString() }
+    func get(_ keyPath: KeyPath<Pointee, bytes64>) -> Data { getData(keyPath, length: 64) }
+    func get(_ keyPath: KeyPath<Pointee, bytes64>) -> [UInt8] { Array(getData(keyPath, length: 64)) }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes64>) -> String { getData(keyPath, length: 64).toHexString() }
     func get(_ keyPath: KeyPath<Pointee, CUChar100>) -> Data { getData(keyPath, length: 100) }
     func get(_ keyPath: KeyPath<Pointee, CUChar100>) -> [UInt8] { Array(getData(keyPath, length: 100)) }
     func getHex(_ keyPath: KeyPath<Pointee, CUChar100>) -> String { getData(keyPath, length: 100).toHexString() }
@@ -387,6 +556,33 @@ public extension UnsafePointer {
     func getHex(_ keyPath: KeyPath<Pointee, CUChar32>, nullIfEmpty: Bool = false) -> String? {
         getData(keyPath, length: 32, nullIfEmpty: nullIfEmpty).map { $0.toHexString() }
     }
+    func get(_ keyPath: KeyPath<Pointee, bytes32>, nullIfEmpty: Bool = false) -> Data? {
+        getData(keyPath, length: 32, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, bytes32>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        getData(keyPath, length: 32, nullIfEmpty: nullIfEmpty).map { Array($0) }
+    }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes32>, nullIfEmpty: Bool = false) -> String? {
+        getData(keyPath, length: 32, nullIfEmpty: nullIfEmpty).map { $0.toHexString() }
+    }
+    func get(_ keyPath: KeyPath<Pointee, CUChar33>, nullIfEmpty: Bool = false) -> Data? {
+        getData(keyPath, length: 33, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, CUChar33>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        getData(keyPath, length: 33, nullIfEmpty: nullIfEmpty).map { Array($0) }
+    }
+    func getHex(_ keyPath: KeyPath<Pointee, CUChar33>, nullIfEmpty: Bool = false) -> String? {
+        getData(keyPath, length: 33, nullIfEmpty: nullIfEmpty).map { $0.toHexString() }
+    }
+    func get(_ keyPath: KeyPath<Pointee, bytes33>, nullIfEmpty: Bool = false) -> Data? {
+        getData(keyPath, length: 33, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, bytes33>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        getData(keyPath, length: 33, nullIfEmpty: nullIfEmpty).map { Array($0) }
+    }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes33>, nullIfEmpty: Bool = false) -> String? {
+        getData(keyPath, length: 33, nullIfEmpty: nullIfEmpty).map { $0.toHexString() }
+    }
     func get(_ keyPath: KeyPath<Pointee, CUChar64>, nullIfEmpty: Bool = false) -> Data? {
         getData(keyPath, length: 64, nullIfEmpty: nullIfEmpty)
     }
@@ -394,6 +590,15 @@ public extension UnsafePointer {
         getData(keyPath, length: 64, nullIfEmpty: nullIfEmpty).map { Array($0) }
     }
     func getHex(_ keyPath: KeyPath<Pointee, CUChar64>, nullIfEmpty: Bool = false) -> String? {
+        getData(keyPath, length: 64, nullIfEmpty: nullIfEmpty).map { $0.toHexString() }
+    }
+    func get(_ keyPath: KeyPath<Pointee, bytes64>, nullIfEmpty: Bool = false) -> Data? {
+        getData(keyPath, length: 64, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, bytes64>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        getData(keyPath, length: 64, nullIfEmpty: nullIfEmpty).map { Array($0) }
+    }
+    func getHex(_ keyPath: KeyPath<Pointee, bytes64>, nullIfEmpty: Bool = false) -> String? {
         getData(keyPath, length: 64, nullIfEmpty: nullIfEmpty).map { $0.toHexString() }
     }
     func get(_ keyPath: KeyPath<Pointee, CUChar100>, nullIfEmpty: Bool = false) -> Data? {
@@ -529,6 +734,13 @@ public typealias CUChar32 = (
     UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
     UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
     UInt8, UInt8
+)
+
+public typealias CUChar33 = (
+    UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+    UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+    UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+    UInt8, UInt8, UInt8
 )
 
 public typealias CUChar64 = (

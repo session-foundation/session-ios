@@ -14,4 +14,5 @@ public enum CryptoError: Error {
     case missingUserSecretKey
     case invalidAuthentication
     case invalidBase64EncodedData
+    case invalidKey
 }
