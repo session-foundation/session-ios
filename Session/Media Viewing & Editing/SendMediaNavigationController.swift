@@ -263,7 +263,7 @@ class SendMediaNavigationController: UINavigationController {
         
         if !mediaLibrarySelections.isEmpty {
             Task.detached(priority: .utility) { [fileManager = dependencies[singleton: .fileManager]] in
-                let attachmentResults = await withTaskGroup { group in
+                let attachmentResults = await withTaskGroup(of: Result<MediaLibraryAttachment, Error>.self) { group in
                     mediaLibrarySelections.forEach { selection in
                         group.addTask { await selection.retrievalTask.result }
                     }
