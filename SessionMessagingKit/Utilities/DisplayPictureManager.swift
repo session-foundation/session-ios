@@ -225,7 +225,7 @@ public class DisplayPictureManager {
         
         /// The desired output for a profile picture is a `WebP` at the specified size (and `cropRect`) that is generated in under `5s`
         do {
-            let result: PreparedAttachment = try await withThrowingTaskGroup { [dependencies] group in
+            let result: PreparedAttachment = try await withThrowingTaskGroup(of: PreparedAttachment.self) { [dependencies] group in
                 group.addTask {
                     return try await attachment.prepare(
                         operations: DisplayPictureManager.standardOperations(cropRect: cropRect),
@@ -259,7 +259,7 @@ public class DisplayPictureManager {
         ///
         /// **Note:** In this case we want to ignore any error and just fallback to the original file (with metadata stripped)
         if attachment.utType == .gif {
-            let maybeResult: PreparedAttachment? = try? await withThrowingTaskGroup { [dependencies] group in
+            let maybeResult: PreparedAttachment? = try? await withThrowingTaskGroup(of: PreparedAttachment.self) { [dependencies] group in
                 group.addTask {
                     return try await attachment.prepare(
                         operations: [
