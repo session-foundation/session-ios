@@ -256,7 +256,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             } else {
                                 self?.showQRCodeLightBox(for: threadViewModel)
                             }
-                        },
+                        }
                     )
                 :
                     SessionCell.Info(
