@@ -256,8 +256,24 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             } else {
                                 self?.showQRCodeLightBox(for: threadViewModel)
                             }
-                        }
-                    ) :
+
+                            // If we already have a display picture then the main profile gets the icon
+                            return (threadViewModel.threadDisplayPictureUrl != nil ? .rightPlus : .none)
+                        }(),
+                        additionalProfile: threadViewModel.additionalProfile,
+//                        additionalProfileIcon: {
+//                            guard
+//                                threadViewModel.threadVariant == .group &&
+//                                currentUserIsClosedGroupAdmin &&
+//                                dependencies[feature: .updatedGroupsAllowDisplayPicture]
+//                            else { return .none }
+//                            
+//                            // No display picture means the dual-profile so the additionalProfile gets the icon
+//                            return .rightPlus
+//                        }(),
+                        accessibility: nil
+                    )
+                :
                     SessionCell.Info(
                         id: .avatar,
                         accessory: .profile(
@@ -266,13 +282,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             threadVariant: threadViewModel.threadVariant,
                             displayPictureUrl: threadViewModel.threadDisplayPictureUrl,
                             profile: threadViewModel.profile,
-                            profileIcon: ((threadViewModel.threadIsNoteToSelf || threadVariant == .group) ? .none : .qrCode),
+                            profileIcon: (threadViewModel.threadIsNoteToSelf || threadVariant == .group ? .none : .qrCode),
                             additionalProfile: threadViewModel.additionalProfile,
                             accessibility: nil
                         ),
                         styling: SessionCell.StyleInfo(
                             alignment: .centerHugging,
-                            customPadding: SessionCell.Padding(bottom: Values.smallSpacing),
+                            customPadding: SessionCell.Padding(
+                                leading: 0,
+                                bottom: Values.smallSpacing
+                            ),
                             backgroundStyle: .noBackground
                         ),
                         onTapView: { [weak self] targetView in

@@ -112,6 +112,20 @@ extension ConversationVC:
         navigationController?.pushViewController(viewController, animated: true)
     }
     
+    // MARK: - External keyboard
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            guard let key = press.key else { continue }
+
+            if key.keyCode == .keyboardReturnOrEnter && key.modifierFlags.isEmpty {
+                // Enter only -> send
+                handleSendButtonTapped()
+                return
+            }
+        }
+        super.pressesBegan(presses, with: event)
+    }
+    
     // MARK: - Call
     
     @objc func startCall(_ sender: Any?) {
@@ -826,7 +840,7 @@ extension ConversationVC:
                             fallback: .none,
                             using: dependencies
                         ),
-                        profileUpdateTimestamp: (currentUserProfile.profileLastUpdated ?? sentTimestamp),
+                        profileUpdateTimestamp: currentUserProfile.profileLastUpdated,
                         using: dependencies
                     )
                 }
@@ -1069,6 +1083,14 @@ extension ConversationVC:
             }
             return
         }
+        
+        if !self.isFirstResponder {
+            // Force this object to become the First Responder. This is necessary
+            // to trigger the display of its associated inputAccessoryView
+            // and/or inputView.
+            self.becomeFirstResponder()
+        }
+        
         UIView.animate(withDuration: 0.25, animations: {
             self.inputAccessoryView?.isHidden = false
             self.inputAccessoryView?.alpha = 1
@@ -1609,13 +1631,16 @@ extension ConversationVC:
         
         let (displayName, contactDisplayName): (String?, String?) = {
             guard let sessionId: String = sessionId else {
-                return (cellViewModel.authorName, nil)
+                return (cellViewModel.authorNameSuppressedId, nil)
             }
             
-            let profile: Profile? = dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId)}
+            let profile: Profile? = (
+                dependencies.mutate(cache: .libSession) { $0.profile(contactId: sessionId) } ??
+                dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId) }
+            )
             
             return (
-                (profile?.displayName(for: .contact) ?? cellViewModel.authorName),
+                (profile?.displayName(for: .contact) ?? cellViewModel.authorNameSuppressedId),
                 profile?.displayName(for: .contact, ignoringNickname: true)
             )
         }()

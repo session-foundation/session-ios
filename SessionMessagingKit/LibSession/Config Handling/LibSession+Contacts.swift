@@ -61,16 +61,16 @@ internal extension LibSessionCacheType {
                 // observation system can't differ between update calls which do and don't change anything)
                 let contact: Contact = Contact.fetchOrCreate(db, id: sessionId, using: dependencies)
                 let profile: Profile = Profile.fetchOrCreate(db, id: sessionId)
-                let profileUpdated: Bool = ((profile.profileLastUpdated ?? 0) < (data.profile.profileLastUpdated ?? 0))
+                let profileUpdated: Bool = Profile.shouldUpdateProfile(
+                    data.profile.profileLastUpdated,
+                    profile: profile,
+                    using: dependencies
+                )
                 
                 if (profileUpdated || (profile.nickname != data.profile.nickname)) {
                     let profileNameShouldBeUpdated: Bool = (
                         !data.profile.name.isEmpty &&
                         profile.name != data.profile.name
-                    )
-                    let profilePictureShouldBeUpdated: Bool = (
-                        profile.displayPictureUrl != data.profile.displayPictureUrl ||
-                        profile.displayPictureEncryptionKey != data.profile.displayPictureEncryptionKey
                     )
                     
                     try profile.upsert(db)
