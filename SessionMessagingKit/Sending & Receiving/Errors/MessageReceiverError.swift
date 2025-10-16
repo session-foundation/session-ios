@@ -27,13 +27,14 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
     case missingRequiredAdminPrivileges
     case deprecatedMessage
     case failedToProcess
+    case communitiesDoNotSupportControlMessages
 
     public var isRetryable: Bool {
         switch self {
             case .duplicateMessage, .invalidMessage, .unknownMessage, .unknownEnvelopeType,
                 .invalidSignature, .noData, .senderBlocked, .noThread, .selfSend, .decryptionFailed,
                 .invalidConfigMessageHandling, .outdatedMessage, .ignorableMessage, .ignorableMessageRequestMessage,
-                .missingRequiredAdminPrivileges, .failedToProcess:
+                .missingRequiredAdminPrivileges, .failedToProcess, .communitiesDoNotSupportControlMessages:
                 return false
                 
             default: return true
@@ -114,6 +115,7 @@ public enum MessageReceiverError: Error, CustomStringConvertible {
             case .missingRequiredAdminPrivileges: return "Handling this message requires admin privileges which the current user does not have."
             case .deprecatedMessage: return "This message type has been deprecated."
             case .failedToProcess: return "Failed to process."
+            case .communitiesDoNotSupportControlMessages: return "Communities do not support control messages."
         }
     }
 }

@@ -563,7 +563,8 @@ public final class OpenGroupManager {
             if
                 let base64EncodedString: String = message.base64EncodedData,
                 let data = Data(base64Encoded: base64EncodedString),
-                let sender: String = message.sender
+                let sender: String = message.sender,
+                let posted: TimeInterval = message.posted
             {
                 do {
                     let processedMessage: ProcessedMessage = try MessageReceiver.parse(
@@ -571,7 +572,7 @@ public final class OpenGroupManager {
                         origin: .community(
                             openGroupId: openGroup.id,
                             sender: sender,
-                            timestamp: message.posted,
+                            posted: posted,
                             messageServerId: message.id,
                             whisper: message.whisper,
                             whisperMods: message.whisperMods,

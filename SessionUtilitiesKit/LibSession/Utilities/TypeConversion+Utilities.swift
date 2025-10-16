@@ -57,6 +57,86 @@ public extension Array where Element == String {
     }
 }
 
+public extension Collection where Element == String {
+    func withUnsafeCStrArray<R>(
+        _ body: (UnsafeBufferPointer<UnsafePointer<CChar>?>) throws -> R
+    ) throws -> R {
+        var allocatedBuffers: [UnsafeMutableBufferPointer<CChar>] = []
+        allocatedBuffers.reserveCapacity(self.count)
+        defer { allocatedBuffers.forEach { $0.deallocate() } }
+        
+        var pointers: [UnsafePointer<CChar>?] = []
+        pointers.reserveCapacity(self.count)
+        
+        for string in self {
+            let utf8: [CChar] = Array(string.utf8CString) /// Includes null terminator
+            let buffer = UnsafeMutableBufferPointer<CChar>.allocate(capacity: utf8.count)
+            _ = buffer.initialize(from: utf8)
+            allocatedBuffers.append(buffer)
+            pointers.append(UnsafePointer(buffer.baseAddress))
+        }
+        
+        return try pointers.withUnsafeBufferPointer { buffer in
+            try body(buffer)
+        }
+    }
+}
+
+public extension Collection where Element == [UInt8]? {
+    func withUnsafeUInt8CArray<R>(
+        _ body: (UnsafeBufferPointer<UnsafePointer<UInt8>?>) throws -> R
+    ) throws -> R {
+        var allocatedBuffers: [UnsafeMutableBufferPointer<UInt8>] = []
+        allocatedBuffers.reserveCapacity(self.count)
+        defer { allocatedBuffers.forEach { $0.deallocate() } }
+        
+        var pointers: [UnsafePointer<UInt8>?] = []
+        pointers.reserveCapacity(self.count)
+        
+        for maybeBytes in self {
+            if let bytes: [UInt8] = maybeBytes {
+                let buffer = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: bytes.count)
+                _ = buffer.initialize(from: bytes)
+                allocatedBuffers.append(buffer)
+                pointers.append(UnsafePointer(buffer.baseAddress))
+            } else {
+                pointers.append(nil)
+            }
+        }
+        
+        return try pointers.withUnsafeBufferPointer { buffer in
+            try body(buffer)
+        }
+    }
+}
+
+public extension Collection where Element: DataProtocol {
+    func withUnsafeSpanOfSpans<Result>(_ body: (UnsafePointer<span_u8>?, Int) throws -> Result) throws -> Result {
+        var allocatedBuffers: [UnsafeMutableBufferPointer<UInt8>] = []
+        allocatedBuffers.reserveCapacity(self.count)
+        defer { allocatedBuffers.forEach { $0.deallocate() } }
+        
+        var spans: [span_u8] = []
+        spans.reserveCapacity(self.count)
+        
+        for data in self {
+            let bytes: [UInt8] = Array(data)
+            let buffer = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: bytes.count)
+            _ = buffer.initialize(from: bytes)
+            allocatedBuffers.append(buffer)
+            
+            var span: span_u8 = span_u8()
+            span.data = buffer.baseAddress
+            span.size = bytes.count
+            spans.append(span)
+        }
+        
+        return try spans.withUnsafeBufferPointer { spanBuffer in
+            try body(spanBuffer.baseAddress, spanBuffer.count)
+        }
+    }
+}
+
 
 // MARK: - CAccessible
 
