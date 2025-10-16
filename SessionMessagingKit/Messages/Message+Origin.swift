@@ -23,7 +23,7 @@ public extension Message {
             whisperTo: String?
         )
         case communityInbox(
-            timestamp: TimeInterval,
+            posted: TimeInterval,
             messageServerId: Int64,
             serverPublicKey: String,
             senderId: String,

@@ -160,6 +160,27 @@ public extension Crypto.Generator {
                 return (proto, sender, sentTimestampMs)
             }
             
+            /// Community inbox messages aren't currently handled via the new decode function so we need to custom handle them
+            // FIXME: Fold into `session_protocol_decode_envelope` once support is added
+            if case .communityInbox(let posted, _, let serverPublicKey, let senderId, let recipientId) = origin {
+                let (plaintextWithPadding, sender): (Data, String) = try dependencies[singleton: .crypto].tryGenerate(
+                    .plaintextWithSessionBlindingProtocol(
+                        ciphertext: encodedMessage,
+                        senderId: senderId,
+                        recipientId: recipientId,
+                        serverPublicKey: serverPublicKey
+                    )
+                )
+                
+                let plaintext = plaintextWithPadding.removePadding()
+                let proto: SNProtoContent = try Result(catching: { try SNProtoContent.parseData(plaintext) })
+                    .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
+                    .get()
+                let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
+                
+                return (proto, sender, sentTimestampMs)
+            }
+            
             guard case .swarm(let publicKey, let namespace, let serverHash, let serverTimestampMs, let serverExpirationTimestamp) = origin else {
                 throw MessageReceiverError.invalidMessage
             }
@@ -222,51 +243,6 @@ public extension Crypto.Generator {
                 
                 return (proto, sender.hexString, result.envelope.timestamp_ms)
             }
-        }
-    }
-    
-    static func plaintextForGroupMessage(
-        groupSessionId: SessionId,
-        ciphertext: [UInt8]
-    ) throws -> Crypto.Generator<(plaintext: Data, sender: String)> {
-        return Crypto.Generator(
-            id: "plaintextForGroupMessage",
-            args: [groupSessionId, ciphertext]
-        ) { dependencies in
-            return try dependencies.mutate(cache: .libSession) { cache in
-                guard let config: LibSession.Config = cache.config(for: .groupKeys, sessionId: groupSessionId) else {
-                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
-                }
-                guard case .groupKeys(let conf, _, _) = config else {
-                    throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
-                }
-                
-                var cSessionId: [CChar] = [CChar](repeating: 0, count: 67)
-                var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
-                var plaintextLen: Int = 0
-                let didDecrypt: Bool = groups_keys_decrypt_message(
-                    conf,
-                    ciphertext,
-                    ciphertext.count,
-                    &cSessionId,
-                    &maybePlaintext,
-                    &plaintextLen
-                )
-                
-                // If we got a reported failure then just stop here
-                guard didDecrypt else { throw MessageReceiverError.decryptionFailed }
-                
-                // We need to manually free 'maybePlaintext' upon a successful decryption
-                defer { free(UnsafeMutableRawPointer(mutating: maybePlaintext)) }
-                
-                guard
-                    plaintextLen > 0,
-                    let plaintext: Data = maybePlaintext
-                        .map({ Data(bytes: $0, count: plaintextLen) })
-                else { throw MessageReceiverError.decryptionFailed }
-                
-                return (plaintext, String(cString: cSessionId))
-            } ?? { throw MessageReceiverError.decryptionFailed }()
         }
     }
 }

@@ -85,40 +85,6 @@ public extension Crypto.Generator {
 // MARK: - Decryption
 
 public extension Crypto.Generator {
-    static func plaintextWithSessionProtocol(
-        ciphertext: Data
-    ) -> Crypto.Generator<(plaintext: Data, senderSessionIdHex: String)> {
-        return Crypto.Generator(
-            id: "plaintextWithSessionProtocol",
-            args: [ciphertext]
-        ) { dependencies in
-            var cCiphertext: [UInt8] = Array(ciphertext)
-            var cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
-            var cSenderSessionId: [CChar] = [CChar](repeating: 0, count: 67)
-            var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
-            var plaintextLen: Int = 0
-
-            guard !cEd25519SecretKey.isEmpty else { throw MessageSenderError.noUserED25519KeyPair }
-            guard
-                cEd25519SecretKey.count == 64,
-                session_decrypt_incoming(
-                    &cCiphertext,
-                    cCiphertext.count,
-                    &cEd25519SecretKey,
-                    &cSenderSessionId,
-                    &maybePlaintext,
-                    &plaintextLen
-                ),
-                plaintextLen > 0,
-                let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
-            else { throw MessageReceiverError.decryptionFailed }
-
-            free(UnsafeMutableRawPointer(mutating: maybePlaintext))
-
-            return (plaintext, String(cString: cSenderSessionId))
-        }
-    }
-
     static func plaintextWithMultiEncrypt(
         ciphertext: Data,
         senderSessionId: SessionId,
@@ -149,27 +115,6 @@ public extension Crypto.Generator {
             free(UnsafeMutableRawPointer(mutating: cDecryptedDataPtr))
 
             return try decryptedData ?? { throw MessageReceiverError.decryptionFailed }()
-        }
-    }
-    
-    static func messageServerHash(
-        swarmPubkey: String,
-        namespace: Network.SnodeAPI.Namespace,
-        data: Data
-    ) -> Crypto.Generator<String> {
-        return Crypto.Generator(
-            id: "messageServerHash",
-            args: [swarmPubkey, namespace, data]
-        ) {
-            let cSwarmPubkey: [CChar] = try swarmPubkey.cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-            let cData: [CChar] = try data.base64EncodedString().cString(using: .utf8) ?? { throw LibSessionError.invalidCConversion }()
-            var cHash: [CChar] = [CChar](repeating: 0, count: 65)
-            
-            guard session_compute_message_hash(cSwarmPubkey, Int16(namespace.rawValue), cData, &cHash) else {
-                throw MessageReceiverError.decryptionFailed
-            }
-            
-            return String(cString: cHash)
         }
     }
     

@@ -102,9 +102,25 @@ public enum MessageReceiver {
                 message.openGroupWhisperMods = whisperMods
                 message.openGroupWhisperTo = whisperTo
                 
-            case .communityInbox(let timestamp, let messageServerId, let serverPublicKey, let senderId, let recipientId):
-                // TODO: Add this case
-                fatalError()
+            case .communityInbox(_, let messageServerId, let serverPublicKey, _, _):
+                /// Don't process community inbox messages if the sender is blocked
+                guard
+                    dependencies.mutate(cache: .libSession, { cache in
+                        !cache.isContactBlocked(contactId: sender)
+                    }) ||
+                    message.processWithBlockedSender
+                else { throw MessageReceiverError.senderBlocked }
+                
+                /// Ignore self sends if needed
+                guard message.isSelfSendValid || sender != userSessionId.hexString else {
+                    throw MessageReceiverError.selfSend
+                }
+                
+                threadId = sender
+                threadVariant = .contact
+                serverExpirationTimestamp = nil
+                uniqueIdentifier = "\(messageServerId)"
+                message.openGroupServerMessageId = UInt64(messageServerId)
                 
             case .swarm(let publicKey, let namespace, let serverHash, _, let expirationTimestamp):
                 /// Don't process 1-to-1 or group messages if the sender is blocked
