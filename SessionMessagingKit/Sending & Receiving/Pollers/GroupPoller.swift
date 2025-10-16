@@ -187,7 +187,7 @@ public extension GroupPoller {
         @discardableResult public func getOrCreatePoller(for swarmPublicKey: String) -> SwarmPollerType {
             guard let poller: GroupPoller = _pollers[swarmPublicKey.lowercased()] else {
                 let poller: GroupPoller = GroupPoller(
-                    pollerName: "Closed group poller with public key: \(swarmPublicKey)", // stringlint:ignore
+                    pollerName: "Group poller with public key: \(swarmPublicKey)", // stringlint:ignore
                     pollerQueue: Threading.groupPollerQueue,
                     pollerDestination: .swarm(swarmPublicKey),
                     pollerDrainBehaviour: .alwaysRandom,

@@ -1101,6 +1101,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func hasCredentials(groupSessionId: SessionId) -> Bool
     func secretKey(groupSessionId: SessionId) -> [UInt8]?
     func latestGroupKey(groupSessionId: SessionId) throws -> [UInt8]
+    func allActiveGroupKeys(groupSessionId: SessionId) throws -> [[UInt8]]
     func isAdmin(groupSessionId: SessionId) -> Bool
     func loadAdminKey(
         groupIdentitySeed: Data,
@@ -1382,6 +1383,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func hasCredentials(groupSessionId: SessionId) -> Bool { return false }
     func secretKey(groupSessionId: SessionId) -> [UInt8]? { return nil }
     func latestGroupKey(groupSessionId: SessionId) throws -> [UInt8] { throw CryptoError.invalidKey }
+    func allActiveGroupKeys(groupSessionId: SessionId) throws -> [[UInt8]] { throw CryptoError.invalidKey }
     func isAdmin(groupSessionId: SessionId) -> Bool { return false }
     func markAsInvited(groupSessionIds: [String]) throws {}
     func markAsKicked(groupSessionIds: [String]) throws {}

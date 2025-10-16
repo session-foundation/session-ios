@@ -178,14 +178,16 @@ public extension Crypto.Generator {
                     
                     return (proto, sender, sentTimestampMs)
                     
-                case .swarm(_, let namespace, _, _, _):
+                case .swarm(let publicKey, let namespace, _, _, _):
                     /// Function to provide pointers to the keys based on the namespace the message was received from
                     func withKeys<R>(
                         for namespace: Network.SnodeAPI.Namespace,
+                        publicKey: String,
                         using dependencies: Dependencies,
-                        _ closure: (UnsafePointer<span_u8>?, Int) throws -> R
+                        _ closure: (span_u8, UnsafePointer<span_u8>?, Int) throws -> R
                     ) throws -> R {
                         let privateKeys: [[UInt8]]
+                        let sessionId: SessionId = try SessionId(from: publicKey)
                         
                         switch namespace {
                             case .default:
@@ -196,22 +198,36 @@ public extension Crypto.Generator {
                                 privateKeys = [ed25519SecretKey]
                                 
                             case .groupMessages:
-                                throw MessageError.invalidMessage("TODO: Add support")
+                                guard sessionId.prefix == .group else {
+                                    throw MessageError.requiresGroupId(publicKey)
+                                }
+                                
+                                privateKeys = try dependencies.mutate(cache: .libSession) { cache in
+                                    try cache.allActiveGroupKeys(groupSessionId: sessionId)
+                                }
                                 
                             default:
                                 throw MessageError.invalidMessage("Tried to decode a message from an incorrect namespace: \(namespace)")
                         }
                         
-                        return try privateKeys.withUnsafeSpanOfSpans { cPrivateKeys, cPrivateKeysLen in
-                            try closure(cPrivateKeys, cPrivateKeysLen)
+                        /// Exclude the prefix when providing the publicKey
+                        return try sessionId.publicKey.withUnsafeSpan { cPublicKey in
+                            return try privateKeys.withUnsafeSpanOfSpans { cPrivateKeys, cPrivateKeysLen in
+                                try closure(cPublicKey, cPrivateKeys, cPrivateKeysLen)
+                            }
                         }
                     }
                     
-                    return try withKeys(for: namespace, using: dependencies) { cPrivateKeys, cPrivateKeysLen in
+                    return try withKeys(for: namespace, publicKey: publicKey, using: dependencies) { cPublicKey, cPrivateKeys, cPrivateKeysLen in
                         let cEncodedMessage: [UInt8] = Array(encodedMessage)
                         var cKeys: session_protocol_decode_envelope_keys = session_protocol_decode_envelope_keys()
-                        cKeys.set(\.ed25519_privkeys, to: cPrivateKeys)
-                        cKeys.set(\.ed25519_privkeys_len, to: cPrivateKeysLen)
+                        cKeys.set(\.decrypt_keys, to: cPrivateKeys)
+                        cKeys.set(\.decrypt_keys_len, to: cPrivateKeysLen)
+                        
+                        /// If it's a group message then we need to set the group pubkey
+                        if namespace == .groupMessages {
+                            cKeys.set(\.group_ed25519_pubkey, to: cPublicKey)
+                        }
                         
                         var result: session_protocol_decoded_envelope = session_protocol_decode_envelope(
                             &cKeys,

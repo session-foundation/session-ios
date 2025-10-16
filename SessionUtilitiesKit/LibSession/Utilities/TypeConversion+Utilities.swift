@@ -111,7 +111,7 @@ public extension Collection where Element == [UInt8]? {
 }
 
 public extension Collection where Element: DataProtocol {
-    func withUnsafeSpanOfSpans<Result>(_ body: (UnsafePointer<span_u8>?, Int) throws -> Result) throws -> Result {
+    func withUnsafeSpanOfSpans<Result>(_ body: (UnsafePointer<span_u8>?, Int) throws -> Result) rethrows -> Result {
         var allocatedBuffers: [UnsafeMutableBufferPointer<UInt8>] = []
         allocatedBuffers.reserveCapacity(self.count)
         defer { allocatedBuffers.forEach { $0.deallocate() } }
@@ -137,6 +137,17 @@ public extension Collection where Element: DataProtocol {
     }
 }
 
+public extension DataProtocol {
+    func withUnsafeSpan<Result>(_ body: (span_u8) throws -> Result) rethrows -> Result {
+        try Data(self).withUnsafeBytes { bytes in
+            var span: span_u8 = span_u8()
+            span.data = UnsafeMutablePointer(mutating: bytes.baseAddress?.assumingMemoryBound(to: UInt8.self))
+            span.size = self.count
+            
+            return try body(span)
+        }
+    }
+}
 
 // MARK: - CAccessible
 

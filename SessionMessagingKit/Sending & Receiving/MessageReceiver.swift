@@ -244,7 +244,6 @@ public enum MessageReceiver {
                     threadVariant: threadVariant,
                     message: message,
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    associatedWithProto: proto,
                     suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
