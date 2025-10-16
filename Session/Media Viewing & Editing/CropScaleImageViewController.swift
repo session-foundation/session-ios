@@ -3,7 +3,6 @@
 import UIKit
 import MediaPlayer
 import SessionUIKit
-import SessionUIKit
 import SignalUtilitiesKit
 import SessionUtilitiesKit
 
