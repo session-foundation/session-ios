@@ -219,7 +219,7 @@ struct ListItemDataMatrix: View {
                                     .onTapGesture {
                                         guard Date() >= suppressUntil else { return }
                                         suppressUntil = Date().addingTimeInterval(0.2)
-                                        guard tooltipViewId != tooltipInfo.id else {
+                                        guard tooltipViewId != tooltipInfo.id && !isShowingTooltip else {
                                             withAnimation {
                                                 isShowingTooltip = false
                                             }

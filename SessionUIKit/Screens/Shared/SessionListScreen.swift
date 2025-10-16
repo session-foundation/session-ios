@@ -47,7 +47,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     .onTapGesture {
                                         guard Date() >= suppressUntil else { return }
                                         suppressUntil = Date().addingTimeInterval(0.2)
-                                        guard tooltipViewId != info.id else {
+                                        guard tooltipViewId != info.id && !isShowingTooltip else {
                                             withAnimation {
                                                 isShowingTooltip = false
                                             }
