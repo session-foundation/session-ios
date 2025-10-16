@@ -32,6 +32,16 @@ extension SessionProPaymentScreenContent {
             }
         }
         
+        public func cancelPro(success: (() -> Void)?, failure: (() -> Void)?) {
+            dependencies[singleton: .sessionProState].cancelPro { result in
+                if result {
+                    success?()
+                } else {
+                    failure?()
+                }
+            }
+        }
+        
         public func openURL(_ url: URL) {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }

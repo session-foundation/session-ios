@@ -139,6 +139,7 @@ public extension SessionProPaymentScreenContent {
         var errorString: String? { get set }
         
         func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?)
+        func cancelPro(success: (() -> Void)?, failure: (() -> Void)?)
         func openURL(_ url: URL)
     }
 }

@@ -23,6 +23,7 @@ struct CancelPlanOriginatingPlatformContent: View {
                         .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "pro", value: Constants.pro)
                         .put(key: "platform", value: Constants.platform)
+                        .put(key: "platform_account", value: Constants.platform_account)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 )
                 .font(.Body.baseRegular)
@@ -37,6 +38,7 @@ struct CancelPlanOriginatingPlatformContent: View {
             
             Button {
                 cancelPlanAction()
+                
             } label: {
                 Text("cancelPlan".localized())
                     .font(.Body.largeRegular)

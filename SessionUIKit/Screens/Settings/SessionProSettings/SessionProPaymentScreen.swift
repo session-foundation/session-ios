@@ -101,18 +101,27 @@ public struct SessionProPaymentScreen: View {
                             RequestRefundNonOriginatingPlatformContent(
                                 originatingPlatform: originatingPlatform,
                                 requestedAt: requestedAt,
-                                openPlatformStoreWebsiteAction: {}
+                                openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
                             )
                         }
                     } else if case .cancel(let originatingPlatform) = viewModel.dataModel.flow {
                         if originatingPlatform == .iOS {
                             CancelPlanOriginatingPlatformContent(
-                                cancelPlanAction: {}
+                                cancelPlanAction: {
+                                    viewModel.cancelPro(
+                                        success: {
+                                            host.controller?.navigationController?.popViewController(animated: true)
+                                        },
+                                        failure: {
+                                            
+                                        }
+                                    )
+                                }
                             )
                         } else {
                             CancelPlanNonOriginatingPlatformContent(
                                 originatingPlatform: originatingPlatform,
-                                openPlatformStoreWebsiteAction: {}
+                                openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
                             )
                         }
                     }
@@ -164,7 +173,7 @@ public struct SessionProPaymentScreen: View {
     private func updatePlan() {
         let updatedPlan = viewModel.dataModel.plans[currentSelection]
         if
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = viewModel.dataModel.flow,
+            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _) = viewModel.dataModel.flow,
             let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: expiredOn)
         {
             let confirmationModal = ConfirmationModal(
