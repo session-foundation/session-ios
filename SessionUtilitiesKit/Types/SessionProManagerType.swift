@@ -7,11 +7,13 @@ public protocol SessionProManagerType: AnyObject {
     var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never> { get }
     var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> { get }
     var sessionProPlans: [SessionProPlan] { get }
-    func upgradeToPro(plan: SessionProPlan, completion: ((_ result: Bool) -> Void)?)
+    func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?)
     func cancelPro(completion: ((_ result: Bool) -> Void)?)
     func requestRefund(completion: ((_ result: Bool) -> Void)?)
     func expirePro(completion: ((_ result: Bool) -> Void)?)
     func recoverPro(completion: ((_ result: Bool) -> Void)?)
+    // This function is only for QA purpose
+    func updateOriginatingPlatform(_ newValue: ClientPlatform)
 }
 
 public enum SessionProPlanState: Equatable, Sendable {
@@ -33,6 +35,24 @@ public enum SessionProPlanState: Equatable, Sendable {
             case .active(_, _, _, let originatingPlatform): originatingPlatform
             case .refunding(let originatingPlatform, _): originatingPlatform
             default: .iOS // FIXME: get the real originating platform
+        }
+    }
+    
+    public func with(originatingPlatform: ClientPlatform) -> SessionProPlanState {
+        switch self {
+            case .active(let plan, let expiredOn, let isAutoRenewing, _):
+                return .active(
+                    currentPlan: plan,
+                    expiredOn: expiredOn,
+                    isAutoRenewing: isAutoRenewing,
+                    originatingPlatform: originatingPlatform
+                )
+            case .refunding(_, let requestedAt):
+                return .refunding(
+                    originatingPlatform: originatingPlatform,
+                    requestedAt: requestedAt
+                )
+            default: return self
         }
     }
 }

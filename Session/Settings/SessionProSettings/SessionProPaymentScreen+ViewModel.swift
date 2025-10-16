@@ -20,7 +20,10 @@ extension SessionProPaymentScreenContent {
         
         public func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?) {
             let plan: SessionProPlan = SessionProPlan.from(planInfo)
-            dependencies[singleton: .sessionProState].upgradeToPro(plan: plan) { result in
+            dependencies[singleton: .sessionProState].upgradeToPro(
+                plan: plan,
+                originatingPlatform: .iOS
+            ) { result in
                 if result {
                     success?()
                 } else {

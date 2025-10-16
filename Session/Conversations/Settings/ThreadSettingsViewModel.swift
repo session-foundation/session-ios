@@ -1998,6 +1998,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             onConfirm: { [dependencies] in
                                 dependencies[singleton: .sessionProState].upgradeToPro(
                                     plan: SessionProPlan(variant: .threeMonths),
+                                    originatingPlatform: .iOS,
                                     completion: nil
                                 )
                             }
@@ -2094,6 +2095,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 onConfirm: { [dependencies] in
                     dependencies[singleton: .sessionProState].upgradeToPro(
                         plan: SessionProPlan(variant: .threeMonths),
+                        originatingPlatform: .iOS,
                         completion: nil
                     )
                 }

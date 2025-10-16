@@ -54,16 +54,22 @@ public struct SessionProPaymentScreen: View {
                             openTosPrivacyAction: { openTosPrivacy() }
                         )
                     } else if case .renew = viewModel.dataModel.flow {
-                        SessionProPlanPurchaseContent(
-                            currentSelection: $currentSelection,
-                            isShowingTooltip: $isShowingTooltip,
-                            suppressUntil: $suppressUntil,
-                            currentPlan: nil,
-                            sessionProPlans: viewModel.dataModel.plans,
-                            actionButtonTitle: "renew".localized(),
-                            purchaseAction: { updatePlan() },
-                            openTosPrivacyAction: { openTosPrivacy() }
-                        )
+                        if viewModel.dataModel.plans.isEmpty {
+                            RenewPlanNoBillingAccessContent(
+                                openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                            )
+                        } else {
+                            SessionProPlanPurchaseContent(
+                                currentSelection: $currentSelection,
+                                isShowingTooltip: $isShowingTooltip,
+                                suppressUntil: $suppressUntil,
+                                currentPlan: nil,
+                                sessionProPlans: viewModel.dataModel.plans,
+                                actionButtonTitle: "renew".localized(),
+                                purchaseAction: { updatePlan() },
+                                openTosPrivacyAction: { openTosPrivacy() }
+                            )
+                        }
                     } else if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = viewModel.dataModel.flow {
                         if originatingPlatform == .iOS {
                             SessionProPlanPurchaseContent(

@@ -23,7 +23,9 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             .compactMap { $0 }
             .eraseToAnyPublisher()
     }
-    public var sessionProPlans: [SessionProPlan]
+    public var sessionProPlans: [SessionProPlan] {
+        dependencies[feature: .mockInstalledFromIPA] ? [] : SessionProPlan.Variant.allCases.map { SessionProPlan(variant: $0) }
+    }
     
     public var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never>
     public var shouldAnimateImagePublisher: AnyPublisher<Bool, Never> {
@@ -34,6 +36,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        let originatingPlatform: ClientPlatform = dependencies[feature: .proPlanOriginatingPlatform]
         switch dependencies[feature: .mockCurrentUserSessionProState] {
             case .none:
                 self.sessionProStateSubject = CurrentValueSubject(SessionProPlanState.none)
@@ -43,7 +46,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                             currentPlan: SessionProPlan(variant: .threeMonths),
                             expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
                             isAutoRenewing: true,
-                            originatingPlatform: .Android
+                            originatingPlatform: originatingPlatform
                         )
                 )
             case .expired:
@@ -51,28 +54,25 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             case .refunding:
                 self.sessionProStateSubject = CurrentValueSubject(
                     SessionProPlanState.refunding(
-                        originatingPlatform: .Android,
+                        originatingPlatform: originatingPlatform,
                         requestedAt: Calendar.current.date(byAdding: .hour, value: -1, to: Date())!
                     )
                 )
         }
         
-        self.sessionProPlans = SessionProPlan.Variant.allCases.map {
-            SessionProPlan(variant: $0)
-        }
         self.shouldAnimateImageSubject = CurrentValueSubject(
             dependencies[cache: .libSession].isSessionPro
         )
     }
     
-    public func upgradeToPro(plan: SessionProPlan, completion: ((_ result: Bool) -> Void)?) {
+    public func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) {
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
         self.sessionProStateSubject.send(
             SessionProPlanState.active(
                 currentPlan: plan,
                 expiredOn: Calendar.current.date(byAdding: .month, value: plan.variant.duration, to: Date())!,
                 isAutoRenewing: true,
-                originatingPlatform: .iOS
+                originatingPlatform: originatingPlatform
             )
         )
         self.shouldAnimateImageSubject.send(true)
@@ -122,7 +122,16 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         }
         upgradeToPro(
             plan: SessionProPlan(variant: .threeMonths),
+            originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
             completion: completion
+        )
+    }
+    
+    // This function is only for QA purpose
+    public func updateOriginatingPlatform(_ newValue: ClientPlatform) {
+        self.sessionProStateSubject.send(
+            self.sessionProStateSubject.value
+                .with(originatingPlatform: newValue)
         )
     }
     

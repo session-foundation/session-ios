@@ -419,15 +419,18 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                             title: "Originating Platform",
                             trailingAccessory: .dropDown { state.originatingPlatform.title },
                             onTap: { [dependencies = viewModel.dependencies] in
+                                let newValue: ClientPlatform = {
+                                    switch state.originatingPlatform {
+                                        case .Android: return .iOS
+                                        case .iOS: return .Android
+                                    }
+                                }()
+                                
                                 dependencies.set(
                                     feature: .proPlanOriginatingPlatform,
-                                    to: {
-                                        switch state.originatingPlatform {
-                                            case .Android: return .iOS
-                                            case .iOS: return .Android
-                                        }
-                                    }()
+                                    to: newValue
                                 )
+                                dependencies[singleton: .sessionProState].updateOriginatingPlatform(newValue)
                             }
                         )
                 ),
@@ -493,6 +496,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             case .active:
                 dependencies[singleton: .sessionProState].upgradeToPro(
                     plan: SessionProPlan(variant: .threeMonths),
+                    originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
                     completion: nil
                 )
             case .expired:

@@ -248,6 +248,7 @@ public extension UIContextualAction {
                                         onConfirm: { [dependencies] in
                                             dependencies[singleton: .sessionProState].upgradeToPro(
                                                 plan: SessionProPlan(variant: .threeMonths),
+                                                originatingPlatform: .iOS,
                                                 completion: nil
                                             )
                                         }

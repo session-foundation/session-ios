@@ -96,7 +96,7 @@ struct RenewPlanNoBillingAccessContent: View {
                     )
                     .background(
                         RoundedRectangle(cornerRadius: 7)
-                            .fill(themeColor: .danger)
+                            .fill(themeColor: .sessionButton_primaryFilledBackground)
                     )
                     .padding(.vertical, Values.smallSpacing)
             }
