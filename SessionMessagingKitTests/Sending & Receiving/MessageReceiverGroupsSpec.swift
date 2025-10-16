@@ -1987,7 +1987,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                         threadId: groupId.hexString,
                                         interactionId: nil,
                                         details: MessageSendJob.Details(
-                                            destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                            destination: .group(publicKey: groupId.hexString),
                                             message: try! GroupUpdateMemberChangeMessage(
                                                 changeType: .removed,
                                                 memberSessionIds: [

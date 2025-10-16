@@ -421,11 +421,11 @@ public extension Message {
                 
                 return (maybeSyncTarget ?? publicKey)
                 
-            case .closedGroup(let groupPublicKey): return groupPublicKey
-            case .openGroup(let roomToken, let server, _, _):
+            case .group(let publicKey): return publicKey
+            case .community(let roomToken, let server, _, _):
                 return OpenGroup.idFor(roomToken: roomToken, server: server)
             
-            case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
+            case .communityInbox(_, _, let blindedPublicKey): return blindedPublicKey
         }
     }
     
@@ -582,9 +582,9 @@ public extension Message {
             // Disappear after sent messages with exceptions
             case (_, is UnsendRequest): return message.ttl
             
-            case (.closedGroup, is GroupUpdateInviteMessage), (.closedGroup, is GroupUpdateInviteResponseMessage),
-                (.closedGroup, is GroupUpdatePromoteMessage), (.closedGroup, is GroupUpdateMemberLeftMessage),
-                (.closedGroup, is GroupUpdateDeleteMemberContentMessage):
+            case (.group, is GroupUpdateInviteMessage), (.group, is GroupUpdateInviteResponseMessage),
+                (.group, is GroupUpdatePromoteMessage), (.group, is GroupUpdateMemberLeftMessage),
+                (.group, is GroupUpdateDeleteMemberContentMessage):
                 return message.ttl
 
             default:

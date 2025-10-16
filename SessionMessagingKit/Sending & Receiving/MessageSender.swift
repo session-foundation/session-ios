@@ -65,7 +65,7 @@ public final class MessageSender {
             let preparedRequest: Network.PreparedRequest<SendResponse>
             
             switch destination {
-                case .contact, .syncMessage, .closedGroup:
+                case .contact, .syncMessage, .group:
                     preparedRequest = try preparedSendToSnodeDestination(
                         message: updatedMessage,
                         to: destination,
@@ -78,8 +78,8 @@ public final class MessageSender {
                         using: dependencies
                     )
                     
-                case .openGroup:
-                    preparedRequest = try preparedSendToOpenGroupDestination(
+                case .community:
+                    preparedRequest = try preparedSendToCommunityDestination(
                         message: updatedMessage,
                         to: destination,
                         interactionId: interactionId,
@@ -90,8 +90,8 @@ public final class MessageSender {
                         using: dependencies
                     )
                     
-                case .openGroupInbox:
-                    preparedRequest = try preparedSendToOpenGroupInboxDestination(
+                case .communityInbox:
+                    preparedRequest = try preparedSendToCommunityInboxDestination(
                         message: message,
                         to: destination,
                         interactionId: interactionId,
@@ -183,8 +183,8 @@ public final class MessageSender {
             switch destination {
                 case .contact(let publicKey): return publicKey
                 case .syncMessage: return userSessionId.hexString
-                case .closedGroup(let groupPublicKey): return groupPublicKey
-                case .openGroup, .openGroupInbox: preconditionFailure()
+                case .group(let publicKey): return publicKey
+                case .community, .communityInbox: preconditionFailure()
             }
         }()
         let snodeMessage = SnodeMessage(
@@ -220,7 +220,7 @@ public final class MessageSender {
             }
     }
     
-    private static func preparedSendToOpenGroupDestination(
+    private static func preparedSendToCommunityDestination(
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
@@ -236,7 +236,7 @@ public final class MessageSender {
         guard
             let message: VisibleMessage = message as? VisibleMessage,
             case .community(let server, let publicKey, let hasCapabilities, let supportsBlinding, _) = authMethod.info,
-            case .openGroup(let roomToken, let destinationServer, let whisperTo, let whisperMods) = destination,
+            case .community(let roomToken, let destinationServer, let whisperTo, let whisperMods) = destination,
             server == destinationServer,
             let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                 .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
@@ -310,7 +310,7 @@ public final class MessageSender {
             }
     }
     
-    private static func preparedSendToOpenGroupInboxDestination(
+    private static func preparedSendToCommunityInboxDestination(
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
@@ -320,10 +320,10 @@ public final class MessageSender {
         onEvent: ((Event) -> Void)?,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendResponse> {
-        // The `openGroupInbox` destination does not support attachments
+        /// The `communityInbox` destination does not support attachments
         guard
             (attachments ?? []).isEmpty,
-            case .openGroupInbox(_, _, let recipientBlindedPublicKey) = destination
+            case .communityInbox(_, _, let recipientBlindedPublicKey) = destination
         else { throw MessageSenderError.invalidMessage }
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -402,7 +402,7 @@ public final class MessageSender {
         else { throw MessageSenderError.protoConversionFailed }
         
         return try dependencies[singleton: .crypto].tryGenerate(
-            .ciphertextForDestination(
+            .encodedMessage(
                 plaintext: Array(plaintext),
                 destination: destination,
                 sentTimestampMs: sentTimestampMs

@@ -67,7 +67,7 @@ public enum MessageReceiver {
                     return openGroupId
                 }
                 
-            case (_, .openGroupInbox(let timestamp, let messageServerId, let serverPublicKey, let senderId, let recipientId)):
+            case (_, .communityInbox(let timestamp, let messageServerId, let serverPublicKey, let senderId, let recipientId)):
                 (plaintext, sender) = try dependencies[singleton: .crypto].tryGenerate(
                     .plaintextWithSessionBlindingProtocol(
                         ciphertext: data,

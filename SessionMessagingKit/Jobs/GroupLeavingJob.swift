@@ -34,7 +34,7 @@ public enum GroupLeavingJob: JobExecutor {
             let interactionId: Int64 = job.interactionId
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        let destination: Message.Destination = .closedGroup(groupPublicKey: threadId)
+        let destination: Message.Destination = .group(publicKey: threadId)
         
         dependencies[singleton: .storage]
             .writePublisher(updates: { db -> RequestType in

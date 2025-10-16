@@ -208,7 +208,7 @@ extension MessageSender {
                     case (false, .syncMessage):
                         try interaction.with(state: .sent).update(db)
                     
-                    case (true, .syncMessage), (_, .contact), (_, .closedGroup), (_, .openGroup), (_, .openGroupInbox):
+                    case (true, .syncMessage), (_, .contact), (_, .group), (_, .community), (_, .communityInbox):
                         // The timestamp to use for scheduling message deletion. This is generated
                         // when the message is successfully sent to ensure the deletion timer starts
                         // from the correct time.

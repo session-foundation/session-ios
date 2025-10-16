@@ -473,7 +473,7 @@ public extension MessageViewModel.DeletionBehaviours {
                             expiresInSeconds: model.expiresInSeconds,
                             expiresStartedAtMs: model.expiresStartedAtMs
                         ),
-                        to: .closedGroup(groupPublicKey: model.threadId),
+                        to: .group(publicKey: model.threadId),
                         namespace: .legacyClosedGroup,
                         interactionId: nil,
                         attachments: nil,
@@ -541,7 +541,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                     authMethod: nil,
                                     using: dependencies
                                 ),
-                                to: .closedGroup(groupPublicKey: threadData.threadId),
+                                to: .group(publicKey: threadData.threadId),
                                 namespace: .groupMessages,
                                 interactionId: nil,
                                 attachments: nil,
@@ -600,7 +600,7 @@ public extension MessageViewModel.DeletionBehaviours {
                                     ),
                                     using: dependencies
                                 ),
-                                to: .closedGroup(groupPublicKey: threadData.threadId),
+                                to: .group(publicKey: threadData.threadId),
                                 namespace: .groupMessages,
                                 interactionId: nil,
                                 attachments: nil,

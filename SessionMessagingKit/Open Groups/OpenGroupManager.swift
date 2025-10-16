@@ -726,7 +726,7 @@ public final class OpenGroupManager {
             do {
                 let processedMessage: ProcessedMessage = try MessageReceiver.parse(
                     data: messageData,
-                    origin: .openGroupInbox(
+                    origin: .communityInbox(
                         timestamp: message.posted,
                         messageServerId: message.id,
                         serverPublicKey: openGroup.publicKey,

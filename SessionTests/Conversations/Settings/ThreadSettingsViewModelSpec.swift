@@ -751,7 +751,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                             threadId: groupPubkey,
                                             interactionId: nil,
                                             details: MessageSendJob.Details(
-                                                destination: .closedGroup(groupPublicKey: groupPubkey),
+                                                destination: .group(publicKey: groupPubkey),
                                                 message: try GroupUpdateInfoChangeMessage(
                                                     changeType: .name,
                                                     updatedName: "TestNewGroupName",

@@ -164,7 +164,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                             ),
                             using: dependencies
                         ),
-                        to: .closedGroup(groupPublicKey: groupSessionId.hexString),
+                        to: .group(publicKey: groupSessionId.hexString),
                         namespace: .groupMessages,
                         interactionId: nil,
                         attachments: nil,

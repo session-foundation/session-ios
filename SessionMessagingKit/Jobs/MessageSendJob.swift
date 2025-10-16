@@ -165,9 +165,9 @@ public enum MessageSendJob: JobExecutor {
         var previousDeferralsMessage: String = ""
         
         switch details.destination {
-            case .closedGroup(let groupPublicKey) where groupPublicKey.starts(with: SessionId.Prefix.group.rawValue):
+            case .group(let publicKey) where publicKey.starts(with: SessionId.Prefix.group.rawValue):
                 let deferalDuration: TimeInterval = 1
-                let groupSessionId: SessionId = SessionId(.group, hex: groupPublicKey)
+                let groupSessionId: SessionId = SessionId(.group, hex: publicKey)
                 let numGroupKeys: Int = (try? LibSession.numKeys(groupSessionId: groupSessionId, using: dependencies))
                     .defaulting(to: 0)
                 let deferCount: Int = dependencies[singleton: .jobRunner].deferCount(for: job.id, of: job.variant)

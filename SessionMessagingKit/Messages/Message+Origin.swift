@@ -22,7 +22,7 @@ public extension Message {
             whisperMods: Bool,
             whisperTo: String?
         )
-        case openGroupInbox(
+        case communityInbox(
             timestamp: TimeInterval,
             messageServerId: Int64,
             serverPublicKey: String,

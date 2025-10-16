@@ -100,7 +100,7 @@ extension MessageSender {
                             behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                             threadId: createdInfo.group.id,
                             details: MessageSendJob.Details(
-                                destination: .closedGroup(groupPublicKey: createdInfo.group.id),
+                                destination: .group(publicKey: createdInfo.group.id),
                                 message: GroupUpdateMemberChangeMessage(
                                     changeType: .added,
                                     memberSessionIds: sortedOtherMembers.map { id, _ in id },
@@ -327,7 +327,7 @@ extension MessageSender {
                             behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                             threadId: sessionId.hexString,
                             details: MessageSendJob.Details(
-                                destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                                destination: .group(publicKey: sessionId.hexString),
                                 message: GroupUpdateInfoChangeMessage(
                                     changeType: .name,
                                     updatedName: name,
@@ -389,7 +389,7 @@ extension MessageSender {
                                         using: dependencies
                                     )
                                 
-                            case .groupUpdateTo(let url, let key, let fileName):
+                            case .groupUpdateTo(let url, let key, _):
                                 try ClosedGroup
                                     .filter(id: groupSessionId)
                                     .updateAllAndConfig(
@@ -431,7 +431,7 @@ extension MessageSender {
                         behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                         threadId: sessionId.hexString,
                         details: MessageSendJob.Details(
-                            destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                            destination: .group(publicKey: sessionId.hexString),
                             message: GroupUpdateInfoChangeMessage(
                                 changeType: .avatar,
                                 sentTimestampMs: UInt64(changeTimestampMs),
@@ -513,7 +513,7 @@ extension MessageSender {
                         behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                         threadId: sessionId.hexString,
                         details: MessageSendJob.Details(
-                            destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                            destination: .group(publicKey: sessionId.hexString),
                             message: GroupUpdateInfoChangeMessage(
                                 changeType: .disappearingMessages,
                                 updatedExpiration: UInt32(updatedConfig.isEnabled ?
@@ -725,7 +725,7 @@ extension MessageSender {
                         behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                         threadId: sessionId.hexString,
                         details: MessageSendJob.Details(
-                            destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                            destination: .group(publicKey: sessionId.hexString),
                             message: GroupUpdateMemberChangeMessage(
                                 changeType: .added,
                                 memberSessionIds: sortedMembers.map { id, _ in id },
@@ -1060,7 +1060,7 @@ extension MessageSender {
                             behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                             threadId: sessionId.hexString,
                             details: MessageSendJob.Details(
-                                destination: .closedGroup(groupPublicKey: sessionId.hexString),
+                                destination: .group(publicKey: sessionId.hexString),
                                 message: GroupUpdateMemberChangeMessage(
                                     changeType: .removed,
                                     memberSessionIds: sortedMemberIds,
@@ -1203,7 +1203,7 @@ extension MessageSender {
                             behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                             threadId: groupSessionId.hexString,
                             details: MessageSendJob.Details(
-                                destination: .closedGroup(groupPublicKey: groupSessionId.hexString),
+                                destination: .group(publicKey: groupSessionId.hexString),
                                 message: GroupUpdateMemberChangeMessage(
                                     changeType: .promoted,
                                     memberSessionIds: sortedMembersReceivingPromotions.map { id, _ in id },
