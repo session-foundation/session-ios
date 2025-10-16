@@ -53,9 +53,10 @@ public struct SessionProPaymentScreen: View {
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
                         )
-                    } else if case .renew = viewModel.dataModel.flow {
+                    } else if case .renew(let originatingPlatform) = viewModel.dataModel.flow {
                         if viewModel.dataModel.plans.isEmpty {
                             RenewPlanNoBillingAccessContent(
+                                originatingPlatform: originatingPlatform,
                                 openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
                             )
                         } else {
@@ -199,17 +200,18 @@ public struct SessionProPaymentScreen: View {
             self.host.controller?.present(confirmationModal, animated: true)
         }
         
-        if
-            [ .purchase, .renew ].contains(viewModel.dataModel.flow),
-            let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: Date())
-        {
-            self.viewModel.purchase(
-                planInfo: updatedPlan,
-                success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
-                failure: {
-                    
+        switch viewModel.dataModel.flow {
+            case .purchase, .renew:
+                if let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: Date()) {
+                    self.viewModel.purchase(
+                        planInfo: updatedPlan,
+                        success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
+                        failure: {
+                            
+                        }
+                    )
                 }
-            )
+            default: break
         }
     }
     

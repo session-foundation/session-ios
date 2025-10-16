@@ -881,8 +881,15 @@ extension SessionProPlanState {
                         }
                     }()
                 )
-            case .expired:
-                return .renew
+            case .expired(let originatingPlatform):
+                return .renew(
+                    originatingPlatform: {
+                        switch originatingPlatform {
+                            case .iOS: return .iOS
+                            case .Android: return .Android
+                        }
+                    }()
+                )
             case .refunding(let originatingPlatform, let requestedAt):
                 return .refund(
                     originatingPlatform: {

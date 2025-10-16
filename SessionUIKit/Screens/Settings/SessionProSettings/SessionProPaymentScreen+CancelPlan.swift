@@ -105,7 +105,7 @@ struct CancelPlanNonOriginatingPlatformContent: View {
                 )
                 
                 ApproachCell(
-                    title: "viaStoreWebsite"
+                    title: "onPlatformWebsite"
                         .put(key: "platform", value: originatingPlatform.name)
                         .localized(),
                     description: "viaStoreWebsiteDescription"

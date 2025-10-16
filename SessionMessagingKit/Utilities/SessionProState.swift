@@ -50,7 +50,11 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                         )
                 )
             case .expired:
-                self.sessionProStateSubject = CurrentValueSubject(SessionProPlanState.expired)
+                self.sessionProStateSubject = CurrentValueSubject(
+                    SessionProPlanState.expired(
+                        originatingPlatform: originatingPlatform
+                    )
+                )
             case .refunding:
                 self.sessionProStateSubject = CurrentValueSubject(
                     SessionProPlanState.refunding(
@@ -100,7 +104,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .refunding)
         self.sessionProStateSubject.send(
             SessionProPlanState.refunding(
-                originatingPlatform: .iOS,
+                originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
                 requestedAt: Date()
             )
         )
@@ -110,7 +114,11 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     
     public func expirePro(completion: ((_ result: Bool) -> Void)?) {
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .expired)
-        self.sessionProStateSubject.send(.expired)
+        self.sessionProStateSubject.send(
+            SessionProPlanState.expired(
+                originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
+            )
+        )
         self.shouldAnimateImageSubject.send(false)
         completion?(true)
     }

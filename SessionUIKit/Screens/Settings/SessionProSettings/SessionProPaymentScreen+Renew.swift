@@ -6,6 +6,7 @@ import Lucide
 // MARK: - Renew Plan No Billing Access Content
 
 struct RenewPlanNoBillingAccessContent: View {
+    let originatingPlatform: SessionProPaymentScreenContent.ClientPlatform
     let openPlatformStoreWebsiteAction: () -> Void
 
     var body: some View {
@@ -67,12 +68,13 @@ struct RenewPlanNoBillingAccessContent: View {
                 )
                 
                 ApproachCell(
-                    title: "viaStoreWebsite"
-                        .put(key: "platform", value: Constants.platform)
+                    title: "onPlatformWebsite"
+                        .put(key: "platform", value: originatingPlatform.store)
                         .localized(),
-                    description: "viaStoreWebsiteDescription"
-                        .put(key: "platform_account", value: Constants.platform_name)
-                        .put(key: "platform_store", value: Constants.platform_store)
+                    description: "proPlanRenewPlatformWebsite"
+                        .put(key: "platform_account", value: originatingPlatform.account)
+                        .put(key: "platform", value: originatingPlatform.name)
+                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular),
                     variant: .website
                 )
@@ -86,7 +88,7 @@ struct RenewPlanNoBillingAccessContent: View {
             Button {
                 openPlatformStoreWebsiteAction()
             } label: {
-                Text("openPlatformStoreWebsite".put(key: "platform_store", value: Constants.platform).localized())
+                Text("openPlatformStoreWebsite".put(key: "platform_store", value: originatingPlatform.store).localized())
                     .font(.Body.largeRegular)
                     .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                     .framing(

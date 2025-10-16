@@ -13,7 +13,9 @@ public extension SessionProPaymentScreenContent {
             isAutoRenewing: Bool,
             originatingPlatform: ClientPlatform
         )
-        case renew
+        case renew(
+            originatingPlatform: ClientPlatform
+        )
         case refund(
             originatingPlatform: ClientPlatform,
             requestedAt: Date?
