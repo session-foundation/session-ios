@@ -297,7 +297,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             switch (state.serviceNetwork, state.forceOffline) {
                                 case (.testnet, false): return .letter("T", false)     // stringlint:ignore
                                 case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                default: return .pencil
+                                default: return (state.profile.displayPictureUrl?.isEmpty == false) ? .pencil : .rightPlus
                             }
                         }()
                     ),
