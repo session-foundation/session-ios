@@ -25,7 +25,7 @@ public enum MessageReceiver {
         /// Config messages are custom-handled internally within `libSession` so just return the data directly
         guard !origin.isConfigNamespace else {
             guard case .swarm(let publicKey, let namespace, let serverHash, let timestampMs, _) = origin else {
-                throw MessageReceiverError.invalidConfigMessageHandling
+                throw MessageError.invalidConfigMessageHandling
             }
             
             return .config(
@@ -41,7 +41,7 @@ public enum MessageReceiver {
         /// The group "revoked retrievable" namespace uses custom encryption so we need to custom handle it
         guard !origin.isRevokedRetrievableNamespace else {
             guard case .swarm(let publicKey, _, let serverHash, _, let serverExpirationTimestamp) = origin else {
-                throw MessageReceiverError.invalidMessage
+                throw MessageError.invalidRevokedRetrievalMessageHandling
             }
             
             let proto: SNProtoContent = try SNProtoContent.builder().build()
@@ -55,9 +55,7 @@ public enum MessageReceiver {
                 proto: proto,
                 messageInfo: try MessageReceiveJob.Details.MessageInfo(
                     message: message,
-                    variant: try Message.Variant(from: message) ?? {
-                        throw MessageReceiverError.invalidMessage
-                    }(),
+                    variant: .libSessionMessage,
                     threadVariant: .group,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     proto: proto
@@ -90,7 +88,7 @@ public enum MessageReceiver {
             case .community(let openGroupId, _, _, let messageServerId, let whisper, let whisperMods, let whisperTo):
                 /// Don't allow control messages in community conversations
                 guard message is VisibleMessage else {
-                    throw MessageReceiverError.communitiesDoNotSupportControlMessages
+                    throw MessageError.communitiesDoNotSupportControlMessages
                 }
                 
                 threadId = openGroupId
@@ -102,18 +100,18 @@ public enum MessageReceiver {
                 message.openGroupWhisperMods = whisperMods
                 message.openGroupWhisperTo = whisperTo
                 
-            case .communityInbox(_, let messageServerId, let serverPublicKey, _, _):
+            case .communityInbox(_, let messageServerId, _, _, _):
                 /// Don't process community inbox messages if the sender is blocked
                 guard
                     dependencies.mutate(cache: .libSession, { cache in
                         !cache.isContactBlocked(contactId: sender)
                     }) ||
                     message.processWithBlockedSender
-                else { throw MessageReceiverError.senderBlocked }
+                else { throw MessageError.senderBlocked }
                 
                 /// Ignore self sends if needed
                 guard message.isSelfSendValid || sender != userSessionId.hexString else {
-                    throw MessageReceiverError.selfSend
+                    throw MessageError.selfSend
                 }
                 
                 threadId = sender
@@ -129,11 +127,11 @@ public enum MessageReceiver {
                         !cache.isContactBlocked(contactId: sender)
                     }) ||
                     message.processWithBlockedSender
-                else { throw MessageReceiverError.senderBlocked }
+                else { throw MessageError.senderBlocked }
                 
                 /// Ignore self sends if needed
                 guard message.isSelfSendValid || sender != userSessionId.hexString else {
-                    throw MessageReceiverError.selfSend
+                    throw MessageError.selfSend
                 }
                 
                 switch namespace {
@@ -151,7 +149,7 @@ public enum MessageReceiver {
                         
                     default:
                         Log.warn(.messageReceiver, "Couldn't process message due to invalid namespace.")
-                        throw MessageReceiverError.unknownMessage(proto)
+                        throw MessageError.unknownMessage(proto)
                 }
                 
                 serverExpirationTimestamp = expirationTimestamp
@@ -161,9 +159,7 @@ public enum MessageReceiver {
         }
         
         /// Ensure the message is valid
-        guard message.isValid(isSending: false) else {
-            throw MessageReceiverError.invalidMessage
-        }
+        try message.validateMessage(isSending: false)
         
         return .standard(
             threadId: threadId,
@@ -172,7 +168,7 @@ public enum MessageReceiver {
             messageInfo: try MessageReceiveJob.Details.MessageInfo(
                 message: message,
                 variant: try Message.Variant(from: message) ?? {
-                    throw MessageReceiverError.invalidMessage
+                    throw MessageError.invalidMessage("Unknown message type: \(type(of: message))")
                 }(),
                 threadVariant: threadVariant,
                 serverExpirationTimestamp: serverExpirationTimestamp,
@@ -248,6 +244,7 @@ public enum MessageReceiver {
                     threadVariant: threadVariant,
                     message: message,
                     serverExpirationTimestamp: serverExpirationTimestamp,
+                    associatedWithProto: proto,
                     suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
@@ -322,7 +319,7 @@ public enum MessageReceiver {
                     using: dependencies
                 )
             
-            default: throw MessageReceiverError.unknownMessage(proto)
+            default: throw MessageError.unknownMessage(proto)
         }
         
         // Perform any required post-handling logic
@@ -427,7 +424,7 @@ public enum MessageReceiver {
             .filter(Interaction.Columns.openGroupServerMessageId == openGroupMessageServerId)
             .asRequest(of: Info.self)
             .fetchOne(db)
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.invalidMessage("Could not find message reaction is associated to") }
         
         // If the user locally deleted the message then we don't want to process reactions for it
         guard !interactionInfo.variant.isDeletedMessage else { return }
@@ -483,7 +480,7 @@ public enum MessageReceiver {
                         cache.hasCredentials(groupSessionId: groupSessionId),
                         !cache.groupIsDestroyed(groupSessionId: groupSessionId),
                         !cache.wasKickedFromGroup(groupSessionId: groupSessionId)
-                    else { throw MessageReceiverError.outdatedMessage }
+                    else { throw MessageError.outdatedMessage }
                     
                     return
                 }
@@ -502,7 +499,7 @@ public enum MessageReceiver {
                             (message as? VisibleMessage)?.dataMessageHasAttachments == false ||
                             messageSentTimestamp > deleteAttachmentsBefore
                         )
-                    else { throw MessageReceiverError.outdatedMessage }
+                    else { throw MessageError.outdatedMessage }
                     
                     return
                 }
@@ -526,7 +523,7 @@ public enum MessageReceiver {
             )
             
             switch (conversationInConfig, canPerformConfigChange) {
-                case (false, false): throw MessageReceiverError.outdatedMessage
+                case (false, false): throw MessageError.outdatedMessage
                 default: break
             }
         }

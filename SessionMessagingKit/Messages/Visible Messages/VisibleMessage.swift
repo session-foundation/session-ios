@@ -33,13 +33,17 @@ public final class VisibleMessage: Message {
     
     // MARK: - Validation
     
-    public override func isValid(isSending: Bool) -> Bool {
-        guard super.isValid(isSending: isSending) else { return false }
-        if !attachmentIds.isEmpty || dataMessageHasAttachments == true { return true }
-        if openGroupInvitation != nil { return true }
-        if reaction != nil { return true }
-        if let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty { return true }
-        return false
+    public override func validateMessage(isSending: Bool) throws {
+        try super.validateMessage(isSending: isSending)
+        
+        let hasAttachments: Bool = (!attachmentIds.isEmpty || dataMessageHasAttachments == true)
+        let hasOpenGroupInvitation: Bool = (openGroupInvitation != nil)
+        let hasReaction: Bool = (reaction != nil)
+        let hasText: Bool = (text?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
+        
+        if !hasAttachments && !hasOpenGroupInvitation && !hasReaction && !hasText {
+            throw MessageError.invalidMessage("Has no content")
+        }
     }
     
     // MARK: - Initialization

@@ -282,7 +282,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated))
                 .flatMapStorageWritePublisher(using: dependencies) { db, _ -> (Message, Message.Destination, Int64?, AuthenticationMethod, [Network.PreparedRequest<(attachment: Attachment, fileId: String)>]) in
                     guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                        throw MessageSenderError.noThread
+                        throw MessageError.messageRequiresThreadToExistButThreadDoesNotExist
                     }
                     
                     // Update the thread to be visible (if it isn't already)

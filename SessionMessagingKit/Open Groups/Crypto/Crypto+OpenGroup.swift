@@ -9,8 +9,8 @@ import SessionUtilitiesKit
 // MARK: - Messages
 
 public extension Crypto.Generator {
-    static func plaintextWithSessionBlindingProtocol(
-        ciphertext: Data,
+    static func plaintextWithSessionBlindingProtocol<I: DataProtocol>(
+        ciphertext: I,
         senderId: String,
         recipientId: String,
         serverPublicKey: String
@@ -28,7 +28,7 @@ public extension Crypto.Generator {
             var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
             var plaintextLen: Int = 0
 
-            guard !cEd25519SecretKey.isEmpty else { throw MessageSenderError.noUserED25519KeyPair }
+            guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
             guard
                 cEd25519SecretKey.count == 64,
                 cServerPublicKey.count == 32,
@@ -45,7 +45,7 @@ public extension Crypto.Generator {
                 ),
                 plaintextLen > 0,
                 let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
-            else { throw MessageReceiverError.decryptionFailed }
+            else { throw MessageError.decodingFailed }
 
             free(UnsafeMutableRawPointer(mutating: maybePlaintext))
 

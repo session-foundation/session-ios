@@ -18,7 +18,9 @@ extension MessageSender {
         using dependencies: Dependencies
     ) throws {
         // Only 'VisibleMessage' types can be sent via this method
-        guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
+        guard interaction.variant == .standardOutgoing else {
+            throw MessageError.invalidMessage("Message was not an outgoing message")
+        }
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
         
         send(
@@ -319,13 +321,13 @@ extension MessageSender {
         threadId: String,
         message: Message,
         destination: Message.Destination?,
-        error: MessageSenderError,
+        error: MessageError,
         interactionId: Int64?,
         using dependencies: Dependencies
     ) -> Error {
-        // Log a message for any 'other' errors
+        // Log a message for any 'sendFailure' errors
         switch error {
-            case .other(let cat, let description, let error):
+            case .sendFailure(let cat, let description, let error):
                 Log.error([.messageSender, cat].compactMap { $0 }, "\(description) due to error: \(error).")
             default: break
         }

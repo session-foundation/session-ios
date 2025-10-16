@@ -87,7 +87,7 @@ extension MessageReceiver {
                 )
                 return nil
                 
-            default: throw MessageReceiverError.invalidMessage
+            default: throw MessageError.invalidMessage("Attempted to handle unexpected message as group update message: \(type(of: message))")
         }
     }
     
@@ -99,8 +99,11 @@ extension MessageReceiver {
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
+        }
+        
         guard
-            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             Authentication.verify(
                 signature: message.adminSignature,
                 publicKey: message.groupSessionId.publicKey,
@@ -119,7 +122,7 @@ extension MessageReceiver {
                     memberAuthData: message.memberAuthData
                 )
             )
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.invalidMessage("Unable to validate group invite") }
     }
     
     // MARK: - Specific Handling
@@ -130,10 +133,10 @@ extension MessageReceiver {
         suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
-        guard
-            let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestampMs
-        else { throw MessageReceiverError.invalidMessage }
+        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
+        }
         
         // Ensure the message is valid
         try validateGroupInvite(message: message, using: dependencies)
@@ -232,14 +235,14 @@ extension MessageReceiver {
         suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
-        guard
-            let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestampMs,
-            let groupIdentityKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
-                .ed25519KeyPair(seed: Array(message.groupIdentitySeed))
-            )
-        else { throw MessageReceiverError.invalidMessage }
+        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
+        }
         
+        let groupIdentityKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(
+            .ed25519KeyPair(seed: Array(message.groupIdentitySeed))
+        )
         let groupSessionId: SessionId = SessionId(.group, publicKey: groupIdentityKeyPair.publicKey)
         
         // Update profile if needed
@@ -324,9 +327,11 @@ extension MessageReceiver {
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
+        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
+        }
         guard
-            let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             Authentication.verify(
                 signature: message.adminSignature,
                 publicKey: groupSessionId.publicKey,
@@ -336,7 +341,7 @@ extension MessageReceiver {
                 ),
                 using: dependencies
             )
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.invalidMessage("Unable to verify group info change message") }
         
         // Add a record of the specific change to the conversation (the actual change is handled via
         // config messages so these are only for record purposes)
@@ -416,9 +421,11 @@ extension MessageReceiver {
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
+        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
+        }
         guard
-            let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             Authentication.verify(
                 signature: message.adminSignature,
                 publicKey: groupSessionId.publicKey,
@@ -428,7 +435,7 @@ extension MessageReceiver {
                 ),
                 using: dependencies
             )
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.invalidMessage("Unable to verify group member change message") }
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let profiles: [String: Profile] = (try? Profile
@@ -519,13 +526,15 @@ extension MessageReceiver {
     ) throws {
         // If the user is a group admin then we need to remove the member from the group, we already have a
         // "member left" message so `sendMemberChangedMessage` should be `false`
+        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
+        }
         guard
-            let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestampMs,
             dependencies.mutate(cache: .libSession, { cache in
                 cache.isAdmin(groupSessionId: groupSessionId)
             })
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.ignorableMessage }
         
         // Trigger this removal in a separate process because it requires a number of requests to be made
         db.afterCommit {
@@ -550,10 +559,10 @@ extension MessageReceiver {
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
-        guard
-            let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestampMs
-        else { throw MessageReceiverError.invalidMessage }
+        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
+        }
         
         // Add a record of the specific change to the conversation (the actual change is handled via
         // config messages so these are only for record purposes)
@@ -597,11 +606,13 @@ extension MessageReceiver {
         message: GroupUpdateInviteResponseMessage,
         using dependencies: Dependencies
     ) throws {
-        guard
-            let sender: String = message.sender,
-            let sentTimestampMs: UInt64 = message.sentTimestampMs,
-            message.isApproved  // Only process the invite response if it was an approval
-        else { throw MessageReceiverError.invalidMessage }
+        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
+        }
+        
+        // Only process the invite response if it was an approval
+        guard message.isApproved else { throw MessageError.ignorableMessage }
         
         // Update profile if needed
         if let profile = message.profile {
@@ -642,7 +653,9 @@ extension MessageReceiver {
         message: GroupUpdateDeleteMemberContentMessage,
         using dependencies: Dependencies
     ) throws {
-        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else { throw MessageReceiverError.invalidMessage }
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
+        }
         
         let interactionIdsToRemove: [Int64]
         let explicitHashesToRemove: [String]
@@ -663,7 +676,7 @@ extension MessageReceiver {
                         ),
                         using: dependencies
                     )
-                else { throw MessageReceiverError.invalidMessage }
+                else { throw MessageError.invalidMessage("Unable to verify group delete member content message") }
                 
                 /// Find all relevant interactions to remove
                 let interactionIdsForRemovedHashes: [Int64] = try Interaction
@@ -719,7 +732,8 @@ extension MessageReceiver {
                     .asRequest(of: String.self)
                     .fetchAll(db)
                 
-            case (.none, .none, _): throw MessageReceiverError.invalidMessage
+            case (.none, .none, _):
+                throw MessageError.invalidMessage("Invalid group delete member content message configuration")
         }
         
         /// Retrieve the hashes which should be deleted first (these will be removed from the local

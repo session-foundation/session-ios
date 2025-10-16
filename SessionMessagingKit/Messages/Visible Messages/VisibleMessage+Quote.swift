@@ -10,7 +10,10 @@ public extension VisibleMessage {
         public let authorId: String?
         public let text: String?
 
-        public func isValid(isSending: Bool) -> Bool { timestamp != nil && authorId != nil }
+        public func validateMessage(isSending: Bool) throws {
+            if (timestamp ?? 0) == 0 { throw MessageError.invalidMessage("timestamp") }
+            if authorId?.isEmpty != false { throw MessageError.invalidMessage("authorId") }
+        }
         
         // MARK: - Initialization
 

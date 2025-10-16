@@ -49,19 +49,18 @@ public class Message: Codable {
 
     // MARK: - Validation
     
-    public func isValid(isSending: Bool) -> Bool {
+    public func validateMessage(isSending: Bool) throws {
         guard
             let sentTimestampMs: UInt64 = sentTimestampMs,
-            sentTimestampMs > 0,
-            sender != nil
-        else { return false }
+            sentTimestampMs > 0
+        else { throw MessageError.missingRequiredField("sentTimestampMs") }
+        if sender?.isEmpty != false { throw MessageError.missingRequiredField("sender") }
         
         /// If this is an incoming message then ensure we also have a received timestamp
         if !isSending {
-            guard
-                let receivedTimestampMs: UInt64 = receivedTimestampMs,
-                receivedTimestampMs > 0
-            else { return false }
+            if (receivedTimestampMs ?? 0) == 0 {
+                throw MessageError.missingRequiredField("receivedTimestampMs")
+            }
         }
         
         /// We added a new `sigTimestampMs` which is included in the message data so can be verified as part of the signature
@@ -75,7 +74,9 @@ public class Message: Codable {
         /// at, due to this we need to allow for some variation between the values
         switch (isSending, sigTimestampMs, openGroupServerMessageId) {
             case (_, .some(let sigTimestampMs), .none), (true, .some(let sigTimestampMs), .some):
-                return (sigTimestampMs == sentTimestampMs)
+                if sigTimestampMs != sentTimestampMs {
+                    throw MessageError.invalidMessage("Signature timestamp doesn't match sent timestamp")
+                }
             
             /// Outgoing messages to a community should have matching `sigTimestampMs` and `sentTimestampMs`
             /// values as they are set locally, when we get a response from the community we update the `sentTimestampMs` to
@@ -83,10 +84,12 @@ public class Message: Codable {
             case (false, .some(let sigTimestampMs), .some):
                 let delta: TimeInterval = (TimeInterval(max(sigTimestampMs, sentTimestampMs) - min(sigTimestampMs, sentTimestampMs)) / 1000)
                 
-                return delta < Network.SOGS.validTimestampVarianceThreshold
+                if delta > Network.SOGS.validTimestampVarianceThreshold {
+                    throw MessageError.invalidMessage("Difference between signature timestamp and sent timestamp is too large")
+                }
                 
             // FIXME: We want to remove support for this case in a future release
-            case (_, .none, _): return true
+            case (_, .none, _): break
         }
     }
     
@@ -180,13 +183,11 @@ public enum ProcessedMessage {
         data: Data,
         uniqueIdentifier: String
     )
-    case invalid
     
     public var threadId: String {
         switch self {
             case .standard(let threadId, _, _, _, _): return threadId
             case .config(let publicKey, _, _, _, _, _): return publicKey
-            case .invalid: return ""
         }
     }
     
@@ -200,7 +201,6 @@ public enum ProcessedMessage {
                 }
                 
             case .config(_, let namespace, _, _, _, _): return namespace
-            case .invalid: return .default
         }
     }
     
@@ -208,7 +208,6 @@ public enum ProcessedMessage {
         switch self {
             case .standard(_, _, _, _, let uniqueIdentifier): return uniqueIdentifier
             case .config(_, _, _, _, _, let uniqueIdentifier): return uniqueIdentifier
-            case .invalid: return ""
         }
     }
     
@@ -216,7 +215,6 @@ public enum ProcessedMessage {
         switch self {
             case .standard: return false
             case .config: return true
-            case .invalid: return false
         }
     }
 }
@@ -371,7 +369,7 @@ public extension Message {
                 return variant.messageType.fromProto(proto, sender: sender, using: dependencies)
             }
         
-        return try decodedMessage ?? { throw MessageReceiverError.unknownMessage(proto) }()
+        return try decodedMessage ?? { throw MessageError.unknownMessage(proto) }()
     }
     
     static func shouldSync(message: Message) -> Bool {

@@ -195,7 +195,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     response.allSatisfy({ subResponse in
                         200...299 ~= ((subResponse as? Network.BatchSubResponse<Void>)?.code ?? 400)
                     })
-                else { throw MessageSenderError.invalidClosedGroupUpdate }
+                else { throw MessageError.invalidGroupUpdate("Failed to remove group member") }
                 
                 return ()
             }

@@ -86,11 +86,11 @@ public enum MessageReceiveJob: JobExecutor {
                                 // excessive logging which isn't useful)
                             case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                                 DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
-                                MessageReceiverError.duplicateMessage,
-                                MessageReceiverError.selfSend:
+                                MessageError.duplicateMessage,
+                                MessageError.selfSend:
                                 break
                                 
-                            case let receiverError as MessageReceiverError where !receiverError.isRetryable:
+                            case is MessageError:
                                 Log.error(.cat, "Permanently failed message due to error: \(error)")
                                 continue
                                 
@@ -123,9 +123,7 @@ public enum MessageReceiveJob: JobExecutor {
                     case .success(let lastError):
                         /// Report the result of the job
                         switch lastError {
-                            case let error as MessageReceiverError where !error.isRetryable:
-                                failure(updatedJob, error, true)
-                                
+                            case let error as MessageError: failure(updatedJob, error, true)
                             case .some(let error): failure(updatedJob, error, false)
                             case .none: success(updatedJob, false)
                         }
@@ -224,7 +222,7 @@ extension MessageReceiveJob {
         public init(messages: [ProcessedMessage]) {
             self.messages = messages.compactMap { processedMessage in
                 switch processedMessage {
-                    case .config, .invalid: return nil
+                    case .config: return nil
                     case .standard(_, _, _, let messageInfo, _): return messageInfo
                 }
             }

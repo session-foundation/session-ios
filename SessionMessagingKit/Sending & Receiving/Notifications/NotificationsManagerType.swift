@@ -69,23 +69,23 @@ public extension NotificationsManagerType {
         shouldShowForMessageRequest: () -> Bool,
         using dependencies: Dependencies
     ) throws {
-        guard let sender: String = message.sender else { throw MessageReceiverError.invalidSender }
+        guard let sender: String = message.sender else { throw MessageError.invalidSender }
         
         /// Don't show notifications for the `Note to Self` thread or messages sent from the current user
         guard !currentUserSessionIds.contains(threadId) && !currentUserSessionIds.contains(sender) else {
-            throw MessageReceiverError.selfSend
+            throw MessageError.selfSend
         }
         
         /// Ensure that the thread isn't muted
         guard dependencies.dateNow.timeIntervalSince1970 > (notificationSettings.mutedUntil ?? 0) else {
-            throw MessageReceiverError.ignorableMessage
+            throw MessageError.ignorableMessage
         }
         
         switch message {
             /// For a `VisibleMessage` we should only notify if the notification mode is `all` or if `mentionsOnly` and the
             /// user was actually mentioned
             case let visibleMessage as VisibleMessage:
-                guard interactionVariant == .standardIncoming else { throw MessageReceiverError.ignorableMessage }
+                guard interactionVariant == .standardIncoming else { throw MessageError.ignorableMessage }
                 guard
                     !notificationSettings.mentionsOnly ||
                     Interaction.isUserMentioned(
@@ -93,7 +93,7 @@ public extension NotificationsManagerType {
                         body: visibleMessage.text,
                         quoteAuthorId: visibleMessage.quote?.authorId
                     )
-                else { throw MessageReceiverError.ignorableMessage }
+                else { throw MessageError.ignorableMessage }
                 
                 /// If the message is a reaction then we only want to show notifications for `contact` conversations, any only if the
                 /// reaction isn't added to a message sent by the reactor
@@ -101,30 +101,32 @@ public extension NotificationsManagerType {
                     switch threadVariant {
                         case .contact:
                             guard visibleMessage.reaction?.publicKey != sender else {
-                                throw MessageReceiverError.ignorableMessage
+                                throw MessageError.ignorableMessage
                             }
                             break
                             
-                        case .legacyGroup, .group, .community: throw MessageReceiverError.ignorableMessage
+                        case .legacyGroup, .group, .community: throw MessageError.ignorableMessage
                     }
                 }
                 break
             
             /// Calls are only supported in `contact` conversations and we only want to notify for missed calls
             case let callMessage as CallMessage:
-                guard threadVariant == .contact else { throw MessageReceiverError.invalidMessage }
-                guard case .preOffer = callMessage.kind else { throw MessageReceiverError.ignorableMessage }
+                guard threadVariant == .contact else {
+                    throw MessageError.invalidMessage("Calls are only supported in 1-to-1 conversations")
+                }
+                guard case .preOffer = callMessage.kind else { throw MessageError.ignorableMessage }
                 
                 switch callMessage.state {
                     case .missed, .permissionDenied, .permissionDeniedMicrophone: break
-                    default: throw MessageReceiverError.ignorableMessage
+                    default: throw MessageError.ignorableMessage
                 }
             
             /// Group invitations and promotions may show notifications in some cases
             case is GroupUpdateInviteMessage, is GroupUpdatePromoteMessage: break
             
             /// No other messages should have notifications
-            default: throw MessageReceiverError.ignorableMessage
+            default: throw MessageError.ignorableMessage
         }
         
         /// Ensure the sender isn't blocked (this should be checked when parsing the message but we should also check here in case
@@ -133,7 +135,7 @@ public extension NotificationsManagerType {
             dependencies.mutate(cache: .libSession, { cache in
                 !cache.isContactBlocked(contactId: sender)
             })
-        else { throw MessageReceiverError.senderBlocked }
+        else { throw MessageError.senderBlocked }
         
         /// Ensure the message hasn't already been maked as read (don't want to show notification in that case)
         guard
@@ -145,14 +147,14 @@ public extension NotificationsManagerType {
                     openGroupUrlInfo: openGroupUrlInfo
                 )
             })
-        else { throw MessageReceiverError.ignorableMessage }
+        else { throw MessageError.ignorableMessage }
         
         /// If the thread is a message request then we only want to show a notification for the first message
         switch (threadVariant, isMessageRequest) {
             case (.community, _), (.legacyGroup, _), (.contact, false), (.group, false): break
             case (.contact, true), (.group, true):
                 guard shouldShowForMessageRequest() else {
-                    throw MessageReceiverError.ignorableMessageRequestMessage
+                    throw MessageError.ignorableMessageRequestMessage
                 }
                 break
         }
@@ -200,7 +202,7 @@ public extension NotificationsManagerType {
                     .put(key: "conversation_name", value: groupName)
                     .localized()
                 
-            case (_, _, _, .legacyGroup): throw MessageReceiverError.ignorableMessage
+            case (_, _, _, .legacyGroup): throw MessageError.ignorableMessage
         }
     }
     

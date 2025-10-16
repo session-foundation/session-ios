@@ -2074,7 +2074,7 @@ extension ConversationVC:
                     guard
                         let openGroupServer: String = cellViewModel.threadOpenGroupServer,
                         dependencies[singleton: .openGroupManager].doesOpenGroupSupport(db, capability: .reactions, on: openGroupServer)
-                    else { throw MessageSenderError.invalidMessage }
+                    else { throw MessageError.invalidMessage("Community does not support reactions") }
                     
                 default: break
             }
@@ -2094,7 +2094,7 @@ extension ConversationVC:
                         let openGroupServer: String = cellViewModel.threadOpenGroupServer,
                         let openGroupRoom: String = openGroupRoom,
                         let pendingChange: OpenGroupManager.PendingChange = pendingChange
-                    else { throw MessageSenderError.invalidMessage }
+                    else { throw MessageError.missingRequiredField }
                     
                     let preparedRequest: Network.PreparedRequest<Int64?> = try {
                         guard !remove else {

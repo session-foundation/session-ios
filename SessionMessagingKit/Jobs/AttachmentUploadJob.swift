@@ -184,7 +184,7 @@ public enum AttachmentUploadJob: JobExecutor {
                                         threadId: threadId,
                                         message: details.message,
                                         destination: nil,
-                                        error: .other(.cat, "Failed", error),
+                                        error: .sendFailure(.cat, "Failed", error),
                                         interactionId: interactionId,
                                         using: dependencies
                                     )

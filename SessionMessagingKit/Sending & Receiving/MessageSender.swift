@@ -19,7 +19,7 @@ public final class MessageSender {
     public enum Event {
         case willSend(Message, Message.Destination, interactionId: Int64?)
         case success(Message, Message.Destination, interactionId: Int64?, serverTimestampMs: Int64?, serverExpirationMs: Int64?)
-        case failure(Message, Message.Destination, interactionId: Int64?, error: MessageSenderError)
+        case failure(Message, Message.Destination, interactionId: Int64?, error: MessageError)
         
         var message: Message {
             switch self {
@@ -122,14 +122,14 @@ public final class MessageSender {
                                     message,
                                     destination,
                                     interactionId: interactionId,
-                                    error: .other(nil, "Couldn't send message", error)
+                                    error: .sendFailure(nil, "Couldn't send message", error)
                                 ))
                         }
                     }
                 )
                 .map { _, response in response.message }
         }
-        catch let error as MessageSenderError {
+        catch let error as MessageError {
             onEvent?(.failure(message, destination, interactionId: interactionId, error: error))
             throw error
         }
@@ -147,7 +147,7 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendResponse> {
         guard let namespace: Network.SnodeAPI.Namespace = namespace else {
-            throw MessageSenderError.invalidMessage
+            throw MessageError.missingRequiredField("namespace")
         }
         
         /// Set the sender/recipient info (needed to be valid)
@@ -241,7 +241,7 @@ public final class MessageSender {
             let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                 .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
             )
-        else { throw MessageSenderError.invalidMessage }
+        else { throw MessageError.invalidMessage("Configuration doesn't meet requirements to send to a community") }
         
         // Set the sender/recipient info (needed to be valid)
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -257,7 +257,7 @@ public final class MessageSender {
                         ed25519SecretKey: userEdKeyPair.secretKey
                     )
                 )
-            else { throw MessageSenderError.signingFailed }
+            else { throw MessageError.requiredSignatureMissing }
             
             return SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString
         }()
@@ -277,7 +277,7 @@ public final class MessageSender {
                 )
             }
 
-        guard !(message.profile?.displayName ?? "").isEmpty else { throw MessageSenderError.noUsername }
+        guard !(message.profile?.displayName ?? "").isEmpty else { throw MessageError.invalidSender }
         
         let plaintext: Data = try MessageSender.encodeMessageForSending(
             namespace: .default,
@@ -324,7 +324,7 @@ public final class MessageSender {
         guard
             (attachments ?? []).isEmpty,
             case .communityInbox(_, _, let recipientBlindedPublicKey) = destination
-        else { throw MessageSenderError.invalidMessage }
+        else { throw MessageError.invalidMessage("Configuration doesn't meet requirements to send to community inbox") }
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         message.sender = userSessionId.hexString
@@ -384,14 +384,15 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) throws -> Data {
         /// Check the message itself is valid
-        guard
-            message.isValid(isSending: true),
-            let sentTimestampMs: UInt64 = message.sentTimestampMs
-        else { throw MessageSenderError.invalidMessage }
+        try message.validateMessage(isSending: true)
+        
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
+        }
 
         /// Messages sent to `revokedRetrievableGroupMessages` should be sent directly instead of via the `MessageSender`
         guard namespace != .revokedRetrievableGroupMessages else {
-            throw MessageSenderError.invalidDestination
+            throw MessageError.invalidMessage("Attempted to send to namespace \(namespace) via the wrong pipeline")
         }
         
         /// Add attachments if needed and convert to serialised proto data
@@ -399,7 +400,7 @@ public final class MessageSender {
             let plaintext: Data = try? message.toProto()?
                 .addingAttachmentsIfNeeded(message, attachments?.map { $0.attachment })?
                 .serializedData()
-        else { throw MessageSenderError.protoConversionFailed }
+        else { throw MessageError.protoConversionFailed }
         
         return try dependencies[singleton: .crypto].tryGenerate(
             .encodedMessage(

@@ -46,7 +46,7 @@ public extension Crypto.Generator {
                     let encryptedData: Data? = cEncryptedDataPtr.map { Data(bytes: $0, count: outLen) }
                     free(UnsafeMutableRawPointer(mutating: cEncryptedDataPtr))
 
-                    return try encryptedData ?? { throw MessageSenderError.encryptionFailed }()
+                    return try encryptedData ?? { throw MessageError.encodingFailed }()
                 }
             }
         }
@@ -73,7 +73,7 @@ public extension Crypto.Generator {
                 ),
                 ciphertextLen > 0,
                 let ciphertext: Data = maybeCiphertext.map({ Data(bytes: $0, count: ciphertextLen) })
-            else { throw MessageSenderError.encryptionFailed }
+            else { throw MessageError.encodingFailed }
 
             free(UnsafeMutableRawPointer(mutating: maybeCiphertext))
 
@@ -114,7 +114,7 @@ public extension Crypto.Generator {
             let decryptedData: Data? = cDecryptedDataPtr.map { Data(bytes: $0, count: outLen) }
             free(UnsafeMutableRawPointer(mutating: cDecryptedDataPtr))
 
-            return try decryptedData ?? { throw MessageReceiverError.decryptionFailed }()
+            return try decryptedData ?? { throw CryptoError.decryptionFailed }()
         }
     }
     
@@ -139,7 +139,7 @@ public extension Crypto.Generator {
                 ),
                 plaintextLen > 0,
                 let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
-            else { throw MessageReceiverError.decryptionFailed }
+            else { throw CryptoError.decryptionFailed }
 
             free(UnsafeMutableRawPointer(mutating: maybePlaintext))
 

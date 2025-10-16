@@ -19,7 +19,7 @@ public extension Crypto.Generator {
         ) { dependencies in
             let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
             
-            guard !cEd25519SecretKey.isEmpty else { throw MessageSenderError.noUserED25519KeyPair }
+            guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
             
             let cPlaintext: [UInt8] = Array(plaintext)
             var error: [CChar] = [CChar](repeating: 0, count: 256)
@@ -113,8 +113,8 @@ public extension Crypto.Generator {
             defer { session_protocol_encode_for_destination_free(&result) }
             
             guard result.success else {
-                Log.error(.messageSender, "Failed to encrypt due to error: \(String(cString: error))")
-                throw MessageSenderError.encryptionFailed
+                Log.error(.messageSender, "Failed to encode due to error: \(String(cString: error))")
+                throw MessageError.encodingFailed
             }
             
             return R(UnsafeBufferPointer(start: result.ciphertext.data, count: result.ciphertext.size))
@@ -329,7 +329,7 @@ public extension Crypto.Generator {
                 &subaccount,
                 &subaccountSig,
                 &signature
-            ) else { throw MessageSenderError.signingFailed }
+            ) else { throw CryptoError.signatureGenerationFailed }
             
             return Authentication.Signature.subaccount(
                 subaccount: subaccount,

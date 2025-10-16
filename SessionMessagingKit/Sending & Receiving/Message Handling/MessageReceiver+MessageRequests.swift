@@ -18,10 +18,8 @@ extension MessageReceiver {
         var blindedContactIds: [String] = []
         
         // Ignore messages which were sent from the current user
-        guard
-            message.sender != userSessionId.hexString,
-            let senderId: String = message.sender
-        else { throw MessageReceiverError.invalidMessage }
+        guard message.sender != userSessionId.hexString else { throw MessageError.ignorableMessage }
+        guard let senderId: String = message.sender else { throw MessageError.missingRequiredField("sender") }
         
         // Update profile if needed (want to do this regardless of whether the message exists or
         // not to ensure the profile info gets sync between a users devices at every chance)

@@ -79,7 +79,7 @@ class CryptoOpenGroupSpec: QuickSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageSenderError.encryptionFailed))
+                    .to(throwError(MessageError.encodingFailed))
                 }
                 
                 // MARK: ---- throws an error if there is no ed25519 keyPair
@@ -95,7 +95,7 @@ class CryptoOpenGroupSpec: QuickSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageSenderError.noUserED25519KeyPair))
+                    .to(throwError(CryptoError.missingUserSecretKey))
                 }
             }
             
@@ -155,7 +155,7 @@ class CryptoOpenGroupSpec: QuickSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageSenderError.noUserED25519KeyPair))
+                    .to(throwError(CryptoError.missingUserSecretKey))
                 }
                 
                 // MARK: ---- throws an error if the data is too short
@@ -170,7 +170,7 @@ class CryptoOpenGroupSpec: QuickSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageReceiverError.decryptionFailed))
+                    .to(throwError(MessageError.decodingFailed))
                 }
                 
                 // MARK: ---- throws an error if the data version is not 0
@@ -189,7 +189,7 @@ class CryptoOpenGroupSpec: QuickSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageReceiverError.decryptionFailed))
+                    .to(throwError(MessageError.decodingFailed))
                 }
                 
                 // MARK: ---- throws an error if it cannot decrypt the data
@@ -204,7 +204,7 @@ class CryptoOpenGroupSpec: QuickSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageReceiverError.decryptionFailed))
+                    .to(throwError(MessageError.decodingFailed))
                 }
                 
                 // MARK: ---- throws an error if the inner bytes are too short
@@ -223,7 +223,7 @@ class CryptoOpenGroupSpec: QuickSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageReceiverError.decryptionFailed))
+                    .to(throwError(MessageError.decodingFailed))
                 }
             }
         }

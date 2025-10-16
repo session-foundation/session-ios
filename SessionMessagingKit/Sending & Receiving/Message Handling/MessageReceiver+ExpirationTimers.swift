@@ -15,12 +15,14 @@ extension MessageReceiver {
         proto: SNProtoContent,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
-        guard proto.hasExpirationType || proto.hasExpirationTimer else { throw MessageReceiverError.invalidMessage }
+        guard proto.hasExpirationType || proto.hasExpirationTimer else {
+            throw MessageError.invalidMessage("Message missing required fields")
+        }
         guard
             threadVariant == .contact,    // Groups are handled via the GROUP_INFO config instead
             let sender: String = message.sender,
             let timestampMs: UInt64 = message.sentTimestampMs
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.invalidMessage("Message missing required fields") }
         
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: threadId)
@@ -42,7 +44,7 @@ extension MessageReceiver {
         // If the updated config from this message is different from local config,
         // this control message should already be removed.
         if threadId == dependencies[cache: .general].sessionId.hexString && updatedConfig != localConfig {
-            throw MessageReceiverError.ignorableMessage
+            throw MessageError.ignorableMessage
         }
         
         return try updatedConfig.insertControlMessage(

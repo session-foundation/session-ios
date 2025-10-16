@@ -9,7 +9,10 @@ public extension VisibleMessage {
         public let url: String?
         public let attachmentId: String?
 
-        public func isValid(isSending: Bool) -> Bool { title != nil && url != nil && attachmentId != nil }
+        public func validateMessage(isSending: Bool) throws {
+            if title?.isEmpty != false { throw MessageError.invalidMessage("title") }
+            if url?.isEmpty != false { throw MessageError.invalidMessage("url") }
+        }
         
         // MARK: - Initialization
 

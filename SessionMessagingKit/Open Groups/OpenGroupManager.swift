@@ -588,7 +588,7 @@ public final class OpenGroupManager {
                     )
                     
                     switch processedMessage {
-                        case .config, .invalid: break
+                        case .config: break
                         case .standard(_, _, _, let messageInfo, _):
                             insertedInteractionInfo.append(
                                 try MessageReceiver.handle(
@@ -611,8 +611,8 @@ public final class OpenGroupManager {
                         // them as there will be a lot since we each service node duplicates messages)
                         case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                             DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
-                            MessageReceiverError.duplicateMessage,
-                            MessageReceiverError.selfSend:
+                            MessageError.duplicateMessage,
+                            MessageError.selfSend:
                             break
                         
                         default: Log.error(.openGroup, "Couldn't receive open group message due to error: \(error).")
@@ -744,7 +744,7 @@ public final class OpenGroupManager {
                 )
                 
                 switch processedMessage {
-                    case .config, .invalid: break
+                    case .config: break
                     case .standard(let threadId, _, let proto, let messageInfo, _):
                         /// We want to update the BlindedIdLookup cache with the message info so we can avoid using the
                         /// "expensive" lookup when possible
@@ -810,8 +810,8 @@ public final class OpenGroupManager {
                     // whenever we send a message so this ends up being spam otherwise)
                     case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                         DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
-                        MessageReceiverError.duplicateMessage,
-                        MessageReceiverError.selfSend:
+                        MessageError.duplicateMessage,
+                        MessageError.selfSend:
                         break
                         
                     default:

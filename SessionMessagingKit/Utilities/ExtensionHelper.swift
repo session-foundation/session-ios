@@ -925,7 +925,7 @@ public class ExtensionHelper: ExtensionHelperType {
                         
                         if result.validMessageCount != result.rawMessageCount {
                             failureStandardCount += (result.rawMessageCount - result.validMessageCount)
-                            Log.error(.cat, "Discarding some standard messages due to error: \(MessageReceiverError.failedToProcess)")
+                            Log.error(.cat, "Discarding \((result.rawMessageCount - result.validMessageCount)) standard message(s) as they could not be processed.")
                         }
                 }
                 

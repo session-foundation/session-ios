@@ -53,7 +53,7 @@ public extension VisibleMessage {
         }
 
         public func toProtoBuilder() throws -> SNProtoDataMessage.SNProtoDataMessageBuilder {
-            guard let displayName = displayName else { throw MessageSenderError.protoConversionFailed }
+            guard let displayName = displayName else { throw MessageError.protoConversionFailed }
             
             let dataMessageProto = SNProtoDataMessage.builder()
             let profileProto = SNProtoLokiProfile.builder()

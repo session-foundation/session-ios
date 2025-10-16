@@ -308,7 +308,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     }
                     catch {
                         /// For some error cases we want to update the last hash so do so
-                        if (error as? MessageReceiverError)?.shouldUpdateLastHash == true {
+                        if (error as? MessageError)?.shouldUpdateLastHash == true {
                             hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db) == true)
                         }
                         
@@ -317,8 +317,8 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                             /// will be a lot since we each service node duplicates messages)
                             case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                                 DatabaseError.SQLITE_CONSTRAINT,    /// Sometimes thrown for UNIQUE
-                                MessageReceiverError.duplicateMessage,
-                                MessageReceiverError.selfSend:
+                                MessageError.duplicateMessage,
+                                MessageError.selfSend:
                                 break
                             
                             case DatabaseError.SQLITE_ABORT:

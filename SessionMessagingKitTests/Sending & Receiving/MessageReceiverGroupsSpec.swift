@@ -1101,7 +1101,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         })
                     }
                     
-                    expect(result.failure).to(matchError(MessageReceiverError.invalidMessage))
+                    expect(result.failure).to(matchError(MessageError.invalidMessage))
                 }
                 
                 // MARK: ---- updates the GROUP_KEYS state correctly
@@ -1195,7 +1195,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -1214,7 +1214,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -1235,7 +1235,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -1380,7 +1380,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -1399,7 +1399,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -1420,7 +1420,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -1841,7 +1841,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -1860,7 +1860,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -2113,7 +2113,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -2132,7 +2132,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -2451,7 +2451,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -2470,7 +2470,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -2491,7 +2491,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 suppressNotifications: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -3311,7 +3311,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageReceiverError.invalidMessage))
+                        .to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -3331,7 +3331,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageReceiverError.invalidMessage))
+                        .to(throwError(MessageError.invalidMessage))
                     }
                 }
                 
@@ -3351,7 +3351,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageReceiverError.invalidMessage))
+                        .to(throwError(MessageError.invalidMessage))
                     }
                 }
             }

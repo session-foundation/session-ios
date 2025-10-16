@@ -40,7 +40,7 @@ public enum GroupLeavingJob: JobExecutor {
             .writePublisher(updates: { db -> RequestType in
                 guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
                     Log.error(.cat, "Failed due to non-existent group")
-                    throw MessageSenderError.invalidClosedGroupUpdate
+                    throw MessageError.invalidGroupUpdate("Could not retrieve group")
                 }
                 
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -86,7 +86,7 @@ public enum GroupLeavingJob: JobExecutor {
                         return .configSync
                     
                     case (.delete, false, _): return .configSync
-                    default: throw MessageSenderError.invalidClosedGroupUpdate
+                    default: throw MessageError.invalidGroupUpdate("Unsupported group leaving configuration")
                 }
             })
             .tryFlatMap { requestType -> AnyPublisher<Void, Error> in
@@ -138,8 +138,8 @@ public enum GroupLeavingJob: JobExecutor {
                 /// If it failed due to one of these errors then clear out any associated data (as the `SessionThread` exists but
                 /// either the data required to send the `MEMBER_LEFT` message doesn't or the user has had their access to the
                 /// group revoked which would leave the user in a state where they can't leave the group)
-                switch (error as? MessageSenderError, error as? SnodeAPIError, error as? CryptoError) {
-                    case (.invalidClosedGroupUpdate, _, _), (.noKeyPair, _, _), (.encryptionFailed, _, _),
+                switch (error as? MessageError, error as? SnodeAPIError, error as? CryptoError) {
+                    case (.invalidGroupUpdate, _, _), (.encodingFailed, _, _),
                         (_, .unauthorised, _), (_, _, .invalidAuthentication):
                         return Just(()).setFailureType(to: Error.self).eraseToAnyPublisher()
                     

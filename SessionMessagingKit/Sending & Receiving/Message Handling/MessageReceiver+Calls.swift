@@ -25,7 +25,9 @@ extension MessageReceiver {
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         // Only support calls from contact threads
-        guard threadVariant == .contact else { throw MessageReceiverError.invalidMessage }
+        guard threadVariant == .contact else {
+            throw MessageError.invalidMessage("Calls are only supported in 1-to-1 conversations")
+        }
         
         switch (message.kind, message.state) {
             case (.preOffer, _):
@@ -89,7 +91,7 @@ extension MessageReceiver {
             dependencies.mutate(cache: .libSession, { cache in
                 !cache.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
             })
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.missingRequiredField }
         guard let timestampMs = message.sentTimestampMs, TimestampUtils.isWithinOneMinute(timestampMs: timestampMs) else {
             // Add missed call message for call offer messages from more than one minute
             Log.info(.calls, "Got an expired call offer message with uuid: \(message.uuid). Sent at \(message.sentTimestampMs ?? 0), now is \(Date().timeIntervalSince1970 * 1000)")
@@ -364,7 +366,7 @@ extension MessageReceiver {
             dependencies.mutate(cache: .libSession, { cache in
                 !cache.isMessageRequest(threadId: caller, threadVariant: threadVariant)
             })
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.missingRequiredField }
         
         let messageSentTimestampMs: Int64 = (
             message.sentTimestampMs.map { Int64($0) } ??
@@ -456,7 +458,7 @@ extension MessageReceiver {
                 .filter(Interaction.Columns.messageUuid == message.uuid)
                 .isEmpty(db)
             ).defaulting(to: false)
-        else { throw MessageReceiverError.duplicatedCall }
+        else { throw MessageError.duplicatedCall }
         
         guard
             let sender: String = message.sender,

@@ -722,7 +722,7 @@ public extension LibSession {
             afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [ObservableKey: Any]) throws -> ConfigDump?
         ) throws -> [MergeResult] {
             guard !messages.isEmpty else { return [] }
-            guard !swarmPublicKey.isEmpty else { throw MessageReceiverError.noThread }
+            guard !swarmPublicKey.isEmpty else { throw MessageError.invalidConfigMessageHandling }
             
             let groupedMessages: [ConfigDump.Variant: [ConfigMessageReceiveJob.Details.MessageInfo]] = messages
                 .grouped(by: { ConfigDump.Variant(namespace: $0.namespace) })

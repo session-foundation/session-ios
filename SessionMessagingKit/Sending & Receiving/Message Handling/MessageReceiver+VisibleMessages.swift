@@ -26,7 +26,7 @@ extension MessageReceiver {
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo {
         guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
-            throw MessageReceiverError.invalidMessage
+            throw MessageError.missingRequiredField
         }
         
         // Note: `message.sentTimestamp` is in ms (convert to TimeInterval before converting to
@@ -55,13 +55,13 @@ extension MessageReceiver {
             case .community:
                 // Only process visible messages for communities if they have an existing thread
                 guard (try? SessionThread.exists(db, id: threadId)) == true else {
-                    throw MessageReceiverError.noThread
+                    throw MessageError.messageRequiresThreadToExistButThreadDoesNotExist
                 }
                         
             case .legacyGroup, .group:
                 // Only process visible messages for groups if they have a ClosedGroup record
                 guard (try? ClosedGroup.exists(db, id: threadId)) == true else {
-                    throw MessageReceiverError.noThread
+                    throw MessageError.messageRequiresThreadToExistButThreadDoesNotExist
                 }
         }
         
@@ -116,7 +116,7 @@ extension MessageReceiver {
                     
                 case .group, .versionBlinded07:
                     Log.info(.messageReceiver, "Ignoring message with invalid sender.")
-                    throw MessageReceiverError.invalidSender
+                    throw MessageError.invalidSender
             }
         }()
         let generateCurrentUserSessionIds: () -> Set<String> = {
