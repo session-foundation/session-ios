@@ -306,11 +306,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         threadViewModel.displayName,
                         font: .titleLarge,
                         alignment: .center,
-                        trailingImage: (
-                            (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) ?
-                            ("ProBadge", { [dependencies] in SessionProBadge(size: .medium).toImage(using: dependencies) }) :
-                            nil
-                        )
+                        trailingImage: {
+                            guard !threadViewModel.threadIsNoteToSelf else { return nil }
+                            guard (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) else { return nil }
+                            return ("ProBadge", { [dependencies] in SessionProBadge(size: .medium).toImage(using: dependencies) })
+                        }()
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
