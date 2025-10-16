@@ -133,115 +133,111 @@ public extension Crypto.Generator {
             let currentTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             var error: [CChar] = [CChar](repeating: 0, count: 256)
             
-            /// Communities have a separate decoding function to handle them first
-            if case .community(_, let sender, let posted, _, _, _, _) = origin {
-                var result: session_protocol_decoded_community_message = session_protocol_decode_for_community(
-                    cEncodedMessage,
-                    cEncodedMessage.count,
-                    currentTimestampMs,
-                    nil,
-                    0,
-                    &error,
-                    error.count
-                )
-                defer { session_protocol_decode_for_community_free(&result) }
-                
-                guard result.success else {
-                    Log.error(.messageSender, "Failed to decrypt community message due to error: \(String(cString: error))")
-                    throw MessageReceiverError.decryptionFailed
-                }
-                
-                let plaintext: Data = Data(UnsafeBufferPointer(start: result.content_plaintext.data, count: result.content_plaintext_unpadded_size))
-                let proto: SNProtoContent = try Result(catching: { try SNProtoContent.parseData(plaintext) })
-                    .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
-                    .get()
-                let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
-                
-                return (proto, sender, sentTimestampMs)
-            }
-            
-            /// Community inbox messages aren't currently handled via the new decode function so we need to custom handle them
-            // FIXME: Fold into `session_protocol_decode_envelope` once support is added
-            if case .communityInbox(let posted, _, let serverPublicKey, let senderId, let recipientId) = origin {
-                let (plaintextWithPadding, sender): (Data, String) = try dependencies[singleton: .crypto].tryGenerate(
-                    .plaintextWithSessionBlindingProtocol(
-                        ciphertext: encodedMessage,
-                        senderId: senderId,
-                        recipientId: recipientId,
-                        serverPublicKey: serverPublicKey
+            switch origin {
+                case .community(_, let sender, let posted, _, _, _, _):
+                    var result: session_protocol_decoded_community_message = session_protocol_decode_for_community(
+                        cEncodedMessage,
+                        cEncodedMessage.count,
+                        currentTimestampMs,
+                        nil,
+                        0,
+                        &error,
+                        error.count
                     )
-                )
-                
-                let plaintext = plaintextWithPadding.removePadding()
-                let proto: SNProtoContent = try Result(catching: { try SNProtoContent.parseData(plaintext) })
-                    .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
-                    .get()
-                let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
-                
-                return (proto, sender, sentTimestampMs)
-            }
-            
-            guard case .swarm(let publicKey, let namespace, let serverHash, let serverTimestampMs, let serverExpirationTimestamp) = origin else {
-                throw MessageReceiverError.invalidMessage
-            }
-            
-            /// Function to provide pointers to the keys based on the namespace the message was received from
-            func withKeys<R>(
-                for namespace: Network.SnodeAPI.Namespace,
-                using dependencies: Dependencies,
-                _ closure: (UnsafePointer<span_u8>?, Int) throws -> R
-            ) throws -> R {
-                let privateKeys: [[UInt8]]
-                
-                switch namespace {
-                    case .default:
-                        let ed25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+                    defer { session_protocol_decode_for_community_free(&result) }
+                    
+                    guard result.success else {
+                        Log.error(.messageSender, "Failed to decode community message due to error: \(String(cString: error))")
+                        throw MessageError.decodingFailed
+                    }
+                    
+                    let plaintext: Data = Data(UnsafeBufferPointer(start: result.content_plaintext.data, count: result.content_plaintext_unpadded_size))
+                    let proto: SNProtoContent = try Result(catching: { try SNProtoContent.parseData(plaintext) })
+                        .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
+                        .get()
+                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
+                    
+                    return (proto, sender, sentTimestampMs)
+                    
+                case .communityInbox(let posted, _, let serverPublicKey, let senderId, let recipientId):
+                    // FIXME: Fold into `session_protocol_decode_envelope` once support is added
+                    let (plaintextWithPadding, sender): (Data, String) = try dependencies[singleton: .crypto].tryGenerate(
+                        .plaintextWithSessionBlindingProtocol(
+                            ciphertext: encodedMessage,
+                            senderId: senderId,
+                            recipientId: recipientId,
+                            serverPublicKey: serverPublicKey
+                        )
+                    )
+                    
+                    let plaintext = plaintextWithPadding.removePadding()
+                    let proto: SNProtoContent = try Result(catching: { try SNProtoContent.parseData(plaintext) })
+                        .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
+                        .get()
+                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
+                    
+                    return (proto, sender, sentTimestampMs)
+                    
+                case .swarm(_, let namespace, _, _, _):
+                    /// Function to provide pointers to the keys based on the namespace the message was received from
+                    func withKeys<R>(
+                        for namespace: Network.SnodeAPI.Namespace,
+                        using dependencies: Dependencies,
+                        _ closure: (UnsafePointer<span_u8>?, Int) throws -> R
+                    ) throws -> R {
+                        let privateKeys: [[UInt8]]
                         
-                        guard !ed25519SecretKey.isEmpty else { throw MessageReceiverError.noUserED25519KeyPair }
+                        switch namespace {
+                            case .default:
+                                let ed25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+                                
+                                guard !ed25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
+                                
+                                privateKeys = [ed25519SecretKey]
+                                
+                            case .groupMessages:
+                                throw MessageError.invalidMessage("TODO: Add support")
+                                
+                            default:
+                                throw MessageError.invalidMessage("Tried to decode a message from an incorrect namespace: \(namespace)")
+                        }
                         
-                        privateKeys = [ed25519SecretKey]
+                        return try privateKeys.withUnsafeSpanOfSpans { cPrivateKeys, cPrivateKeysLen in
+                            try closure(cPrivateKeys, cPrivateKeysLen)
+                        }
+                    }
+                    
+                    return try withKeys(for: namespace, using: dependencies) { cPrivateKeys, cPrivateKeysLen in
+                        let cEncodedMessage: [UInt8] = Array(encodedMessage)
+                        var cKeys: session_protocol_decode_envelope_keys = session_protocol_decode_envelope_keys()
+                        cKeys.set(\.ed25519_privkeys, to: cPrivateKeys)
+                        cKeys.set(\.ed25519_privkeys_len, to: cPrivateKeysLen)
                         
-                    case .groupMessages:
-                        throw MessageReceiverError.invalidMessage
+                        var result: session_protocol_decoded_envelope = session_protocol_decode_envelope(
+                            &cKeys,
+                            cEncodedMessage,
+                            cEncodedMessage.count,
+                            currentTimestampMs,
+                            nil,
+                            0,
+                            &error,
+                            error.count
+                        )
+                        defer { session_protocol_decode_envelope_free(&result) }
                         
-                    default: throw MessageReceiverError.invalidMessage
-                }
-                
-                return try privateKeys.withUnsafeSpanOfSpans { cPrivateKeys, cPrivateKeysLen in
-                    try closure(cPrivateKeys, cPrivateKeysLen)
-                }
-            }
-            
-            return try withKeys(for: namespace, using: dependencies) { cPrivateKeys, cPrivateKeysLen in
-                let cEncodedMessage: [UInt8] = Array(encodedMessage)
-                var cKeys: session_protocol_decode_envelope_keys = session_protocol_decode_envelope_keys()
-                cKeys.set(\.ed25519_privkeys, to: cPrivateKeys)
-                cKeys.set(\.ed25519_privkeys_len, to: cPrivateKeysLen)
-                
-                var result: session_protocol_decoded_envelope = session_protocol_decode_envelope(
-                    &cKeys,
-                    cEncodedMessage,
-                    cEncodedMessage.count,
-                    currentTimestampMs,
-                    nil,
-                    0,
-                    &error,
-                    error.count
-                )
-                defer { session_protocol_decode_envelope_free(&result) }
-                
-                guard result.success else {
-                    Log.error(.messageSender, "Failed to decrypt message due to error: \(String(cString: error))")
-                    throw MessageReceiverError.decryptionFailed
-                }
-                
-                let plaintext: Data = Data(UnsafeBufferPointer(start: result.content_plaintext.data, count: result.content_plaintext.size))
-                let proto: SNProtoContent = try Result(catching: { try SNProtoContent.parseData(plaintext) })
-                    .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
-                    .get()
-                let sender: SessionId = SessionId(.standard, publicKey: result.get(\.sender_x25519_pubkey))
-                
-                return (proto, sender.hexString, result.envelope.timestamp_ms)
+                        guard result.success else {
+                            Log.error(.messageReceiver, "Failed to decode message due to error: \(String(cString: error))")
+                            throw MessageError.decodingFailed
+                        }
+                        
+                        let plaintext: Data = Data(UnsafeBufferPointer(start: result.content_plaintext.data, count: result.content_plaintext.size))
+                        let proto: SNProtoContent = try Result(catching: { try SNProtoContent.parseData(plaintext) })
+                            .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
+                            .get()
+                        let sender: SessionId = SessionId(.standard, publicKey: result.get(\.sender_x25519_pubkey))
+                        
+                        return (proto, sender.hexString, result.envelope.timestamp_ms)
+                    }
             }
         }
     }
