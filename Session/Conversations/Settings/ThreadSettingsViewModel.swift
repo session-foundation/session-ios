@@ -371,7 +371,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             tintColor: .textSecondary,
                             customPadding: SessionCell.Padding(
                                 top: 0,
-                                bottom: 0
+                                bottom: Values.largeSpacing
                             ),
                             backgroundStyle: .noBackground
                         )
