@@ -348,7 +348,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 case .group:
                                     return .groupLimit(
                                         isAdmin: currentUserIsClosedGroupAdmin,
-                                        isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) })
+                                        isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }),
+                                        proBadgeImage: SessionProBadge(size: .mini).toImage(using: dependencies)
                                     )
                                 default: return .generic
                             }
