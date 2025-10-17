@@ -268,7 +268,7 @@ extension SessionCell {
                     configureQRCodeView(view, accessory)
                 
                 case let accessory as SessionCell.AccessoryConfig.ProBadge:
-                    configureProBadgeView(view, tintColor: tintColor)
+                    configureProBadgeView(view, tintColor: .primary)
                 
                 case let accessory as SessionCell.AccessoryConfig.Icon:
                     configureIconView(view, accessory, tintColor: tintColor)

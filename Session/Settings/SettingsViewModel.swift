@@ -410,9 +410,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     id: .sessionPro,
                     leadingAccessory: .proBadge(size: .small),
                     title: Constants.app_pro,
-                    styling: SessionCell.StyleInfo(
-                        tintColor: .sessionButton_border
-                    ),
                     onTap: { [weak viewModel] in
                         // TODO: Implement
                     }
