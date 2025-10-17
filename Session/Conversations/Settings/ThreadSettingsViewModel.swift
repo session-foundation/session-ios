@@ -282,21 +282,15 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         onTapView: { [weak self] targetView in
                             let didTapQRCodeIcon: Bool = !(targetView is ProfilePictureView)
                             
-                            switch (threadViewModel.threadVariant, currentUserIsClosedGroupAdmin, didTapQRCodeIcon) {
-                                case (.group, true, _):
-                                    self?.updateGroupDisplayPicture(currentUrl: threadViewModel.threadDisplayPictureUrl)
-                                case (.group, _, _):
-                                    break
-                                case (_, _, true):
-                                    self?.profileImageStatus = (previous: profileImageStatus?.current, current: .qrCode)
-                                    self?.forceRefresh(type: .postDatabaseQuery)
-                                case (_, _, false):
-                                    self?.profileImageStatus = (
-                                        previous: profileImageStatus?.current,
-                                        current: (profileImageStatus?.current == .expanded ? .normal : .expanded)
-                                    )
-                                    self?.forceRefresh(type: .postDatabaseQuery)
+                            if didTapQRCodeIcon {
+                                self?.profileImageStatus = (previous: profileImageStatus?.current, current: .qrCode)
+                            } else {
+                                self?.profileImageStatus = (
+                                    previous: profileImageStatus?.current,
+                                    current: (profileImageStatus?.current == .expanded ? .normal : .expanded)
+                                )
                             }
+                            self?.forceRefresh(type: .postDatabaseQuery)
                         }
                     )
                 ),
