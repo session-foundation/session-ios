@@ -573,6 +573,25 @@ struct MessageInfoScreen: View {
             return messageViewModel.profile?.blocksCommunityMessageRequests != true
         }()
         
+        let (displayName, contactDisplayName): (String?, String?) = {
+            guard let sessionId: String = sessionId else {
+                return (messageViewModel.authorNameSuppressedId, nil)
+            }
+            
+            let isCurrentUser: Bool = (messageViewModel.currentUserSessionIds?.contains(sessionId) == true)
+            guard !isCurrentUser else {
+                return ("you".localized(), "you".localized())
+            }
+            
+            return (
+                messageViewModel.authorName,
+                messageViewModel.profile?.displayName(
+                    for: messageViewModel.threadVariant,
+                    ignoringNickname: true
+                )
+            )
+        }()
+        
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
             modal: UserProfileModal(
                 info: .init(
@@ -580,11 +599,8 @@ struct MessageInfoScreen: View {
                     blindedId: blindedId,
                     qrCodeImage: qrCodeImage,
                     profileInfo: profileInfo,
-                    displayName: messageViewModel.authorName,
-                    contactDisplayName: messageViewModel.profile?.displayName(
-                        for: messageViewModel.threadVariant,
-                        ignoringNickname: true
-                    ),
+                    displayName: displayName,
+                    contactDisplayName: contactDisplayName,
                     isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
                     isMessageRequestsEnabled: isMessasgeRequestsEnabled,
                     onStartThread: self.onStartThread,
