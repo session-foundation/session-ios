@@ -442,150 +442,150 @@ public extension ClosedGroup {
                     return "messageRequestGroupInvite"
                         .put(key: "name", value: adminName)
                         .put(key: "group_name", value: groupName)
-                        .localized()
+                        .localizedDeformatted()
                 
-                case .invitedFallback: return "groupInviteYou".localized()
+                case .invitedFallback: return "groupInviteYou".localizedDeformatted()
                 
                 case .invitedAdmin(let adminName, let groupName):
                     return "groupInviteReinvite"
                         .put(key: "name", value: adminName)
                         .put(key: "group_name", value: groupName)
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .invitedAdminFallback(let groupName):
                     return "groupInviteReinviteYou"
                         .put(key: "group_name", value: groupName)
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .updatedName(let name):
                     return "groupNameNew"
                         .put(key: "group_name", value: name)
-                        .localized()
+                        .localizedDeformatted()
                     
-                case .updatedNameFallback: return "groupNameUpdated".localized()
-                case .updatedDisplayPicture: return "groupDisplayPictureUpdated".localized()
+                case .updatedNameFallback: return "groupNameUpdated".localizedDeformatted()
+                case .updatedDisplayPicture: return "groupDisplayPictureUpdated".localizedDeformatted()
                 
                 case .addedUsers(false, let names, false) where names.count > 2:
                     return "groupMemberNewMultiple"
                         .put(key: "name", value: names[0])
                         .put(key: "count", value: names.count - 1)
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .addedUsers(false, let names, true) where names.count > 2:
                     return "groupMemberNewHistoryMultiple"
                         .put(key: "name", value: names[0])
                         .put(key: "count", value: names.count - 1)
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .addedUsers(true, let names, false) where names.count > 2:
                     return "groupInviteYouAndMoreNew"
                         .put(key: "count", value: names.count - 1)
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .addedUsers(true, let names, true) where names.count > 2:
                     return "groupMemberNewYouHistoryMultiple"
                         .put(key: "count", value: names.count - 1)
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .addedUsers(false, let names, false) where names.count == 2:
                     return "groupMemberNewTwo"
                         .put(key: "name", value: names[0])
                         .put(key: "other_name", value: names[1])
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .addedUsers(false, let names, true) where names.count == 2:
                     return "groupMemberNewHistoryTwo"
                         .put(key: "name", value: names[0])
                         .put(key: "other_name", value: names[1])
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .addedUsers(true, let names, false) where names.count == 2:
                     return "groupInviteYouAndOtherNew"
                         .put(key: "other_name", value: names[1])    // The current user will always be the first name
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .addedUsers(true, let names, true) where names.count == 2:
                     return "groupMemberNewYouHistoryTwo"
                         .put(key: "other_name", value: names[1])          // The current user will always be the first name
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .addedUsers(false, let names, false):
                     return "groupMemberNew"
                         .put(key: "name", value: names.first ?? "anonymous".localized())
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .addedUsers(false, let names, true):
                     return "groupMemberNewHistory"
                         .put(key: "name", value: names.first ?? "anonymous".localized())
-                        .localized()
+                        .localizedDeformatted()
                     
-                case .addedUsers(true, _, false): return "groupInviteYou".localized()
-                case .addedUsers(true, _, true): return "groupInviteYouHistory".localized()
+                case .addedUsers(true, _, false): return "groupInviteYou".localizedDeformatted()
+                case .addedUsers(true, _, true): return "groupInviteYouHistory".localizedDeformatted()
                     
                 case .removedUsers(false, let names) where names.count > 2:
                     return "groupRemovedMultiple"
                         .put(key: "name", value: names[0])
                         .put(key: "count", value: names.count - 1)
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .removedUsers(true, let names) where names.count > 2:
                     return "groupRemovedYouMultiple"
                         .put(key: "count", value: names.count - 1)
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .removedUsers(false, let names) where names.count == 2:
                     return "groupRemovedTwo"
                         .put(key: "name", value: names[0])
                         .put(key: "other_name", value: names[1])
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .removedUsers(true, let names) where names.count == 2:
                     return "groupRemovedYouTwo"
                         .put(key: "other_name", value: names[1])          // The current user will always be the first name
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .removedUsers(false, let names):
                     return "groupRemoved"
                         .put(key: "name", value: names.first ?? "anonymous".localized())
-                        .localized()
+                        .localizedDeformatted()
                 
-                case .removedUsers(true, _): return "groupRemovedYouGeneral".localized()
+                case .removedUsers(true, _): return "groupRemovedYouGeneral".localizedDeformatted()
                     
                 case .memberLeft(false, let name):
                     return "groupMemberLeft"
                         .put(key: "name", value: name)
-                        .localized()
+                        .localizedDeformatted()
                 
-                case .memberLeft(true, _): return "groupMemberYouLeft".localized()
+                case .memberLeft(true, _): return "groupMemberYouLeft".localizedDeformatted()
                     
                 case .promotedUsers(false, let names) where names.count > 2:
                     return "adminMorePromotedToAdmin"
                         .put(key: "name", value: names[0])
                         .put(key: "count", value: names.count - 1)
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .promotedUsers(true, let names) where names.count > 2:
                     return "groupPromotedYouMultiple"
                         .put(key: "count", value: names.count - 1)
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .promotedUsers(false, let names) where names.count == 2:
                     return "adminTwoPromotedToAdmin"
                         .put(key: "name", value: names[0])
                         .put(key: "other_name", value: names[1])
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .promotedUsers(true, let names) where names.count == 2:
                     return "groupPromotedYouTwo"
                         .put(key: "other_name", value: names[1])              // The current user will always be the first name
-                        .localized()
+                        .localizedDeformatted()
                     
                 case .promotedUsers(false, let names):
                     return "adminPromotedToAdmin"
                         .put(key: "name", value: names.first ?? "anonymous".localized())
-                        .localized()
+                        .localizedDeformatted()
                     
-                case .promotedUsers(true, _): return "groupPromotedYou".localized()
+                case .promotedUsers(true, _): return "groupPromotedYou".localizedDeformatted()
             }
         }
         
