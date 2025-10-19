@@ -96,7 +96,9 @@ public class BaseVC: UIViewController {
         let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
         sessionProBadge.isHidden = !currentUserSessionProState.isSessionProSubject.value
         
-        let stackView: UIStackView = UIStackView(arrangedSubviews: [ headingImageView, sessionProBadge ])
+        let stackView: UIStackView = UIStackView(
+            arrangedSubviews: MainAppContext.determineDeviceRTL() ? [ sessionProBadge, headingImageView ] : [ headingImageView, sessionProBadge ]
+        )
         stackView.axis = .horizontal
         stackView.alignment = .center
         stackView.spacing = 0
