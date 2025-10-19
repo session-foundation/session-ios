@@ -304,7 +304,7 @@ extension DisplayPictureDownloadJob {
                         let key: Data = profile.displayPictureEncryptionKey,
                         let details: Details = Details(
                             target: .profile(id: profile.id, url: url, encryptionKey: key),
-                            timestamp: (profile.profileLastUpdated ?? 0)
+                            timestamp: profile.profileLastUpdated
                         )
                     else { return nil }
                     

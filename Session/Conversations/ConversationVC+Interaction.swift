@@ -840,7 +840,7 @@ extension ConversationVC:
                             fallback: .none,
                             using: dependencies
                         ),
-                        profileUpdateTimestamp: (currentUserProfile.profileLastUpdated ?? sentTimestamp),
+                        profileUpdateTimestamp: currentUserProfile.profileLastUpdated,
                         using: dependencies
                     )
                 }
@@ -1631,13 +1631,16 @@ extension ConversationVC:
         
         let (displayName, contactDisplayName): (String?, String?) = {
             guard let sessionId: String = sessionId else {
-                return (cellViewModel.authorName, nil)
+                return (cellViewModel.authorNameSuppressedId, nil)
             }
             
-            let profile: Profile? = dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId)}
+            let profile: Profile? = (
+                dependencies.mutate(cache: .libSession) { $0.profile(contactId: sessionId) } ??
+                dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId) }
+            )
             
             return (
-                (profile?.displayName(for: .contact) ?? cellViewModel.authorName),
+                (profile?.displayName(for: .contact) ?? cellViewModel.authorNameSuppressedId),
                 profile?.displayName(for: .contact, ignoringNickname: true)
             )
         }()

@@ -180,6 +180,9 @@ public extension UserDefaults.BoolKey {
     
     /// Idicates whether app review prompt was ignored or no iteraction was done to dismiss it (closed app)
     static let didActionAppReviewPrompt: UserDefaults.BoolKey = "didActionAppReviewPrompt"
+    
+    /// Indicates wheter the user should be reminded to grant camera permission for calls
+    static let shouldRemindGrantingCameraPermissionForCalls: UserDefaults.BoolKey = "shouldRemindGrantingCameraPermissionForCalls"
 }
 
 public extension UserDefaults.DateKey {

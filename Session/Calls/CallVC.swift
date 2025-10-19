@@ -466,9 +466,8 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         setUpViewHierarchy()
         setUpProfilePictureImage()
         
-        if shouldRestartCamera { cameraManager.prepare() }
-        
         _ = call.videoCapturer // Force the lazy var to instantiate
+        
         titleLabel.text = self.call.contactName
         if self.call.hasConnected {
             callDurationLabel.isHidden = false
@@ -661,14 +660,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             self.callInfoLabelStackView.alpha = 1
         }
         
-        Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
-            DispatchQueue.main.async {
-                self?.dismiss(animated: true, completion: {
-                    self?.conversationVC?.becomeFirstResponder()
-                    self?.conversationVC?.showInputAccessoryView()
-                })
-            }
-        }
+        self.shouldHandleCallDismiss(delay: 2)
     }
     
     @objc private func answerCall() {
@@ -682,20 +674,13 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         }
     }
     
-    @objc private func endCall() {
+    @objc private func endCall(presentCameraRequestDialog: Bool = false) {
         dependencies[singleton: .callManager].endCall(call) { [weak self, dependencies] error in
+            self?.shouldHandleCallDismiss(delay: 1, presentCameraRequestDialog: presentCameraRequestDialog)
+            
             if let _ = error {
                 self?.call.endSessionCall()
                 dependencies[singleton: .callManager].reportCurrentCallEnded(reason: .declinedElsewhere)
-            }
-            
-            Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
-                DispatchQueue.main.async {
-                    self?.dismiss(animated: true, completion: {
-                        self?.conversationVC?.becomeFirstResponder()
-                        self?.conversationVC?.showInputAccessoryView()
-                    })
-                }
             }
         }
     }
@@ -723,6 +708,7 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     // MARK: - Video and Audio
     
     @objc private func operateCamera() {
+        
         if (call.isVideoEnabled) {
             // Hides local video feed
             (floatingViewVideoSource == .local
@@ -738,34 +724,72 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             call.isVideoEnabled = false
         }
         else {
-            guard Permissions.requestCameraPermissionIfNeeded(using: dependencies) else {
-                let confirmationModal: ConfirmationModal = ConfirmationModal(
-                    info: ConfirmationModal.Info(
-                        title: "permissionsRequired".localized(),
-                        body: .text("permissionsCameraAccessRequiredCallsIos".localized()),
-                        showCondition: .disabled,
-                        confirmTitle: "sessionSettings".localized(),
-                        onConfirm: { _ in
-                            UIApplication.shared.openSystemSettings()
-                        }
-                    )
-                )
+            
+            // Added delay of preview due to permission dialog alert dismissal on allow.
+            // It causes issue on `VideoPreviewVC` presentation animation,
+            // If camera permission is already allowed no animation delay is needed
+            let previewDelay = Permissions.camera == .undetermined ? 0.5 : 0
+            
+            Permissions.requestCameraPermissionIfNeeded(
+                useCustomDeniedAlert: true,
+                using: dependencies
+            ) { [weak self, dependencies] isAuthorized in
                 
-                self.navigationController?.present(confirmationModal, animated: true, completion: nil)
-                return
+                let status = Permissions.camera
+
+                switch (isAuthorized, status) {
+                    case (false, .denied):
+                        guard let presentingViewController: UIViewController = (self?.navigationController ?? dependencies[singleton: .appContext].frontMostViewController)
+                        else { return }
+
+                        DispatchQueue.main.async {
+                            let confirmationModal: ConfirmationModal = ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "cameraAccessRequired".localized(),
+                                    body: .attributedText(
+                                        "cameraAccessDeniedMessage"
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .localizedFormatted(),
+                                        scrollMode: .never
+                                    ),
+                                    confirmTitle: "endCallToEnable".localized(),
+                                    confirmStyle: .danger,
+                                    cancelTitle: "remindMeLater".localized(),
+                                    cancelStyle: .alert_text,
+                                    onConfirm: { _ in
+                                        self?.endCall(presentCameraRequestDialog: true)
+                                    },
+                                    onCancel: { modal in
+                                        dependencies[defaults: .standard, key: .shouldRemindGrantingCameraPermissionForCalls] = true
+                                        modal.dismiss(animated: true)
+                                    }
+                                )
+                            )
+                            presentingViewController.present(confirmationModal, animated: true, completion: nil)
+                        }
+                    case (true, _):
+                        DispatchQueue.main.asyncAfter(deadline: .now() + previewDelay) { [weak self] in
+                            let previewVC = VideoPreviewVC()
+                            previewVC.delegate = self
+                            self?.present(previewVC, animated: true, completion: nil)
+                        }
+                        break
+                    default: break
+                }
             }
-            let previewVC = VideoPreviewVC()
-            previewVC.delegate = self
-            present(previewVC, animated: true, completion: nil)
         }
     }
-    
+
     func cameraDidConfirmTurningOn() {
         floatingViewContainer.isHidden = false
+        
         let localVideoView: LocalVideoView = self.floatingViewVideoSource == .local ? self.floatingLocalVideoView : self.fullScreenLocalVideoView
         localVideoView.alpha = 1
+        
+        // Camera preparation
         cameraManager.prepare()
         cameraManager.start()
+        
         videoButton.themeTintColor = .backgroundSecondary
         videoButton.themeBackgroundColor = .textPrimary
         switchCameraButton.isEnabled = true
@@ -892,13 +916,26 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
         }
     }
     
+    private func shouldHandleCallDismiss(delay: TimeInterval, presentCameraRequestDialog: Bool = false) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(Int(delay))) { [weak self, dependencies] in
+            guard self?.presentingViewController != nil else { return }
+            
+            self?.dismiss(animated: true, completion: {
+                self?.conversationVC?.becomeFirstResponder()
+                self?.conversationVC?.showInputAccessoryView()
+
+                if presentCameraRequestDialog {
+                    Permissions.showEnableCameraAccessInstructions(using: dependencies)
+                } else {
+                    Permissions.remindCameraAccessRequirement(using: dependencies)
+                }
+            })
+        }
+    }
+    
     // MARK: - AVRoutePickerViewDelegate
     
-    func routePickerViewWillBeginPresentingRoutes(_ routePickerView: AVRoutePickerView) {
-        
-    }
+    func routePickerViewWillBeginPresentingRoutes(_ routePickerView: AVRoutePickerView) {}
     
-    func routePickerViewDidEndPresentingRoutes(_ routePickerView: AVRoutePickerView) {
-        
-    }
+    func routePickerViewDidEndPresentingRoutes(_ routePickerView: AVRoutePickerView) {}
 }
