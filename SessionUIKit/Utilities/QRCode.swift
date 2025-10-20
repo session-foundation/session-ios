@@ -80,24 +80,13 @@ public enum QRCode {
         return finalImage ?? qrUIImage
     }
     
-    public static func qrCodeImageWithTintAndBackground(
+    public static func qrCodeImageWithBackground(
         image: UIImage,
-        themeStyle: UIUserInterfaceStyle,
         size: CGSize? = nil,
         insets: UIEdgeInsets = .zero
     ) -> UIImage {
-        var backgroundColor: UIColor {
-            switch themeStyle {
-            case .light: return .classicDark1
-                default: return .white
-            }
-        }
-        var tintColor: UIColor {
-            switch themeStyle {
-                case .light: return .white
-                default: return .classicDark1
-            }
-        }
+        var backgroundColor: UIColor = .white
+        var tintColor: UIColor = .classicDark1
         
         let outputSize = size ?? image.size
         let renderer = UIGraphicsImageRenderer(size: outputSize)

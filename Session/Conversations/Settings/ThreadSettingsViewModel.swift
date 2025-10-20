@@ -2099,9 +2099,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         let viewController = SessionHostingViewController(
             rootView: LightBox(
                 itemsToShare: [
-                    QRCode.qrCodeImageWithTintAndBackground(
+                    QRCode.qrCodeImageWithBackground(
                         image: qrCodeImage,
-                        themeStyle: ThemeManager.currentTheme.interfaceStyle,
                         size: CGSize(width: 400, height: 400),
                         insets: UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
                     )
