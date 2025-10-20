@@ -504,7 +504,7 @@ struct MessageInfoScreen: View {
             proFeatures.append("appProBadge".put(key: "app_pro", value: Constants.app_pro).localized())
         }
         
-        if (messageViewModel.isProMessage || messageViewModel.body.defaulting(to: "").utf16.count > LibSession.CharacterLimit) {
+        if (messageViewModel.isProMessage && messageViewModel.body.defaulting(to: "").utf16.count > LibSession.CharacterLimit) {
             proFeatures.append("proIncreasedMessageLengthFeature".localized())
             proCTAVariant = (proFeatures.count > 1 ? .generic : .longerMessages)
         }
