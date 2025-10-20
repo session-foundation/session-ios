@@ -163,6 +163,14 @@ extension ContextMenuVC {
                 actionType: .dismiss
             ) { _ in delegate?.contextMenuDismissed() }
         }
+        
+        static func select(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
+            return Action(
+                icon: UIImage(systemName: "arrow.triangle.2.circlepath"),
+                title: "Select",
+                accessibilityLabel: (cellViewModel.state == .failedToSync ? "Select message" : "Select message")
+            ) { completion in delegate?.select(cellViewModel, completion: completion) }
+        }
     }
     
     static func viewModelCanReply(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) -> Bool {
@@ -289,7 +297,9 @@ extension ContextMenuVC {
                 .compactMap { EmojiWithSkinTones(rawValue: $0) }
         }()
         let generatedActions: [Action] = [
+            
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
+            (viewModelCanReply(cellViewModel, using: dependencies) ? Action.select(cellViewModel, delegate) : nil),
             (viewModelCanReply(cellViewModel, using: dependencies) ? Action.reply(cellViewModel, delegate) : nil),
             (canCopy ? Action.copy(cellViewModel, delegate) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
@@ -327,4 +337,5 @@ protocol ContextMenuActionDelegate {
     func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones)
     func showFullEmojiKeyboard(_ cellViewModel: MessageViewModel)
     func contextMenuDismissed()
+    func select(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
 }

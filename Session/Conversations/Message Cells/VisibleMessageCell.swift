@@ -1032,7 +1032,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
     override func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
-
+        
         let location = gestureRecognizer.location(in: self)
         let tappedAuthorName: Bool = (
             authorLabel.bounds.contains(authorLabel.convert(location, from: self)) &&
@@ -1087,6 +1087,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: location)
             }
         }
+        
+        delegate?.handleCellSelection(for: cellViewModel, cell: self)
     }
 
     override func handleDoubleTap() {

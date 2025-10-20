@@ -3,6 +3,7 @@
 import UIKit
 import AVKit
 import AVFoundation
+import Lucide
 import Combine
 import CoreServices
 import Photos
@@ -1101,6 +1102,11 @@ extension ConversationVC:
     }
 
     // MARK: MessageCellDelegate
+    func handleCellSelection(for cellViewModel: MessageViewModel, cell: UITableViewCell) {
+        guard isMultiSelectionEnabled else { return }
+        
+        shouldHandleMessageSelection(for: cellViewModel, in: cell)
+    }
     
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
         // Show the unblock modal if needed
@@ -1172,6 +1178,8 @@ extension ConversationVC:
         cell: UITableViewCell,
         cellLocation: CGPoint
     ) {
+        guard !isMultiSelectionEnabled else { return }
+                
         // For call info messages show the "call missed" modal
         guard cellViewModel.variant != .infoCall else {
             // If the failure was due to the mic permission being denied then we want to show the permission modal,
@@ -2869,6 +2877,19 @@ extension ConversationVC:
         )
         self.present(modal, animated: true)
     }
+    
+    func select(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
+        guard
+            let sectionIndex: Int = self.viewModel.interactionData
+                .firstIndex(where: { $0.model == .messages }),
+            let index = self.viewModel.interactionData[sectionIndex]
+                .elements
+                .firstIndex(of: cellViewModel),
+            let cell = tableView.cellForRow(at: IndexPath(row: index, section: sectionIndex)) as? MessageCell
+        else { return }
+        
+        shouldHandleMessageSelection(for: cellViewModel, in: cell)
+    }
 
     // MARK: - VoiceMessageRecordingViewDelegate
 
@@ -3484,5 +3505,145 @@ extension ConversationVC: MediaPresentationContextProvider {
 
     func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
         return self.navigationController?.navigationBar.generateSnapshot(in: coordinateSpace)
+    }
+}
+
+extension ConversationVC {
+    func shouldHandleMessageSelection(for message: MessageViewModel, in cell: UITableViewCell) {
+        if let selectedIndex = selectedMessages.firstIndex(where: { $0 == message }) {
+            selectedMessages.remove(at: selectedIndex)
+        } else {
+            selectedMessages.insert(message)
+        }
+        
+        isMultiSelectionEnabled = !selectedMessages.isEmpty
+        
+        guard let indexPath = tableView.indexPath(for: cell) else { return }
+        tableView.reloadRows(at: [indexPath], with: .none)
+    }
+    
+    func shouldUpdateNavigationBar() {
+        tableView.allowsMultipleSelection = isMultiSelectionEnabled
+        
+        navigationItem.titleView = isMultiSelectionEnabled ? nil : titleView
+        
+        // Nav bar buttons
+        updateNavBarButtons(
+            threadData: viewModel.threadData,
+            initialVariant: viewModel.initialThreadVariant,
+            initialIsNoteToSelf: viewModel.threadData.threadIsNoteToSelf,
+            initialIsBlocked: (viewModel.threadData.threadIsBlocked == true)
+        )
+    }
+    
+    // Selection navigation bar
+    @objc
+    func replySelected() {
+        guard let message = selectedMessages.first else { return }
+        
+        isMultiSelectionEnabled = false
+        selectedMessages.removeAll()
+        tableView.reloadData()
+        
+        reply(message, completion: nil)
+    }
+    
+    @objc
+    func copySelected() {
+        
+    }
+    
+    @objc
+    func deleteSelected() {
+        
+    }
+    
+    @objc
+    func saveSelected() {
+        guard let message = selectedMessages.first else { return }
+        
+        isMultiSelectionEnabled = false
+        selectedMessages.removeAll()
+        tableView.reloadData()
+        
+        save(message, completion: nil)
+    }
+    
+    @objc
+    func moreOptions() {
+        // TODO: Add context
+    }
+    
+    func setNavigationActions() -> [UIBarButtonItem] {
+        let replyButtonItem: UIBarButtonItem = UIBarButtonItem(
+            image: Lucide.image(icon: .reply, size: 24),
+            style: .plain,
+            target: self,
+            action: #selector(replySelected)
+        )
+        replyButtonItem.accessibilityLabel = "Reply"
+        replyButtonItem.isAccessibilityElement = true
+        
+        let downloadButtonItem: UIBarButtonItem = UIBarButtonItem(
+            image: Lucide.image(icon: .download, size: 24),
+            style: .plain,
+            target: self,
+            action: #selector(saveSelected)
+        )
+        downloadButtonItem.accessibilityLabel = "Download"
+        downloadButtonItem.isAccessibilityElement = true
+        
+        let copyButtonItem: UIBarButtonItem = UIBarButtonItem(
+            image: Lucide.image(icon: .copy, size: 24),
+            style: .plain,
+            target: self,
+            action: #selector(deleteSelected)
+        )
+        copyButtonItem.accessibilityLabel = "Copy"
+        copyButtonItem.isAccessibilityElement = true
+        
+        let deleteButtonItem: UIBarButtonItem = UIBarButtonItem(
+            image: Lucide.image(icon: .trash2, size: 24),
+            style: .plain,
+            target: self,
+            action: #selector(deleteSelected)
+        )
+        deleteButtonItem.accessibilityLabel = "Delete"
+        deleteButtonItem.isAccessibilityElement = true
+        
+        let moreButtonItem: UIBarButtonItem = UIBarButtonItem(
+            image: Lucide.image(icon: .ellipsisVertical, size: 24),
+            style: .plain,
+            target: self,
+            action: #selector(deleteSelected)
+        )
+        moreButtonItem.accessibilityLabel = "More"
+        moreButtonItem.isAccessibilityElement = true
+        
+        var canBeDownloaded: Bool {
+            guard
+                selectedMessages.count <= 1,
+                selectedMessages.first(where: { $0.attachments != nil }) != nil
+            else {
+                return false
+            }
+            
+            return true
+        }
+        
+        var hasTextType: Bool {
+            return selectedMessages.contains(where: { $0.cellType == .textOnlyMessage })
+        }
+        
+        
+        let items = [
+            selectedMessages.count <= 1 ? moreButtonItem : nil,
+            hasTextType ? copyButtonItem : nil,
+            selectedMessages.count > 1 ? deleteButtonItem : nil,
+            canBeDownloaded ? downloadButtonItem : nil,
+            selectedMessages.count <= 1 ? replyButtonItem : nil
+        ].compactMap { $0 }
+        
+        return items
     }
 }

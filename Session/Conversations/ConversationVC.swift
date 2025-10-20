@@ -69,6 +69,14 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     // Reaction
     var currentReactionListSheet: ReactionListSheet?
     var reactionExpandedMessageIds: Set<String> = []
+    
+    // Selected messages
+    var selectedMessages: Set<MessageViewModel> = []
+    var isMultiSelectionEnabled: Bool = false {
+        didSet {
+            shouldUpdateNavigationBar()
+        }
+    }
 
     /// This flag is used to temporarily prevent the ConversationVC from becoming the first responder (primarily used with
     /// custom transitions from preventing them from being buggy
@@ -1409,8 +1417,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         if isShowingSearchUI {
             navigationItem.leftBarButtonItem = nil
             navigationItem.rightBarButtonItems = []
-        }
-        else {
+        } else if isMultiSelectionEnabled {
+            let items = setNavigationActions()
+            navigationItem.rightBarButtonItems = items
+        }else {
             let shouldHaveCallButton: Bool = (
                 (threadData?.threadVariant ?? initialVariant) == .contact &&
                 (threadData?.threadIsNoteToSelf ?? initialIsNoteToSelf) == false
@@ -1693,6 +1703,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             case .messages:
                 let cellViewModel: MessageViewModel = section.elements[indexPath.row]
                 let cell: MessageCell = tableView.dequeue(type: MessageCell.cellType(for: cellViewModel), for: indexPath)
+                
                 cell.update(
                     with: cellViewModel,
                     playbackInfo: viewModel.playbackInfo(for: cellViewModel) { [weak self] updatedInfo, error in
@@ -1723,6 +1734,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     using: viewModel.dependencies
                 )
                 cell.delegate = self
+                
+                let isSelected = selectedMessages.contains(cellViewModel)
+
+                cell.setSelectedState(isSelected)
                 
                 return cell
                 
