@@ -387,8 +387,8 @@ struct MessageInfoScreen: View {
                                                     .font(.Body.extraLargeBold)
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
-                                            else if !messageViewModel.authorName.isEmpty {
-                                                Text(messageViewModel.authorName)
+                                            else if !messageViewModel.authorNameSuppressedId.isEmpty {
+                                                Text(messageViewModel.authorNameSuppressedId)
                                                     .font(.Body.extraLargeBold)
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
@@ -403,7 +403,19 @@ struct MessageInfoScreen: View {
                                         
                                         Text(messageViewModel.authorId)
                                             .font(.Display.base)
-                                            .foregroundColor(themeColor: .textPrimary)
+                                            .foregroundColor(
+                                                themeColor: {
+                                                    if
+                                                        messageViewModel.authorId.hasPrefix(SessionId.Prefix.blinded15.rawValue) ||
+                                                        messageViewModel.authorId.hasPrefix(SessionId.Prefix.blinded25.rawValue)
+                                                    {
+                                                        return .textSecondary
+                                                    }
+                                                    else {
+                                                        return .textPrimary
+                                                    }
+                                                }()
+                                            )
                                     }
                                 }
                             }
