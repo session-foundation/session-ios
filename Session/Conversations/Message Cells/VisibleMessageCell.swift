@@ -342,11 +342,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
         contentHStackTopConstraint.constant = (shouldAddTopInset ? Values.mediumSpacing : 0)
         
-        // Author label
-        authorLabel.isHidden = (cellViewModel.senderName == nil)
-        authorLabel.text = cellViewModel.senderName
-        authorLabel.themeTextColor = .textPrimary
-        
         let isGroupThread: Bool = (
             cellViewModel.threadVariant == .community ||
             cellViewModel.threadVariant == .legacyGroup ||
@@ -394,7 +389,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         // Author label
         authorLabel.isHidden = (cellViewModel.senderName == nil)
-        authorLabel.text = cellViewModel.senderName
+        authorLabel.text = cellViewModel.authorNameSuppressedId
+        authorLabel.extraText = cellViewModel.authorName.replacingOccurrences(of: cellViewModel.authorNameSuppressedId, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
         authorLabel.themeTextColor = .textPrimary
         authorLabel.isProBadgeHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: cellViewModel.authorId) }
         
