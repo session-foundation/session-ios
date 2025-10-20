@@ -271,8 +271,10 @@ public class MediaMessageView: UIView {
     // MARK: - Layout
 
     private func setupViews(using dependencies: Dependencies) {
-        // Plain text will just be put in the 'message' input so do nothing
-        guard !attachment.utType.isText else { return }
+        switch attachment.source {
+            case .text: return  /// Plain text will just be put in the 'message' input so do nothing
+            default: break
+        }
         
         // Setup the view hierarchy
         addSubview(stackView)
@@ -318,8 +320,10 @@ public class MediaMessageView: UIView {
     }
     
     private func setupLayout() {
-        // Plain text will just be put in the 'message' input so do nothing
-        guard !attachment.utType.isText else { return }
+        switch attachment.source {
+            case .text: return  /// Plain text will just be put in the 'message' input so do nothing
+            default: break
+        }
         
         // Sizing calculations
         let clampedRatio: CGFloat = {

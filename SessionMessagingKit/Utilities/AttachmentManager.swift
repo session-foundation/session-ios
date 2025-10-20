@@ -100,7 +100,7 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
             .path
     }
     
-    public func pendingUploadPath(for id: String) throws -> String {
+    public func pendingUploadPath(for id: String) -> String {
         return URL(fileURLWithPath: placeholderUrlPath())
             .appendingPathComponent(id)
             .path
@@ -115,54 +115,73 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
         return url.path.hasPrefix(placeholderUrlPath())
     }
     
-    public func temporaryPathForOpening(downloadUrl: String?, mimeType: String?, sourceFilename: String?) throws -> String {
-        guard let downloadUrl: String = downloadUrl else { throw AttachmentError.invalidData }
-        
+    public func temporaryPathForOpening(
+        originalPath: String,
+        mimeType: String?,
+        sourceFilename: String?,
+        allowInvalidType: Bool
+    ) throws -> String {
         /// Since `mimeType` and/or `sourceFilename` can be null we need to try to resolve them both to values
         let finalExtension: String
         let targetFilenameNoExtension: String
         
-        switch (mimeType, sourceFilename) {
-            case (.none, .none): throw AttachmentError.invalidData
-            case (.none, .some(let sourceFilename)):
-                guard
-                    let type: UTType = UTType(
-                        sessionFileExtension: URL(fileURLWithPath: sourceFilename).pathExtension
-                    ),
-                    let fileExtension: String = type.sessionFileExtension(sourceFilename: sourceFilename)
-                else { throw AttachmentError.invalidData }
-                
-                finalExtension = fileExtension
-                targetFilenameNoExtension = String(sourceFilename.prefix(sourceFilename.count - (1 + fileExtension.count)))
-                
-            case (.some(let mimeType), let sourceFilename):
-                guard
-                    let fileExtension: String = UTType(sessionMimeType: mimeType)?
-                        .sessionFileExtension(sourceFilename: sourceFilename)
-                else { throw AttachmentError.invalidData }
-                
-                finalExtension = fileExtension
-                targetFilenameNoExtension = try {
-                    guard let sourceFilename: String = sourceFilename else {
-                        return URL(fileURLWithPath: try path(for: downloadUrl)).lastPathComponent
-                    }
+        do {
+            switch (mimeType, sourceFilename) {
+                case (.none, .none): throw AttachmentError.invalidData
+                case (.none, .some(let sourceFilename)):
+                    guard
+                        let type: UTType = UTType(
+                            sessionFileExtension: URL(fileURLWithPath: sourceFilename).pathExtension
+                        ),
+                        let fileExtension: String = type.sessionFileExtension(sourceFilename: sourceFilename)
+                    else { throw AttachmentError.invalidData }
                     
-                    return (sourceFilename.hasSuffix(".\(fileExtension)") ? // stringlint:ignore
-                        String(sourceFilename.prefix(sourceFilename.count - (1 + fileExtension.count))) :
-                        sourceFilename
-                    )
-                }()
+                    finalExtension = fileExtension
+                    targetFilenameNoExtension = String(sourceFilename.prefix(sourceFilename.count - (1 + fileExtension.count)))
+                    
+                case (.some(let mimeType), let sourceFilename):
+                    guard
+                        let fileExtension: String = UTType(sessionMimeType: mimeType)?
+                            .sessionFileExtension(sourceFilename: sourceFilename)
+                    else { throw AttachmentError.invalidData }
+                    
+                    finalExtension = fileExtension
+                    targetFilenameNoExtension = {
+                        guard let sourceFilename: String = sourceFilename else {
+                            return URL(fileURLWithPath: originalPath).lastPathComponent
+                        }
+                        
+                        return (sourceFilename.hasSuffix(".\(fileExtension)") ? // stringlint:ignore
+                            String(sourceFilename.prefix(sourceFilename.count - (1 + fileExtension.count))) :
+                            sourceFilename
+                        )
+                    }()
+            }
+        } catch {
+            /// If an error was thrown it was because we couldn't get a valid file extension, in which case only continue if we want to
+            /// allow invalid types
+            guard allowInvalidType else { throw error }
+            
+            return URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
+                .appendingPathComponent(
+                    URL(fileURLWithPath: originalPath)
+                        .lastPathComponent
+                        .replacingWhitespacesWithUnderscores
+                )
+                .path
         }
 
-        let sanitizedFileName = targetFilenameNoExtension.replacingWhitespacesWithUnderscores
-        
         return URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
-            .appendingPathComponent(sanitizedFileName)
+            .appendingPathComponent(targetFilenameNoExtension.replacingWhitespacesWithUnderscores)
             .appendingPathExtension(finalExtension)
             .path
     }
     
-    public func createTemporaryFileForOpening(downloadUrl: String?, mimeType: String?, sourceFilename: String?) throws -> String {
+    public func createTemporaryFileForOpening(
+        downloadUrl: String?,
+        mimeType: String?,
+        sourceFilename: String?
+    ) throws -> String {
         let path: String = try path(for: downloadUrl)
         
         /// Ensure the original file exists before generating a path for opening or trying to copy it
@@ -171,9 +190,10 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
         }
         
         let tmpPath: String = try temporaryPathForOpening(
-            downloadUrl: downloadUrl,
+            originalPath: path,
             mimeType: mimeType,
-            sourceFilename: sourceFilename
+            sourceFilename: sourceFilename,
+            allowInvalidType: false
         )
         
         /// If the file already exists (since it's deterministically generated) then no need to copy it again
@@ -828,7 +848,7 @@ public extension PendingAttachment {
         /// rather than in the temporary directory because the `AttachmentUploadJob` can exist between launches, but the temporary
         /// directory gets cleared on every launch)
         let attachmentId: String = (existingAttachmentId ?? UUID().uuidString)
-        let filePath: String = try (storeAtPendingAttachmentUploadPath ?
+        let filePath: String = (storeAtPendingAttachmentUploadPath ?
             dependencies[singleton: .attachmentManager].pendingUploadPath(for: attachmentId) :
             dependencies[singleton: .fileManager].temporaryFilePath()
         )

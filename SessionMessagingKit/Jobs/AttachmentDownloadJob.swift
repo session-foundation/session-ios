@@ -36,9 +36,20 @@ public enum AttachmentDownloadJob: JobExecutor {
                     /// Due to the complex nature of jobs and how attachments can be reused it's possible for an
                     /// `AttachmentDownloadJob` to get created for an attachment which has already been downloaded or
                     /// uploaded so in those cases just succeed immediately
-                    guard attachment.state != .downloaded && attachment.state != .uploaded else {
-                        throw AttachmentDownloadError.alreadyDownloaded
-                    }
+                    let fileAlreadyDownloaded: Bool = try {
+                        guard attachment.state == .downloaded || attachment.state == .uploaded else {
+                            return false
+                        }
+                        
+                        /// If the attachment should have been downloaded then check to ensure the file exists (if it doesn't then
+                        /// wr should try to download it again - this will result in the file going into a "failed" state if not which is
+                        /// better than the "file is downloaded but doesn't exist" state which is handled poorly
+                        let path: String = try dependencies[singleton: .attachmentManager].path(for: attachment.downloadUrl)
+                        
+                        return dependencies[singleton: .fileManager].fileExists(atPath: path)
+                    }()
+                    
+                    guard !fileAlreadyDownloaded else { throw AttachmentDownloadError.alreadyDownloaded }
                     
                     /// If we ever make attachment downloads concurrent this will prevent us from downloading the same attachment
                     /// multiple times at the same time (it also adds a "clean up" mechanism if an attachment ends up stuck in a

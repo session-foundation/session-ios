@@ -158,7 +158,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     
     public let contactLastKnownClientVersion: FeatureVersion?
     public let threadDisplayPictureUrl: String?
-    internal let contactProfile: Profile?
+    public let contactProfile: Profile?
     internal let closedGroupProfileFront: Profile?
     internal let closedGroupProfileBack: Profile?
     internal let closedGroupProfileBackFallback: Profile?
@@ -614,6 +614,8 @@ public extension SessionThreadViewModel {
 
 public extension SessionThreadViewModel {
     func populatingPostQueryData(
+        threadDisplayPictureUrl: String?,
+        contactProfile: Profile?,
         recentReactionEmoji: [String]?,
         openGroupCapabilities: Set<Capability.Variant>?,
         currentUserSessionIds: Set<String>,
@@ -648,8 +650,8 @@ public extension SessionThreadViewModel {
             threadCanUpload: threadCanUpload,
             disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
             contactLastKnownClientVersion: self.contactLastKnownClientVersion,
-            threadDisplayPictureUrl: self.threadDisplayPictureUrl,
-            contactProfile: self.contactProfile,
+            threadDisplayPictureUrl: (threadDisplayPictureUrl ?? self.threadDisplayPictureUrl),
+            contactProfile: (contactProfile ?? self.contactProfile),
             closedGroupProfileFront: self.closedGroupProfileFront,
             closedGroupProfileBack: self.closedGroupProfileBack,
             closedGroupProfileBackFallback: self.closedGroupProfileBackFallback,

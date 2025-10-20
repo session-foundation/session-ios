@@ -159,13 +159,31 @@ final class LinkPreviewView: UIView {
     ) {
         cancelButton.removeFromSuperview()
         
-        var imageSource: ImageDataManager.DataSource? = state.imageSource
-        let stateHasImage: Bool = (imageSource != nil && imageSource?.contentExists == true)
-        if
-            (imageSource == nil || imageSource?.contentExists != true) &&
-            (state is LinkPreview.DraftState || state is LinkPreview.SentState)
-        {
-            imageSource = .icon(.link, size: 32, renderingMode: .alwaysTemplate)
+        switch state {
+            case is LinkPreview.LoadingState:
+                loader.alpha = 1
+                loader.startAnimating()
+                imageView.image = nil
+                
+            case is LinkPreview.DraftState, is LinkPreview.SentState:
+                let imageContentExists: Bool = (state.imageSource?.contentExists == true)
+                let imageSource: ImageDataManager.DataSource = {
+                    guard
+                        let source: ImageDataManager.DataSource = state.imageSource,
+                        source.contentExists
+                    else { return .icon(.link, size: 32, renderingMode: .alwaysTemplate) }
+                        
+                    return source
+                }()
+                loader.alpha = 0
+                loader.stopAnimating()
+                imageView.loadImage(imageSource)
+                imageView.contentMode = (imageContentExists ? .scaleAspectFill : .center)
+                
+            default:
+                loader.alpha = 0
+                loader.stopAnimating()
+                imageView.image = nil
         }
         
         // Image view
@@ -173,20 +191,10 @@ final class LinkPreviewView: UIView {
         imageViewContainerWidthConstraint.constant = imageViewContainerSize
         imageViewContainerHeightConstraint.constant = imageViewContainerSize
         imageViewContainer.layer.cornerRadius = (state is LinkPreview.SentState ? 0 : 8)
-        
-        if let source: ImageDataManager.DataSource = imageSource {
-            imageView.loadImage(source)
-        }
-    
         imageView.themeTintColor = (isOutgoing ?
             .messageBubble_outgoingText :
             .messageBubble_incomingText
         )
-        imageView.contentMode = (stateHasImage ? .scaleAspectFill : .center)
-        
-        // Loader
-        loader.alpha = (imageSource != nil ? 0 : 1)
-        if imageSource != nil { loader.stopAnimating() } else { loader.startAnimating() }
         
         // Title
         titleLabel.text = state.title

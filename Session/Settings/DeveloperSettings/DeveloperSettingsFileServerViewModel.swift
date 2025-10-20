@@ -17,6 +17,8 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
+    private var shareDownloadedFileUrl: String?
+    private var shareDownloadedFileMimetype: String?
     private var updatedCustomServerUrl: String?
     private var updatedCustomServerPubkey: String?
     
@@ -67,6 +69,7 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case shortenFileTTL
         case deterministicAttachmentEncryption
+        case shareDownloadedFile
         case customFileServerUrl
         case customFileServerPubkey
         
@@ -78,6 +81,7 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
             switch self {
                 case .shortenFileTTL: return "shortenFileTTL"
                 case .deterministicAttachmentEncryption: return "deterministicAttachmentEncryption"
+                case .shareDownloadedFile: return "shareDownloadedFile"
                 case .customFileServerUrl: return "customFileServerUrl"
                 case .customFileServerPubkey: return "customFileServerPubkey"
             }
@@ -92,6 +96,7 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
             switch TableItem.shortenFileTTL {
                 case .shortenFileTTL: result.append(.shortenFileTTL); fallthrough
                 case .deterministicAttachmentEncryption: result.append(.deterministicAttachmentEncryption); fallthrough
+                case .shareDownloadedFile: result.append(.shareDownloadedFile); fallthrough
                 case .customFileServerUrl: result.append(.customFileServerUrl); fallthrough
                 case .customFileServerPubkey: result.append(.customFileServerPubkey)
             }
@@ -243,6 +248,17 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
                     }
                 ),
                 SessionCell.Info(
+                    id: .shareDownloadedFile,
+                    title: "Share Downloaded File",
+                    subtitle: """
+                    Share the downloaded file of a given URL if it exists via the native share sheet
+                    """,
+                    trailingAccessory: .icon(.share),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showShareFileModal()
+                    }
+                ),
+                SessionCell.Info(
                     id: .customFileServerUrl,
                     title: "Custom File Server URL",
                     subtitle: """
@@ -275,6 +291,120 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
     }
     
     // MARK: - Internal Functions
+    
+    private func showShareFileModal() {
+        func originalPath(for value: String) -> String? {
+            let maybeAttachmentPath: String? = try? dependencies[singleton: .attachmentManager].path(for: value)
+            let maybeDisplayPicPath: String? = try? dependencies[singleton: .displayPictureManager].path(for: value)
+            
+            if
+                let path: String = maybeAttachmentPath,
+                dependencies[singleton: .fileManager].fileExists(atPath: path)
+            {
+                return path
+            }
+            
+            if
+                let path: String = maybeDisplayPicPath,
+                dependencies[singleton: .fileManager].fileExists(atPath: path)
+            {
+                return path
+            }
+            
+            return nil
+        }
+        func showFileMissingError() {
+            let modal: ConfirmationModal = ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "theError".localized(),
+                    body: .text("There doesn't appear to be a downloaded file for that url."),
+                    cancelTitle: "okay".localized(),
+                    cancelStyle: .alert_text
+                    
+                )
+            )
+            self.transitionToScreen(modal, transitionType: .present)
+        }
+        
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Share Downloaded File",
+                    body: .dualInput(
+                        explanation: ThemedAttributedString(
+                            string: "The download url and mime type for the file to share."
+                        ),
+                        firstInfo: ConfirmationModal.Info.Body.InputInfo(placeholder: "MIME Type (Optional)"),
+                        secondInfo: ConfirmationModal.Info.Body.InputInfo(placeholder: "Enter URL"),
+                        onChange: { [weak self] mimeTypeValue, urlValue in
+                            self?.shareDownloadedFileUrl = urlValue.lowercased()
+                            self?.shareDownloadedFileMimetype = mimeTypeValue.lowercased()
+                        }
+                    ),
+                    confirmTitle: "Copy Path",
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        guard let value: String = self?.shareDownloadedFileUrl else { return false }
+                        
+                        return !value.isEmpty
+                    },
+                    cancelTitle: "share".localized(),
+                    cancelStyle: .alert_text,
+                    cancelEnabled: .afterChange { [weak self] _ in
+                        guard let value: String = self?.shareDownloadedFileUrl else { return false }
+                        
+                        return !value.isEmpty
+                    },
+                    hasCloseButton: true,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self] modal in
+                        guard let value: String = self?.shareDownloadedFileUrl else { return }
+                        guard let originalPath: String = originalPath(for: value) else {
+                            return showFileMissingError()
+                        }
+                        
+                        UIPasteboard.general.string = originalPath
+                        self?.showToast(text: "copied".localized())
+                    },
+                    onCancel: { [weak self, dependencies] modal in
+                        guard let value: String = self?.shareDownloadedFileUrl else { return }
+                        
+                        modal.dismiss(animated: true) {
+                            guard
+                                let originalPath: String = originalPath(for: value),
+                                let temporaryPath: String = try? dependencies[singleton: .attachmentManager].temporaryPathForOpening(
+                                    originalPath: originalPath,
+                                    mimeType: self?.shareDownloadedFileMimetype?.lowercased(),
+                                    sourceFilename: nil,
+                                    allowInvalidType: true
+                                )
+                            else { return showFileMissingError() }
+                            
+                            /// Create the temporary file
+                            try? dependencies[singleton: .fileManager].copyItem(
+                                atPath: originalPath,
+                                toPath: temporaryPath
+                            )
+                            
+                            /// Ensure the temporary file was created successfully
+                            guard dependencies[singleton: .fileManager].fileExists(atPath: temporaryPath) else {
+                                return showFileMissingError()
+                            }
+                            
+                            let shareVC = UIActivityViewController(activityItems: [ URL(fileURLWithPath: temporaryPath) ], applicationActivities: nil)
+                            shareVC.completionWithItemsHandler = { [dependencies] activityType, completed, returnedItems, activityError in
+                                /// Sanity check to make sure we don't unintentionally remove a proper attachment file
+                                if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(temporaryPath) {
+                                    try? dependencies[singleton: .fileManager].removeItem(atPath: temporaryPath)
+                                }
+                            }
+                            self?.transitionToScreen(shareVC, transitionType: .present)
+                        }
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
     
     private func showServerUrlModal(pendingState: State.Info) {
         self.transitionToScreen(

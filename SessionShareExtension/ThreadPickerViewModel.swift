@@ -75,7 +75,18 @@ public class ThreadPickerViewModel {
                         }
                     )
                     
+                    // TODO: [Database Relocation] Clean up this query as well
+                    var targetContactProfile: Profile? = threadViewModel.contactProfile
+                    var targetThreadDisplayPictureUrl: String? = threadViewModel.threadDisplayPictureUrl
+                    
+                    if threadViewModel.id == userSessionId.hexString {
+                        targetContactProfile = dependencies.mutate(cache: .libSession) { $0.profile }
+                        targetThreadDisplayPictureUrl = targetContactProfile?.displayPictureUrl
+                    }
+                    
                     return threadViewModel.populatingPostQueryData(
+                        threadDisplayPictureUrl: targetThreadDisplayPictureUrl,
+                        contactProfile: targetContactProfile,
                         recentReactionEmoji: nil,
                         openGroupCapabilities: nil,
                         currentUserSessionIds: [userSessionId.hexString],

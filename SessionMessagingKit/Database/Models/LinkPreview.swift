@@ -132,7 +132,12 @@ public extension LinkPreview {
         return (floor(sentTimestampMs / 1000 / LinkPreview.timstampResolution) * LinkPreview.timstampResolution)
     }
     
-    static func generateAttachmentIfPossible(urlString: String, imageData: Data?, type: UTType, using dependencies: Dependencies) async throws -> Attachment? {
+    static func prepareAttachmentIfPossible(
+        urlString: String,
+        imageData: Data?,
+        type: UTType,
+        using dependencies: Dependencies
+    ) async throws -> PreparedAttachment? {
         guard let imageData: Data = imageData, !imageData.isEmpty else { return nil }
         
         let pendingAttachment: PendingAttachment = PendingAttachment(
@@ -143,15 +148,15 @@ public extension LinkPreview {
         let targetFormat: PendingAttachment.ConversionFormat = (dependencies[feature: .usePngInsteadOfWebPForFallbackImageType] ?
             .png(maxDimension: LinkPreview.maxImageDimension) : .webPLossy(maxDimension: LinkPreview.maxImageDimension)
         )
-        let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+        return try await pendingAttachment.prepare(
             operations: [
                 .convert(to: targetFormat),
                 .stripImageMetadata
             ],
+            /// We only call `prepareAttachmentIfPossible` before sending so always store at the pending upload path
+            storeAtPendingAttachmentUploadPath: true,
             using: dependencies
         )
-        
-        return preparedAttachment.attachment
     }
     
     static func isValidLinkUrl(_ urlString: String) -> Bool {

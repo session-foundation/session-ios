@@ -468,7 +468,8 @@ final class ShareNavController: UINavigationController {
                             return continuation.resume(
                                 returning: PendingAttachment(
                                     source: .file(URL(fileURLWithPath: tmpPath)),
-                                    utType: .url,
+                                    utType: (UTType(sessionFileExtension: url.pathExtension) ?? .url),
+                                    sourceFilename: url.lastPathComponent,
                                     using: dependencies
                                 )
                             )

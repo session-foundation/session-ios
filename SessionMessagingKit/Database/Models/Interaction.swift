@@ -23,7 +23,6 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         through: interactionAttachments,
         using: InteractionAttachment.attachment
     )
-    public static let quote = hasOne(Quote.self, using: Quote.interactionForeignKey)
     
     /// Whenever using this `linkPreview` association make sure to filter the result using
     /// `.filter(literal: Interaction.linkPreviewFilterLiteral)` to ensure the correct LinkPreview is returned
@@ -246,10 +245,6 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         
         return request(for: Interaction.attachments)
             .order(interactionAttachment[.albumIndex])
-    }
-
-    public var quote: QueryInterfaceRequest<Quote> {
-        request(for: Interaction.quote)
     }
 
     public var linkPreview: QueryInterfaceRequest<LinkPreview> {

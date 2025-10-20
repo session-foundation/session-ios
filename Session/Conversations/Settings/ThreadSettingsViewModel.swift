@@ -128,12 +128,28 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     lazy var observation: TargetObservation = ObservationBuilderOld
         .databaseObservation(self) { [dependencies, threadId = self.threadId] db -> State in
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
+            var threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                 .conversationSettingsQuery(threadId: threadId, userSessionId: userSessionId)
                 .fetchOne(db)
             let disappearingMessagesConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
                 .fetchOne(db, id: threadId)
                 .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
+            
+            // TODO: [Database Relocation] Clean up this query as well
+            if threadViewModel?.id == userSessionId.hexString {
+                let userProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+                threadViewModel = threadViewModel?.populatingPostQueryData(
+                    threadDisplayPictureUrl: userProfile.displayPictureUrl,
+                    contactProfile: userProfile,
+                    recentReactionEmoji: nil,
+                    openGroupCapabilities: nil,
+                    currentUserSessionIds: [userSessionId.hexString],
+                    wasKickedFromGroup: false,
+                    groupIsDestroyed: false,
+                    threadCanWrite: true,
+                    threadCanUpload: true
+                )
+            }
             
             return State(
                 threadViewModel: threadViewModel,

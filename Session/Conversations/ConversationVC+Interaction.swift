@@ -783,13 +783,13 @@ extension ConversationVC:
         }
     }
     
-    private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) {
+    private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) async {
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         
         // Actually send the message
-        viewModel.dependencies[singleton: .storage]
-            .writePublisher { [weak self, dependencies = viewModel.dependencies] db in
+        do {
+            try await viewModel.dependencies[singleton: .storage].writeAsync { [weak self, dependencies = viewModel.dependencies] db in
                 // Update the thread to be visible (if it isn't already)
                 if self?.viewModel.threadData.threadShouldBeVisible == false {
                     try SessionThread.updateVisibility(
@@ -831,7 +831,10 @@ extension ConversationVC:
                         try LinkPreview(
                             url: linkPreviewDraft.urlString,
                             title: linkPreviewDraft.title,
-                            attachmentId: try optimisticData.linkPreviewAttachment?.inserted(db).id,
+                            attachmentId: try optimisticData.linkPreviewPreparedAttachment?
+                                .attachment
+                                .inserted(db)
+                                .id,
                             using: dependencies
                         ).upsert(db)
                     }
@@ -842,8 +845,7 @@ extension ConversationVC:
                     try Quote(
                         interactionId: interactionId,
                         authorId: quoteModel.authorId,
-                        timestampMs: quoteModel.timestampMs,
-                        body: nil
+                        timestampMs: quoteModel.timestampMs
                     ).insert(db)
                 }
                 
@@ -884,36 +886,25 @@ extension ConversationVC:
                     using: dependencies
                 )
             }
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished: break
-                        case .failure(let error):
-                            self?.viewModel.failedToStoreOptimisticOutgoingMessage(id: optimisticData.id, error: error)
-                    }
-                    
-                    self?.handleMessageSent()
-                }
-            )
+            
+            await handleMessageSent()
+        }
+        catch {
+            viewModel.failedToStoreOptimisticOutgoingMessage(id: optimisticData.id, error: error)
+        }
     }
 
-    func handleMessageSent() {
+    func handleMessageSent() async {
         if viewModel.dependencies.mutate(cache: .libSession, { $0.get(.playNotificationSoundInForeground) }) {
             let soundID = Preferences.Sound.systemSoundId(for: .messageSent, quiet: true)
             AudioServicesPlaySystemSound(soundID)
         }
         
-        let threadId: String = self.viewModel.threadData.threadId
-        
-        Task {
-            await viewModel.dependencies[singleton: .typingIndicators].didStopTyping(
-                threadId: threadId,
-                direction: .outgoing
-            )
-        }
-        
-        viewModel.dependencies[singleton: .storage].writeAsync { db in
+        await viewModel.dependencies[singleton: .typingIndicators].didStopTyping(
+            threadId: viewModel.threadData.threadId,
+            direction: .outgoing
+        )
+        try? await viewModel.dependencies[singleton: .storage].writeAsync { [threadId = viewModel.threadData.threadId] db in
             _ = try SessionThread
                 .filter(id: threadId)
                 .updateAll(db, SessionThread.Columns.messageDraft.set(to: ""))
@@ -1527,23 +1518,27 @@ extension ConversationVC:
                 let quoteViewContainsTouch: Bool = (visibleCell.quoteView?.bounds.contains(quotePoint) == true)
                 let linkPreviewViewContainsTouch: Bool = (visibleCell.linkPreviewView?.previewView.bounds.contains(linkPreviewPoint) == true)
                 
-                switch (containsLinks, quoteViewContainsTouch, linkPreviewViewContainsTouch, cellViewModel.quote, cellViewModel.linkPreview) {
+                switch (containsLinks, quoteViewContainsTouch, linkPreviewViewContainsTouch, cellViewModel.quotedInfo, cellViewModel.linkPreview) {
                     // If the message contains both links and a quote, and the user tapped on the quote; OR the
                     // message only contained a quote, then scroll to the quote
-                    case (true, true, _, .some(let quote), _), (false, _, _, .some(let quote), _):
-                        let maybeOriginalInteractionInfo: Interaction.TimestampInfo? = viewModel.dependencies[singleton: .storage].read { db in
-                            try quote.originalInteraction
-                                .select(.id, .timestampMs)
-                                .asRequest(of: Interaction.TimestampInfo.self)
+                    case (true, true, _, .some(let quotedInfo), _), (false, _, _, .some(let quotedInfo), _):
+                        let maybeTimestampMs: Int64? = viewModel.dependencies[singleton: .storage].read { db in
+                            try Interaction
+                                .filter(id: quotedInfo.quotedInteractionId)
+                                .select(.timestampMs)
+                                .asRequest(of: Int64.self)
                                 .fetchOne(db)
                         }
                         
-                        guard let interactionInfo: Interaction.TimestampInfo = maybeOriginalInteractionInfo else {
+                        guard let timestampMs: Int64 = maybeTimestampMs else {
                             return
                         }
                         
                         self.scrollToInteractionIfNeeded(
-                            with: interactionInfo,
+                            with: Interaction.TimestampInfo(
+                                id: quotedInfo.quotedInteractionId,
+                                timestampMs: timestampMs
+                            ),
                             focusBehaviour: .highlight,
                             originalIndexPath: self.tableView.indexPath(for: cell)
                         )
@@ -2353,7 +2348,7 @@ extension ConversationVC:
             cellViewModel.authorId != viewModel.threadData.currentUserSessionId
         {
             finalCellViewModel = finalCellViewModel.with(
-                profile: viewModel.dependencies.mutate(cache: .libSession) { $0.profile }
+                profile: .set(to: viewModel.dependencies.mutate(cache: .libSession) { $0.profile })
             )
         }
         
@@ -2367,7 +2362,7 @@ extension ConversationVC:
         }
     }
 
-    func retry(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
+    @MainActor func retry(_ cellViewModel: MessageViewModel, completion: (@MainActor () -> Void)?) {
         guard cellViewModel.id != MessageViewModel.optimisticUpdateId else {
             guard
                 let optimisticMessageId: UUID = cellViewModel.optimisticMessageId,
@@ -2391,8 +2386,12 @@ extension ConversationVC:
             }
             
             // Try to send the optimistic message again
-            sendMessage(optimisticData: optimisticMessageData)
-            completion?()
+            Task.detached(priority: .userInitiated) { [weak self] in
+                await self?.sendMessage(optimisticData: optimisticMessageData)
+                await MainActor.run {
+                    completion?()
+                }
+            }
             return
         }
         

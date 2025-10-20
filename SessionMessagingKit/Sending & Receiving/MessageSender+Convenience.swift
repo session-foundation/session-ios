@@ -436,7 +436,9 @@ public extension VisibleMessage {
             text: interaction.body,
             attachmentIds: ((try? interaction.attachments.fetchAll(db)) ?? [])
                 .map { $0.id },
-            quote: (try? interaction.quote.fetchOne(db))
+            quote: (try? Quote
+                .filter(Quote.Columns.interactionId == interaction.id)
+                .fetchOne(db))
                 .map { VMQuote.from(quote: $0) },
             linkPreview: linkPreview
                 .map { linkPreview in

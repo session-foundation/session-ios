@@ -272,6 +272,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             threadWasMarkedUnread: initialData?.threadWasMarkedUnread,
             using: dependencies
         ).populatingPostQueryData(
+            threadDisplayPictureUrl: nil,
+            contactProfile: nil,
             recentReactionEmoji: nil,
             openGroupCapabilities: nil,
             currentUserSessionIds: (
@@ -378,7 +380,18 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         }
                     )
                     
+                    // TODO: [Database Relocation] Clean up this query as well
+                    var targetContactProfile: Profile? = viewModel.contactProfile
+                    var targetThreadDisplayPictureUrl: String? = viewModel.threadDisplayPictureUrl
+                    
+                    if viewModel.id == userSessionId.hexString {
+                        targetContactProfile = dependencies.mutate(cache: .libSession) { $0.profile }
+                        targetThreadDisplayPictureUrl = targetContactProfile?.displayPictureUrl
+                    }
+                    
                     return viewModel.populatingPostQueryData(
+                        threadDisplayPictureUrl: targetThreadDisplayPictureUrl,
+                        contactProfile: targetContactProfile,
                         recentReactionEmoji: recentReactionEmoji,
                         openGroupCapabilities: openGroupCapabilities,
                         currentUserSessionIds: (
@@ -630,6 +643,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             .sorted { lhs, rhs -> Bool in lhs.timestampMs < rhs.timestampMs }
         let threadIsTrusted: Bool = data.contains(where: { $0.threadIsTrusted })
         
+        // TODO: [Database Relocation] Source profile data via a separate query for efficiency
+        var currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+        
         // We load messages from newest to oldest so having a pageOffset larger than zero means
         // there are newer pages to load
         return [
@@ -660,6 +676,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                                         .id
                                 ),
                                 currentUserSessionIds: (threadData.currentUserSessionIds ?? []),
+                                currentUserProfile: currentUserProfile,
                                 threadIsTrusted: threadIsTrusted,
                                 using: dependencies
                             )
@@ -709,7 +726,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         interaction: Interaction,
         attachmentData: [Attachment]?,
         linkPreviewDraft: LinkPreviewDraft?,
-        linkPreviewAttachment: Attachment?,
+        linkPreviewPreparedAttachment: PreparedAttachment?,
         quoteModel: QuotedReplyModel?
     )
     
@@ -746,7 +763,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             using: dependencies
         )
         var optimisticAttachments: [Attachment]?
-        var linkPreviewAttachment: Attachment?
+        var linkPreviewPreparedAttachment: PreparedAttachment?
         
         if let pendingAttachments: [PendingAttachment] = attachments {
             optimisticAttachments = try? await AttachmentUploadJob.preparePriorToUpload(
@@ -756,7 +773,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         
         if let draft: LinkPreviewDraft = linkPreviewDraft {
-            linkPreviewAttachment = try? await LinkPreview.generateAttachmentIfPossible(
+            linkPreviewPreparedAttachment = try? await LinkPreview.prepareAttachmentIfPossible(
                 urlString: draft.urlString,
                 imageData: draft.jpegImageData,
                 type: .jpeg,
@@ -798,16 +815,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 }
             }(),
             currentUserProfile: currentUserProfile,
-            quote: quoteModel.map { model in
-                // Don't care about this optimistic quote (the proper one will be generated in the database)
-                Quote(
-                    interactionId: -1,    // Can't save to db optimistically
-                    authorId: model.authorId,
-                    timestampMs: model.timestampMs,
-                    body: model.body
-                )
-            },
-            quoteAttachment: quoteModel?.attachment,
+            quotedInfo: MessageViewModel.QuotedInfo(replyModel: quoteModel),
             linkPreview: linkPreviewDraft.map { draft in
                 LinkPreview(
                     url: draft.urlString,
@@ -816,7 +824,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     using: dependencies
                 )
             },
-            linkPreviewAttachment: linkPreviewAttachment,
+            linkPreviewAttachment: linkPreviewPreparedAttachment?.attachment,
             attachments: optimisticAttachments
         )
         let optimisticData: OptimisticMessageData = (
@@ -825,7 +833,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             interaction,
             optimisticAttachments,
             linkPreviewDraft,
-            linkPreviewAttachment,
+            linkPreviewPreparedAttachment,
             quoteModel
         )
         
@@ -843,13 +851,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     (
                         $0.id,
                         $0.messageViewModel.with(
-                            state: .failed,
-                            mostRecentFailureText: "shareExtensionDatabaseError".localized()
+                            state: .set(to: .failed),
+                            mostRecentFailureText: .set(to: "shareExtensionDatabaseError".localized())
                         ),
                         $0.interaction,
                         $0.attachmentData,
                         $0.linkPreviewDraft,
-                        $0.linkPreviewAttachment,
+                        $0.linkPreviewPreparedAttachment,
                         $0.quoteModel
                     )
                 }

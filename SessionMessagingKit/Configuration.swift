@@ -48,7 +48,8 @@ public enum SNMessagingKit {
         _042_MoveSettingsToLibSession.self,
         _043_RenameAttachments.self,
         _044_AddProMessageFlag.self,
-        _045_LastProfileUpdateTimestamp.self
+        _045_LastProfileUpdateTimestamp.self,
+        _046_RemoveQuoteUnusedColumnsAndForeignKeys.self
     ]
     
     public static func configure(using dependencies: Dependencies) {

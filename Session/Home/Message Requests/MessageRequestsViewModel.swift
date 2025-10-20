@@ -297,8 +297,17 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     elements: state.loadedPageInfo.currentIds
                         .compactMap { state.itemCache[$0] }
                         .map { conversation -> SessionCell.Info<SessionThreadViewModel> in
-                            SessionCell.Info(
+                            // TODO: [Database Relocation] Source profile data via a separate query for efficiency
+                            var customProfile: Profile?
+                            
+                            if conversation.id == viewModel.dependencies[cache: .general].sessionId.hexString {
+                                customProfile = viewModel.dependencies.mutate(cache: .libSession) { $0.profile }
+                            }
+                            
+                            return SessionCell.Info(
                                 id: conversation.populatingPostQueryData(
+                                    threadDisplayPictureUrl: customProfile?.displayPictureUrl,
+                                    contactProfile: customProfile,
                                     recentReactionEmoji: nil,
                                     openGroupCapabilities: nil,
                                     // TODO: [Database Relocation] Do we need all of these????

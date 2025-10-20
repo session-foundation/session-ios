@@ -256,7 +256,13 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         
         // If the first item is just text, or is a URL and LinkPreviews are disabled
         // then just fill the 'message' box with it
-        if firstItem.attachment.utType.isText || (firstItem.attachment.utType.conforms(to: .url) && LinkPreview.previewUrl(for: firstItem.attachment.toText(), using: dependencies) == nil) {
+        let firstItemIsPlainText: Bool = {
+            switch firstItem.attachment.source {
+                case .text: return true
+                default: return false
+            }
+        }()
+        if firstItemIsPlainText || (firstItem.attachment.utType.conforms(to: .url) && LinkPreview.previewUrl(for: firstItem.attachment.toText(), using: dependencies) == nil) {
             bottomToolView.attachmentTextToolbar.text = firstItem.attachment.toText()
         }
     }

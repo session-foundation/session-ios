@@ -248,7 +248,14 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         // Sharing a URL or plain text will populate the 'messageText' field so in those
         // cases we should ignore the attachments
         let isSharingUrl: Bool = (attachments.count == 1 && attachments[0].utType.conforms(to: .url))
-        let isSharingText: Bool = (attachments.count == 1 && attachments[0].utType.isText)
+        let isSharingText: Bool = {
+            guard attachments.count == 1 else { return false }
+            
+            switch attachments[0].source {
+                case .text: return true
+                default: return false
+            }
+        }()
         let finalPendingAttachments: [PendingAttachment] = (isSharingUrl || isSharingText ? [] : attachments)
         let body: String? = {
             guard isSharingUrl else { return messageText }
@@ -302,10 +309,10 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 try Task.checkCancellation()
                 
                 /// If there is a `LinkPreviewDraft` then we may need to add it, so generate it's attachment if possible
-                var linkPreviewAttachment: Attachment?
+                var linkPreviewPreparedAttachment: PreparedAttachment?
                     
                 if let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft {
-                    linkPreviewAttachment = try? await LinkPreview.generateAttachmentIfPossible(
+                    linkPreviewPreparedAttachment = try? await LinkPreview.prepareAttachmentIfPossible(
                         urlString: linkPreviewDraft.urlString,
                         imageData: linkPreviewDraft.jpegImageData,
                         type: .jpeg,
@@ -380,7 +387,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         try LinkPreview(
                             url: linkPreviewDraft.urlString,
                             title: linkPreviewDraft.title,
-                            attachmentId: linkPreviewAttachment?
+                            attachmentId: linkPreviewPreparedAttachment?
+                                .attachment
                                 .inserted(db)
                                 .id,
                             using: dependencies
