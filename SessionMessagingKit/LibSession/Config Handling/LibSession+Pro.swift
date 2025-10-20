@@ -46,7 +46,11 @@ public extension LibSessionCacheType {
                 .fetchOne(db)
         }
         guard threadVariant != .community else { return false }
-        return dependencies[feature: .allUsersSessionPro]
+        if threadId == dependencies[cache: .general].sessionId.hexString {
+            return dependencies[feature: .mockCurrentUserSessionPro]
+        } else {
+            return dependencies[feature: .allUsersSessionPro]
+        }
     }
     
     func shouldShowProBadge(for profile: Profile?) -> Bool {
