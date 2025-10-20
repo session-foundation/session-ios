@@ -121,7 +121,7 @@ struct MessageInfoScreen: View {
                                         .foregroundColor(themeColor: tintColor)
                                 }
                             }
-                            .padding(.top, -Values.smallSpacing)
+                            .padding(.top, -Values.verySmallSpacing)
                             .padding(.bottom, Values.verySmallSpacing)
                             .padding(.horizontal, Values.largeSpacing)
                         }
