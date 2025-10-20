@@ -209,6 +209,7 @@ final class QuoteView: UIView {
                 return Profile.displayNameNoFallback(
                     id: authorId,
                     threadVariant: threadVariant,
+                    suppressId: true,
                     using: dependencies
                 )
             }
@@ -216,6 +217,7 @@ final class QuoteView: UIView {
             return Profile.displayName(
                 id: authorId,
                 threadVariant: threadVariant,
+                suppressId: true,
                 using: dependencies
             )
         }()
