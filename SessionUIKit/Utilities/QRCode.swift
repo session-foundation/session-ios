@@ -53,13 +53,16 @@ public enum QRCode {
             let iconName = iconName,
             let icon: UIImage = UIImage(named: iconName)
         {
-            let iconPercent: CGFloat = 0.25
-            let iconSize = size.width * iconPercent
+            let iconPercent: CGFloat = 0.2
+            let iconSize: CGSize = CGSize(
+                width: size.width * iconPercent,
+                height: icon.size.height * (size.width * iconPercent) / icon.size.width
+            )
             let iconRect = CGRect(
-                x: (size.width - iconSize) / 2,
-                y: (size.height - iconSize) / 2,
-                width: iconSize,
-                height: iconSize
+                x: (size.width - iconSize.width) / 2,
+                y: (size.height - iconSize.height) / 2,
+                width: iconSize.width,
+                height: iconSize.height
             )
 
             // Clear the area under the icon
