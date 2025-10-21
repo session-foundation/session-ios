@@ -45,10 +45,8 @@ public struct ProCTAModal: View {
         /// of the modal.
         public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
             switch self {
-                case .generic:
-                return (1313.5, 753)
-                case .animatedProfileImage:
-                return (690, 363)
+                case .generic: return (1293, 743)
+                case .animatedProfileImage: return (690, 363)
                 default: return (0, 0)
             }
         }
@@ -172,7 +170,7 @@ public struct ProCTAModal: View {
                 ZStack {
                     if let animatedAvatarImageURL = variant.animatedAvatarImageURL {
                         GeometryReader { geometry in
-                            let size: CGFloat = geometry.size.width / 1522.0 * 187.0
+                            let size: CGFloat = geometry.size.width / 1522.0 * 135
                             let scale: CGFloat = geometry.size.width / 1522.0
                             SessionAsyncImage(
                                 source: .url(animatedAvatarImageURL),
@@ -272,7 +270,7 @@ public struct ProCTAModal: View {
                             case .groupLimit(_, let isSessionProActivated, let proBadgeImage) = variant,
                             isSessionProActivated
                         {
-                            (Text(variant.subtitle) + Text("\(proBadgeImage)"))
+                            (Text(variant.subtitle) + Text(" \(Image(uiImage: proBadgeImage))"))
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textSecondary)
                                 .multilineTextAlignment(.center)
