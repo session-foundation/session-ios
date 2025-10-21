@@ -3,6 +3,7 @@
 import UIKit
 import Lucide
 import SessionMessagingKit
+import SessionUIKit
 
 protocol SelectionManagerDelegate: ContextMenuActionDelegate {
     func willDeleteMessages(_ messages: [MessageViewModel], completion: @escaping () -> Void)
@@ -24,45 +25,61 @@ class MessageSelectionManager: NSObject {
     }
     
     private func onButtonCreation(icon: UIImage?, accessibilityLabel: String, action: Selector) -> UIBarButtonItem? {
-        let item = UIBarButtonItem(
+        let result = UIBarButtonItem(
             image: icon,
             style: .plain,
             target: self,
             action: action
         )
-        item.accessibilityLabel = accessibilityLabel
-        item.isAccessibilityElement = true
-        return item
+        result.accessibilityLabel = accessibilityLabel
+        result.isAccessibilityElement = true
+        return result
     }
 
     @MainActor
     func createNavigationActions() -> [UIBarButtonItem] {
         // Create all possible buttons, using selectors pointing to the Manager's methods
         let replyButtonItem = onButtonCreation(
-            icon: Lucide.image(icon: .reply, size: 24),
+            icon: Lucide.image(
+                icon: .reply,
+                size: IconSize.medium.size
+            ),
             accessibilityLabel: "Reply",
             action: #selector(replySelected)
         )
         let downloadButtonItem = onButtonCreation(
-            icon: Lucide.image(icon: .download, size: 24),
+            icon: Lucide.image(
+                icon: .download,
+                size: IconSize.medium.size
+            ),
             accessibilityLabel: "Download",
             action: #selector(saveSelected)
         )
         let copyButtonItem = onButtonCreation(
-            icon: Lucide.image(icon: .copy, size: 24),
+            icon: Lucide.image(
+                icon: .copy,
+                size: IconSize.medium.size
+            ),
             accessibilityLabel: "Copy",
             action: #selector(copySelected)
         )
         let deleteButtonItem = onButtonCreation(
-            icon: Lucide.image(icon: .trash2, size: 24),
+            icon: Lucide.image(
+                icon: .trash2,
+                size: IconSize.medium.size
+            ),
             accessibilityLabel: "Delete",
             action: #selector(deleteSelected)
         )
         let moreButtonItem = onButtonCreation(
-            icon: Lucide.image(icon: .ellipsisVertical, size: 24),
+            icon: Lucide.image(
+                icon: .ellipsisVertical,
+                size: IconSize.medium.size
+            ),
             accessibilityLabel: "More",
             action: #selector(moreOptions)
         )
+        moreButtonItem?.tag = 99
         
         var showDownload: Bool {
             guard
@@ -145,11 +162,6 @@ class MessageSelectionManager: NSObject {
         guard let selectedMessage = selectedMessages.first else {
             return
         }
-        
-        // TODO: Show drop down instead
         delegate?.showInfo(for: selectedMessage, withSender: sender)
-//        delegate?.info(selectedMessage)
-//        
-//        delegate?.shouldResetSelectionState()
     }
 }

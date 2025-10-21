@@ -153,7 +153,7 @@ protocol MessageCellDelegate: ReactionDelegate {
     func showReactionList(_ cellViewModel: MessageViewModel, selectedReaction: EmojiWithSkinTones?)
     func needsLayout(for cellViewModel: MessageViewModel, expandingReactions: Bool)
     func handleReadMoreButtonTapped(_ cell: UITableViewCell, for cellViewModel: MessageViewModel)
-    func handleCellSelection(for cellViewModel: MessageViewModel, cell: UITableViewCell)
+    func handleCellSelection(for cellViewModel: MessageViewModel, cell: UITableViewCell)  // Added for selection handling of tapped item and tapped cell
 }
 
 extension MessageCellDelegate {

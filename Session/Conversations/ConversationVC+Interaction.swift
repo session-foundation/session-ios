@@ -3585,17 +3585,28 @@ extension ConversationVC: SelectionManagerDelegate {
     }
     
     func showInfo(for message: MessageViewModel, withSender sender: UIBarButtonItem) {
-        /*guard
-            let actions = ContextMenuVC.navigationActions(
-                for: message,
-                in: viewModel.threadData,
-                delegate: self,
-                using: viewModel.dependencies
-            )
-        else { return }*/
+        if dropdownPresenter != nil {
+            dropdownPresenter?.hide()
+            dropdownPresenter = nil
+        }
+
+        let actions = ContextMenuVC.navigationActions(
+            for: message,
+            in: viewModel.threadData,
+            delegate: self,
+            using: viewModel.dependencies
+        ) ?? []
         
-        // TODO: - Show context menu below navigationbar for now navigate to info page
-        info(message)
-        resetSelection()
+        let presenter = ManualDropdownPresenter()
+        self.dropdownPresenter = presenter
+        
+        presenter.show(
+            actions: actions,
+            anchorView: navigationController?.navigationBar.subviews.first,
+            using: viewModel.dependencies
+        ) { [weak self] in
+            self?.dropdownPresenter = nil
+            self?.resetSelection()
+        }
     }
 }

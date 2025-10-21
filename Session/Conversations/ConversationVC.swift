@@ -124,6 +124,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         delegate: self
     )
     
+    // Reference to dropdown view
+    var dropdownPresenter: ManualDropdownPresenter?
+    
+    // Search
     lazy var searchController: ConversationSearchController = {
         let result: ConversationSearchController = ConversationSearchController(
             threadId: self.viewModel.threadData.threadId
@@ -1738,11 +1742,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     tableSize: tableView.bounds.size,
                     using: viewModel.dependencies
                 )
+                cell.setSelectedState(selectedMessages.contains(cellViewModel))
                 cell.delegate = self
-                
-                let isSelected = selectedMessages.contains(cellViewModel)
-
-                cell.setSelectedState(isSelected)
                 
                 return cell
                 
