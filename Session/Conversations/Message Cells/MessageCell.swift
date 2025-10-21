@@ -46,7 +46,7 @@ public class MessageCell: UITableViewCell {
     }
     
     func setSelectedState(_ selected: Bool) {
-        contentView.backgroundColor = selected ? .orange : .clear
+        themeBackgroundColor = selected ? .backgroundSecondary : .clear
     }
     
     func setUpGestureRecognizers() {

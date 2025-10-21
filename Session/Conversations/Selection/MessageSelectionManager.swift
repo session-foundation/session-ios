@@ -8,6 +8,7 @@ protocol SelectionManagerDelegate: ContextMenuActionDelegate {
     func willDeleteMessages(_ messages: [MessageViewModel], completion: @escaping () -> Void)
     func shouldResetSelectionState()
     func shouldShowCopyToast()
+    func showInfo(for message: MessageViewModel, withSender sender: UIBarButtonItem)
 
     var selectedMessages: Set<MessageViewModel> { get }
 }
@@ -140,13 +141,15 @@ class MessageSelectionManager: NSObject {
     }
     
     @objc
-    func moreOptions() {
+    func moreOptions(_ sender: UIBarButtonItem) {
         guard let selectedMessage = selectedMessages.first else {
             return
         }
-        // TODO: Show drop down instead
-        delegate?.info(selectedMessage)
         
-        delegate?.shouldResetSelectionState()
+        // TODO: Show drop down instead
+        delegate?.showInfo(for: selectedMessage, withSender: sender)
+//        delegate?.info(selectedMessage)
+//        
+//        delegate?.shouldResetSelectionState()
     }
 }

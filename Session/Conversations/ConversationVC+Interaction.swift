@@ -3526,6 +3526,14 @@ extension ConversationVC {
 // MARK: - Multiple selection handling
 extension ConversationVC {
     func shouldHandleMessageSelection(for message: MessageViewModel, in cell: UITableViewCell) {
+        guard message.variant == .standardIncoming || (
+            message.variant == .standardOutgoing &&
+            message.state != .failed &&
+            message.state != .sending
+        ) else {
+            return
+        }
+        
         if let selectedIndex = selectedMessages.firstIndex(where: { $0 == message }) {
             selectedMessages.remove(at: selectedIndex)
         } else {
@@ -3574,5 +3582,20 @@ extension ConversationVC: SelectionManagerDelegate {
             backgroundColor: .toast_background,
             inset: Values.largeSpacing + (inputAccessoryView?.frame.height ?? 0)
         )
+    }
+    
+    func showInfo(for message: MessageViewModel, withSender sender: UIBarButtonItem) {
+        /*guard
+            let actions = ContextMenuVC.navigationActions(
+                for: message,
+                in: viewModel.threadData,
+                delegate: self,
+                using: viewModel.dependencies
+            )
+        else { return }*/
+        
+        // TODO: - Show context menu below navigationbar for now navigate to info page
+        info(message)
+        resetSelection()
     }
 }
