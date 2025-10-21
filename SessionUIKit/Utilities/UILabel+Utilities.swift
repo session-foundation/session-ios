@@ -15,7 +15,7 @@ public extension UILabel {
         }
 
         base.append(NSAttributedString(string: spacing))
-        base.append(ThemedAttributedString(imageAttachmentGenerator: imageGenerator))
+        base.append(ThemedAttributedString(imageAttachmentGenerator: imageGenerator, referenceFont: font))
 
         themeAttributedText = base
         numberOfLines = 0

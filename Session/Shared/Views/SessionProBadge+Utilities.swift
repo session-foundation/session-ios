@@ -49,13 +49,13 @@ public extension String {
         let base = ThemedAttributedString()
         switch postion {
             case .leading:
-                base.append(ThemedAttributedString(imageAttachmentGenerator: { SessionProBadge(size: proBadgeSize).toImage(using: dependencies) }))
+                base.append(ThemedAttributedString(imageAttachmentGenerator: { SessionProBadge(size: proBadgeSize).toImage(using: dependencies) }, referenceFont: font))
                 base.append(ThemedAttributedString(string: spacing))
                 base.append(ThemedAttributedString(string: self, attributes: [.font: font, .themeForegroundColor: textColor]))
             case .trailing:
                 base.append(ThemedAttributedString(string: self, attributes: [.font: font, .themeForegroundColor: textColor]))
                 base.append(ThemedAttributedString(string: spacing))
-                base.append(ThemedAttributedString(imageAttachmentGenerator: { SessionProBadge(size: proBadgeSize).toImage(using: dependencies) }))
+                base.append(ThemedAttributedString(imageAttachmentGenerator: { SessionProBadge(size: proBadgeSize).toImage(using: dependencies) }, referenceFont: font))
         }
 
         return base
