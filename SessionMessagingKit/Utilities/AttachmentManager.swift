@@ -1307,12 +1307,17 @@ public extension PendingAttachment {
         filePath: String,
         using dependencies: Dependencies
     ) async throws {
-        guard case .url(let url) = source else { throw AttachmentError.invalidData }
+        let url: URL
+        
+        switch source {
+            case .url(let targetUrl), .videoUrl(let targetUrl, _, _, _): url = targetUrl
+            case .data, .icon, .image, .urlThumbnail, .placeholderIcon, .asyncSource:
+                throw AttachmentError.invalidData
+        }
         
         /// Ensure the target format is an image format we support
         switch format {
-            case .mp4: break
-            case .current: throw AttachmentError.invalidFileFormat
+            case .mp4, .current: break
             case .png, .webPLossy, .webPLossless, .gif: throw AttachmentError.couldNotConvert
         }
         
