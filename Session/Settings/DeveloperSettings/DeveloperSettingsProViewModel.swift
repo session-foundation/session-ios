@@ -78,6 +78,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case proStatus
         case allUsersSessionPro
         
+        case messageFeatureProBadge
+        case messageFeatureLongMessage
+        case messageFeatureAnimatedAvatar
+        
         // MARK: - Conformance
         
         public typealias DifferenceIdentifier = String
@@ -93,6 +97,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .proStatus: return "proStatus"
                 case .allUsersSessionPro: return "allUsersSessionPro"
+                
+                case .messageFeatureProBadge: return "messageFeatureProBadge"
+                case .messageFeatureLongMessage: return "messageFeatureLongMessage"
+                case .messageFeatureAnimatedAvatar: return "messageFeatureAnimatedAvatar"
             }
         }
         
@@ -111,7 +119,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .requestRefund: result.append(.requestRefund); fallthrough
                     
                 case .proStatus: result.append(.proStatus); fallthrough
-                case .allUsersSessionPro: result.append(.allUsersSessionPro)
+                case .allUsersSessionPro: result.append(.allUsersSessionPro); fallthrough
+                
+                case .messageFeatureProBadge: result.append(.messageFeatureProBadge); fallthrough
+                case .messageFeatureLongMessage: result.append(.messageFeatureLongMessage); fallthrough
+                case .messageFeatureAnimatedAvatar: result.append(.messageFeatureAnimatedAvatar)
             }
             
             return result
@@ -137,6 +149,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         let mockCurrentUserSessionPro: Bool
         let allUsersSessionPro: Bool
+        
+        let messageFeatureProBadge: Bool
+        let messageFeatureLongMessage: Bool
+        let messageFeatureAnimatedAvatar: Bool
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -165,7 +181,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 refundRequestStatus: nil,
                 
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-                allUsersSessionPro: dependencies[feature: .allUsersSessionPro]
+                allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
+                
+                messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
+                messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
+                messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar]
             )
         }
     }
@@ -210,7 +230,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             purchaseTransaction: purchaseTransaction,
             refundRequestStatus: refundRequestStatus,
             mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-            allUsersSessionPro: dependencies[feature: .allUsersSessionPro]
+            allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
+            messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
+            messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
+            messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar]
         )
     }
     
@@ -362,7 +385,52 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 )
-            ]
+            ].appending(
+                contentsOf: !state.allUsersSessionPro ? [] : [
+                    SessionCell.Info(
+                        id: .messageFeatureProBadge,
+                        title: .init("Message Feature: Pro Badge", font: .subtitle),
+                        trailingAccessory: .toggle(
+                            state.messageFeatureProBadge,
+                            oldValue: previousState.messageFeatureProBadge
+                        ),
+                        onTap: { [dependencies = viewModel.dependencies] in
+                            dependencies.set(
+                                feature: .messageFeatureProBadge,
+                                to: !state.messageFeatureProBadge
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .messageFeatureLongMessage,
+                        title: .init("Message Feature: Long Message", font: .subtitle),
+                        trailingAccessory: .toggle(
+                            state.messageFeatureLongMessage,
+                            oldValue: previousState.messageFeatureLongMessage
+                        ),
+                        onTap: { [dependencies = viewModel.dependencies] in
+                            dependencies.set(
+                                feature: .messageFeatureLongMessage,
+                                to: !state.messageFeatureLongMessage
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .messageFeatureAnimatedAvatar,
+                        title: .init("Message Feature: Animated Avatar", font: .subtitle),
+                        trailingAccessory: .toggle(
+                            state.messageFeatureAnimatedAvatar,
+                            oldValue: previousState.messageFeatureAnimatedAvatar
+                        ),
+                        onTap: { [dependencies = viewModel.dependencies] in
+                            dependencies.set(
+                                feature: .messageFeatureAnimatedAvatar,
+                                to: !state.messageFeatureAnimatedAvatar
+                            )
+                        }
+                    )
+                ]
+            )
         )
         
         return [general, subscriptions, features]

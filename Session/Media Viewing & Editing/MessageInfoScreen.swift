@@ -516,12 +516,19 @@ struct MessageInfoScreen: View {
             proFeatures.append("appProBadge".put(key: "app_pro", value: Constants.app_pro).localized())
         }
         
-        if (messageViewModel.isProMessage && messageViewModel.body.defaulting(to: "").utf16.count > LibSession.CharacterLimit) {
+        if (
+            messageViewModel.isProMessage &&
+            messageViewModel.body.defaulting(to: "").utf16.count > LibSession.CharacterLimit ||
+            dependencies[feature: .messageFeatureLongMessage]
+        ) {
             proFeatures.append("proIncreasedMessageLengthFeature".localized())
             proCTAVariant = (proFeatures.count > 1 ? .generic : .longerMessages)
         }
         
-        if ImageDataManager.isAnimatedImage(profileInfo?.source) {
+        if (
+            ImageDataManager.isAnimatedImage(profileInfo?.source) ||
+            dependencies[feature: .messageFeatureAnimatedAvatar]
+        ) {
             proFeatures.append("proAnimatedDisplayPictureFeature".localized())
             proCTAVariant = (proFeatures.count > 1 ? .generic : .animatedProfileImage(isSessionProActivated: false))
         }
