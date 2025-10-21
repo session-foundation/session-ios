@@ -39,6 +39,7 @@ internal extension LibSessionCacheType {
         let profileName: String = String(cString: profileNamePtr)
         let displayPic: user_profile_pic = user_profile_get_pic(conf)
         let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
+        let displayPictureEncryptionKey: Data? = displayPic.get(\.key, nullIfEmpty: true)
         let profileLastUpdateTimestamp: TimeInterval = TimeInterval(user_profile_get_profile_updated(conf))
         let updatedProfile: Profile = Profile(
             id: userSessionId.hexString,
@@ -63,11 +64,14 @@ internal extension LibSessionCacheType {
             publicKey: userSessionId.hexString,
             displayNameUpdate: .currentUserUpdate(profileName),
             displayPictureUpdate: {
-                guard let displayPictureUrl: String = displayPictureUrl else { return .currentUserRemove }
+                guard
+                    let displayPictureUrl: String = displayPictureUrl,
+                    let displayPictureEncryptionKey: Data = displayPictureEncryptionKey
+                else { return .currentUserRemove }
                 
                 return .currentUserUpdateTo(
                     url: displayPictureUrl,
-                    key: displayPic.get(\.key),
+                    key: displayPictureEncryptionKey,
                     sessionProProof: getProProof(), // TODO: double check if this is needed after Pro Proof is implemented
                     isReupload: false
                 )
@@ -76,6 +80,25 @@ internal extension LibSessionCacheType {
             suppressUserProfileConfigUpdate: true,
             using: dependencies
         )
+        
+        // Kick off a job to download the display picture
+        if
+            let url: String = displayPictureUrl,
+            let key: Data = displayPictureEncryptionKey
+        {
+            dependencies[singleton: .jobRunner].add(
+                db,
+                job: Job(
+                    variant: .displayPictureDownload,
+                    shouldBeUnique: true,
+                    details: DisplayPictureDownloadJob.Details(
+                        target: .profile(id: userSessionId.hexString, url: url, encryptionKey: key),
+                        timestamp: profileLastUpdateTimestamp
+                    )
+                ),
+                canStartJob: dependencies[singleton: .appContext].isMainApp
+            )
+        }
         
         // Extract the 'Note to Self' conversation settings
         let targetPriority: Int32 = user_profile_get_nts_priority(conf)
@@ -206,9 +229,9 @@ public extension LibSession.Cache {
     }
     
     func updateProfile(
-        displayName: String,
-        displayPictureUrl: String?,
-        displayPictureEncryptionKey: Data?,
+        displayName: Update<String>,
+        displayPictureUrl: Update<String?>,
+        displayPictureEncryptionKey: Update<Data?>,
         isReuploadProfilePicture: Bool
     ) throws {
         guard let config: LibSession.Config = config(for: .userProfile, sessionId: userSessionId) else {
@@ -220,11 +243,13 @@ public extension LibSession.Cache {
         
         // Get the old values to determine if something changed
         let oldName: String? = user_profile_get_name(conf).map { String(cString: $0) }
+        let oldNameFallback: String = (oldName ?? "")
         let oldDisplayPic: user_profile_pic = user_profile_get_pic(conf)
         let oldDisplayPictureUrl: String? = oldDisplayPic.get(\.url, nullIfEmpty: true)
+        let oldDisplayPictureKey: Data? = oldDisplayPic.get(\.key, nullIfEmpty: true)
         
         // Update the name
-        var cUpdatedName: [CChar] = try displayName.cString(using: .utf8) ?? {
+        var cUpdatedName: [CChar] = try displayName.or(oldNameFallback).cString(using: .utf8) ?? {
             throw LibSessionError.invalidCConversion
         }()
         user_profile_set_name(conf, &cUpdatedName)
@@ -232,8 +257,8 @@ public extension LibSession.Cache {
         
         // Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
         var profilePic: user_profile_pic = user_profile_pic()
-        profilePic.set(\.url, to: displayPictureUrl)
-        profilePic.set(\.key, to: displayPictureEncryptionKey)
+        profilePic.set(\.url, to: displayPictureUrl.or(oldDisplayPictureUrl))
+        profilePic.set(\.key, to: displayPictureEncryptionKey.or(oldDisplayPictureKey))
         
         switch isReuploadProfilePicture {
             case true: user_profile_set_reupload_pic(conf, profilePic)
@@ -243,17 +268,20 @@ public extension LibSession.Cache {
         try LibSessionError.throwIfNeeded(conf)
         
         /// Add a pending observation to notify any observers of the change once it's committed
-        if displayName != oldName {
+        if displayName.or("") != oldName {
             addEvent(
                 key: .profile(userSessionId.hexString),
-                value: ProfileEvent(id: userSessionId.hexString, change: .name(displayName))
+                value: ProfileEvent(id: userSessionId.hexString, change: .name(displayName.or(oldNameFallback)))
             )
         }
         
-        if displayPictureUrl != oldDisplayPictureUrl {
+        if displayPictureUrl.or(oldDisplayPictureUrl) != oldDisplayPictureUrl {
             addEvent(
                 key: .profile(userSessionId.hexString),
-                value: ProfileEvent(id: userSessionId.hexString, change: .displayPictureUrl(displayPictureUrl))
+                value: ProfileEvent(
+                    id: userSessionId.hexString,
+                    change: .displayPictureUrl(displayPictureUrl.or(oldDisplayPictureUrl))
+                )
             )
         }
     }

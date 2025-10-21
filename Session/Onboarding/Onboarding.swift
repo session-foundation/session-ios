@@ -135,8 +135,13 @@ extension Onboarding {
                 return KeyPair(publicKey: x25519PublicKey, secretKey: x25519SecretKey)
             }()
             
-            /// Retrieve the users `displayName` from `libSession` (the source of truth)
-            let displayName: String = dependencies.mutate(cache: .libSession) { $0.profile }.name
+            /// Retrieve the users `displayName` from `libSession` (the source of truth - if the `ed25519SecretKey` is
+            /// empty then we don't have an account yet so don't want to try to access the invalid `libSession` cache)
+            let displayName: String = (ed25519SecretKey.isEmpty ?
+                "" :
+                dependencies.mutate(cache: .libSession) { $0.profile }.name
+            )
+            
             let hasInitialDisplayName: Bool = !displayName.isEmpty
             
             self.ed25519KeyPair = ed25519KeyPair
@@ -395,9 +400,32 @@ extension Onboarding {
                                     )
                                 }
                                 
-                                /// Update the `displayName` and trigger a dump/push of the config
-                                try? cache.performAndPushChange(db, for: .userProfile) {
-                                    try? cache.updateProfile(displayName: displayName)
+                                /// Update the `displayName` if changed and trigger a dump/push of the config
+                                let cacheProfile: Profile = cache.profile
+                                
+                                if cacheProfile.name != displayName {
+                                    try? cache.performAndPushChange(db, for: .userProfile) {
+                                        try? cache.updateProfile(displayName: displayName)
+                                    }
+                                }
+                                
+                                /// If the account has a display picture then we need to download it
+                                if
+                                    let url: String = cacheProfile.displayPictureUrl,
+                                    let key: Data = cacheProfile.displayPictureEncryptionKey
+                                {
+                                    dependencies[singleton: .jobRunner].add(
+                                        db,
+                                        job: Job(
+                                            variant: .displayPictureDownload,
+                                            shouldBeUnique: true,
+                                            details: DisplayPictureDownloadJob.Details(
+                                                target: .profile(id: cacheProfile.id, url: url, encryptionKey: key),
+                                                timestamp: cacheProfile.profileLastUpdated
+                                            )
+                                        ),
+                                        canStartJob: dependencies[singleton: .appContext].isMainApp
+                                    )
                                 }
                             }
                             

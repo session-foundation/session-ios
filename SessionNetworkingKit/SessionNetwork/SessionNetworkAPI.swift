@@ -37,19 +37,16 @@ public extension Network.SessionNetwork {
     // MARK: - Authentication
     
     fileprivate static func signatureHeaders(
-        url: URL,
         method: HTTPMethod,
+        pathAndParamsString: String,
         body: Data?,
         using dependencies: Dependencies
     ) throws -> [HTTPHeader: String] {
         let timestamp: UInt64 = UInt64(floor(dependencies.dateNow.timeIntervalSince1970))
-        let path: String = url.path
-            .appending(url.query.map { value in "?\(value)" })
-        
         let signResult: (publicKey: String, signature: [UInt8]) = try sign(
             timestamp: timestamp,
             method: method.rawValue,
-            path: path,
+            pathAndParamsString: pathAndParamsString,
             body: body,
             using: dependencies
         )
@@ -64,7 +61,7 @@ public extension Network.SessionNetwork {
     private static func sign(
         timestamp: UInt64,
         method: String,
-        path: String,
+        pathAndParamsString: String,
         body: Data?,
         using dependencies: Dependencies
     ) throws -> (publicKey: String, signature: [UInt8]) {
@@ -84,7 +81,7 @@ public extension Network.SessionNetwork {
                 .signatureVersionBlind07(
                     timestamp: timestamp,
                     method: method,
-                    path: path,
+                    path: pathAndParamsString,
                     body: bodyString,
                     ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                 )
@@ -101,10 +98,9 @@ public extension Network.SessionNetwork {
         preparedRequest: Network.PreparedRequest<R>,
         using dependencies: Dependencies
     ) throws -> Network.Destination {
-        guard
-            let url: URL = try? preparedRequest.generateUrl(),
-            case let .server(info) = preparedRequest.destination
-        else { throw NetworkError.invalidPreparedRequest }
+        guard case let .server(info) = preparedRequest.destination else {
+            throw NetworkError.invalidPreparedRequest
+        }
         
         return .server(
             info: Network.Destination.ServerInfo(
@@ -114,8 +110,8 @@ public extension Network.SessionNetwork {
                 fragmentParameters: info.fragmentParameters,
                 headers: info.headers.updated(
                     with: try signatureHeaders(
-                        url: url,
                         method: preparedRequest.method,
+                        pathAndParamsString: preparedRequest.path,
                         body: preparedRequest.body,
                         using: dependencies
                     )

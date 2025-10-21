@@ -70,7 +70,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     try details.ensureValidUpdate(db, using: dependencies)
                 }
                 
-                let downloadUrl: String = ((try? request.generateUrl())?.absoluteString ?? request.path)
+                let downloadUrl: String = details.target.downloadUrl
                 let filePath: String = try dependencies[singleton: .displayPictureManager]
                     .path(for: downloadUrl)
                 
@@ -149,18 +149,6 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                                 .fetchOne(db)
                     }
                 }
-                if
-                    let existingProfileUrl: String = existingProfileUrl,
-                    let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
-                        .path(for: existingProfileUrl)
-                {
-                    Task.detached(priority: .low) {
-                        await dependencies[singleton: .imageDataManager].removeImage(
-                            identifier: existingFilePath
-                        )
-                        try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
-                    }
-                }
                 
                 /// Store the updated information in the database (this will generally result in the UI refreshing as it'll observe
                 /// the `downloadUrl` changing)
@@ -171,6 +159,21 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         downloadUrl: downloadUrl,
                         using: dependencies
                     )
+                }
+                
+                /// Remove the old display picture (as long as it's different from the new one)
+                if
+                    let existingProfileUrl: String = existingProfileUrl,
+                    existingProfileUrl != downloadUrl,
+                    let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
+                        .path(for: existingProfileUrl)
+                {
+                    Task.detached(priority: .low) {
+                        await dependencies[singleton: .imageDataManager].removeImage(
+                            identifier: existingFilePath
+                        )
+                        try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
+                    }
                 }
                 
                 return scheduler.schedule {
@@ -243,15 +246,19 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     ) throws {
         switch details.target {
             case .profile(let id, let url, let encryptionKey):
-                _ = try? Profile
-                    .filter(id: id)
-                    .updateAllAndConfig(
-                        db,
-                        Profile.Columns.displayPictureUrl.set(to: url),
-                        Profile.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
-                        Profile.Columns.profileLastUpdated.set(to: details.timestamp),
-                        using: dependencies
-                    )
+                /// Don't want to store the current users profile data in the database (should only be sourced from `libSession`)
+                if id != dependencies[cache: .general].sessionId.hexString {
+                    _ = try? Profile
+                        .filter(id: id)
+                        .updateAllAndConfig(
+                            db,
+                            Profile.Columns.displayPictureUrl.set(to: url),
+                            Profile.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
+                            Profile.Columns.profileLastUpdated.set(to: details.timestamp),
+                            using: dependencies
+                        )
+                }
+                
                 db.addProfileEvent(id: id, change: .displayPictureUrl(url))
                 db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
                 
@@ -307,6 +314,14 @@ extension DisplayPictureDownloadJob {
                 case .community: return false
                 case .profile(_, let url, _), .group(_, let url, _):
                     return Network.FileServer.usesDeterministicEncryption(url)
+            }
+        }
+        
+        var downloadUrl: String {
+            switch self {
+                case .profile(_, let url, _), .group(_, let url, _): return url
+                case .community(let fileId, let roomToken, let server, _):
+                    return Network.SOGS.downloadUrlString(for: fileId, server: server, roomToken: roomToken)
             }
         }
         
@@ -424,8 +439,8 @@ extension DisplayPictureDownloadJob {
                     )
                     
                     guard
-                        Profile.shouldUpdateProfile(timestamp, profile: latestProfile, using: dependencies) ||
-                            dataMatches
+                        dataMatches ||
+                        Profile.shouldUpdateProfile(timestamp, profile: latestProfile, using: dependencies)
                     else { throw AttachmentError.downloadNoLongerValid }
                     
                     break

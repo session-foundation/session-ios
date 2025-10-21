@@ -278,7 +278,7 @@ public enum MediaUtils {
         ) {
             /// Videos don't have the same metadata as images so need custom handling
             guard utType?.isVideo != true else {
-                let assetInfo: (asset: AVURLAsset, cleanup: () -> Void)? = AVURLAsset.asset(
+                let assetInfo: (asset: AVURLAsset, utType: UTType, cleanup: () -> Void)? = AVURLAsset.asset(
                     for: path,
                     utType: utType,
                     sourceFilename: sourceFilename,
@@ -293,7 +293,7 @@ public enum MediaUtils {
                 else { return nil }
                 
                 /// Get the maximum size of any video track in the file
-                var maxTrackSize: CGSize = asset.maxVideoTrackSize
+                let maxTrackSize: CGSize = asset.maxVideoTrackSize
                 
                 guard maxTrackSize.width > 0, maxTrackSize.height > 0 else { return nil }
                 
@@ -308,7 +308,7 @@ public enum MediaUtils {
                 self.hasAlpha = false
                 self.colorModel = nil
                 self.orientation = nil
-                self.utType = utType
+                self.utType = (assetInfo?.utType ?? utType)
                 return
             }
             
@@ -345,10 +345,11 @@ public enum MediaUtils {
         }
     }
     
-    public static func isValidVideo(asset: AVURLAsset) -> Bool {
+    public static func isValidVideo(asset: AVURLAsset, utType: UTType) -> Bool {
         return MediaMetadata(
             pixelSize: asset.maxVideoTrackSize,
-            hasUnsafeMetadata: false
+            hasUnsafeMetadata: false,
+            utType: utType
         ).hasValidPixelSize
     }
     
@@ -356,7 +357,7 @@ public enum MediaUtils {
     /// otherwise this will be inefficient as it can create a temporary file for the `AVURLAsset` on old iOS versions
     public static func isValidVideo(path: String, utType: UTType?, sourceFilename: String?, using dependencies: Dependencies) -> Bool {
         guard
-            let assetInfo: (asset: AVURLAsset, cleanup: () -> Void) = AVURLAsset.asset(
+            let assetInfo: (asset: AVURLAsset, utType: UTType, cleanup: () -> Void) = AVURLAsset.asset(
                 for: path,
                 utType: utType,
                 sourceFilename: sourceFilename,
@@ -364,7 +365,7 @@ public enum MediaUtils {
             )
         else { return false }
         
-        let result: Bool = isValidVideo(asset: assetInfo.asset)
+        let result: Bool = isValidVideo(asset: assetInfo.asset, utType: assetInfo.utType)
         assetInfo.cleanup()
         
         return result

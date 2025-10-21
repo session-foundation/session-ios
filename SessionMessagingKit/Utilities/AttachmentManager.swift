@@ -420,8 +420,8 @@ public struct PendingAttachment: Sendable, Equatable, Hashable {
     ) -> Metadata? {
         let maybeFileSize: UInt64? = dataSource.fileSize(using: dependencies)
         
-        switch (dataSource, dataSource.visualMediaSource) {
-            case (.file(let url), _), (.voiceMessage(let url), _):
+        switch dataSource {
+            case .file(let url), .voiceMessage(let url):
                 guard
                     let utType: UTType = utType,
                     let fileSize: UInt64 = maybeFileSize
@@ -439,14 +439,26 @@ public struct PendingAttachment: Sendable, Equatable, Hashable {
                 
                 return .media(metadata)
                 
-            case (_, .image(_, .some(let image))):
+            case .media(.image(_, .some(let image))):
                 guard let metadata: MediaUtils.MediaMetadata = MediaUtils.MediaMetadata(image: image) else {
                     return nil
                 }
                 
                 return .media(metadata)
                 
-            case (.media(let mediaSource), _):
+            case .media(.videoUrl(let url, _, _, _)):
+                guard
+                    let metadata: MediaUtils.MediaMetadata = MediaUtils.MediaMetadata(
+                        from: url.path,
+                        utType: utType,
+                        sourceFilename: sourceFilename,
+                        using: dependencies
+                    )
+                else { return nil }
+                
+                return .media(metadata)
+                
+            case .media(let mediaSource):
                 guard
                     let fileSize: UInt64 = maybeFileSize,
                     let source: CGImageSource = mediaSource.createImageSource(),
@@ -458,7 +470,7 @@ public struct PendingAttachment: Sendable, Equatable, Hashable {
                 
                 return .media(metadata)
                 
-            case (.text, _):
+            case .text:
                 guard
                     let utType: UTType = utType,
                     let fileSize: UInt64 = maybeFileSize
@@ -508,7 +520,8 @@ public extension PendingAttachment {
         
         fileprivate func fileSize(using dependencies: Dependencies) -> UInt64? {
             switch (self, visualMediaSource) {
-                case (.file(let url), _), (.voiceMessage(let url), _), (_, .url(let url)):
+                case (.file(let url), _), (.voiceMessage(let url), _), (_, .url(let url)),
+                    (_, .videoUrl(let url, _, _, _)):
                     return dependencies[singleton: .fileManager].fileSize(of: url.path)
                     
                 case (_, .data(_, let data)): return UInt64(data.count)

@@ -276,7 +276,7 @@ class SendMediaNavigationController: UINavigationController {
                         case .failure: break
                         case .success(let info):
                             switch info.attachment.visualMediaSource {
-                                case .url(let url):
+                                case .url(let url), .videoUrl(let url, _, _, _):
                                     if fileManager.isLocatedInTemporaryDirectory(url.path) {
                                         try? fileManager.removeItem(atPath: url.path)
                                     }

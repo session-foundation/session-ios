@@ -17,10 +17,11 @@ public extension AVURLAsset {
         return result
     }
     
-    static func asset(for path: String, utType: UTType?, sourceFilename: String?, using dependencies: Dependencies) -> (asset: AVURLAsset, cleanup: () -> Void)? {
+    static func asset(for path: String, utType: UTType?, sourceFilename: String?, using dependencies: Dependencies) -> (asset: AVURLAsset, utType: UTType, cleanup: () -> Void)? {
         if #available(iOS 17.0, *) {
             /// Since `mimeType` can be null we need to try to resolve it to a value
             let finalMimeType: String
+            let finalUTType: UTType
             
             switch (utType, sourceFilename) {
                 case (.none, .none): return nil
@@ -30,16 +31,18 @@ public extension AVURLAsset {
                     }
                     
                     finalMimeType = mimeType
+                    finalUTType = utType
                     
                 case (.none, .some(let sourceFilename)):
                     guard
-                        let type: UTType = UTType(
+                        let utType: UTType = UTType(
                             sessionFileExtension: URL(fileURLWithPath: sourceFilename).pathExtension
                         ),
-                        let mimeType: String = type.sessionMimeType
+                        let mimeType: String = utType.sessionMimeType
                     else { return nil }
                     
                     finalMimeType = mimeType
+                    finalUTType = utType
             }
             
             return (
@@ -47,24 +50,27 @@ public extension AVURLAsset {
                     url: URL(fileURLWithPath: path),
                     options: [AVURLAssetOverrideMIMETypeKey: finalMimeType]
                 ),
+                finalUTType,
                 {}
             )
         }
         else {
             /// Since `mimeType` and/or `sourceFilename` can be null we need to try to resolve them both to values
             let finalExtension: String
+            let finalUTType: UTType
             
             switch (utType, sourceFilename) {
                 case (.none, .none): return nil
                 case (.none, .some(let sourceFilename)):
                     guard
-                        let type: UTType = UTType(
+                        let utType: UTType = UTType(
                             sessionFileExtension: URL(fileURLWithPath: sourceFilename).pathExtension
                         ),
-                        let fileExtension: String = type.sessionFileExtension(sourceFilename: sourceFilename)
+                        let fileExtension: String = utType.sessionFileExtension(sourceFilename: sourceFilename)
                     else { return nil }
                     
                     finalExtension = fileExtension
+                    finalUTType = utType
                     
                 case (.some(let utType), let sourceFilename):
                     guard let fileExtension: String = utType.sessionFileExtension(sourceFilename: sourceFilename) else {
@@ -72,6 +78,7 @@ public extension AVURLAsset {
                     }
                     
                     finalExtension = fileExtension
+                    finalUTType = utType
             }
             
             let tmpPath: String = URL(fileURLWithPath: dependencies[singleton: .fileManager].temporaryDirectory)
@@ -83,6 +90,7 @@ public extension AVURLAsset {
             
             return (
                 AVURLAsset(url: URL(fileURLWithPath: tmpPath), options: nil),
+                finalUTType,
                 { [dependencies] in try? dependencies[singleton: .fileManager].removeItem(atPath: tmpPath) }
             )
         }

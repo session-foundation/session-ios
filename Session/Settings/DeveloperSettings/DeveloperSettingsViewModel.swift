@@ -1058,7 +1058,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             x25519KeyPair: identityData.x25519KeyPair,
             displayName: existingProfile.name
                 .nullIfEmpty
-                .defaulting(to: "Anonymous"),
+                .defaulting(to: "anonymous".localized()),
             using: dependencies
         ).completeRegistration { [dependencies] in
             /// Re-enable developer mode

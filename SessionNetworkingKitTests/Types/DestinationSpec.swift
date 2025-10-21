@@ -85,34 +85,6 @@ class DestinationSpec: QuickSpec {
                     expect(result).to(equal("/test1?testParam=123#testFrag=456"))
                 }
             }
-            
-            // MARK: -- for a server
-            context("for a server") {
-                // MARK: ---- throws an error if the generated URL is invalid
-                it("throws an error if the generated URL is invalid") {
-                    request = try Request<NoBody, TestEndpoint>(
-                        endpoint: .testParams("test", 123),
-                        destination: .server(
-                            method: .post,
-                            server: "ftp:// test Server",
-                            queryParameters: [:],
-                            headers: [
-                                "TestCustomHeader": "TestCustom",
-                                HTTPHeader.testHeader: "Test"
-                            ],
-                            x25519PublicKey: ""
-                        ),
-                        body: nil
-                    )
-                    preparedRequest = try! Network.PreparedRequest(
-                        request: request,
-                        responseType: TestType.self,
-                        using: dependencies
-                    )
-                    
-                    expect { try preparedRequest.generateUrl() }.to(throwError(NetworkError.invalidURL))
-                }
-            }
         }
     }
 }

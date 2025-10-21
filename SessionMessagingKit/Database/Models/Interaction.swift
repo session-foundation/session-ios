@@ -531,6 +531,9 @@ public extension Interaction {
         _ db: ObservingDatabase,
         using dependencies: Dependencies
     ) throws -> Int {
+        /// If we don't have an account yet then no need to do any queries
+        guard dependencies[cache: .general].userExists else { return 0 }
+        
         // TODO: [Database Relocation] Should be able to clean this up by getting the conversation list and filtering
         struct ThreadIdVariant: Decodable, Hashable, FetchableRecord {
             let id: String

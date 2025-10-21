@@ -972,6 +972,29 @@ public extension ImageDataManager.DataSource {
         
         return CGSize(width: sourceWidth, height: sourceHeight)
     }
+    
+    @MainActor
+    var orientationFromMetadata: UIImage.Orientation {
+        /// There are a number of types which have fixed sizes, in those cases we should return the target size rather than try to
+        /// read it from data so we doncan avoid processing
+        switch self {
+            case .icon, .urlThumbnail, .placeholderIcon: return .up
+            case .image(_, let image):
+                guard let image: UIImage = image else { break }
+                
+                return image.imageOrientation
+                
+            case .url, .data, .videoUrl, .asyncSource: break
+        }
+        
+        /// Since we don't have a direct size, try to extract it from the data
+        guard
+            let source: CGImageSource = createImageSource(),
+            let properties: [String: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any]
+        else { return .up }
+        
+        return ImageDataManager.orientation(from: properties)
+    }
 }
 
 // MARK: - ImageDataManager.ThumbnailSize

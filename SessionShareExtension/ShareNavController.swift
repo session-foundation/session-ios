@@ -518,7 +518,7 @@ final class ShareNavController: UINavigationController {
             /// a new one)
             defer {
                 switch pendingAttachment.source {
-                    case .file(let url), .media(.url(let url)):
+                    case .file(let url), .media(.url(let url)), .media(.videoUrl(let url, _, _, _)):
                         if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(url.path) {
                             try? dependencies[singleton: .fileManager].removeItem(atPath: url.path)
                         }
@@ -551,7 +551,7 @@ final class ShareNavController: UINavigationController {
             /// a new one)
             defer {
                 switch pendingAttachment.source {
-                    case .file(let url), .media(.url(let url)):
+                    case .file(let url), .media(.url(let url)), .media(.videoUrl(let url, _, _, _)):
                         if dependencies[singleton: .fileManager].isLocatedInTemporaryDirectory(url.path) {
                             try? dependencies[singleton: .fileManager].removeItem(atPath: url.path)
                         }
@@ -726,7 +726,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     
     func assetInfo(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void)? {
         guard
-            let result: (asset: AVURLAsset, cleanup: () -> Void) = AVURLAsset.asset(
+            let result: (asset: AVURLAsset, utType: UTType, cleanup: () -> Void) = AVURLAsset.asset(
                 for: path,
                 utType: utType,
                 sourceFilename: sourceFilename,
@@ -734,7 +734,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
             )
         else { return nil }
         
-        return (result.asset, MediaUtils.isValidVideo(asset: result.asset), result.cleanup)
+        return (result.asset, MediaUtils.isValidVideo(asset: result.asset, utType: result.utType), result.cleanup)
     }
     
     func mediaDecoderDefaultImageOptions() -> CFDictionary {

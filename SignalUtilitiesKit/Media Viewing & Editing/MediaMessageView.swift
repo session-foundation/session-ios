@@ -231,7 +231,7 @@ public class MediaMessageView: UIView {
             if let linkPreviewURL: String = linkPreviewInfo?.url {
                 let httpsScheme: String = "https"   // stringlint:ignore
                 
-                if let targetUrl: URL = URL(string: linkPreviewURL), targetUrl.scheme?.lowercased() != httpsScheme {
+                if URLComponents(string: linkPreviewURL)?.scheme?.lowercased() != httpsScheme {
                     label.font = UIFont.systemFont(ofSize: Values.verySmallFontSize)
                     label.text = "linkPreviewsErrorUnsecure".localized()
                     label.themeTextColor = (mode == .attachmentApproval ?
@@ -445,7 +445,7 @@ public class MediaMessageView: UIView {
                             self?.subtitleLabel.isHidden = false
                             
                             // Set the error text appropriately
-                            if let targetUrl: URL = URL(string: linkPreviewURL), targetUrl.scheme?.lowercased() != "https" { // stringlint:ignore
+                            if URLComponents(string: linkPreviewURL)?.scheme?.lowercased() != "https" { // stringlint:ignore
                                 // This error case is handled already in the 'subtitleLabel' creation
                             }
                             else {

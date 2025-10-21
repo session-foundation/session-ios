@@ -455,7 +455,6 @@ public final class ProfilePictureView: UIView {
         
         imageView.image = nil
         imageView.shouldAnimateImage = false
-        imageView.contentMode = .scaleAspectFill
         imageContainerView.themeBackgroundColor = .backgroundSecondary
         additionalImageContainerView.isHidden = true
         additionalImageView.image = nil
@@ -502,19 +501,12 @@ public final class ProfilePictureView: UIView {
             case (.image(_, let image), .some(let renderingMode)):
                 imageView.image = image?.withRenderingMode(renderingMode)
                 
-            case (.some(let source), _):
-                imageView.loadImage(source) { [weak self, weak imageView = self.imageView] _ in
-                    self?.applyCropTransform(
-                        to: imageView,
-                        source: source,
-                        cropRect: info.cropRect
-                    )
-                }
-                
+            case (.some(let source), _): imageView.loadImage(source)
             default: imageView.image = nil
         }
         
         imageView.themeTintColor = info.themeTintColor
+        imageView.layer.contentsRect = contentsRect(for: info.source, cropRect: info.cropRect)
         imageContainerView.themeBackgroundColor = info.backgroundColor
         imageContainerView.themeBackgroundColorForced = info.forcedBackgroundColor
         profileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
@@ -529,11 +521,6 @@ public final class ProfilePictureView: UIView {
         }
         
         // Apply crop transform if needed
-        applyCropTransform(
-            to: imageView,
-            source: info.source,
-            cropRect: info.cropRect
-        )
         startAnimationIfNeeded(for: info, with: imageView)
         
         // Check if there is a second image (if not then set the size and finish)
@@ -563,13 +550,7 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = false
                 
             case (.some(let source), _):
-                additionalImageView.loadImage(source) { [weak self, weak imageView = self.additionalImageView] _ in
-                    self?.applyCropTransform(
-                        to: imageView,
-                        source: additionalInfo.source,
-                        cropRect: additionalInfo.cropRect
-                    )
-                }
+                additionalImageView.loadImage(source)
                 additionalImageContainerView.isHidden = false
                 
             default:
@@ -578,6 +559,7 @@ public final class ProfilePictureView: UIView {
         }
         
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
+        additionalImageView.layer.contentsRect = contentsRect(for: additionalInfo.source, cropRect: additionalInfo.cropRect)
         
         switch (info.backgroundColor, info.forcedBackgroundColor) {
             case (_, .some(let color)): additionalImageContainerView.themeBackgroundColorForced = color
@@ -594,11 +576,6 @@ public final class ProfilePictureView: UIView {
                 default: break
             }
         }
-        applyCropTransform(
-            to: additionalImageView,
-            source: additionalInfo.source,
-            cropRect: additionalInfo.cropRect
-        )
         
         startAnimationIfNeeded(for: additionalInfo, with: additionalImageView)
         
@@ -616,48 +593,41 @@ public final class ProfilePictureView: UIView {
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
     }
     
-    private func applyCropTransform(
-        to imageView: SessionImageView?,
-        source: ImageDataManager.DataSource?,
-        cropRect: CGRect?
-    ) {
+    private func contentsRect(for source: ImageDataManager.DataSource?, cropRect: CGRect?) -> CGRect {
         guard
-            let imageView: UIImageView = imageView,
-            let cropRect: CGRect = cropRect,
-            cropRect != CGRect(x: 0, y: 0, width: 1, height: 1)
-        else {
-            imageView?.transform = .identity
-            return
+            let source: ImageDataManager.DataSource = source,
+            let cropRect: CGRect = cropRect
+        else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
+        
+        switch source.orientationFromMetadata {
+            case .up, .upMirrored: return cropRect
+
+            case .down, .downMirrored:
+                return CGRect(
+                    x: (1 - cropRect.maxX),
+                    y: (1 - cropRect.maxY),
+                    width: cropRect.width,
+                    height: cropRect.height
+                )
+
+            case .left, .leftMirrored:
+                return CGRect(
+                    x: cropRect.minY,
+                    y: (1 - cropRect.maxX),
+                    width: cropRect.height,
+                    height: cropRect.width
+                )
+                    
+            case .right, .rightMirrored:
+                return CGRect(
+                    x: (1 - cropRect.maxY),
+                    y: cropRect.minX,
+                    width: cropRect.height,
+                    height: cropRect.width
+                )
+            
+            @unknown default: return cropRect
         }
-        
-        // Calculate scale to fill container with cropped portion
-        let scaleX = 1.0 / cropRect.width
-        let scaleY = 1.0 / cropRect.height
-        let scale = max(scaleX, scaleY)
-        
-        // Center of crop rect in normalized coordinates (0-1)
-        let cropCenterNormalizedX = cropRect.origin.x + cropRect.width / 2
-        let cropCenterNormalizedY = cropRect.origin.y + cropRect.height / 2
-        
-        // The imageView's frame determines how the image is initially displayed
-        // We need to work in the imageView's coordinate space
-        let imageViewSize = imageView.bounds.size
-        
-        // Calculate where the crop center is in the imageView's coordinate space
-        let cropCenterInViewX = cropCenterNormalizedX * imageViewSize.width
-        let cropCenterInViewY = cropCenterNormalizedY * imageViewSize.height
-        
-        // We want the crop center to be at the imageView's center after transform
-        let targetCenterX = imageViewSize.width / 2
-        let targetCenterY = imageViewSize.height / 2
-        
-        // Translation needed (in pre-scaled coordinate space)
-        let translateX = (targetCenterX - cropCenterInViewX) / scale
-        let translateY = (targetCenterY - cropCenterInViewY) / scale
-        
-        // Apply transform
-        imageView.transform = CGAffineTransform(scaleX: scale, y: scale)
-            .translatedBy(x: translateX, y: translateY)
     }
     
     private func startAnimationIfNeeded(for info: Info, with targetImageView: SessionImageView) {

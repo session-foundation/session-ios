@@ -130,13 +130,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 Task { @MainActor in
                     SNUIKit.configure(
                         with: SessionSNUIKitConfig(using: dependencies),
-                        themeSettings: dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
-                            (
-                                cache.get(.theme),
-                                cache.get(.themePrimaryColor),
-                                cache.get(.themeMatchSystemDayNightCycle)
-                            )
-                        }
+                        themeSettings: {
+                            /// Only try to extract the theme settings if we actually have an account (if not the `libSession`
+                            /// cache won't exist anyway)
+                            guard dependencies[cache: .general].userExists else { return nil }
+                            
+                            return dependencies.mutate(cache: .libSession) { cache -> ThemeSettings in
+                                (
+                                    cache.get(.theme),
+                                    cache.get(.themePrimaryColor),
+                                    cache.get(.themeMatchSystemDayNightCycle)
+                                )
+                            }
+                        }()
                     )
                 }
                 
@@ -147,8 +153,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 /// So we need this to keep it the correct order of the permission chain.
                 /// For users who already enabled the calls permission and made calls, the local network permission should already be asked for.
                 /// It won't affect anything.
-                dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = dependencies.mutate(cache: .libSession) { cache in
-                    cache.get(.areCallsEnabled)
+                if dependencies[cache: .general].userExists {
+                    dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = dependencies.mutate(cache: .libSession) { cache in
+                        cache.get(.areCallsEnabled)
+                    }
                 }
                 
                 /// Now that the theme settings have been applied we can complete the migrations

@@ -78,7 +78,6 @@ public extension Profile {
                     using: dependencies
                 )
             }
-            Log.info(.profile, "Successfully updated user profile.")
         }
         catch { throw AttachmentError.databaseChangesFailed }
     }
@@ -230,6 +229,20 @@ public extension Profile {
         
         /// Persist any changes
         if !profileChanges.isEmpty {
+            let changeString: String = db.currentEvents()
+                .filter { $0.key.generic == .profile }
+                .compactMap {
+                    switch ($0.value as? ProfileEvent)?.change {
+                        case .none: return nil
+                        case .name: return "name updated"
+                        case .displayPictureUrl(let url):
+                            return (url != nil ? "displayPictureUrl updated" : "displayPictureUrl removed")
+                            
+                        case .nickname(let nickname):
+                            return (nickname != nil ? "nickname updated" :  "nickname removed")
+                    }
+                }
+                .joined(separator: ", ")
             updatedProfile = updatedProfile.with(profileLastUpdated: .set(to: profileUpdateTimestamp))
             profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
             
@@ -244,6 +257,7 @@ public extension Profile {
                         profileChanges,
                         using: dependencies
                     )
+                Log.debug(.profile, "Successfully updated profile for \(publicKey) (\(changeString)).")
             }
             
             /// We don't automatically update the current users profile data when changed in the database so need to manually
@@ -252,9 +266,9 @@ public extension Profile {
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
                         try cache.updateProfile(
-                            displayName: updatedProfile.name,
-                            displayPictureUrl: updatedProfile.displayPictureUrl,
-                            displayPictureEncryptionKey: updatedProfile.displayPictureEncryptionKey,
+                            displayName: .set(to: updatedProfile.name),
+                            displayPictureUrl: .set(to: updatedProfile.displayPictureUrl),
+                            displayPictureEncryptionKey: .set(to: updatedProfile.displayPictureEncryptionKey),
                             isReuploadProfilePicture: {
                                 switch displayPictureUpdate {
                                     case .currentUserUpdateTo(_, _, _, let isReupload): return isReupload
@@ -264,6 +278,7 @@ public extension Profile {
                         )
                     }
                 }
+                Log.info(.profile, "Successfully updated user profile (\(changeString)).")
             }
         }
     }

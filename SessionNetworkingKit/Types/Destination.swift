@@ -17,9 +17,9 @@ public extension Network {
             
             // Use iOS URL processing to extract the values from `server`
             
-            public var host: String? { URL(string: server)?.host }
-            public var scheme: String? { URL(string: server)?.scheme }
-            public var port: Int? { URL(string: server)?.port }
+            public var host: String? { URLComponents(string: server)?.host }
+            public var scheme: String? { URLComponents(string: server)?.scheme }
+            public var port: Int? { URLComponents(string: server)?.port }
             
             // MARK: - Initialization
             

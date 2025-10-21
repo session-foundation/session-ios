@@ -621,16 +621,10 @@ public extension Network.SOGS {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<NoResponse> {
-        /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
-        /// The raw emoji will come back when calling url.path
-        guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-            throw SOGSError.invalidEmoji
-        }
-        
         return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 method: .get,
-                endpoint: .reactors(roomToken, id: id, emoji: encodedEmoji),
+                endpoint: .reactors(roomToken, id: id, emoji: emoji),
                 authMethod: authMethod
             ),
             responseType: NoResponse.self,
@@ -651,16 +645,10 @@ public extension Network.SOGS {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<ReactionAddResponse> {
-        /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
-        /// The raw emoji will come back when calling url.path
-        guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-            throw SOGSError.invalidEmoji
-        }
-        
         return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 method: .put,
-                endpoint: .reaction(roomToken, id: id, emoji: encodedEmoji),
+                endpoint: .reaction(roomToken, id: id, emoji: emoji),
                 authMethod: authMethod
             ),
             responseType: ReactionAddResponse.self,
@@ -679,16 +667,10 @@ public extension Network.SOGS {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<ReactionRemoveResponse> {
-        /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
-        /// The raw emoji will come back when calling url.path
-        guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-            throw SOGSError.invalidEmoji
-        }
-        
         return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 method: .delete,
-                endpoint: .reaction(roomToken, id: id, emoji: encodedEmoji),
+                endpoint: .reaction(roomToken, id: id, emoji: emoji),
                 authMethod: authMethod
             ),
             responseType: ReactionRemoveResponse.self,
@@ -708,16 +690,10 @@ public extension Network.SOGS {
         authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<ReactionRemoveAllResponse> {
-        /// URL(String:) won't convert raw emojis, so need to do a little encoding here.
-        /// The raw emoji will come back when calling url.path
-        guard let encodedEmoji: String = emoji.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
-            throw SOGSError.invalidEmoji
-        }
-        
         return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
                 method: .delete,
-                endpoint: .reactionDelete(roomToken, id: id, emoji: encodedEmoji),
+                endpoint: .reactionDelete(roomToken, id: id, emoji: emoji),
                 authMethod: authMethod
             ),
             responseType: ReactionRemoveAllResponse.self,

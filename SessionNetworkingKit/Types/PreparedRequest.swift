@@ -335,27 +335,6 @@ public extension Network {
             self.b64 = b64
             self.bytes = bytes
         }
-        
-        // MARK: - Functions
-        
-        public func generateUrl() throws -> URL {
-            switch destination {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                    let pathWithParams: String = Destination.generatePathWithParamsAndFragments(
-                        endpoint: endpoint,
-                        queryParameters: info.queryParameters,
-                        fragmentParameters: info.fragmentParameters
-                    )
-                    
-                    guard let url: URL = URL(string: "\(info.server)\(pathWithParams)") else {
-                        throw NetworkError.invalidURL
-                    }
-                    
-                    return url
-                
-                default: throw NetworkError.invalidURL
-            }
-        }
     }
 }
 

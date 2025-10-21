@@ -108,9 +108,14 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
     public func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error> {
         let pollerQueue: DispatchQueue = self.pollerQueue
-        let activeHashes: [String] = dependencies.mutate(cache: .libSession) { cache in
-            cache.activeHashes(for: pollerDestination.target)
-        }
+        let activeHashes: [String] = {
+            /// If we don't have an account then there won't be any active hashes so don't bother trying to get them
+            guard dependencies[cache: .general].userExists else { return [] }
+            
+            return dependencies.mutate(cache: .libSession) { cache in
+                cache.activeHashes(for: pollerDestination.target)
+            }
+        }()
         
         /// Fetch the messages
         return dependencies[singleton: .network]

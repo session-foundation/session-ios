@@ -1043,9 +1043,9 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var displayName: String? { get }
     
     func updateProfile(
-        displayName: String,
-        displayPictureUrl: String?,
-        displayPictureEncryptionKey: Data?,
+        displayName: Update<String>,
+        displayPictureUrl: Update<String?>,
+        displayPictureEncryptionKey: Update<Data?>,
         isReuploadProfilePicture: Bool
     ) throws
     
@@ -1187,9 +1187,9 @@ public extension LibSessionCacheType {
     
     func updateProfile(displayName: String) throws {
         try updateProfile(
-            displayName: displayName,
-            displayPictureUrl: nil,
-            displayPictureEncryptionKey: nil,
+            displayName: .set(to: displayName),
+            displayPictureUrl: .useExisting,
+            displayPictureEncryptionKey: .useExisting,
             isReuploadProfilePicture: false
         )
     }
@@ -1324,9 +1324,9 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func set(_ key: Setting.BoolKey, _ value: Bool?) {}
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {}
     func updateProfile(
-        displayName: String,
-        displayPictureUrl: String?,
-        displayPictureEncryptionKey: Data?,
+        displayName: Update<String>,
+        displayPictureUrl: Update<String?>,
+        displayPictureEncryptionKey: Update<Data?>,
         isReuploadProfilePicture: Bool
     ) throws {}
     

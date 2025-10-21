@@ -148,6 +148,7 @@ public extension LinkPreview {
         let targetFormat: PendingAttachment.ConversionFormat = (dependencies[feature: .usePngInsteadOfWebPForFallbackImageType] ?
             .png(maxDimension: LinkPreview.maxImageDimension) : .webPLossy(maxDimension: LinkPreview.maxImageDimension)
         )
+        
         return try await pendingAttachment.prepare(
             operations: [
                 .convert(to: targetFormat),
