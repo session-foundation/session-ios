@@ -228,7 +228,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         profile: Update<Profile?> = .useExisting,
         quotedInfo: Update<QuotedInfo?> = .useExisting,           // Workaround for blinded current user
         attachments: Update<[Attachment]?> = .useExisting,
-        reactionInfo: Update<[ReactionInfo]?> = .useExisting,
+        reactionInfo: Update<[ReactionInfo]?> = .useExisting
     ) -> MessageViewModel {
         return MessageViewModel(
             threadId: self.threadId,

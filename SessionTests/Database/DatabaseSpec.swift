@@ -238,7 +238,8 @@ class DatabaseSpec: QuickSpec {
                     "messagingKit.MoveSettingsToLibSession",
                     "messagingKit.RenameAttachments",
                     "messagingKit.AddProMessageFlag",
-                    "LastProfileUpdateTimestamp"
+                    "LastProfileUpdateTimestamp",
+                    "RemoveQuoteUnusedColumnsAndForeignKeys"
                 ]))
             }
             

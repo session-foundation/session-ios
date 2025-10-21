@@ -184,7 +184,12 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         mockNoReturn(generics: [T.self], args: [key, value])
     }
     
-    func updateProfile(displayName: String, displayPictureUrl: String?, displayPictureEncryptionKey: Data?, isReuploadProfilePicture: Bool) throws {
+    func updateProfile(
+        displayName: Update<String>,
+        displayPictureUrl: Update<String?>,
+        displayPictureEncryptionKey: Update<Data?>,
+        isReuploadProfilePicture: Bool
+    ) throws {
         try mockThrowingNoReturn(args: [displayName, displayPictureUrl, displayPictureEncryptionKey, isReuploadProfilePicture])
     }
     
