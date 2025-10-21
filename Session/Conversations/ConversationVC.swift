@@ -119,6 +119,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         behavior: .playAndRecord
     )
 
+    // Message selection
+    lazy var selectionManger = MessageSelectionManager(
+        delegate: self
+    )
+    
     lazy var searchController: ConversationSearchController = {
         let result: ConversationSearchController = ConversationSearchController(
             threadId: self.viewModel.threadData.threadId
@@ -1418,7 +1423,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             navigationItem.leftBarButtonItem = nil
             navigationItem.rightBarButtonItems = []
         } else if isMultiSelectionEnabled {
-            let items = setNavigationActions()
+            let items = selectionManger.createNavigationActions()
             navigationItem.rightBarButtonItems = items
         }else {
             let shouldHaveCallButton: Bool = (

@@ -320,6 +320,43 @@ extension ContextMenuVC {
         
         return generatedActions.appending(forMessageInfoScreen ? nil : Action.dismiss(delegate))
     }
+    
+    
+    static func navigationActions(
+        for cellViewModel: MessageViewModel,
+        in threadViewModel: SessionThreadViewModel,
+        delegate: ContextMenuActionDelegate?,
+        using dependencies: Dependencies
+    ) -> [Action]? {
+        let canCopy: Bool = (
+            cellViewModel.cellType == .textOnlyMessage || (
+                (
+                    cellViewModel.cellType == .genericAttachment ||
+                    cellViewModel.cellType == .mediaMessage
+                ) &&
+                (cellViewModel.attachments ?? []).count == 1 &&
+                (cellViewModel.attachments ?? []).first?.isVisualMedia == true &&
+                (cellViewModel.attachments ?? []).first?.isValid == true && (
+                    (cellViewModel.attachments ?? []).first?.state == .downloaded ||
+                    (cellViewModel.attachments ?? []).first?.state == .uploaded
+                )
+            )
+        )
+        
+        let canDelete: Bool = (MessageViewModel.DeletionBehaviours.deletionActions(
+            for: [cellViewModel],
+            with: threadViewModel,
+            using: dependencies
+        ) != nil)
+        let generatedActions: [Action] = [
+            (canCopy ? Action.copy(cellViewModel, delegate) : nil),
+            (canDelete ? Action.delete(cellViewModel, delegate) : nil),
+            Action.info(cellViewModel, delegate)
+        ]
+        .compactMap { $0 }
+        
+        return generatedActions
+    }
 }
 
 // MARK: - Delegate
