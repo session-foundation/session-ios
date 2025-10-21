@@ -166,9 +166,9 @@ extension ContextMenuVC {
         
         static func select(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: UIImage(systemName: "arrow.triangle.2.circlepath"),
-                title: "Select",
-                accessibilityLabel: (cellViewModel.state == .failedToSync ? "Select message" : "Select message")
+                icon: Lucide.image(icon: .circleCheck, size: 24),
+                title: "select".localized(),
+                accessibilityLabel: "Select message"
             ) { completion in delegate?.select(cellViewModel, completion: completion) }
         }
     }
@@ -208,6 +208,18 @@ extension ContextMenuVC {
                 return [ Action.delete(cellViewModel, delegate) ]
                 
             case .standardOutgoing, .standardIncoming: break
+        }
+        
+        var canSelect: Bool {
+            guard cellViewModel.variant == .standardIncoming || (
+                cellViewModel.variant == .standardOutgoing &&
+                cellViewModel.state != .failed &&
+                cellViewModel.state != .sending
+            ) else {
+                return false
+            }
+            
+            return true && !forMessageInfoScreen
         }
         
         let canRetry: Bool = (
@@ -299,7 +311,7 @@ extension ContextMenuVC {
         let generatedActions: [Action] = [
             
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
-            (viewModelCanReply(cellViewModel, using: dependencies) ? Action.select(cellViewModel, delegate) : nil),
+            (canSelect ? Action.select(cellViewModel, delegate) : nil),
             (viewModelCanReply(cellViewModel, using: dependencies) ? Action.reply(cellViewModel, delegate) : nil),
             (canCopy ? Action.copy(cellViewModel, delegate) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),

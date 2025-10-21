@@ -6,7 +6,6 @@ import SessionMessagingKit
 
 protocol SelectionManagerDelegate: ContextMenuActionDelegate {
     func willDeleteMessages(_ messages: [MessageViewModel], completion: @escaping () -> Void)
-    func showMoreOptions(for message: MessageViewModel, canCopy: Bool, canDelete: Bool)
     func shouldResetSelectionState()
     func shouldShowCopyToast()
 
@@ -145,18 +144,9 @@ class MessageSelectionManager: NSObject {
         guard let selectedMessage = selectedMessages.first else {
             return
         }
+        // TODO: Show drop down instead
+        delegate?.info(selectedMessage)
         
-        // TODO: Add context
-        var canCopy: Bool {
-            guard selectedMessages.count == 1 else { return false }
-            return selectedMessage.cellType == .textOnlyMessage
-        }
-        
-        var canDelete: Bool {
-            guard selectedMessages.count == 1 else { return false }
-            return selectedMessage.attachments != nil
-        }
-        
-        delegate?.showMoreOptions(for: selectedMessage, canCopy: canCopy, canDelete: canDelete)
+        delegate?.shouldResetSelectionState()
     }
 }

@@ -3575,8 +3575,4 @@ extension ConversationVC: SelectionManagerDelegate {
             inset: Values.largeSpacing + (inputAccessoryView?.frame.height ?? 0)
         )
     }
-    
-    func showMoreOptions(for message: MessageViewModel, canCopy: Bool, canDelete: Bool) {
-        
-    }
 }
