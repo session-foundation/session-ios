@@ -458,6 +458,18 @@
 		FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0B77AF29B69A65009169BA /* TopBannerController.swift */; };
 		FD0B77B229B82B7A009169BA /* ArrayUtilitiesSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0B77B129B82B7A009169BA /* ArrayUtilitiesSpec.swift */; };
 		FD0E353C2AB9880B006A81F7 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0E353A2AB98773006A81F7 /* AppVersion.swift */; };
+		FD0F85612EA82C8B004E0B98 /* SessionPro.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85602EA82C87004E0B98 /* SessionPro.swift */; };
+		FD0F85632EA82DF9004E0B98 /* SessionProAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85622EA82DF6004E0B98 /* SessionProAPI.swift */; };
+		FD0F85662EA82FCC004E0B98 /* PaymentProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85652EA82FC9004E0B98 /* PaymentProvider.swift */; };
+		FD0F85682EA83385004E0B98 /* SessionProEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85672EA83382004E0B98 /* SessionProEndpoint.swift */; };
+		FD0F856B2EA83525004E0B98 /* AppProPaymentRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F856A2EA8351E004E0B98 /* AppProPaymentRequest.swift */; };
+		FD0F856D2EA835C5004E0B98 /* Signatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F856C2EA835B6004E0B98 /* Signatures.swift */; };
+		FD0F856F2EA83664004E0B98 /* UserTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F856E2EA83661004E0B98 /* UserTransaction.swift */; };
+		FD0F85732EA83C44004E0B98 /* AnyCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85722EA83C41004E0B98 /* AnyCodable.swift */; };
+		FD0F85752EA83D5D004E0B98 /* AddProPaymentOrGetProProofResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85742EA83D49004E0B98 /* AddProPaymentOrGetProProofResponse.swift */; };
+		FD0F85772EA83D92004E0B98 /* ProProof.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85762EA83D8F004E0B98 /* ProProof.swift */; };
+		FD0F85792EA83EAD004E0B98 /* ResponseHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85782EA83EAA004E0B98 /* ResponseHeader.swift */; };
+		FD0F857B2EA85FAB004E0B98 /* Request+SessionProAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F857A2EA85FA4004E0B98 /* Request+SessionProAPI.swift */; };
 		FD10AF0C2AF32B9A007709E5 /* SessionListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD10AF0B2AF32B9A007709E5 /* SessionListViewModel.swift */; };
 		FD10AF122AF85D11007709E5 /* Feature+ServiceNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD10AF112AF85D11007709E5 /* Feature+ServiceNetwork.swift */; };
 		FD11E22D2CA4D12C001BAF58 /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2286782C38D4FF00BC06F7 /* DifferenceKit */; };
@@ -1851,6 +1863,18 @@
 		FD0B77AF29B69A65009169BA /* TopBannerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopBannerController.swift; sourceTree = "<group>"; };
 		FD0B77B129B82B7A009169BA /* ArrayUtilitiesSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrayUtilitiesSpec.swift; sourceTree = "<group>"; };
 		FD0E353A2AB98773006A81F7 /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
+		FD0F85602EA82C87004E0B98 /* SessionPro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionPro.swift; sourceTree = "<group>"; };
+		FD0F85622EA82DF6004E0B98 /* SessionProAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProAPI.swift; sourceTree = "<group>"; };
+		FD0F85652EA82FC9004E0B98 /* PaymentProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentProvider.swift; sourceTree = "<group>"; };
+		FD0F85672EA83382004E0B98 /* SessionProEndpoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProEndpoint.swift; sourceTree = "<group>"; };
+		FD0F856A2EA8351E004E0B98 /* AppProPaymentRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppProPaymentRequest.swift; sourceTree = "<group>"; };
+		FD0F856C2EA835B6004E0B98 /* Signatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Signatures.swift; sourceTree = "<group>"; };
+		FD0F856E2EA83661004E0B98 /* UserTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTransaction.swift; sourceTree = "<group>"; };
+		FD0F85722EA83C41004E0B98 /* AnyCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyCodable.swift; sourceTree = "<group>"; };
+		FD0F85742EA83D49004E0B98 /* AddProPaymentOrGetProProofResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddProPaymentOrGetProProofResponse.swift; sourceTree = "<group>"; };
+		FD0F85762EA83D8F004E0B98 /* ProProof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProProof.swift; sourceTree = "<group>"; };
+		FD0F85782EA83EAA004E0B98 /* ResponseHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseHeader.swift; sourceTree = "<group>"; };
+		FD0F857A2EA85FA4004E0B98 /* Request+SessionProAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Request+SessionProAPI.swift"; sourceTree = "<group>"; };
 		FD10AF0B2AF32B9A007709E5 /* SessionListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListViewModel.swift; sourceTree = "<group>"; };
 		FD10AF112AF85D11007709E5 /* Feature+ServiceNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Feature+ServiceNetwork.swift"; sourceTree = "<group>"; };
 		FD11E22F2CA4F498001BAF58 /* DestinationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationSpec.swift; sourceTree = "<group>"; };
@@ -3716,6 +3740,7 @@
 				FD7F74682BAB8A5D006DDFD8 /* LibSession */,
 				FD6B92DF2E77C1CB004463B5 /* PushNotification */,
 				947D7FD32D509FC900E8E413 /* SessionNetwork */,
+				FD0F855F2EA82C7B004E0B98 /* SessionPro */,
 				FD6B92892E779D8D004463B5 /* SOGS */,
 				FD2272842C33E28D004D8A6C /* StorageServer */,
 				FD6B92A52E77A3BD004463B5 /* Models */,
@@ -4055,6 +4080,40 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		FD0F855F2EA82C7B004E0B98 /* SessionPro */ = {
+			isa = PBXGroup;
+			children = (
+				FD0F85692EA83518004E0B98 /* Requests */,
+				FD0F85642EA82FC2004E0B98 /* Types */,
+				FD0F85602EA82C87004E0B98 /* SessionPro.swift */,
+				FD0F85622EA82DF6004E0B98 /* SessionProAPI.swift */,
+				FD0F85672EA83382004E0B98 /* SessionProEndpoint.swift */,
+			);
+			path = SessionPro;
+			sourceTree = "<group>";
+		};
+		FD0F85642EA82FC2004E0B98 /* Types */ = {
+			isa = PBXGroup;
+			children = (
+				FD0F85652EA82FC9004E0B98 /* PaymentProvider.swift */,
+				FD0F85762EA83D8F004E0B98 /* ProProof.swift */,
+				FD0F85782EA83EAA004E0B98 /* ResponseHeader.swift */,
+				FD0F857A2EA85FA4004E0B98 /* Request+SessionProAPI.swift */,
+				FD0F856C2EA835B6004E0B98 /* Signatures.swift */,
+				FD0F856E2EA83661004E0B98 /* UserTransaction.swift */,
+			);
+			path = Types;
+			sourceTree = "<group>";
+		};
+		FD0F85692EA83518004E0B98 /* Requests */ = {
+			isa = PBXGroup;
+			children = (
+				FD0F856A2EA8351E004E0B98 /* AppProPaymentRequest.swift */,
+				FD0F85742EA83D49004E0B98 /* AddProPaymentOrGetProProofResponse.swift */,
+			);
+			path = Requests;
+			sourceTree = "<group>";
+		};
 		FD17D79427F3E03300122BE0 /* Migrations */ = {
 			isa = PBXGroup;
 			children = (
@@ -4193,6 +4252,7 @@
 			isa = PBXGroup;
 			children = (
 				FD39370B2E4D7BBE00571F17 /* DocumentPickerHandler.swift */,
+				FD0F85722EA83C41004E0B98 /* AnyCodable.swift */,
 				FD0E353A2AB98773006A81F7 /* AppVersion.swift */,
 				FDB3486D2BE8457F00B716C2 /* BackgroundTaskManager.swift */,
 				FDE755042C9BB4ED002A2623 /* Bencode.swift */,
@@ -6406,6 +6466,7 @@
 				FDF848C229405C5A007DCAE5 /* OxenDaemonRPCRequest.swift in Sources */,
 				FDF848DC29405C5B007DCAE5 /* RevokeSubaccountRequest.swift in Sources */,
 				FDF848D029405C5B007DCAE5 /* UpdateExpiryResponse.swift in Sources */,
+				FD0F85792EA83EAD004E0B98 /* ResponseHeader.swift in Sources */,
 				FD6B92E82E77C5B7004463B5 /* PushNotificationEndpoint.swift in Sources */,
 				FDE71B032E77CCEE0023F5F9 /* HTTPHeader+FileServer.swift in Sources */,
 				FD6B92AC2E77A993004463B5 /* SOGSEndpoint.swift in Sources */,
@@ -6426,9 +6487,11 @@
 				FD6B92B12E77AA03004463B5 /* HTTPHeader+SOGS.swift in Sources */,
 				FD6B92F72E77C6D7004463B5 /* Crypto+PushNotification.swift in Sources */,
 				FD6B92B22E77AA03004463B5 /* UpdateTypes.swift in Sources */,
+				FD0F85682EA83385004E0B98 /* SessionProEndpoint.swift in Sources */,
 				FD6B92B32E77AA03004463B5 /* Personalization.swift in Sources */,
 				FD6B929B2E77A084004463B5 /* NetworkInfo.swift in Sources */,
 				FD47E0B52AA6D7AA00A55E41 /* Request+SnodeAPI.swift in Sources */,
+				FD0F856B2EA83525004E0B98 /* AppProPaymentRequest.swift in Sources */,
 				FDE71B052E77E1AA0023F5F9 /* ObservableKey+SessionNetworkingKit.swift in Sources */,
 				FD5E93D12C100FD70038C25A /* FileUploadResponse.swift in Sources */,
 				FDF848D629405C5B007DCAE5 /* SnodeMessage.swift in Sources */,
@@ -6438,8 +6501,10 @@
 				FD2272B32C33E337004D8A6C /* BatchRequest.swift in Sources */,
 				FDF848D129405C5B007DCAE5 /* SnodeSwarmItem.swift in Sources */,
 				FDF848DD29405C5B007DCAE5 /* LegacySendMessageRequest.swift in Sources */,
+				FD0F856F2EA83664004E0B98 /* UserTransaction.swift in Sources */,
 				FDF848BD29405C5A007DCAE5 /* GetMessagesRequest.swift in Sources */,
 				FD2272B02C33E337004D8A6C /* NetworkError.swift in Sources */,
+				FD0F85772EA83D92004E0B98 /* ProProof.swift in Sources */,
 				FD6B92AB2E77A920004463B5 /* SOGS.swift in Sources */,
 				FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */,
 				FD6B92E92E77C5D1004463B5 /* SubscribeResponse.swift in Sources */,
@@ -6450,6 +6515,7 @@
 				FD6B92F22E77C5D1004463B5 /* UnsubscribeResponse.swift in Sources */,
 				947D7FD62D509FC900E8E413 /* SessionNetworkAPI.swift in Sources */,
 				947D7FD72D509FC900E8E413 /* HTTPClient.swift in Sources */,
+				FD0F85752EA83D5D004E0B98 /* AddProPaymentOrGetProProofResponse.swift in Sources */,
 				FD6B92B42E77AA11004463B5 /* PinnedMessage.swift in Sources */,
 				FD6B92B52E77AA11004463B5 /* SendDirectMessageResponse.swift in Sources */,
 				FD6B92B62E77AA11004463B5 /* UserUnbanRequest.swift in Sources */,
@@ -6482,8 +6548,10 @@
 				FD6B928C2E779DCC004463B5 /* FileServer.swift in Sources */,
 				FDF848D529405C5B007DCAE5 /* DeleteAllMessagesResponse.swift in Sources */,
 				FD2272B22C33E337004D8A6C /* PreparedRequest.swift in Sources */,
+				FD0F85662EA82FCC004E0B98 /* PaymentProvider.swift in Sources */,
 				FDF848BF29405C5A007DCAE5 /* SnodeResponse.swift in Sources */,
 				FD6B92C82E77AD39004463B5 /* Crypto+SOGS.swift in Sources */,
+				FD0F85632EA82DF9004E0B98 /* SessionProAPI.swift in Sources */,
 				FD6B92942E77A003004463B5 /* SessionNetworkEndpoint.swift in Sources */,
 				FDD20C182A09E7D3003898FB /* GetExpiriesResponse.swift in Sources */,
 				FD2272BB2C33E337004D8A6C /* HTTPMethod.swift in Sources */,
@@ -6493,10 +6561,12 @@
 				FDF848D929405C5B007DCAE5 /* SnodeAuthenticatedRequestBody.swift in Sources */,
 				FD6B92AD2E77A9F1004463B5 /* SOGSError.swift in Sources */,
 				FD2272BA2C33E337004D8A6C /* HTTPHeader.swift in Sources */,
+				FD0F856D2EA835C5004E0B98 /* Signatures.swift in Sources */,
 				FDF848CD29405C5B007DCAE5 /* GetNetworkTimestampResponse.swift in Sources */,
 				FDF848DA29405C5B007DCAE5 /* GetMessagesResponse.swift in Sources */,
 				FD6B92C62E77AD0F004463B5 /* Crypto+FileServer.swift in Sources */,
 				FD2286682C37DA3B00BC06F7 /* LibSession+Networking.swift in Sources */,
+				FD0F857B2EA85FAB004E0B98 /* Request+SessionProAPI.swift in Sources */,
 				FD2272A92C33E337004D8A6C /* ContentProxy.swift in Sources */,
 				FD6B92E62E77C5A2004463B5 /* Service.swift in Sources */,
 				FD6B92E72E77C5A2004463B5 /* Request+PushNotificationAPI.swift in Sources */,
@@ -6515,6 +6585,7 @@
 				FD2272B42C33E337004D8A6C /* SwarmDrainBehaviour.swift in Sources */,
 				941375BB2D5184C20058F244 /* HTTPHeader+SessionNetwork.swift in Sources */,
 				FD2272AE2C33E337004D8A6C /* HTTPQueryParam.swift in Sources */,
+				FD0F85612EA82C8B004E0B98 /* SessionPro.swift in Sources */,
 				FD17D7AE27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift in Sources */,
 				FD2272C42C34E9AA004D8A6C /* BencodeResponse.swift in Sources */,
 			);
@@ -6592,6 +6663,7 @@
 				FDE754DD2C9BAF8A002A2623 /* Mnemonic.swift in Sources */,
 				FD52CB652E13B6E900A4DA70 /* ObservationBuilder.swift in Sources */,
 				FDBEE52E2B6A18B900C143A0 /* UserDefaultsConfig.swift in Sources */,
+				FD0F85732EA83C44004E0B98 /* AnyCodable.swift in Sources */,
 				FD78EA042DDEC3C500D55B50 /* MultiTaskManager.swift in Sources */,
 				FD78EA062DDEC8F600D55B50 /* AsyncSequence+Utilities.swift in Sources */,
 				FDC438CD27BC641200C60D73 /* Set+Utilities.swift in Sources */,

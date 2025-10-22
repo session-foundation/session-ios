@@ -11,6 +11,7 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
     case forbidden
     case notFound
     case parsingFailed
+    case invalidPayload
     case invalidResponse
     case maxFileSizeExceeded
     case unauthorised
@@ -32,6 +33,7 @@ public enum NetworkError: Error, Equatable, CustomStringConvertible {
             case .forbidden: return "Forbidden (NetworkError.forbidden)."
             case .notFound: return "Not Found (NetworkError.notFound)."
             case .parsingFailed: return "Invalid response (NetworkError.parsingFailed)."
+            case .invalidPayload: return "Invalid payload (NetworkError.invalidPayload)."
             case .invalidResponse: return "Invalid response (NetworkError.invalidResponse)."
             case .maxFileSizeExceeded: return "Maximum file size exceeded (NetworkError.maxFileSizeExceeded)."
             case .unauthorised: return "Unauthorised (Failed to verify the signature - NetworkError.unauthorised)."
