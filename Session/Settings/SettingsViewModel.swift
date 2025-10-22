@@ -205,6 +205,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             }
         }
         
+        /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
+        /// it then then there will be a diff in the `State` and the UI will update
+        if
+            let displayPictureUrl: String = profile.displayPictureUrl,
+            let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                .path(for: displayPictureUrl),
+            !dependencies[singleton: .fileManager].fileExists(atPath: filePath)
+        {
+            profile = profile.with(displayPictureUrl: .set(to: nil))
+        }
+        
         /// Process any event changes
         let groupedEvents: [GenericObservableKey: Set<ObservedEvent>]? = events
             .reduce(into: [:]) { result, event in

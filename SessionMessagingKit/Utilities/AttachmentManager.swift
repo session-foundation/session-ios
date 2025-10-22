@@ -928,7 +928,10 @@ public extension PendingAttachment {
                         .encryptAttachment(plaintext: plaintext, domain: encryptionDomain)
                     )
                     
-                    finalByteCount = UInt(encryptionResult.ciphertext.count)
+                    /// Ideally we would set this to the `ciphertext` size so that the "download file" UI is accurate but then we'd
+                    /// need to update it after the download to be the `plaintext` so the "message info" UI was accurate - this
+                    /// also (currently) causes issues on Desktop so for the time being just stick with the `plaintext` size
+                    finalByteCount = UInt(preparedFileSize ?? 0)
                     result = (encryptionResult.ciphertext, encryptionResult.encryptionKey, Data())
                 }
                 else {
@@ -949,9 +952,10 @@ public extension PendingAttachment {
                                 .legacyEncryptedDisplayPicture(data: plaintext, key: encryptionKey)
                             )
                             
-                            /// Legacy display picture encryption doesn't have the same padding requirement so we can set it
-                            /// to the encrypted size
-                            finalByteCount = UInt(ciphertext.count)
+                            /// Ideally we would set this to the `ciphertext` size so that the "download file" UI is accurate but then we'd
+                            /// need to update it after the download to be the `plaintext` so the "message info" UI was accurate - this
+                            /// also (currently) causes issues on Desktop so for the time being just stick with the `plaintext` size
+                            finalByteCount = UInt(preparedFileSize ?? 0)
                             result = (ciphertext, encryptionKey, Data())
                     }
                     
@@ -1271,35 +1275,6 @@ public extension PendingAttachment {
         }
     }
     
-    fileprivate func convert(
-        source: ImageDataManager.DataSource,
-        to format: ConversionFormat,
-        filePath: String,
-        using dependencies: Dependencies
-    ) async throws {
-        guard case .media(let metadata) = metadata else { throw AttachmentError.invalidData }
-        
-        switch (format, utType.isVideo) {
-            case (.mp4, _), (.current, true):
-                return try await createVideo(
-                    source: source,
-                    metadata: metadata,
-                    format: format,
-                    filePath: filePath,
-                    using: dependencies
-                )
-                
-            case (.png, _), (.webPLossy, _), (.webPLossless, _), (.gif, _), (_, false):
-                return try await createImage(
-                    source: source,
-                    metadata: metadata,
-                    format: format,
-                    filePath: filePath,
-                    using: dependencies
-                )
-        }
-    }
-    
     private func createVideo(
         source: ImageDataManager.DataSource,
         metadata: MediaUtils.MediaMetadata,
@@ -1434,17 +1409,25 @@ public extension PendingAttachment {
             var frames: [CGImage] = []
             frames.reserveCapacity(metadata.frameCount)
             
+            try Task.checkCancellation()
+            
             for batchStart in stride(from: 0, to: metadata.frameCount, by: batchSize) {
                 typealias FrameResult = (index: Int, frame: CGImage)
+                
+                try Task.checkCancellation()
                 
                 let batchEnd: Int = min(batchStart + batchSize, metadata.frameCount)
                 let batchFrames: [CGImage] = try await withThrowingTaskGroup(of: FrameResult.self) { group in
                     for i in batchStart..<batchEnd {
                         group.addTask {
-                            try autoreleasepool {
+                            try Task.checkCancellation()
+                            
+                            return try autoreleasepool {
                                 guard let cgImage = CGImageSourceCreateImageAtIndex(imageSource, i, options) else {
                                     throw AttachmentError.invalidImageData
                                 }
+                                
+                                try Task.checkCancellation()
                                 
                                 let scaledImage: CGImage = cgImage.resized(
                                     toFillPixelSize: targetSize,
@@ -1466,6 +1449,8 @@ public extension PendingAttachment {
                 
                 frames.append(contentsOf: batchFrames)
             }
+            
+            try Task.checkCancellation()
             
             /// Convert to the target format
             return try autoreleasepool {

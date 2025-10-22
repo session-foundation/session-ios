@@ -402,16 +402,24 @@ public extension ProfileAssociated {
 
 public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssociated {
     func fetchAllWithProfiles(_ db: ObservingDatabase, using dependencies: Dependencies) throws -> [WithProfile<RowDecoder>] {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let originalResult: [RowDecoder] = try self.fetchAll(db)
+        var userProfile: Profile?
+        
+        if Set(originalResult.map { $0.profileId }).contains(userSessionId.hexString) {
+            userProfile = dependencies.mutate(cache: .libSession) { $0.profile }
+        }
+        
         let profiles: [String: Profile]? = try? Profile
             .fetchAll(db, ids: originalResult.map { $0.profileId }.asSet())
             .reduce(into: [:]) { result, next in result[next.id] = next }
+            .setting(userSessionId.hexString, userProfile)
         
         return originalResult.map {
             WithProfile(
                 value: $0,
                 profile: profiles?[$0.profileId],
-                currentUserSessionId: dependencies[cache: .general].sessionId
+                currentUserSessionId: userSessionId
             )
         }
     }

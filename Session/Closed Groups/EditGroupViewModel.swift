@@ -119,7 +119,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                     .fetchOne(db)
                 
                 profileFront = try frontProfileId.map { try Profile.fetchOne(db, id: $0) }
-                profileBack = try Profile.fetchOne(db, id: backProfileId ?? userSessionId.hexString)
+                profileBack = (backProfileId.map { try? Profile.fetchOne(db, id: $0) } ?? dependencies.mutate(cache: .libSession) { $0.profile })
             }
             
             return State(

@@ -223,25 +223,73 @@ public class DisplayPictureManager {
             )
         }
         
+        actor TaskRacer<Success> {
+            private let allTasks: [Task<Success, Error>]
+            private var continuation: CheckedContinuation<Success, Error>?
+            private var hasFinished = false
+            
+            public static func race(_ tasks: Task<Success, Error>...) async throws -> Success {
+                guard !tasks.isEmpty else { throw AttachmentError.invalidData }
+                
+                let racer: TaskRacer = TaskRacer(tasks: tasks)
+                
+                return try await withTaskCancellationHandler {
+                    try await withCheckedThrowingContinuation { continuation in
+                        Task {
+                            await racer.setContinuation(continuation)
+                            
+                            for task in tasks {
+                                Task {
+                                    let result = await task.result
+                                    await racer.tryToFinish(with: result)
+                                }
+                            }
+                        }
+                    }
+                } onCancel: {
+                    for task in tasks {
+                        task.cancel()
+                    }
+                }
+            }
+            
+            init(tasks: [Task<Success, Error>]) {
+                self.allTasks = tasks
+            }
+            
+            func setContinuation(_ continuation: CheckedContinuation<Success, Error>) {
+                self.continuation = continuation
+            }
+            
+            func tryToFinish(with result: Result<Success, Error>) {
+                guard !hasFinished else { return }
+                
+                hasFinished = true
+                
+                continuation?.resume(with: result)
+                continuation = nil
+                
+                for task in allTasks {
+                    task.cancel()
+                }
+            }
+        }
+        
         /// The desired output for a profile picture is a `WebP` at the specified size (and `cropRect`) that is generated in under `5s`
         do {
-            let result: PreparedAttachment = try await withThrowingTaskGroup(of: PreparedAttachment.self) { [dependencies] group in
-                group.addTask {
+            let result: PreparedAttachment = try await TaskRacer<PreparedAttachment>.race(
+                Task {
                     return try await attachment.prepare(
                         operations: DisplayPictureManager.standardOperations(cropRect: cropRect),
                         using: dependencies
                     )
-                }
-                group.addTask {
+                },
+                Task {
                     try await Task.sleep(for: .seconds(5))
                     throw AttachmentError.conversionTimeout
                 }
-                defer { group.cancelAll() }
-                
-                return try await group.first(where: { _ in true }) ?? {
-                    throw AttachmentError.couldNotConvert
-                }()
-            }
+            )
+            
             let preparedSize: UInt64? = dependencies[singleton: .fileManager].fileSize(of: result.filePath)
             
             guard (preparedSize ?? UInt64.max) < attachment.fileSize else {
@@ -259,41 +307,40 @@ public class DisplayPictureManager {
         ///
         /// **Note:** In this case we want to ignore any error and just fallback to the original file (with metadata stripped)
         if attachment.utType == .gif {
-            let maybeResult: PreparedAttachment? = try? await withThrowingTaskGroup(of: PreparedAttachment.self) { [dependencies] group in
-                group.addTask {
-                    return try await attachment.prepare(
-                        operations: [
-                            .convert(to: .gif(
-                                maxDimension: DisplayPictureManager.maxDimension,
-                                cropRect: cropRect
-                            )),
-                            .stripImageMetadata
-                        ],
-                        using: dependencies
-                    )
-                }
-                group.addTask {
-                    try await Task.sleep(for: .seconds(2))
-                    throw AttachmentError.conversionTimeout
-                }
-                defer { group.cancelAll() }
+            do {
+                let result: PreparedAttachment = try await TaskRacer<PreparedAttachment>.race(
+                    Task {
+                        return try await attachment.prepare(
+                            operations: [
+                                .convert(to: .gif(
+                                    maxDimension: DisplayPictureManager.maxDimension,
+                                    cropRect: cropRect
+                                )),
+                                .stripImageMetadata
+                            ],
+                            using: dependencies
+                        )
+                    },
+                    Task {
+                        try await Task.sleep(for: .seconds(2))
+                        throw AttachmentError.conversionTimeout
+                    }
+                )
                 
-                return try await group.first(where: { _ in true }) ?? {
-                    throw AttachmentError.couldNotConvert
-                }()
-            }
-            
-            /// Only return the resized GIF if it's smaller than the original (the current GIF encoding we use is just the built-in iOS
-            /// encoding which isn't very advanced, as such some GIFs can end up quite large, even if they are cropped versions
-            /// of other GIFs - this is likely due to the lack of "frame differencing" support)
-            if
-                let result: PreparedAttachment = maybeResult,
-                let preparedSize: UInt64 = dependencies[singleton: .fileManager]
-                    .fileSize(of: result.filePath),
-                preparedSize < attachment.fileSize
-            {
+                /// Only return the resized GIF if it's smaller than the original (the current GIF encoding we use is just the built-in iOS
+                /// encoding which isn't very advanced, as such some GIFs can end up quite large, even if they are cropped versions
+                /// of other GIFs - this is likely due to the lack of "frame differencing" support)
+                let preparedSize: UInt64? = dependencies[singleton: .fileManager].fileSize(of: result.filePath)
+                
+                guard (preparedSize ?? UInt64.max) < attachment.fileSize else {
+                    throw AttachmentError.conversionResultedInLargerFile
+                }
+                
                 return result
             }
+            catch AttachmentError.conversionTimeout {}              /// Expected case
+            catch AttachmentError.conversionResultedInLargerFile {} /// Expected case
+            catch { throw error }
         }
         
         /// If we weren't able to generate the `WebP` (or resized `GIF` if the source was a `GIF`) then just use the original source

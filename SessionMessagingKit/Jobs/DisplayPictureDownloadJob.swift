@@ -128,11 +128,18 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                 let existingProfileUrl: String? = try? await dependencies[singleton: .storage].readAsync { db in
                     switch details.target {
                         case .profile(let id, _, _):
-                            return try? Profile
-                                .filter(id: id)
-                                .select(.displayPictureUrl)
-                                .asRequest(of: String.self)
-                                .fetchOne(db)
+                            /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
+                            /// there before falling back to the one fetched from the database
+                            return try? (
+                                dependencies.mutate(cache: .libSession) {
+                                    $0.profile(contactId: id)?.displayPictureUrl
+                                } ??
+                                Profile
+                                    .filter(id: id)
+                                    .select(.displayPictureUrl)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            )
                             
                         case .group(let id, _, _):
                             return try? ClosedGroup
@@ -440,7 +447,7 @@ extension DisplayPictureDownloadJob {
                     
                     guard
                         dataMatches ||
-                        Profile.shouldUpdateProfile(timestamp, profile: latestProfile, using: dependencies)
+                        Profile.shouldUpdateProfile(timestamp, profile: latestProfile, forDownloadingDisplayPicture: true, using: dependencies)
                     else { throw AttachmentError.downloadNoLongerValid }
                     
                     break

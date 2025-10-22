@@ -225,6 +225,17 @@ public class HomeViewModel: NavigatableStateHolder {
                 hasHiddenMessageRequests = libSession.get(.hasHiddenMessageRequests)
             }
             
+            /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
+            /// it then then there will be a diff in the `State` and the UI will update
+            if
+                let displayPictureUrl: String = userProfile.displayPictureUrl,
+                let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                    .path(for: displayPictureUrl),
+                !dependencies[singleton: .fileManager].fileExists(atPath: filePath)
+            {
+                userProfile = userProfile.with(displayPictureUrl: .set(to: nil))
+            }
+            
             // TODO: [Database Relocation] All profiles should be stored in the `profileCache`
             profileCache[userProfile.id] = userProfile
             

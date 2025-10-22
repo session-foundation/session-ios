@@ -88,6 +88,7 @@ public extension Profile {
     static func shouldUpdateProfile(
         _ profileUpdateTimestamp: TimeInterval?,
         profile: Profile,
+        forDownloadingDisplayPicture: Bool = false,
         using dependencies: Dependencies
     ) -> Bool {
         /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
@@ -105,6 +106,12 @@ public extension Profile {
         /// rather than `null`
         guard finalProfileUpdateTimestamp != 0 || finalCachedProfileUpdateTimestamp != 0 else {
             return true
+        }
+        
+        /// Check if we are validating an update for the purpose of downloading a display picture
+        if forDownloadingDisplayPicture {
+            /// If so then the the timestamp can either be newer or match the cached value
+            return (finalProfileUpdateTimestamp >= finalCachedProfileUpdateTimestamp)
         }
         
         /// Otherwise we should only accept the update if it's newer than our cached value
@@ -131,6 +138,42 @@ public extension Profile {
         var profileChanges: [ConfigColumnAssignment] = []
         
         guard shouldUpdateProfile(profileUpdateTimestamp, profile: profile, using: dependencies) else {
+            /// If we can update for the purpose of downloading a display picture then it's possible this is a missing display picture so
+            /// schedule a new download job
+            if shouldUpdateProfile(profileUpdateTimestamp, profile: profile, forDownloadingDisplayPicture: true, using: dependencies) {
+                var targetUrl: String? = profile.displayPictureUrl
+                var targetKey: Data? = profile.displayPictureEncryptionKey
+                
+                switch displayPictureUpdate {
+                    case .contactUpdateTo(let url, let key, _), .currentUserUpdateTo(let url, let key, _, _):
+                        targetUrl = url
+                        targetKey = key
+                        
+                    default: break
+                }
+                
+                if let url: String = targetUrl, let key: Data = targetKey {
+                    let fileExists: Bool = ((try? dependencies[singleton: .displayPictureManager]
+                        .path(for: url))
+                        .map { dependencies[singleton: .fileManager].fileExists(atPath: $0) } ?? false)
+                    
+                    if !fileExists {
+                        dependencies[singleton: .jobRunner].add(
+                            db,
+                            job: Job(
+                                variant: .displayPictureDownload,
+                                shouldBeUnique: true,
+                                details: DisplayPictureDownloadJob.Details(
+                                    target: .profile(id: profile.id, url: url, encryptionKey: key),
+                                    timestamp: profileUpdateTimestamp
+                                )
+                            ),
+                            canStartJob: dependencies[singleton: .appContext].isMainApp
+                        )
+                    }
+                }
+            }
+            
             return
         }
         

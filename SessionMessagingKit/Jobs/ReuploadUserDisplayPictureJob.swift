@@ -63,7 +63,7 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
             /// Only try to extend the TTL of the users display pic if enough time has passed since it was last updated
             let lastUpdated: Date = Date(timeIntervalSince1970: profile.profileLastUpdated ?? 0)
             
-            guard dependencies.dateNow.timeIntervalSince(lastUpdated) > maxExtendTTLFrequency else {
+            guard dependencies.dateNow.timeIntervalSince(lastUpdated) > maxExtendTTLFrequency || dependencies[feature: .shortenFileTTL] else {
                 /// Reset the `nextRunTimestamp` value just in case the last run failed so we don't get stuck in a loop endlessly
                 /// deferring the job
                 if let jobId: Int64 = job.id {
