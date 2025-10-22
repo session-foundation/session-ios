@@ -271,9 +271,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             openGroupPermissions: initialData?.openGroupPermissions,
             threadWasMarkedUnread: initialData?.threadWasMarkedUnread,
             using: dependencies
-        ).populatingPostQueryData(
-            threadDisplayPictureUrl: nil,
-            contactProfile: nil,
+        )
+        .with(userProfile: dependencies.mutate(cache: .libSession) { $0.profile })
+        .populatingPostQueryData(
             recentReactionEmoji: nil,
             openGroupCapabilities: nil,
             currentUserSessionIds: (
@@ -351,11 +351,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     private func setupObservableThreadData(for threadId: String) -> ThreadObservation {
         return ObservationBuilderOld
             .databaseObservation(dependencies) { [weak self, dependencies] db -> SessionThreadViewModel? in
+                let userProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let recentReactionEmoji: [String] = try Emoji.getRecent(db, withDefaultEmoji: true)
                 let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                     .conversationQuery(threadId: threadId, userSessionId: userSessionId)
-                    .fetchOne(db)
+                    .fetchOne(db)?
+                    .with(userProfile: userProfile)
                 let openGroupCapabilities: Set<Capability.Variant>? = (threadViewModel?.threadVariant != .community ?
                     nil :
                     try Capability
@@ -366,44 +368,34 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         .fetchSet(db)
                 )
                 
-                return threadViewModel.map { viewModel -> SessionThreadViewModel in
-                    let wasKickedFromGroup: Bool = (
-                        viewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession) { cache in
-                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
-                        }
-                    )
-                    let groupIsDestroyed: Bool = (
-                        viewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession) { cache in
-                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
-                        }
-                    )
-                    
-                    // TODO: [Database Relocation] Clean up this query as well
-                    var targetContactProfile: Profile? = viewModel.contactProfile
-                    var targetThreadDisplayPictureUrl: String? = viewModel.threadDisplayPictureUrl
-                    
-                    if viewModel.id == userSessionId.hexString {
-                        targetContactProfile = dependencies.mutate(cache: .libSession) { $0.profile }
-                        targetThreadDisplayPictureUrl = targetContactProfile?.displayPictureUrl
+                return (threadViewModel?
+                    .with(userProfile: userProfile))
+                    .map { viewModel -> SessionThreadViewModel in
+                        let (wasKickedFromGroup, groupIsDestroyed): (Bool, Bool) = {
+                            guard viewModel.threadVariant == .group else { return (false, false) }
+                            
+                            let sessionId: SessionId = SessionId(.group, hex: viewModel.threadId)
+                            return dependencies.mutate(cache: .libSession) { cache in
+                                (
+                                    cache.wasKickedFromGroup(groupSessionId: sessionId),
+                                    cache.groupIsDestroyed(groupSessionId: sessionId)
+                                )
+                            }
+                        }()
+                        
+                        return viewModel.populatingPostQueryData(
+                            recentReactionEmoji: recentReactionEmoji,
+                            openGroupCapabilities: openGroupCapabilities,
+                            currentUserSessionIds: (
+                                self?.threadData.currentUserSessionIds ??
+                                [userSessionId.hexString]
+                            ),
+                            wasKickedFromGroup: wasKickedFromGroup,
+                            groupIsDestroyed: groupIsDestroyed,
+                            threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies),
+                            threadCanUpload: viewModel.determineInitialCanUploadFlag(using: dependencies)
+                        )
                     }
-                    
-                    return viewModel.populatingPostQueryData(
-                        threadDisplayPictureUrl: targetThreadDisplayPictureUrl,
-                        contactProfile: targetContactProfile,
-                        recentReactionEmoji: recentReactionEmoji,
-                        openGroupCapabilities: openGroupCapabilities,
-                        currentUserSessionIds: (
-                            self?.threadData.currentUserSessionIds ??
-                            [userSessionId.hexString]
-                        ),
-                        wasKickedFromGroup: wasKickedFromGroup,
-                        groupIsDestroyed: groupIsDestroyed,
-                        threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies),
-                        threadCanUpload: viewModel.determineInitialCanUploadFlag(using: dependencies)
-                    )
-                }
             }
             .handleEvents(didFail: { Log.error(.conversation, "Observation failed with error: \($0)") })
     }

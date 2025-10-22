@@ -56,37 +56,27 @@ public class ThreadPickerViewModel {
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     public lazy var observableViewData = ValueObservation
         .trackingConstantRegion { [dependencies] db -> [SessionThreadViewModel] in
+            let userProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
             return try SessionThreadViewModel
                 .shareQuery(userSessionId: userSessionId)
                 .fetchAll(db)
+                .map { $0.with(userProfile: userProfile) }
                 .map { threadViewModel in
-                    let wasKickedFromGroup: Bool = (
-                        threadViewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession) { cache in
-                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
+                    let (wasKickedFromGroup, groupIsDestroyed): (Bool, Bool) = {
+                        guard threadViewModel.threadVariant == .group else { return (false, false) }
+                        
+                        let sessionId: SessionId = SessionId(.group, hex: threadViewModel.threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            (
+                                cache.wasKickedFromGroup(groupSessionId: sessionId),
+                                cache.groupIsDestroyed(groupSessionId: sessionId)
+                            )
                         }
-                    )
-                    let groupIsDestroyed: Bool = (
-                        threadViewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession) { cache in
-                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
-                        }
-                    )
-                    
-                    // TODO: [Database Relocation] Clean up this query as well
-                    var targetContactProfile: Profile? = threadViewModel.contactProfile
-                    var targetThreadDisplayPictureUrl: String? = threadViewModel.threadDisplayPictureUrl
-                    
-                    if threadViewModel.id == userSessionId.hexString {
-                        targetContactProfile = dependencies.mutate(cache: .libSession) { $0.profile }
-                        targetThreadDisplayPictureUrl = targetContactProfile?.displayPictureUrl
-                    }
+                    }()
                     
                     return threadViewModel.populatingPostQueryData(
-                        threadDisplayPictureUrl: targetThreadDisplayPictureUrl,
-                        contactProfile: targetContactProfile,
                         recentReactionEmoji: nil,
                         openGroupCapabilities: nil,
                         currentUserSessionIds: [userSessionId.hexString],

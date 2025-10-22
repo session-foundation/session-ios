@@ -371,6 +371,7 @@ public class HomeViewModel: NavigatableStateHolder {
                                 ids: Array(idsNeedingRequery) + loadResult.newIds
                             )
                             .fetchAll(db)
+                            .map { $0.with(userProfile: userProfile) }
                     )
                 }
                 
@@ -532,16 +533,6 @@ public class HomeViewModel: NavigatableStateHolder {
                         .compactMap { state.itemCache[$0] }
                         .map { conversation -> SessionThreadViewModel in
                             conversation.populatingPostQueryData(
-                                // TODO: [Database Relocation] The 'threadDisplayPictureUrl' should be based on the conversation type when creating the SessionThreadViewModel rather than via the query
-                                threadDisplayPictureUrl: (
-                                    conversation.id == userSessionId.hexString ?
-                                    state.userProfile.displayPictureUrl :
-                                    nil
-                                ),
-                                contactProfile: (
-                                    state.profileCache[conversation.id] ??
-                                    conversation.contactProfile
-                                ),
                                 recentReactionEmoji: nil,
                                 openGroupCapabilities: nil,
                                 // TODO: [Database Relocation] Do we need all of these????

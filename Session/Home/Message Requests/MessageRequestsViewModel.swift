@@ -206,6 +206,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     }
                 }
                 
+                let userProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
                 try await dependencies[singleton: .storage].readAsync { db in
                     /// Update loaded page info as needed
                     if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
@@ -228,6 +229,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                 ids: Array(idsNeedingRequery) + loadResult.newIds
                             )
                             .fetchAll(db)
+                            .map { $0.with(userProfile: userProfile) }
                     )
                 }
                 
@@ -297,17 +299,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     elements: state.loadedPageInfo.currentIds
                         .compactMap { state.itemCache[$0] }
                         .map { conversation -> SessionCell.Info<SessionThreadViewModel> in
-                            // TODO: [Database Relocation] Source profile data via a separate query for efficiency
-                            var customProfile: Profile?
-                            
-                            if conversation.id == viewModel.dependencies[cache: .general].sessionId.hexString {
-                                customProfile = viewModel.dependencies.mutate(cache: .libSession) { $0.profile }
-                            }
-                            
                             return SessionCell.Info(
                                 id: conversation.populatingPostQueryData(
-                                    threadDisplayPictureUrl: customProfile?.displayPictureUrl,
-                                    contactProfile: customProfile,
                                     recentReactionEmoji: nil,
                                     openGroupCapabilities: nil,
                                     // TODO: [Database Relocation] Do we need all of these????

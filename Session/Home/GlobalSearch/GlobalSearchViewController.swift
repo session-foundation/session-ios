@@ -65,9 +65,12 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
     }
     private lazy var defaultSearchResultsObservation = ValueObservation
         .trackingConstantRegion { [dependencies] db -> [SessionThreadViewModel] in
-            try SessionThreadViewModel
+            let userProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+            
+            return try SessionThreadViewModel
                 .defaultContactsQuery(using: dependencies)
                 .fetchAll(db)
+                .map { $0.with(userProfile: userProfile) }
         }
         .map { GlobalSearchViewController.processDefaultSearchResults($0) }
         .removeDuplicates()
@@ -303,20 +306,24 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
         
         _currentSearchCancellable.set(to: dependencies[singleton: .storage]
             .readPublisher { [dependencies] db -> [SectionModel] in
+                let userProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let contactsAndGroupsResults: [SessionThreadViewModel] = try SessionThreadViewModel
                     .contactsAndGroupsQuery(
                         userSessionId: userSessionId,
+                        currentUserName: userProfile.name,
                         pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText),
                         searchTerm: searchText
                     )
                     .fetchAll(db)
+                    .map { $0.with(userProfile: userProfile) }
                 let messageResults: [SessionThreadViewModel] = try SessionThreadViewModel
                     .messagesQuery(
                         userSessionId: userSessionId,
                         pattern: try SessionThreadViewModel.pattern(db, searchTerm: searchText)
                     )
                     .fetchAll(db)
+                    .map { $0.with(userProfile: userProfile) }
                 
                 return [
                     ArraySection(model: .contactsAndGroups, elements: contactsAndGroupsResults),
