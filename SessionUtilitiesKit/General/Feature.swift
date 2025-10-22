@@ -90,6 +90,10 @@ public extension FeatureStorage {
         identifier: "mockCurrentUserSessionProState"
     )
     
+    static let mockCurrentUserSessionProLoadingState: FeatureConfig<SessionProLoadingState> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProLoadingState"
+    )
+    
     static let proPlanOriginatingPlatform: FeatureConfig<ClientPlatform> = Dependencies.create(
         identifier: "proPlanOriginatingPlatform"
     )

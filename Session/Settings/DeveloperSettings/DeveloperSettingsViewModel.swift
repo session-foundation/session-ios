@@ -1808,3 +1808,6 @@ extension Log.Level: Listable {}
 extension SessionProStateMock: @retroactive ContentIdentifiable {}
 extension SessionProStateMock: @retroactive ContentEquatable {}
 extension SessionProStateMock: Listable {}
+extension SessionProLoadingState: @retroactive ContentIdentifiable {}
+extension SessionProLoadingState: @retroactive ContentEquatable {}
+extension SessionProLoadingState: Listable {}

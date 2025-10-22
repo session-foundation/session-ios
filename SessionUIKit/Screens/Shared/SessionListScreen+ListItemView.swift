@@ -134,8 +134,8 @@ public struct ListItemLogoWithPro: View {
     }
     
     public enum State: Equatable, Hashable {
-        case loading
-        case error
+        case loading(message: String)
+        case error(message: String)
         case success(description: ThemedAttributedString?)
     }
     
@@ -195,6 +195,26 @@ public struct ListItemLogoWithPro: View {
                     .multilineTextAlignment(.center)
                     .padding(.vertical, Values.largeSpacing)
             }
+            
+            if case .error(let message) = info.state {
+                HStack(spacing: Values.verySmallSpacing) {
+                    Text(message)
+                    Image(systemName: "exclamationmark.triangle")
+                }
+                .font(.Body.baseRegular)
+                .foregroundColor(themeColor: .warning)
+                .padding(.top, Values.mediumSpacing)
+            }
+            
+            if case .loading(let message) = info.state {
+                HStack(spacing: Values.verySmallSpacing) {
+                    Text(message)
+                    ProgressView()
+                }
+                .font(.Body.baseRegular)
+                .foregroundColor(themeColor: .textPrimary)
+                .padding(.top, Values.mediumSpacing)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .center)
     }
@@ -238,9 +258,10 @@ public struct ListItemDataMatrix: View {
                 HStack(spacing: Values.mediumSpacing) {
                     ForEach(row.indices, id: \.self) { columnIndex in
                         let item: Info = row[columnIndex]
-                        HStack(spacing: Values.mediumSpacing) {
+                        HStack(spacing: 0) {
                             if let leadingAccessory = item.leadingAccessory {
                                 leadingAccessory.accessoryView()
+                                    .padding(.trailing, Values.mediumSpacing)
                             }
                             
                             if let title = item.title, let text = title.text {
@@ -249,14 +270,16 @@ public struct ListItemDataMatrix: View {
                                     .multilineTextAlignment(title.alignment)
                                     .foregroundColor(themeColor: title.color)
                                     .accessibility(title.accessibility)
+                                    .padding(.trailing, Values.mediumSpacing)
                             }
                             
                             if let trailingAccessory = item.trailingAccessory {
                                 trailingAccessory.accessoryView()
+                                    .padding(.trailing, Values.mediumSpacing)
                             }
                             
                             if let tooltipInfo = item.tooltipInfo {
-                                Spacer()
+                                Spacer(minLength: 0)
                                 
                                 Image(systemName: "questionmark.circle")
                                     .font(.Body.baseRegular)

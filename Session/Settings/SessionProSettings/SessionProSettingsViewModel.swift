@@ -234,17 +234,55 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     default: .normal
                                 }
                             }(),
-                            state: .success(
-                                description: {
-                                    switch state.currentProPlanState {
-                                        case .none:
-                                            ThemedAttributedString(string: "Want to use Session to its fullest potential? \nUpgrade to Session Pro Beta to gain access to loads exclusive perks and features.")
-                                        default: nil
-                                    }
-                                }()
-                            )
+                            state: {
+                                guard state.currentProPlanState != .none else {
+                                    return .success(
+                                        description: ThemedAttributedString(
+                                            string: "Want to use Session to its fullest potential? \nUpgrade to Session Pro Beta to gain access to loads exclusive perks and features."
+                                        )
+                                    )
+                                }
+                                
+                                switch viewModel.dependencies[feature: .mockCurrentUserSessionProLoadingState] {
+                                    case .loading:
+                                        return .loading(
+                                            message: {
+                                                switch state.currentProPlanState {
+                                                    case .expired:
+                                                        "checkingProStatus"
+                                                            .put(key: "pro", value: Constants.pro)
+                                                            .localized()
+                                                    default:
+                                                        "proStatusLoading"
+                                                            .put(key: "pro", value: Constants.pro)
+                                                            .localized()
+                                                }
+                                            }()
+                                        )
+                                    case .error:
+                                        return .error(
+                                            message: {
+                                                switch state.currentProPlanState {
+                                                    case .expired:
+                                                        "errorCheckingProStatus"
+                                                            .put(key: "pro", value: Constants.pro)
+                                                            .localized()
+                                                    default:
+                                                        "proErrorRefreshingStatus"
+                                                            .put(key: "pro", value: Constants.pro)
+                                                            .localized()
+                                                }
+                                            }()
+                                        )
+                                    case .success:
+                                        return .success(description: nil)
+                                }
+                            }()
                         )
-                    )
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        
+                    }
                 ),
                 (
                     state.currentProPlanState != .none ? nil :

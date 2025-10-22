@@ -163,6 +163,25 @@ public enum SessionProStateMock: String, Sendable, Codable, CaseIterable, Featur
     public var subtitle: String? { return nil }
 }
 
+public enum SessionProLoadingState: String, Sendable, Codable, CaseIterable, FeatureOption {
+    case loading
+    case error
+    case success
+    
+    public static var defaultOption: SessionProLoadingState = .success
+    
+    // stringlint:ignore_contents
+    public var title: String {
+        switch self {
+            case .loading: return "Loading"
+            case .error: return "Error"
+            case .success: return "Success"
+        }
+    }
+    
+    public var subtitle: String? { return nil }
+}
+
 extension ClientPlatform: FeatureOption {
     public static var defaultOption: ClientPlatform = .iOS
     public var title: String { deviceType }

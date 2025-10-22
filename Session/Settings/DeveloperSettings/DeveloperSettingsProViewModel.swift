@@ -76,14 +76,19 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case requestRefund
         
         case proStatus
+        case loadingState
+        
         case allUsersSessionPro
-        case proPlanToRecover
-        case mockInstalledFromIPA
-        case originatingPlatform
         
         case messageFeatureProBadge
         case messageFeatureLongMessage
         case messageFeatureAnimatedAvatar
+        
+        case proPlanToRecover
+        case mockInstalledFromIPA
+        case originatingPlatform
+        
+        
         
         // MARK: - Conformance
         
@@ -99,6 +104,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .requestRefund: return "requestRefund"
                     
                 case .proStatus: return "proStatus"
+                case .loadingState: return "loadingState"
+                
                 case .allUsersSessionPro: return "allUsersSessionPro"
                 
                 case .messageFeatureProBadge: return "messageFeatureProBadge"
@@ -126,6 +133,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .requestRefund: result.append(.requestRefund); fallthrough
                     
                 case .proStatus: result.append(.proStatus); fallthrough
+                case .loadingState: result.append(.loadingState); fallthrough
+                
                 case .allUsersSessionPro: result.append(.allUsersSessionPro); fallthrough
                 
                 case .messageFeatureProBadge: result.append(.messageFeatureProBadge); fallthrough
@@ -159,6 +168,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let refundRequestStatus: Transaction.RefundRequestStatus?
         
         let mockCurrentUserSessionPro: SessionProStateMock
+        let loadingState: SessionProLoadingState
+        
         let allUsersSessionPro: Bool
         
         let messageFeatureProBadge: Bool
@@ -181,7 +192,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.sessionProEnabled),
             .updateScreen(DeveloperSettingsProViewModel.self),
             .feature(.mockCurrentUserSessionProState),
+            .feature(.mockCurrentUserSessionProLoadingState),
             .feature(.allUsersSessionPro),
+            .feature(.messageFeatureProBadge),
+            .feature(.messageFeatureLongMessage),
+            .feature(.messageFeatureAnimatedAvatar),
             .feature(.proPlanToRecover),
             .feature(.mockInstalledFromIPA),
             .feature(.proPlanOriginatingPlatform)
@@ -199,6 +214,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 refundRequestStatus: nil,
                 
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
+                loadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
+                
                 allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
                 
                 messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
@@ -252,6 +269,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             purchaseTransaction: purchaseTransaction,
             refundRequestStatus: refundRequestStatus,
             mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
+            loadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
             allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
             messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
             messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
@@ -398,6 +416,34 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
+                (
+                    state.mockCurrentUserSessionPro == .none ? nil :
+                        SessionCell.Info(
+                            id: .loadingState,
+                            title: "Loading State",
+                            trailingAccessory: .dropDown { state.loadingState.title },
+                            onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                                viewModel?.transitionToScreen(
+                                    SessionTableViewController(
+                                        viewModel: SessionListViewModel<SessionProLoadingState>(
+                                            title: "Session Pro Loading State",
+                                            options: SessionProLoadingState.allCases,
+                                            behaviour: .autoDismiss(
+                                                initialSelection: state.loadingState,
+                                                onOptionSelected: { [dependencies] selected in
+                                                    dependencies.set(
+                                                        feature: .mockCurrentUserSessionProLoadingState,
+                                                        to: selected
+                                                    )
+                                                }
+                                            ),
+                                            using: dependencies
+                                        )
+                                    )
+                                )
+                            }
+                        )
+                ),
                 SessionCell.Info(
                     id: .allUsersSessionPro,
                     title: "Everyone is a Pro",
@@ -523,8 +569,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                             )
                         }
                     )
-                ].compactMap { $0 }
-            )
+                ]
+            ).compactMap { $0 }
         )
         
         return [general, subscriptions, features]
