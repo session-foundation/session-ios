@@ -42,7 +42,7 @@ public struct ProCTAModal: View {
                 ZStack {
                     if let animatedAvatarImageURL = variant.animatedAvatarImageURL {
                         GeometryReader { geometry in
-                            let size: CGFloat = geometry.size.width / 1522.0 * 187.0
+                            let size: CGFloat = geometry.size.width / 1522.0 * 135
                             let scale: CGFloat = geometry.size.width / 1522.0
                             SessionAsyncImage(
                                 source: .url(animatedAvatarImageURL),
@@ -108,7 +108,7 @@ public struct ProCTAModal: View {
                                 .font(.Headings.H4)
                                 .foregroundColor(themeColor: .textPrimary)
                         }
-                    } else if case .groupLimit(_, let isSessionProActivated) = variant, isSessionProActivated {
+                    } else if case .groupLimit(_, let isSessionProActivated, _) = variant, isSessionProActivated {
                         HStack(spacing: Values.smallSpacing) {
                             SessionProBadge_SwiftUI(size: .large)
                             
@@ -151,10 +151,10 @@ public struct ProCTAModal: View {
                         }
                         
                         if
-                            case .groupLimit(_, let isSessionProActivated) = variant,
+                            case .groupLimit(_, let isSessionProActivated, let proBadgeImage) = variant,
                             isSessionProActivated
                         {
-                            Text(variant.subtitle)
+                            (Text(variant.subtitle) + Text(" \(Image(uiImage: proBadgeImage))"))
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textSecondary)
                                 .multilineTextAlignment(.center)
@@ -320,7 +320,7 @@ public extension ProCTAModal {
         /// of the modal.
         public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
             switch self {
-                case .generic: return (1313.5, 753)
+                case .generic: return (1293, 743)
                 case .animatedProfileImage: return (690, 363)
                 default: return (0, 0)
             }

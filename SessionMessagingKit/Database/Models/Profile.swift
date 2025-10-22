@@ -193,10 +193,11 @@ public extension Profile {
         _ db: ObservingDatabase,
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false,
         customFallback: String? = nil
     ) -> String {
         let existingDisplayName: String? = (try? Profile.fetchOne(db, id: id))?
-            .displayName(for: threadVariant)
+            .displayName(for: threadVariant, suppressId: suppressId)
         
         return (existingDisplayName ?? (customFallback ?? id))
     }
@@ -204,10 +205,11 @@ public extension Profile {
     static func displayNameNoFallback(
         _ db: ObservingDatabase,
         id: ID,
-        threadVariant: SessionThread.Variant = .contact
+        threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false
     ) -> String? {
         return (try? Profile.fetchOne(db, id: id))?
-            .displayName(for: threadVariant)
+            .displayName(for: threadVariant, suppressId: suppressId)
     }
     
     // MARK: - Fetch or Create
@@ -245,13 +247,14 @@ public extension Profile {
     static func displayName(
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false,
         customFallback: String? = nil,
         using dependencies: Dependencies
     ) -> String {
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         var displayName: String?
         dependencies[singleton: .storage].readAsync(
-            retrieve: { db in Profile.displayName(db, id: id, threadVariant: threadVariant) },
+            retrieve: { db in Profile.displayName(db, id: id, threadVariant: threadVariant, suppressId: suppressId) },
             completion: { result in
                 switch result {
                     case .failure: break
@@ -268,12 +271,13 @@ public extension Profile {
     static func displayNameNoFallback(
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false,
         using dependencies: Dependencies
     ) -> String? {
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         var displayName: String?
         dependencies[singleton: .storage].readAsync(
-            retrieve: { db in Profile.displayNameNoFallback(db, id: id, threadVariant: threadVariant) },
+            retrieve: { db in Profile.displayNameNoFallback(db, id: id, threadVariant: threadVariant, suppressId: suppressId) },
             completion: { result in
                 switch result {
                     case .failure: break

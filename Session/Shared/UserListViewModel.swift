@@ -152,15 +152,10 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                             title: SessionCell.TextInfo(
                                 title,
                                 font: .title,
-                                extraViewGenerator: (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: userInfo.profile) }) ?
-                                    {
-                                        let result: UIView = UIView()
-                                        let probadge: SessionProBadge = SessionProBadge(size: .small)
-                                        result.addSubview(probadge)
-                                        probadge.pin(to: result, withInset: 4)
-                                        return result
-                                    }
-                                    : nil
+                                trailingImage: {
+                                    guard (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: userInfo.profile) }) else { return nil }
+                                    return ("ProBadge", { [dependencies] in SessionProBadge(size: .small).toImage(using: dependencies) })
+                                }()
                             ),
                             subtitle: SessionCell.TextInfo(userInfo.itemDescription(using: dependencies), font: .subtitle),
                             trailingAccessory: trailingAccessory,

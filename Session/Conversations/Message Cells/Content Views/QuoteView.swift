@@ -4,6 +4,7 @@ import UIKit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import Lucide
 
 final class QuoteView: UIView {
     static let thumbnailSize: CGFloat = 48
@@ -208,6 +209,7 @@ final class QuoteView: UIView {
                 return Profile.displayNameNoFallback(
                     id: authorId,
                     threadVariant: threadVariant,
+                    suppressId: true,
                     using: dependencies
                 )
             }
@@ -215,6 +217,7 @@ final class QuoteView: UIView {
             return Profile.displayName(
                 id: authorId,
                 threadVariant: threadVariant,
+                suppressId: true,
                 using: dependencies
             )
         }()
@@ -241,7 +244,7 @@ final class QuoteView: UIView {
         if mode == .draft {
             // Cancel button
             let cancelButton = UIButton(type: .custom)
-            cancelButton.setImage(UIImage(named: "X")?.withRenderingMode(.alwaysTemplate), for: .normal)
+            cancelButton.setImage(Lucide.image(icon: .x, size: 24)?.withRenderingMode(.alwaysTemplate), for: .normal)
             cancelButton.themeTintColor = .textPrimary
             cancelButton.set(.width, to: cancelButtonSize)
             cancelButton.set(.height, to: cancelButtonSize)
@@ -249,6 +252,8 @@ final class QuoteView: UIView {
             
             mainStackView.addArrangedSubview(cancelButton)
             cancelButton.center(.vertical, in: self)
+            mainStackView.isLayoutMarginsRelativeArrangement = true
+            mainStackView.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 2)
         }
     }
 

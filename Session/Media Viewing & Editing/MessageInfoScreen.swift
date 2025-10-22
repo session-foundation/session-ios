@@ -121,7 +121,7 @@ struct MessageInfoScreen: View {
                                         .foregroundColor(themeColor: tintColor)
                                 }
                             }
-                            .padding(.top, -Values.smallSpacing)
+                            .padding(.top, -Values.verySmallSpacing)
                             .padding(.bottom, Values.verySmallSpacing)
                             .padding(.horizontal, Values.largeSpacing)
                         }
@@ -387,8 +387,8 @@ struct MessageInfoScreen: View {
                                                     .font(.Body.extraLargeBold)
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
-                                            else if !messageViewModel.authorName.isEmpty {
-                                                Text(messageViewModel.authorName)
+                                            else if !messageViewModel.authorNameSuppressedId.isEmpty {
+                                                Text(messageViewModel.authorNameSuppressedId)
                                                     .font(.Body.extraLargeBold)
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
@@ -403,7 +403,19 @@ struct MessageInfoScreen: View {
                                         
                                         Text(messageViewModel.authorId)
                                             .font(.Display.base)
-                                            .foregroundColor(themeColor: .textPrimary)
+                                            .foregroundColor(
+                                                themeColor: {
+                                                    if
+                                                        messageViewModel.authorId.hasPrefix(SessionId.Prefix.blinded15.rawValue) ||
+                                                        messageViewModel.authorId.hasPrefix(SessionId.Prefix.blinded25.rawValue)
+                                                    {
+                                                        return .textSecondary
+                                                    }
+                                                    else {
+                                                        return .textPrimary
+                                                    }
+                                                }()
+                                            )
                                     }
                                 }
                             }
@@ -504,12 +516,19 @@ struct MessageInfoScreen: View {
             proFeatures.append("appProBadge".put(key: "app_pro", value: Constants.app_pro).localized())
         }
         
-        if (messageViewModel.isProMessage || messageViewModel.body.defaulting(to: "").utf16.count > LibSession.CharacterLimit) {
+        if (
+            messageViewModel.isProMessage &&
+            messageViewModel.body.defaulting(to: "").utf16.count > LibSession.CharacterLimit ||
+            dependencies[feature: .messageFeatureLongMessage]
+        ) {
             proFeatures.append("proIncreasedMessageLengthFeature".localized())
             proCTAVariant = (proFeatures.count > 1 ? .generic : .longerMessages)
         }
         
-        if ImageDataManager.isAnimatedImage(profileInfo?.source) {
+        if (
+            ImageDataManager.isAnimatedImage(profileInfo?.source) ||
+            dependencies[feature: .messageFeatureAnimatedAvatar]
+        ) {
             proFeatures.append("proAnimatedDisplayPictureFeature".localized())
             proCTAVariant = (proFeatures.count > 1 ? .generic : .animatedProfileImage(isSessionProActivated: false))
         }
@@ -579,6 +598,25 @@ struct MessageInfoScreen: View {
             return messageViewModel.profile?.blocksCommunityMessageRequests != true
         }()
         
+        let (displayName, contactDisplayName): (String?, String?) = {
+            guard let sessionId: String = sessionId else {
+                return (messageViewModel.authorNameSuppressedId, nil)
+            }
+            
+            let isCurrentUser: Bool = (messageViewModel.currentUserSessionIds?.contains(sessionId) == true)
+            guard !isCurrentUser else {
+                return ("you".localized(), "you".localized())
+            }
+            
+            return (
+                messageViewModel.authorName,
+                messageViewModel.profile?.displayName(
+                    for: messageViewModel.threadVariant,
+                    ignoringNickname: true
+                )
+            )
+        }()
+        
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
             modal: UserProfileModal(
                 info: .init(
@@ -586,11 +624,8 @@ struct MessageInfoScreen: View {
                     blindedId: blindedId,
                     qrCodeImage: qrCodeImage,
                     profileInfo: profileInfo,
-                    displayName: messageViewModel.authorName,
-                    contactDisplayName: messageViewModel.profile?.displayName(
-                        for: messageViewModel.threadVariant,
-                        ignoringNickname: true
-                    ),
+                    displayName: displayName,
+                    contactDisplayName: contactDisplayName,
                     isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
                     isMessageRequestsEnabled: isMessasgeRequestsEnabled,
                     onStartThread: self.onStartThread,

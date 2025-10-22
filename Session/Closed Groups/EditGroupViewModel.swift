@@ -301,15 +301,10 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                                 accessibility: Accessibility(
                                     identifier: "Contact"
                                 ),
-                                extraViewGenerator: (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: memberInfo.profile) }) ?
-                                    {
-                                        let result: UIView = UIView()
-                                        let probadge: SessionProBadge = SessionProBadge(size: .small)
-                                        result.addSubview(probadge)
-                                        probadge.pin(to: result, withInset: 4)
-                                        return result
-                                    }
-                                    : nil
+                                trailingImage: {
+                                    guard (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: memberInfo.profile) }) else { return nil }
+                                    return ("ProBadge", { [dependencies] in SessionProBadge(size: .small).toImage(using: dependencies) })
+                                }()
                             ),
                             subtitle: (!isUpdatedGroup ? nil : SessionCell.TextInfo(
                                 memberInfo.value.statusDescription,

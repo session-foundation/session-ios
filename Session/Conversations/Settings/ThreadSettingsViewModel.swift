@@ -282,21 +282,15 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         onTapView: { [weak self] targetView in
                             let didTapQRCodeIcon: Bool = !(targetView is ProfilePictureView)
                             
-                            switch (threadViewModel.threadVariant, currentUserIsClosedGroupAdmin, didTapQRCodeIcon) {
-                                case (.group, true, _):
-                                    self?.updateGroupDisplayPicture(currentUrl: threadViewModel.threadDisplayPictureUrl)
-                                case (.group, _, _):
-                                    break
-                                case (_, _, true):
-                                    self?.profileImageStatus = (previous: profileImageStatus?.current, current: .qrCode)
-                                    self?.forceRefresh(type: .postDatabaseQuery)
-                                case (_, _, false):
-                                    self?.profileImageStatus = (
-                                        previous: profileImageStatus?.current,
-                                        current: (profileImageStatus?.current == .expanded ? .normal : .expanded)
-                                    )
-                                    self?.forceRefresh(type: .postDatabaseQuery)
+                            if didTapQRCodeIcon {
+                                self?.profileImageStatus = (previous: profileImageStatus?.current, current: .qrCode)
+                            } else {
+                                self?.profileImageStatus = (
+                                    previous: profileImageStatus?.current,
+                                    current: (profileImageStatus?.current == .expanded ? .normal : .expanded)
+                                )
                             }
+                            self?.forceRefresh(type: .postDatabaseQuery)
                         }
                     )
                 ),
@@ -306,11 +300,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         threadViewModel.displayName,
                         font: .titleLarge,
                         alignment: .center,
-                        trailingImage: (
-                            (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) ?
-                            ("ProBadge", { [dependencies] in SessionProBadge(size: .medium).toImage(using: dependencies) }) :
-                            nil
-                        )
+                        trailingImage: {
+                            guard !threadViewModel.threadIsNoteToSelf else { return nil }
+                            guard (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) else { return nil }
+                            return ("ProBadge", { [dependencies] in SessionProBadge(size: .medium).toImage(using: dependencies) })
+                        }()
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
@@ -348,7 +342,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 case .group:
                                     return .groupLimit(
                                         isAdmin: currentUserIsClosedGroupAdmin,
-                                        isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) })
+                                        isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }),
+                                        proBadgeImage: SessionProBadge(size: .mini).toImage(using: dependencies)
                                     )
                                 default: return .generic
                             }
@@ -370,7 +365,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             tintColor: .textSecondary,
                             customPadding: SessionCell.Padding(
                                 top: 0,
-                                bottom: 0
+                                bottom: Values.largeSpacing
                             ),
                             backgroundStyle: .noBackground
                         )
@@ -2116,9 +2111,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         let viewController = SessionHostingViewController(
             rootView: LightBox(
                 itemsToShare: [
-                    QRCode.qrCodeImageWithTintAndBackground(
+                    QRCode.qrCodeImageWithBackground(
                         image: qrCodeImage,
-                        themeStyle: ThemeManager.currentTheme.interfaceStyle,
                         size: CGSize(width: 400, height: 400),
                         insets: UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
                     )

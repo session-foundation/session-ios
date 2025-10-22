@@ -5,7 +5,10 @@ import UIKit
 public class SessionLabelWithProBadge: UIView {
     public var font: UIFont {
         get { label.font }
-        set { label.font = newValue }
+        set {
+            label.font = newValue
+            extraLabel.font = newValue
+        }
     }
     
     public var text: String? {
@@ -13,6 +16,15 @@ public class SessionLabelWithProBadge: UIView {
         set {
             guard label.text != newValue else { return }
             label.text = newValue
+        }
+    }
+    
+    public var extraText: String? {
+        get { extraLabel.text }
+        set {
+            guard extraLabel.text != newValue else { return }
+            extraLabel.text = newValue
+            extraLabel.isHidden = !(newValue?.isEmpty == false)
         }
     }
     
@@ -24,24 +36,44 @@ public class SessionLabelWithProBadge: UIView {
         }
     }
     
+    public var extraThemeAttributedText: ThemedAttributedString? {
+        get { extraLabel.themeAttributedText }
+        set {
+            guard extraLabel.themeAttributedText != newValue else { return }
+            extraLabel.themeAttributedText = newValue
+        }
+    }
+    
     public var themeTextColor: ThemeValue? {
         get { label.themeTextColor }
-        set { label.themeTextColor = newValue }
+        set {
+            label.themeTextColor = newValue
+            extraLabel.themeTextColor = newValue
+        }
     }
     
     public var textAlignment: NSTextAlignment {
         get { label.textAlignment }
-        set { label.textAlignment = newValue }
+        set {
+            label.textAlignment = newValue
+            extraLabel.textAlignment = newValue
+        }
     }
     
     public var lineBreakMode: NSLineBreakMode {
         get { label.lineBreakMode }
-        set { label.lineBreakMode = newValue }
+        set {
+            label.lineBreakMode = newValue
+            extraLabel.lineBreakMode = newValue
+        }
     }
     
     public var numberOfLines: Int {
         get { label.numberOfLines }
-        set { label.numberOfLines = newValue }
+        set {
+            label.numberOfLines = newValue
+            extraLabel.numberOfLines = newValue
+        }
     }
     
     public var isProBadgeHidden: Bool {
@@ -54,6 +86,7 @@ public class SessionLabelWithProBadge: UIView {
         set {
             super.isUserInteractionEnabled = newValue
             label.isUserInteractionEnabled = newValue
+            extraLabel.isUserInteractionEnabled = newValue
         }
     }
     
@@ -64,6 +97,7 @@ public class SessionLabelWithProBadge: UIView {
     // MARK: - UI Components
     
     private let label: SRCopyableLabel = SRCopyableLabel()
+    private let extraLabel: UILabel = UILabel()
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: proBadgeSize)
@@ -79,6 +113,7 @@ public class SessionLabelWithProBadge: UIView {
                 [
                     label,
                     sessionProBadge,
+                    extraLabel,
                     withStretchingSpacer ? UIView.hStretchingSpacer() : nil
                 ]
                 .compactMap { $0 }

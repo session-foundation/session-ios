@@ -300,15 +300,10 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                 title: SessionCell.TextInfo(
                                     (model.profile?.displayName() ?? model.id.truncated()),
                                     font: .title,
-                                    extraViewGenerator: (viewModel.dependencies.mutate(cache: .libSession) { $0.validateProProof(for: model.profile) }) ?
-                                        {
-                                            let result: UIView = UIView()
-                                            let probadge: SessionProBadge = SessionProBadge(size: .small)
-                                            result.addSubview(probadge)
-                                            probadge.pin(to: result, withInset: 4)
-                                            return result
-                                        }
-                                        : nil
+                                    trailingImage: {
+                                        guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateProProof(for: model.profile) }) else { return nil }
+                                        return ("ProBadge", { [dependencies = viewModel.dependencies] in SessionProBadge(size: .small).toImage(using: dependencies) })
+                                    }()
                                 ),
                                 trailingAccessory: .radio(
                                     isSelected: state.selectedIds.contains(model.id)

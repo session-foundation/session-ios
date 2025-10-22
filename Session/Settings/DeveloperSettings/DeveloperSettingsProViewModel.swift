@@ -81,6 +81,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case mockInstalledFromIPA
         case originatingPlatform
         
+        case messageFeatureProBadge
+        case messageFeatureLongMessage
+        case messageFeatureAnimatedAvatar
+        
         // MARK: - Conformance
         
         public typealias DifferenceIdentifier = String
@@ -96,9 +100,16 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .proStatus: return "proStatus"
                 case .allUsersSessionPro: return "allUsersSessionPro"
+<<<<<<< HEAD
                 case .proPlanToRecover: return "proPlanToRecover"
                 case .mockInstalledFromIPA: return "mockInstalledFromIPA"
                 case .originatingPlatform: return "originatingPlatform"
+=======
+                
+                case .messageFeatureProBadge: return "messageFeatureProBadge"
+                case .messageFeatureLongMessage: return "messageFeatureLongMessage"
+                case .messageFeatureAnimatedAvatar: return "messageFeatureAnimatedAvatar"
+>>>>>>> session-pro-badge
             }
         }
         
@@ -118,9 +129,16 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .proStatus: result.append(.proStatus); fallthrough
                 case .allUsersSessionPro: result.append(.allUsersSessionPro); fallthrough
+<<<<<<< HEAD
                 case .proPlanToRecover: result.append(.proPlanToRecover); fallthrough
                 case .mockInstalledFromIPA: result.append(mockInstalledFromIPA); fallthrough
                 case .originatingPlatform: result.append(.originatingPlatform)
+=======
+                
+                case .messageFeatureProBadge: result.append(.messageFeatureProBadge); fallthrough
+                case .messageFeatureLongMessage: result.append(.messageFeatureLongMessage); fallthrough
+                case .messageFeatureAnimatedAvatar: result.append(.messageFeatureAnimatedAvatar)
+>>>>>>> session-pro-badge
             }
             
             return result
@@ -149,6 +167,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let proPlanToRecover: Bool
         let mockInstalledFromIPA: Bool
         let originatingPlatform: ClientPlatform
+        
+        let messageFeatureProBadge: Bool
+        let messageFeatureLongMessage: Bool
+        let messageFeatureAnimatedAvatar: Bool
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -179,11 +201,20 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 purchaseTransaction: nil,
                 refundRequestStatus: nil,
                 
+<<<<<<< HEAD
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
                 allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
                 proPlanToRecover: dependencies[feature: .proPlanToRecover],
                 mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
                 originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
+=======
+                mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
+                allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
+                
+                messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
+                messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
+                messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar]
+>>>>>>> session-pro-badge
             )
         }
     }
@@ -227,11 +258,19 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             purchaseStatus: purchaseStatus,
             purchaseTransaction: purchaseTransaction,
             refundRequestStatus: refundRequestStatus,
+<<<<<<< HEAD
             mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
             allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
             proPlanToRecover: dependencies[feature: .proPlanToRecover],
             mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
             originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
+=======
+            mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
+            allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
+            messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
+            messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
+            messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar]
+>>>>>>> session-pro-badge
         )
     }
     
@@ -388,71 +427,116 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                             to: !state.allUsersSessionPro
                         )
                     }
-                ),
-                {
-                    switch state.mockCurrentUserSessionPro {
-                        case .none, .expired:
+                )
+            ].appending(
+                contentsOf: !state.allUsersSessionPro ? [] : [
+                    SessionCell.Info(
+                        id: .messageFeatureProBadge,
+                        title: .init("Message Feature: Pro Badge", font: .subtitle),
+                        trailingAccessory: .toggle(
+                            state.messageFeatureProBadge,
+                            oldValue: previousState.messageFeatureProBadge
+                        ),
+                        onTap: { [dependencies = viewModel.dependencies] in
+                            dependencies.set(
+                                feature: .messageFeatureProBadge,
+                                to: !state.messageFeatureProBadge
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .messageFeatureLongMessage,
+                        title: .init("Message Feature: Long Message", font: .subtitle),
+                        trailingAccessory: .toggle(
+                            state.messageFeatureLongMessage,
+                            oldValue: previousState.messageFeatureLongMessage
+                        ),
+                        onTap: { [dependencies = viewModel.dependencies] in
+                            dependencies.set(
+                                feature: .messageFeatureLongMessage,
+                                to: !state.messageFeatureLongMessage
+                            )
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .messageFeatureAnimatedAvatar,
+                        title: .init("Message Feature: Animated Avatar", font: .subtitle),
+                        trailingAccessory: .toggle(
+                            state.messageFeatureAnimatedAvatar,
+                            oldValue: previousState.messageFeatureAnimatedAvatar
+                        ),
+                        onTap: { [dependencies = viewModel.dependencies] in
+                            dependencies.set(
+                                feature: .messageFeatureAnimatedAvatar,
+                                to: !state.messageFeatureAnimatedAvatar
+                            )
+                        }
+                    ),
+                    {
+                        switch state.mockCurrentUserSessionPro {
+                            case .none, .expired:
+                                SessionCell.Info(
+                                    id: .proPlanToRecover,
+                                    title: "Pro plan to recover",
+                                    subtitle: """
+                                    Mock a pro plan to recover for pro state `None` and `Expired`.
+                                    """,
+                                    trailingAccessory: .toggle(
+                                        state.proPlanToRecover,
+                                        oldValue: previousState.proPlanToRecover
+                                    ),
+                                    onTap: { [dependencies = viewModel.dependencies] in
+                                        dependencies.set(
+                                            feature: .proPlanToRecover,
+                                            to: !state.proPlanToRecover
+                                        )
+                                    }
+                                )
+                            default: nil
+                        }
+                    }(),
+                    (
+                        state.mockCurrentUserSessionPro == .none ? nil :
                             SessionCell.Info(
-                                id: .proPlanToRecover,
-                                title: "Pro plan to recover",
-                                subtitle: """
-                                Mock a pro plan to recover for pro state `None` and `Expired`.
-                                """,
-                                trailingAccessory: .toggle(
-                                    state.proPlanToRecover,
-                                    oldValue: previousState.proPlanToRecover
-                                ),
+                                id: .originatingPlatform,
+                                title: "Originating Platform",
+                                trailingAccessory: .dropDown { state.originatingPlatform.title },
                                 onTap: { [dependencies = viewModel.dependencies] in
+                                    let newValue: ClientPlatform = {
+                                        switch state.originatingPlatform {
+                                            case .Android: return .iOS
+                                            case .iOS: return .Android
+                                        }
+                                    }()
+                                    
                                     dependencies.set(
-                                        feature: .proPlanToRecover,
-                                        to: !state.proPlanToRecover
+                                        feature: .proPlanOriginatingPlatform,
+                                        to: newValue
                                     )
+                                    dependencies[singleton: .sessionProState].updateOriginatingPlatform(newValue)
                                 }
                             )
-                        default: nil
-                    }
-                }(),
-                (
-                    state.mockCurrentUserSessionPro == .none ? nil :
-                        SessionCell.Info(
-                            id: .originatingPlatform,
-                            title: "Originating Platform",
-                            trailingAccessory: .dropDown { state.originatingPlatform.title },
-                            onTap: { [dependencies = viewModel.dependencies] in
-                                let newValue: ClientPlatform = {
-                                    switch state.originatingPlatform {
-                                        case .Android: return .iOS
-                                        case .iOS: return .Android
-                                    }
-                                }()
-                                
-                                dependencies.set(
-                                    feature: .proPlanOriginatingPlatform,
-                                    to: newValue
-                                )
-                                dependencies[singleton: .sessionProState].updateOriginatingPlatform(newValue)
-                            }
-                        )
-                ),
-                SessionCell.Info(
-                    id: .mockInstalledFromIPA,
-                    title: "Mock installed from IPA",
-                    subtitle: """
-                    Mock current app is installed from IPA,
-                    which means NO billing access.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.mockInstalledFromIPA,
-                        oldValue: previousState.mockInstalledFromIPA
                     ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.set(
-                            feature: .mockInstalledFromIPA,
-                            to: !state.mockInstalledFromIPA
-                        )
-                    }
-                )
-            ].compactMap { $0 }
+                    SessionCell.Info(
+                        id: .mockInstalledFromIPA,
+                        title: "Mock installed from IPA",
+                        subtitle: """
+                        Mock current app is installed from IPA,
+                        which means NO billing access.
+                        """,
+                        trailingAccessory: .toggle(
+                            state.mockInstalledFromIPA,
+                            oldValue: previousState.mockInstalledFromIPA
+                        ),
+                        onTap: { [dependencies = viewModel.dependencies] in
+                            dependencies.set(
+                                feature: .mockInstalledFromIPA,
+                                to: !state.mockInstalledFromIPA
+                            )
+                        }
+                    )
+                ].compactMap { $0 }
+            )
         )
         
         return [general, subscriptions, features]

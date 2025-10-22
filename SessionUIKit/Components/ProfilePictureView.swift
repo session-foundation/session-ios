@@ -77,9 +77,10 @@ public final class ProfilePictureView: UIView {
         
         public var multiImageSize: CGFloat {
             switch self {
-                case .navigation, .message, .modal, .expanded: return 18  // Shouldn't be used
+                case .navigation, .message, .modal: return 18  // Shouldn't be used
                 case .list: return 32
                 case .hero: return 80
+                case .expanded: return 140
             }
         }
         

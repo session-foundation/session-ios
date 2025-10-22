@@ -1639,6 +1639,11 @@ extension ConversationVC:
                 dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId) }
             )
             
+            let isCurrentUser: Bool = (viewModel.threadData.currentUserSessionIds?.contains(sessionId) == true)
+            guard !isCurrentUser else {
+                return ("you".localized(), "you".localized())
+            }
+            
             return (
                 (profile?.displayName(for: .contact) ?? cellViewModel.authorNameSuppressedId),
                 profile?.displayName(for: .contact, ignoringNickname: true)

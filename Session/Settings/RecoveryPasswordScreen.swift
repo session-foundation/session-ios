@@ -91,19 +91,25 @@ struct RecoveryPasswordScreen: View {
                                             self.showQRCode.toggle()
                                         }
                                     } label: {
-                                        Text("recoveryPasswordView".localized())
-                                            .bold()
-                                            .font(.system(size: Values.verySmallFontSize))
-                                            .foregroundColor(themeColor: .textPrimary)
-                                            .frame(
-                                                maxWidth: Self.buttonWidth,
-                                                maxHeight: Values.mediumSmallButtonHeight,
-                                                alignment: .center
-                                            )
-                                            .overlay(
-                                                Capsule()
-                                                    .stroke(themeColor: .textPrimary)
-                                            )
+                                        HStack {
+                                            Spacer()
+                                            
+                                            Text("recoveryPasswordView".localized())
+                                                .bold()
+                                                .font(.system(size: Values.verySmallFontSize))
+                                                .foregroundColor(themeColor: .textPrimary)
+                                                .frame(
+                                                    maxHeight: Values.mediumSmallButtonHeight,
+                                                    alignment: .center
+                                                )
+                                                .padding(.horizontal, Values.mediumSmallSpacing)
+                                                .overlay(
+                                                    Capsule()
+                                                        .stroke(themeColor: .textPrimary)
+                                                )
+                                            
+                                            Spacer()
+                                        }
                                     }
                                 }
                                 .frame(maxWidth: .infinity)

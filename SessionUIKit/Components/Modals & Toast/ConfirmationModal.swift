@@ -457,9 +457,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 internalOnTextChanged = { [weak textField, weak confirmButton, weak cancelButton] text, _ in
                     onTextChanged(text)
                     textField?.accessibilityLabel = text
-                    confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
+                    let error: String? = inputInfo.inputChecker?(text)
+                    confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info) && error == nil
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
-                    self.updateContent(withError: inputInfo.inputChecker?(text))
+                    self.updateContent(withError: error)
                 }
                 textFieldContainer.layoutIfNeeded()
                 

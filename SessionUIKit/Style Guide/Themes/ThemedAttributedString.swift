@@ -32,13 +32,24 @@ public extension NSAttributedString.Key {
 public class ThemedAttributedString: Equatable, Hashable {
     internal var value: NSMutableAttributedString {
         if let image = imageAttachmentGenerator?() {
-            return NSMutableAttributedString(attachment: NSTextAttachment(image: image))
+            let attachment = NSTextAttachment(image: image)
+            if let font = imageAttachmentReferenceFont {
+                attachment.bounds = CGRect(
+                    x: 0,
+                    y: font.capHeight / 2 - image.size.height / 2,
+                    width: image.size.width,
+                    height: image.size.height
+                )
+            }
+            
+            return NSMutableAttributedString(attachment: attachment)
         }
         return attributedString
     }
     public var string: String { value.string }
     public var length: Int { value.length }
     internal var imageAttachmentGenerator: (() -> UIImage?)?
+    internal var imageAttachmentReferenceFont: UIFont?
     internal var attributedString: NSMutableAttributedString
     
     public init() {
@@ -71,9 +82,10 @@ public class ThemedAttributedString: Equatable, Hashable {
         self.attributedString = NSMutableAttributedString(attachment: attachment)
     }
     
-    public init(imageAttachmentGenerator: @escaping (() -> UIImage?)) {
+    public init(imageAttachmentGenerator: @escaping (() -> UIImage?), referenceFont: UIFont?) {
         self.attributedString = NSMutableAttributedString()
         self.imageAttachmentGenerator = imageAttachmentGenerator
+        self.imageAttachmentReferenceFont = referenceFont
     }
     
     required init?(coder: NSCoder) {
