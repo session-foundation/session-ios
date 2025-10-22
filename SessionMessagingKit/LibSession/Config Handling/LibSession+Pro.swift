@@ -47,7 +47,7 @@ public extension LibSessionCacheType {
         }
         guard threadVariant != .community else { return false }
         if threadId == dependencies[cache: .general].sessionId.hexString {
-            return dependencies[feature: .mockCurrentUserSessionPro]
+            return [ .active, .refunding ].contains(dependencies[feature: .mockCurrentUserSessionProState])
         } else {
             return dependencies[feature: .allUsersSessionPro]
         }

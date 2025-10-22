@@ -100,16 +100,14 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .proStatus: return "proStatus"
                 case .allUsersSessionPro: return "allUsersSessionPro"
-<<<<<<< HEAD
-                case .proPlanToRecover: return "proPlanToRecover"
-                case .mockInstalledFromIPA: return "mockInstalledFromIPA"
-                case .originatingPlatform: return "originatingPlatform"
-=======
                 
                 case .messageFeatureProBadge: return "messageFeatureProBadge"
                 case .messageFeatureLongMessage: return "messageFeatureLongMessage"
                 case .messageFeatureAnimatedAvatar: return "messageFeatureAnimatedAvatar"
->>>>>>> session-pro-badge
+                
+                case .proPlanToRecover: return "proPlanToRecover"
+                case .mockInstalledFromIPA: return "mockInstalledFromIPA"
+                case .originatingPlatform: return "originatingPlatform"
             }
         }
         
@@ -129,16 +127,14 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .proStatus: result.append(.proStatus); fallthrough
                 case .allUsersSessionPro: result.append(.allUsersSessionPro); fallthrough
-<<<<<<< HEAD
-                case .proPlanToRecover: result.append(.proPlanToRecover); fallthrough
-                case .mockInstalledFromIPA: result.append(mockInstalledFromIPA); fallthrough
-                case .originatingPlatform: result.append(.originatingPlatform)
-=======
                 
                 case .messageFeatureProBadge: result.append(.messageFeatureProBadge); fallthrough
                 case .messageFeatureLongMessage: result.append(.messageFeatureLongMessage); fallthrough
-                case .messageFeatureAnimatedAvatar: result.append(.messageFeatureAnimatedAvatar)
->>>>>>> session-pro-badge
+                case .messageFeatureAnimatedAvatar: result.append(.messageFeatureAnimatedAvatar); fallthrough
+                
+                case .proPlanToRecover: result.append(.proPlanToRecover); fallthrough
+                case .mockInstalledFromIPA: result.append(mockInstalledFromIPA); fallthrough
+                case .originatingPlatform: result.append(.originatingPlatform)
             }
             
             return result
@@ -164,13 +160,14 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         let mockCurrentUserSessionPro: SessionProStateMock
         let allUsersSessionPro: Bool
-        let proPlanToRecover: Bool
-        let mockInstalledFromIPA: Bool
-        let originatingPlatform: ClientPlatform
         
         let messageFeatureProBadge: Bool
         let messageFeatureLongMessage: Bool
         let messageFeatureAnimatedAvatar: Bool
+        
+        let proPlanToRecover: Bool
+        let mockInstalledFromIPA: Bool
+        let originatingPlatform: ClientPlatform
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -201,20 +198,16 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 purchaseTransaction: nil,
                 refundRequestStatus: nil,
                 
-<<<<<<< HEAD
                 mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
-                allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
-                proPlanToRecover: dependencies[feature: .proPlanToRecover],
-                mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
-                originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
-=======
-                mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
                 allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
                 
                 messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
                 messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
-                messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar]
->>>>>>> session-pro-badge
+                messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar],
+                
+                proPlanToRecover: dependencies[feature: .proPlanToRecover],
+                mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
+                originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
             )
         }
     }
@@ -258,19 +251,14 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             purchaseStatus: purchaseStatus,
             purchaseTransaction: purchaseTransaction,
             refundRequestStatus: refundRequestStatus,
-<<<<<<< HEAD
             mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionProState],
-            allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
-            proPlanToRecover: dependencies[feature: .proPlanToRecover],
-            mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
-            originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
-=======
-            mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
             allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
             messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
             messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
-            messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar]
->>>>>>> session-pro-badge
+            messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar],
+            proPlanToRecover: dependencies[feature: .proPlanToRecover],
+            mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
+            originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
         )
     }
     

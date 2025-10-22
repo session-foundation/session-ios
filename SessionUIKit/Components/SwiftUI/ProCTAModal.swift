@@ -276,7 +276,7 @@ public extension ProCTAModal {
         case longerMessages
         case animatedProfileImage(isSessionProActivated: Bool)
         case morePinnedConvos(isGrandfathered: Bool)
-        case groupLimit(isAdmin: Bool, isSessionProActivated: Bool)
+        case groupLimit(isAdmin: Bool, isSessionProActivated: Bool, proBadgeImage: UIImage)
         case expiring(timeLeft: TimeInterval)
 
         // stringlint:ignore_contents
@@ -290,7 +290,7 @@ public extension ProCTAModal {
                     return "AnimatedProfileCTA.webp"
                 case .morePinnedConvos:
                     return "PinnedConversationsCTA.webp"
-                case .groupLimit(let isAdmin, let isSessionProActivated):
+                case .groupLimit(let isAdmin, let isSessionProActivated, _):
                     switch (isAdmin, isSessionProActivated) {
                         case (false, false):
                             return "GroupNonAdminCTA.webp"
@@ -351,7 +351,7 @@ public extension ProCTAModal {
                         "proCallToActionPinnedConversationsMoreThan"
                             .put(key: "app_pro", value: Constants.app_pro)
                             .localized()
-                case .groupLimit(let isAdmin, let isSessionProActivated):
+                case .groupLimit(let isAdmin, let isSessionProActivated, _):
                     switch (isAdmin, isSessionProActivated) {
                         case (_, true):
                             return "proGroupActivatedDescription".localized()
@@ -403,7 +403,7 @@ public extension ProCTAModal {
                         "proFeatureListLargerGroups".localized(),
                         "proFeatureListLoadsMore".localized()
                     ]
-                case .groupLimit(let isAdmin, let isSessionProActivated):
+                case .groupLimit(let isAdmin, let isSessionProActivated, _):
                     switch (isAdmin, isSessionProActivated) {
                         case (true, false):
                             return [
@@ -446,7 +446,7 @@ public extension ProCTAModal {
             switch self {
                 case .animatedProfileImage(let isSessionProActivated):
                     return isSessionProActivated
-                case .groupLimit(let isAdmin, let isSessionProActivated):
+                case .groupLimit(let isAdmin, let isSessionProActivated, _):
                     return (!isAdmin || isSessionProActivated)
                 default:
                     return false
