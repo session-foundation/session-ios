@@ -22,49 +22,11 @@ public extension SessionListScreenContent {
         public func updateTableData(_ updatedData: [SectionModel]) { self.listItemData = updatedData }
     }
     
-    struct CellInfo: Equatable, Hashable, Differentiable {
-        let leadingAccessory: ListItemAccessory?
-        let title: TextInfo?
-        let description: TextInfo?
-        let trailingAccessory: ListItemAccessory?
-        
-        public init(
-            leadingAccessory: ListItemAccessory? = nil,
-            title: TextInfo? = nil,
-            description: TextInfo? = nil,
-            trailingAccessory: ListItemAccessory? = nil
-        ) {
-            self.leadingAccessory = leadingAccessory
-            self.title = title
-            self.description = description
-            self.trailingAccessory = trailingAccessory
-        }
-    }
-    
-    struct DataMatrixInfo: Equatable, Hashable, Differentiable {
-        let leadingAccessory: ListItemAccessory?
-        let title: TextInfo?
-        let trailingAccessory: ListItemAccessory?
-        let tooltipInfo: TooltipInfo?
-        
-        public init(
-            leadingAccessory: ListItemAccessory? = nil,
-            title: TextInfo? = nil,
-            trailingAccessory: ListItemAccessory? = nil,
-            tooltipInfo: TooltipInfo? = nil
-        ) {
-            self.leadingAccessory = leadingAccessory
-            self.title = title
-            self.trailingAccessory = trailingAccessory
-            self.tooltipInfo = tooltipInfo
-        }
-    }
-    
     struct ListItemInfo<ID: Hashable & Differentiable>: Equatable, Hashable, Differentiable {
         public enum Variant: Equatable, Hashable, Differentiable {
-            case cell(info: CellInfo)
-            case logoWithPro(style: ListItemLogoWithPro.ThemeStyle, description: ThemedAttributedString?)
-            case dataMatrix(info: [[DataMatrixInfo]])
+            case cell(info: ListItemCell.Info)
+            case logoWithPro(info: ListItemLogoWithPro.Info)
+            case dataMatrix(info: [[ListItemDataMatrix.Info]])
             case button(title: String)
         }
         

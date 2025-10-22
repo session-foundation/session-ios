@@ -1,14 +1,34 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import DifferenceKit
 
 // MARK: - ListItemCell
 
-struct ListItemCell: View {
-    let info: SessionListScreenContent.CellInfo
+public struct ListItemCell: View {
+    public struct Info: Equatable, Hashable, Differentiable {
+        let leadingAccessory: SessionListScreenContent.ListItemAccessory?
+        let title: SessionListScreenContent.TextInfo?
+        let description: SessionListScreenContent.TextInfo?
+        let trailingAccessory: SessionListScreenContent.ListItemAccessory?
+        
+        public init(
+            leadingAccessory: SessionListScreenContent.ListItemAccessory? = nil,
+            title: SessionListScreenContent.TextInfo? = nil,
+            description: SessionListScreenContent.TextInfo? = nil,
+            trailingAccessory: SessionListScreenContent.ListItemAccessory? = nil
+        ) {
+            self.leadingAccessory = leadingAccessory
+            self.title = title
+            self.description = description
+            self.trailingAccessory = trailingAccessory
+        }
+    }
+    
+    let info: Info
     let height: CGFloat
     
-    var body: some View {
+    public var body: some View {
         HStack(spacing: Values.mediumSpacing) {
             if let leadingAccessory = info.leadingAccessory {
                 leadingAccessory.accessoryView()
@@ -113,19 +133,29 @@ public struct ListItemLogoWithPro: View {
         }
     }
     
-    let style: ThemeStyle
-    let description: ThemedAttributedString?
-    
-    public init(style: ThemeStyle = .normal, description: ThemedAttributedString?) {
-        self.style = style
-        self.description = description
+    public enum State: Equatable, Hashable {
+        case loading
+        case error
+        case success(description: ThemedAttributedString?)
     }
     
+    public struct Info: Equatable, Hashable, Differentiable {
+        public let style: ThemeStyle
+        public let state: State
+        
+        public init(style: ThemeStyle, state: State) {
+            self.style = style
+            self.state = state
+        }
+    }
+    
+    let info: Info
+
     public var body: some View {
         VStack(spacing: 0) {
             ZStack {
                 Ellipse()
-                    .fill(themeColor: style.growingBackgroundColor)
+                    .fill(themeColor: info.style.growingBackgroundColor)
                     .frame(
                         width: UIScreen.main.bounds.width - 2 * Values.mediumSpacing - 20 * 2,
                         height: 111
@@ -137,7 +167,7 @@ public struct ListItemLogoWithPro: View {
                 Image("SessionGreen64")
                     .resizable()
                     .renderingMode(.template)
-                    .foregroundColor(themeColor: style.themeColor)
+                    .foregroundColor(themeColor: info.style.themeColor)
                     .scaledToFit()
                     .frame(width: 100, height: 111)
             }
@@ -155,10 +185,10 @@ public struct ListItemLogoWithPro: View {
                     .scaledToFit()
                     .frame(width: 131, height: 18)
                 
-                SessionProBadge_SwiftUI(size: .medium, themeBackgroundColor: style.themeColor)
+                SessionProBadge_SwiftUI(size: .medium, themeBackgroundColor: info.style.themeColor)
             }
             
-            if let description {
+            if case .success(let description) = info.state, let description {
                 AttributedText(description)
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
@@ -172,7 +202,26 @@ public struct ListItemLogoWithPro: View {
 
 // MARK: - ListItemDataMatrix
 
-struct ListItemDataMatrix: View {
+public struct ListItemDataMatrix: View {
+    public struct Info: Equatable, Hashable, Differentiable {
+        let leadingAccessory: SessionListScreenContent.ListItemAccessory?
+        let title: SessionListScreenContent.TextInfo?
+        let trailingAccessory: SessionListScreenContent.ListItemAccessory?
+        let tooltipInfo: SessionListScreenContent.TooltipInfo?
+        
+        public init(
+            leadingAccessory: SessionListScreenContent.ListItemAccessory? = nil,
+            title: SessionListScreenContent.TextInfo? = nil,
+            trailingAccessory: SessionListScreenContent.ListItemAccessory? = nil,
+            tooltipInfo: SessionListScreenContent.TooltipInfo? = nil
+        ) {
+            self.leadingAccessory = leadingAccessory
+            self.title = title
+            self.trailingAccessory = trailingAccessory
+            self.tooltipInfo = tooltipInfo
+        }
+    }
+    
     @Binding var isShowingTooltip: Bool
     @Binding var tooltipContent: ThemedAttributedString
     @Binding var tooltipViewId: String
@@ -180,15 +229,15 @@ struct ListItemDataMatrix: View {
     @Binding var tooltipArrowOffset: CGFloat
     @Binding var suppressUntil: Date
     
-    let info: [[SessionListScreenContent.DataMatrixInfo]]
+    let info: [[Info]]
     
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 0) {
             ForEach(info.indices, id: \.self) { rowIndex in
-                let row: [SessionListScreenContent.DataMatrixInfo] = info[rowIndex]
+                let row: [Info] = info[rowIndex]
                 HStack(spacing: Values.mediumSpacing) {
                     ForEach(row.indices, id: \.self) { columnIndex in
-                        let item: SessionListScreenContent.DataMatrixInfo = row[columnIndex]
+                        let item: Info = row[columnIndex]
                         HStack(spacing: Values.mediumSpacing) {
                             if let leadingAccessory = item.leadingAccessory {
                                 leadingAccessory.accessoryView()
@@ -271,3 +320,4 @@ struct ListItemButton: View {
             .padding(.vertical, Values.smallSpacing)
     }
 }
+

@@ -34,13 +34,15 @@ public struct SessionProPaymentScreen: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: Values.mediumSmallSpacing) {
                     ListItemLogoWithPro(
-                        style: {
-                            switch viewModel.dataModel.flow {
-                                case .refund, .cancel: return .disabled
-                                default: return .normal
-                            }
-                        }(),
-                        description: viewModel.dataModel.flow.description
+                        info: .init(
+                            style: {
+                                switch viewModel.dataModel.flow {
+                                    case .refund, .cancel: return .disabled
+                                    default: return .normal
+                                }
+                            }(),
+                            state: .success(description: viewModel.dataModel.flow.description)
+                        )
                     )
                     if case .purchase = viewModel.dataModel.flow {
                         SessionProPlanPurchaseContent(

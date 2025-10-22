@@ -91,8 +91,8 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                             .foregroundColor(themeColor: .borderSeparator)
                                             .padding(.horizontal, Values.mediumSpacing)
                                     }
-                                case .logoWithPro(let style, let description):
-                                    ListItemLogoWithPro(style: style, description: description)
+                                case .logoWithPro(let info):
+                                    ListItemLogoWithPro(info: info)
                                 case .dataMatrix(let info):
                                     ListItemDataMatrix(
                                         isShowingTooltip: $isShowingTooltip,

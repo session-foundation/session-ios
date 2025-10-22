@@ -3,7 +3,6 @@
 import SwiftUI
 import Lucide
 import Combine
-import SessionUtilitiesKit
 
 public struct ProCTAModal: View {
     @EnvironmentObject var host: HostWrapper
@@ -117,7 +116,7 @@ public struct ProCTAModal: View {
                                 .foregroundColor(themeColor: .textPrimary)
                         }
                     } else if case .expiring(let timeLeft) = variant {
-                        let isExpired: Bool = (timeLeft <= 0)
+                        let isExpired: Bool = (timeLeft?.isEmpty != false)
                         HStack(spacing: Values.smallSpacing) {
                             SessionProBadge_SwiftUI(
                                 size: .large,
@@ -277,7 +276,7 @@ public extension ProCTAModal {
         case animatedProfileImage(isSessionProActivated: Bool)
         case morePinnedConvos(isGrandfathered: Bool)
         case groupLimit(isAdmin: Bool, isSessionProActivated: Bool, proBadgeImage: UIImage)
-        case expiring(timeLeft: TimeInterval)
+        case expiring(timeLeft: String?)
 
         // stringlint:ignore_contents
         public var backgroundImageName: String {
@@ -302,7 +301,7 @@ public extension ProCTAModal {
         
         public var themeColor: ThemeValue {
             switch self {
-                case .expiring(let timeLeft): return timeLeft > 0 ? .primary : .disabled
+                case .expiring(let timeLeft): return (timeLeft?.isEmpty == false) ? .primary : .disabled
                 default: return .primary
             }
         }
@@ -364,16 +363,18 @@ public extension ProCTAModal {
                             return "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro" // TODO: Localised
                     }
                 case .expiring(let timeLeft):
-                    return timeLeft > 0 ?
-                        "proExpiringSoonDescription"
+                    if let timeLeft, !timeLeft.isEmpty {
+                        return "proExpiringSoonDescription"
                             .put(key: "pro", value: Constants.pro)
-                            .put(key: "time", value: timeLeft.formatted(format: .long))
+                            .put(key: "time", value: timeLeft)
                             .put(key: "app_pro", value: Constants.app_pro)
-                            .localized() :
-                        "proExpiredDescription"
+                            .localized()
+                    } else {
+                        return "proExpiredDescription"
                             .put(key: "pro", value: Constants.pro)
                             .put(key: "app_pro", value: Constants.app_pro)
                             .localized()
+                    }
             }
         }
         
@@ -425,7 +426,7 @@ public extension ProCTAModal {
         public var confirmButtonTitle: String {
             switch self {
                 case .expiring(let timeLeft):
-                    return timeLeft > 0 ? "updatePlan".localized() : "renew".localized()
+                return (timeLeft?.isEmpty == false) ? "updatePlan".localized() : "renew".localized()
                 default: return "theContinue".localized()
             }
         }
@@ -437,7 +438,7 @@ public extension ProCTAModal {
             
             switch self {
                 case .expiring(let timeLeft):
-                    return timeLeft > 0 ? "close".localized() : "cancel".localized()
+                    return (timeLeft?.isEmpty == false) ? "close".localized() : "cancel".localized()
                 default: return "cancel".localized()
             }
         }

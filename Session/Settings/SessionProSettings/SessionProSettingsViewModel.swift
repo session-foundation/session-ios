@@ -227,19 +227,23 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 SessionListScreenContent.ListItemInfo(
                     id: .logoWithPro,
                     variant: .logoWithPro(
-                        style:{
-                            switch state.currentProPlanState {
-                                case .expired: .disabled
-                                default: .normal
-                            }
-                        }(),
-                        description: {
-                            switch state.currentProPlanState {
-                                case .none:
-                                    ThemedAttributedString(string: "Want to use Session to its fullest potential? \nUpgrade to Session Pro Beta to gain access to loads exclusive perks and features.")
-                                default: nil
-                            }
-                        }()
+                        info: .init(
+                            style:{
+                                switch state.currentProPlanState {
+                                    case .expired: .disabled
+                                    default: .normal
+                                }
+                            }(),
+                            state: .success(
+                                description: {
+                                    switch state.currentProPlanState {
+                                        case .none:
+                                            ThemedAttributedString(string: "Want to use Session to its fullest potential? \nUpgrade to Session Pro Beta to gain access to loads exclusive perks and features.")
+                                        default: nil
+                                    }
+                                }()
+                            )
+                        )
                     )
                 ),
                 (
@@ -261,7 +265,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     variant: .dataMatrix(
                         info: [
                             [
-                                SessionListScreenContent.DataMatrixInfo(
+                                .init(
                                     leadingAccessory: .icon(
                                         .messageSquare,
                                         size: .large,
@@ -275,7 +279,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         font: .Headings.H9
                                     )
                                 ),
-                                SessionListScreenContent.DataMatrixInfo(
+                                .init(
                                     leadingAccessory: .icon(
                                         .pin,
                                         size: .large,
@@ -291,7 +295,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                             ],
                             [
-                                SessionListScreenContent.DataMatrixInfo(
+                                .init(
                                     leadingAccessory: .icon(
                                         .rectangleEllipsis,
                                         size: .large,
@@ -306,7 +310,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         font: .Headings.H9
                                     )
                                 ),
-                                SessionListScreenContent.DataMatrixInfo(
+                                .init(
                                     leadingAccessory: .icon(
                                         UIImage(named: "ic_user_group"),
                                         size: .large,
