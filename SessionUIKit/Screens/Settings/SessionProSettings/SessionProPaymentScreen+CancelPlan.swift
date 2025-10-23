@@ -40,19 +40,23 @@ struct CancelPlanOriginatingPlatformContent: View {
                 cancelPlanAction()
                 
             } label: {
-                Text("cancelPlan".localized())
-                    .font(.Body.largeRegular)
-                    .foregroundColor(themeColor: .sessionButton_primaryFilledText)
-                    .framing(
-                        maxWidth: .infinity,
-                        height: 50,
-                        alignment: .center
-                    )
-                    .background(
-                        RoundedRectangle(cornerRadius: 7)
-                            .fill(themeColor: .danger)
-                    )
-                    .padding(.vertical, Values.smallSpacing)
+                Text(
+                    "cancelAccess"
+                        .put(key: "pro", value: Constants.pro)
+                        .localized()
+                )
+                .font(.Body.largeRegular)
+                .foregroundColor(themeColor: .sessionButton_primaryFilledText)
+                .framing(
+                    maxWidth: .infinity,
+                    height: 50,
+                    alignment: .center
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(themeColor: .danger)
+                )
+                .padding(.vertical, Values.smallSpacing)
             }
         }
     }
@@ -89,9 +93,13 @@ struct CancelPlanNonOriginatingPlatformContent: View {
                     .foregroundColor(themeColor: .textPrimary)
                 }
                 
-                Text("proCancellationOptions".localized())
-                    .font(.Body.baseRegular)
-                    .foregroundColor(themeColor: .textSecondary)
+                Text(
+                    "proCancellationOptions"
+                        .put(key: "pro", value: Constants.pro)
+                        .localized()
+                )
+                .font(.Body.baseRegular)
+                .foregroundColor(themeColor: .textSecondary)
                 
                 ApproachCell(
                     title: "onDevice"
@@ -102,6 +110,7 @@ struct CancelPlanNonOriginatingPlatformContent: View {
                         .put(key: "device_type", value: originatingPlatform.deviceType)
                         .put(key: "platform_account", value: originatingPlatform.account)
                         .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(),
                     variant: .device
                 )
@@ -113,6 +122,7 @@ struct CancelPlanNonOriginatingPlatformContent: View {
                     description: "viaStoreWebsiteDescription"
                         .put(key: "platform_account", value: originatingPlatform.account)
                         .put(key: "platform_store", value: originatingPlatform.store)
+                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular),
                     variant: .website
                 )

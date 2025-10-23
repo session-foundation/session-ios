@@ -426,7 +426,7 @@ public extension ProCTAModal {
         public var confirmButtonTitle: String {
             switch self {
                 case .expiring(let timeLeft):
-                return (timeLeft?.isEmpty == false) ? "updatePlan".localized() : "renew".localized()
+                return (timeLeft?.isEmpty == false) ? "update".localized() : "renew".localized()
                 default: return "theContinue".localized()
             }
         }

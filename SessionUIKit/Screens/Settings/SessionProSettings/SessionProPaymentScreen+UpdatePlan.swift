@@ -22,15 +22,20 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                     alignment: .leading,
                     spacing: Values.verySmallSpacing
                 ) {
-                    Text("updatePlan".localized())
-                        .font(.Headings.H7)
-                        .foregroundColor(themeColor: .textPrimary)
+                    Text(
+                        "updateAccess"
+                            .put(key: "pro", value: Constants.pro)
+                            .localized()
+                    )
+                    .font(.Headings.H7)
+                    .foregroundColor(themeColor: .textPrimary)
                     
                     AttributedText(
-                        "proPlanSignUp"
+                        "proAccessSignUp"
                             .put(key: "app_pro", value: Constants.app_pro)
                             .put(key: "platform_store", value: originatingPlatform.store)
                             .put(key: "platform_account", value: originatingPlatform.account)
+                            .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular)
                     )
                     .font(.Body.baseRegular)
@@ -38,9 +43,13 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                     .multilineTextAlignment(.leading)
                 }
                 
-                Text("updatePlanTwo".localized())
-                    .font(.Body.baseRegular)
-                    .foregroundColor(themeColor: .textSecondary)
+                Text(
+                    "updateAccessTwo"
+                        .put(key: "pro", value: Constants.pro)
+                        .localized()
+                )
+                .font(.Body.baseRegular)
+                .foregroundColor(themeColor: .textSecondary)
                 
                 ApproachCell(
                     title: "onDevice"
@@ -51,7 +60,8 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                         .put(key: "device_type", value: originatingPlatform.deviceType)
                         .put(key: "platform_account", value: originatingPlatform.account)
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .localizedFormatted(),
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(Fonts.Body.baseRegular),
                     variant: .device
                 )
                 
@@ -62,6 +72,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                     description: "viaStoreWebsiteDescription"
                         .put(key: "platform_account", value: originatingPlatform.account)
                         .put(key: "platform_store", value: originatingPlatform.store)
+                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular),
                     variant: .website
                 )

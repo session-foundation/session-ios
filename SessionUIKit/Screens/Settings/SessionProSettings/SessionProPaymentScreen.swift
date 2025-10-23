@@ -81,7 +81,7 @@ public struct SessionProPaymentScreen: View {
                                 suppressUntil: $suppressUntil,
                                 currentPlan: currentPlan,
                                 sessionProPlans: viewModel.dataModel.plans,
-                                actionButtonTitle: "updatePlan".localized(),
+                                actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
                                 purchaseAction: { updatePlan() },
                                 openTosPrivacyAction: { openTosPrivacy() }
                             )
@@ -152,6 +152,7 @@ public struct SessionProPaymentScreen: View {
                                 "proDiscountTooltip"
                                     .put(key: "percent", value: discountPercent)
                                     .put(key: "app_pro", value: Constants.app_pro)
+                                    .put(key: "pro", value: Constants.pro)
                                     .localized()
                             )
                             .font(.Body.smallRegular)
@@ -180,23 +181,26 @@ public struct SessionProPaymentScreen: View {
         {
             let confirmationModal = ConfirmationModal(
                 info: .init(
-                    title: "updatePlan".localized(),
+                    title: "updateAccess"
+                        .put(key: "pro", value: Constants.pro)
+                        .localized(),
                     body: .attributedText(
                         isAutoRenewing ?
-                            "proUpdatePlanDescription"
-                                .put(key: "current_plan", value: currentPlan.durationString)
-                                .put(key: "selected_plan", value: updatedPlan.durationString)
+                            "proUpdateAccessDescription"
+                                .put(key: "current_plan_length", value: currentPlan.durationString)
+                                .put(key: "selected_plan_length", value: updatedPlan.durationString)
+                                .put(key: "selected_plan_length_singular", value: updatedPlan.durationStringSingular)
                                 .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                                 .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(Fonts.Body.largeRegular) :
-                            "proUpdatePlanExpireDescription"
+                            "proUpdateAccessExpireDescription"
                                 .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                                .put(key: "selected_plan", value: updatedPlan.durationString)
+                                .put(key: "selected_plan_length", value: updatedPlan.durationString)
                                 .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(Fonts.Body.largeRegular),
                         scrollMode: .never
                     ),
-                    confirmTitle: "updatePlan".localized(),
+                    confirmTitle: "update".localized(),
                     onConfirm: { _ in
                         self.viewModel.purchase(
                             planInfo: updatedPlan,

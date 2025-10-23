@@ -27,31 +27,31 @@ public extension SessionProPaymentScreenContent {
         var description: ThemedAttributedString {
             switch self {
             case .purchase:
-                ThemedAttributedString(string: "Choose the plan that’s right for you, longer plans have bigger discounts.")
+                "proChooseAccess"
+                    .put(key: "pro", value: Constants.pro)
+                    .localizedFormatted(Fonts.Body.baseRegular)
             case .update(let currentPlan, let expiredOn, let isAutoRenewing, _):
                 isAutoRenewing ?
-                    "proPlanActivatedAuto"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "current_plan", value: currentPlan.durationString)
+                    "proAccessActivatesAuto"
+                        .put(key: "current_plan_length", value: currentPlan.durationString)
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular) :
-                    "proPlanActivatedNotAuto"
-                        .put(key: "app_pro", value: Constants.app_pro)
+                    "proAccessActivatedNotAuto"
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
             case .renew:
-                "proPlanRenewStart"
+                "proAccessRenewStart"
                     .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "pro", value: Constants.pro)
                     .localizedFormatted(baseFont: Fonts.Body.baseRegular)
             case .refund:
                 "proRefundDescription"
                     .localizedFormatted(baseFont: Fonts.Body.baseRegular)
-            case .cancel(let originatingPlatform):
+            case .cancel:
                 "proCancelSorry"
                     .put(key: "pro", value: Constants.pro)
-                    .put(key: "app_pro", value: Constants.app_pro)
                     .localizedFormatted(baseFont: Fonts.Body.baseRegular)
             }
         }
@@ -97,7 +97,15 @@ public extension SessionProPaymentScreenContent {
             formatter.unitsStyle = .full
             formatter.allowedUnits = [.month]
             let components = DateComponents(month: self.duration)
-            return (formatter.string(from: components) ?? "\(self.duration) Months").capitalized
+            return (formatter.string(from: components) ?? "\(self.duration) Months")
+        }
+        var durationStringSingular: String {
+            let formatter = DateComponentsFormatter()
+            formatter.unitsStyle = .full
+            formatter.allowedUnits = [.month]
+            formatter.maximumUnitCount = 1
+            let components = DateComponents(month: self.duration)
+            return (formatter.string(from: components) ?? "\(self.duration) Month")
         }
         let totalPrice: Double
         let pricePerMonth: Double

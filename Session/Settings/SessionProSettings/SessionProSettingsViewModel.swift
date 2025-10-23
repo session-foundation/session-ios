@@ -621,7 +621,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             variant: .cell(
                                 info: .init(
                                     title: .init(
-                                        "cancelPro"
+                                        "cancelAccess"
                                             .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         font: .Headings.H8,
@@ -650,7 +650,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         variant: .cell(
                             info: .init(
                                 title: .init(
-                                    "proPlanRenew"
+                                    "proAccessRenew"
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H8,
@@ -670,7 +670,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         variant: .cell(
                             info: .init(
                                 title: .init(
-                                    "proPlanRecover"
+                                    "proAccessRecover"
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H8,
@@ -822,14 +822,26 @@ extension SessionProSettingsViewModel {
         dependencies[singleton: .sessionProState].recoverPro { [weak self] result in
             let modal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
-                    title: (result ? "Pro Access Recovered".localized() : "Pro Access Not Found".localized()),
+                    title: (
+                        result ?
+                            "proAccessRestored"
+                                .put(key: "pro", value: Constants.pro)
+                                .localized() :
+                            "proAccessNotFound"
+                                .put(key: "pro", value: Constants.pro)
+                                .localized()
+                    ),
                     body: .text(
                         (
                             result ?
-                            "Session detected and recovered Pro access for your account. Your Pro status has been restored!"
-                                .localized() :
-                            "Session detected that your account does not have Pro access. If you believe this is a mistake, please reach out to Session support for assistance."
-                                .localized()
+                                "proAccessRestoredDescription"
+                                    .put(key: "app_name", value: Constants.app_name)
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized() :
+                                "proAccessNotFoundDescription"
+                                    .put(key: "app_name", value: Constants.app_name)
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized()
                         ),
                         scrollMode: .never
                     ),

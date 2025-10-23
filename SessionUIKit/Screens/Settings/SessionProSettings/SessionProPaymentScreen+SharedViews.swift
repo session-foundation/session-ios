@@ -87,7 +87,7 @@ struct PlanCell: View {
             
             HStack (spacing: Values.smallSpacing) {
                 if isCurrentPlan {
-                    Text("currentPlan".localized())
+                    Text("currentBilling".localized())
                         .font(.Body.smallBold)
                         .foregroundColor(themeColor: .sessionButton_primaryFilledText)
                         .padding(.vertical, 2)

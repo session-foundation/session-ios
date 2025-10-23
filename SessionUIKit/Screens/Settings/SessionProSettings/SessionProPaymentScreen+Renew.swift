@@ -29,7 +29,6 @@ struct RenewPlanNoBillingAccessContent: View {
                     
                     AttributedText(
                         "proRenewingNoAccessBilling"
-                            .put(key: "app_pro", value: Constants.app_pro)
                             .put(key: "pro", value: Constants.pro)
                             .put(key: "platform_store", value: Constants.platform_store)
                             .put(key: "platform_store_other", value: Constants.android_platform_store)
@@ -48,11 +47,12 @@ struct RenewPlanNoBillingAccessContent: View {
                 
                 ApproachCell(
                     title: "onLinkedDevice".localized(),
-                    description: "proPlanRenewDesktopLinked"
+                    description: "proRenewDesktopLinked"
                         .put(key: "app_name", value: Constants.app_name)
                         .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "platform_store", value: Constants.platform_store)
                         .put(key: "platform_store_other", value: Constants.android_platform_store)
+                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(),
                     variant: .link
                 )
@@ -63,6 +63,7 @@ struct RenewPlanNoBillingAccessContent: View {
                         .put(key: "app_name", value: Constants.app_name)
                         .put(key: "platform_store", value: Constants.platform_store)
                         .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(),
                     variant: .device
                 )
@@ -71,7 +72,7 @@ struct RenewPlanNoBillingAccessContent: View {
                     title: "onPlatformWebsite"
                         .put(key: "platform", value: originatingPlatform.store)
                         .localized(),
-                    description: "proPlanRenewPlatformWebsite"
+                    description: "proAccessRenewPlatformWebsite"
                         .put(key: "platform_account", value: originatingPlatform.account)
                         .put(key: "platform", value: originatingPlatform.name)
                         .put(key: "pro", value: Constants.pro)

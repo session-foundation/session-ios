@@ -183,7 +183,6 @@ struct RequestRefundNonOriginatingPlatformContent: View {
                             "proPlanPlatformRefundLong"
                                 .put(key: "app_pro", value: Constants.app_pro)
                                 .put(key: "platform_store", value: originatingPlatform.store)
-                                .put(key: "platform_account", value: originatingPlatform.account)
                                 .put(key: "app_name", value: Constants.app_name)
                                 .localizedFormatted(Fonts.Body.baseRegular)
                     )
@@ -206,6 +205,7 @@ struct RequestRefundNonOriginatingPlatformContent: View {
                             .put(key: "device_type", value: originatingPlatform.deviceType)
                             .put(key: "platform_account", value: originatingPlatform.account)
                             .put(key: "app_pro", value: Constants.app_pro)
+                            .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(),
                         variant: .device
                     )
@@ -217,6 +217,7 @@ struct RequestRefundNonOriginatingPlatformContent: View {
                         description: "viaStoreWebsiteDescription"
                             .put(key: "platform_account", value: originatingPlatform.account)
                             .put(key: "platform_store", value: originatingPlatform.store)
+                            .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular),
                         variant: .website
                     )
