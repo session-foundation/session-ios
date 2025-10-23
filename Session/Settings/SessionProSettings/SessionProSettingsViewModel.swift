@@ -126,6 +126,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         let numberOfLongerMessagesSent: Int
         let isProBadgeEnabled: Bool
         let currentProPlanState: SessionProPlanState
+        let loadingState: SessionProLoadingState
         
         @MainActor public func sections(viewModel: SessionProSettingsViewModel, previousState: ViewModelState) -> [SectionModel] {
             SessionProSettingsViewModel.sections(
@@ -141,7 +142,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             .setting(.proBadgesSentCounter),
             .setting(.longerMessagesSentCounter),
             .setting(.isProBadgeEnabled),
-            .feature(.mockCurrentUserSessionProState) // TODO: real data from libSession
+            .feature(.mockCurrentUserSessionProState),          // TODO: real data from libSession
+            .feature(.mockCurrentUserSessionProLoadingState)    // TODO: real loading status
         ]
         
         static func initialState() -> ViewModelState {
@@ -151,7 +153,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 numberOfProBadgesSent: 0,
                 numberOfLongerMessagesSent: 0,
                 isProBadgeEnabled: false,
-                currentProPlanState: .none
+                currentProPlanState: .none,
+                loadingState: .loading
             )
         }
     }
@@ -168,6 +171,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         var numberOfLongerMessagesSent: Int = previousState.numberOfLongerMessagesSent
         var isProBadgeEnabled: Bool = previousState.isProBadgeEnabled
         var currentProPlanState: SessionProPlanState = previousState.currentProPlanState
+        var loadingState: SessionProLoadingState = previousState.loadingState
         
         /// If we have no previous state then we need to fetch the initial state
         if isInitialQuery {
@@ -212,7 +216,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             numberOfProBadgesSent: numberOfProBadgesSent,
             numberOfLongerMessagesSent: numberOfLongerMessagesSent,
             isProBadgeEnabled: isProBadgeEnabled,
-            currentProPlanState: currentProPlanState
+            currentProPlanState: currentProPlanState,
+            loadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState]
         )
     }
     
@@ -243,7 +248,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     )
                                 }
                                 
-                                switch viewModel.dependencies[feature: .mockCurrentUserSessionProLoadingState] {
+                                switch state.loadingState {
                                     case .loading:
                                         return .loading(
                                             message: {
@@ -498,13 +503,33 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         variant: .cell(
                             info: .init(
                                 title: .init("updatePlan".localized(), font: .Headings.H8),
-                                description: .init(
-                                    font: .Body.smallRegular,
-                                    attributedString: "proAutoRenewTime"
-                                        .put(key: "pro", value: Constants.pro)
-                                        .put(key: "time", value: expiredOn.timeIntervalSinceNow.formatted(format: .long, minimumUnit: .day))
-                                        .localizedFormatted(Fonts.Body.smallRegular)
-                                ),
+                                description: {
+                                    switch state.loadingState {
+                                        case .loading:
+                                            .init(
+                                                font: .Body.smallRegular,
+                                                attributedString: "proPlanLoadingEllipsis"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted(Fonts.Body.smallRegular)
+                                            )
+                                        case .error:
+                                            .init(
+                                                font: .Body.smallRegular,
+                                                attributedString: "errorLoadingProPlan"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted(Fonts.Body.smallRegular),
+                                                color: .warning
+                                            )
+                                        case .success:
+                                            .init(
+                                                font: .Body.smallRegular,
+                                                attributedString: "proAutoRenewTime"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .put(key: "time", value: expiredOn.timeIntervalSinceNow.formatted(format: .long, minimumUnit: .day))
+                                                    .localizedFormatted(Fonts.Body.smallRegular)
+                                            )
+                                    }
+                                }(),
                                 trailingAccessory: .icon(.chevronRight, size: .large)
                             )
                         ),
