@@ -14,6 +14,17 @@ public extension View {
         }
     }
     
+    @ViewBuilder
+    func tint(themeColor: ThemeValue?) -> some View {
+        if let themeColor {
+            ThemeColorResolver(themeValue: themeColor) { color in
+                self.tint(color)
+            }
+        } else {
+            self
+        }
+    }
+    
     func backgroundColor(themeColor: ThemeValue) -> some View {
         if #available(iOSApplicationExtension 14.0, *) {
             return ThemeColorResolver(themeValue: themeColor) { color in

@@ -175,12 +175,16 @@ public extension SessionListScreenContent {
         }
         
         public static func loadingIndicator(
-            customTint: ThemeValue? = nil,
+            size: IconSize = .medium,
+            customTint: ThemeValue = .textPrimary,
             accessibility: Accessibility? = nil
         ) -> ListItemAccessory {
             return ListItemAccessory {
                 ProgressView()
-                    .foregroundColor(themeColor: customTint)
+                    .tint(themeColor: customTint)
+                    .controlSize(.regular)
+                    .scaleEffect(size.size / 20)
+                    .frame(width: size.size, height: size.size)
                     .accessibility(accessibility)
             }
         }

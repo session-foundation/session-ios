@@ -211,6 +211,10 @@ public struct ListItemLogoWithPro: View {
                 HStack(spacing: Values.verySmallSpacing) {
                     Text(message)
                     ProgressView()
+                        .tint(themeColor: .textPrimary)
+                        .controlSize(.regular)
+                        .scaleEffect(0.8)
+                        .frame(width: 16, height: 16)
                 }
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)

@@ -298,7 +298,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 "proStatusLoading"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
-                                            case .expired(let originatingPlatform):
+                                            case .expired:
                                                 "checkingProStatus"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -310,7 +310,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 "proStatusLoadingDescription"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
-                                            case .expired(let originatingPlatform):
+                                            case .expired:
                                                 "checkingProStatusDescription"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -586,7 +586,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 )
                                         }
                                     }(),
-                                    trailingAccessory: state.loadingState == .loading ? .loadingIndicator() : .icon(.chevronRight, size: .large)
+                                    trailingAccessory: state.loadingState == .loading ? .loadingIndicator(size: .large) : .icon(.chevronRight, size: .large)
                                 )
                             ),
                             onTap: { [weak viewModel] in
@@ -718,7 +718,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 ),
                                 trailingAccessory: (
                                     state.loadingState == .loading ?
-                                        .loadingIndicator() :
+                                        .loadingIndicator(size: .large) :
                                         .icon(
                                             .circlePlus,
                                             size: .large,
