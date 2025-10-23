@@ -106,6 +106,9 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         suppressUntil: $suppressUntil,
                                         info: info
                                     )
+                                    .onTapGesture {
+                                        element.onTap?()
+                                    }
                                     .background(
                                         Rectangle()
                                             .foregroundColor(themeColor: .backgroundSecondary)

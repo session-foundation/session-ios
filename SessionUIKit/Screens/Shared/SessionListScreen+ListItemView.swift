@@ -108,6 +108,7 @@ public struct ListItemCell: View {
             minHeight: height,
             alignment: .leading
         )
+        .contentShape(Rectangle())
     }
 }
 
@@ -217,6 +218,7 @@ public struct ListItemLogoWithPro: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
+        .contentShape(Rectangle())
     }
 }
 
@@ -228,17 +230,20 @@ public struct ListItemDataMatrix: View {
         let title: SessionListScreenContent.TextInfo?
         let trailingAccessory: SessionListScreenContent.ListItemAccessory?
         let tooltipInfo: SessionListScreenContent.TooltipInfo?
+        let isLoading: Bool
         
         public init(
             leadingAccessory: SessionListScreenContent.ListItemAccessory? = nil,
             title: SessionListScreenContent.TextInfo? = nil,
             trailingAccessory: SessionListScreenContent.ListItemAccessory? = nil,
-            tooltipInfo: SessionListScreenContent.TooltipInfo? = nil
+            tooltipInfo: SessionListScreenContent.TooltipInfo? = nil,
+            isLoading: Bool
         ) {
             self.leadingAccessory = leadingAccessory
             self.title = title
             self.trailingAccessory = trailingAccessory
             self.tooltipInfo = tooltipInfo
+            self.isLoading = isLoading
         }
     }
     
@@ -259,13 +264,18 @@ public struct ListItemDataMatrix: View {
                     ForEach(row.indices, id: \.self) { columnIndex in
                         let item: Info = row[columnIndex]
                         HStack(spacing: 0) {
-                            if let leadingAccessory = item.leadingAccessory {
+                            if item.isLoading {
+                                ProgressView()
+                                    .padding(.trailing, Values.mediumSpacing)
+                            }
+                            
+                            if let leadingAccessory = item.leadingAccessory, !item.isLoading {
                                 leadingAccessory.accessoryView()
                                     .padding(.trailing, Values.mediumSpacing)
                             }
                             
                             if let title = item.title, let text = title.text {
-                                Text(text)
+                                Text(text.trimmingCharacters(in: .whitespaces))
                                     .font(title.font)
                                     .multilineTextAlignment(title.alignment)
                                     .foregroundColor(themeColor: title.color)
@@ -273,12 +283,12 @@ public struct ListItemDataMatrix: View {
                                     .padding(.trailing, Values.mediumSpacing)
                             }
                             
-                            if let trailingAccessory = item.trailingAccessory {
+                            if let trailingAccessory = item.trailingAccessory, !item.isLoading {
                                 trailingAccessory.accessoryView()
                                     .padding(.trailing, Values.mediumSpacing)
                             }
                             
-                            if let tooltipInfo = item.tooltipInfo {
+                            if let tooltipInfo = item.tooltipInfo, !item.isLoading {
                                 Spacer(minLength: 0)
                                 
                                 Image(systemName: "questionmark.circle")
@@ -318,6 +328,7 @@ public struct ListItemDataMatrix: View {
             .padding(.horizontal, Values.mediumSpacing)
             .padding(.vertical, Values.smallSpacing)
             .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
     }
 }

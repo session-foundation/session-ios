@@ -324,10 +324,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     title: .init(
                                         "proLongerMessagesSent"
                                             .putNumber(state.numberOfLongerMessagesSent)
-                                            .put(key: "total", value: state.numberOfLongerMessagesSent)
+                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfLongerMessagesSent)
                                             .localized(),
                                         font: .Headings.H9
-                                    )
+                                    ),
+                                    isLoading: state.loadingState == .loading
                                 ),
                                 .init(
                                     leadingAccessory: .icon(
@@ -338,10 +339,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     title: .init(
                                         "proPinnedConversations"
                                             .putNumber(state.numberOfPinnedConversations)
-                                            .put(key: "total", value: state.numberOfPinnedConversations)
+                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfPinnedConversations)
                                             .localized(),
                                         font: .Headings.H9
-                                    )
+                                    ),
+                                    isLoading: state.loadingState == .loading
                                 )
                             ],
                             [
@@ -354,11 +356,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     title: .init(
                                         "proBadgesSent"
                                             .putNumber(state.numberOfProBadgesSent)
-                                            .put(key: "total", value: state.numberOfProBadgesSent)
+                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfProBadgesSent)
                                             .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         font: .Headings.H9
-                                    )
+                                    ),
+                                    isLoading: state.loadingState == .loading
                                 ),
                                 .init(
                                     leadingAccessory: .icon(
@@ -369,10 +372,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     title: .init(
                                         "proGroupsUpgraded"
                                             .putNumber(state.numberOfGroupsUpgraded)
-                                            .put(key: "total", value: state.numberOfGroupsUpgraded)
+                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfGroupsUpgraded)
                                             .localized(),
                                         font: .Headings.H9,
-                                        color: .disabled
+                                        color: state.loadingState == .loading ? .textPrimary : .disabled
                                     ),
                                     tooltipInfo: .init(
                                         id: "SessionListScreen.DataMatrix.UpgradedGroups.ToolTip", // stringlint:ignore
@@ -380,11 +383,16 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
                                         tintColor: .disabled,
                                         position: .topLeft
-                                    )
+                                    ),
+                                    isLoading: state.loadingState == .loading
                                 )
                             ]
                         ]
-                    )
+                    ),
+                    onTap: { [weak viewModel] in
+                        guard state.loadingState == .loading else { return }
+                        viewModel?.showLoadingModal(from: .proStats)
+                    }
                 )
             ]
         )
@@ -724,29 +732,47 @@ extension SessionProSettingsViewModel {
     }
     
     func showLoadingModal(from item: ListItem) {
-        guard [ .logoWithPro, .updatePlan ].contains(item) else { return }
+        guard [ .logoWithPro, .updatePlan, .proStats ].contains(item) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: (
-                    item == .logoWithPro ?
-                        "proStatusLoading"
-                            .put(key: "pro", value: Constants.pro)
-                            .localized() :
-                        "proAccessLoading"
-                            .put(key: "pro", value: Constants.pro)
-                            .localized()
-                ),
-                body: .text(
-                    (
-                        item == .logoWithPro ?
-                            "proStatusLoadingDescription"
-                                .put(key: "pro", value: Constants.pro)
-                                .localized() :
-                            "proAccessLoadingDescription"
+                title: {
+                    switch item {
+                        case .logoWithPro:
+                            return "proStatusLoading"
                                 .put(key: "pro", value: Constants.pro)
                                 .localized()
-                    ),
+                        case .updatePlan:
+                            return "proAccessLoading"
+                                .put(key: "pro", value: Constants.pro)
+                                .localized()
+                        case .proStats:
+                            return "proStatsLoading"
+                                .put(key: "pro", value: Constants.pro)
+                                .localized()
+                        default:
+                            return ""
+                    }
+                }(),
+                body: .text(
+                    {
+                        switch item {
+                            case .logoWithPro:
+                                return "proStatusLoadingDescription"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized()
+                            case .updatePlan:
+                                return "proAccessLoadingDescription"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized()
+                            case .proStats:
+                                return "proStatsLoadingDescription"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized()
+                            default:
+                                return ""
+                        }
+                    }(),
                     scrollMode: .never
                 ),
                 cancelTitle: "okay".localized(),
