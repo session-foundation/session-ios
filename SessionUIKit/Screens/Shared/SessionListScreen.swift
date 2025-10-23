@@ -93,6 +93,9 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     }
                                 case .logoWithPro(let info):
                                     ListItemLogoWithPro(info: info)
+                                        .onTapGesture {
+                                            element.onTap?()
+                                        }
                                 case .dataMatrix(let info):
                                     ListItemDataMatrix(
                                         isShowingTooltip: $isShowingTooltip,

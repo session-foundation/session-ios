@@ -173,5 +173,16 @@ public extension SessionListScreenContent {
                 )
             }
         }
+        
+        public static func loadingIndicator(
+            customTint: ThemeValue? = nil,
+            accessibility: Accessibility? = nil
+        ) -> ListItemAccessory {
+            return ListItemAccessory {
+                ProgressView()
+                    .foregroundColor(themeColor: customTint)
+                    .accessibility(accessibility)
+            }
+        }
     }
 }
