@@ -209,6 +209,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         currentProPlanState = dependencies[singleton: .sessionProState].sessionProStateSubject.value
+        loadingState = dependencies[feature: .mockCurrentUserSessionProLoadingState]
         
         return ViewModelState(
             numberOfGroupsUpgraded: numberOfGroupsUpgraded,
@@ -217,7 +218,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             numberOfLongerMessagesSent: numberOfLongerMessagesSent,
             isProBadgeEnabled: isProBadgeEnabled,
             currentProPlanState: currentProPlanState,
-            loadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState]
+            loadingState: loadingState
         )
     }
     
@@ -242,9 +243,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             state: {
                                 guard state.currentProPlanState != .none else {
                                     return .success(
-                                        description: ThemedAttributedString(
-                                            string: "Want to use Session to its fullest potential? \nUpgrade to Session Pro Beta to gain access to loads exclusive perks and features."
-                                        )
+                                        description: "proFullestPotential"
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .put(key: "app_pro", value: Constants.app_pro)
+                                            .localizedFormatted()
                                     )
                                 }
                                 
@@ -288,7 +290,33 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     onTap: { [weak viewModel] in
                         switch state.loadingState {
                             case .loading:
-                                viewModel?.showLoadingModal(from: .logoWithPro)
+                                viewModel?.showLoadingModal(
+                                    from: .logoWithPro,
+                                    title: {
+                                        switch state.currentProPlanState {
+                                            case .active, .refunding, .none:
+                                                "proStatusLoading"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localized()
+                                            case .expired(let originatingPlatform):
+                                                "checkingProStatus"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localized()
+                                        }
+                                    }(),
+                                    description: {
+                                        switch state.currentProPlanState {
+                                            case .active, .refunding, .none:
+                                                "proStatusLoadingDescription"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localized()
+                                            case .expired(let originatingPlatform):
+                                                "checkingProStatusDescription"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localized()
+                                        }
+                                    }()
+                                )
                             case .error:
                                 viewModel?.showErrorModal(from: .logoWithPro)
                             case .success:
@@ -391,7 +419,15 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     ),
                     onTap: { [weak viewModel] in
                         guard state.loadingState == .loading else { return }
-                        viewModel?.showLoadingModal(from: .proStats)
+                        viewModel?.showLoadingModal(
+                            from: .proStats,
+                            title: "proStatsLoading"
+                                .put(key: "pro", value: Constants.pro)
+                                .localized(),
+                            description: "proStatsLoadingDescription"
+                                .put(key: "pro", value: Constants.pro)
+                                .localized()
+                        )
                     }
                 )
             ]
@@ -511,87 +547,103 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         return [
             {
                 switch state.currentProPlanState {
-                case .none: nil
-                case .active(_, let expiredOn, _, _):
-                    SessionListScreenContent.ListItemInfo(
-                        id: .updatePlan,
-                        variant: .cell(
-                            info: .init(
-                                title: .init(
-                                    "updateAccess"
-                                        .put(key: "pro", value: Constants.pro)
-                                        .localized(),
-                                    font: .Headings.H8
-                                ),
-                                description: {
-                                    switch state.loadingState {
-                                        case .loading:
-                                            .init(
-                                                font: .Body.smallRegular,
-                                                attributedString: "proAccessLoadingEllipsis"
-                                                    .put(key: "pro", value: Constants.pro)
-                                                    .localizedFormatted(Fonts.Body.smallRegular)
-                                            )
-                                        case .error:
-                                            .init(
-                                                font: .Body.smallRegular,
-                                                attributedString: "errorLoadingProAccess"
-                                                    .put(key: "pro", value: Constants.pro)
-                                                    .localizedFormatted(Fonts.Body.smallRegular),
-                                                color: .warning
-                                            )
-                                        case .success:
-                                            .init(
-                                                font: .Body.smallRegular,
-                                                attributedString: "proAutoRenewTime"
-                                                    .put(key: "pro", value: Constants.pro)
-                                                    .put(key: "time", value: expiredOn.timeIntervalSinceNow.formatted(format: .long, minimumUnit: .day))
-                                                    .localizedFormatted(Fonts.Body.smallRegular)
-                                            )
-                                    }
-                                }(),
-                                trailingAccessory: state.loadingState == .loading ? .loadingIndicator() : .icon(.chevronRight, size: .large)
-                            )
-                        ),
-                        onTap: { [weak viewModel] in
-                            switch state.loadingState {
-                                case .loading:
-                                    viewModel?.showLoadingModal(from: .updatePlan)
-                                case .error:
-                                    viewModel?.showErrorModal(from: .updatePlan)
-                                case .success:
-                                    viewModel?.updateProPlan()
+                    case .none: nil
+                    case .active(_, let expiredOn, _, _):
+                        SessionListScreenContent.ListItemInfo(
+                            id: .updatePlan,
+                            variant: .cell(
+                                info: .init(
+                                    title: .init(
+                                        "updateAccess"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized(),
+                                        font: .Headings.H8
+                                    ),
+                                    description: {
+                                        switch state.loadingState {
+                                            case .loading:
+                                                .init(
+                                                    font: .Body.smallRegular,
+                                                    attributedString: "proAccessLoadingEllipsis"
+                                                        .put(key: "pro", value: Constants.pro)
+                                                        .localizedFormatted(Fonts.Body.smallRegular)
+                                                )
+                                            case .error:
+                                                .init(
+                                                    font: .Body.smallRegular,
+                                                    attributedString: "errorLoadingProAccess"
+                                                        .put(key: "pro", value: Constants.pro)
+                                                        .localizedFormatted(Fonts.Body.smallRegular),
+                                                    color: .warning
+                                                )
+                                            case .success:
+                                                .init(
+                                                    font: .Body.smallRegular,
+                                                    attributedString: "proAutoRenewTime"
+                                                        .put(key: "pro", value: Constants.pro)
+                                                        .put(key: "time", value: expiredOn.timeIntervalSinceNow.formatted(format: .long, minimumUnit: .day))
+                                                        .localizedFormatted(Fonts.Body.smallRegular)
+                                                )
+                                        }
+                                    }(),
+                                    trailingAccessory: state.loadingState == .loading ? .loadingIndicator() : .icon(.chevronRight, size: .large)
+                                )
+                            ),
+                            onTap: { [weak viewModel] in
+                                switch state.loadingState {
+                                    case .loading:
+                                        viewModel?.showLoadingModal(
+                                            from: .updatePlan,
+                                            title: "proAccessLoading"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .localized(),
+                                            description: "proAccessLoadingDescription"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .localized()
+                                        )
+                                    case .error:
+                                        viewModel?.showErrorModal(from: .updatePlan)
+                                    case .success:
+                                        viewModel?.updateProPlan()
+                                }
                             }
-                        }
-                    )
-                case .expired:
-                    nil
-                case .refunding(let originatingPlatform, _):
-                    SessionListScreenContent.ListItemInfo(
-                        id: .refundRequested,
-                        variant: .cell(
-                            info: .init(
-                                title: .init("proRequestedRefund".localized(), font: .Headings.H8),
-                                description: .init(
-                                    font: .Body.smallRegular,
-                                    attributedString: "processingRefundRequest"
-                                        .put(key: "platform", value: originatingPlatform.name)
-                                        .localizedFormatted(Fonts.Body.smallRegular)
-                                ),
-                                trailingAccessory: .icon(.circleAlert, size: .large)
-                            )
-                        ),
-                        onTap: { [weak viewModel] in
-                            switch state.loadingState {
-                                case .loading:
-                                    viewModel?.showLoadingModal(from: .updatePlan)
-                                case .error:
-                                    viewModel?.showErrorModal(from: .updatePlan)
-                                case .success:
-                                    viewModel?.updateProPlan()
+                        )
+                    case .expired:
+                        nil
+                    case .refunding(let originatingPlatform, _):
+                        SessionListScreenContent.ListItemInfo(
+                            id: .refundRequested,
+                            variant: .cell(
+                                info: .init(
+                                    title: .init("proRequestedRefund".localized(), font: .Headings.H8),
+                                    description: .init(
+                                        font: .Body.smallRegular,
+                                        attributedString: "processingRefundRequest"
+                                            .put(key: "platform", value: originatingPlatform.name)
+                                            .localizedFormatted(Fonts.Body.smallRegular)
+                                    ),
+                                    trailingAccessory: .icon(.circleAlert, size: .large)
+                                )
+                            ),
+                            onTap: { [weak viewModel] in
+                                switch state.loadingState {
+                                    case .loading:
+                                        viewModel?.showLoadingModal(
+                                            from: .updatePlan,
+                                            title: "proAccessLoading"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .localized(),
+                                            description: "proAccessLoadingDescription"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .localized()
+                                        )
+                                    case .error:
+                                        viewModel?.showErrorModal(from: .updatePlan)
+                                    case .success:
+                                        viewModel?.updateProPlan()
+                                }
                             }
-                        }
-                    )
+                        )
                 }
             }(),
             SessionListScreenContent.ListItemInfo(
@@ -662,16 +714,37 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H8,
-                                    color: .primary
+                                    color: state.loadingState == .loading ? .textPrimary : .primary
                                 ),
-                                trailingAccessory: .icon(
-                                    .circlePlus,
-                                    size: .large,
-                                    customTint: .primary
+                                trailingAccessory: (
+                                    state.loadingState == .loading ?
+                                        .loadingIndicator() :
+                                        .icon(
+                                            .circlePlus,
+                                            size: .large,
+                                            customTint: .primary
+                                        )
                                 )
                             )
                         ),
-                        onTap: { [weak viewModel] in viewModel?.updateProPlan() }
+                        onTap: { [weak viewModel] in
+                            switch state.loadingState {
+                                case .loading:
+                                    viewModel?.showLoadingModal(
+                                        from: .renewPlan,
+                                        title: "checkingProStatus"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized(),
+                                        description: "checkingProStatusRenew"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized()
+                                    )
+                                case .error:
+                                    break
+                                case .success:
+                                    viewModel?.updateProPlan()
+                            }
+                        }
                     ),
                     SessionListScreenContent.ListItemInfo(
                         id: .recoverPlan,
@@ -731,50 +804,17 @@ extension SessionProSettingsViewModel {
         self.transitionToScreen(modal, transitionType: .present)
     }
     
-    func showLoadingModal(from item: ListItem) {
-        guard [ .logoWithPro, .updatePlan, .proStats ].contains(item) else { return }
+    func showLoadingModal(
+        from item: ListItem,
+        title: String,
+        description: String
+    ) {
+        guard [ .logoWithPro, .updatePlan, .proStats, .renewPlan ].contains(item) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: {
-                    switch item {
-                        case .logoWithPro:
-                            return "proStatusLoading"
-                                .put(key: "pro", value: Constants.pro)
-                                .localized()
-                        case .updatePlan:
-                            return "proAccessLoading"
-                                .put(key: "pro", value: Constants.pro)
-                                .localized()
-                        case .proStats:
-                            return "proStatsLoading"
-                                .put(key: "pro", value: Constants.pro)
-                                .localized()
-                        default:
-                            return ""
-                    }
-                }(),
-                body: .text(
-                    {
-                        switch item {
-                            case .logoWithPro:
-                                return "proStatusLoadingDescription"
-                                    .put(key: "pro", value: Constants.pro)
-                                    .localized()
-                            case .updatePlan:
-                                return "proAccessLoadingDescription"
-                                    .put(key: "pro", value: Constants.pro)
-                                    .localized()
-                            case .proStats:
-                                return "proStatsLoadingDescription"
-                                    .put(key: "pro", value: Constants.pro)
-                                    .localized()
-                            default:
-                                return ""
-                        }
-                    }(),
-                    scrollMode: .never
-                ),
+                title: title,
+                body: .text(description, scrollMode: .never),
                 cancelTitle: "okay".localized(),
                 cancelStyle: .alert_text,
             )

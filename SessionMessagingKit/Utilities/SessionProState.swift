@@ -124,7 +124,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     }
     
     public func recoverPro(completion: ((_ result: Bool) -> Void)?) {
-        guard dependencies[feature: .proPlanToRecover] == true else {
+        guard dependencies[feature: .proPlanToRecover] == true && dependencies[feature: .mockCurrentUserSessionProLoadingState] == .success else {
             completion?(false)
             return
         }
