@@ -318,7 +318,15 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     }()
                                 )
                             case .error:
-                                viewModel?.showErrorModal(from: .logoWithPro)
+                                viewModel?.showErrorModal(
+                                    from: .logoWithPro,
+                                    title: "proStatusError"
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localized(),
+                                    description: "proStatusRefreshNetworkError"
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localizedFormatted()
+                                )
                             case .success:
                                 break
                         }
@@ -602,7 +610,16 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 .localized()
                                         )
                                     case .error:
-                                        viewModel?.showErrorModal(from: .updatePlan)
+                                        viewModel?.showErrorModal(
+                                            from: .updatePlan,
+                                            title: "proAccessError"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .localized(),
+                                            description: "proAccessNetworkLoadError"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .put(key: "app_name", value: Constants.app_name)
+                                                .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                        )
                                     case .success:
                                         viewModel?.updateProPlan()
                                 }
@@ -638,7 +655,16 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 .localized()
                                         )
                                     case .error:
-                                        viewModel?.showErrorModal(from: .updatePlan)
+                                        viewModel?.showErrorModal(
+                                            from: .updatePlan,
+                                            title: "proAccessError"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .localized(),
+                                            description: "proAccessNetworkLoadError"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .put(key: "app_name", value: Constants.app_name)
+                                                .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                        )
                                     case .success:
                                         viewModel?.updateProPlan()
                                 }
@@ -714,7 +740,17 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H8,
-                                    color: state.loadingState == .loading ? .textPrimary : .primary
+                                    color: state.loadingState == .success ? .primary : .textPrimary
+                                ),
+                                description: (
+                                    state.loadingState != .error ? nil :
+                                            .init(
+                                                font: .Body.smallRegular,
+                                                attributedString: "errorCheckingProStatus"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted(Fonts.Body.smallRegular),
+                                                color: .warning
+                                            )
                                 ),
                                 trailingAccessory: (
                                     state.loadingState == .loading ?
@@ -722,7 +758,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .icon(
                                             .circlePlus,
                                             size: .large,
-                                            customTint: .primary
+                                            customTint: state.loadingState == .success ? .primary : .textPrimary
                                         )
                                 )
                             )
@@ -740,7 +776,16 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             .localized()
                                     )
                                 case .error:
-                                    break
+                                    viewModel?.showErrorModal(
+                                        from: .updatePlan,
+                                        title: "proAccessError"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized(),
+                                        description: "proAccessNetworkLoadError"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                    )
                                 case .success:
                                     viewModel?.updateProPlan()
                             }
@@ -823,33 +868,17 @@ extension SessionProSettingsViewModel {
         self.transitionToScreen(modal, transitionType: .present)
     }
     
-    func showErrorModal(from item: ListItem) {
-        guard [ .logoWithPro, .updatePlan ].contains(item) else { return }
+    func showErrorModal(
+        from item: ListItem,
+        title: String,
+        description: ThemedAttributedString
+    ) {
+        guard [ .logoWithPro, .updatePlan, .renewPlan ].contains(item) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: (
-                    item == .logoWithPro ?
-                        "proStatusError"
-                            .put(key: "pro", value: Constants.pro)
-                            .localized() :
-                        "proAccessError"
-                            .put(key: "pro", value: Constants.pro)
-                            .localized()
-                ),
-                body: .attributedText(
-                    (
-                        item == .logoWithPro ?
-                            "proStatusRefreshNetworkError"
-                                .put(key: "pro", value: Constants.pro)
-                                .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)) :
-                            "proAccessNetworkLoadError"
-                                .put(key: "pro", value: Constants.pro)
-                                .put(key: "app_name", value: Constants.app_name)
-                                .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                    ),
-                    scrollMode: .never
-                ),
+                title: title,
+                body: .attributedText(description, scrollMode: .never),
                 confirmTitle: "retry".localized(),
                 confirmStyle: .alert_text,
                 cancelTitle: "helpSupport".localized(),
