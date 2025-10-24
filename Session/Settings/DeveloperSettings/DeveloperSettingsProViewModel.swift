@@ -166,7 +166,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.sessionProEnabled),
             .updateScreen(DeveloperSettingsProViewModel.self),
             .feature(.mockCurrentUserSessionPro),
-            .feature(.allUsersSessionPro)
+            .feature(.allUsersSessionPro),
+            .feature(.messageFeatureProBadge),
+            .feature(.messageFeatureLongMessage),
+            .feature(.messageFeatureAnimatedAvatar)
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {

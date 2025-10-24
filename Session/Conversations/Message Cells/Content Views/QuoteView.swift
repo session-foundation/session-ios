@@ -253,7 +253,7 @@ final class QuoteView: UIView {
             mainStackView.addArrangedSubview(cancelButton)
             cancelButton.center(.vertical, in: self)
             mainStackView.isLayoutMarginsRelativeArrangement = true
-            mainStackView.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 2)
+            mainStackView.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 1)
         }
     }
 
