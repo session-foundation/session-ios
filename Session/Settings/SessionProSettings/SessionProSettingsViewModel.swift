@@ -355,7 +355,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     leadingAccessory: .icon(
                                         .messageSquare,
                                         size: .large,
-                                        customTint: .primary,
+                                        customTint: .primary
                                     ),
                                     title: .init(
                                         "proLongerMessagesSent"
@@ -370,7 +370,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     leadingAccessory: .icon(
                                         .pin,
                                         size: .large,
-                                        customTint: .primary,
+                                        customTint: .primary
                                     ),
                                     title: .init(
                                         "proPinnedConversations"
@@ -387,7 +387,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     leadingAccessory: .icon(
                                         .rectangleEllipsis,
                                         size: .large,
-                                        customTint: .primary,
+                                        customTint: .primary
                                     ),
                                     title: .init(
                                         "proBadgesSent"
@@ -403,7 +403,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     leadingAccessory: .icon(
                                         UIImage(named: "ic_user_group"),
                                         size: .large,
-                                        customTint: .disabled,
+                                        customTint: .disabled
                                     ),
                                     title: .init(
                                         "proGroupsUpgraded"
@@ -861,7 +861,7 @@ extension SessionProSettingsViewModel {
                 title: title,
                 body: .text(description, scrollMode: .never),
                 cancelTitle: "okay".localized(),
-                cancelStyle: .alert_text,
+                cancelStyle: .alert_text
             )
         )
         
