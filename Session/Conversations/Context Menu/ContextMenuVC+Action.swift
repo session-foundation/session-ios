@@ -84,10 +84,10 @@ extension ContextMenuVC {
             ) { completion in delegate?.reply(cellViewModel, completion: completion) }
         }
 
-        static func copy(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
+        static func copy(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?, forMessageInfoScreen: Bool) -> Action {
             return Action(
                 icon: Lucide.image(icon: .copy, size: 24),
-                title: "copy".localized(),
+                title: forMessageInfoScreen ? "messageCopy".localized() : "copy".localized(),
                 feedback: "copied".localized(),
                 accessibilityLabel: "Copy text"
             ) { completion in delegate?.copy(cellViewModel, completion: completion) }
@@ -291,7 +291,7 @@ extension ContextMenuVC {
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
             (viewModelCanReply(cellViewModel, using: dependencies) ? Action.reply(cellViewModel, delegate) : nil),
-            (canCopy ? Action.copy(cellViewModel, delegate) : nil),
+            (canCopy ? Action.copy(cellViewModel, delegate, forMessageInfoScreen: forMessageInfoScreen) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
             (canCopySessionId ? Action.copySessionID(cellViewModel, delegate) : nil),
             (canDelete ? Action.delete(cellViewModel, delegate) : nil),
