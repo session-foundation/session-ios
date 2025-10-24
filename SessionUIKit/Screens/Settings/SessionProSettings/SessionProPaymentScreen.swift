@@ -243,25 +243,14 @@ public struct SessionProPaymentScreen: View {
     }
     
     private func openTosPrivacy() {
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .text("urlOpenBrowser".localized()),
-                confirmTitle: "onboardingTos".localized(),
-                confirmStyle: .textPrimary,
-                cancelTitle: "onboardingPrivacy".localized(),
-                cancelStyle: .textPrimary,
-                hasCloseButton: true,
-                onConfirm: { _ in
-                    if let url: URL = URL(string: "https://getsession.org/terms-of-service") {
-                        viewModel.openURL(url)
-                    }
-                },
-                onCancel: { modal in
-                    if let url: URL = URL(string: "https://getsession.org/privacy-policy") {
-                        viewModel.openURL(url)
-                    }
-                    modal.close()
+        let modal: ModalHostingViewController = ModalHostingViewController(
+            modal: MutipleLinksModal(
+                links: [
+                    Constants.session_pro_terms_url,
+                    Constants.session_pro_privacy_url
+                ],
+                openURL: { url in
+                    viewModel.openURL(url)
                 }
             )
         )

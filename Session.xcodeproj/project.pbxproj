@@ -187,6 +187,7 @@
 		94363E662E60186A0004EE43 /* SessionListScreen+Section.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E652E60185D0004EE43 /* SessionListScreen+Section.swift */; };
 		94363E682E6024A40004EE43 /* SessionListScreen+AccessoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */; };
 		94363E6A2E613AF80004EE43 /* SessionProSettingsViewModel+Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */; };
+		9438658F2EAB380700DB989A /* MutipleLinksModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438658E2EAB37F600DB989A /* MutipleLinksModal.swift */; };
 		9438D4862E67B015008C7FFE /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 940978602E655C2F00925B36 /* CocoaLumberjackSwift */; };
 		9438D4882E67B704008C7FFE /* SessionListHostingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D4872E67B6F5008C7FFE /* SessionListHostingViewController.swift */; };
 		9438D51A2E6951B3008C7FFE /* AnimatedToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */; };
@@ -1601,6 +1602,7 @@
 		94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+AccessoryViews.swift"; sourceTree = "<group>"; };
 		94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProSettingsViewModel+Database.swift"; sourceTree = "<group>"; };
 		94367C422C6C828500814252 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		9438658E2EAB37F600DB989A /* MutipleLinksModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MutipleLinksModal.swift; sourceTree = "<group>"; };
 		9438D4872E67B6F5008C7FFE /* SessionListHostingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListHostingViewController.swift; sourceTree = "<group>"; };
 		9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedToggle.swift; sourceTree = "<group>"; };
 		9438D5562E6A6862008C7FFE /* SessionProPaymentScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProPaymentScreen.swift; sourceTree = "<group>"; };
@@ -2928,6 +2930,7 @@
 				94AAB14E2E1F6CB300A6FA18 /* SessionProBadge+SwiftUI.swift */,
 				94AAB14C2E1F39AB00A6FA18 /* ProCTAModal.swift */,
 				94B6BAFD2E39F50E00E718BB /* UserProfileModal.swift */,
+				9438658E2EAB37F600DB989A /* MutipleLinksModal.swift */,
 				94AAB14A2E1E197800A6FA18 /* Modal+SwiftUI.swift */,
 				FD8A5B1F2DC03332004C689B /* AdaptiveText.swift */,
 				FD8A5B212DC0489B004C689B /* AdaptiveHStack.swift */,
@@ -6391,6 +6394,7 @@
 				942BA9C42E55AB54007C4595 /* UILabel+Utilities.swift in Sources */,
 				FD8A5B112DBF34BD004C689B /* Date+Utilities.swift in Sources */,
 				FDB348632BE3774000B716C2 /* BezierPathView.swift in Sources */,
+				9438658F2EAB380700DB989A /* MutipleLinksModal.swift in Sources */,
 				94363E5E2E6002960004EE43 /* SessionListScreen+Models.swift in Sources */,
 				94D716802E8F6363008294EE /* HighlightMentionView.swift in Sources */,
 				FD8A5B292DC060E2004C689B /* Double+Utilities.swift in Sources */,

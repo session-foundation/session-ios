@@ -14,6 +14,8 @@ public extension Constants {
     static let session_feedback_url = "https://getsession.org/feedback"
     static let app_store_refund_support = "https://support.apple.com/118224"
     static let google_play_store_subscriptions_url = "https://play.google.com/store/account/subscriptions?package=network.loki.messenger"
+    static let session_pro_terms_url = "https://getsession.org/pro/terms"
+    static let session_pro_privacy_url = "https://getsession.org/pro/privacy"
     
     // MARK: - Names
     static let platform_account = "Apple Account"
