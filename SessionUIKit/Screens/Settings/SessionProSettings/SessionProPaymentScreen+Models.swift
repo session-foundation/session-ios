@@ -129,8 +129,7 @@ public extension SessionProPaymentScreenContent {
         
         public init(
             flow: SessionProPlanPaymentFlow,
-            plans: [SessionProPlanInfo],
-            
+            plans: [SessionProPlanInfo]
         ) {
             self.flow = flow
             self.plans = plans
