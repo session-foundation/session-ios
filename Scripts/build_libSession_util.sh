@@ -23,6 +23,13 @@ remove_locked_dir() {
   fi
 }
 
+echo "DEBUG: TARGET_BUILD_DIR = ${TARGET_BUILD_DIR}"
+echo "DEBUG: BUILT_PRODUCTS_DIR = ${BUILT_PRODUCTS_DIR}"
+echo "DEBUG: CONFIGURATION_BUILD_DIR = ${CONFIGURATION_BUILD_DIR}"
+echo "DEBUG: Looking for modulemap at each location..."
+ls -la "${TARGET_BUILD_DIR}/include/module.modulemap" 2>&1 || echo "Not in TARGET_BUILD_DIR"
+ls -la "${BUILT_PRODUCTS_DIR}/include/module.modulemap" 2>&1 || echo "Not in BUILT_PRODUCTS_DIR"
+
 sync_headers() {
     local source_dir="$1"
     echo "- Syncing headers from ${source_dir}"
@@ -32,6 +39,7 @@ sync_headers() {
         "${INDEX_DIR}/include"
         "${BUILT_PRODUCTS_DIR}/include"
         "${CONFIGURATION_BUILD_DIR}/include"
+        "${BUILD_DIR}/Products/${CONFIGURATION}-${PLATFORM_NAME}/include"
     )
     
     for dest in "${destinations[@]}"; do
