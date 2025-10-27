@@ -46,6 +46,10 @@ public extension FeatureStorage {
         defaultOption: 100
     )
     
+    static let groupsShowPubkeyInConversationSettings: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "groupsShowPubkeyInConversationSettings"
+    )
+    
     static let updatedGroupsDisableAutoApprove: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroupsDisableAutoApprove"
     )
