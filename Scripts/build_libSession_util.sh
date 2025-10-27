@@ -13,45 +13,6 @@ INDEX_DIR="${DERIVED_DATA_PATH}/Index.noindex/Build/Products/Debug-${PLATFORM_NA
 LAST_SUCCESSFUL_HASH_FILE="${TARGET_BUILD_DIR}/last_successful_source_tree.hash.log"
 LAST_BUILT_FRAMEWORK_SLICE_DIR_FILE="${TARGET_BUILD_DIR}/last_built_framework_slice_dir.log"
 
-# Robustly removes a directory, first clearing any immutable flags (work around Xcode's indexer file locking)
-remove_locked_dir() {
-  local dir_to_remove="$1"
-  if [ -d "${dir_to_remove}" ]; then
-    echo "- Unlocking and removing ${dir_to_remove}"
-    chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
-    rm -rf "${dir_to_remove}"
-  fi
-}
-
-echo "DEBUG: TARGET_BUILD_DIR = ${TARGET_BUILD_DIR}"
-echo "DEBUG: BUILT_PRODUCTS_DIR = ${BUILT_PRODUCTS_DIR}"
-echo "DEBUG: CONFIGURATION_BUILD_DIR = ${CONFIGURATION_BUILD_DIR}"
-echo "DEBUG: Looking for modulemap at each location..."
-ls -la "${TARGET_BUILD_DIR}/include/module.modulemap" 2>&1 || echo "Not in TARGET_BUILD_DIR"
-ls -la "${BUILT_PRODUCTS_DIR}/include/module.modulemap" 2>&1 || echo "Not in BUILT_PRODUCTS_DIR"
-
-sync_headers() {
-    local source_dir="$1"
-    echo "- Syncing headers from ${source_dir}"
-    
-    local destinations=(
-        "${TARGET_BUILD_DIR}/include"
-        "${INDEX_DIR}/include"
-        "${BUILT_PRODUCTS_DIR}/include"
-        "${CONFIGURATION_BUILD_DIR}/include"
-        "${BUILD_DIR}/Products/${CONFIGURATION}-${PLATFORM_NAME}/include"
-    )
-    
-    for dest in "${destinations[@]}"; do
-        if [ -n "$dest" ]; then
-            remove_locked_dir "$dest"
-            mkdir -p "$dest"
-            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$dest/"
-            echo "  Synced to: $dest"
-        fi
-    done
-}
-
 # Modify the platform detection to handle archive builds
 if [ "${ACTION}" = "install" ] || [ "${CONFIGURATION}" = "Release" ]; then
   # Archive builds typically use 'install' action
@@ -62,6 +23,43 @@ if [ "${ACTION}" = "install" ] || [ "${CONFIGURATION}" = "Release" ]; then
     echo "Missing 'PLATFORM_NAME' value, manually set to ${PLATFORM_NAME}"
   fi
 fi
+
+# Robustly removes a directory, first clearing any immutable flags (work around Xcode's indexer file locking)
+remove_locked_dir() {
+  local dir_to_remove="$1"
+  if [ -d "${dir_to_remove}" ]; then
+    echo "- Unlocking and removing ${dir_to_remove}"
+    chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
+    rm -rf "${dir_to_remove}"
+  fi
+}
+
+sync_headers() {
+    local source_dir="$1"
+    echo "- Syncing headers from ${source_dir}"
+    
+    local destinations=(
+        "${TARGET_BUILD_DIR}/include"
+        "${INDEX_DIR}/include"
+        "${BUILT_PRODUCTS_DIR}/include"
+        "${CONFIGURATION_BUILD_DIR}/include"
+    )
+    
+    # For archive builds, add the archive-specific path
+    if [ "${ACTION}" = "install" ]; then
+        local ARCHIVE_PRODUCTS_PATH="${BUILD_DIR}/../../BuildProductsPath/${CONFIGURATION}-${PLATFORM_NAME}/include"
+        destinations+=("${ARCHIVE_PRODUCTS_PATH}")
+    fi
+    
+    for dest in "${destinations[@]}"; do
+        if [ -n "$dest" ]; then
+            remove_locked_dir "$dest"
+            mkdir -p "$dest"
+            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$dest/"
+            echo "  Synced to: $dest"
+        fi
+    done
+}
 
 # Determine whether we want to build from source
 TARGET_ARCH_DIR=""
