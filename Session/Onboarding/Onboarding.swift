@@ -375,17 +375,8 @@ extension Onboarding {
                             db.addContactEvent(id: userSessionId.hexString, change: .isApproved(true))
                             db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
                             
-                            /// Create the 'Note to Self' thread (not visible by default)
-                            try SessionThread.upsert(
-                                db,
-                                id: userSessionId.hexString,
-                                variant: .contact,
-                                values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
-                                using: dependencies
-                            )
-                            
                             /// Load the initial `libSession` state (won't have been created on launch due to lack of ed25519 key)
-                            dependencies.mutate(cache: .libSession) { cache in
+                            let cachedProfile: Profile = dependencies.mutate(cache: .libSession) { cache in
                                 cache.loadState(db)
                                 
                                 /// If we have a `userProfileConfigMessage` then we should try to handle it here as if we don't then
@@ -400,46 +391,31 @@ extension Onboarding {
                                     )
                                 }
                                 
-                                /// Update the `displayName` if changed and trigger a dump/push of the config
-                                let cacheProfile: Profile = cache.profile
-                                
-                                if cacheProfile.name != displayName {
-                                    try? cache.performAndPushChange(db, for: .userProfile) {
-                                        try? cache.updateProfile(displayName: displayName)
-                                    }
-                                }
-                                
-                                /// If the account has a display picture then we need to download it
-                                if
-                                    let url: String = cacheProfile.displayPictureUrl,
-                                    let key: Data = cacheProfile.displayPictureEncryptionKey
-                                {
-                                    dependencies[singleton: .jobRunner].add(
-                                        db,
-                                        job: Job(
-                                            variant: .displayPictureDownload,
-                                            shouldBeUnique: true,
-                                            details: DisplayPictureDownloadJob.Details(
-                                                target: .profile(id: cacheProfile.id, url: url, encryptionKey: key),
-                                                timestamp: cacheProfile.profileLastUpdated
-                                            )
-                                        ),
-                                        canStartJob: dependencies[singleton: .appContext].isMainApp
-                                    )
-                                }
+                                return cache.profile
                             }
                             
-                            /// Clear the `lastNameUpdate` timestamp and forcibly set the `displayName` provided
-                            /// during the onboarding step (we do this after handling the config message because we want
-                            /// the value provided during onboarding to superseed any retrieved from the config)
-                            try Profile.updateIfNeeded(
-                                db,
-                                publicKey: userSessionId.hexString,
-                                displayNameUpdate: .currentUserUpdate(displayName),
-                                displayPictureUpdate: .none,
-                                profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
-                                using: dependencies
-                            )
+                            /// If we don't have the `Note to Self` thread then create it (not visible by default)
+                            if (try? SessionThread.exists(db, id: userSessionId.hexString)) != nil {
+                                try SessionThread.upsert(
+                                    db,
+                                    id: userSessionId.hexString,
+                                    variant: .contact,
+                                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+                                    using: dependencies
+                                )
+                            }
+                            
+                            /// Update the `displayName` if changed
+                            if cachedProfile.name != displayName {
+                                try Profile.updateIfNeeded(
+                                    db,
+                                    publicKey: userSessionId.hexString,
+                                    displayNameUpdate: .currentUserUpdate(displayName),
+                                    displayPictureUpdate: .none,
+                                    profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                                    using: dependencies
+                                )
+                            }
                             
                             /// Emit observation events (_shouldn't_ be needed since this is happening during onboarding but
                             /// doesn't hurt just to be safe)

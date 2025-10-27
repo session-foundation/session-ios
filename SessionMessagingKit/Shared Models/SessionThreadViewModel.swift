@@ -613,79 +613,6 @@ public extension SessionThreadViewModel {
 // MARK: - Mutation
 
 public extension SessionThreadViewModel {
-    @available(*, deprecated, message: "The 'SessionThreadViewModel' should be refactored so it doesn't directly fetch profile data which would remove the need for this behaviour")
-    func with(userProfile: Profile) -> SessionThreadViewModel {
-        func replaceIfCurrentUser(_ profile: Profile?) -> Profile? {
-            return (profile?.id == userProfile.id ? userProfile : profile)
-        }
-        
-        return SessionThreadViewModel(
-            rowId: self.rowId,
-            threadId: self.threadId,
-            threadVariant: self.threadVariant,
-            threadCreationDateTimestamp: self.threadCreationDateTimestamp,
-            threadMemberNames: self.threadMemberNames,
-            threadIsNoteToSelf: self.threadIsNoteToSelf,
-            outdatedMemberId: self.outdatedMemberId,
-            threadIsMessageRequest: self.threadIsMessageRequest,
-            threadRequiresApproval: self.threadRequiresApproval,
-            threadShouldBeVisible: self.threadShouldBeVisible,
-            threadPinnedPriority: self.threadPinnedPriority,
-            threadIsBlocked: self.threadIsBlocked,
-            threadMutedUntilTimestamp: self.threadMutedUntilTimestamp,
-            threadOnlyNotifyForMentions: self.threadOnlyNotifyForMentions,
-            threadMessageDraft: self.threadMessageDraft,
-            threadIsDraft: self.threadIsDraft,
-            threadContactIsTyping: self.threadContactIsTyping,
-            threadWasMarkedUnread: self.threadWasMarkedUnread,
-            threadUnreadCount: self.threadUnreadCount,
-            threadUnreadMentionCount: self.threadUnreadMentionCount,
-            threadHasUnreadMessagesOfAnyKind: self.threadHasUnreadMessagesOfAnyKind,
-            threadCanWrite: self.threadCanWrite,
-            threadCanUpload: self.threadCanUpload,
-            disappearingMessagesConfiguration: self.disappearingMessagesConfiguration,
-            contactLastKnownClientVersion: self.contactLastKnownClientVersion,
-            threadDisplayPictureUrl: (threadId == userProfile.id ? userProfile.displayPictureUrl : self.threadDisplayPictureUrl),
-            contactProfile: (self.contactProfile?.id == userProfile.id || threadId == userProfile.id ? userProfile : self.contactProfile),
-            closedGroupProfileFront: replaceIfCurrentUser(self.closedGroupProfileFront),
-            closedGroupProfileBack: replaceIfCurrentUser(self.closedGroupProfileBack),
-            closedGroupProfileBackFallback: replaceIfCurrentUser(self.closedGroupProfileBackFallback),
-            closedGroupAdminProfile: replaceIfCurrentUser(self.closedGroupAdminProfile),
-            closedGroupName: self.closedGroupName,
-            closedGroupDescription: self.closedGroupDescription,
-            closedGroupUserCount: self.closedGroupUserCount,
-            closedGroupExpired: self.closedGroupExpired,
-            currentUserIsClosedGroupMember: self.currentUserIsClosedGroupMember,
-            currentUserIsClosedGroupAdmin: self.currentUserIsClosedGroupAdmin,
-            openGroupName: self.openGroupName,
-            openGroupDescription: self.openGroupDescription,
-            openGroupServer: self.openGroupServer,
-            openGroupRoomToken: self.openGroupRoomToken,
-            openGroupPublicKey: self.openGroupPublicKey,
-            openGroupUserCount: self.openGroupUserCount,
-            openGroupPermissions: self.openGroupPermissions,
-            openGroupCapabilities: self.openGroupCapabilities,
-            interactionId: self.interactionId,
-            interactionVariant: self.interactionVariant,
-            interactionTimestampMs: self.interactionTimestampMs,
-            interactionBody: self.interactionBody,
-            interactionState: self.interactionState,
-            interactionHasBeenReadByRecipient: self.interactionHasBeenReadByRecipient,
-            interactionIsOpenGroupInvitation: self.interactionIsOpenGroupInvitation,
-            interactionAttachmentDescriptionInfo: self.interactionAttachmentDescriptionInfo,
-            interactionAttachmentCount: self.interactionAttachmentCount,
-            authorId: self.authorId,
-            threadContactNameInternal: self.threadContactNameInternal,
-            authorNameInternal: self.authorNameInternal,
-            currentUserSessionId: self.currentUserSessionId,
-            currentUserSessionIds: self.currentUserSessionIds,
-            recentReactionEmoji: self.recentReactionEmoji,
-            wasKickedFromGroup: self.wasKickedFromGroup,
-            groupIsDestroyed: self.groupIsDestroyed,
-            isContactApproved: self.isContactApproved
-        )
-    }
-    
     func populatingPostQueryData(
         recentReactionEmoji: [String]?,
         openGroupCapabilities: Set<Capability.Variant>?,
@@ -1695,12 +1622,7 @@ public extension SessionThreadViewModel {
     ///
     /// **Note 2:** Since the "Hidden Contact" records don't have associated threads the `rowId` value in the
     /// returned results will always be `-1` for those results
-    static func contactsAndGroupsQuery(
-        userSessionId: SessionId,
-        currentUserName: String,
-        pattern: FTS5Pattern,
-        searchTerm: String
-    ) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
+    static func contactsAndGroupsQuery(userSessionId: SessionId, pattern: FTS5Pattern, searchTerm: String) -> AdaptedFetchRequest<SQLRequest<SessionThreadViewModel>> {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let contactProfile: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .contactProfile)
         let closedGroup: TypedTableAlias<ClosedGroup> = TypedTableAlias()
@@ -1814,20 +1736,9 @@ public extension SessionThreadViewModel {
             LEFT JOIN (
                 SELECT
                     \(groupMember[.groupId]),
-                    GROUP_CONCAT(
-                        CASE
-                            WHEN \(groupMember[.profileId]) = \(userSessionId.hexString)
-                            THEN \(currentUserName)
-                            ELSE IFNULL(\(profile[.nickname]), \(profile[.name]))
-                        END,
-                        ', '
-                    ) AS \(GroupMemberInfo.Columns.threadMemberNames)
+                    GROUP_CONCAT(IFNULL(\(profile[.nickname]), \(profile[.name])), ', ') AS \(GroupMemberInfo.Columns.threadMemberNames)
                 FROM \(GroupMember.self)
-                LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
-                WHERE (
-                    \(groupMember[.profileId]) = \(userSessionId.hexString) OR
-                    \(profile[.id]) IS NOT NULL
-                )
+                JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
                 GROUP BY \(groupMember[.groupId])
             ) AS \(groupMemberInfo) ON \(groupMemberInfo[.groupId]) = \(closedGroup[.threadId])
             LEFT JOIN \(closedGroupProfileFront) ON (

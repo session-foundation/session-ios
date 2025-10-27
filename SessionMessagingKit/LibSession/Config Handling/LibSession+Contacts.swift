@@ -59,65 +59,33 @@ internal extension LibSessionCacheType {
                 // Note: We only update the contact and profile records if the data has actually changed
                 // in order to avoid triggering UI updates for every thread on the home screen (the DB
                 // observation system can't differ between update calls which do and don't change anything)
-                let contact: Contact = Contact.fetchOrCreate(db, id: sessionId, using: dependencies)
-                let profile: Profile = Profile.fetchOrCreate(db, id: sessionId)
-                let profileUpdated: Bool = Profile.shouldUpdateProfile(
-                    data.profile.profileLastUpdated,
-                    profile: profile,
+                try Profile.updateIfNeeded(
+                    db,
+                    publicKey: sessionId,
+                    displayNameUpdate: .contactUpdate(data.profile.name),
+                    displayPictureUpdate: {
+                        guard
+                            let displayPictureUrl: String = data.profile.displayPictureUrl,
+                            let displayPictureEncryptionKey: Data = data.profile.displayPictureEncryptionKey
+                        else { return .currentUserRemove }
+                        
+                        return .contactUpdateTo(
+                            url: displayPictureUrl,
+                            key: displayPictureEncryptionKey,
+                            contactProProof: getProProof() // TODO: double check if this is needed after Pro Proof is implemented
+                        )
+                    }(),
+                    nicknameUpdate: .set(to: data.profile.nickname),
+                    profileUpdateTimestamp: data.profile.profileLastUpdated,
+                    cacheSource: .database,
                     using: dependencies
                 )
-                
-                if (profileUpdated || (profile.nickname != data.profile.nickname)) {
-                    let profileNameShouldBeUpdated: Bool = (
-                        !data.profile.name.isEmpty &&
-                        profile.name != data.profile.name
-                    )
-                    
-                    try profile.upsert(db)
-                    try Profile
-                        .filter(id: sessionId)
-                        .updateAllAndConfig(
-                            db,
-                            [
-                                (!profileNameShouldBeUpdated ? nil :
-                                    Profile.Columns.name.set(to: data.profile.name)
-                                ),
-                                (profile.nickname == data.profile.nickname ? nil :
-                                    Profile.Columns.nickname.set(to: data.profile.nickname)
-                                ),
-                                (profile.displayPictureUrl != data.profile.displayPictureUrl ? nil :
-                                    Profile.Columns.displayPictureUrl.set(to: data.profile.displayPictureUrl)
-                                ),
-                                (profile.displayPictureEncryptionKey != data.profile.displayPictureEncryptionKey ? nil :
-                                    Profile.Columns.displayPictureEncryptionKey.set(to: data.profile.displayPictureEncryptionKey)
-                                ),
-                                (!profileUpdated ? nil :
-                                    Profile.Columns.profileLastUpdated.set(to: data.profile.profileLastUpdated)
-                                )
-                            ].compactMap { $0 },
-                            using: dependencies
-                        )
-                    
-                    if profileNameShouldBeUpdated {
-                        db.addProfileEvent(id: sessionId, change: .name(data.profile.name))
-                        
-                        if data.profile.nickname == nil {
-                            db.addConversationEvent(id: sessionId, type: .updated(.displayName(data.profile.name)))
-                        }
-                    }
-                    
-                    if profile.nickname != data.profile.nickname {
-                        db.addProfileEvent(id: sessionId, change: .nickname(data.profile.nickname))
-                        db.addConversationEvent(
-                            id: sessionId,
-                            type: .updated(.displayName(data.profile.nickname ?? data.profile.name))
-                        )
-                    }
-                }
                 
                 /// Since message requests have no reverse, we should only handle setting `isApproved`
                 /// and `didApproveMe` to `true`. This may prevent some weird edge cases where a config message
                 /// swapping `isApproved` and `didApproveMe` to `false`
+                let contact: Contact = Contact.fetchOrCreate(db, id: sessionId, using: dependencies)
+                
                 if
                     (contact.isApproved != data.contact.isApproved) ||
                     (contact.isBlocked != data.contact.isBlocked) ||

@@ -56,13 +56,11 @@ public class ThreadPickerViewModel {
     /// just in case the database has changed between the two reads - unfortunately it doesn't look like there is a way to prevent this
     public lazy var observableViewData = ValueObservation
         .trackingConstantRegion { [dependencies] db -> [SessionThreadViewModel] in
-            let userProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             
             return try SessionThreadViewModel
                 .shareQuery(userSessionId: userSessionId)
                 .fetchAll(db)
-                .map { $0.with(userProfile: userProfile) }
                 .map { threadViewModel in
                     let (wasKickedFromGroup, groupIsDestroyed): (Bool, Bool) = {
                         guard threadViewModel.threadVariant == .group else { return (false, false) }

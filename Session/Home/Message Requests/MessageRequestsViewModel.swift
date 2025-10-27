@@ -206,7 +206,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     }
                 }
                 
-                let userProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
                 try await dependencies[singleton: .storage].readAsync { db in
                     /// Update loaded page info as needed
                     if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
@@ -229,7 +228,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                 ids: Array(idsNeedingRequery) + loadResult.newIds
                             )
                             .fetchAll(db)
-                            .map { $0.with(userProfile: userProfile) }
                     )
                 }
                 

@@ -20,6 +20,63 @@ public extension Profile {
         case currentUserUpdate(String?)
     }
     
+    indirect enum CacheSource {
+        case value(Profile?, fallback: CacheSource)
+        case libSession(fallback: CacheSource)
+        case database
+        
+        func resolve(_ db: ObservingDatabase, publicKey: String, using dependencies: Dependencies) -> Profile {
+            switch self {
+                case .value(.some(let profile), _): return profile
+                case .value(.none, let fallback):
+                    return fallback.resolve(db, publicKey: publicKey, using: dependencies)
+                    
+                case .libSession(let fallback):
+                    if let profile: Profile = dependencies.mutate(cache: .libSession, { $0.profile(contactId: publicKey) }) {
+                        return profile
+                    }
+                    
+                    return fallback.resolve(db, publicKey: publicKey, using: dependencies)
+                    
+                case .database: return Profile.fetchOrCreate(db, id: publicKey)
+            }
+        }
+    }
+    
+    enum UpdateStatus {
+        case shouldUpdate
+        case matchesCurrent
+        case stale
+        
+        /// To try to maintain backwards compatibility with profile changes we want to continue to accept profile changes from old clients if
+        /// we haven't received a profile update from a new client yet otherwise, if we have, then we should only accept profile changes if
+        /// they are newer that our cached version of the profile data
+        init(updateTimestamp: TimeInterval?, cachedProfile: Profile) {
+            let finalProfileUpdateTimestamp: TimeInterval = (updateTimestamp ?? 0)
+            let finalCachedProfileUpdateTimestamp: TimeInterval = (cachedProfile.profileLastUpdated ?? 0)
+            
+            /// If neither the profile update or the cached profile have a timestamp then we should just always accept the update
+            ///
+            /// **Note:** We check if they are equal to `0` here because the default value from `libSession` will be `0`
+            /// rather than `null`
+            guard finalProfileUpdateTimestamp != 0 || finalCachedProfileUpdateTimestamp != 0 else {
+                self = .shouldUpdate
+                return
+            }
+            
+            /// Otherwise we compare the values to determine the current state
+            switch finalProfileUpdateTimestamp {
+                case finalCachedProfileUpdateTimestamp...:
+                    self = (finalProfileUpdateTimestamp == finalCachedProfileUpdateTimestamp ?
+                        .matchesCurrent :
+                        .shouldUpdate
+                    )
+                
+                default: self = .stale
+            }
+        }
+    }
+    
     static func isTooLong(profileName: String) -> Bool {
         /// String.utf8CString will include the null terminator (Int8)0 as the end of string buffer.
         /// When the string is exactly 100 bytes String.utf8CString.count will be 101.
@@ -82,192 +139,189 @@ public extension Profile {
         catch { throw AttachmentError.databaseChangesFailed }
     }
     
-    /// To try to maintain backwards compatibility with profile changes we want to continue to accept profile changes from old clients if
-    /// we haven't received a profile update from a new client yet otherwise, if we have, then we should only accept profile changes if
-    /// they are newer that our cached version of the profile data
-    static func shouldUpdateProfile(
-        _ profileUpdateTimestamp: TimeInterval?,
-        profile: Profile,
-        forDownloadingDisplayPicture: Bool = false,
-        using dependencies: Dependencies
-    ) -> Bool {
-        /// We should consider `libSession` the source-of-truth for profile data for contacts so try to retrieve the profile data from
-        /// there before falling back to the one fetched from the database
-        let targetProfile: Profile = (
-            dependencies.mutate(cache: .libSession) { $0.profile(contactId: profile.id) } ??
-            profile
-        )
-        let finalProfileUpdateTimestamp: TimeInterval = (profileUpdateTimestamp ?? 0)
-        let finalCachedProfileUpdateTimestamp: TimeInterval = (targetProfile.profileLastUpdated ?? 0)
-        
-        /// If neither the profile update or the cached profile have a timestamp then we should just always accept the update
-        ///
-        /// **Note:** We check if they are equal to `0` here because the default value from `libSession` will be `0`
-        /// rather than `null`
-        guard finalProfileUpdateTimestamp != 0 || finalCachedProfileUpdateTimestamp != 0 else {
-            return true
-        }
-        
-        /// Check if we are validating an update for the purpose of downloading a display picture
-        if forDownloadingDisplayPicture {
-            /// If so then the the timestamp can either be newer or match the cached value
-            return (finalProfileUpdateTimestamp >= finalCachedProfileUpdateTimestamp)
-        }
-        
-        /// Otherwise we should only accept the update if it's newer than our cached value
-        return (finalProfileUpdateTimestamp > finalCachedProfileUpdateTimestamp)
-    }
-    
     static func updateIfNeeded(
         _ db: ObservingDatabase,
         publicKey: String,
         displayNameUpdate: DisplayNameUpdate = .none,
-        displayPictureUpdate: DisplayPictureManager.Update,
-        blocksCommunityMessageRequests: Bool? = nil,
+        displayPictureUpdate: DisplayPictureManager.Update = .none,
+        nicknameUpdate: Update<String?> = .useExisting,
+        blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
         profileUpdateTimestamp: TimeInterval?,
+        cacheSource: CacheSource = .libSession(fallback: .database),
         suppressUserProfileConfigUpdate: Bool = false,
         using dependencies: Dependencies
     ) throws {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let isCurrentUser = (publicKey == userSessionId.hexString)
-        let profile: Profile = (
-            dependencies.mutate(cache: .libSession) { $0.profile(contactId: publicKey) } ??
-            Profile.fetchOrCreate(db, id: publicKey)
+        let profile: Profile = cacheSource.resolve(db, publicKey: publicKey, using: dependencies)
+        let updateStatus: UpdateStatus = UpdateStatus(
+            updateTimestamp: profileUpdateTimestamp,
+            cachedProfile: profile
         )
         var updatedProfile: Profile = profile
         var profileChanges: [ConfigColumnAssignment] = []
         
-        guard shouldUpdateProfile(profileUpdateTimestamp, profile: profile, using: dependencies) else {
-            /// If we can update for the purpose of downloading a display picture then it's possible this is a missing display picture so
-            /// schedule a new download job
-            if shouldUpdateProfile(profileUpdateTimestamp, profile: profile, forDownloadingDisplayPicture: true, using: dependencies) {
-                var targetUrl: String? = profile.displayPictureUrl
-                var targetKey: Data? = profile.displayPictureEncryptionKey
-                
-                switch displayPictureUpdate {
-                    case .contactUpdateTo(let url, let key, _), .currentUserUpdateTo(let url, let key, _, _):
-                        targetUrl = url
-                        targetKey = key
-                        
-                    default: break
-                }
-                
-                if let url: String = targetUrl, let key: Data = targetKey {
+        /// We should only update profile info controled by other users if `updateStatus` is `shouldUpdate`
+        if updateStatus == .shouldUpdate {
+            /// Name
+            switch (displayNameUpdate, isCurrentUser) {
+                case (.none, _): break
+                case (.currentUserUpdate(let name), true), (.contactUpdate(let name), false):
+                    guard let name: String = name, !name.isEmpty, name != profile.name else { break }
+                    
+                    if profile.name != name {
+                        updatedProfile = updatedProfile.with(name: name)
+                        profileChanges.append(Profile.Columns.name.set(to: name))
+                        db.addProfileEvent(id: publicKey, change: .name(name))
+                    }
+                    
+                /// Don't want profiles in messages to modify the current users profile info so ignore those cases
+                default: break
+            }
+            
+            /// Blocks community message requests flag
+            switch blocksCommunityMessageRequests {
+                case .useExisting: break
+                case .set(let value):
+                    guard value != profile.blocksCommunityMessageRequests else { break }
+                    
+                    updatedProfile = updatedProfile.with(blocksCommunityMessageRequests: .set(to: value))
+                    profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: value))
+            }
+            
+            /// Profile picture & profile key
+            switch (displayPictureUpdate, isCurrentUser) {
+                case (.none, _): break
+                case (.groupRemove, _), (.groupUpdateTo, _): throw AttachmentError.invalidStartState
+                case (.contactRemove, false), (.currentUserRemove, true):
+                    if profile.displayPictureEncryptionKey != nil {
+                        updatedProfile = updatedProfile.with(displayPictureEncryptionKey: .set(to: nil))
+                        profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))
+                    }
+                    
+                    if profile.displayPictureUrl != nil {
+                        updatedProfile = updatedProfile.with(displayPictureUrl: .set(to: nil))
+                        profileChanges.append(Profile.Columns.displayPictureUrl.set(to: nil))
+                        db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
+                    }
+                    
+                case (.contactUpdateTo(let url, let key, let proProof), false),
+                    (.currentUserUpdateTo(let url, let key, let proProof, _), true):
+                    /// If we have already downloaded the image then we can just directly update the stored profile data (it normally
+                    /// wouldn't be updated until after the download completes)
                     let fileExists: Bool = ((try? dependencies[singleton: .displayPictureManager]
                         .path(for: url))
                         .map { dependencies[singleton: .fileManager].fileExists(atPath: $0) } ?? false)
                     
-                    if !fileExists {
-                        dependencies[singleton: .jobRunner].add(
-                            db,
-                            job: Job(
-                                variant: .displayPictureDownload,
-                                shouldBeUnique: true,
-                                details: DisplayPictureDownloadJob.Details(
-                                    target: .profile(id: profile.id, url: url, encryptionKey: key),
-                                    timestamp: profileUpdateTimestamp
-                                )
-                            ),
-                            canStartJob: dependencies[singleton: .appContext].isMainApp
-                        )
-                    }
-                }
-            }
-            
-            return
-        }
-        
-        // Name
-        switch (displayNameUpdate, isCurrentUser) {
-            case (.none, _): break
-            case (.currentUserUpdate(let name), true), (.contactUpdate(let name), false):
-                guard let name: String = name, !name.isEmpty, name != profile.name else { break }
-                
-                if profile.name != name {
-                    updatedProfile = updatedProfile.with(name: name)
-                    profileChanges.append(Profile.Columns.name.set(to: name))
-                    db.addProfileEvent(id: publicKey, change: .name(name))
-                }
-            
-            // Don't want profiles in messages to modify the current users profile info so ignore those cases
-            default: break
-        }
-        
-        // Blocks community message requests flag
-        if let blocksCommunityMessageRequests: Bool = blocksCommunityMessageRequests {
-            updatedProfile = updatedProfile.with(blocksCommunityMessageRequests: .set(to: blocksCommunityMessageRequests))
-            profileChanges.append(Profile.Columns.blocksCommunityMessageRequests.set(to: blocksCommunityMessageRequests))
-        }
-        
-        // Profile picture & profile key
-        switch (displayPictureUpdate, isCurrentUser) {
-            case (.none, _): break
-            case (.groupRemove, _), (.groupUpdateTo, _): throw AttachmentError.invalidStartState
-            case (.contactRemove, false), (.currentUserRemove, true):
-                if profile.displayPictureEncryptionKey != nil {
-                    updatedProfile = updatedProfile.with(displayPictureEncryptionKey: .set(to: nil))
-                    profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: nil))
-                }
-                
-                if profile.displayPictureUrl != nil {
-                    updatedProfile = updatedProfile.with(displayPictureUrl: .set(to: nil))
-                    profileChanges.append(Profile.Columns.displayPictureUrl.set(to: nil))
-                    db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
-                }
-            
-            case (.contactUpdateTo(let url, let key, let proProof), false),
-                (.currentUserUpdateTo(let url, let key, let proProof, _), true):
-                /// If we have already downloaded the image then no need to download it again (the database records will be updated
-                /// once the download completes)
-                let fileExists: Bool = ((try? dependencies[singleton: .displayPictureManager]
-                    .path(for: url))
-                    .map { dependencies[singleton: .fileManager].fileExists(atPath: $0) } ?? false)
-                
-                if !fileExists {
-                    dependencies[singleton: .jobRunner].add(
-                        db,
-                        job: Job(
-                            variant: .displayPictureDownload,
-                            shouldBeUnique: true,
-                            details: DisplayPictureDownloadJob.Details(
-                                target: .profile(id: profile.id, url: url, encryptionKey: key),
-                                timestamp: profileUpdateTimestamp
-                            )
-                        ),
-                        canStartJob: dependencies[singleton: .appContext].isMainApp
-                    )
-                }
-                else {
-                    if url != profile.displayPictureUrl {
-                        /// Remove the old display picture (since we are replacing it)
-                        if
-                            let existingProfileUrl: String = updatedProfile.displayPictureUrl,
-                            let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
-                                .path(for: existingProfileUrl)
-                        {
-                            Task.detached(priority: .low) {
-                                await dependencies[singleton: .imageDataManager].removeImage(
-                                    identifier: existingFilePath
-                                )
-                                try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
+                    if fileExists {
+                        if url != profile.displayPictureUrl {
+                            /// Remove the old display picture (since we are replacing it)
+                            if
+                                let existingProfileUrl: String = updatedProfile.displayPictureUrl,
+                                let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
+                                    .path(for: existingProfileUrl)
+                            {
+                                Task.detached(priority: .low) {
+                                    await dependencies[singleton: .imageDataManager].removeImage(
+                                        identifier: existingFilePath
+                                    )
+                                    try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
+                                }
                             }
+                            
+                            updatedProfile = updatedProfile.with(displayPictureUrl: .set(to: url))
+                            profileChanges.append(Profile.Columns.displayPictureUrl.set(to: url))
+                            db.addProfileEvent(id: publicKey, change: .displayPictureUrl(url))
                         }
                         
-                        updatedProfile = updatedProfile.with(displayPictureUrl: .set(to: url))
-                        profileChanges.append(Profile.Columns.displayPictureUrl.set(to: url))
-                        db.addProfileEvent(id: publicKey, change: .displayPictureUrl(url))
+                        if key != profile.displayPictureEncryptionKey && key.count == DisplayPictureManager.encryptionKeySize {
+                            updatedProfile = updatedProfile.with(displayPictureEncryptionKey: .set(to: key))
+                            profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: key))
+                        }
                     }
                     
-                    if key != profile.displayPictureEncryptionKey && key.count == DisplayPictureManager.encryptionKeySize {
-                        updatedProfile = updatedProfile.with(displayPictureEncryptionKey: .set(to: key))
-                        profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: key))
-                    }
+                // TODO: Handle Pro Proof update
+                
+                /// Don't want profiles in messages to modify the current users profile info so ignore those cases
+                default: break
+            }
+        }
+        
+        /// Nickname - this is controlled by the current user so should always be used
+        switch (nicknameUpdate, isCurrentUser) {
+            case (.useExisting, _): break
+            case (.set(let nickname), false):
+                let finalNickname: String? = (nickname?.isEmpty == false ? nickname : nil)
+                
+                if profile.nickname != finalNickname {
+                    updatedProfile = updatedProfile.with(nickname: .set(to: finalNickname))
+                    profileChanges.append(Profile.Columns.nickname.set(to: finalNickname))
+                    db.addProfileEvent(id: publicKey, change: .nickname(finalNickname))
                 }
-            
-            // TODO: Handle Pro Proof update
-            
-            /// Don't want profiles in messages to modify the current users profile info so ignore those cases
+                
             default: break
+        }
+        
+        /// Add a conversation event if the display name for a conversation changed
+        let effectiveDisplayName: String? = {
+            if isCurrentUser {
+                guard case .currentUserUpdate(let name) = displayNameUpdate else { return nil }
+                
+                return name
+            }
+            
+            if case .set(let nickname) = nicknameUpdate, let nickname, !nickname.isEmpty {
+                return nickname
+            }
+            
+            if case .contactUpdate(let name) = displayNameUpdate, let name, !name.isEmpty {
+                return name
+            }
+            
+            return nil
+        }()
+
+        if
+            let newDisplayName: String = effectiveDisplayName,
+            newDisplayName != (isCurrentUser ? profile.name : (profile.nickname ?? profile.name))
+        {
+            db.addConversationEvent(id: publicKey, type: .updated(.displayName(newDisplayName)))
+        }
+        
+        /// If the profile was either updated or matches the current (latest) state then we should check if we have the display picture on
+        /// disk and, if not, we should schedule a download (a display picture may not be present after linking devices, restoration, etc.)
+        if updateStatus == .shouldUpdate || updateStatus == .matchesCurrent {
+            var targetUrl: String? = profile.displayPictureUrl
+            var targetKey: Data? = profile.displayPictureEncryptionKey
+            
+            switch displayPictureUpdate {
+                case .contactUpdateTo(let url, let key, _), .currentUserUpdateTo(let url, let key, _, _):
+                    targetUrl = url
+                    targetKey = key
+                    
+                default: break
+            }
+            
+            if
+                let url: String = targetUrl,
+                let key: Data = targetKey,
+                !key.isEmpty,
+                let path: String = try? dependencies[singleton: .displayPictureManager].path(for: url),
+                !dependencies[singleton: .fileManager].fileExists(atPath: path)
+            {
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .displayPictureDownload,
+                        shouldBeUnique: true,
+                        details: DisplayPictureDownloadJob.Details(
+                            target: .profile(id: profile.id, url: url, encryptionKey: key),
+                            timestamp: profileUpdateTimestamp
+                        )
+                    ),
+                    canStartJob: dependencies[singleton: .appContext].isMainApp
+                )
+            }
         }
         
         /// Persist any changes
@@ -277,31 +331,27 @@ public extension Profile {
                 .compactMap {
                     switch ($0.value as? ProfileEvent)?.change {
                         case .none: return nil
-                        case .name: return "name updated"
+                        case .name: return "name updated"   // stringlint:ignore
                         case .displayPictureUrl(let url):
-                            return (url != nil ? "displayPictureUrl updated" : "displayPictureUrl removed")
+                            return (url != nil ? "displayPictureUrl updated" : "displayPictureUrl removed") // stringlint:ignore
                             
                         case .nickname(let nickname):
-                            return (nickname != nil ? "nickname updated" :  "nickname removed")
+                            return (nickname != nil ? "nickname updated" :  "nickname removed") // stringlint:ignore
                     }
                 }
                 .joined(separator: ", ")
             updatedProfile = updatedProfile.with(profileLastUpdated: .set(to: profileUpdateTimestamp))
             profileChanges.append(Profile.Columns.profileLastUpdated.set(to: profileUpdateTimestamp))
             
-            /// The current users profile is sourced from `libSession` everywhere so no need to update the database
-            if !isCurrentUser {
-                try updatedProfile.upsert(db)
-                
-                try Profile
-                    .filter(id: publicKey)
-                    .updateAllAndConfig(
-                        db,
-                        profileChanges,
-                        using: dependencies
-                    )
-                Log.debug(.profile, "Successfully updated profile for \(publicKey) (\(changeString)).")
-            }
+            try updatedProfile.upsert(db)
+            
+            try Profile
+                .filter(id: publicKey)
+                .updateAllAndConfig(
+                    db,
+                    profileChanges,
+                    using: dependencies
+                )
             
             /// We don't automatically update the current users profile data when changed in the database so need to manually
             /// trigger the update
@@ -321,8 +371,9 @@ public extension Profile {
                         )
                     }
                 }
-                Log.info(.profile, "Successfully updated user profile (\(changeString)).")
             }
+            
+            Log.custom(isCurrentUser ? .info : .debug, [.profile], "Successfully updated \(isCurrentUser ? "user profile" : "profile for \(publicKey)")) (\(changeString)).")
         }
     }
 }

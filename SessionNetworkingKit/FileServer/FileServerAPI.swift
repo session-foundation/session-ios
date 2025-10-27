@@ -61,10 +61,16 @@ public extension Network.FileServer {
     
     static func preparedExtend(
         url: URL,
-        ttl: TimeInterval,
+        customTtl: TimeInterval?,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<ExtendExpirationResponse> {
         let strippedUrl: URL = try url.strippingQueryAndFragment ?? { throw NetworkError.invalidURL }()
+        
+        var headers: [HTTPHeader: String] = [:]
+        
+        if let ttl: TimeInterval = customTtl {
+            headers = [.fileCustomTTL: "\(Int(floor(ttl)))"]
+        }
         
         return try Network.PreparedRequest(
             request: Request<NoBody, Endpoint>(
@@ -72,7 +78,7 @@ public extension Network.FileServer {
                 destination: .server(
                     method: .post,
                     url: strippedUrl,
-                    headers: [.fileCustomTTL: "\(Int(floor(ttl)))"],
+                    headers: headers,
                     x25519PublicKey: FileServer.x25519PublicKey(for: url, using: dependencies)
                 )
             ),

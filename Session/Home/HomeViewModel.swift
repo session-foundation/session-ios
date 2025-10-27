@@ -382,7 +382,6 @@ public class HomeViewModel: NavigatableStateHolder {
                                 ids: Array(idsNeedingRequery) + loadResult.newIds
                             )
                             .fetchAll(db)
-                            .map { $0.with(userProfile: userProfile) }
                     )
                 }
                 

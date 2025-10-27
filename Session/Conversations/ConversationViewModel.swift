@@ -272,7 +272,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             threadWasMarkedUnread: initialData?.threadWasMarkedUnread,
             using: dependencies
         )
-        .with(userProfile: dependencies.mutate(cache: .libSession) { $0.profile })
         .populatingPostQueryData(
             recentReactionEmoji: nil,
             openGroupCapabilities: nil,
@@ -351,13 +350,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     private func setupObservableThreadData(for threadId: String) -> ThreadObservation {
         return ObservationBuilderOld
             .databaseObservation(dependencies) { [weak self, dependencies] db -> SessionThreadViewModel? in
-                let userProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let recentReactionEmoji: [String] = try Emoji.getRecent(db, withDefaultEmoji: true)
                 let threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                     .conversationQuery(threadId: threadId, userSessionId: userSessionId)
-                    .fetchOne(db)?
-                    .with(userProfile: userProfile)
+                    .fetchOne(db)
                 let openGroupCapabilities: Set<Capability.Variant>? = (threadViewModel?.threadVariant != .community ?
                     nil :
                     try Capability
@@ -368,34 +365,32 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         .fetchSet(db)
                 )
                 
-                return (threadViewModel?
-                    .with(userProfile: userProfile))
-                    .map { viewModel -> SessionThreadViewModel in
-                        let (wasKickedFromGroup, groupIsDestroyed): (Bool, Bool) = {
-                            guard viewModel.threadVariant == .group else { return (false, false) }
-                            
-                            let sessionId: SessionId = SessionId(.group, hex: viewModel.threadId)
-                            return dependencies.mutate(cache: .libSession) { cache in
-                                (
-                                    cache.wasKickedFromGroup(groupSessionId: sessionId),
-                                    cache.groupIsDestroyed(groupSessionId: sessionId)
-                                )
-                            }
-                        }()
+                return threadViewModel.map { viewModel -> SessionThreadViewModel in
+                    let (wasKickedFromGroup, groupIsDestroyed): (Bool, Bool) = {
+                        guard viewModel.threadVariant == .group else { return (false, false) }
                         
-                        return viewModel.populatingPostQueryData(
-                            recentReactionEmoji: recentReactionEmoji,
-                            openGroupCapabilities: openGroupCapabilities,
-                            currentUserSessionIds: (
-                                self?.threadData.currentUserSessionIds ??
-                                [userSessionId.hexString]
-                            ),
-                            wasKickedFromGroup: wasKickedFromGroup,
-                            groupIsDestroyed: groupIsDestroyed,
-                            threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies),
-                            threadCanUpload: viewModel.determineInitialCanUploadFlag(using: dependencies)
-                        )
-                    }
+                        let sessionId: SessionId = SessionId(.group, hex: viewModel.threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            (
+                                cache.wasKickedFromGroup(groupSessionId: sessionId),
+                                cache.groupIsDestroyed(groupSessionId: sessionId)
+                            )
+                        }
+                    }()
+                    
+                    return viewModel.populatingPostQueryData(
+                        recentReactionEmoji: recentReactionEmoji,
+                        openGroupCapabilities: openGroupCapabilities,
+                        currentUserSessionIds: (
+                            self?.threadData.currentUserSessionIds ??
+                            [userSessionId.hexString]
+                        ),
+                        wasKickedFromGroup: wasKickedFromGroup,
+                        groupIsDestroyed: groupIsDestroyed,
+                        threadCanWrite: viewModel.determineInitialCanWriteFlag(using: dependencies),
+                        threadCanUpload: viewModel.determineInitialCanUploadFlag(using: dependencies)
+                    )
+                }
             }
             .handleEvents(didFail: { Log.error(.conversation, "Observation failed with error: \($0)") })
     }

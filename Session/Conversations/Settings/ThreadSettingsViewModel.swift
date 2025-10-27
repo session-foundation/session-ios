@@ -127,12 +127,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
     
     lazy var observation: TargetObservation = ObservationBuilderOld
         .databaseObservation(self) { [dependencies, threadId = self.threadId] db -> State in
-            let userProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             var threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
                 .conversationSettingsQuery(threadId: threadId, userSessionId: userSessionId)
-                .fetchOne(db)?
-                .with(userProfile: userProfile)
+                .fetchOne(db)
             let disappearingMessagesConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
                 .fetchOne(db, id: threadId)
                 .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
@@ -1528,15 +1526,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 /// Update the nickname
                 dependencies[singleton: .storage].writeAsync(
                     updates: { db in
-                        try Profile
-                            .filter(id: threadId)
-                            .updateAllAndConfig(
-                                db,
-                                Profile.Columns.nickname.set(to: finalNickname),
-                                using: dependencies
-                            )
-                        db.addProfileEvent(id: threadId, change: .nickname(finalNickname))
-                        db.addConversationEvent(id: threadId, type: .updated(.displayName(finalNickname)))
+                        try Profile.updateIfNeeded(
+                            db,
+                            publicKey: threadId,
+                            nicknameUpdate: .set(to: finalNickname),
+                            profileUpdateTimestamp: nil,
+                            using: dependencies
+                        )
                     },
                     completion: { _ in
                         DispatchQueue.main.async {
@@ -1549,15 +1545,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                 /// Remove the nickname
                 dependencies[singleton: .storage].writeAsync(
                     updates: { db in
-                        try Profile
-                            .filter(id: threadId)
-                            .updateAllAndConfig(
-                                db,
-                                Profile.Columns.nickname.set(to: nil),
-                                using: dependencies
-                            )
-                        db.addProfileEvent(id: threadId, change: .nickname(nil))
-                        db.addConversationEvent(id: threadId, type: .updated(.displayName(displayName)))
+                        try Profile.updateIfNeeded(
+                            db,
+                            publicKey: threadId,
+                            nicknameUpdate: .set(to: nil),
+                            profileUpdateTimestamp: nil,
+                            using: dependencies
+                        )
                     },
                     completion: { _ in
                         DispatchQueue.main.async {

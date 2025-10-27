@@ -444,11 +444,14 @@ extension DisplayPictureDownloadJob {
                         encryptionKey == latestProfile.displayPictureEncryptionKey &&
                         url == latestProfile.displayPictureUrl
                     )
+                    let updateStatus: Profile.UpdateStatus = Profile.UpdateStatus(
+                        updateTimestamp: timestamp,
+                        cachedProfile: latestProfile
+                    )
                     
-                    guard
-                        dataMatches ||
-                        Profile.shouldUpdateProfile(timestamp, profile: latestProfile, forDownloadingDisplayPicture: true, using: dependencies)
-                    else { throw AttachmentError.downloadNoLongerValid }
+                    guard dataMatches || updateStatus == .shouldUpdate || updateStatus == .matchesCurrent else {
+                        throw AttachmentError.downloadNoLongerValid
+                    }
                     
                     break
                     

@@ -80,11 +80,13 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                 }
             }
             
-            /// Try to extend the TTL of the existing profile pic first
+            /// Try to extend the TTL of the existing profile pic first (default to providing no TTL which will extend to the server
+            /// configuration)
             do {
+                let targetTTL: TimeInterval? = (dependencies[feature: .shortenFileTTL] ? 60 : nil)
                 let request: Network.PreparedRequest<Network.FileServer.ExtendExpirationResponse> = try Network.FileServer.preparedExtend(
                     url: displayPictureUrl,
-                    ttl: maxDisplayPictureTTL,
+                    customTtl: targetTTL,
                     using: dependencies
                 )
                 

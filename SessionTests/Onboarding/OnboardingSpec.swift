@@ -57,6 +57,9 @@ class OnboardingSpec: AsyncSpec {
                 crypto
                     .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
                     .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+                crypto
+                    .when { $0.generate(.hash(message: .any)) }
+                    .thenReturn([1, 2, 3])
             }
         )
         @TestState(cache: .libSession, in: dependencies) var mockLibSession: MockLibSessionCache! = MockLibSessionCache(
@@ -172,6 +175,19 @@ class OnboardingSpec: AsyncSpec {
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
             initialSetup: { $0.defaultInitialSetup() }
+        )
+        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
+            initialSetup: { jobRunner in
+                jobRunner
+                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                    .thenReturn(nil)
+                jobRunner
+                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                    .thenReturn(nil)
+                jobRunner
+                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                    .thenReturn([:])
+            }
         )
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var cache: Onboarding.Cache!
@@ -554,6 +570,10 @@ class OnboardingSpec: AsyncSpec {
         // MARK: - an Onboarding Cache - Complete Registration
         describe("an Onboarding Cache when completing registration") {
             justBeforeEach {
+                /// The `profile_updated` timestamp in `libSession` is set to now so we need to set the value to some
+                /// distant future value to force the update logic to trigger
+                dependencies.dateNow = Date(timeIntervalSince1970: 12345678900)
+                
                 cache = Onboarding.Cache(
                     flow: .register,
                     using: dependencies
@@ -608,13 +628,23 @@ class OnboardingSpec: AsyncSpec {
                 ]))
             }
             
-            // MARK: -- does not insert a profile record into the database for the current user
-            it("does not insert a profile record into the database for the current user") {
+            // MARK: -- creates a profile record for the current user
+            it("creates a profile record for the current user") {
                 let result: [Profile]? = mockStorage.read { db in
                     try Profile.fetchAll(db)
                 }
                 
-                expect(result).to(beEmpty())
+                expect(result).to(equal([
+                    Profile(
+                        id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
+                        name: "TestCompleteName",
+                        nickname: nil,
+                        displayPictureUrl: nil,
+                        displayPictureEncryptionKey: nil,
+                        profileLastUpdated: 12345678900,
+                        blocksCommunityMessageRequests: nil
+                    )
+                ]))
             }
             
             // MARK: -- creates a thread for Note to Self
@@ -663,19 +693,23 @@ class OnboardingSpec: AsyncSpec {
                     try ConfigDump.fetchAll(db)
                 }
                 
-                try require(result).to(haveCount(1))
+                try require(result).to(haveCount(2))
+                try require(Set((result?.map { $0.variant })!)).to(equal([.userProfile, .local]))
                 expect(result![0].variant).to(equal(.userProfile))
-                expect(result![0].sessionId).to(equal(SessionId(.standard, hex: TestConstants.publicKey)))
-                expect(result![0].timestampMs).to(equal(1234567890000))
+                let userProfileDump: ConfigDump = (result?.first(where: { $0.variant == .userProfile }))!
+                expect(userProfileDump.variant).to(equal(.userProfile))
+                expect(userProfileDump.sessionId).to(equal(SessionId(.standard, hex: TestConstants.publicKey)))
+                expect(userProfileDump.timestampMs).to(equal(1234567890000))
                 
                 /// The data now contains a `now` timestamp so won't be an exact match anymore, but we _can_ check to ensure
                 /// the rest of the data matches and that the timestamps are close enough to `now`
                 ///
                 /// **Note:** The data contains non-ASCII content so we can't do a straight conversion unfortunately
-                let resultData: Data = result![0].data
-                let prefixData: Data = "d1:!i1e1:$144:d1:#i1e1:&d1:+i-1e1:Ti".data(using: .ascii)!
-                let infixData: Data = "e1:n16:TestCompleteName1:ti".data(using: .ascii)!
-                let suffixData: Data = "ee1:<lli0e32:".data(using: .ascii)!
+                let resultData: Data = userProfileDump.data
+                let prefixData: Data = "d1:!i1e1:$124:d1:#i1e1:&d1:+i-1e1:n16:TestCompleteName1:ti"
+                    .data(using: .ascii)!
+                let infixData: Data = "ee1:<lli0e32:".data(using: .ascii)!
+                let suffixData: Data = "edeee1:=d1:+0:1:n0:1:t0:ee1:(le1:)le1:*de1:+dee".data(using: .ascii)!
                 
                 guard
                     let prefixRange: Range<Data.Index> = resultData.range(of: prefixData),
@@ -685,41 +719,30 @@ class OnboardingSpec: AsyncSpec {
                         .range(of: suffixData, in: infixRange.upperBound..<resultData.endIndex)
                 else { return fail("The structure of the binary data is incorrect.") }
                 
-                /// Extract the timestamps and ensure they match
-                let timestamp1Range: Range<Data.Index> = prefixRange.upperBound..<infixRange.lowerBound
-                let timestamp2Range: Range<Data.Index> = infixRange.upperBound..<suffixRange.lowerBound
-                let timestamp1Data: Data = resultData.subdata(in: timestamp1Range)
-                let timestamp2Data: Data = resultData.subdata(in: timestamp2Range)
+                /// Extract the timestamp and ensure it matches
+                let timestampRange: Range<Data.Index> = prefixRange.upperBound..<infixRange.lowerBound
+                let timestampData: Data = resultData.subdata(in: timestampRange)
                 
-                guard
-                    let timestamp1String: String = String(data: timestamp1Data, encoding: .ascii),
-                    let timestamp2String: String = String(data: timestamp2Data, encoding: .ascii)
-                else { return fail("Failed to decode the isolated timestamp data into strings.") }
-                
-                expect(timestamp1String).to(
-                    equal(timestamp2String),
-                    description: "The two timestamps within the data should be the same."
-                )
+                guard let timestampString: String = String(data: timestampData, encoding: .ascii) else {
+                    return fail("Failed to decode the isolated timestamp data into strings.")
+                }
                 
                 /// Ensure the timestamp is within 5s of now
-                guard let timestampValue = TimeInterval(timestamp1String) else {
-                    return fail("Could not convert the captured timestamp '\(timestamp1String)' to a TimeInterval.")
+                guard let timestampValue = TimeInterval(timestampString) else {
+                    return fail("Could not convert the captured timestamp '\(timestampString)' to a TimeInterval.")
                 }
                 expect(timestampValue).to(beCloseTo(Date().timeIntervalSince1970, within: 5.0))
 
                 /// Just for completeness we also want to ensure the end  of the data (which contains non-ASCII characters) matches
                 /// the content
-                let expectedEndPart: String = [
-                    "6hc7V77KivGMNRmnu/acPnoF0cBJ+pVYNB2Ou0iwyWVkZWVlMTo9ZDE6" +
-                    "KzA6MTpUMDoxOm4wOjE6dDA6ZWUxOihsZTE6KWxlMToqZGUxOitkZWU="
-                ].joined()
+                let expectedNonAsciiPart: String = "6hc7V77KivGMNRmnu/acPnoF0cBJ+pVYNB2Ou0iwyQ=="
                 
-                guard let expectedEndPartData: Data = Data(base64Encoded: expectedEndPart) else {
+                guard let expectedNonAsciiPartData: Data = Data(base64Encoded: expectedNonAsciiPart) else {
                     return fail("Failed to convert expected end part to Data.")
                 }
                 
-                expect(resultData.suffix(from: suffixRange.upperBound)).to(
-                    equal(expectedEndPartData),
+                expect(resultData.subdata(in: infixRange.upperBound..<suffixRange.lowerBound)).to(
+                    equal(expectedNonAsciiPartData),
                     description: "The data does not end with the expected static suffix."
                 )
             }
@@ -792,6 +815,117 @@ class OnboardingSpec: AsyncSpec {
                 cache.completeRegistration { didCallOnComplete = true }
                 
                 await expect(didCallOnComplete).toEventually(beTrue())
+            }
+        }
+        
+        // MARK: - an Onboarding Cache - Complete Restoration
+        describe("an Onboarding Cache when completing an account restoration") {
+            @TestState var testCacheProfile: Profile!
+            
+            justBeforeEach {
+                /// The `profile_updated` timestamp in `libSession` is set to now so we need to set the value to some
+                /// distant future value to force the update logic to trigger
+                dependencies.dateNow = Date(timeIntervalSince1970: 12345678900)
+                
+                cache = Onboarding.Cache(
+                    flow: .restore,
+                    using: dependencies
+                )
+                cache.setDisplayName("TestCompleteName")
+                cache.displayNamePublisher.sinkAndStore(in: &disposables)
+                try? cache.setSeedData(Data(hex: TestConstants.edKeySeed).prefix(upTo: 16))
+                cache.completeRegistration()
+            }
+            
+            beforeEach {
+                let cache: LibSession.Cache = LibSession.Cache(
+                    userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                    using: dependencies
+                )
+                cache.loadDefaultStateFor(
+                    variant: .userProfile,
+                    sessionId: cache.userSessionId,
+                    userEd25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)),
+                    groupEd25519SecretKey: nil
+                )
+                try? cache.updateProfile(
+                    displayName: .set(to: "TestPolledName"),
+                    displayPictureUrl: .set(to: "http://filev2.getsession.org/file/1234"),
+                    displayPictureEncryptionKey: .set(to: Data([1, 2, 3])),
+                    isReuploadProfilePicture: false
+                )
+                testCacheProfile = cache.profile
+                let pendingPushes: LibSession.PendingPushes? = try? cache.pendingPushes(
+                    swarmPublicKey: cache.userSessionId.hexString
+                )
+                
+                mockNetwork
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
+                    .thenReturn(MockNetwork.batchResponseData(
+                        with: [
+                            (
+                                Network.SnodeAPI.Endpoint.getMessages,
+                                GetMessagesResponse(
+                                    messages: (pendingPushes?
+                                        .pushData
+                                        .first { $0.variant == .userProfile }?
+                                        .data
+                                        .enumerated()
+                                        .map { index, data in
+                                            GetMessagesResponse.RawMessage(
+                                                base64EncodedDataString: data.base64EncodedString(),
+                                                expirationMs: nil,
+                                                hash: "\(index)",
+                                                timestampMs: 1234567890
+                                            )
+                                        } ?? []),
+                                    more: false,
+                                    hardForkVersion: [2, 2],
+                                    timeOffset: 0
+                                    
+                                ).batchSubResponse()
+                            )
+                        ]
+                    ))
+            }
+            
+            // MARK: -- starts a download job if there was a display picture
+            it("starts a download job if there was a display picture") {
+                // FIXME: Update this with the new mocking system to support `.any` timestamp
+                /// Since the `timestamp` comes from `libSession` we can't mock it
+                expect(mockJobRunner).to(call(matchingParameters: .all) {
+                    $0.add(
+                        .any,
+                        job: Job(
+                            variant: .displayPictureDownload,
+                            behaviour: .runOnce,
+                            shouldBeUnique: true,
+                            threadId: nil,
+                            interactionId: nil,
+                            details: DisplayPictureDownloadJob.Details(
+                                target: .profile(
+                                    id: "05\(TestConstants.publicKey)",
+                                    url: "http://filev2.getsession.org/file/1234",
+                                    encryptionKey: Data([
+                                        1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                                    ])
+                                ),
+                                timestamp: testCacheProfile.profileLastUpdated
+                            )
+                        ),
+                        dependantJob: nil,
+                        canStartJob: false
+                    )
+                })
             }
         }
     }
