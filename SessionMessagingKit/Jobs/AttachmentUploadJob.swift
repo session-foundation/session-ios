@@ -360,7 +360,13 @@ public extension AttachmentUploadJob {
             let oldPath: String = try? dependencies[singleton: .attachmentManager].path(for: oldUrl),
             let newPath: String = try? dependencies[singleton: .attachmentManager].path(for: finalDownloadUrl)
         {
-            try dependencies[singleton: .fileManager].moveItem(atPath: oldPath, toPath: newPath)
+            if !dependencies[singleton: .fileManager].fileExists(atPath: newPath) {
+                try dependencies[singleton: .fileManager].moveItem(atPath: oldPath, toPath: newPath)
+            }
+            else {
+                try? dependencies[singleton: .fileManager].removeItem(atPath: oldPath)
+                Log.info(.cat, "File already existed at final path, assuming re-upload of existing attachment")
+            }
         }
         
         /// Generate the final uploaded attachment data and trigger the success callback
