@@ -35,6 +35,13 @@ public class HomeViewModel: NavigatableStateHolder {
     
     private static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
+    // Reusable OS version check for initial and updated state check
+    // Check if the current device is running a version LESS THAN iOS 16.0
+    private static func isOSVersionDeprecated(using dependencies: Dependencies) -> Bool {
+        let systemVersion = ProcessInfo.processInfo.operatingSystemVersion
+        return systemVersion.majorVersion < dependencies[feature: .versionDeprecationMinimum]
+    }
+    
     public let dependencies: Dependencies
     private let userSessionId: SessionId
     private var didPresentAppReviewPrompt: Bool = false
@@ -53,7 +60,8 @@ public class HomeViewModel: NavigatableStateHolder {
             appReviewPromptState: AppReviewPromptModel
                 .loadInitialAppReviewPromptState(using: dependencies),
             appWasInstalledPriorToAppReviewRelease: AppReviewPromptModel
-                .checkIfAppWasInstalledPriorToAppReviewRelease(using: dependencies)
+                .checkIfAppWasInstalledPriorToAppReviewRelease(using: dependencies),
+            showVersionSupportBanner: Self.isOSVersionDeprecated(using: dependencies) && dependencies[feature: .versionDeprecationWarning]
         )
         
         /// Bind the state
@@ -98,6 +106,7 @@ public class HomeViewModel: NavigatableStateHolder {
         let appReviewPromptState: AppReviewPromptState?
         let pendingAppReviewPromptState: AppReviewPromptState?
         let appWasInstalledPriorToAppReviewRelease: Bool
+        let showVersionSupportBanner: Bool
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -125,7 +134,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 .userDefault(.hasVisitedPathScreen),
                 .userDefault(.hasPressedDonateButton),
                 .userDefault(.hasChangedTheme),
-                .updateScreen(HomeViewModel.self)
+                .updateScreen(HomeViewModel.self),
+                .feature(.versionDeprecationWarning),
+                .feature(.versionDeprecationMinimum)
             ]
             
             itemCache.values.forEach { threadViewModel in
@@ -152,7 +163,12 @@ public class HomeViewModel: NavigatableStateHolder {
             return result
         }
         
-        static func initialState(using dependencies: Dependencies, appReviewPromptState: AppReviewPromptState?, appWasInstalledPriorToAppReviewRelease: Bool) -> State {
+        static func initialState(
+            using dependencies: Dependencies,
+            appReviewPromptState: AppReviewPromptState?,
+            appWasInstalledPriorToAppReviewRelease: Bool,
+            showVersionSupportBanner: Bool
+        ) -> State {
             return State(
                 viewState: .loading,
                 userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
@@ -180,7 +196,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 profileCache: [:],
                 appReviewPromptState: nil,
                 pendingAppReviewPromptState: appReviewPromptState,
-                appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease
+                appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
+                showVersionSupportBanner: showVersionSupportBanner
             )
         }
     }
@@ -206,6 +223,7 @@ public class HomeViewModel: NavigatableStateHolder {
         var appReviewPromptState: AppReviewPromptState? = previousState.appReviewPromptState
         var pendingAppReviewPromptState: AppReviewPromptState? = previousState.pendingAppReviewPromptState
         let appWasInstalledPriorToAppReviewRelease: Bool = previousState.appWasInstalledPriorToAppReviewRelease
+        var showVersionSupportBanner: Bool = previousState.showVersionSupportBanner
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -418,6 +436,12 @@ public class HomeViewModel: NavigatableStateHolder {
             else if event.key == .feature(.forceOffline), let updatedValue = event.value as? Bool {
                 forceOffline = updatedValue
             }
+            else if event.key == .feature(.versionDeprecationWarning), let updatedValue = event.value as? Bool {
+                showVersionSupportBanner = isOSVersionDeprecated(using: dependencies) && updatedValue
+            }
+            else if event.key == .feature(.versionDeprecationMinimum) {
+                showVersionSupportBanner = isOSVersionDeprecated(using: dependencies) && dependencies[feature: .versionDeprecationWarning]
+            }
         }
         
         /// Next trigger should be ignored if `didShowAppReviewPrompt` is true
@@ -466,7 +490,8 @@ public class HomeViewModel: NavigatableStateHolder {
             profileCache: profileCache,
             appReviewPromptState: appReviewPromptState,
             pendingAppReviewPromptState: pendingAppReviewPromptState,
-            appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease
+            appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
+            showVersionSupportBanner: showVersionSupportBanner
         )
     }
     

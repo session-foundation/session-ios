@@ -46,6 +46,10 @@ public extension FeatureStorage {
         defaultOption: 100
     )
     
+    static let groupsShowPubkeyInConversationSettings: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "groupsShowPubkeyInConversationSettings"
+    )
+    
     static let updatedGroupsDisableAutoApprove: FeatureConfig<Bool> = Dependencies.create(
         identifier: "updatedGroupsDisableAutoApprove"
     )
@@ -108,6 +112,15 @@ public extension FeatureStorage {
     
     static let usePngInsteadOfWebPForFallbackImageType: FeatureConfig<Bool> = Dependencies.create(
         identifier: "usePngInsteadOfWebPForFallbackImageType"
+    )
+    
+    static let versionDeprecationWarning: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "versionDeprecationWarning"
+    )
+    
+    static let versionDeprecationMinimum: FeatureConfig<Int> = Dependencies.create(
+        identifier: "versionDeprecationMinimum",
+        defaultOption: 16
     )
 }
 

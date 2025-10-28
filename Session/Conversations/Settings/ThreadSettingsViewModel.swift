@@ -177,6 +177,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
             threadViewModel.threadShouldBeVisible != true &&
             threadViewModel.threadPinnedPriority == LibSession.hiddenPriority
         )
+        let showThreadPubkey: Bool = (
+            threadViewModel.threadVariant == .contact || (
+                threadViewModel.threadVariant == .group &&
+                dependencies[feature: .groupsShowPubkeyInConversationSettings]
+            )
+        )
         // MARK: - Conversation Info
         let conversationInfoSection: SectionModel = SectionModel(
             model: .conversationInfo,
@@ -320,7 +326,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     )
                 },
 
-                (threadViewModel.threadVariant != .contact ? nil :
+                (!showThreadPubkey ? nil :
                     SessionCell.Info(
                         id: .sessionId,
                         subtitle: SessionCell.TextInfo(

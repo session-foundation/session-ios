@@ -83,6 +83,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case resetAppReviewPrompt
         case simulateAppReviewLimit
         case usePngInsteadOfWebPForFallbackImageType
+        case versionDeprecationWarning
+        case versionDeprecationMinimum
         
         case defaultLogLevel
         case advancedLogging
@@ -125,6 +127,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .resetAppReviewPrompt: return "resetAppReviewPrompt"
                 case .simulateAppReviewLimit: return "simulateAppReviewLimit"
                 case .usePngInsteadOfWebPForFallbackImageType: return "usePngInsteadOfWebPForFallbackImageType"
+                case .versionDeprecationWarning: return "versionDeprecationWarning"
+                case .versionDeprecationMinimum: return "versionDeprecationMinimum"
                 
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
@@ -171,6 +175,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .simulateAppReviewLimit: result.append(.simulateAppReviewLimit); fallthrough
                 case .usePngInsteadOfWebPForFallbackImageType:
                     result.append(usePngInsteadOfWebPForFallbackImageType); fallthrough
+                case .versionDeprecationWarning: result.append(.versionDeprecationWarning); fallthrough
+                case .versionDeprecationMinimum: result.append(.versionDeprecationMinimum); fallthrough
                 
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
@@ -225,6 +231,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         let updateSimulateAppReviewLimit: Bool
         let usePngInsteadOfWebPForFallbackImageType: Bool
+        
+        let versionDeprecationWarning: Bool
+        let versionDeprecationMinimum: Int
     }
     
     let title: String = "Developer Settings"
@@ -268,7 +277,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 
                 forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries],
                 updateSimulateAppReviewLimit: dependencies[feature: .simulateAppReviewLimit],
-                usePngInsteadOfWebPForFallbackImageType: dependencies[feature: .usePngInsteadOfWebPForFallbackImageType]
+                usePngInsteadOfWebPForFallbackImageType: dependencies[feature: .usePngInsteadOfWebPForFallbackImageType],
+                
+                versionDeprecationWarning: dependencies[feature: .versionDeprecationWarning],
+                versionDeprecationMinimum: dependencies[feature: .versionDeprecationMinimum]
             )
         }
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
@@ -488,6 +500,52 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                             to: !current.usePngInsteadOfWebPForFallbackImageType
                         )
                     }
+                ),
+                SessionCell.Info(
+                    id: .versionDeprecationWarning,
+                    title: "Version Deprecation Banner",
+                    subtitle: """
+                    Enable the banner that warns users when their operating system (iOS 15.x or earlier) is nearing the end of support or cannot access the latest features.
+                    """,
+                    trailingAccessory: .toggle(
+                        current.versionDeprecationWarning,
+                        oldValue: previous?.versionDeprecationWarning
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .versionDeprecationWarning,
+                            to: !current.versionDeprecationWarning
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .versionDeprecationMinimum,
+                    title: "Version Deprecation Minimum Version",
+                    subtitle: """
+                    The minimum version allowed before showing version deprecation warning.
+                    """,
+                    trailingAccessory: .dropDown { "iOS \(current.versionDeprecationMinimum)" },
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: SessionListViewModel<WarningVersion>(
+                                    title: "Minimum iOS Version",
+                                    options: [
+                                        WarningVersion(version: 16),
+                                        WarningVersion(version: 17),
+                                        WarningVersion(version: 18)
+                                    ],
+                                    behaviour: .autoDismiss(
+                                        initialSelection: WarningVersion(version: current.versionDeprecationMinimum),
+                                        onOptionSelected: { [weak self] selected in
+                                            dependencies.set(feature: .versionDeprecationMinimum, to: selected.version)
+                                        }
+                                    ),
+                                    using: dependencies
+                                )
+                            )
+                        )
+                    }
                 )
             ]
         )
@@ -664,6 +722,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        
         let communities: SectionModel = SectionModel(
             model: .communities,
             elements: [
@@ -867,7 +926,16 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     guard dependencies.hasSet(feature: .debugDisappearingMessageDurations) else { return }
                     
                     updateFlag(for: .debugDisappearingMessageDurations, to: nil)
-
+                
+                case .versionDeprecationWarning:
+                    guard dependencies.hasSet(feature: .versionDeprecationWarning) else { return }
+                    
+                    updateFlag(for: .versionDeprecationWarning, to: nil)
+                case .versionDeprecationMinimum:
+                    guard dependencies.hasSet(feature: .versionDeprecationMinimum) else { return }
+                    
+                    dependencies.set(feature: .versionDeprecationMinimum, to: nil)
+                    
                 case .communityPollLimit:
                     guard dependencies.hasSet(feature: .communityPollLimit) else { return }
                     
@@ -1823,6 +1891,13 @@ final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accesso
     }
 }
 
+// MARK: - WarningVersion
+struct WarningVersion: Listable {
+    var version: Int
+    
+    var id: String { "\(version)" }
+    var title: String { "iOS \(version)" }
+}
 
 // MARK: - Listable Conformance
 
