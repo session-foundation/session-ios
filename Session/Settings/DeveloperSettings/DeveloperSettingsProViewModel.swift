@@ -416,33 +416,30 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                (
-                    state.mockCurrentUserSessionPro == .none ? nil :
-                        SessionCell.Info(
-                            id: .loadingState,
-                            title: "Loading State",
-                            trailingAccessory: .dropDown { state.loadingState.title },
-                            onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-                                viewModel?.transitionToScreen(
-                                    SessionTableViewController(
-                                        viewModel: SessionListViewModel<SessionProLoadingState>(
-                                            title: "Session Pro Loading State",
-                                            options: SessionProLoadingState.allCases,
-                                            behaviour: .autoDismiss(
-                                                initialSelection: state.loadingState,
-                                                onOptionSelected: { [dependencies] selected in
-                                                    dependencies.set(
-                                                        feature: .mockCurrentUserSessionProLoadingState,
-                                                        to: selected
-                                                    )
-                                                }
-                                            ),
-                                            using: dependencies
-                                        )
-                                    )
+                SessionCell.Info(
+                    id: .loadingState,
+                    title: "Loading State",
+                    trailingAccessory: .dropDown { state.loadingState.title },
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        viewModel?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: SessionListViewModel<SessionProLoadingState>(
+                                    title: "Session Pro Loading State",
+                                    options: SessionProLoadingState.allCases,
+                                    behaviour: .autoDismiss(
+                                        initialSelection: state.loadingState,
+                                        onOptionSelected: { [dependencies] selected in
+                                            dependencies.set(
+                                                feature: .mockCurrentUserSessionProLoadingState,
+                                                to: selected
+                                            )
+                                        }
+                                    ),
+                                    using: dependencies
                                 )
-                            }
+                            )
                         )
+                    }
                 ),
                 SessionCell.Info(
                     id: .allUsersSessionPro,

@@ -113,8 +113,8 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         Rectangle()
                                             .foregroundColor(themeColor: .backgroundSecondary)
                                     )
-                                case .button(let title):
-                                    ListItemButton(title: title)
+                                case .button(let title, let enabled):
+                                    ListItemButton(title: title, enabled: enabled)
                                         .onTapGesture {
                                             element.onTap?()
                                         }

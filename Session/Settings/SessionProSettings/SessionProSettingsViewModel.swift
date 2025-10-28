@@ -241,21 +241,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 }
                             }(),
                             state: {
-                                guard state.currentProPlanState != .none else {
-                                    return .success(
-                                        description: "proFullestPotential"
-                                            .put(key: "app_name", value: Constants.app_name)
-                                            .put(key: "app_pro", value: Constants.app_pro)
-                                            .localizedFormatted()
-                                    )
-                                }
-                                
                                 switch state.loadingState {
                                     case .loading:
                                         return .loading(
                                             message: {
                                                 switch state.currentProPlanState {
-                                                    case .expired:
+                                                    case .expired, .none:
                                                         "checkingProStatus"
                                                             .put(key: "pro", value: Constants.pro)
                                                             .localized()
@@ -270,7 +261,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         return .error(
                                             message: {
                                                 switch state.currentProPlanState {
-                                                    case .expired:
+                                                    case .expired, .none:
                                                         "errorCheckingProStatus"
                                                             .put(key: "pro", value: Constants.pro)
                                                             .localized()
@@ -282,9 +273,16 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             }()
                                         )
                                     case .success:
-                                        return .success(description: nil)
+                                        return .success
                                 }
-                            }()
+                            }(),
+                            description: (
+                                state.currentProPlanState != .none ? nil :
+                                    "proFullestPotential"
+                                        .put(key: "app_name", value: Constants.app_name)
+                                        .put(key: "app_pro", value: Constants.app_pro)
+                                        .localizedFormatted()
+                            )
                         )
                     ),
                     onTap: { [weak viewModel] in
@@ -294,11 +292,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     from: .logoWithPro,
                                     title: {
                                         switch state.currentProPlanState {
-                                            case .active, .refunding, .none:
+                                            case .active, .refunding:
                                                 "proStatusLoading"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
-                                            case .expired:
+                                            case .expired, .none:
                                                 "checkingProStatus"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -306,12 +304,16 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     }(),
                                     description: {
                                         switch state.currentProPlanState {
-                                            case .active, .refunding, .none:
+                                            case .active, .refunding:
                                                 "proStatusLoadingDescription"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                             case .expired:
                                                 "checkingProStatusDescription"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localized()
+                                            case .none:
+                                                "checkingProStatusContinue"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
                                         }
@@ -336,8 +338,33 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     state.currentProPlanState != .none ? nil :
                         SessionListScreenContent.ListItemInfo(
                             id: .continueButton,
-                            variant: .button(title: "theContinue".localized()),
-                            onTap: { [weak viewModel] in viewModel?.updateProPlan() }
+                            variant: .button(title: "theContinue".localized(), enabled: (state.loadingState == .success)),
+                            onTap: { [weak viewModel] in
+                                switch state.loadingState {
+                                    case .loading:
+                                        viewModel?.showLoadingModal(
+                                            from: .logoWithPro,
+                                            title: "checkingProStatus"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .localized(),
+                                            description: "checkingProStatusContinue"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .localized()
+                                            )
+                                    case .error:
+                                        viewModel?.showErrorModal(
+                                            from: .logoWithPro,
+                                            title: "proStatusError"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .localized(),
+                                            description: "proStatusRefreshNetworkError"
+                                                .put(key: "pro", value: Constants.pro)
+                                                .localizedFormatted()
+                                        )
+                                    case .success:
+                                        viewModel?.updateProPlan()
+                                }
+                            }
                         )
                 )
             ].compactMap { $0 }

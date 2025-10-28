@@ -137,16 +137,18 @@ public struct ListItemLogoWithPro: View {
     public enum State: Equatable, Hashable {
         case loading(message: String)
         case error(message: String)
-        case success(description: ThemedAttributedString?)
+        case success
     }
     
     public struct Info: Equatable, Hashable, Differentiable {
         public let style: ThemeStyle
         public let state: State
+        public let description: ThemedAttributedString?
         
-        public init(style: ThemeStyle, state: State) {
+        public init(style: ThemeStyle, state: State, description: ThemedAttributedString? = nil) {
             self.style = style
             self.state = state
+            self.description = description
         }
     }
     
@@ -189,14 +191,6 @@ public struct ListItemLogoWithPro: View {
                 SessionProBadge_SwiftUI(size: .medium, themeBackgroundColor: info.style.themeColor)
             }
             
-            if case .success(let description) = info.state, let description {
-                AttributedText(description)
-                    .font(.Body.baseRegular)
-                    .foregroundColor(themeColor: .textPrimary)
-                    .multilineTextAlignment(.center)
-                    .padding(.vertical, Values.largeSpacing)
-            }
-            
             if case .error(let message) = info.state {
                 HStack(spacing: Values.verySmallSpacing) {
                     Text(message)
@@ -219,6 +213,15 @@ public struct ListItemLogoWithPro: View {
                 .font(.Body.baseRegular)
                 .foregroundColor(themeColor: .textPrimary)
                 .padding(.top, Values.mediumSpacing)
+            }
+            
+            if let description = info.description {
+                AttributedText(description)
+                    .font(.Body.baseRegular)
+                    .foregroundColor(themeColor: .textPrimary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, Values.mediumSpacing)
+                    .padding(.bottom, Values.largeSpacing)
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -341,6 +344,7 @@ public struct ListItemDataMatrix: View {
 
 struct ListItemButton: View {
     let title: String
+    let enabled: Bool
     
     var body: some View {
         Text(title)
@@ -353,7 +357,7 @@ struct ListItemButton: View {
             )
             .background(
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(themeColor: .sessionButton_primaryFilledBackground)
+                    .fill(themeColor: enabled ? .sessionButton_primaryFilledBackground : .disabled)
             )
             .padding(.vertical, Values.smallSpacing)
     }

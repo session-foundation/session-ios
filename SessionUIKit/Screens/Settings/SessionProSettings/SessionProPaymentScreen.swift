@@ -41,7 +41,8 @@ public struct SessionProPaymentScreen: View {
                                     default: return .normal
                                 }
                             }(),
-                            state: .success(description: viewModel.dataModel.flow.description)
+                            state: .success,
+                            description: viewModel.dataModel.flow.description
                         )
                     )
                     if case .purchase = viewModel.dataModel.flow {
