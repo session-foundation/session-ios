@@ -3,7 +3,6 @@
 // stringlint:disable
 
 import Foundation
-import CryptoKit
 import SessionNetworkingKit
 import SessionUtil
 import SessionUtilitiesKit
@@ -144,65 +143,6 @@ public extension Crypto.Generator {
             free(UnsafeMutableRawPointer(mutating: maybePlaintext))
 
             return plaintext
-        }
-    }
-}
-
-// MARK: - DisplayPicture
-
-public extension Crypto.Generator {
-    static func encryptedDataDisplayPicture(
-        data: Data,
-        key: Data
-    ) -> Crypto.Generator<Data> {
-        return Crypto.Generator(
-            id: "encryptedDataDisplayPicture",
-            args: [data, key]
-        ) { dependencies in
-            // The key structure is: nonce || ciphertext || authTag
-            guard
-                key.count == DisplayPictureManager.aes256KeyByteLength,
-                let nonceData: Data = dependencies[singleton: .crypto]
-                    .generate(.randomBytes(DisplayPictureManager.nonceLength)),
-                let nonce: AES.GCM.Nonce = try? AES.GCM.Nonce(data: nonceData),
-                let sealedData: AES.GCM.SealedBox = try? AES.GCM.seal(
-                    data,
-                    using: SymmetricKey(data: key),
-                    nonce: nonce
-                ),
-                let encryptedContent: Data = sealedData.combined
-            else { throw CryptoError.failedToGenerateOutput }
-
-            return encryptedContent
-        }
-    }
-
-    static func decryptedDataDisplayPicture(
-        data: Data,
-        key: Data
-    ) -> Crypto.Generator<Data> {
-        return Crypto.Generator(
-            id: "decryptedDataDisplayPicture",
-            args: [data, key]
-        ) { dependencies in
-            guard key.count == DisplayPictureManager.aes256KeyByteLength else {
-                throw CryptoError.failedToGenerateOutput
-            }
-
-            // The key structure is: nonce || ciphertext || authTag
-            let cipherTextLength: Int = (data.count - (DisplayPictureManager.nonceLength + DisplayPictureManager.tagLength))
-
-            guard
-                cipherTextLength > 0,
-                let sealedData: AES.GCM.SealedBox = try? AES.GCM.SealedBox(
-                    nonce: AES.GCM.Nonce(data: data.subdata(in: 0..<DisplayPictureManager.nonceLength)),
-                    ciphertext: data.subdata(in: DisplayPictureManager.nonceLength..<(DisplayPictureManager.nonceLength + cipherTextLength)),
-                    tag: data.subdata(in: (data.count - DisplayPictureManager.tagLength)..<data.count)
-                ),
-                let decryptedData: Data = try? AES.GCM.open(sealedData, using: SymmetricKey(data: key))
-            else { throw CryptoError.failedToGenerateOutput }
-
-            return decryptedData
         }
     }
 }

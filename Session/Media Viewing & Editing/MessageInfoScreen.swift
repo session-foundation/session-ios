@@ -478,6 +478,7 @@ struct MessageBubble: View {
                                         imageAttachment: messageViewModel.linkPreviewAttachment,
                                         using: dependencies
                                     ),
+                                    dataManager: dependencies[singleton: .imageDataManager],
                                     isOutgoing: (messageViewModel.variant == .standardOutgoing),
                                     maxWidth: maxWidth,
                                     messageViewModel: messageViewModel,
@@ -494,16 +495,16 @@ struct MessageBubble: View {
                         }
                     }
                     else {
-                        if let quote = messageViewModel.quote {
+                        if let quotedInfo: MessageViewModel.QuotedInfo = messageViewModel.quotedInfo {
                             QuoteView_SwiftUI(
                                 info: .init(
                                     mode: .regular,
-                                    authorId: quote.authorId,
-                                    quotedText: quote.body,
+                                    authorId: quotedInfo.authorId,
+                                    quotedText: quotedInfo.body,
                                     threadVariant: messageViewModel.threadVariant,
                                     currentUserSessionIds: (messageViewModel.currentUserSessionIds ?? []),
                                     direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
-                                    attachment: messageViewModel.quoteAttachment
+                                    attachment: quotedInfo.attachment
                                 ),
                                 using: dependencies
                             )
@@ -632,8 +633,7 @@ struct MessageInfoView_Previews: PreviewProvider {
                 id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                 name: "TestUser"
             ),
-            quote: nil,
-            quoteAttachment: nil,
+            quotedInfo: nil,
             linkPreview: nil,
             linkPreviewAttachment: nil,
             attachments: nil

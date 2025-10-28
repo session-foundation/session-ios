@@ -67,8 +67,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
-                    .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", expires: nil)))
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
+                    .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
                 network
                     .when { $0.getSwarm(for: .any) }
                     .thenReturn([
@@ -209,7 +217,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
         @TestState var mockSwarmPoller: MockSwarmPoller! = MockSwarmPoller(
             initialSetup: { cache in
                 cache.when { $0.startIfNeeded() }.thenReturn(())
-                cache.when { $0.receivedPollResponse }.thenReturn(Just([]).eraseToAnyPublisher())
+                cache.when { $0.receivedPollResponse }.thenReturn(.singleValue(value: []))
             }
         )
         @TestState(cache: .groupPollers, in: dependencies) var mockGroupPollersCache: MockGroupPollerCache! = MockGroupPollerCache(
@@ -402,7 +410,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             
                             inviteMessage.profile = VisibleMessage.VMProfile(
                                 displayName: "TestName",
-                                profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                profileKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                     .map { _ in 1 }),
                                 profilePictureUrl: "https://www.oxen.io/1234",
                                 updateTimestampSeconds: 1234567890
@@ -429,9 +437,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                             shouldBeUnique: true,
                                             details: DisplayPictureDownloadJob.Details(
                                                 target: .profile(
-                                                    id: "051111111111111111111111111111111" + "111111111111111111111111111111111",
+                                                    id: "TestProfileId",
                                                     url: "https://www.oxen.io/1234",
-                                                    encryptionKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                                    encryptionKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                                         .map { _ in 1 })
                                                 ),
                                                 timestamp: 1234567890
@@ -446,7 +454,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         it("schedules but does not start a displayPictureDownload job when not the main app") {
                             inviteMessage.profile = VisibleMessage.VMProfile(
                                 displayName: "TestName",
-                                profileKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                profileKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                     .map { _ in 1 }),
                                 profilePictureUrl: "https://www.oxen.io/1234",
                                 updateTimestampSeconds: 1234567890
@@ -473,9 +481,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                             shouldBeUnique: true,
                                             details: DisplayPictureDownloadJob.Details(
                                                 target: .profile(
-                                                    id: "051111111111111111111111111111111" + "111111111111111111111111111111111",
+                                                    id: "TestProfileId",
                                                     url: "https://www.oxen.io/1234",
-                                                    encryptionKey: Data((0..<DisplayPictureManager.aes256KeyByteLength)
+                                                    encryptionKey: Data((0..<DisplayPictureManager.encryptionKeySize)
                                                         .map { _ in 1 })
                                                 ),
                                                 timestamp: 1234567890
@@ -899,8 +907,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             expect(mockNetwork)
                                 .toNot(call { network in
                                     network.send(
-                                        expectedRequest.body,
-                                        to: expectedRequest.destination,
+                                        endpoint: Network.PushNotification.Endpoint.subscribe,
+                                        destination: expectedRequest.destination,
+                                        body: expectedRequest.body,
                                         requestTimeout: expectedRequest.requestTimeout,
                                         requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                                     )
@@ -976,8 +985,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             expect(mockNetwork)
                                 .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                                     network.send(
-                                        expectedRequest.body,
-                                        to: expectedRequest.destination,
+                                        endpoint: Network.PushNotification.Endpoint.subscribe,
+                                        destination: expectedRequest.destination,
+                                        body: expectedRequest.body,
                                         requestTimeout: expectedRequest.requestTimeout,
                                         requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                                     )
@@ -2153,7 +2163,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     let profiles: [Profile]? = mockStorage.read { db in try Profile.fetchAll(db) }
                     expect(profiles?.map { $0.id }).to(equal([
                         "05\(TestConstants.publicKey)",
-                        "051111111111111111111111111111111111111111111111111111111111111112"
+                        "TestProfileId"
                     ]))
                     expect(profiles?.map { $0.name }).to(equal(["TestCurrentUser", "TestOtherMember"]))
                 }
@@ -2865,8 +2875,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         expect(mockNetwork)
                             .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                                 network.send(
-                                    preparedRequest.body,
-                                    to: preparedRequest.destination,
+                                    endpoint: Network.SnodeAPI.Endpoint.deleteMessages,
+                                    destination: preparedRequest.destination,
+                                    body: preparedRequest.body,
                                     requestTimeout: preparedRequest.requestTimeout,
                                     requestAndPathBuildTimeout: preparedRequest.requestAndPathBuildTimeout
                                 )
@@ -2900,7 +2911,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         expect(mockNetwork)
                             .toNot(call { network in
-                                network.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any)
+                                network.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
                             })
                     }
                 }
@@ -3138,8 +3155,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     expect(mockNetwork)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                             network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
+                                endpoint: Network.PushNotification.Endpoint.unsubscribe,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
                                 requestTimeout: expectedRequest.requestTimeout,
                                 requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                             )

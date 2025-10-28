@@ -16,7 +16,8 @@ class MockPoller: Mock<PollerType>, PollerType {
     var pollerName: String { mock() }
     var pollerDestination: PollerDestination { mock() }
     var logStartAndStopCalls: Bool { mock() }
-    var receivedPollResponse: AnyPublisher<Void, Never> { mock() }
+    nonisolated var receivedPollResponse: AsyncStream<Void> { mock() }
+    nonisolated var successfulPollCount: AsyncStream<Int> { mock() }
     var isPolling: Bool {
         get { mock() }
         set { mockNoReturn(args: [newValue]) }

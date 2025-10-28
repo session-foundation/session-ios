@@ -148,7 +148,7 @@ extension MessageReceiver {
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
-                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
+                blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
@@ -252,7 +252,7 @@ extension MessageReceiver {
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
-                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
+                blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
@@ -621,7 +621,7 @@ extension MessageReceiver {
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
-                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
+                blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
@@ -639,7 +639,7 @@ extension MessageReceiver {
                         name: $0,
                         displayPictureUrl: profile.profilePictureUrl,
                         displayPictureEncryptionKey: profile.profileKey,
-                        profileLastUpdated: (Double(sentTimestampMs) / 1000)
+                        profileLastUpdated: profile.updateTimestampSeconds
                     )
                 }
             },

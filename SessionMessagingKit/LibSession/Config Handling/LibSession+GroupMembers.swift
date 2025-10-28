@@ -124,8 +124,7 @@ internal extension LibSessionCacheType {
         
         let groupProfiles: Set<Profile>? = try? LibSession.extractProfiles(
             from: conf,
-            groupSessionId: groupSessionId,
-            serverTimestampMs: serverTimestampMs
+            groupSessionId: groupSessionId
         )
         
         groupProfiles?.forEach { profile in
@@ -216,7 +215,7 @@ internal extension LibSession {
                         let picUrl: String = profile?.displayPictureUrl,
                         let picKey: Data = profile?.displayPictureEncryptionKey,
                         !picUrl.isEmpty,
-                        picKey.count == DisplayPictureManager.aes256KeyByteLength
+                        picKey.count == DisplayPictureManager.encryptionKeySize
                     {
                         member.set(\.profile_pic.url, to: picUrl)
                         member.set(\.profile_pic.key, to: picKey)
@@ -501,8 +500,7 @@ internal extension LibSession {
     
     static func extractProfiles(
         from conf: UnsafeMutablePointer<config_object>?,
-        groupSessionId: SessionId,
-        serverTimestampMs: Int64
+        groupSessionId: SessionId
     ) throws -> Set<Profile> {
         var infiniteLoopGuard: Int = 0
         var result: [Profile] = []

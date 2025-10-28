@@ -8,16 +8,11 @@ import UniformTypeIdentifiers
 
 public extension UTType {
     /// This is an invalid type used to improve DSL for UTType usage
-    static let invalid: UTType = UTType(exportedAs: "invalid")
-    static let fileExtensionText: String = "txt"
-    static let fileExtensionDefault: String = "bin"
+    static let invalid: UTType = UTType(exportedAs: "org.getsession.invalid")
     static let fileExtensionDefaultImage: String = "png"
     static let mimeTypeDefault: String = "application/octet-stream"
     static let mimeTypeJpeg: String = "image/jpeg"
     static let mimeTypePdf: String = "application/pdf"
-    
-    static let xTiff: UTType = UTType(mimeType: "image/x-tiff")!
-    static let xWinBpm: UTType = UTType(mimeType: "image/x-windows-bmp")!
         
     static let supportedAnimatedImageTypes: Set<UTType> = [
         .gif, .webP
@@ -100,10 +95,10 @@ public extension UTType {
     ].compactMap { $0 }.asSet()
     
     var isAnimated: Bool { UTType.supportedAnimatedImageTypes.contains(self) }
-    var isImage: Bool { UTType.supportedImageTypes.contains(self) }
-    var isVideo: Bool { UTType.supportedVideoTypes.contains(self) }
-    var isAudio: Bool { UTType.supportedAudioTypes.contains(self) }
-    var isText: Bool { UTType.supportedTextTypes.contains(self) }
+    var isImage: Bool { conforms(to: .image) }
+    var isVideo: Bool { conforms(to: .video) || conforms(to: .movie) }
+    var isAudio: Bool { conforms(to: .audio) }
+    var isText: Bool { conforms(to: .text) }
     var isMicrosoftDoc: Bool { UTType.supportedMicrosoftDocTypes.contains(self) }
     var isVisualMedia: Bool { isImage || isVideo || isAnimated }
     var sessionMimeType: String? {
@@ -157,6 +152,17 @@ public extension UTType {
         
         self = result
     }
+    
+    init?(imageData: Data, using dependencies: Dependencies) {
+        guard
+            let imageSource: CGImageSource = dependencies[singleton: .mediaDecoder].source(for: imageData),
+            let typeString: String = CGImageSourceGetType(imageSource) as? String,
+            let result: UTType = UTType(typeString)
+        else { return nil }
+        
+        self = result
+    }
+
     
     // MARK: - Convenience
     

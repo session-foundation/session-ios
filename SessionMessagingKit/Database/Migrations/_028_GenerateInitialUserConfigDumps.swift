@@ -61,9 +61,9 @@ enum _028_GenerateInitialUserConfigDumps: Migration {
             arguments: [userSessionId.hexString]
         )
         try cache.updateProfile(
-            displayName: (userProfile?["name"] ?? ""),
-            displayPictureUrl: userProfile?["profilePictureUrl"],
-            displayPictureEncryptionKey: userProfile?["profileEncryptionKey"],
+            displayName: .set(to: (userProfile?["name"] ?? "")),
+            displayPictureUrl: .set(to: userProfile?["profilePictureUrl"]),
+            displayPictureEncryptionKey: .set(to: userProfile?["profileEncryptionKey"]),
             isReuploadProfilePicture: false
         )
         

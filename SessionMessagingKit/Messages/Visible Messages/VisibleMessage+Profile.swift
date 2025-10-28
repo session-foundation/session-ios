@@ -140,7 +140,7 @@ public extension VisibleMessage {
                 displayName: \(displayName ?? "null"),
                 profileKey: \(profileKey?.description ?? "null"),
                 profilePictureUrl: \(profilePictureUrl ?? "null"),
-                UpdateTimestampSeconds: \(updateTimestampSeconds ?? 0)
+                updateTimestampSeconds: \(updateTimestampSeconds ?? 0)
             )
             """
         }

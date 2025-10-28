@@ -8,7 +8,6 @@ public extension VisibleMessage {
     struct VMQuote: Codable {
         public let timestamp: UInt64?
         public let authorId: String?
-        public let text: String?
 
         public func validateMessage(isSending: Bool) throws {
             if (timestamp ?? 0) == 0 { throw MessageError.invalidMessage("timestamp") }
@@ -17,10 +16,9 @@ public extension VisibleMessage {
         
         // MARK: - Initialization
 
-        internal init(timestamp: UInt64, authorId: String, text: String?) {
+        internal init(timestamp: UInt64, authorId: String) {
             self.timestamp = timestamp
             self.authorId = authorId
-            self.text = text
         }
         
         // MARK: - Proto Conversion
@@ -28,8 +26,7 @@ public extension VisibleMessage {
         public static func fromProto(_ proto: SNProtoDataMessageQuote) -> VMQuote? {
             return VMQuote(
                 timestamp: proto.id,
-                authorId: proto.author,
-                text: proto.text
+                authorId: proto.author
             )
         }
 
@@ -39,7 +36,6 @@ public extension VisibleMessage {
                 return nil
             }
             let quoteProto = SNProtoDataMessageQuote.builder(id: timestamp, author: authorId)
-            if let text = text { quoteProto.setText(text) }
             do {
                 return try quoteProto.build()
             } catch {
@@ -54,8 +50,7 @@ public extension VisibleMessage {
             """
             Quote(
                 timestamp: \(timestamp?.description ?? "null"),
-                authorId: \(authorId ?? "null"),
-                text: \(text ?? "null")
+                authorId: \(authorId ?? "null")
             )
             """
         }
@@ -68,8 +63,7 @@ public extension VisibleMessage.VMQuote {
     static func from(quote: Quote) -> VisibleMessage.VMQuote {
         return VisibleMessage.VMQuote(
             timestamp: UInt64(quote.timestampMs),
-            authorId: quote.authorId,
-            text: quote.body
+            authorId: quote.authorId
         )
     }
 }

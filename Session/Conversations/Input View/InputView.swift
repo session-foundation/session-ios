@@ -27,7 +27,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private lazy var linkPreviewView: LinkPreviewView = {
         let maxWidth: CGFloat = (self.additionalContentContainer.bounds.width - InputView.linkPreviewViewInset)
         
-        return LinkPreviewView(maxWidth: maxWidth) { [weak self] in
+        return LinkPreviewView(maxWidth: maxWidth, using: dependencies) { [weak self] in
             self?.linkPreviewInfo = nil
             self?.additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
         }
@@ -331,8 +331,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
     }
 
-    @MainActor func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage) {
-        delegate?.didPasteImageFromPasteboard(image)
+    @MainActor func didPasteImageDataFromPasteboard(_ inputTextView: InputTextView, imageData: Data) {
+        delegate?.didPasteImageDataFromPasteboard(imageData)
     }
 
     // We want to show either a link preview or a quote draft, but never both at the same time. When trying to
@@ -674,5 +674,5 @@ protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageReco
     @MainActor func handleCharacterLimitLabelTapped()
     @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
     @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
-    @MainActor func didPasteImageFromPasteboard(_ image: UIImage)
+    @MainActor func didPasteImageDataFromPasteboard(_ imageData: Data)
 }

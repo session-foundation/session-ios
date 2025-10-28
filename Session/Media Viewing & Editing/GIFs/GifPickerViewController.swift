@@ -357,7 +357,7 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
             .subscribe(on: DispatchQueue.global(qos: .userInitiated))
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveCompletion: { [weak self, dependencies] result in
+                receiveCompletion: { [weak self] result in
                     switch result {
                         case .finished: break
                         case .failure(let error):
@@ -382,13 +382,17 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                         Log.error(.giphy, "ViewController invalid asset description.")
                         return
                     }
-
-                    let dataSource = DataSourcePath(filePath: asset.filePath, sourceFilename: URL(fileURLWithPath: asset.filePath).pathExtension, shouldDeleteOnDeinit: false, using: dependencies)
-                    let attachment = SignalAttachment.attachment(dataSource: dataSource, type: rendition.type, imageQuality: .medium, using: dependencies)
+                    
+                    let pendingAttachment: PendingAttachment = PendingAttachment(
+                        source: .media(URL(fileURLWithPath: asset.filePath)),
+                        utType: rendition.type,
+                        sourceFilename: URL(fileURLWithPath: asset.filePath).lastPathComponent,
+                        using: dependencies
+                    )
 
                     self?.dismiss(animated: true) {
                         // Delegate presents view controllers, so it's important that *this* controller be dismissed before that occurs.
-                        self?.delegate?.gifPickerDidSelect(attachment: attachment)
+                        self?.delegate?.gifPickerDidSelect(attachment: pendingAttachment)
                     }
                 }
             )
@@ -494,8 +498,19 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                 receiveValue: { [weak self] imageInfos in
                     Log.debug(.giphy, "ViewController showing trending")
                     
-                    if imageInfos.count > 0 {
-                        self?.imageInfos = imageInfos
+                    // Filter out invalid images before displaying
+                    let validImageInfos = imageInfos.filter { imageInfo in
+                        let isValid: Bool = imageInfo.isValid()
+                        
+                        if !isValid {
+                            Log.debug(.giphy, "Filtering out invalid GIF: \(imageInfo.giphyId)")
+                        }
+                        
+                        return isValid
+                    }
+                    
+                    if validImageInfos.count > 0 {
+                        self?.imageInfos = validImageInfos
                         self?.viewMode = .results
                     }
                     else {
@@ -532,7 +547,19 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
                 },
                 receiveValue: { [weak self] imageInfos in
                     Log.verbose(.giphy, "ViewController search complete")
-                    self?.imageInfos = imageInfos
+                    
+                    // Filter out invalid images before displaying
+                    let validImageInfos = imageInfos.filter { imageInfo in
+                        let isValid: Bool = imageInfo.isValid()
+                        
+                        if !isValid {
+                            Log.debug(.giphy, "Filtering out invalid GIF: \(imageInfo.giphyId)")
+                        }
+                        
+                        return isValid
+                    }
+                    
+                    self?.imageInfos = validImageInfos
                     
                     if imageInfos.count > 0 {
                         self?.viewMode = .results
@@ -573,5 +600,5 @@ class GifPickerViewController: OWSViewController, UISearchBarDelegate, UICollect
 // MARK: - GifPickerViewControllerDelegate
 
 protocol GifPickerViewControllerDelegate: AnyObject {
-    func gifPickerDidSelect(attachment: SignalAttachment)
+    func gifPickerDidSelect(attachment: PendingAttachment)
 }

@@ -21,7 +21,7 @@ extension ContextMenuVC {
         let actionType: ActionType
         let shouldDismissInfoScreen: Bool
         let accessibilityLabel: String?
-        let work: ((() -> Void)?) -> Void
+        let work: @MainActor ((@MainActor () -> Void)?) -> Void
         
         enum ActionType {
             case emoji
@@ -41,7 +41,7 @@ extension ContextMenuVC {
             actionType: ActionType = .generic,
             shouldDismissInfoScreen: Bool = false,
             accessibilityLabel: String? = nil,
-            work: @escaping ((() -> Void)?) -> Void
+            work: @escaping @MainActor ((@MainActor () -> Void)?) -> Void
         ) {
             self.icon = icon
             self.title = title
@@ -316,7 +316,7 @@ extension ContextMenuVC {
 
 protocol ContextMenuActionDelegate {
     func info(_ cellViewModel: MessageViewModel)
-    func retry(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
+    @MainActor func retry(_ cellViewModel: MessageViewModel, completion: (@MainActor () -> Void)?)
     func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func copySessionID(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)

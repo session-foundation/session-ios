@@ -26,6 +26,10 @@ public class ObservingDatabase {
     
     // MARK: - Functions
     
+    public func currentEvents() -> [ObservedEvent] {
+        return events
+    }
+    
     public func addEvent(_ event: ObservedEvent) {
         events.append(event)
     }

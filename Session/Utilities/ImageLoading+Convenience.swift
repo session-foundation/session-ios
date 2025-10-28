@@ -2,6 +2,7 @@
 
 import UIKit
 import SwiftUI
+import UniformTypeIdentifiers
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -23,7 +24,7 @@ public extension ImageDataManager.DataSource {
             /// Videos need special handling so handle those specially
             return .videoUrl(
                 URL(fileURLWithPath: path),
-                attachment.contentType,
+                (UTType(sessionMimeType: attachment.contentType) ?? .invalid),
                 attachment.sourceFilename,
                 dependencies[singleton: .attachmentManager]
             )
@@ -52,7 +53,7 @@ public extension ImageDataManager.DataSource {
         if attachment.isVideo {
             return .videoUrl(
                 URL(fileURLWithPath: path),
-                attachment.contentType,
+                (UTType(sessionMimeType: attachment.contentType) ?? .invalid),
                 attachment.sourceFilename,
                 dependencies[singleton: .attachmentManager]
             )
@@ -73,7 +74,7 @@ public extension ImageDataManagerType {
     func loadImage(
         attachment: Attachment,
         using dependencies: Dependencies,
-        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void = { _ in }
+        onComplete: @MainActor @escaping (ImageDataManager.FrameBuffer?) -> Void = { _ in }
     ) {
         guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.from(
             attachment: attachment,
@@ -88,7 +89,7 @@ public extension ImageDataManagerType {
         size: ImageDataManager.ThumbnailSize,
         attachment: Attachment,
         using dependencies: Dependencies,
-        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void = { _ in }
+        onComplete: @MainActor @escaping (ImageDataManager.FrameBuffer?) -> Void = { _ in }
     ) {
         guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.thumbnailFrom(
             attachment: attachment,
@@ -104,7 +105,7 @@ public extension ImageDataManagerType {
 
 public extension SessionImageView {
     @MainActor
-    func loadImage(from path: String, onComplete: (@MainActor (ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
+    func loadImage(from path: String, onComplete: (@MainActor (ImageDataManager.FrameBuffer?) -> Void)? = nil) {
         loadImage(.url(URL(fileURLWithPath: path)), onComplete: onComplete)
     }
     
@@ -112,7 +113,7 @@ public extension SessionImageView {
     func loadImage(
         attachment: Attachment,
         using dependencies: Dependencies,
-        onComplete: (@MainActor (ImageDataManager.ProcessedImageData?) -> Void)? = nil
+        onComplete: (@MainActor (ImageDataManager.FrameBuffer?) -> Void)? = nil
     ) {
         guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.from(
             attachment: attachment,
@@ -130,7 +131,7 @@ public extension SessionImageView {
         size: ImageDataManager.ThumbnailSize,
         attachment: Attachment,
         using dependencies: Dependencies,
-        onComplete: (@MainActor (ImageDataManager.ProcessedImageData?) -> Void)? = nil
+        onComplete: (@MainActor (ImageDataManager.FrameBuffer?) -> Void)? = nil
     ) {
         guard let source: ImageDataManager.DataSource = ImageDataManager.DataSource.thumbnailFrom(
             attachment: attachment,
@@ -145,7 +146,7 @@ public extension SessionImageView {
     }
     
     @MainActor
-    func loadPlaceholder(seed: String, text: String, size: CGFloat, onComplete: (@MainActor (ImageDataManager.ProcessedImageData?) -> Void)? = nil) {
+    func loadPlaceholder(seed: String, text: String, size: CGFloat, onComplete: (@MainActor (ImageDataManager.FrameBuffer?) -> Void)? = nil) {
         loadImage(.placeholderIcon(seed: seed, text: text, size: size), onComplete: onComplete)
     }
 }

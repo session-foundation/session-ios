@@ -65,6 +65,11 @@ extension DeveloperSettingsViewModel {
             ///
             /// **Value:** `1-256` (default: `100`, a value of `0` will use the default)
             case communityPollLimit
+            
+            /// Controls whether we should shorten the TTL of files to `60s` instead of the default on the File Server
+            ///
+            /// **Value:** `true`/`false` (default: `false`)
+            case shortenFileTTL
         }
         
         ProcessInfo.processInfo.environment.forEach { key, value in
@@ -107,6 +112,9 @@ extension DeveloperSettingsViewModel {
                     else { return }
                     
                     dependencies.set(feature: .communityPollLimit, to: intValue)
+                    
+                case .shortenFileTTL:
+                    dependencies.set(feature: .shortenFileTTL, to: (value == "true"))
             }
         }
 #endif

@@ -2,6 +2,7 @@
 
 import UIKit
 import AVFoundation
+import UniformTypeIdentifiers
 
 public typealias ThemeSettings = (theme: Theme?, primaryColor: Theme.PrimaryColor?, matchSystemNightModeSetting: Bool?)
 
@@ -17,7 +18,12 @@ public actor SNUIKit {
         func cacheContextualActionInfo(tableViewHash: Int, sideKey: String, actionIndex: Int, actionInfo: Any)
         func removeCachedContextualActionInfo(tableViewHash: Int, keys: [String])
         func shouldShowStringKeys() -> Bool
-        func asset(for path: String, mimeType: String, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)?
+        func assetInfo(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void)?
+        
+        func mediaDecoderDefaultImageOptions() -> CFDictionary
+        func mediaDecoderDefaultThumbnailOptions(maxDimension: CGFloat) -> CFDictionary
+        func mediaDecoderSource(for url: URL) -> CGImageSource?
+        func mediaDecoderSource(for data: Data) -> CGImageSource?
     }
     
     @MainActor public static var mainWindow: UIWindow? = nil
@@ -67,9 +73,25 @@ public actor SNUIKit {
         return config.shouldShowStringKeys()
     }
     
-    internal static func asset(for path: String, mimeType: String, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)? {
+    internal static func assetInfo(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void)? {
         guard let config: ConfigType = self.config else { return nil }
         
-        return config.asset(for: path, mimeType: mimeType, sourceFilename: sourceFilename)
+        return config.assetInfo(for: path, utType: utType, sourceFilename: sourceFilename)
+    }
+    
+    internal static func mediaDecoderDefaultImageOptions() -> CFDictionary? {
+        return config?.mediaDecoderDefaultImageOptions()
+    }
+    
+    internal static func mediaDecoderDefaultThumbnailOptions(maxDimension: CGFloat) -> CFDictionary? {
+        return config?.mediaDecoderDefaultThumbnailOptions(maxDimension: maxDimension)
+    }
+    
+    internal static func mediaDecoderSource(for url: URL) -> CGImageSource? {
+        return config?.mediaDecoderSource(for: url)
+    }
+    
+    internal static func mediaDecoderSource(for data: Data) -> CGImageSource? {
+        return config?.mediaDecoderSource(for: data)
     }
 }

@@ -271,7 +271,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             openGroupPermissions: initialData?.openGroupPermissions,
             threadWasMarkedUnread: initialData?.threadWasMarkedUnread,
             using: dependencies
-        ).populatingPostQueryData(
+        )
+        .populatingPostQueryData(
             recentReactionEmoji: nil,
             openGroupCapabilities: nil,
             currentUserSessionIds: (
@@ -365,18 +366,17 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 )
                 
                 return threadViewModel.map { viewModel -> SessionThreadViewModel in
-                    let wasKickedFromGroup: Bool = (
-                        viewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession) { cache in
-                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: viewModel.threadId))
+                    let (wasKickedFromGroup, groupIsDestroyed): (Bool, Bool) = {
+                        guard viewModel.threadVariant == .group else { return (false, false) }
+                        
+                        let sessionId: SessionId = SessionId(.group, hex: viewModel.threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            (
+                                cache.wasKickedFromGroup(groupSessionId: sessionId),
+                                cache.groupIsDestroyed(groupSessionId: sessionId)
+                            )
                         }
-                    )
-                    let groupIsDestroyed: Bool = (
-                        viewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession) { cache in
-                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: viewModel.threadId))
-                        }
-                    )
+                    }()
                     
                     return viewModel.populatingPostQueryData(
                         recentReactionEmoji: recentReactionEmoji,
@@ -630,6 +630,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             .sorted { lhs, rhs -> Bool in lhs.timestampMs < rhs.timestampMs }
         let threadIsTrusted: Bool = data.contains(where: { $0.threadIsTrusted })
         
+        // TODO: [Database Relocation] Source profile data via a separate query for efficiency
+        var currentUserProfile: Profile = dependencies.mutate(cache: .libSession) { $0.profile }
+        
         // We load messages from newest to oldest so having a pageOffset larger than zero means
         // there are newer pages to load
         return [
@@ -660,6 +663,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                                         .id
                                 ),
                                 currentUserSessionIds: (threadData.currentUserSessionIds ?? []),
+                                currentUserProfile: currentUserProfile,
                                 threadIsTrusted: threadIsTrusted,
                                 using: dependencies
                             )
@@ -709,7 +713,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         interaction: Interaction,
         attachmentData: [Attachment]?,
         linkPreviewDraft: LinkPreviewDraft?,
-        linkPreviewAttachment: Attachment?,
+        linkPreviewPreparedAttachment: PreparedAttachment?,
         quoteModel: QuotedReplyModel?
     )
     
@@ -719,10 +723,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     public func optimisticallyAppendOutgoingMessage(
         text: String?,
         sentTimestampMs: Int64,
-        attachments: [SignalAttachment]?,
+        attachments: [PendingAttachment]?,
         linkPreviewDraft: LinkPreviewDraft?,
         quoteModel: QuotedReplyModel?
-    ) -> OptimisticMessageData {
+    ) async -> OptimisticMessageData {
         // Generate the optimistic data
         let optimisticMessageId: UUID = UUID()
         let threadData: SessionThreadViewModel = self.internalThreadData
@@ -745,10 +749,19 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             isProMessage: dependencies[cache: .libSession].isSessionPro,
             using: dependencies
         )
-        let optimisticAttachments: [Attachment]? = attachments
-            .map { AttachmentUploader.prepare(attachments: $0, using: dependencies) }
-        let linkPreviewAttachment: Attachment? = linkPreviewDraft.map { draft in
-            try? LinkPreview.generateAttachmentIfPossible(
+        var optimisticAttachments: [Attachment]?
+        var linkPreviewPreparedAttachment: PreparedAttachment?
+        
+        if let pendingAttachments: [PendingAttachment] = attachments {
+            optimisticAttachments = try? await AttachmentUploadJob.preparePriorToUpload(
+                attachments: pendingAttachments,
+                using: dependencies
+            )
+        }
+        
+        if let draft: LinkPreviewDraft = linkPreviewDraft {
+            linkPreviewPreparedAttachment = try? await LinkPreview.prepareAttachmentIfPossible(
+                urlString: draft.urlString,
                 imageData: draft.jpegImageData,
                 type: .jpeg,
                 using: dependencies
@@ -789,16 +802,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 }
             }(),
             currentUserProfile: currentUserProfile,
-            quote: quoteModel.map { model in
-                // Don't care about this optimistic quote (the proper one will be generated in the database)
-                Quote(
-                    interactionId: -1,    // Can't save to db optimistically
-                    authorId: model.authorId,
-                    timestampMs: model.timestampMs,
-                    body: model.body
-                )
-            },
-            quoteAttachment: quoteModel?.attachment,
+            quotedInfo: MessageViewModel.QuotedInfo(replyModel: quoteModel),
             linkPreview: linkPreviewDraft.map { draft in
                 LinkPreview(
                     url: draft.urlString,
@@ -807,7 +811,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     using: dependencies
                 )
             },
-            linkPreviewAttachment: linkPreviewAttachment,
+            linkPreviewAttachment: linkPreviewPreparedAttachment?.attachment,
             attachments: optimisticAttachments
         )
         let optimisticData: OptimisticMessageData = (
@@ -816,7 +820,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             interaction,
             optimisticAttachments,
             linkPreviewDraft,
-            linkPreviewAttachment,
+            linkPreviewPreparedAttachment,
             quoteModel
         )
         
@@ -834,13 +838,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     (
                         $0.id,
                         $0.messageViewModel.with(
-                            state: .failed,
-                            mostRecentFailureText: "shareExtensionDatabaseError".localized()
+                            state: .set(to: .failed),
+                            mostRecentFailureText: .set(to: "shareExtensionDatabaseError".localized())
                         ),
                         $0.interaction,
                         $0.attachmentData,
                         $0.linkPreviewDraft,
-                        $0.linkPreviewAttachment,
+                        $0.linkPreviewPreparedAttachment,
                         $0.quoteModel
                     )
                 }

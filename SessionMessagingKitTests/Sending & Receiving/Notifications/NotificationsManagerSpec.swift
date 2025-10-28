@@ -220,8 +220,7 @@ class NotificationsManagerSpec: QuickSpec {
                         text: "Test",
                         quote: VisibleMessage.VMQuote(
                             timestamp: 1234567880,
-                            authorId: "05\(TestConstants.publicKey)",
-                            text: "TestQuote"
+                            authorId: "05\(TestConstants.publicKey)"
                         )
                     )
                     

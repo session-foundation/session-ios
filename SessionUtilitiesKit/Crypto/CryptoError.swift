@@ -1,9 +1,13 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 
 public enum CryptoError: Error, CustomStringConvertible {
     case invalidSeed
+    case invalidKey
+    case invalidPublicKey
     case keyGenerationFailed
     case randomGenerationFailed
     case signatureGenerationFailed
@@ -14,22 +18,22 @@ public enum CryptoError: Error, CustomStringConvertible {
     case missingUserSecretKey
     case invalidAuthentication
     case invalidBase64EncodedData
-    case invalidKey
     
     public var description: String {
         switch self {
-            case .invalidSeed: return "Invalid seed."
-            case .keyGenerationFailed: return "Key generation failed."
-            case .randomGenerationFailed: return "Random generation failed."
-            case .signatureGenerationFailed: return "Signature generation failed."
-            case .signatureVerificationFailed: return "Signature verification failed."
-            case .encryptionFailed: return "Encryption failed."
-            case .decryptionFailed: return "Decryption failed."
-            case .failedToGenerateOutput: return "Failed to generate output."
-            case .missingUserSecretKey: return "Missing user secret key."
-            case .invalidAuthentication: return "Invalid authentication."
-            case .invalidBase64EncodedData: return "Invalid base64 encoded data."
-            case .invalidKey: return "Invalid key."
+            case .invalidSeed: return "CryptoError: Invalid seed"
+            case .invalidKey: return "CryptoError: Invalid key"
+            case .invalidPublicKey: return "CryptoError: Invalid public key"
+            case .keyGenerationFailed: return "CryptoError: Key generation failed"
+            case .randomGenerationFailed: return "CryptoError: Random generation failed"
+            case .signatureGenerationFailed: return "CryptoError: Signature generation failed"
+            case .signatureVerificationFailed: return "CryptoError: Signature verification failed"
+            case .encryptionFailed: return "CryptoError: Encryption failed"
+            case .decryptionFailed: return "CryptoError: Decryption failed"
+            case .failedToGenerateOutput: return "CryptoError: Failed to generate output"
+            case .missingUserSecretKey: return "CryptoError: Missing user secret key"
+            case .invalidAuthentication: return "CryptoError: Invalid authentication"
+            case .invalidBase64EncodedData: return "CryptoError: Invalid Base64 encoded data"
         }
     }
 }

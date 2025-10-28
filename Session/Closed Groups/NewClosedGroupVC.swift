@@ -419,50 +419,52 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
         let selectedProfiles: [(String, Profile?)] = self.selectedProfileIds.map { id in
             (id, self.contacts.first { $0.profileId == id }?.profile)
         }
-
-        ModalActivityIndicatorViewController.present(fromViewController: navigationController!) { [weak self, dependencies] activityIndicatorViewController in
-            MessageSender
-                .createGroup(
+        
+        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController()
+        navigationController?.present(indicator, animated: false)
+        
+        Task(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
+            
+            do {
+                let thread: SessionThread = try await MessageSender.createGroup(
                     name: name,
                     description: nil,
-                    displayPictureData: nil,
+                    displayPicture: nil,
+                    displayPictureCropRect: nil,
                     members: selectedProfiles,
                     using: dependencies
                 )
-                .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-                .receive(on: DispatchQueue.main)
-                .sinkUntilComplete(
-                    receiveCompletion: { result in
-                        switch result {
-                            case .finished: break
-                            case .failure:
-                                self?.dismiss(animated: true, completion: nil) // Dismiss the loader
-                                
-                                let modal: ConfirmationModal = ConfirmationModal(
-                                    targetView: self?.view,
-                                    info: ConfirmationModal.Info(
-                                        title: "groupError".localized(),
-                                        body: .text("groupErrorCreate".localized()),
-                                        cancelTitle: "okay".localized(),
-                                        cancelStyle: .alert_text
-                                    )
-                                )
-                                self?.present(modal, animated: true)
-                        }
-                    },
-                    receiveValue: { thread in
-                        /// When this is triggered via the "Recreate Group" action for Legacy Groups the screen will have been
-                        /// pushed instead of presented and, as a result, we need to dismiss the `activityIndicatorViewController`
-                        /// and want the transition to be animated in order to behave nicely
-                        dependencies[singleton: .app].presentConversationCreatingIfNeeded(
-                            for: thread.id,
-                            variant: thread.variant,
-                            action: .none,
-                            dismissing: (self?.presentingViewController ?? activityIndicatorViewController),
-                            animated: (self?.presentingViewController == nil)
+                
+                /// When this is triggered via the "Recreate Group" action for Legacy Groups the screen will have been
+                /// pushed instead of presented and, as a result, we need to dismiss the `activityIndicatorViewController`
+                /// and want the transition to be animated in order to behave nicely
+                await MainActor.run { [weak self, dependencies] in
+                    dependencies[singleton: .app].presentConversationCreatingIfNeeded(
+                        for: thread.id,
+                        variant: thread.variant,
+                        action: .none,
+                        dismissing: (self?.presentingViewController ?? indicator),
+                        animated: (self?.presentingViewController == nil)
+                    )
+                }
+            }
+            catch {
+                await MainActor.run { [weak self] in
+                    self?.dismiss(animated: true, completion: nil) // Dismiss the loader
+                    
+                    let modal: ConfirmationModal = ConfirmationModal(
+                        targetView: self?.view,
+                        info: ConfirmationModal.Info(
+                            title: "groupError".localized(),
+                            body: .text("groupErrorCreate".localized()),
+                            cancelTitle: "okay".localized(),
+                            cancelStyle: .alert_text
                         )
-                    }
-                )
+                    )
+                    self?.present(modal, animated: true)
+                }
+            }
         }
     }
 }

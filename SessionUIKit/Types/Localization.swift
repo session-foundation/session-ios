@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import UIKit
+import NaturalLanguage
 
 // MARK: - LocalizationHelper
 
@@ -83,6 +84,12 @@ final public class LocalizationHelper: CustomStringConvertible {
         // Replace html tag "<br/>" with "\n"
         localizedString = localizedString.replacingOccurrences(of: "<br/>", with: "\n")
 
+        // Add RTL mark for RTL-dominant strings to try to ensure proper rendering when starting/ending
+        // with English variables
+        if localizedString.isMostlyRTL {
+            localizedString = "\u{200F}" + localizedString + "\u{200F}"
+        }
+
         return localizedString
     }
 
@@ -143,5 +150,25 @@ public extension String {
     
     func localizedDeformatted() -> String {
         return LocalizationHelper(template: self).localizedDeformatted()
+    }
+}
+
+private extension String {
+    /// Determines if the string's dominant language is Right-to-Left (RTL).
+    ///
+    /// This uses `NLLanguageRecognizer` to find the string's dominant language
+    /// and then checks that language's character direction using `Locale`.
+    ///
+    /// - Returns: `true` if the dominant language is RTL (e.g., Arabic, Hebrew);
+    ///   otherwise, `false`.
+    var isMostlyRTL: Bool {
+        let recognizer: NLLanguageRecognizer = NLLanguageRecognizer()
+        recognizer.processString(self)
+        
+        guard let language: NLLanguage = recognizer.dominantLanguage else {
+            return false // If no dominant language is recognized, assume not RTL.
+        }
+        // Check the character direction for the determined dominant language.
+        return (Locale.characterDirection(forLanguage: language.rawValue) == .rightToLeft)
     }
 }

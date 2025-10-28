@@ -40,7 +40,15 @@ class LibSessionGroupInfoSpec: QuickSpec {
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
                     .thenReturn(MockNetwork.response(data: Data([1, 2, 3])))
             }
         )
@@ -280,7 +288,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         createGroupOutput.groupState[.groupInfo]?.conf.map {
                             var displayPic: user_profile_pic = user_profile_pic()
                             displayPic.set(\.url, to: "https://www.oxen.io/file/1234")
-                            displayPic.set(\.key, to: Data(repeating: 1, count: DisplayPictureManager.aes256KeyByteLength))
+                            displayPic.set(\.key, to: Data(repeating: 1, count: DisplayPictureManager.encryptionKeySize))
                             groups_info_set_pic($0, displayPic)
                         }
                         
@@ -309,7 +317,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                                 url: "https://www.oxen.io/file/1234",
                                                 encryptionKey: Data(
                                                     repeating: 1,
-                                                    count: DisplayPictureManager.aes256KeyByteLength
+                                                    count: DisplayPictureManager.encryptionKeySize
                                                 )
                                             ),
                                             timestamp: 1234567891
@@ -894,8 +902,9 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     expect(mockNetwork)
                         .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                             network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
+                                endpoint: Network.SnodeAPI.Endpoint.deleteMessages,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
                                 requestTimeout: expectedRequest.requestTimeout,
                                 requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                             )
@@ -958,7 +967,13 @@ class LibSessionGroupInfoSpec: QuickSpec {
                     expect(result?.map { $0.variant }).to(equal([.standardIncomingDeleted]))
                     expect(mockNetwork)
                         .toNot(call { network in
-                            network.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any)
+                            network.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                requestTimeout: .any,
+                                requestAndPathBuildTimeout: .any
+                            )
                         })
                 }
             }
