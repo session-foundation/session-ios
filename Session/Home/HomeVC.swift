@@ -39,10 +39,18 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     }
     
     // MARK: - UI
-    
-    private var tableViewTopConstraint: NSLayoutConstraint?
-    private var loadingConversationsLabelTopConstraint: NSLayoutConstraint?
     private var navBarProfileView: ProfilePictureView?
+    
+    private lazy var bannersStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            versionSupportBanner,
+            seedReminderView
+        ])
+        result.axis = .vertical
+        result.alignment = .fill
+        
+        return result
+    }()
     
     private lazy var seedReminderView: SeedReminderView = {
         let result = SeedReminderView()
@@ -53,6 +61,23 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         result.delegate = self
         result.isHidden = !self.viewModel.state.showViewedSeedBanner
         
+        return result
+    }()
+    
+    lazy var versionSupportBanner: InfoBanner = {
+        let result: InfoBanner = InfoBanner(
+            info: InfoBanner.Info(
+                font: .systemFont(ofSize: Values.verySmallFontSize),
+                message: "warningIosVersionEndingSupport"
+                    .localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
+                icon: .none,
+                tintColor: .messageBubble_outgoingText,
+                backgroundColor: .primary,
+                labelAccessibility: Accessibility(identifier: "Warning supported version banner")
+            )
+        )
+        
+        result.isHidden = false
         return result
     }()
     
@@ -300,32 +325,25 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         )
         setUpNavBarSessionHeading()
         
-        // Recovery phrase reminder
-        view.addSubview(seedReminderView)
-        seedReminderView.pin(.leading, to: .leading, of: view)
-        seedReminderView.pin(.top, to: .top, of: view)
-        seedReminderView.pin(.trailing, to: .trailing, of: view)
+        // Banner stack view
+        view.addSubview(bannersStackView)
+        bannersStackView.pin(.leading, to: .leading, of: view)
+        bannersStackView.pin(.top, to: .top, of: view)
+        bannersStackView.pin(.trailing, to: .trailing, of: view)
         
         // Loading conversations label
         view.addSubview(loadingConversationsLabel)
         
         loadingConversationsLabel.pin(.leading, to: .leading, of: view, withInset: 50)
         loadingConversationsLabel.pin(.trailing, to: .trailing, of: view, withInset: -50)
+        loadingConversationsLabel.pin(.top, to: .bottom, of: bannersStackView, withInset: Values.mediumSpacing)
         
         // Table view
         view.addSubview(tableView)
         tableView.pin(.leading, to: .leading, of: view)
         tableView.pin(.trailing, to: .trailing, of: view)
         tableView.pin(.bottom, to: .bottom, of: view)
-        
-        if self.viewModel.state.showViewedSeedBanner {
-            loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .bottom, of: seedReminderView, withInset: Values.mediumSpacing)
-            tableViewTopConstraint = tableView.pin(.top, to: .bottom, of: seedReminderView)
-        }
-        else {
-            loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .top, of: view, withInset: Values.veryLargeSpacing)
-            tableViewTopConstraint = tableView.pin(.top, to: .top, of: view)
-        }
+        tableView.pin(.top, to: .bottom, of: bannersStackView)
         
         // Empty state view
         view.addSubview(emptyStateStackView)
@@ -412,26 +430,10 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             serviceNetwork: state.serviceNetwork,
             forceOffline: state.forceOffline
         )
-        
+       
         // Update the 'view seed' UI
-        let shouldHideSeedReminderView: Bool = !state.showViewedSeedBanner
-        
-        if seedReminderView.isHidden != shouldHideSeedReminderView {
-            tableViewTopConstraint?.isActive = false
-            loadingConversationsLabelTopConstraint?.isActive = false
-            seedReminderView.isHidden = !state.showViewedSeedBanner
-            
-            if state.showViewedSeedBanner {
-                loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .bottom, of: seedReminderView, withInset: Values.mediumSpacing)
-                tableViewTopConstraint = tableView.pin(.top, to: .bottom, of: seedReminderView)
-            }
-            else {
-                loadingConversationsLabelTopConstraint = loadingConversationsLabel.pin(.top, to: .top, of: view, withInset: Values.veryLargeSpacing)
-                tableViewTopConstraint = tableView.pin(.top, to: .top, of: view, withInset: Values.smallSpacing)
-            }
-            
-            view.layoutIfNeeded()
-        }
+        seedReminderView.isHidden = !state.showViewedSeedBanner
+        versionSupportBanner.isHidden = !state.showVersionSupportBanner
         
         // Update the overall view state (loading, empty, or loaded)
         switch state.viewState {
