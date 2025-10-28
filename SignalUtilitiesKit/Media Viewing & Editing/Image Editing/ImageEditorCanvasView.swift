@@ -138,27 +138,52 @@ public class ImageEditorCanvasView: UIView {
     }
 
     public class func loadSrcImage(model: ImageEditorModel) -> UIImage? {
-        let srcImageData: Data
-        do {
-            let srcImagePath = model.srcImagePath
-            let srcImageUrl = URL(fileURLWithPath: srcImagePath)
-            srcImageData = try Data(contentsOf: srcImageUrl)
-        } catch {
-            Log.error("[ImageEditorCanvasView] Couldn't parse srcImageUrl")
-            return nil
+        switch model.src {
+            case .url(let url):
+                // We use this constructor so that we can specify the scale.
+                //
+                // UIImage(contentsOfFile:) will sometimes use device scale.
+                guard
+                    let data: Data = try? Data(contentsOf: url),
+                    let srcImage: UIImage = UIImage(data: data, scale: 1.0)
+                else {
+                    Log.error("[ImageEditorCanvasView] Couldn't load source image.")
+                    return nil
+                }
+                
+                // We normalize the image orientation here for the sake
+                // of code simplicity.  We could modify the image layer's
+                // transform to handle the normalization, which would
+                // have perf benefits.
+                return srcImage.normalizedImage()
+                
+            case .data(_, let data):
+                // We use this constructor so that we can specify the scale.
+                //
+                // UIImage(contentsOfFile:) will sometimes use device scale.
+                guard let srcImage: UIImage = UIImage(data: data, scale: 1.0) else {
+                    Log.error("[ImageEditorCanvasView] Couldn't load source image.")
+                    return nil
+                }
+                
+                // We normalize the image orientation here for the sake
+                // of code simplicity.  We could modify the image layer's
+                // transform to handle the normalization, which would
+                // have perf benefits.
+                return srcImage.normalizedImage()
+                
+            case .image(_, let maybeImage):
+                guard let image: UIImage = maybeImage else {
+                    Log.error("[ImageEditorCanvasView] Invalid source provided")
+                    return nil
+                }
+                
+                return image.normalizedImage()
+                
+            default:
+                Log.error("[ImageEditorCanvasView] Invalid source provided")
+                return nil
         }
-        // We use this constructor so that we can specify the scale.
-        //
-        // UIImage(contentsOfFile:) will sometimes use device scale.
-        guard let srcImage = UIImage(data: srcImageData, scale: 1.0) else {
-            Log.error("[ImageEditorCanvasView] Couldn't load background image.")
-            return nil
-        }
-        // We normalize the image orientation here for the sake
-        // of code simplicity.  We could modify the image layer's
-        // transform to handle the normalization, which would
-        // have perf benefits.
-        return srcImage.normalizedImage()
     }
 
     // MARK: - Content
@@ -606,13 +631,6 @@ public class ImageEditorCanvasView: UIView {
         let dstSizePixels = transform.outputSizePixels
         let dstScale: CGFloat = 1.0 // The size is specified in pixels, not in points.
         let viewSize = dstSizePixels
-        let hasAlpha: Bool = (MediaUtils.MediaMetadata(
-            from: model.srcImagePath,
-            type: nil,
-            mimeType: nil,
-            sourceFilename: nil,
-            using: dependencies
-        )?.hasAlpha == true)
 
         // We use an UIImageView + UIView.renderAsImage() instead of a CGGraphicsContext
         // Because CALayer.renderInContext() doesn't honor CALayer properties like frame,
@@ -663,7 +681,7 @@ public class ImageEditorCanvasView: UIView {
 
         CATransaction.commit()
         
-        let image = view.toImage(isOpaque: !hasAlpha, scale: dstScale)
+        let image = view.toImage(isOpaque: (model.srcMetadata.hasAlpha != true), scale: dstScale)
         return image
     }
 

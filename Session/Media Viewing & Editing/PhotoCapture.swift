@@ -11,7 +11,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 protocol PhotoCaptureDelegate: AnyObject {
-    func photoCapture(_ photoCapture: PhotoCapture, didFinishProcessingAttachment attachment: SignalAttachment)
+    func photoCapture(_ photoCapture: PhotoCapture, didFinishProcessingAttachment attachment: PendingAttachment)
     func photoCapture(_ photoCapture: PhotoCapture, processingDidError error: Error)
 
     func photoCaptureDidBeginVideo(_ photoCapture: PhotoCapture)
@@ -423,10 +423,14 @@ extension PhotoCapture: CaptureOutputDelegate {
             delegate?.photoCapture(self, processingDidError: PhotoCaptureError.captureFailed)
             return
         }
-
-        let dataSource = DataSourceValue(data: photoData, dataType: .jpeg, using: dependencies)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .jpeg, imageQuality: .medium, using: dependencies)
-        delegate?.photoCapture(self, didFinishProcessingAttachment: attachment)
+        
+        let pendingAttachment: PendingAttachment = PendingAttachment(
+            source: .media(UUID().uuidString, photoData),
+            utType: .jpeg,
+            sourceFilename: nil,
+            using: dependencies
+        )
+        delegate?.photoCapture(self, didFinishProcessingAttachment: pendingAttachment)
     }
 
     // MARK: - Movie
@@ -445,10 +449,21 @@ extension PhotoCapture: CaptureOutputDelegate {
             }
             Log.debug("[PhotoCapture] Ignoring error, since capture succeeded.")
         }
-
-        let dataSource = DataSourcePath(fileUrl: outputFileURL, sourceFilename: nil, shouldDeleteOnDeinit: true, using: dependencies)
-        let attachment = SignalAttachment.attachment(dataSource: dataSource, type: .mpeg4Movie, using: dependencies)
-        delegate?.photoCapture(self, didFinishProcessingAttachment: attachment)
+        
+        let pendingAttachment: PendingAttachment = PendingAttachment(
+            source: .media(
+                .videoUrl(
+                    outputFileURL,
+                    .mpeg4Movie,
+                    nil,
+                    dependencies[singleton: .attachmentManager]
+                )
+            ),
+            utType: .mpeg4Movie,
+            sourceFilename: nil,
+            using: dependencies
+        )
+        delegate?.photoCapture(self, didFinishProcessingAttachment: pendingAttachment)
     }
     
     /// The AVCaptureFileOutput can return an error even though recording succeeds.

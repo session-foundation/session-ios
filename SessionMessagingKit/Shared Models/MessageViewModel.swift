@@ -14,6 +14,22 @@ fileprivate typealias ReactionInfo = MessageViewModel.ReactionInfo
 fileprivate typealias TypingIndicatorInfo = MessageViewModel.TypingIndicatorInfo
 fileprivate typealias QuotedInfo = MessageViewModel.QuotedInfo
 
+public struct QuoteViewModel: FetchableRecord, Decodable, Equatable, Hashable, Differentiable {
+    fileprivate static let numberOfColumns: Int = 4
+    
+    public let interactionId: Int64
+    public let authorId: String
+    public let timestampMs: Int64
+    public let body: String?
+    
+    public init(interactionId: Int64, authorId: String, timestampMs: Int64, body: String?) {
+        self.interactionId = interactionId
+        self.authorId = authorId
+        self.timestampMs = timestampMs
+        self.body = body
+    }
+}
+
 // TODO: [Database Relocation] Refactor this to split database data from no-database data (to avoid unneeded nullables)
 public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
     public typealias Columns = CodingKeys
@@ -49,8 +65,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case isSenderModeratorOrAdmin
         case isTypingIndicator
         case profile
-        case quote
-        case quoteAttachment
+        case quotedInfo
         case linkPreview
         case linkPreviewAttachment
 
@@ -133,8 +148,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let isSenderModeratorOrAdmin: Bool
     public let isTypingIndicator: Bool?
     public let profile: Profile?
-    public let quote: Quote?
-    public let quoteAttachment: Attachment?
+    public let quotedInfo: QuotedInfo?
     public let linkPreview: LinkPreview?
     public let linkPreviewAttachment: Attachment?
     
@@ -209,13 +223,12 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     // MARK: - Mutation
     
     public func with(
-        state: Interaction.State? = nil,        // Optimistic outgoing messages
-        mostRecentFailureText: String? = nil,   // Optimistic outgoing messages
-        profile: Profile? = nil,
-        quote: Quote? = nil,                    // Workaround for blinded current user
-        quoteAttachment: [Attachment]? = nil,   // Pass an empty array to clear
-        attachments: [Attachment]? = nil,
-        reactionInfo: [ReactionInfo]? = nil
+        state: Update<Interaction.State> = .useExisting,         // Optimistic outgoing messages
+        mostRecentFailureText: Update<String?> = .useExisting,   // Optimistic outgoing messages
+        profile: Update<Profile?> = .useExisting,
+        quotedInfo: Update<QuotedInfo?> = .useExisting,           // Workaround for blinded current user
+        attachments: Update<[Attachment]?> = .useExisting,
+        reactionInfo: Update<[ReactionInfo]?> = .useExisting
     ) -> MessageViewModel {
         return MessageViewModel(
             threadId: self.threadId,
@@ -239,81 +252,18 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             rawBody: self.rawBody,
             expiresStartedAtMs: self.expiresStartedAtMs,
             expiresInSeconds: self.expiresInSeconds,
-            state: (state ?? self.state),
+            state: state.or(self.state),
             hasBeenReadByRecipient: self.hasBeenReadByRecipient,
-            mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText),
+            mostRecentFailureText: mostRecentFailureText.or(self.mostRecentFailureText),
             isSenderModeratorOrAdmin: self.isSenderModeratorOrAdmin,
             isTypingIndicator: self.isTypingIndicator,
-            profile: (profile ?? self.profile),
-            quote: (quote ?? self.quote),
-            quoteAttachment: (quoteAttachment ?? self.quoteAttachment.map { [$0] })?.first, // Only contains one
+            profile: profile.or(self.profile),
+            quotedInfo: quotedInfo.or(self.quotedInfo),
             linkPreview: self.linkPreview,
             linkPreviewAttachment: self.linkPreviewAttachment,
             currentUserSessionId: self.currentUserSessionId,
-            attachments: (attachments ?? self.attachments),
-            reactionInfo: (reactionInfo ?? self.reactionInfo),
-            cellType: self.cellType,
-            authorName: self.authorName,
-            authorNameSuppressedId: self.authorNameSuppressedId,
-            senderName: self.senderName,
-            canHaveProfile: self.canHaveProfile,
-            shouldShowProfile: self.shouldShowProfile,
-            shouldShowDateHeader: self.shouldShowDateHeader,
-            containsOnlyEmoji: self.containsOnlyEmoji,
-            glyphCount: self.glyphCount,
-            previousVariant: self.previousVariant,
-            positionInCluster: self.positionInCluster,
-            isOnlyMessageInCluster: self.isOnlyMessageInCluster,
-            isLast: self.isLast,
-            isLastOutgoing: self.isLastOutgoing,
-            currentUserSessionIds: self.currentUserSessionIds,
-            optimisticMessageId: self.optimisticMessageId
-        )
-    }
-    
-    public func removingQuoteAttachmentsIfNeeded(
-        validAttachments: [Attachment]
-    ) -> MessageViewModel {
-        guard
-            let quoteAttachment: Attachment = self.quoteAttachment,
-            !validAttachments.contains(quoteAttachment)
-        else { return self }
-        
-        return ViewModel(
-            threadId: self.threadId,
-            threadVariant: self.threadVariant,
-            threadIsTrusted: self.threadIsTrusted,
-            threadExpirationType: self.threadExpirationType,
-            threadExpirationTimer: self.threadExpirationTimer,
-            threadOpenGroupServer: self.threadOpenGroupServer,
-            threadOpenGroupPublicKey: self.threadOpenGroupPublicKey,
-            threadContactNameInternal: self.threadContactNameInternal,
-            rowId: self.rowId,
-            id: self.id,
-            serverHash: self.serverHash,
-            openGroupServerMessageId: self.openGroupServerMessageId,
-            variant: self.variant,
-            timestampMs: self.timestampMs,
-            receivedAtTimestampMs: self.receivedAtTimestampMs,
-            authorId: self.authorId,
-            authorNameInternal: self.authorNameInternal,
-            body: self.body,
-            rawBody: self.body,
-            expiresStartedAtMs: self.expiresStartedAtMs,
-            expiresInSeconds: self.expiresInSeconds,
-            state: self.state,
-            hasBeenReadByRecipient: self.hasBeenReadByRecipient,
-            mostRecentFailureText: self.mostRecentFailureText,
-            isSenderModeratorOrAdmin: self.isSenderModeratorOrAdmin,
-            isTypingIndicator: self.isTypingIndicator,
-            profile: self.profile,
-            quote: self.quote,
-            quoteAttachment: nil,
-            linkPreview: self.linkPreview,
-            linkPreviewAttachment: self.linkPreviewAttachment,
-            currentUserSessionId: self.currentUserSessionId,
-            attachments: self.attachments,
-            reactionInfo: self.reactionInfo,
+            attachments: attachments.or(self.attachments),
+            reactionInfo: reactionInfo.or(self.reactionInfo),
             cellType: self.cellType,
             authorName: self.authorName,
             authorNameSuppressedId: self.authorNameSuppressedId,
@@ -339,6 +289,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         isLast: Bool,
         isLastOutgoing: Bool,
         currentUserSessionIds: Set<String>,
+        currentUserProfile: Profile,
         threadIsTrusted: Bool,
         using dependencies: Dependencies
     ) -> MessageViewModel {
@@ -370,20 +321,41 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             
             return .genericAttachment
         }()
-        let authorDisplayName: String = Profile.displayName(
-            for: self.threadVariant,
-            id: self.authorId,
-            name: self.authorNameInternal,
-            nickname: nil,      // Folded into 'authorName' within the Query
-            suppressId: false   // Show the id next to the author name if desired
-        )
-        let authorDisplayNameSuppressedId: String = Profile.displayName(
-            for: self.threadVariant,
-            id: self.authorId,
-            name: self.authorNameInternal,
-            nickname: nil,      // Folded into 'authorName' within the Query
-            suppressId: true    // Exclude the id next to the author name
-        )
+        // TODO: [Database Relocation] Clean up `currentUserProfile` logic (profile data should be sourced from a separate query for efficiency)
+        let authorDisplayName: String = {
+            guard authorId != currentUserProfile.id else {
+                return currentUserProfile.displayName(
+                    for: self.threadVariant,
+                    ignoringNickname: true,    // Current user has no nickname
+                    suppressId: false          // Show the id next to the author name if desired
+                )
+            }
+            
+            return Profile.displayName(
+                for: self.threadVariant,
+                id: self.authorId,
+                name: self.authorNameInternal,
+                nickname: nil,      // Folded into 'authorName' within the Query
+                suppressId: false   // Show the id next to the author name if desired
+            )
+        }()
+        let authorDisplayNameSuppressedId: String = {
+            guard authorId != currentUserProfile.id else {
+                return currentUserProfile.displayName(
+                    for: self.threadVariant,
+                    ignoringNickname: true,    // Current user has no nickname
+                    suppressId: true          // Exclude the id next to the author name
+                )
+            }
+            
+            return Profile.displayName(
+                for: self.threadVariant,
+                id: self.authorId,
+                name: self.authorNameInternal,
+                nickname: nil,      // Folded into 'authorName' within the Query
+                suppressId: true   // Exclude the id next to the author name
+            )
+        }()
         let shouldShowDateBeforeThisModel: Bool = {
             guard self.isTypingIndicator != true else { return false }
             guard self.variant != .infoCall else { return true }    // Always show on calls
@@ -462,7 +434,10 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             timestampMs: self.timestampMs,
             receivedAtTimestampMs: self.receivedAtTimestampMs,
             authorId: self.authorId,
-            authorNameInternal: self.authorNameInternal,
+            authorNameInternal: (self.threadId == currentUserProfile.id ?
+                "you".localized() :
+                self.authorNameInternal
+            ),
             body: (!self.variant.isInfoMessage ?
                 self.body :
                 // Info messages might not have a body so we should use the 'previewText' value instead
@@ -498,9 +473,8 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             mostRecentFailureText: self.mostRecentFailureText,
             isSenderModeratorOrAdmin: self.isSenderModeratorOrAdmin,
             isTypingIndicator: self.isTypingIndicator,
-            profile: self.profile,
-            quote: self.quote,
-            quoteAttachment: self.quoteAttachment,
+            profile: (self.profile?.id == currentUserProfile.id ? currentUserProfile : self.profile),
+            quotedInfo: self.quotedInfo,
             linkPreview: self.linkPreview,
             linkPreviewAttachment: self.linkPreviewAttachment,
             currentUserSessionId: self.currentUserSessionId,
@@ -674,25 +648,61 @@ public extension MessageViewModel {
 // MARK: - QuotedInfo
 
 public extension MessageViewModel {
-    struct QuotedInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, ColumnExpressible {
+    struct QuotedInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, Hashable, ColumnExpressible {
         public typealias Columns = CodingKeys
         public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
             case rowId
-            case quote
+            case interactionId
+            case authorId
+            case timestampMs
+            case body
             case attachment
             case quotedInteractionId
             case quotedInteractionVariant
         }
         
         public let rowId: Int64
-        public let quote: Quote
+        public let interactionId: Int64
+        public let authorId: String
+        public let timestampMs: Int64
+        public let body: String?
         public let attachment: Attachment?
         public let quotedInteractionId: Int64
         public let quotedInteractionVariant: Interaction.Variant
         
         // MARK: - Identifiable
         
-        public var id: String { "quote-\(quote.interactionId)-attachment_\(attachment?.id ?? "None")" }
+        public var id: String { "quote-\(interactionId)-attachment_\(attachment?.id ?? "None")" }
+        
+        // MARK: - Initialization
+        
+        public init(previewBody: String) {
+            self.body = previewBody
+            
+            /// This is an preview version so none of these values matter
+            self.rowId = -1
+            self.interactionId = -1
+            self.authorId = ""
+            self.timestampMs = 0
+            self.attachment = nil
+            self.quotedInteractionId = -1
+            self.quotedInteractionVariant = .standardOutgoing
+        }
+        
+        public init?(replyModel: QuotedReplyModel?) {
+            guard let model: QuotedReplyModel = replyModel else { return nil }
+            
+            self.authorId = model.authorId
+            self.timestampMs = model.timestampMs
+            self.body = model.body
+            self.attachment = model.attachment
+            
+            /// This is an optimistic version so none of these values exist yet
+            self.rowId = -1
+            self.interactionId = -1
+            self.quotedInteractionId = -1
+            self.quotedInteractionVariant = .standardOutgoing
+        }
     }
 }
 
@@ -709,7 +719,7 @@ public extension MessageViewModel {
         timestampMs: Int64 = Int64.max,
         receivedAtTimestampMs: Int64 = Int64.max,
         body: String? = nil,
-        quote: Quote? = nil,
+        quotedInfo: QuotedInfo? = nil,
         cellType: CellType = .typingIndicator,
         isTypingIndicator: Bool? = nil,
         isLast: Bool = true,
@@ -752,8 +762,7 @@ public extension MessageViewModel {
         self.isSenderModeratorOrAdmin = false
         self.isTypingIndicator = isTypingIndicator
         self.profile = nil
-        self.quote = quote
-        self.quoteAttachment = nil
+        self.quotedInfo = quotedInfo
         self.linkPreview = nil
         self.linkPreviewAttachment = nil
         self.currentUserSessionId = ""
@@ -800,8 +809,7 @@ public extension MessageViewModel {
         state: Interaction.State = .sending,
         isSenderModeratorOrAdmin: Bool,
         currentUserProfile: Profile,
-        quote: Quote?,
-        quoteAttachment: Attachment?,
+        quotedInfo: QuotedInfo?,
         linkPreview: LinkPreview?,
         linkPreviewAttachment: Attachment?,
         attachments: [Attachment]?
@@ -837,8 +845,7 @@ public extension MessageViewModel {
         self.isSenderModeratorOrAdmin = isSenderModeratorOrAdmin
         self.isTypingIndicator = false
         self.profile = currentUserProfile
-        self.quote = quote
-        self.quoteAttachment = quoteAttachment
+        self.quotedInfo = quotedInfo
         self.linkPreview = linkPreview
         self.linkPreviewAttachment = linkPreviewAttachment
         self.currentUserSessionId = currentUserProfile.id
@@ -942,13 +949,6 @@ public extension MessageViewModel {
             let disappearingMessagesConfig: TypedTableAlias<DisappearingMessagesConfiguration> = TypedTableAlias()
             let profile: TypedTableAlias<Profile> = TypedTableAlias()
             let threadProfile: TypedTableAlias<Profile> = TypedTableAlias(name: "threadProfile")
-            let quote: TypedTableAlias<Quote> = TypedTableAlias()
-            let quoteInteraction: TypedTableAlias<Interaction> = TypedTableAlias(name: "quoteInteraction")
-            let quoteInteractionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias(
-                name: "quoteInteractionAttachment"
-            )
-            let quoteLinkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias(name: "quoteLinkPreview")
-            let quoteAttachment: TypedTableAlias<Attachment> = TypedTableAlias(name: ViewModel.CodingKeys.quoteAttachment.stringValue)
             let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
             let linkPreviewAttachment: TypedTableAlias<Attachment> = TypedTableAlias(ViewModel.self, column: .linkPreviewAttachment)
             
@@ -993,12 +993,6 @@ public extension MessageViewModel {
                     ) AS \(ViewModel.Columns.isSenderModeratorOrAdmin),
             
                     \(profile.allColumns),
-                    \(quote[.interactionId]),
-                    \(quote[.authorId]),
-                    \(quote[.timestampMs]),
-                    \(quoteInteraction[.body]),
-                    \(quoteInteractionAttachment[.attachmentId]),
-                    \(quoteAttachment.allColumns),
                     \(linkPreview.allColumns),
                     \(linkPreviewAttachment.allColumns),
                     
@@ -1024,32 +1018,6 @@ public extension MessageViewModel {
                 LEFT JOIN \(DisappearingMessagesConfiguration.self) ON \(disappearingMessagesConfig[.threadId]) = \(interaction[.threadId])
                 LEFT JOIN \(OpenGroup.self) ON \(openGroup[.threadId]) = \(interaction[.threadId])
                 LEFT JOIN \(Profile.self) ON \(profile[.id]) = \(interaction[.authorId])
-                LEFT JOIN \(Quote.self) ON \(quote[.interactionId]) = \(interaction[.id])
-                LEFT JOIN \(quoteInteraction) ON (
-                    \(quoteInteraction[.timestampMs]) = \(quote[.timestampMs]) AND (
-                        \(quoteInteraction[.authorId]) = \(quote[.authorId]) OR (
-                            -- A users outgoing message is stored in some cases using their standard id
-                            -- but the quote will use their blinded id so handle that case
-                            \(quoteInteraction[.authorId]) = \(userSessionId.hexString) AND
-                            \(quote[.authorId]) IN \(currentUserSessionIds)
-                        )
-                    )
-                )
-                LEFT JOIN \(quoteInteractionAttachment) ON (
-                    \(quoteInteractionAttachment[.interactionId]) = \(quoteInteraction[.id]) AND
-                    \(quoteInteractionAttachment[.albumIndex]) = 0
-                )
-                LEFT JOIN \(quoteLinkPreview) ON (
-                    \(quoteLinkPreview[.url]) = \(quoteInteraction[.linkPreviewUrl]) AND
-                    \(Interaction.linkPreviewFilterLiteral(
-                        interaction: quoteInteraction,
-                        linkPreview: quoteLinkPreview
-                    ))
-                )
-                LEFT JOIN \(quoteAttachment) ON (
-                    \(quoteAttachment[.id]) = \(quoteInteractionAttachment[.attachmentId]) OR
-                    \(quoteAttachment[.id]) = \(quoteLinkPreview[.attachmentId])
-                )
             
                 LEFT JOIN \(LinkPreview.self) ON (
                     \(linkPreview[.url]) = \(interaction[.linkPreviewUrl]) AND
@@ -1066,18 +1034,14 @@ public extension MessageViewModel {
                 let adapters = try splittingRowAdapters(columnCounts: [
                     numColumnsBeforeLinkedRecords,
                     Profile.numberOfSelectedColumns(db),
-                    Quote.numberOfSelectedColumns(db),
-                    Attachment.numberOfSelectedColumns(db),
                     LinkPreview.numberOfSelectedColumns(db),
                     Attachment.numberOfSelectedColumns(db)
                 ])
                 
                 return ScopeAdapter.with(ViewModel.self, [
                     .profile: adapters[1],
-                    .quote: adapters[2],
-                    .quoteAttachment: adapters[3],
-                    .linkPreview: adapters[4],
-                    .linkPreviewAttachment: adapters[5]
+                    .linkPreview: adapters[2],
+                    .linkPreviewAttachment: adapters[3]
                 ])
             }
         }
@@ -1153,9 +1117,9 @@ public extension MessageViewModel.AttachmentInteractionInfo {
                     
                     updatedPagedDataCache = updatedPagedDataCache.upserting(
                         dataToUpdate.with(
-                            attachments: attachments
+                            attachments: .set(to: attachments
                                 .sorted()
-                                .map { $0.attachment }
+                                .map { $0.attachment })
                         )
                     )
                 }
@@ -1233,7 +1197,7 @@ public extension MessageViewModel.ReactionInfo {
                     else { return }
                     
                     updatedPagedDataCache = updatedPagedDataCache.upserting(
-                        dataToUpdate.with(reactionInfo: reactionInfo.sorted())
+                        dataToUpdate.with(reactionInfo: .set(to: reactionInfo.sorted()))
                     )
                     pagedRowIdsWithNoReactions.remove(interactionRowId)
                 }
@@ -1243,7 +1207,7 @@ public extension MessageViewModel.ReactionInfo {
                 items: pagedRowIdsWithNoReactions
                     .compactMap { rowId -> ViewModel? in updatedPagedDataCache.data[rowId] }
                     .filter { viewModel -> Bool in (viewModel.reactionInfo?.isEmpty == false) }
-                    .map { viewModel -> ViewModel in viewModel.with(reactionInfo: []) }
+                    .map { viewModel -> ViewModel in viewModel.with(reactionInfo: .set(to: nil)) }
             )
             
             return updatedPagedDataCache
@@ -1312,6 +1276,7 @@ public extension MessageViewModel.QuotedInfo {
             let quoteInteractionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias(
                 name: "quoteInteractionAttachment"
             )
+            let quoteLinkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias(name: "quoteLinkPreview")
             let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
             
             let finalFilterSQL: SQL = {
@@ -1324,11 +1289,14 @@ public extension MessageViewModel.QuotedInfo {
                 """
             }()
             
-            let numColumnsBeforeLinkedRecords: Int = 1
+            let numColumnsBeforeLinkedRecords: Int = 5
             let request: SQLRequest<QuotedInfo> = """
                 SELECT
                     \(quote[.rowId]) AS \(QuotedInfo.Columns.rowId),
-                    \(quote.allColumns),
+                    \(quote[.interactionId]) AS \(QuotedInfo.Columns.interactionId),
+                    \(quote[.authorId]) AS \(QuotedInfo.Columns.authorId),
+                    \(quote[.timestampMs]) AS \(QuotedInfo.Columns.timestampMs),
+                    \(quoteInteraction[.body]) AS \(QuotedInfo.Columns.body),
                     \(attachment.allColumns),
                     \(quoteInteraction[.id]) AS \(QuotedInfo.Columns.quotedInteractionId),
                     \(quoteInteraction[.variant]) AS \(QuotedInfo.Columns.quotedInteractionVariant)
@@ -1347,20 +1315,28 @@ public extension MessageViewModel.QuotedInfo {
                     \(quoteInteractionAttachment[.interactionId]) = \(quoteInteraction[.id]) AND
                     \(quoteInteractionAttachment[.albumIndex]) = 0
                 )
-                LEFT JOIN \(Attachment.self) ON \(attachment[.id]) = \(quoteInteractionAttachment[.attachmentId])
+                LEFT JOIN \(quoteLinkPreview) ON (
+                    \(quoteLinkPreview[.url]) = \(quoteInteraction[.linkPreviewUrl]) AND
+                    \(Interaction.linkPreviewFilterLiteral(
+                        interaction: quoteInteraction,
+                        linkPreview: quoteLinkPreview
+                    ))
+                )
+                LEFT JOIN \(Attachment.self) ON (
+                    \(attachment[.id]) = \(quoteInteractionAttachment[.attachmentId]) OR
+                    \(attachment[.id]) = \(quoteLinkPreview[.attachmentId])
+                )
                 \(finalFilterSQL)
             """
             
             return request.adapted { db in
                 let adapters = try splittingRowAdapters(columnCounts: [
                     numColumnsBeforeLinkedRecords,
-                    Quote.numberOfSelectedColumns(db),
                     Attachment.numberOfSelectedColumns(db)
                 ])
                 
                 return ScopeAdapter.with(QuotedInfo.self, [
-                    .quote: adapters[1],
-                    .attachment: adapters[2]
+                    .attachment: adapters[1]
                 ])
             }
         }
@@ -1380,7 +1356,7 @@ public extension MessageViewModel.QuotedInfo {
             dataCache.values.compactMap { quotedInfo in
                 guard
                     pagedRowIds.contains(quotedInfo.quotedInteractionId) ||
-                    pagedRowIds.contains(quotedInfo.quote.interactionId)
+                    pagedRowIds.contains(quotedInfo.interactionId)
                 else { return nil }
                 
                 return quotedInfo.rowId
@@ -1395,7 +1371,7 @@ public extension MessageViewModel.QuotedInfo {
             // Update changed records
             dataCache.values.forEach { quoteInfo in
                 guard
-                    let interactionRowId: Int64 = updatedPagedDataCache.lookup[quoteInfo.quote.interactionId],
+                    let interactionRowId: Int64 = updatedPagedDataCache.lookup[quoteInfo.interactionId],
                     let dataToUpdate: ViewModel = updatedPagedDataCache.data[interactionRowId]
                 else { return }
                 
@@ -1404,26 +1380,16 @@ public extension MessageViewModel.QuotedInfo {
                     // then remove that content from the quote
                     case false:
                         updatedPagedDataCache = updatedPagedDataCache.upserting(
-                            dataToUpdate.with(
-                                quoteAttachment: quoteInfo.attachment.map { [$0] }
-                            )
+                            dataToUpdate.with(quotedInfo: .set(to: quoteInfo))
                         )
                         
                     // If the original message was deleted and the quote contains some of it's content
                     // then remove that content from the quote
                     case true:
-                        guard
-                            (
-                                dataToUpdate.quote?.body != nil ||
-                                dataToUpdate.quoteAttachment != nil
-                            )
-                        else { return }
+                        guard dataToUpdate.quotedInfo != nil else { return }
                         
                         updatedPagedDataCache = updatedPagedDataCache.upserting(
-                            dataToUpdate.with(
-                                quote: quoteInfo.quote.withOriginalMessageDeleted(),
-                                quoteAttachment: []
-                            )
+                            dataToUpdate.with(quotedInfo: .set(to: nil))
                         )
                 }
             }

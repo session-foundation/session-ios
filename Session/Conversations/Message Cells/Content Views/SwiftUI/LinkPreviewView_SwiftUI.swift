@@ -1,11 +1,13 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 
 public struct LinkPreviewView_SwiftUI: View {
     private var state: LinkPreviewState
+    private var dataManager: ImageDataManagerType
     private var isOutgoing: Bool
     private let maxWidth: CGFloat
     private var messageViewModel: MessageViewModel?
@@ -18,6 +20,7 @@ public struct LinkPreviewView_SwiftUI: View {
     
     init(
         state: LinkPreviewState,
+        dataManager: ImageDataManagerType,
         isOutgoing: Bool,
         maxWidth: CGFloat = .infinity,
         messageViewModel: MessageViewModel? = nil,
@@ -26,6 +29,7 @@ public struct LinkPreviewView_SwiftUI: View {
         onCancel: (() -> ())? = nil
     ) {
         self.state = state
+        self.dataManager = dataManager
         self.isOutgoing = isOutgoing
         self.maxWidth = maxWidth
         self.messageViewModel = messageViewModel
@@ -48,25 +52,36 @@ public struct LinkPreviewView_SwiftUI: View {
             ) {
                 // Link preview image
                 let imageSize: CGFloat = state is LinkPreview.SentState ? 100 : 80
-                if let linkPreviewImage: UIImage = state.image {
-                    Image(uiImage: linkPreviewImage)
-                        .resizable()
-                        .scaledToFill()
-                        .foregroundColor(
-                            themeColor: isOutgoing ?
-                                .messageBubble_outgoingText :
-                                .messageBubble_incomingText
-                        )
-                        .frame(
-                            width: imageSize,
-                            height: imageSize
-                        )
-                        .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
-                } else if
-                    state is LinkPreview.DraftState || state is LinkPreview.SentState,
-                    let defaultImage: UIImage = UIImage(named: "Link")?.withRenderingMode(.alwaysTemplate)
-                {
-                    Image(uiImage: defaultImage)
+                if let linkPreviewImageSource: ImageDataManager.DataSource = state.imageSource {
+                    SessionAsyncImage(
+                        source: linkPreviewImageSource,
+                        dataManager: dataManager,
+                        content: { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .foregroundColor(
+                                    themeColor: isOutgoing ?
+                                        .messageBubble_outgoingText :
+                                        .messageBubble_incomingText
+                                )
+                                .frame(
+                                    width: imageSize,
+                                    height: imageSize
+                                )
+                                .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
+                        },
+                        placeholder: {
+                            ThemeColor(.alert_background)
+                                .frame(
+                                    width: imageSize,
+                                    height: imageSize
+                                )
+                                .cornerRadius(state is LinkPreview.SentState ? 0 : 8)
+                        }
+                    )
+                } else if state is LinkPreview.DraftState || state is LinkPreview.SentState {
+                    LucideIcon(.link, size: IconSize.medium.size)
                         .foregroundColor(
                             themeColor: isOutgoing ?
                                 .messageBubble_outgoingText :
@@ -134,12 +149,14 @@ struct LinkPreview_SwiftUI_Previews: PreviewProvider {
                         jpegImageData: UIImage(named: "AppIcon")?.jpegData(compressionQuality: 1)
                     )
                 ),
+                dataManager: ImageDataManager(),
                 isOutgoing: true
             )
             .padding(.horizontal, Values.mediumSpacing)
             
             LinkPreviewView_SwiftUI(
                 state: LinkPreview.LoadingState(),
+                dataManager: ImageDataManager(),
                 isOutgoing: true
             )
             .frame(

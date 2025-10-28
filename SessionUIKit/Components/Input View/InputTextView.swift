@@ -59,8 +59,12 @@ public final class InputTextView: UITextView, UITextViewDelegate {
     }
     
     public override func paste(_ sender: Any?) {
-        if let image = UIPasteboard.general.image {
-            snDelegate?.didPasteImageFromPasteboard(self, image: image)
+        if
+            UIPasteboard.general.hasImages,
+            let firstItem: [String: Any] = UIPasteboard.general.items.first,
+            let itemData: Data = firstItem.values.first as? Data
+        {
+            snDelegate?.didPasteImageDataFromPasteboard(self, imageData: itemData)
         }
         super.paste(sender)
     }
@@ -120,5 +124,5 @@ public final class InputTextView: UITextView, UITextViewDelegate {
 public protocol InputTextViewDelegate: AnyObject {
     @MainActor func inputTextViewDidChangeSize(_ inputTextView: InputTextView)
     @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
-    @MainActor func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage)
+    @MainActor func didPasteImageDataFromPasteboard(_ inputTextView: InputTextView, imageData: Data)
 }

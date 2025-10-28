@@ -21,54 +21,21 @@ public extension UIImage {
     
     /// This function can be used to resize an image to a different size, it **should not** be used within the UI for rendering smaller
     /// images as it's fairly inefficient (instead the image should be contained within another view and sized explicitly that way)
-    func resized(toFillPixelSize dstSize: CGSize) -> UIImage {
-        let normalized: UIImage = self.normalizedImage()
+    func resized(
+        toFillPixelSize dstSize: CGSize,
+        opaque: Bool = false,
+        cropRect: CGRect? = nil
+    ) -> UIImage {
+        guard let imgRef: CGImage = self.cgImage else { return self }
         
-        guard
-            let normalizedRef: CGImage = normalized.cgImage,
-            let imgRef: CGImage = self.cgImage
-        else { return self }
+        let result: CGImage = imgRef.resized(
+            toFillPixelSize: dstSize,
+            opaque: opaque,
+            cropRect: cropRect,
+            orientation: self.imageOrientation
+        )
         
-        // Get the size in pixels, not points
-        let srcSize: CGSize = CGSize(width: normalizedRef.width, height: normalizedRef.height)
-        let widthRatio: CGFloat = (srcSize.width / srcSize.height)
-        let heightRatio: CGFloat = (srcSize.height / srcSize.height)
-        let drawRect: CGRect = {
-            guard widthRatio <= heightRatio else {
-                let targetWidth: CGFloat = (dstSize.height * srcSize.width / srcSize.height)
-                
-                return CGRect(
-                    x: (targetWidth - dstSize.width) * -0.5,
-                    y: 0,
-                    width: targetWidth,
-                    height: dstSize.height
-                )
-            }
-            
-            let targetHeight: CGFloat = (dstSize.width * srcSize.height / srcSize.width)
-            
-            return CGRect(
-                x: 0,
-                y: (targetHeight - dstSize.height) * -0.5,
-                width: dstSize.width,
-                height: targetHeight
-            )
-        }()
-        
-        let bounds: CGRect = CGRect(x: 0, y: 0, width: dstSize.width, height: dstSize.height)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1    // We are specifying a specific pixel size rather than a point size
-        format.opaque = false
-        
-        let renderer: UIGraphicsImageRenderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
-
-        return renderer.image { rendererContext in
-            rendererContext.cgContext.interpolationQuality = .high
-            
-            // we use srcSize (and not dstSize) as the size to specify is in user space (and we use the CTM to apply a
-            // scaleRatio)
-            rendererContext.cgContext.draw(imgRef, in: drawRect, byTiling: false)
-        }
+        return UIImage(cgImage: result, scale: 1.0, orientation: .up)
     }
     
     /// This function can be used to resize an image to a different size, it **should not** be used within the UI for rendering smaller
@@ -182,6 +149,176 @@ public extension UIImage {
                 in: CGRect(x: 0, y: 0, width: srcSize.width, height: srcSize.height),
                 byTiling: false
             )
+        }
+    }
+}
+
+public extension CGImage {
+    func resized(
+        toFillPixelSize dstSize: CGSize,
+        opaque: Bool = false,
+        cropRect: CGRect? = nil,
+        orientation: UIImage.Orientation = .up
+    ) -> CGImage {
+        // Determine actual dimensions accounting for orientation
+        let srcSize: CGSize
+        let needsRotation: Bool
+        
+        switch orientation {
+            case .left, .leftMirrored, .right, .rightMirrored:
+                // 90° or 270° rotation - swap width/height
+                srcSize = CGSize(width: self.height, height: self.width)
+                needsRotation = true
+                
+            default:
+                srcSize = CGSize(width: self.width, height: self.height)
+                needsRotation = (orientation != .up)
+        }
+        
+        // Calculate what portion we're rendering (in oriented coordinate space)
+        let sourceRect: CGRect
+        
+        if let crop: CGRect = cropRect, crop != CGRect(x: 0, y: 0, width: 1, height: 1) {
+            // User-specified crop in normalized coordinates
+            sourceRect = CGRect(
+                x: (crop.origin.x * srcSize.width),
+                y: (crop.origin.y * srcSize.height),
+                width: (crop.size.width * srcSize.width),
+                height: (crop.size.height * srcSize.height)
+            )
+        } else {
+            // Default: aspect-fill crop (center)
+            let srcAspect: CGFloat = (srcSize.width / srcSize.height)
+            let dstAspect: CGFloat = (dstSize.width / dstSize.height)
+            
+            if srcAspect > dstAspect {
+                // Source is wider - crop sides
+                let targetWidth: CGFloat = (srcSize.height * dstAspect)
+                sourceRect = CGRect(
+                    x: ((srcSize.width - targetWidth) / 2),
+                    y: 0,
+                    width: targetWidth,
+                    height: srcSize.height
+                )
+            } else {
+                // Source is taller - crop top/bottom
+                let targetHeight: CGFloat = (srcSize.width / dstAspect)
+                sourceRect = CGRect(
+                    x: 0,
+                    y: ((srcSize.height - targetHeight) / 2),
+                    width: srcSize.width,
+                    height: targetHeight
+                )
+            }
+        }
+        
+        // Calculate final size - never scale up
+        let finalSize: CGSize
+        
+        if sourceRect.width <= dstSize.width && sourceRect.height <= dstSize.height {
+            finalSize = sourceRect.size
+        } else {
+            finalSize = dstSize
+        }
+        
+        // Check if any processing is needed
+        if !needsRotation && sourceRect == CGRect(origin: .zero, size: srcSize) && finalSize == srcSize {
+            // No processing needed - return original
+            return self
+        }
+        
+        // Render with orientation transform
+        let bounds: CGRect = CGRect(x: 0, y: 0, width: finalSize.width, height: finalSize.height)
+        let colorSpace = self.colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = (opaque ?
+            CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue :
+            CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        )
+        
+        guard let ctx: CGContext = CGContext(
+            data: nil,
+            width: Int(finalSize.width),
+            height: Int(finalSize.height),
+            bitsPerComponent: 8,
+            bytesPerRow: Int(finalSize.width) * 4,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ) else { return self }
+
+        ctx.interpolationQuality = .high
+        
+        if needsRotation {
+            ctx.translateBy(x: finalSize.width / 2, y: finalSize.height / 2)
+            
+            switch orientation {
+                case .down, .downMirrored: ctx.rotate(by: .pi)
+                case .left, .leftMirrored: ctx.rotate(by: .pi / 2)
+                case .right, .rightMirrored: ctx.rotate(by: -.pi / 2)
+                default: break
+            }
+            
+            // Handle mirroring
+            let mirroredSet: Set<UIImage.Orientation> = [.left, .leftMirrored, .right, .rightMirrored]
+            
+            if mirroredSet.contains(orientation) {
+                ctx.scaleBy(x: -1, y: 1)
+            }
+            
+            ctx.translateBy(x: -finalSize.width / 2, y: -finalSize.height / 2)
+        }
+
+        // Determine if we actually need to crop
+        let imageToDraw: CGImage = {
+            guard sourceRect != CGRect(origin: .zero, size: srcSize) else {
+                return self
+            }
+            
+            // Convert crop rect to pixel coordinates and crop
+            let pixelCropRect: CGRect = convertToPixelCoordinates(
+                sourceRect: sourceRect,
+                imgSize: CGSize(width: self.width, height: self.height),
+                orientation: orientation
+            )
+            
+            return (self.cropping(to: pixelCropRect) ?? self)
+        }()
+        
+        ctx.draw(imageToDraw, in: bounds, byTiling: false)
+        return (ctx.makeImage() ?? self)
+    }
+    
+    private func convertToPixelCoordinates(
+        sourceRect: CGRect,
+        imgSize: CGSize,
+        orientation: UIImage.Orientation
+    ) -> CGRect {
+        switch orientation {
+            case .up, .upMirrored: return sourceRect
+            case .down, .downMirrored:
+                return CGRect(
+                    x: imgSize.width - sourceRect.maxX,
+                    y: imgSize.height - sourceRect.maxY,
+                    width: sourceRect.width,
+                    height: sourceRect.height
+                )
+                
+            case .left, .leftMirrored:
+                return CGRect(
+                    x: sourceRect.minY,
+                    y: imgSize.width - sourceRect.maxX,
+                    width: sourceRect.height,
+                    height: sourceRect.width
+                )
+                
+            case .right, .rightMirrored:
+                return CGRect(
+                    x: imgSize.height - sourceRect.maxY,
+                    y: sourceRect.minX,
+                    width: sourceRect.height,
+                    height: sourceRect.width
+                )
+                
+            @unknown default: return sourceRect
         }
     }
 }

@@ -621,7 +621,15 @@ class SOGSAPISpec: QuickSpec {
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                requestTimeout: .any,
+                                requestAndPathBuildTimeout: .any
+                            )
+                        }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     
                     var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomResponse)?
@@ -656,7 +664,15 @@ class SOGSAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(Network.BatchResponse.mockCapabilitiesAndBanResponse)
                         
                         var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomResponse)?
@@ -689,7 +705,15 @@ class SOGSAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(Network.BatchResponse.mockBanAndRoomResponse)
                         
                         var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomResponse)?
@@ -793,7 +817,15 @@ class SOGSAPISpec: QuickSpec {
                 // MARK: ---- processes a valid response correctly
                 it("processes a valid response correctly") {
                     mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                requestTimeout: .any,
+                                requestAndPathBuildTimeout: .any
+                            )
+                        }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomsResponse)
                     
                     var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomsResponse)?
@@ -827,7 +859,15 @@ class SOGSAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a room response
                     it("errors when not given a room response") {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(
                                 MockNetwork.batchResponseData(with: [
                                     (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
@@ -867,7 +907,15 @@ class SOGSAPISpec: QuickSpec {
                     // MARK: ------ errors when not given a capabilities response
                     it("errors when not given a capabilities response") {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(Network.BatchResponse.mockBanAndRoomsResponse)
                         
                         var response: (info: ResponseInfoType, data: Network.SOGS.CapabilitiesAndRoomsResponse)?
@@ -2237,7 +2285,15 @@ class SOGSAPISpec: QuickSpec {
                 
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                requestTimeout: .any,
+                                requestAndPathBuildTimeout: .any
+                            )
+                        }
                         .thenReturn(MockNetwork.response(type: [Network.SOGS.Room].self))
                 }
                 

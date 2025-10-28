@@ -1,71 +1,77 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import PhotosUI
 import UniformTypeIdentifiers
+import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
-class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigationControllerDelegate {
+class ImagePickerHandler: PHPickerViewControllerDelegate {
+    private let dependencies: Dependencies
     private let onTransition: (UIViewController, TransitionType) -> Void
-    private let onImageDataPicked: (String, Data) -> Void
+    private let onImagePicked: (ImageDataManager.DataSource, CGRect?) -> Void
     
     // MARK: - Initialization
     
     init(
         onTransition: @escaping (UIViewController, TransitionType) -> Void,
-        onImageDataPicked: @escaping (String, Data) -> Void
+        onImagePicked: @escaping (ImageDataManager.DataSource, CGRect?) -> Void,
+        using dependencies: Dependencies
     ) {
+        self.dependencies = dependencies
         self.onTransition = onTransition
-        self.onImageDataPicked = onImageDataPicked
+        self.onImagePicked = onImagePicked
     }
     
     // MARK: - UIImagePickerControllerDelegate
     
-    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-        picker.dismiss(animated: true)
-    }
-    
-    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         guard
-            let imageUrl: URL = info[.imageURL] as? URL,
-            let rawAvatar: UIImage = info[.originalImage] as? UIImage
+            let result: PHPickerResult = results.first,
+            let typeIdentifier: String = result.itemProvider.registeredTypeIdentifiers.first
         else {
-            picker.presentingViewController?.dismiss(animated: true)
+            picker.dismiss(animated: true)
             return
         }
         
-        picker.presentingViewController?.dismiss(animated: true) { [weak self] in
-            // Check if the user selected an animated image (if so then don't crop, just
-            // set the avatar directly
-            guard
-                let resourceValues: URLResourceValues = (try? imageUrl.resourceValues(forKeys: [.typeIdentifierKey])),
-                let type: Any = resourceValues.allValues.first?.value,
-                let typeString: String = type as? String,
-                UTType.isAnimated(typeString)
-            else {
-                let viewController: CropScaleImageViewController = CropScaleImageViewController(
-                    srcImage: rawAvatar,
-                    successCompletion: { cropFrame, resultImageData in
-                        let croppedImagePath: String = imageUrl
-                            .deletingLastPathComponent()
-                            .appendingPathComponent([
-                                "\(Int(round(cropFrame.minX)))",
-                                "\(Int(round(cropFrame.minY)))",
-                                "\(Int(round(cropFrame.width)))",
-                                "\(Int(round(cropFrame.height)))",
-                                imageUrl.lastPathComponent
-                            ].joined(separator: "-"))   // stringlint:ignore
-                            .path
+        picker.dismiss(animated: true) { [weak self] in
+            result.itemProvider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, error in
+                guard let self = self else { return }
+                guard let url: URL = url else {
+                    print("Error loading file: \(error?.localizedDescription ?? "unknown")")
+                    return
+                }
+                
+                do {
+                    let onImagePicked: (ImageDataManager.DataSource, CGRect?) -> Void = self.onImagePicked
+                    let filePath: String = self.dependencies[singleton: .fileManager].temporaryFilePath()
+                    try self.dependencies[singleton: .fileManager].copyItem(
+                        atPath: url.path,
+                        toPath: filePath
+                    )
+                    // TODO: Need to remove file when we are done
+                    DispatchQueue.main.async { [weak self, dataManager = self.dependencies[singleton: .imageDataManager]] in
+                        let viewController: CropScaleImageViewController = CropScaleImageViewController(
+                            source: .url(URL(fileURLWithPath: filePath)),
+                            dstSizePixels: CGSize(
+                                width: DisplayPictureManager.maxDimension,
+                                height: DisplayPictureManager.maxDimension
+                            ),
+                            dataManager: dataManager,
+                            successCompletion: onImagePicked
+                        )
                         
-                        self?.onImageDataPicked(croppedImagePath, resultImageData)
+                        self?.onTransition(
+                            StyledNavigationController(rootViewController: viewController),
+                            .present
+                        )
                     }
-                )
-                self?.onTransition(viewController, .present)
-                return
+                }
+                catch {
+                    print("Error copying file: \(error)")
+                }
             }
-            
-            guard let imageData: Data = try? Data(contentsOf: URL(fileURLWithPath: imageUrl.path)) else { return }
-            
-            self?.onImageDataPicked(imageUrl.path, imageData)
         }
     }
 }

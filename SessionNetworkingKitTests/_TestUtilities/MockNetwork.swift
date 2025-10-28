@@ -19,27 +19,19 @@ class MockNetwork: Mock<NetworkType>, NetworkType {
         return mock(args: [count])
     }
     
-    func send(
-        _ body: Data?,
-        to destination: Network.Destination,
+    func send<E: EndpointType>(
+        endpoint: E,
+        destination: Network.Destination,
+        body: Data?,
         requestTimeout: TimeInterval,
         requestAndPathBuildTimeout: TimeInterval?
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error> {
         requestData = RequestData(
-            body: body,
             method: destination.method,
-            pathAndParamsString: destination.urlPathAndParamsString,
             headers: destination.headers,
-            x25519PublicKey: {
-                switch destination {
-                    case .server(let info), .serverUpload(let info, _), .serverDownload(let info): return info.x25519PublicKey
-                    case .snode(_, let swarmPublicKey): return swarmPublicKey
-                    case .randomSnode(let swarmPublicKey, _), .randomSnodeLatestNetworkTimeTarget(let swarmPublicKey, _, _):
-                        return swarmPublicKey
-                    
-                    case .cached: return nil
-                }
-            }(),
+            path: endpoint.path,
+            queryParameters: destination.queryParameters,
+            body: body,
             requestTimeout: requestTimeout,
             requestAndPathBuildTimeout: requestAndPathBuildTimeout
         )
@@ -116,20 +108,20 @@ struct MockResponseInfo: ResponseInfoType, Mocked {
 
 struct RequestData: Codable, Mocked {
     static let mock: RequestData = RequestData(
-        body: nil,
         method: .get,
-        pathAndParamsString: "",
         headers: [:],
-        x25519PublicKey: nil,
+        path: "/mock",
+        queryParameters: [:],
+        body: nil,
         requestTimeout: 0,
         requestAndPathBuildTimeout: nil
     )
     
-    let body: Data?
     let method: HTTPMethod
-    let pathAndParamsString: String
     let headers: [HTTPHeader: String]
-    let x25519PublicKey: String?
+    let path: String
+    let queryParameters: [HTTPQueryParam: String]
+    let body: Data?
     let requestTimeout: TimeInterval
     let requestAndPathBuildTimeout: TimeInterval?
 }

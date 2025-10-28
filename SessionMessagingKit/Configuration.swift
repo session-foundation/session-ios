@@ -48,7 +48,8 @@ public enum SNMessagingKit {
         _042_MoveSettingsToLibSession.self,
         _043_RenameAttachments.self,
         _044_AddProMessageFlag.self,
-        _045_LastProfileUpdateTimestamp.self
+        _045_LastProfileUpdateTimestamp.self,
+        _046_RemoveQuoteUnusedColumnsAndForeignKeys.self
     ]
     
     public static func configure(using dependencies: Dependencies) {
@@ -57,7 +58,7 @@ public enum SNMessagingKit {
             .disappearingMessages: DisappearingMessagesJob.self,
             .failedMessageSends: FailedMessageSendsJob.self,
             .failedAttachmentDownloads: FailedAttachmentDownloadsJob.self,
-            .updateProfilePicture: UpdateProfilePictureJob.self,
+            .reuploadUserDisplayPicture: ReuploadUserDisplayPictureJob.self,
             .retrieveDefaultOpenGroupRooms: RetrieveDefaultOpenGroupRoomsJob.self,
             .garbageCollection: GarbageCollectionJob.self,
             .messageSend: MessageSendJob.self,
@@ -88,7 +89,7 @@ public enum SNMessagingKit {
                 (.disappearingMessages, .recurringOnLaunch, true, false),
                 (.failedMessageSends, .recurringOnLaunch, true, false),
                 (.failedAttachmentDownloads, .recurringOnLaunch, true, false),
-                (.updateProfilePicture, .recurringOnActive, false, false),
+                (.reuploadUserDisplayPicture, .recurringOnActive, false, false),
                 (.retrieveDefaultOpenGroupRooms, .recurringOnActive, false, false),
                 (.garbageCollection, .recurringOnActive, false, false),
                 (.failedGroupInvitesAndPromotions, .recurringOnLaunch, true, false)
