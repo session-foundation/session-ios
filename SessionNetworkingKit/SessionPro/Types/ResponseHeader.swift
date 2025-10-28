@@ -5,8 +5,8 @@ import SessionUtil
 
 public extension Network.SessionPro {
     struct ResponseHeader: Equatable {
-        let status: UInt32
-        let errors: [String]
+        public let status: UInt32
+        public let errors: [String]
         
         init(_ libSessionValue: session_pro_backend_response_header) {
             status = libSessionValue.status

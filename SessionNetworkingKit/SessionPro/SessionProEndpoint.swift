@@ -1,6 +1,6 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 //
-// stringlint:ignore
+// stringlint:disable
 
 import Foundation
 

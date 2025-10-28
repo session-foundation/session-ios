@@ -17,32 +17,26 @@ public extension Network.SessionPro {
     static func test(using dependencies: Dependencies) throws -> Network.PreparedRequest<AddProPaymentOrGetProProofResponse> {
         let masterKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
         let rotatingKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
+    static func addProPaymentOrGetProProof(
+        transactionId: String,
+        masterKeyPair: KeyPair,
+        rotatingKeyPair: KeyPair,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<AddProPaymentOrGetProProofResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
         let cRotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
-        
-        let cTransactionId: [UInt8] = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(32))
-        let transactionId: String = cTransactionId.toHexString()
-        
-        let cSigs: session_pro_backend_master_rotating_signatures = session_pro_backend_add_pro_payment_request_build_sigs(
-            Network.SessionPro.apiVersion,
-            cMasterPrivateKey,
-            cMasterPrivateKey.count,
-            cRotatingPrivateKey,
-            cRotatingPrivateKey.count,
-            PaymentProvider.appStore.libSessionValue,
-            cTransactionId,
-            cTransactionId.count
-        )
-        
-        let signatures: Signatures = try Signatures(cSigs)
-        let request: AddProPaymentRequest = AddProPaymentRequest(
-            masterPublicKey: masterKeyPair.publicKey,
-            rotatingPublicKey: rotatingKeyPair.publicKey,
-            paymentTransaction: UserTransaction(
-                provider: .appStore,
-                paymentId: cTransactionId.toHexString()
-            ),
-            signatures: signatures
+        let cTransactionId: [UInt8] = Array(transactionId.utf8)
+        let signatures: Signatures = try Signatures(
+            session_pro_backend_add_pro_payment_request_build_sigs(
+                Network.SessionPro.apiVersion,
+                cMasterPrivateKey,
+                cMasterPrivateKey.count,
+                cRotatingPrivateKey,
+                cRotatingPrivateKey.count,
+                PaymentProvider.appStore.libSessionValue,
+                cTransactionId,
+                cTransactionId.count
+            )
         )
         
         return try Network.PreparedRequest(
@@ -54,12 +48,81 @@ public extension Network.SessionPro {
                     rotatingPublicKey: rotatingKeyPair.publicKey,
                     paymentTransaction: UserTransaction(
                         provider: .appStore,
-                        paymentId: cTransactionId.toHexString()
+                        paymentId: transactionId
                     ),
                     signatures: signatures
                 )
             ),
             responseType: AddProPaymentOrGetProProofResponse.self,
+            using: dependencies
+        )
+    }
+    
+    static func getProProof(
+        masterKeyPair: KeyPair,
+        rotatingKeyPair: KeyPair,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<AddProPaymentOrGetProProofResponse> {
+        let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
+        let cRotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
+        let timestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let signatures: Signatures = try Signatures(
+            session_pro_backend_get_pro_proof_request_build_sigs(
+                Network.SessionPro.apiVersion,
+                cMasterPrivateKey,
+                cMasterPrivateKey.count,
+                cRotatingPrivateKey,
+                cRotatingPrivateKey.count,
+                timestampMs
+            )
+        )
+        
+        return try Network.PreparedRequest(
+            request: try Request<GetProProofRequest, Endpoint>(
+                method: .post,
+                endpoint: .getProProof,
+                body: GetProProofRequest(
+                    masterPublicKey: masterKeyPair.publicKey,
+                    rotatingPublicKey: rotatingKeyPair.publicKey,
+                    timestampMs: timestampMs,
+                    signatures: signatures
+                )
+            ),
+            responseType: AddProPaymentOrGetProProofResponse.self,
+            using: dependencies
+        )
+    }
+    
+    static func getProStatus(
+        includeHistory: Bool = false,
+        page: UInt32 = 0,
+        masterKeyPair: KeyPair,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<GetProStatusResponse> {
+        let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
+        let timestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let signature: Signature = try Signature(
+            session_pro_backend_get_pro_status_request_build_sig(
+                Network.SessionPro.apiVersion,
+                cMasterPrivateKey,
+                cMasterPrivateKey.count,
+                timestampMs,
+                page
+            )
+        )
+        
+        return try Network.PreparedRequest(
+            request: try Request<GetProStatusRequest, Endpoint>(
+                method: .post,
+                endpoint: .getProStatus,
+                body: GetProStatusRequest(
+                    masterPublicKey: masterKeyPair.publicKey,
+                    timestampMs: timestampMs,
+                    includeHistory: includeHistory,
+                    signature: signature
+                )
+            ),
+            responseType: GetProStatusResponse.self,
             using: dependencies
         )
     }

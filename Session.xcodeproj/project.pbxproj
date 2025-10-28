@@ -603,6 +603,15 @@
 		FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */; };
 		FD2C68612EA09527000B0E37 /* MessageError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2C68602EA09523000B0E37 /* MessageError.swift */; };
 		FD2DD5902C6DD13C0073D9BE /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2DD58F2C6DD13C0073D9BE /* DifferenceKit */; };
+		FD306BCC2EB02D9E00ADB003 /* GetProStatusRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCB2EB02D9B00ADB003 /* GetProStatusRequest.swift */; };
+		FD306BCE2EB02E3600ADB003 /* Signature.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCD2EB02E3400ADB003 /* Signature.swift */; };
+		FD306BD02EB02F3900ADB003 /* GetProStatusResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCF2EB02F3500ADB003 /* GetProStatusResponse.swift */; };
+		FD306BD22EB031AE00ADB003 /* PaymentItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD12EB031AB00ADB003 /* PaymentItem.swift */; };
+		FD306BD42EB031C200ADB003 /* PaymentStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD32EB031BF00ADB003 /* PaymentStatus.swift */; };
+		FD306BD62EB0323000ADB003 /* ProStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD52EB0322E00ADB003 /* ProStatus.swift */; };
+		FD306BD82EB033CD00ADB003 /* Plan.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD72EB033CB00ADB003 /* Plan.swift */; };
+		FD306BDA2EB0359B00ADB003 /* PaymentProviderMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD92EB0359600ADB003 /* PaymentProviderMetadata.swift */; };
+		FD306BDC2EB0436C00ADB003 /* GetProProofRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BDB2EB0436800ADB003 /* GetProProofRequest.swift */; };
 		FD336F602CAA28CF00C0B51B /* CommonSMKMockExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */; };
 		FD336F612CAA28CF00C0B51B /* MockNotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */; };
 		FD336F622CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift */; };
@@ -1974,6 +1983,15 @@
 		FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronousStorage.swift; sourceTree = "<group>"; };
 		FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryInterfaceRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FD2C68602EA09523000B0E37 /* MessageError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageError.swift; sourceTree = "<group>"; };
+		FD306BCB2EB02D9B00ADB003 /* GetProStatusRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProStatusRequest.swift; sourceTree = "<group>"; };
+		FD306BCD2EB02E3400ADB003 /* Signature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Signature.swift; sourceTree = "<group>"; };
+		FD306BCF2EB02F3500ADB003 /* GetProStatusResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProStatusResponse.swift; sourceTree = "<group>"; };
+		FD306BD12EB031AB00ADB003 /* PaymentItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentItem.swift; sourceTree = "<group>"; };
+		FD306BD32EB031BF00ADB003 /* PaymentStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentStatus.swift; sourceTree = "<group>"; };
+		FD306BD52EB0322E00ADB003 /* ProStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProStatus.swift; sourceTree = "<group>"; };
+		FD306BD72EB033CB00ADB003 /* Plan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Plan.swift; sourceTree = "<group>"; };
+		FD306BD92EB0359600ADB003 /* PaymentProviderMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentProviderMetadata.swift; sourceTree = "<group>"; };
+		FD306BDB2EB0436800ADB003 /* GetProProofRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProProofRequest.swift; sourceTree = "<group>"; };
 		FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonSMKMockExtensions.swift; sourceTree = "<group>"; };
 		FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CustomArgSummaryDescribable+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCommunityPollerCache.swift; sourceTree = "<group>"; };
@@ -4095,10 +4113,16 @@
 		FD0F85642EA82FC2004E0B98 /* Types */ = {
 			isa = PBXGroup;
 			children = (
+				FD306BD12EB031AB00ADB003 /* PaymentItem.swift */,
 				FD0F85652EA82FC9004E0B98 /* PaymentProvider.swift */,
+				FD306BD92EB0359600ADB003 /* PaymentProviderMetadata.swift */,
+				FD306BD32EB031BF00ADB003 /* PaymentStatus.swift */,
+				FD306BD72EB033CB00ADB003 /* Plan.swift */,
 				FD0F85762EA83D8F004E0B98 /* ProProof.swift */,
+				FD306BD52EB0322E00ADB003 /* ProStatus.swift */,
 				FD0F85782EA83EAA004E0B98 /* ResponseHeader.swift */,
 				FD0F857A2EA85FA4004E0B98 /* Request+SessionProAPI.swift */,
+				FD306BCD2EB02E3400ADB003 /* Signature.swift */,
 				FD0F856C2EA835B6004E0B98 /* Signatures.swift */,
 				FD0F856E2EA83661004E0B98 /* UserTransaction.swift */,
 			);
@@ -4110,6 +4134,9 @@
 			children = (
 				FD0F856A2EA8351E004E0B98 /* AppProPaymentRequest.swift */,
 				FD0F85742EA83D49004E0B98 /* AddProPaymentOrGetProProofResponse.swift */,
+				FD306BDB2EB0436800ADB003 /* GetProProofRequest.swift */,
+				FD306BCB2EB02D9B00ADB003 /* GetProStatusRequest.swift */,
+				FD306BCF2EB02F3500ADB003 /* GetProStatusResponse.swift */,
 			);
 			path = Requests;
 			sourceTree = "<group>";
@@ -6452,11 +6479,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD6B92E12E77C1E1004463B5 /* PushNotification.swift in Sources */,
+				FD306BD02EB02F3900ADB003 /* GetProStatusResponse.swift in Sources */,
 				FD2272B12C33E337004D8A6C /* ProxiedContentDownloader.swift in Sources */,
 				FDF848C329405C5A007DCAE5 /* DeleteMessagesRequest.swift in Sources */,
 				FD6B928E2E779E99004463B5 /* FileServerEndpoint.swift in Sources */,
 				FDF8489129405C13007DCAE5 /* SnodeAPINamespace.swift in Sources */,
 				FD2272AB2C33E337004D8A6C /* ValidatableResponse.swift in Sources */,
+				FD306BCC2EB02D9E00ADB003 /* GetProStatusRequest.swift in Sources */,
 				FD2272B72C33E337004D8A6C /* Request.swift in Sources */,
 				FD2272B92C33E337004D8A6C /* ResponseInfo.swift in Sources */,
 				FD6B92F82E77C725004463B5 /* ProcessResult.swift in Sources */,
@@ -6469,6 +6498,7 @@
 				FD0F85792EA83EAD004E0B98 /* ResponseHeader.swift in Sources */,
 				FD6B92E82E77C5B7004463B5 /* PushNotificationEndpoint.swift in Sources */,
 				FDE71B032E77CCEE0023F5F9 /* HTTPHeader+FileServer.swift in Sources */,
+				FD306BD42EB031C200ADB003 /* PaymentStatus.swift in Sources */,
 				FD6B92AC2E77A993004463B5 /* SOGSEndpoint.swift in Sources */,
 				FD6B92922E779FC8004463B5 /* SessionNetwork.swift in Sources */,
 				FDF848D329405C5B007DCAE5 /* UpdateExpiryAllResponse.swift in Sources */,
@@ -6480,6 +6510,7 @@
 				FDFC4D9A29F0C51500992FB6 /* String+Trimming.swift in Sources */,
 				FD6B92992E77A06E004463B5 /* Token.swift in Sources */,
 				FDB5DAF32A96DD4F002C8721 /* PreparedRequest+Sending.swift in Sources */,
+				FD306BD82EB033CD00ADB003 /* Plan.swift in Sources */,
 				FDF848C629405C5B007DCAE5 /* DeleteAllMessagesRequest.swift in Sources */,
 				FDF848D429405C5B007DCAE5 /* DeleteAllBeforeResponse.swift in Sources */,
 				FD6B92AF2E77AA03004463B5 /* HTTPQueryParam+SOGS.swift in Sources */,
@@ -6493,23 +6524,27 @@
 				FD47E0B52AA6D7AA00A55E41 /* Request+SnodeAPI.swift in Sources */,
 				FD0F856B2EA83525004E0B98 /* AppProPaymentRequest.swift in Sources */,
 				FDE71B052E77E1AA0023F5F9 /* ObservableKey+SessionNetworkingKit.swift in Sources */,
+				FD306BDA2EB0359B00ADB003 /* PaymentProviderMetadata.swift in Sources */,
 				FD5E93D12C100FD70038C25A /* FileUploadResponse.swift in Sources */,
 				FDF848D629405C5B007DCAE5 /* SnodeMessage.swift in Sources */,
 				FD02CC162C3681EF009AB976 /* RevokeSubaccountResponse.swift in Sources */,
 				FDE754E32C9BAFF4002A2623 /* Crypto+SessionNetworkingKit.swift in Sources */,
 				FD2272AD2C33E337004D8A6C /* Network.swift in Sources */,
 				FD2272B32C33E337004D8A6C /* BatchRequest.swift in Sources */,
+				FD306BCE2EB02E3600ADB003 /* Signature.swift in Sources */,
 				FDF848D129405C5B007DCAE5 /* SnodeSwarmItem.swift in Sources */,
 				FDF848DD29405C5B007DCAE5 /* LegacySendMessageRequest.swift in Sources */,
 				FD0F856F2EA83664004E0B98 /* UserTransaction.swift in Sources */,
 				FDF848BD29405C5A007DCAE5 /* GetMessagesRequest.swift in Sources */,
 				FD2272B02C33E337004D8A6C /* NetworkError.swift in Sources */,
+				FD306BD62EB0323000ADB003 /* ProStatus.swift in Sources */,
 				FD0F85772EA83D92004E0B98 /* ProProof.swift in Sources */,
 				FD6B92AB2E77A920004463B5 /* SOGS.swift in Sources */,
 				FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */,
 				FD6B92E92E77C5D1004463B5 /* SubscribeResponse.swift in Sources */,
 				FD6B92EA2E77C5D1004463B5 /* NotificationMetadata.swift in Sources */,
 				FD6B92EB2E77C5D1004463B5 /* AuthenticatedRequest.swift in Sources */,
+				FD306BD22EB031AE00ADB003 /* PaymentItem.swift in Sources */,
 				FD6B92EF2E77C5D1004463B5 /* UnsubscribeRequest.swift in Sources */,
 				FD6B92F02E77C5D1004463B5 /* SubscribeRequest.swift in Sources */,
 				FD6B92F22E77C5D1004463B5 /* UnsubscribeResponse.swift in Sources */,
@@ -6530,6 +6565,7 @@
 				FD6B92BF2E77AA11004463B5 /* DeleteInboxResponse.swift in Sources */,
 				FD6B92C02E77AA11004463B5 /* SendDirectMessageRequest.swift in Sources */,
 				FD6B92C12E77AA11004463B5 /* CapabilitiesResponse.swift in Sources */,
+				FD306BDC2EB0436C00ADB003 /* GetProProofRequest.swift in Sources */,
 				FD6B92C22E77AA11004463B5 /* SOGSMessage.swift in Sources */,
 				947D7FD82D509FC900E8E413 /* KeyValueStore+SessionNetwork.swift in Sources */,
 				FDF848DB29405C5B007DCAE5 /* DeleteMessagesResponse.swift in Sources */,
