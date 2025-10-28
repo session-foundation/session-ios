@@ -46,15 +46,21 @@ public extension Network.PushNotification {
                                 .filter(ClosedGroup.Columns.shouldPoll)
                                 .asRequest(of: String.self)
                                 .fetchSet(db)
-                                .map { threadId in
-                                    (
-                                        SessionId(.group, hex: threadId),
-                                        try Authentication.with(
-                                            db,
-                                            swarmPublicKey: threadId,
-                                            using: dependencies
+                                .compactMap { threadId in
+                                    do {
+                                        return (
+                                            SessionId(.group, hex: threadId),
+                                            try Authentication.with(
+                                                db,
+                                                swarmPublicKey: threadId,
+                                                using: dependencies
+                                            )
                                         )
-                                    )
+                                    }
+                                    catch {
+                                        Log.warn(.pushNotificationAPI, "Unable to subscribe for push notifications to \(threadId) due to error: \(error).")
+                                        return nil
+                                    }
                                 }
                             ),
                         using: dependencies
@@ -74,7 +80,7 @@ public extension Network.PushNotification {
             .eraseToAnyPublisher()
     }
     
-    public static func unsubscribeAll(
+    static func unsubscribeAll(
         token: Data,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
@@ -100,15 +106,21 @@ public extension Network.PushNotification {
                                 .asRequest(of: String.self)
                                 .fetchSet(db))
                                 .defaulting(to: [])
-                                .map { threadId in
-                                    (
-                                        SessionId(.group, hex: threadId),
-                                        try Authentication.with(
-                                            db,
-                                            swarmPublicKey: threadId,
-                                            using: dependencies
+                                .compactMap { threadId in
+                                    do {
+                                        return (
+                                            SessionId(.group, hex: threadId),
+                                            try Authentication.with(
+                                                db,
+                                                swarmPublicKey: threadId,
+                                                using: dependencies
+                                            )
                                         )
-                                    )
+                                    }
+                                    catch {
+                                        Log.info(.pushNotificationAPI, "Unable to unsubscribe for push notifications to \(threadId) due to error: \(error).")
+                                        return nil
+                                    }
                                 }),
                         using: dependencies
                     )
