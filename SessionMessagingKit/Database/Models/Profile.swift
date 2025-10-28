@@ -130,11 +130,11 @@ public extension Profile {
         self = Profile(
             id: try container.decode(String.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
-            nickname: try? container.decode(String?.self, forKey: .nickname),
+            nickname: try container.decodeIfPresent(String.self, forKey: .nickname),
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: displayPictureKey,
-            profileLastUpdated: try? container.decode(TimeInterval?.self, forKey: .profileLastUpdated),
-            blocksCommunityMessageRequests: try? container.decode(Bool?.self, forKey: .blocksCommunityMessageRequests)
+            profileLastUpdated: try container.decodeIfPresent(TimeInterval.self, forKey: .profileLastUpdated),
+            blocksCommunityMessageRequests: try container.decodeIfPresent(Bool.self, forKey: .blocksCommunityMessageRequests)
         )
     }
     
@@ -403,6 +403,7 @@ public extension ProfileAssociated {
 public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssociated {
     func fetchAllWithProfiles(_ db: ObservingDatabase, using dependencies: Dependencies) throws -> [WithProfile<RowDecoder>] {
         let originalResult: [RowDecoder] = try self.fetchAll(db)
+        
         let profiles: [String: Profile]? = try? Profile
             .fetchAll(db, ids: originalResult.map { $0.profileId }.asSet())
             .reduce(into: [:]) { result, next in result[next.id] = next }
@@ -422,17 +423,20 @@ public extension FetchRequest where RowDecoder: FetchableRecord & ProfileAssocia
 public extension Profile {
     func with(
         name: String? = nil,
-        nickname: String?? = nil,
-        displayPictureUrl: String?? = nil
+        nickname: Update<String?> = .useExisting,
+        displayPictureUrl: Update<String?> = .useExisting,
+        displayPictureEncryptionKey: Update<Data?> = .useExisting,
+        profileLastUpdated: Update<TimeInterval?> = .useExisting,
+        blocksCommunityMessageRequests: Update<Bool?> = .useExisting
     ) -> Profile {
         return Profile(
             id: id,
             name: (name ?? self.name),
-            nickname: (nickname ?? self.nickname),
-            displayPictureUrl: (displayPictureUrl ?? self.displayPictureUrl),
-            displayPictureEncryptionKey: displayPictureEncryptionKey,
-            profileLastUpdated: profileLastUpdated,
-            blocksCommunityMessageRequests: blocksCommunityMessageRequests,
+            nickname: nickname.or(self.nickname),
+            displayPictureUrl: displayPictureUrl.or(self.displayPictureUrl),
+            displayPictureEncryptionKey: displayPictureEncryptionKey.or(self.displayPictureEncryptionKey),
+            profileLastUpdated: profileLastUpdated.or(self.profileLastUpdated),
+            blocksCommunityMessageRequests: blocksCommunityMessageRequests.or(self.blocksCommunityMessageRequests),
             sessionProProof: self.sessionProProof
         )
     }

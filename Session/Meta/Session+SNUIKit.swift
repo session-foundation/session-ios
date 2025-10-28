@@ -2,6 +2,7 @@
 
 import UIKit
 import AVFoundation
+import UniformTypeIdentifiers
 import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
@@ -88,12 +89,32 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
         return dependencies[feature: .showStringKeys]
     }
     
-    func asset(for path: String, mimeType: String, sourceFilename: String?) -> (asset: AVURLAsset, cleanup: () -> Void)? {
-        return AVURLAsset.asset(
-            for: path,
-            mimeType: mimeType,
-            sourceFilename: sourceFilename,
-            using: dependencies
-        )
+    func assetInfo(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void)? {
+        guard
+            let result: (asset: AVURLAsset, utType: UTType, cleanup: () -> Void) = AVURLAsset.asset(
+                for: path,
+                utType: utType,
+                sourceFilename: sourceFilename,
+                using: dependencies
+            )
+        else { return nil }
+        
+        return (result.asset, MediaUtils.isValidVideo(asset: result.asset, utType: result.utType), result.cleanup)
+    }
+    
+    func mediaDecoderDefaultImageOptions() -> CFDictionary {
+        return dependencies[singleton: .mediaDecoder].defaultImageOptions
+    }
+    
+    func mediaDecoderDefaultThumbnailOptions(maxDimension: CGFloat) -> CFDictionary {
+        return dependencies[singleton: .mediaDecoder].defaultThumbnailOptions(maxDimension: maxDimension)
+    }
+    
+    func mediaDecoderSource(for url: URL) -> CGImageSource? {
+        return dependencies[singleton: .mediaDecoder].source(for: url)
+    }
+    
+    func mediaDecoderSource(for data: Data) -> CGImageSource? {
+        return dependencies[singleton: .mediaDecoder].source(for: data)
     }
 }

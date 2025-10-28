@@ -128,7 +128,7 @@ internal extension LibSession {
                     let picUrl: String = memberInfo.profile?.displayPictureUrl,
                     let picKey: Data = memberInfo.profile?.displayPictureEncryptionKey,
                     !picUrl.isEmpty,
-                    picKey.count == DisplayPictureManager.aes256KeyByteLength
+                    picKey.count == DisplayPictureManager.encryptionKeySize
                 {
                     member.set(\.profile_pic.url, to: picUrl)
                     member.set(\.profile_pic.key, to: picKey)

@@ -297,7 +297,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     elements: state.loadedPageInfo.currentIds
                         .compactMap { state.itemCache[$0] }
                         .map { conversation -> SessionCell.Info<SessionThreadViewModel> in
-                            SessionCell.Info(
+                            return SessionCell.Info(
                                 id: conversation.populatingPostQueryData(
                                     recentReactionEmoji: nil,
                                     openGroupCapabilities: nil,

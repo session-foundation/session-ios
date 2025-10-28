@@ -6,6 +6,7 @@ import Foundation
 
 public enum CryptoError: Error, CustomStringConvertible {
     case invalidSeed
+    case invalidPublicKey
     case keyGenerationFailed
     case randomGenerationFailed
     case signatureGenerationFailed
@@ -20,6 +21,7 @@ public enum CryptoError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
             case .invalidSeed: return "CryptoError: Invalid seed"
+            case .invalidPublicKey: return "CryptoError: Invalid public key"
             case .keyGenerationFailed: return "CryptoError: Key generation failed"
             case .randomGenerationFailed: return "CryptoError: Random generation failed"
             case .signatureGenerationFailed: return "CryptoError: Signature generation failed"

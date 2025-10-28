@@ -230,7 +230,11 @@ public extension Network {
             self.method = request.destination.method
             self.endpoint = request.endpoint
             self.endpointName = E.name
-            self.path = request.destination.urlPathAndParamsString
+            self.path = Destination.generatePathWithParamsAndFragments(
+                endpoint: endpoint,
+                queryParameters: request.destination.queryParameters,
+                fragmentParameters: request.destination.fragmentParameters
+            )
             self.headers = request.destination.headers
             
             self.batchEndpoints = batchEndpoints

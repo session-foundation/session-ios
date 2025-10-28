@@ -37,7 +37,7 @@ extension Network.Destination: Mocked {
         server: "testServer",
         headers: [:],
         x25519PublicKey: ""
-    ).withGeneratedUrl(for: MockEndpoint.mock)
+    )
 }
 
 extension Network.SOGS.CapabilitiesResponse: Mocked {

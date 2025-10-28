@@ -18,8 +18,11 @@ public extension Cache {
     )
 }
 
-
 // MARK: - Convenience
+
+public extension LibSession {
+    static var attachmentEncryptionKeySize: Int { ATTACHMENT_ENCRYPT_KEY_SIZE }
+}
 
 public extension LibSession {
     static func parseCommunity(url: String) -> (room: String, server: String, publicKey: String)? {
@@ -279,6 +282,42 @@ public extension LibSession {
                         .groupIdentityPrivateKey
                         .map { Array($0) },
                     cachedData: dump?.data
+                )
+            }
+            
+            /// There is a bit of an odd discrepancy between `libSession` and the database for the users profile where `libSession`
+            /// could have updated display picture information but the database could have old data - this is because we don't update
+            /// the values in the database until after the display picture is downloaded
+            ///
+            /// Due to this we should schedule a `DispalyPictureDownloadJob` for the current users display picture if it happens
+            /// to be different from the database value (or the file doesn't exist) to ensure it gets downloaded
+            let libSessionProfile: Profile = profile
+            let databaseProfile: Profile = Profile.fetchOrCreate(db, id: libSessionProfile.id)
+            
+            if
+                let url: String = libSessionProfile.displayPictureUrl,
+                let key: Data = libSessionProfile.displayPictureEncryptionKey,
+                !key.isEmpty,
+                (
+                    databaseProfile.displayPictureUrl != url ||
+                    databaseProfile.displayPictureEncryptionKey != key
+                ),
+                let path: String = try? dependencies[singleton: .displayPictureManager]
+                    .path(for: libSessionProfile.displayPictureUrl),
+                !dependencies[singleton: .fileManager].fileExists(atPath: path)
+            {
+                Log.info(.libSession, "Scheduling display picture download due to discrepancy with database")
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .displayPictureDownload,
+                        shouldBeUnique: true,
+                        details: DisplayPictureDownloadJob.Details(
+                            target: .profile(id: libSessionProfile.id, url: url, encryptionKey: key),
+                            timestamp: libSessionProfile.profileLastUpdated
+                        )
+                    ),
+                    canStartJob: dependencies[singleton: .appContext].isMainApp
                 )
             }
             
@@ -1040,9 +1079,9 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var displayName: String? { get }
     
     func updateProfile(
-        displayName: String,
-        displayPictureUrl: String?,
-        displayPictureEncryptionKey: Data?,
+        displayName: Update<String>,
+        displayPictureUrl: Update<String?>,
+        displayPictureEncryptionKey: Update<Data?>,
         isReuploadProfilePicture: Bool
     ) throws
     
@@ -1170,23 +1209,23 @@ public extension LibSessionCacheType {
         loadState(db, requestId: nil)
     }
     
-    func addEvent(key: ObservableKey, value: AnyHashable?) {
+    func addEvent<T: Hashable & Sendable>(key: ObservableKey, value: T?) {
         addEvent(ObservedEvent(key: key, value: value))
     }
     
-    func addEvent(key: Setting.BoolKey, value: AnyHashable?) {
+    func addEvent<T: Hashable & Sendable>(key: Setting.BoolKey, value: T?) {
         addEvent(ObservedEvent(key: .setting(key), value: value))
     }
     
-    func addEvent(key: Setting.EnumKey, value: AnyHashable?) {
+    func addEvent<T: Hashable & Sendable>(key: Setting.EnumKey, value: T?) {
         addEvent(ObservedEvent(key: .setting(key), value: value))
     }
     
     func updateProfile(displayName: String) throws {
         try updateProfile(
-            displayName: displayName,
-            displayPictureUrl: nil,
-            displayPictureEncryptionKey: nil,
+            displayName: .set(to: displayName),
+            displayPictureUrl: .useExisting,
+            displayPictureEncryptionKey: .useExisting,
             isReuploadProfilePicture: false
         )
     }
@@ -1321,9 +1360,9 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func set(_ key: Setting.BoolKey, _ value: Bool?) {}
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {}
     func updateProfile(
-        displayName: String,
-        displayPictureUrl: String?,
-        displayPictureEncryptionKey: Data?,
+        displayName: Update<String>,
+        displayPictureUrl: Update<String?>,
+        displayPictureEncryptionKey: Update<Data?>,
         isReuploadProfilePicture: Bool
     ) throws {}
     

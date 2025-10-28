@@ -4,6 +4,7 @@ import UIKit
 import Combine
 import GRDB
 import DifferenceKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -551,7 +552,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         navigationItem.leftBarButtonItem = leftBarButtonItem
         
         // Right bar button item - search button
-        let rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .search, target: self, action: #selector(showSearchUI))
+        let rightBarButtonItem = UIBarButtonItem(image: Lucide.image(icon: .search, size: 24), style: .plain, target: self, action: #selector(showSearchUI))
         rightBarButtonItem.accessibilityLabel = "Search button"
         rightBarButtonItem.isAccessibilityElement  = true
         navigationItem.rightBarButtonItem = rightBarButtonItem

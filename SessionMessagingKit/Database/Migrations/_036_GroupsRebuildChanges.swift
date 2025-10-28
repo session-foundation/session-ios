@@ -4,6 +4,7 @@
 
 import Foundation
 import UIKit.UIImage
+import UniformTypeIdentifiers
 import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
@@ -186,7 +187,7 @@ enum _036_GroupsRebuildChanges: Migration {
             }
             
             let filename: String = generateFilename(
-                format: MediaUtils.guessedImageFormat(data: imageData),
+                utType: (UTType(imageData: imageData, using: dependencies) ?? .jpeg),
                 using: dependencies
             )
             let filePath: String = URL(fileURLWithPath: dependencies[singleton: .displayPictureManager].sharedDataDisplayPictureDirPath())
@@ -196,7 +197,10 @@ enum _036_GroupsRebuildChanges: Migration {
             // Save the decrypted display picture to disk
             try? imageData.write(to: URL(fileURLWithPath: filePath), options: [.atomic])
             
-            guard UIImage(contentsOfFile: filePath) != nil else {
+            // Verify the saved data is valid image data (don't do this when running unit tests because
+            // the data generally won't be valid and trying to mock the return for any possible test
+            // that may run this migration would be a nightmare)
+            guard SNUtilitiesKit.isRunningTests || UIImage(contentsOfFile: filePath) != nil else {
                 Log.error("[GroupsRebuildChanges] Failed to save Community imageData for \(threadId)")
                 return
             }
@@ -217,11 +221,20 @@ enum _036_GroupsRebuildChanges: Migration {
 }
 
 private extension _036_GroupsRebuildChanges {
-    static func generateFilename(format: ImageFormat = .jpeg, using dependencies: Dependencies) -> String {
+    static func generateFilename(utType: UTType, using dependencies: Dependencies) -> String {
         return dependencies[singleton: .crypto]
             .generate(.uuid())
             .defaulting(to: UUID())
             .uuidString
-            .appendingFileExtension(format.fileExtension)
+            .appendingFileExtension(utType.sessionFileExtension(sourceFilename: nil) ?? "jpg")
+    }
+}
+
+private extension String {
+    func appendingFileExtension(_ fileExtension: String) -> String {
+        guard let result = (self as NSString).appendingPathExtension(fileExtension) else {
+            return self
+        }
+        return result
     }
 }

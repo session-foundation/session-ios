@@ -101,9 +101,17 @@ public extension FeatureStorage {
     static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(
         identifier: "shortenFileTTL"
     )
-
+    
+    static let deterministicAttachmentEncryption: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "deterministicAttachmentEncryption"
+    )
+    
     static let simulateAppReviewLimit: FeatureConfig<Bool> = Dependencies.create(
         identifier: "simulateAppReviewLimit"
+    )
+    
+    static let usePngInsteadOfWebPForFallbackImageType: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "usePngInsteadOfWebPForFallbackImageType"
     )
     
     static let versionDeprecationWarning: FeatureConfig<Bool> = Dependencies.create(

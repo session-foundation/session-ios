@@ -85,7 +85,13 @@ public enum MessageSendJob: JobExecutor {
             
             /// Retrieve the current attachment state
             let attachmentState: AttachmentState = dependencies[singleton: .storage]
-                .read { db in try MessageSendJob.fetchAttachmentState(db, interactionId: interactionId) }
+                .read { db in
+                    try MessageSendJob.fetchAttachmentState(
+                        db,
+                        interactionId: interactionId,
+                        using: dependencies
+                    )
+                }
                 .defaulting(to: AttachmentState(error: MessageSenderError.invalidMessage))
 
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
@@ -301,7 +307,8 @@ public extension MessageSendJob {
     
     static func fetchAttachmentState(
         _ db: ObservingDatabase,
-        interactionId: Int64
+        interactionId: Int64,
+        using dependencies: Dependencies
     ) throws -> AttachmentState {
         // If the original interaction no longer exists then don't bother sending the message (ie. the
         // message was deleted before it even got sent)
@@ -352,6 +359,8 @@ public extension MessageSendJob {
             .compactMap { info in
                 guard
                     let attachment: Attachment = attachments[info.attachmentId],
+                    !dependencies[singleton: .attachmentManager]
+                        .isPlaceholderUploadUrl(attachment.downloadUrl),
                     let fileId: String = Network.FileServer.fileId(for: info.downloadUrl)
                 else { return nil }
                 
