@@ -253,18 +253,15 @@ public enum DisplayPictureDownloadJob: JobExecutor {
     ) throws {
         switch details.target {
             case .profile(let id, let url, let encryptionKey):
-                /// Don't want to store the current users profile data in the database (should only be sourced from `libSession`)
-                if id != dependencies[cache: .general].sessionId.hexString {
-                    _ = try? Profile
-                        .filter(id: id)
-                        .updateAllAndConfig(
-                            db,
-                            Profile.Columns.displayPictureUrl.set(to: url),
-                            Profile.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
-                            Profile.Columns.profileLastUpdated.set(to: details.timestamp),
-                            using: dependencies
-                        )
-                }
+                _ = try? Profile
+                    .filter(id: id)
+                    .updateAllAndConfig(
+                        db,
+                        Profile.Columns.displayPictureUrl.set(to: url),
+                        Profile.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
+                        Profile.Columns.profileLastUpdated.set(to: details.timestamp),
+                        using: dependencies
+                    )
                 
                 db.addProfileEvent(id: id, change: .displayPictureUrl(url))
                 db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))

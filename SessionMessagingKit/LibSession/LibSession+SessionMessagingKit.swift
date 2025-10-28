@@ -285,6 +285,42 @@ public extension LibSession {
                 )
             }
             
+            /// There is a bit of an odd discrepancy between `libSession` and the database for the users profile where `libSession`
+            /// could have updated display picture information but the database could have old data - this is because we don't update
+            /// the values in the database until after the display picture is downloaded
+            ///
+            /// Due to this we should schedule a `DispalyPictureDownloadJob` for the current users display picture if it happens
+            /// to be different from the database value (or the file doesn't exist) to ensure it gets downloaded
+            let libSessionProfile: Profile = profile
+            let databaseProfile: Profile = Profile.fetchOrCreate(db, id: libSessionProfile.id)
+            
+            if
+                let url: String = libSessionProfile.displayPictureUrl,
+                let key: Data = libSessionProfile.displayPictureEncryptionKey,
+                !key.isEmpty,
+                (
+                    databaseProfile.displayPictureUrl != url ||
+                    databaseProfile.displayPictureEncryptionKey != key
+                ),
+                let path: String = try? dependencies[singleton: .displayPictureManager]
+                    .path(for: libSessionProfile.displayPictureUrl),
+                !dependencies[singleton: .fileManager].fileExists(atPath: path)
+            {
+                Log.info(.libSession, "Scheduling display picture download due to discrepancy with database")
+                dependencies[singleton: .jobRunner].add(
+                    db,
+                    job: Job(
+                        variant: .displayPictureDownload,
+                        shouldBeUnique: true,
+                        details: DisplayPictureDownloadJob.Details(
+                            target: .profile(id: libSessionProfile.id, url: url, encryptionKey: key),
+                            timestamp: libSessionProfile.profileLastUpdated
+                        )
+                    ),
+                    canStartJob: dependencies[singleton: .appContext].isMainApp
+                )
+            }
+            
             Log.info(.libSession, "Completed loadState\(requestId.map { " for \($0)" } ?? "")")
         }
         
