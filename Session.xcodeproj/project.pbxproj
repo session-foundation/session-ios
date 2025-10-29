@@ -235,7 +235,6 @@
 		B835247925C38D880089A44F /* MessageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B835247825C38D880089A44F /* MessageCell.swift */; };
 		B835249B25C3AB650089A44F /* VisibleMessageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B835249A25C3AB650089A44F /* VisibleMessageCell.swift */; };
 		B83524A525C3BA4B0089A44F /* InfoMessageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B83524A425C3BA4B0089A44F /* InfoMessageCell.swift */; };
-		B83F2B88240CB75A000A54AB /* UIImage+Scaling.swift in Sources */ = {isa = PBXBuildFile; fileRef = B83F2B87240CB75A000A54AB /* UIImage+Scaling.swift */; };
 		B849789625D4A2F500D0D0B3 /* LinkPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B849789525D4A2F500D0D0B3 /* LinkPreviewView.swift */; };
 		B84A89BC25DE328A0040017D /* ProfilePictureVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B84A89BB25DE328A0040017D /* ProfilePictureVC.swift */; };
 		B85357BF23A1AE0800AAF6CD /* SeedReminderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B85357BE23A1AE0800AAF6CD /* SeedReminderView.swift */; };
@@ -1633,7 +1632,6 @@
 		B835247825C38D880089A44F /* MessageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageCell.swift; sourceTree = "<group>"; };
 		B835249A25C3AB650089A44F /* VisibleMessageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisibleMessageCell.swift; sourceTree = "<group>"; };
 		B83524A425C3BA4B0089A44F /* InfoMessageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoMessageCell.swift; sourceTree = "<group>"; };
-		B83F2B87240CB75A000A54AB /* UIImage+Scaling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Scaling.swift"; sourceTree = "<group>"; };
 		B84664F4235022F30083A1CD /* MentionUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionUtilities.swift; sourceTree = "<group>"; };
 		B849789525D4A2F500D0D0B3 /* LinkPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreviewView.swift; sourceTree = "<group>"; };
 		B84A89BB25DE328A0040017D /* ProfilePictureVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePictureVC.swift; sourceTree = "<group>"; };
@@ -2749,7 +2747,6 @@
 				FDE521992E08DBB000061B8E /* ImageLoading+Convenience.swift */,
 				FDB3DA832E1CA21C00148F8D /* UIActivityViewController+Utilities.swift */,
 				B8783E9D23EB948D00404FB8 /* UILabel+Interaction.swift */,
-				B83F2B87240CB75A000A54AB /* UIImage+Scaling.swift */,
 				FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */,
 				FD848B8E283EF2A8000E298B /* UIScrollView+Utilities.swift */,
 				C3548F0724456AB6009433A8 /* UIView+Wrapping.swift */,
@@ -6929,7 +6926,6 @@
 				C374EEF425DB31D40073A857 /* VoiceMessageRecordingView.swift in Sources */,
 				7B1581E6271FD2A100848B49 /* VideoPreviewVC.swift in Sources */,
 				9422568A2C23F8C800C0FDBF /* LoadingScreen.swift in Sources */,
-				B83F2B88240CB75A000A54AB /* UIImage+Scaling.swift in Sources */,
 				3430FE181F7751D4000EC51B /* GiphyAPI.swift in Sources */,
 				4C090A1B210FD9C7001FD7F9 /* HapticFeedback.swift in Sources */,
 				FDE754FA2C9BB0B0002A2623 /* NotificationPresenter.swift in Sources */,
@@ -8366,7 +8362,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 656;
+				CURRENT_PROJECT_VERSION = 657;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8447,7 +8443,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 656;
+				CURRENT_PROJECT_VERSION = 657;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8933,7 +8929,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 656;
+				CURRENT_PROJECT_VERSION = 657;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -9523,7 +9519,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 656;
+				CURRENT_PROJECT_VERSION = 657;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;

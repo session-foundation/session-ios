@@ -27,11 +27,12 @@ public class ImageEditorBrushViewController: OWSViewController {
         delegate: ImageEditorBrushViewControllerDelegate,
         model: ImageEditorModel,
         currentColor: ImageEditorColor,
-        bottomInset: CGFloat
+        bottomInset: CGFloat,
+        using dependencies: Dependencies
     ) {
         self.delegate = delegate
         self.model = model
-        self.canvasView = ImageEditorCanvasView(model: model)
+        self.canvasView = ImageEditorCanvasView(model: model, using: dependencies)
         self.paletteView = ImageEditorPaletteView(currentColor: currentColor)
         self.firstUndoOperationId = model.currentUndoOperationId()
         self.bottomInset = bottomInset

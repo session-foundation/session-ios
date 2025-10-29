@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import UIKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Automated Test Convenience
@@ -29,7 +30,7 @@ extension DeveloperSettingsViewModel {
     /// **Note:** All values need to be provided as strings (eg. booleans)
     static func processUnitTestEnvVariablesIfNeeded(using dependencies: Dependencies) {
 #if targetEnvironment(simulator)
-        enum EnvironmentVariable: String {
+        enum EnvironmentVariable: String, CaseIterable {
             /// Disables animations for the app (where possible)
             ///
             /// **Value:** `true`/`false` (default: `true`)
@@ -70,12 +71,38 @@ extension DeveloperSettingsViewModel {
             ///
             /// **Value:** `true`/`false` (default: `false`)
             case shortenFileTTL
+            
+            /// Controls the url which is used for the file server
+            ///
+            /// **Value:** Valid url string
+            ///
+            /// **Note:** If `customFileServerPubkey` isn't also provided then the default file server pubkey will be used
+            case customFileServerUrl
+            
+            /// Controls the pubkey which is used for the file server
+            ///
+            /// **Value:** 64 character hex encoded public key
+            ///
+            /// **Note:** Only used if `customFileServerUrl` is valid
+            case customFileServerPubkey
         }
         
-        ProcessInfo.processInfo.environment.forEach { key, value in
-            guard let variable: EnvironmentVariable = EnvironmentVariable(rawValue: key) else { return }
+        let envVars: [EnvironmentVariable: String] = ProcessInfo.processInfo.environment
+            .reduce(into: [:]) { result, next in
+                guard let variable: EnvironmentVariable = EnvironmentVariable(rawValue: next.key) else {
+                    return
+                }
+                
+                result[variable] = next.value
+            }
+        let allKeys: Set<EnvironmentVariable> = Set(envVars.keys)
+        
+        /// The order the the environment variables are applied in is important (configuring the network needs to happen in a certain
+        /// order to simplify the below logic)
+        for key in EnvironmentVariable.allCases {
+            guard let value: String = envVars[key] else { continue }
             
-            switch variable {
+            switch key {
                 case .animationsEnabled:
                     dependencies.set(feature: .animationsEnabled, to: (value == "true"))
                     
@@ -115,6 +142,24 @@ extension DeveloperSettingsViewModel {
                     
                 case .shortenFileTTL:
                     dependencies.set(feature: .shortenFileTTL, to: (value == "true"))
+                    
+                case .customFileServerUrl:
+                    /// Ensure values were provided first
+                    guard let url: String = envVars[.customFileServerUrl], !url.isEmpty else {
+                        Log.warn("An empty 'customFileServerUrl' was provided")
+                        break
+                    }
+                    let pubkey: String = (envVars[.customFileServerPubkey] ?? "")
+                    let server: Network.FileServer.Custom = Network.FileServer.Custom(url: url, pubkey: pubkey)
+                    
+                    guard server.isValid else {
+                        Log.warn("The custom file server info provided was not valid: (url: '\(url)', pubkey: '\(pubkey)'")
+                        break
+                    }
+                    dependencies.set(feature: .customFileServer, to: server)
+                    
+                /// This is handled in the `customFileServerUrl` case
+                case .customFileServerPubkey: break
             }
         }
 #endif

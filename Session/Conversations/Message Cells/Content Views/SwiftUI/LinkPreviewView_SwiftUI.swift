@@ -146,7 +146,7 @@ struct LinkPreview_SwiftUI_Previews: PreviewProvider {
                     linkPreviewDraft: .init(
                         urlString: "https://github.com/oxen-io",
                         title: "Github - oxen-io/session-ios: A private messenger for iOS.",
-                        jpegImageData: UIImage(named: "AppIcon")?.jpegData(compressionQuality: 1)
+                        imageSource: .image("AppIcon", UIImage(named: "AppIcon"))
                     )
                 ),
                 dataManager: ImageDataManager(),

@@ -969,7 +969,7 @@ extension ConversationVC:
     
     @MainActor func didPasteImageDataFromPasteboard(_ imageData: Data) {
         let pendingAttachment: PendingAttachment = PendingAttachment(
-            source: .media(UUID().uuidString, imageData),
+            source: .media(.data(UUID().uuidString, imageData)),
             sourceFilename: nil,
             using: viewModel.dependencies
         )

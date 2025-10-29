@@ -44,20 +44,12 @@ public extension LinkPreview {
         }
         
         var imageState: LinkPreview.ImageState {
-            if linkPreviewDraft.jpegImageData != nil { return .loaded }
+            if linkPreviewDraft.imageSource != nil { return .loaded }
             
             return .none
         }
         
-        var imageSource: ImageDataManager.DataSource? {
-            guard let jpegImageData = linkPreviewDraft.jpegImageData else { return nil }
-            guard let image = UIImage(data: jpegImageData) else {
-                Log.error("[LinkPreview] Could not load image: \(jpegImageData.count)")
-                return nil
-            }
-            
-            return .image(urlString ?? "Invalid_Link_Preview", image)
-        }
+        var imageSource: ImageDataManager.DataSource? { linkPreviewDraft.imageSource }
         
         // MARK: - Type Specific
         

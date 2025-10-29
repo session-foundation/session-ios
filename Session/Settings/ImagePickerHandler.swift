@@ -39,7 +39,7 @@ class ImagePickerHandler: PHPickerViewControllerDelegate {
             result.itemProvider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, error in
                 guard let self = self else { return }
                 guard let url: URL = url else {
-                    print("Error loading file: \(error?.localizedDescription ?? "unknown")")
+                    Log.debug("[ImagePickHandler] Error loading file: \(error?.localizedDescription ?? "unknown")")
                     return
                 }
                 
@@ -69,7 +69,7 @@ class ImagePickerHandler: PHPickerViewControllerDelegate {
                     }
                 }
                 catch {
-                    print("Error copying file: \(error)")
+                    Log.debug("[ImagePickHandler] Error copying file: \(error)")
                 }
             }
         }

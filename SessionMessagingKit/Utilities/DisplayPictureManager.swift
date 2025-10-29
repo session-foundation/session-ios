@@ -191,7 +191,8 @@ public class DisplayPictureManager {
         return [
             .convert(to: .webPLossy(
                 maxDimension: DisplayPictureManager.maxDimension,
-                cropRect: cropRect
+                cropRect: cropRect,
+                resizeMode: .fill
             )),
             .stripImageMetadata
         ]
@@ -204,8 +205,8 @@ public class DisplayPictureManager {
         /// **Note:** The `UTType` check behaves as an `OR`
         return attachment.needsPreparation(
             operations: [
-                .convert(to: .webPLossy(maxDimension: DisplayPictureManager.maxDimension)),
-                .convert(to: .gif(maxDimension: DisplayPictureManager.maxDimension))
+                .convert(to: .webPLossy(maxDimension: DisplayPictureManager.maxDimension, resizeMode: .fill)),
+                .convert(to: .gif(maxDimension: DisplayPictureManager.maxDimension, resizeMode: .fill))
             ]
         )
     }
@@ -314,7 +315,8 @@ public class DisplayPictureManager {
                             operations: [
                                 .convert(to: .gif(
                                     maxDimension: DisplayPictureManager.maxDimension,
-                                    cropRect: cropRect
+                                    cropRect: cropRect,
+                                    resizeMode: .fill
                                 )),
                                 .stripImageMetadata
                             ],
