@@ -776,6 +776,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             dataManager: dependencies[singleton: .imageDataManager],
             onProBageTapped: { [weak self, dependencies] in
                 Task { @MainActor in
+                    guard case .active = dependencies[singleton: .sessionProState].sessionProStateSubject.value else { return }
+                    
                     dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                         .animatedProfileImage(
                             isSessionProActivated: dependencies[cache: .libSession].isSessionPro

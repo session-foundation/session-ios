@@ -150,7 +150,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
-        guard dependencies[feature: .sessionProEnabled], case .active = sessionProStateSubject.value else {
+        guard dependencies[feature: .sessionProEnabled] else {
             return false
         }
         beforePresented?()
