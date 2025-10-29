@@ -337,19 +337,20 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             return
                         }
                         
-                        let proCTAModalVariant: ProCTAModal.Variant = {
-                            switch threadViewModel.threadVariant {
-                                case .group:
-                                    return .groupLimit(
+                        switch threadViewModel.threadVariant {
+                            case .group:
+                                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                    .groupLimit(
                                         isAdmin: currentUserIsClosedGroupAdmin,
                                         isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }),
                                         proBadgeImage: SessionProBadge(size: .mini).toImage(using: dependencies)
-                                    )
-                                default: return .generic
-                            }
-                        }()
-                        
-                        self?.showSessionProCTAIfNeeded(proCTAModalVariant)
+                                    ),
+                                    presenting: { modal in
+                                        self?.transitionToScreen(modal, transitionType: .present)
+                                    }
+                                )
+                            default: break
+                        }
                     }
                 ),
                 
@@ -1550,8 +1551,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         current: String?,
         displayName: String
     ) -> ConfirmationModal.Info {
-        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry
-        /// about retrieving them in the confirmation closure
+        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry about retrieving them in the confirmation closure
         self.updatedName = current
         return ConfirmationModal.Info(
             title: "nicknameSet".localized(),
@@ -2072,32 +2072,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             
             case (.community, _), (.legacyGroup, false), (.group, false): return nil
         }
-    }
-    
-    private func showSessionProCTAIfNeeded(_ variant: ProCTAModal.Variant) {
-        let shouldShowProCTA: Bool = {
-            guard dependencies[feature: .sessionProEnabled] else { return false }
-            if case .groupLimit = variant { return true }
-            return !dependencies[cache: .libSession].isSessionPro
-        }()
-        
-        guard shouldShowProCTA else { return }
-        
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                variant: variant,
-                dataManager: dependencies[singleton: .imageDataManager],
-                onConfirm: { [dependencies] in
-                    dependencies[singleton: .sessionProState].upgradeToPro(
-                        plan: SessionProPlan(variant: .threeMonths),
-                        originatingPlatform: .iOS,
-                        completion: nil
-                    )
-                }
-            )
-        )
-        
-        self.transitionToScreen(sessionProModal, transitionType: .present)
     }
     
     private func showQRCodeLightBox(for threadViewModel: SessionThreadViewModel) {

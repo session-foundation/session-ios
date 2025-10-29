@@ -159,7 +159,10 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                 variant: variant,
                 dataManager: dependencies[singleton: .imageDataManager],
                 dismissType: dismissType,
-                afterClosed: afterClosed
+                afterClosed: afterClosed,
+                onConfirm: {
+                    
+                }
             )
         )
         presenting?(sessionProModal)

@@ -306,7 +306,12 @@ struct MessageInfoScreen: View {
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
                                     .onTapGesture {
-                                        showSessionProCTAIfNeeded()
+                                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                            proCTAVariant,
+                                            presenting: { modal in
+                                                self.host.controller?.present(modal, animated: true)
+                                            }
+                                        )
                                     }
                                     
                                     Text(
@@ -395,7 +400,12 @@ struct MessageInfoScreen: View {
                                             if (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: messageViewModel.authorId)}) {
                                                 SessionProBadge_SwiftUI(size: .small)
                                                     .onTapGesture {
-                                                        showSessionProCTAIfNeeded()
+                                                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                                            proCTAVariant,
+                                                            presenting: { modal in
+                                                                self.host.controller?.present(modal, animated: true)
+                                                            }
+                                                        )
                                                     }
                                             }
                                         }
@@ -535,26 +545,6 @@ struct MessageInfoScreen: View {
         return (proFeatures, proCTAVariant)
     }
     
-    private func showSessionProCTAIfNeeded() {
-        guard dependencies[feature: .sessionProEnabled] && (!dependencies[cache: .libSession].isSessionPro) else {
-            return
-        }
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                variant: proCTAVariant,
-                dataManager: dependencies[singleton: .imageDataManager],
-                onConfirm: { [dependencies] in
-                    dependencies[singleton: .sessionProState].upgradeToPro(
-                        plan: SessionProPlan(variant: .threeMonths),
-                        originatingPlatform: .iOS,
-                        completion: nil
-                    )
-                }
-            )
-        )
-        self.host.controller?.present(sessionProModal, animated: true)
-    }
-    
     func showUserProfileModal() {
         guard threadCanWrite else { return }
         // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
@@ -628,7 +618,14 @@ struct MessageInfoScreen: View {
                     isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
                     isMessageRequestsEnabled: isMessasgeRequestsEnabled,
                     onStartThread: self.onStartThread,
-                    onProBadgeTapped: self.showSessionProCTAIfNeeded
+                    onProBadgeTapped: {
+                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                            proCTAVariant,
+                            presenting: { modal in
+                                self.host.controller?.present(modal, animated: true)
+                            }
+                        )
+                    }
                 ),
                 dataManager: dependencies[singleton: .imageDataManager]
             )

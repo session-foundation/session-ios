@@ -16,6 +16,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     public let navigatableState: NavigatableState = NavigatableState()
     public let title: String = ""
     public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    private let isBottomSheet: Bool
     
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: ViewModelState
@@ -24,8 +25,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     // MARK: - Initialization
     
     @MainActor init(
+        isBottomSheet: Bool = false,
         using dependencies: Dependencies
     ) {
+        self.isBottomSheet = isBottomSheet
         self.dependencies = dependencies
         self.internalState = ViewModelState.initialState()
         
@@ -370,6 +373,62 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             ].compactMap { $0 }
         )
         
+        let proFeatures: SectionModel = SectionModel(
+            model: .proFeatures,
+            elements: ProFeaturesInfo.allCases(state.currentProPlanState).map { info in
+                SessionListScreenContent.ListItemInfo(
+                    id: info.id,
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(
+                                info.icon,
+                                iconSize: .medium,
+                                customTint: .black,
+                                gradientBackgroundColors: info.backgroundColors,
+                                backgroundSize: .veryLarge,
+                                backgroundCornerRadius: 8
+                            ),
+                            title: .init(info.title, font: .Headings.H9, accessory: info.accessory),
+                            description: .init(info.description, font: .Body.smallRegular, color: .textSecondary)
+                        )
+                    )
+                )
+            }.appending(
+                SessionListScreenContent.ListItemInfo(
+                    id: .plusLoadsMore,
+                    variant: .cell(
+                        info: .init(
+                            leadingAccessory: .icon(
+                                Lucide.image(icon: .circlePlus, size: IconSize.medium.size),
+                                iconSize: .medium,
+                                customTint: .black,
+                                gradientBackgroundColors: {
+                                    return switch state.currentProPlanState {
+                                        case .expired: [ThemeValue.disabled]
+                                        default: [.explicitPrimary(.orange), .explicitPrimary(.yellow)]
+                                    }
+                                }(),
+                                backgroundSize: .veryLarge,
+                                backgroundCornerRadius: 8
+                            ),
+                            title: .init("plusLoadsMore".localized(), font: .Headings.H9),
+                            description: .init(
+                                font: .Body.smallRegular,
+                                attributedString: "plusLoadsMoreDescription"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
+                                    .localizedFormatted(Fonts.Body.smallRegular),
+                                color: .textSecondary
+                            )
+                        )
+                    ),
+                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_roadmap) }
+                )
+            )
+        )
+        
+        guard !viewModel.isBottomSheet else { return [ logo, proFeatures ] }
+        
         let proStats: SectionModel = SectionModel(
             model: .proStats,
             elements: [
@@ -471,60 +530,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         let proSettings: SectionModel = SectionModel(
             model: .proSettings,
             elements: getProSettingsElements(state: state, previousState: previousState, viewModel: viewModel)
-        )
-        
-        let proFeatures: SectionModel = SectionModel(
-            model: .proFeatures,
-            elements: ProFeaturesInfo.allCases(state.currentProPlanState).map { info in
-                SessionListScreenContent.ListItemInfo(
-                    id: info.id,
-                    variant: .cell(
-                        info: .init(
-                            leadingAccessory: .icon(
-                                info.icon,
-                                iconSize: .medium,
-                                customTint: .black,
-                                gradientBackgroundColors: info.backgroundColors,
-                                backgroundSize: .veryLarge,
-                                backgroundCornerRadius: 8
-                            ),
-                            title: .init(info.title, font: .Headings.H9, accessory: info.accessory),
-                            description: .init(info.description, font: .Body.smallRegular, color: .textSecondary)
-                        )
-                    )
-                )
-            }.appending(
-                SessionListScreenContent.ListItemInfo(
-                    id: .plusLoadsMore,
-                    variant: .cell(
-                        info: .init(
-                            leadingAccessory: .icon(
-                                Lucide.image(icon: .circlePlus, size: IconSize.medium.size),
-                                iconSize: .medium,
-                                customTint: .black,
-                                gradientBackgroundColors: {
-                                    return switch state.currentProPlanState {
-                                        case .expired: [ThemeValue.disabled]
-                                        default: [.explicitPrimary(.orange), .explicitPrimary(.yellow)]
-                                    }
-                                }(),
-                                backgroundSize: .veryLarge,
-                                backgroundCornerRadius: 8
-                            ),
-                            title: .init("plusLoadsMore".localized(), font: .Headings.H9),
-                            description: .init(
-                                font: .Body.smallRegular,
-                                attributedString: "plusLoadsMoreDescription"
-                                    .put(key: "pro", value: Constants.pro)
-                                    .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
-                                    .localizedFormatted(Fonts.Body.smallRegular),
-                                color: .textSecondary
-                            )
-                        )
-                    ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_roadmap) }
-                )
-            )
         )
         
         let proManagement: SectionModel = SectionModel(
