@@ -268,8 +268,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 "\(attachmentText ?? "")\n\n\(messageText ?? "")" // stringlint:ignore
             )
         }()
-        let linkPreviewDraft: LinkPreviewDraft? = (isSharingUrl ?
-            viewModel.linkPreviewDrafts.first(where: { $0.urlString == body }) :
+        let linkPreviewViewModel: LinkPreviewViewModel? = (isSharingUrl ?
+            viewModel.linkPreviewViewModels.first(where: { $0.urlString == body }) :
             nil
         )
         let userSessionId: SessionId = viewModel.dependencies[cache: .general].sessionId
@@ -309,13 +309,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 }()
                 try Task.checkCancellation()
                 
-                /// If there is a `LinkPreviewDraft` then we may need to add it, so generate it's attachment if possible
+                /// If there is a `LinkPreviewViewModel` then we may need to add it, so generate it's attachment if possible
                 var linkPreviewPreparedAttachment: PreparedAttachment?
                     
-                if let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft {
+                if let linkPreviewViewModel: LinkPreviewViewModel = linkPreviewViewModel {
                     linkPreviewPreparedAttachment = try? await LinkPreview.prepareAttachmentIfPossible(
-                        urlString: linkPreviewDraft.urlString,
-                        imageSource: linkPreviewDraft.imageSource,
+                        urlString: linkPreviewViewModel.urlString,
+                        imageSource: linkPreviewViewModel.imageSource,
                         using: dependencies
                     )
                 }
@@ -368,7 +368,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
                             sentTimestampMs: Double(sentTimestampMs)
                         ),
-                        linkPreviewUrl: linkPreviewDraft?.urlString,
+                        linkPreviewUrl: linkPreviewViewModel?.urlString,
                         using: dependencies
                     ).inserted(db)
                     sharedInteractionId = interaction.id
@@ -381,12 +381,12 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     // one then add it now
                     if
                         isSharingUrl,
-                        let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft,
+                        let linkPreviewViewModel: LinkPreviewViewModel = linkPreviewViewModel,
                         (try? interaction.linkPreview.isEmpty(db)) == true
                     {
                         try LinkPreview(
-                            url: linkPreviewDraft.urlString,
-                            title: linkPreviewDraft.title,
+                            url: linkPreviewViewModel.urlString,
+                            title: linkPreviewViewModel.title,
                             attachmentId: linkPreviewPreparedAttachment?
                                 .attachment
                                 .inserted(db)

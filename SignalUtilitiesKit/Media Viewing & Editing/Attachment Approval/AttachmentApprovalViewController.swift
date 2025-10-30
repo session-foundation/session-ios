@@ -76,7 +76,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     
     var isKeyboardVisible: Bool = false
     private let disableLinkPreviewImageDownload: Bool
-    private let didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?
+    private let didLoadLinkPreview: ((LinkPreviewViewModel) -> Void)?
 
     public weak var approvalDelegate: AttachmentApprovalViewControllerDelegate?
     
@@ -145,7 +145,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         attachments: [PendingAttachment],
         quoteDraft: QuoteViewModel?,
         disableLinkPreviewImageDownload: Bool,
-        didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?,
+        didLoadLinkPreview: ((LinkPreviewViewModel) -> Void)?,
         using dependencies: Dependencies
     ) {
         guard !attachments.isEmpty else { return nil }
@@ -193,7 +193,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         quoteDraft: QuoteViewModel?,
         approvalDelegate: AttachmentApprovalViewControllerDelegate,
         disableLinkPreviewImageDownload: Bool,
-        didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?,
+        didLoadLinkPreview: ((LinkPreviewViewModel) -> Void)?,
         using dependencies: Dependencies
     ) -> UINavigationController? {
         guard let vc = AttachmentApprovalViewController(
@@ -246,7 +246,9 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             threadVariant: threadVariant,
             using: dependencies
         ),
-        using: dependencies
+        imageDataManager: dependencies[singleton: .imageDataManager],
+        linkPreviewManager: dependencies[singleton: .linkPreviewManager],
+        sessionProState: dependencies[singleton: .sessionProState]
     )
     
     lazy var inputBackgroundView: UIView = {
@@ -300,16 +302,23 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             self.currentPageViewController?.view.layoutIfNeeded()
         }
         
-        // If the first item is just text, or is a URL and LinkPreviews are disabled
-        // then just fill the 'message' box with it
-        let firstItemIsPlainText: Bool = {
-            switch firstItem.attachment.source {
-                case .text: return true
-                default: return false
+        /// If the first item is just text, or is a URL and LinkPreviews are disabled then just fill the 'message' box with it
+        Task {
+            let firstItemIsPlainText: Bool = {
+                switch firstItem.attachment.source {
+                    case .text: return true
+                    default: return false
+                }
+            }()
+            let hasNoLinkPreview: Bool = (firstItem.attachment.utType.conforms(to: .url) ?
+                await dependencies[singleton: .linkPreviewManager].previewUrl(
+                    for: firstItem.attachment.toText()
+                ) == nil :
+                false
+            )
+            if firstItemIsPlainText || hasNoLinkPreview {
+                bottomToolView.attachmentTextToolbar.text = firstItem.attachment.toText()
             }
-        }()
-        if firstItemIsPlainText || (firstItem.attachment.utType.conforms(to: .url) && LinkPreview.previewUrl(for: firstItem.attachment.toText(), using: dependencies) == nil) {
-            bottomToolView.attachmentTextToolbar.text = firstItem.attachment.toText()
         }
     }
 

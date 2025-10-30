@@ -17,6 +17,13 @@ public struct LinkPreviewViewModel {
     public var title: String?
     public var imageSource: ImageDataManager.DataSource?
     
+    public var isValid: Bool {
+        let hasTitle = (title == nil || title?.isEmpty == false)
+        let hasImage: Bool = (imageSource != nil)
+        
+        return (hasTitle || hasImage)
+    }
+    
     public init(
         state: State,
         urlString: String,

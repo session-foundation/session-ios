@@ -712,7 +712,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         messageViewModel: MessageViewModel,
         interaction: Interaction,
         attachmentData: [Attachment]?,
-        linkPreviewDraft: LinkPreviewDraft?,
+        linkPreviewViewModel: LinkPreviewViewModel?,
         linkPreviewPreparedAttachment: PreparedAttachment?,
         quoteViewModel: QuoteViewModel?
     )
@@ -724,7 +724,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         text: String?,
         sentTimestampMs: Int64,
         attachments: [PendingAttachment]?,
-        linkPreviewDraft: LinkPreviewDraft?,
+        linkPreviewViewModel: LinkPreviewViewModel?,
         quoteViewModel: QuoteViewModel?
     ) async -> OptimisticMessageData {
         // Generate the optimistic data
@@ -745,7 +745,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 body: text
             ),
             expiresInSeconds: threadData.disappearingMessagesConfiguration?.expiresInSeconds(),
-            linkPreviewUrl: linkPreviewDraft?.urlString,
+            linkPreviewUrl: linkPreviewViewModel?.urlString,
             isProMessage: dependencies[cache: .libSession].isSessionPro,
             using: dependencies
         )
@@ -759,7 +759,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             )
         }
         
-        if let draft: LinkPreviewDraft = linkPreviewDraft {
+        if let draft: LinkPreviewViewModel = linkPreviewViewModel {
             linkPreviewPreparedAttachment = try? await LinkPreview.prepareAttachmentIfPossible(
                 urlString: draft.urlString,
                 imageSource: draft.imageSource,
@@ -802,7 +802,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             }(),
             currentUserProfile: currentUserProfile,
             quoteViewModel: quoteViewModel,//MessageViewModel.QuotedInfo(replyModel: quoteModel),
-            linkPreview: linkPreviewDraft.map { draft in
+            linkPreview: linkPreviewViewModel.map { draft in
                 LinkPreview(
                     url: draft.urlString,
                     title: draft.title,
@@ -818,7 +818,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             messageViewModel,
             interaction,
             optimisticAttachments,
-            linkPreviewDraft,
+            linkPreviewViewModel,
             linkPreviewPreparedAttachment,
             quoteViewModel
         )
@@ -842,7 +842,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         ),
                         $0.interaction,
                         $0.attachmentData,
-                        $0.linkPreviewDraft,
+                        $0.linkPreviewViewModel,
                         $0.linkPreviewPreparedAttachment,
                         $0.quoteViewModel
                     )

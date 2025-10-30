@@ -652,8 +652,8 @@ extension ConversationVC:
         
         sendMessage(
             text: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            linkPreviewDraft: snInputView.linkPreviewInfo?.draft,
-            quoteViewModel: snInputView.quoteDraft
+            linkPreviewViewModel: snInputView.linkPreviewViewModel,
+            quoteViewModel: snInputView.quoteViewModel
         )
     }
     
@@ -689,7 +689,7 @@ extension ConversationVC:
     @MainActor func sendMessage(
         text: String,
         attachments: [PendingAttachment] = [],
-        linkPreviewDraft: LinkPreviewDraft? = nil,
+        linkPreviewViewModel: LinkPreviewViewModel? = nil,
         quoteViewModel: QuoteViewModel? = nil,
         hasPermissionToSendSeed: Bool = false
     ) {
@@ -725,7 +725,7 @@ extension ConversationVC:
                         self?.sendMessage(
                             text: text,
                             attachments: attachments,
-                            linkPreviewDraft: linkPreviewDraft,
+                            linkPreviewViewModel: linkPreviewViewModel,
                             quoteViewModel: quoteViewModel,
                             hasPermissionToSendSeed: true
                         )
@@ -754,7 +754,7 @@ extension ConversationVC:
                 text: processedText,
                 sentTimestampMs: sentTimestampMs,
                 attachments: attachments,
-                linkPreviewDraft: linkPreviewDraft,
+                linkPreviewViewModel: linkPreviewViewModel,
                 quoteViewModel: quoteViewModel
             )
             await approveMessageRequestIfNeeded(
@@ -794,7 +794,7 @@ extension ConversationVC:
                 
                 // If there is a LinkPreview draft then check the state of any existing link previews and
                 // insert a new one if needed
-                if let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft {
+                if let linkPreviewViewModel: LinkPreviewViewModel = optimisticData.linkPreviewViewModel {
                     let invalidLinkPreviewAttachmentStates: [Attachment.State] = [
                         .failedDownload, .pendingDownload, .downloading, .failedUpload, .invalid
                     ]
@@ -815,8 +815,8 @@ extension ConversationVC:
                     // If we don't have a "valid" existing link preview then upsert a new one
                     if invalidLinkPreviewAttachmentStates.contains(linkPreviewAttachmentState) {
                         try LinkPreview(
-                            url: linkPreviewDraft.urlString,
-                            title: linkPreviewDraft.title,
+                            url: linkPreviewViewModel.urlString,
+                            title: linkPreviewViewModel.title,
                             attachmentId: try optimisticData.linkPreviewPreparedAttachment?
                                 .attachment
                                 .inserted(db)

@@ -21,7 +21,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         
         // MARK: - Initialization
         
-        init(
+        public init(
             allowedInputTypes: InputTypes,
             message: String? = nil,
             accessibility: Accessibility? = nil,
@@ -40,13 +40,14 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     private static let thresholdForCharacterLimit: Int = 200
 
     private var disposables: Set<AnyCancellable> = Set()
-    private let dataManager: ImageDataManagerType
+    private let imageDataManager: ImageDataManagerType
+    private let linkPreviewManager: LinkPreviewManagerType
     private let displayNameRetriever: (String, Bool) -> String?
     private weak var delegate: InputViewDelegate?
     private var sessionProState: SessionProManagerType?
     
-    public var quoteDraft: QuoteViewModel? { didSet { handleQuoteDraftChanged() } }
-    public var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
+    public var quoteViewModel: QuoteViewModel? { didSet { handleQuoteDraftChanged() } }
+    public var linkPreviewViewModel: LinkPreviewViewModel?
     private var linkPreviewLoadTask: Task<Void, Never>?
     private var voiceMessageRecordingView: VoiceMessageRecordingView?
     private lazy var mentionsViewHeightConstraint = mentionsView.set(.height, to: 0)
@@ -64,7 +65,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     }()
     
     private lazy var linkPreviewView: LinkPreviewView = LinkPreviewView { [weak self] in
-        self?.linkPreviewInfo = nil
+        self?.linkPreviewViewModel = nil
         self?.linkPreviewContainerView.isHidden = true
     }
 
@@ -161,7 +162,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     }()
 
     private lazy var mentionsView: MentionSelectionView = {
-        let result: MentionSelectionView = MentionSelectionView(dataManager: dataManager)
+        let result: MentionSelectionView = MentionSelectionView(dataManager: imageDataManager)
         result.delegate = self
         
         return result
@@ -230,9 +231,9 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
             quotedAttachmentInfo: nil,
             displayNameRetriever: displayNameRetriever
         ),
-        dataManager: dataManager,
+        dataManager: imageDataManager,
         onCancel: { [weak self] in
-           self?.quoteDraft = nil
+           self?.quoteViewModel = nil
            self?.quoteViewContainerView.isHidden = true
         }
     )
@@ -335,10 +336,12 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     public init(
         delegate: InputViewDelegate,
         displayNameRetriever: @escaping (String, Bool) -> String?,
-        dataManager: ImageDataManagerType,
+        imageDataManager: ImageDataManagerType,
+        linkPreviewManager: LinkPreviewManagerType,
         sessionProState: SessionProManagerType?
     ) {
-        self.dataManager = dataManager
+        self.imageDataManager = imageDataManager
+        self.linkPreviewManager = linkPreviewManager
         self.delegate = delegate
         self.displayNameRetriever = displayNameRetriever
         self.sessionProState = sessionProState
@@ -437,15 +440,15 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     // URL before removing the quote draft.
 
     private func handleQuoteDraftChanged() {
-        linkPreviewInfo = nil
+        linkPreviewViewModel = nil
         linkPreviewContainerView.isHidden = true
         
-        guard let quoteDraft: QuoteViewModel = quoteDraft else {
+        guard let quoteViewModel: QuoteViewModel = quoteViewModel else {
             quoteViewContainerView.isHidden = true
             return
         }
         
-        quoteView.update(viewModel: quoteDraft)
+        quoteView.update(viewModel: quoteViewModel)
         quoteViewContainerView.isHidden = false
     }
 
@@ -457,110 +460,113 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         // told them about link previews yet
         let text = inputTextView.text!
         
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let areLinkPreviewsEnabled: Bool = dependencies.mutate(cache: .libSession) { cache in
-                cache.get(.areLinkPreviewsEnabled)
-            }
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            
+            let areLinkPreviewsEnabled: Bool = await linkPreviewManager.areLinkPreviewsEnabled
+            let hasSeenLinkPreviewSuggestion: Bool = await linkPreviewManager.hasSeenLinkPreviewSuggestion
             
             if
-                !LinkPreview.allPreviewUrls(forMessageBodyText: text).isEmpty &&
+                await !linkPreviewManager.allPreviewUrls(forMessageBodyText: text).isEmpty &&
                 !areLinkPreviewsEnabled &&
-                !dependencies[defaults: .standard, key: .hasSeenLinkPreviewSuggestion]
+                !hasSeenLinkPreviewSuggestion
             {
-                DispatchQueue.main.async {
+                await MainActor.run { [weak self] in
                     self?.delegate?.showLinkPreviewSuggestionModal()
                 }
-                dependencies[defaults: .standard, key: .hasSeenLinkPreviewSuggestion] = true
+                await linkPreviewManager.setHasSeenLinkPreviewSuggestion(true)
                 return
             }
             // Check that link previews are enabled
             guard areLinkPreviewsEnabled else { return }
             
             // Proceed
-            DispatchQueue.main.async {
-                self?.autoGenerateLinkPreview()
-            }
+            await autoGenerateLinkPreview()
         }
     }
 
-    @MainActor func autoGenerateLinkPreview() {
+    func autoGenerateLinkPreview() async {
         // Check that a valid URL is present
-        guard let linkPreviewURL = LinkPreview.previewUrl(for: text, selectedRange: inputTextView.selectedRange, using: dependencies) else {
-            return
-        }
+        guard
+            let linkPreviewUrl: String = await linkPreviewManager.previewUrl(
+                for: text,
+                selectedRange: inputTextView.selectedRange
+            ),
+            linkPreviewUrl != self.linkPreviewViewModel?.urlString  /// Guard against obsolete updates
+        else { return }
         
-        // Guard against obsolete updates
-        guard linkPreviewURL != self.linkPreviewInfo?.url else { return }
-        
-        // Clear content container
-        quoteDraft = nil
-        quoteViewContainerView.isHidden = true
-        
-        // Set the state to loading (but don't show yet)
-        linkPreviewInfo = (url: linkPreviewURL, draft: nil)
-        linkPreviewView.update(
-            with: LinkPreview.LoadingState(),
-            maxWidth: (mainStackView.bounds.width - InputView.linkPreviewViewInset),
-            isOutgoing: false,
-            using: dependencies
-        )
-        
-        // Build the link preview
-        linkPreviewLoadTask?.cancel()
-        linkPreviewLoadTask = Task.detached(priority: .userInitiated) { [weak self, allowedInputTypes = inputState.allowedInputTypes, dependencies] in
-            await withThrowingTaskGroup(of: Void.self) { [weak self] group in
-                /// Wait for a short period before showing the link preview UI (this is to avoid a situation where an invalid URL shows
-                /// the loading state very briefly before it disappears
-                group.addTask { [weak self] in
-                    try await Task.sleep(for: .milliseconds(50))
-                    
-                    await MainActor.run { [weak self] in
-                        guard let self else { return }
-                        guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
-                        
-                        linkPreviewContainerView.isHidden = false
-                    }
-                }
-                group.addTask { [weak self] in
-                    do {
-                        /// Load the draft
-                        let draft: LinkPreviewDraft = try await LinkPreview.tryToBuildPreviewInfo(
-                            previewUrl: linkPreviewURL,
-                            skipImageDownload: (allowedInputTypes != .all),  /// Disable if attachments are disabled
-                            using: dependencies
-                        )
-                        try Task.checkCancellation()
+        await MainActor.run { [weak self] in
+            guard let self else { return }
+            
+            /// Clear content container
+            quoteViewModel = nil
+            quoteViewContainerView.isHidden = true
+            
+            // Set the state to loading (but don't show yet)
+            linkPreviewViewModel = LinkPreviewViewModel(state: .loading, urlString: linkPreviewUrl)
+            linkPreviewView.update(
+                with: LinkPreviewViewModel(state: .loading, urlString: linkPreviewUrl),
+                isOutgoing: false,
+                dataManager: imageDataManager
+            )
+            
+            /// Build the link preview
+            linkPreviewLoadTask?.cancel()
+            linkPreviewLoadTask = Task.detached(priority: .userInitiated) { [weak self, allowedInputTypes = inputState.allowedInputTypes] in
+                await withThrowingTaskGroup(of: Void.self) { [weak self] group in
+                    /// Wait for a short period before showing the link preview UI (this is to avoid a situation where an invalid URL shows
+                    /// the loading state very briefly before it disappears
+                    group.addTask { [weak self] in
+                        try await Task.sleep(for: .milliseconds(50))
                         
                         await MainActor.run { [weak self] in
                             guard let self else { return }
-                            guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
+                            guard linkPreviewViewModel?.urlString == linkPreviewUrl else { return } /// Obsolete
                             
-                            linkPreviewInfo = (url: linkPreviewURL, draft: draft)
-                            linkPreviewView.update(
-                                with: LinkPreview.DraftState(linkPreviewDraft: draft),
-                                maxWidth: (mainStackView.bounds.width - InputView.linkPreviewViewInset),
-                                isOutgoing: false,
-                                using: dependencies
-                            )
                             linkPreviewContainerView.isHidden = false
-                            setNeedsLayout()
-                            layoutIfNeeded()
                         }
                     }
-                    catch {
-                        await MainActor.run { [weak self] in
-                            guard let self else { return }
-                            guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
+                    group.addTask { [weak self] in
+                        guard let self else { return }
+                        
+                        do {
+                            /// Load the draft
+                            let viewModel: LinkPreviewViewModel = try await linkPreviewManager.tryToBuildPreviewInfo(
+                                previewUrl: linkPreviewUrl,
+                                skipImageDownload: (allowedInputTypes != .all)  /// Disable if attachments are disabled
+                            )
+                            try Task.checkCancellation()
                             
-                            linkPreviewInfo = nil
-                            linkPreviewContainerView.isHidden = true
-                            setNeedsLayout()
-                            layoutIfNeeded()
+                            await MainActor.run { [weak self] in
+                                guard let self else { return }
+                                guard linkPreviewViewModel?.urlString == linkPreviewUrl else { return } /// Obsolete
+                                
+                                linkPreviewViewModel = viewModel
+                                linkPreviewView.update(
+                                    with: viewModel,
+                                    isOutgoing: false,
+                                    dataManager: imageDataManager
+                                )
+                                linkPreviewContainerView.isHidden = false
+                                setNeedsLayout()
+                                layoutIfNeeded()
+                            }
+                        }
+                        catch {
+                            await MainActor.run { [weak self] in
+                                guard let self else { return }
+                                guard linkPreviewViewModel?.urlString == linkPreviewUrl else { return } /// Obsolete
+                                
+                                linkPreviewViewModel = nil
+                                linkPreviewContainerView.isHidden = true
+                                setNeedsLayout()
+                                layoutIfNeeded()
+                            }
                         }
                     }
+                    
+                    try? await group.waitForAll()
                 }
-                
-                try? await group.waitForAll()
             }
         }
     }

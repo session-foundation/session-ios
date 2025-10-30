@@ -21,8 +21,8 @@ public class MediaMessageView: UIView {
     public let mode: Mode
     public let attachment: PendingAttachment
     private let disableLinkPreviewImageDownload: Bool
-    private let didLoadLinkPreview: (@MainActor (LinkPreviewDraft) -> Void)?
-    private var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
+    private let didLoadLinkPreview: (@MainActor (LinkPreviewViewModel) -> Void)?
+    private var linkPreviewViewModel: LinkPreviewViewModel?
     private var linkPreviewLoadTask: Task<Void, Never>?
 
     // MARK: Initializers
@@ -38,7 +38,7 @@ public class MediaMessageView: UIView {
         attachment: PendingAttachment,
         mode: MediaMessageView.Mode,
         disableLinkPreviewImageDownload: Bool,
-        didLoadLinkPreview: (@MainActor (LinkPreviewDraft) -> Void)?,
+        didLoadLinkPreview: (@MainActor (LinkPreviewViewModel) -> Void)?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
@@ -47,13 +47,13 @@ public class MediaMessageView: UIView {
         self.disableLinkPreviewImageDownload = disableLinkPreviewImageDownload
         self.didLoadLinkPreview = didLoadLinkPreview
         
-        // Set the linkPreviewUrl if it's a url
+        // Set the linkPreviewViewModel if it's a url
         if
             attachment.utType.conforms(to: .url),
             let attachmentText: String = attachment.toText(),
             let linkPreviewURL: String = LinkPreview.previewUrl(for: attachmentText, using: dependencies)
         {
-            self.linkPreviewInfo = (url: linkPreviewURL, draft: nil)
+            self.linkPreviewViewModel = LinkPreviewViewModel(state: .loading, urlString: linkPreviewURL)
         }
         
         super.init(frame: CGRect.zero)
@@ -144,7 +144,7 @@ public class MediaMessageView: UIView {
         let stackView: UIStackView = UIStackView()
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .vertical
-        stackView.alignment = (attachment.utType.conforms(to: .url) && linkPreviewInfo?.url != nil ? .leading : .center)
+        stackView.alignment = (attachment.utType.conforms(to: .url) && linkPreviewViewModel?.state == .loading ? .leading : .center)
         stackView.distribution = .fill
         
         switch mode {
@@ -178,7 +178,7 @@ public class MediaMessageView: UIView {
         // Content
         if attachment.utType.conforms(to: .url) {
             // If we have no link preview info at this point then assume link previews are disabled
-            if let linkPreviewURL: String = linkPreviewInfo?.url {
+            if let linkPreviewURL: String = linkPreviewViewModel?.urlString {
                 label.font = .boldSystemFont(ofSize: Values.smallFontSize)
                 label.text = linkPreviewURL
                 label.textAlignment = .left
@@ -230,7 +230,7 @@ public class MediaMessageView: UIView {
         // Content
         if attachment.utType.conforms(to: .url) {
             // We only load Link Previews for HTTPS urls so append an explanation for not
-            if let linkPreviewURL: String = linkPreviewInfo?.url {
+            if let linkPreviewURL: String = linkPreviewViewModel?.urlString {
                 let httpsScheme: String = "https"   // stringlint:ignore
                 
                 if URLComponents(string: linkPreviewURL)?.scheme?.lowercased() != httpsScheme {
@@ -304,13 +304,13 @@ public class MediaMessageView: UIView {
             imageView.alpha = 0 // Not 'isHidden' because we want it to take up space in the UIStackView
             loadingView.isHidden = false
             
-            if let linkPreviewUrl: String = linkPreviewInfo?.url {
+            if let linkPreviewUrl: String = linkPreviewViewModel?.urlString {
                 // Don't want to change the axis until we have a URL to start loading, otherwise the
                 // error message will be broken
                 stackView.axis = .horizontal
                 
                 loadLinkPreview(
-                    linkPreviewURL: linkPreviewUrl,
+                    linkPreviewUrl: linkPreviewUrl,
                     skipImageDownload: disableLinkPreviewImageDownload,
                     using: dependencies
                 )
@@ -426,7 +426,7 @@ public class MediaMessageView: UIView {
     // MARK: - Link Loading
     
     @MainActor private func loadLinkPreview(
-        linkPreviewURL: String,
+        linkPreviewUrl: String,
         skipImageDownload: Bool,
         using dependencies: Dependencies
     ) {
@@ -435,25 +435,24 @@ public class MediaMessageView: UIView {
         linkPreviewLoadTask?.cancel()
         linkPreviewLoadTask = Task.detached(priority: .userInitiated) { [weak self] in
             do {
-                let draft: LinkPreviewDraft = try await LinkPreview.tryToBuildPreviewInfo(
-                    previewUrl: linkPreviewURL,
-                    skipImageDownload: skipImageDownload,
-                    using: dependencies
+                let viewModel: LinkPreviewViewModel = try await dependencies[singleton: .linkPreviewManager].tryToBuildPreviewInfo(
+                    previewUrl: linkPreviewUrl,
+                    skipImageDownload: skipImageDownload
                 )
                 
                 await MainActor.run { [weak self] in
                     guard let self else { return }
                     
-                    didLoadLinkPreview?(draft)
-                    linkPreviewInfo = (url: linkPreviewURL, draft: draft)
+                    didLoadLinkPreview?(viewModel)
+                    linkPreviewViewModel = viewModel
                     
                     // Update the UI
-                    titleLabel.text = (draft.title ?? titleLabel.text)
+                    titleLabel.text = (viewModel.title ?? titleLabel.text)
                     loadingView.alpha = 0
                     loadingView.stopAnimating()
                     imageView.alpha = 1
                     
-                    if let imageSource: ImageDataManager.DataSource = draft.imageSource {
+                    if let imageSource: ImageDataManager.DataSource = viewModel.imageSource {
                         imageView.loadImage(imageSource)
                     }
                 }
@@ -470,7 +469,7 @@ public class MediaMessageView: UIView {
                     
                     /// Set the error text appropriately
                     let httpsScheme: String = "https" // stringlint:ignore
-                    if URLComponents(string: linkPreviewURL)?.scheme?.lowercased() != httpsScheme {
+                    if URLComponents(string: linkPreviewUrl)?.scheme?.lowercased() != httpsScheme {
                         // This error case is handled already in the 'subtitleLabel' creation
                     }
                     else {

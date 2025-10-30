@@ -30,7 +30,7 @@ public class AttachmentPrepViewController: OWSViewController {
     let attachmentItem: PendingAttachmentRailItem
     var attachment: PendingAttachment { return attachmentItem.attachment }
     private let disableLinkPreviewImageDownload: Bool
-    private let didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?
+    private let didLoadLinkPreview: ((LinkPreviewViewModel) -> Void)?
     
     // MARK: - UI
     
@@ -104,7 +104,7 @@ public class AttachmentPrepViewController: OWSViewController {
     init(
         attachmentItem: PendingAttachmentRailItem,
         disableLinkPreviewImageDownload: Bool,
-        didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?,
+        didLoadLinkPreview: ((LinkPreviewViewModel) -> Void)?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
