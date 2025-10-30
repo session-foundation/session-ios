@@ -24,6 +24,7 @@ public class EditorTextLayer: CATextLayer {
 // A view for previewing an image editor model.
 public class ImageEditorCanvasView: UIView {
 
+    private let dependencies: Dependencies
     private let model: ImageEditorModel
 
     private let itemIdsToIgnore: [String]
@@ -35,7 +36,8 @@ public class ImageEditorCanvasView: UIView {
     // We leave space for 10k items/layers of each type.
     private static let zPositionSpacing: CGFloat = 0.0001
 
-    public required init(model: ImageEditorModel, itemIdsToIgnore: [String] = []) {
+    public required init(model: ImageEditorModel, itemIdsToIgnore: [String] = [], using dependencies: Dependencies) {
+        self.dependencies = dependencies
         self.model = model
         self.itemIdsToIgnore = itemIdsToIgnore
 
@@ -134,18 +136,20 @@ public class ImageEditorCanvasView: UIView {
     }
 
     public func loadSrcImage() -> UIImage? {
-        return ImageEditorCanvasView.loadSrcImage(model: model)
+        return ImageEditorCanvasView.loadSrcImage(model: model, using: dependencies)
     }
 
-    public class func loadSrcImage(model: ImageEditorModel) -> UIImage? {
+    public class func loadSrcImage(model: ImageEditorModel, using dependencies: Dependencies) -> UIImage? {
+        let options: CFDictionary? = dependencies[singleton: .mediaDecoder].defaultImageOptions
+        
         switch model.src {
             case .url(let url):
                 // We use this constructor so that we can specify the scale.
                 //
                 // UIImage(contentsOfFile:) will sometimes use device scale.
                 guard
-                    let data: Data = try? Data(contentsOf: url),
-                    let srcImage: UIImage = UIImage(data: data, scale: 1.0)
+                    let source: CGImageSource = dependencies[singleton: .mediaDecoder].source(for: url),
+                    let cgImage: CGImage = CGImageSourceCreateImageAtIndex(source, 0, options)
                 else {
                     Log.error("[ImageEditorCanvasView] Couldn't load source image.")
                     return nil
@@ -155,13 +159,30 @@ public class ImageEditorCanvasView: UIView {
                 // of code simplicity.  We could modify the image layer's
                 // transform to handle the normalization, which would
                 // have perf benefits.
-                return srcImage.normalizedImage()
+                let orientation: UIImage.Orientation = {
+                    guard
+                        let properties: [CFString: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                        let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation] as? UInt32,
+                        let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+                    else { return .up }
+            
+                    return UIImage.Orientation(cgOrientation)
+                }()
+                
+                return UIImage(
+                    cgImage: cgImage.normalized(orientation: orientation),
+                    scale: 1,
+                    orientation: .up
+                )
                 
             case .data(_, let data):
                 // We use this constructor so that we can specify the scale.
                 //
                 // UIImage(contentsOfFile:) will sometimes use device scale.
-                guard let srcImage: UIImage = UIImage(data: data, scale: 1.0) else {
+                guard
+                    let source: CGImageSource = dependencies[singleton: .mediaDecoder].source(for: data),
+                    let cgImage: CGImage = CGImageSourceCreateImageAtIndex(source, 0, options)
+                else {
                     Log.error("[ImageEditorCanvasView] Couldn't load source image.")
                     return nil
                 }
@@ -170,7 +191,21 @@ public class ImageEditorCanvasView: UIView {
                 // of code simplicity.  We could modify the image layer's
                 // transform to handle the normalization, which would
                 // have perf benefits.
-                return srcImage.normalizedImage()
+                let orientation: UIImage.Orientation = {
+                    guard
+                        let properties: [CFString: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                        let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation] as? UInt32,
+                        let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+                    else { return .up }
+            
+                    return UIImage.Orientation(cgOrientation)
+                }()
+                
+                return UIImage(
+                    cgImage: cgImage.normalized(orientation: orientation),
+                    scale: 1,
+                    orientation: .up
+                )
                 
             case .image(_, let maybeImage):
                 guard let image: UIImage = maybeImage else {
@@ -349,10 +384,13 @@ public class ImageEditorCanvasView: UIView {
         return imageFrame
     }
 
-    private class func imageLayerForItem(model: ImageEditorModel,
-                                         transform: ImageEditorTransform,
-                                         viewSize: CGSize) -> CALayer? {
-        guard let srcImage = loadSrcImage(model: model) else {
+    private class func imageLayerForItem(
+        model: ImageEditorModel,
+        transform: ImageEditorTransform,
+        viewSize: CGSize,
+        using dependencies: Dependencies
+    ) -> CALayer? {
+        guard let srcImage = loadSrcImage(model: model, using: dependencies) else {
             Log.error("[ImageEditorCanvasView] Could not load src image.")
             return nil
         }
@@ -653,7 +691,7 @@ public class ImageEditorCanvasView: UIView {
 
         contentView.layer.setAffineTransform(transform.affineTransform(viewSize: viewSize))
 
-        guard let imageLayer = imageLayerForItem(model: model, transform: transform, viewSize: viewSize) else {
+        guard let imageLayer = imageLayerForItem(model: model, transform: transform, viewSize: viewSize, using: dependencies) else {
             Log.error("[ImageEditorCanvasView] Could not load src image.")
             return nil
         }

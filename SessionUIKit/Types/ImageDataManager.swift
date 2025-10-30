@@ -161,14 +161,21 @@ public actor ImageDataManager: ImageDataManagerType {
                 
             /// Custom handle `urlThumbnail` generation
             case .urlThumbnail(let url, let size, let thumbnailManager):
+                let maxDimensionInPixels: CGFloat = await size.pixelDimension()
+                let flooredPixels: Int = Int(floor(maxDimensionInPixels))
+                
                 /// If we had already generated a thumbnail then use that
                 if
                     let existingThumbnailSource: ImageDataManager.DataSource = thumbnailManager
                         .existingThumbnail(name: url.lastPathComponent, size: size),
                     let source: CGImageSource = existingThumbnailSource.createImageSource()
                 {
-                    /// Thumbnails will always have their orientation removed
-                    return await createBuffer(source, orientation: .up)
+                    return await createBuffer(
+                        source,
+                        orientation: .up,   /// Thumbnails will always have their orientation removed
+                        sourceWidth: flooredPixels,
+                        sourceHeight: flooredPixels
+                    )
                 }
                 
                 /// If not then check whether there would be any benefit in creating a thumbnail
@@ -182,9 +189,6 @@ public actor ImageDataManager: ImageDataManagerType {
                 else { return nil }
                 
                 /// If the source is smaller than the target thumbnail size then we should just return the target directly
-                let maxDimensionInPixels: CGFloat = await size.pixelDimension()
-                let flooredPixels: Int = Int(floor(maxDimensionInPixels))
-                
                 guard sourceWidth > flooredPixels || sourceHeight > flooredPixels else {
                     return await processSource(.url(url))
                 }
@@ -193,7 +197,9 @@ public actor ImageDataManager: ImageDataManagerType {
                 guard
                     let result: FrameBuffer = await createBuffer(
                         newThumbnailSource,
-                        orientation: orientation(from: properties),
+                        orientation: .up,   /// Thumbnails will always have their orientation removed
+                        sourceWidth: sourceWidth,
+                        sourceHeight: sourceHeight,
                         maxDimensionInPixels: maxDimensionInPixels,
                         customLoaderGenerator: {
                             /// If we had already generated a thumbnail then use that
@@ -202,8 +208,12 @@ public actor ImageDataManager: ImageDataManagerType {
                                     .existingThumbnail(name: url.lastPathComponent, size: size),
                                 let source: CGImageSource = existingThumbnailSource.createImageSource()
                             {
-                                /// Thumbnails will always have their orientation removed
-                                let existingThumbnailBuffer: FrameBuffer? = await createBuffer(source, orientation: .up)
+                                let existingThumbnailBuffer: FrameBuffer? = await createBuffer(
+                                    source,
+                                    orientation: .up,   /// Thumbnails will always have their orientation removed
+                                    sourceWidth: flooredPixels,
+                                    sourceHeight: flooredPixels
+                                )
                                 
                                 return await existingThumbnailBuffer?.generateLoadClosure?()
                             }
@@ -265,7 +275,12 @@ public actor ImageDataManager: ImageDataManagerType {
             sourceHeight < ImageDataManager.DataSource.maxValidDimension
         else { return nil }
         
-        return await createBuffer(source, orientation: orientation(from: properties))
+        return await createBuffer(
+            source,
+            orientation: orientation(from: properties),
+            sourceWidth: sourceWidth,
+            sourceHeight: sourceHeight
+        )
     }
     
     private static func orientation(from properties: [String: Any]) -> UIImage.Orientation {
@@ -282,6 +297,8 @@ public actor ImageDataManager: ImageDataManagerType {
     private static func createBuffer(
         _ source: CGImageSource,
         orientation: UIImage.Orientation,
+        sourceWidth: Int,
+        sourceHeight: Int,
         maxDimensionInPixels: CGFloat? = nil,
         customLoaderGenerator: (() async -> AsyncLoadStream.Loader?)? = nil
     ) async -> FrameBuffer? {
@@ -297,7 +314,34 @@ public actor ImageDataManager: ImageDataManagerType {
                 source,
                 index: 0,
                 maxDimensionInPixels: maxDimensionInPixels
-            ),
+            )
+        else { return nil }
+        
+        /// The share extension has limited RAM (~120Mb on an iPhone X) and pre-decoding an image results in approximately `3x`
+        /// the RAM usage of the standard lazy loading (as buffers need to be allocated and image data copied during the pre-decode),
+        /// in order to avoid this we check if the estimated pre-decoded image RAM usage is smaller than `80%` of the currently
+        /// available RAM and if not we just rely on lazy `UIImage` loading and the OS
+        let hasEnoughMemoryToPreDecode: Bool = {
+            #if targetEnvironment(simulator)
+            /// On the simulator `os_proc_available_memory` seems to always return `0` so just assume we have enough memort
+            return true
+            #else
+            let estimatedMemorySize: Int = (sourceWidth * sourceHeight * 4)
+            let estimatedMemorySizeToLoad: Int = (estimatedMemorySize * 3)
+            let currentAvailableMemory: Int = os_proc_available_memory()
+            
+            return (estimatedMemorySizeToLoad < Int(floor(CGFloat(currentAvailableMemory) * 0.8)))
+            #endif
+        }()
+        
+        guard hasEnoughMemoryToPreDecode else {
+            return FrameBuffer(
+                image: UIImage(cgImage: firstFrameCgImage, scale: 1, orientation: orientation)
+            )
+        }
+        
+        /// Otherwise we want to "predecode" the first (and other) frames while in the background to reduce the load on the UI thread
+        guard
             let firstFrameContext: CGContext = createDecodingContext(
                 width: firstFrameCgImage.width,
                 height: firstFrameCgImage.height
@@ -939,7 +983,7 @@ public extension ImageDataManager.DataSource {
     static let maxValidDimension: Int = 1 << 18 // 262,144 pixels
     
     @MainActor
-    var sizeFromMetadata: CGSize? {
+    var displaySizeFromMetadata: CGSize? {
         /// There are a number of types which have fixed sizes, in those cases we should return the target size rather than try to
         /// read it from data so we doncan avoid processing
         switch self {
@@ -970,7 +1014,25 @@ public extension ImageDataManager.DataSource {
             sourceHeight < ImageDataManager.DataSource.maxValidDimension
         else { return nil }
         
-        return CGSize(width: sourceWidth, height: sourceHeight)
+        /// Since we want the "display size" (ie. size after the orientation has been applied) we may need to rotate the resolution
+        let orientation: UIImage.Orientation? = {
+            guard
+                let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation as String] as? UInt32,
+                let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+            else { return nil }
+    
+            return UIImage.Orientation(cgOrientation)
+        }()
+        
+        switch orientation {
+            case .up, .upMirrored, .down, .downMirrored, .none:
+                return CGSize(width: sourceWidth, height: sourceHeight)
+            
+            case .leftMirrored, .left, .rightMirrored, .right:
+                return CGSize(width: sourceHeight, height: sourceWidth)
+            
+            @unknown default: return CGSize(width: sourceWidth, height: sourceHeight)
+        }
     }
     
     @MainActor

@@ -931,12 +931,12 @@ extension MediaPageViewController: MediaPresentationContextProvider {
         guard
             let mediaView: SessionImageView = currentViewController?.mediaView,
             let mediaSuperview: UIView = mediaView.superview,
-            let mediaSize: CGSize = {
+            let mediaDisplaySize: CGSize = {
                 /// Because we load images in the background now it can take a small amount of time for the image to actually be
                 /// loaded in that case we want to use the size of the image found in the image metadata (which we read in
                 /// synchronously when scheduling an image to be loaded)
                 guard let image: UIImage = mediaView.image else {
-                    return mediaView.imageSizeMetadata
+                    return mediaView.imageDisplaySizeMetadata
                 }
                 
                 return image.size
@@ -944,7 +944,7 @@ extension MediaPageViewController: MediaPresentationContextProvider {
         else { return nil }
         
         let scaledWidth: CGFloat = mediaSuperview.frame.width
-        let scaledHeight: CGFloat = (mediaSize.height * (mediaSuperview.frame.width / mediaSize.width))
+        let scaledHeight: CGFloat = (mediaDisplaySize.height * (mediaSuperview.frame.width / mediaDisplaySize.width))
         let topInset: CGFloat = ((mediaSuperview.frame.height - scaledHeight) / 2.0)
         let leftInset: CGFloat = ((mediaSuperview.frame.width - scaledWidth) / 2.0)
         

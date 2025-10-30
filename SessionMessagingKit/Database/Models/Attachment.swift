@@ -57,6 +57,23 @@ public struct Attachment: Sendable, Codable, Identifiable, Equatable, Hashable, 
         case uploaded
         
         case invalid = 100
+        
+        public static func fromDatabaseValue(_ dbValue: DatabaseValue) -> State? {
+            /// There was an odd issue where there were values of `50` in the `state` column in the database, though it doesn't
+            /// seem like that has ever been an option. Unfortunately this results in all attachments in a conversation being broken so
+            /// instead we custom handle the conversion to the `State` enum and consider anything invalid as `invalid`
+            switch dbValue.storage {
+                case .int64(let value):
+                    guard let result: State = State(rawValue: Int(value)) else {
+                        return .invalid
+                    }
+                    
+                    return result
+                    
+                default: return .invalid
+            }
+            
+        }
     }
     
     /// A unique identifier for the attachment
@@ -331,7 +348,7 @@ extension Attachment {
                     .path(for: downloadUrl)
             else { return nil }
             
-            return MediaUtils.unrotatedSize(
+            return MediaUtils.displaySize(
                 for: path,
                 utType: UTType(sessionMimeType: contentType),
                 sourceFilename: sourceFilename,

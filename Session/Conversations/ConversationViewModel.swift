@@ -762,8 +762,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         if let draft: LinkPreviewDraft = linkPreviewDraft {
             linkPreviewPreparedAttachment = try? await LinkPreview.prepareAttachmentIfPossible(
                 urlString: draft.urlString,
-                imageData: draft.jpegImageData,
-                type: .jpeg,
+                imageSource: draft.imageSource,
                 using: dependencies
             )
         }

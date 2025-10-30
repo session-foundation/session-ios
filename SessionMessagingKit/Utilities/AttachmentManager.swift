@@ -375,15 +375,28 @@ public struct PendingAttachment: Sendable, Equatable, Hashable {
         sourceFilename: String? = nil,
         using dependencies: Dependencies
     ) {
-        self.source = source
-        self.sourceFilename = sourceFilename
         self.metadata = PendingAttachment.metadata(
             for: source,
             utType: utType,
             sourceFilename: sourceFilename,
             using: dependencies
         )
+        self.sourceFilename = sourceFilename
         self.existingAttachmentId = nil
+        
+        /// To avoid confusion (and reduce bugs related to checking the `source` type) if we are given a `file` source that is
+        /// actually media, then convert it to a `media` source
+        switch (source, metadata) {
+            case (.file(let url), .media(let mediaMetadata)):
+                if let utType: UTType = mediaMetadata.utType, utType.isVideo {
+                    self.source = .media(.videoUrl(url, utType, sourceFilename, dependencies[singleton: .attachmentManager]))
+                }
+                else {
+                    self.source = .media(.url(url))
+                }
+                
+            default: self.source = source
+        }
     }
     
     public init(
@@ -494,10 +507,6 @@ public extension PendingAttachment {
         
         public static func media(_ url: URL) -> DataSource {
             return .media(.url(url))
-        }
-        
-        public static func media(_ identifier: String, _ data: Data) -> DataSource {
-            return .media(.data(identifier, data))
         }
         
         fileprivate var visualMediaSource: ImageDataManager.DataSource? {
@@ -613,49 +622,103 @@ public extension PendingAttachment {
     }
     
     enum ConversionFormat: Sendable, Equatable, Hashable {
-        case current
-        case mp4
-        case png(maxDimension: CGFloat?, cropRect: CGRect?)
-        
-        /// A `compressionQuality` value of `0` gives the smallest size and `1` the largest
-        case webPLossy(maxDimension: CGFloat?, cropRect: CGRect?, compressionQuality: CGFloat)
-        
-        /// A `compressionEffort` value of `0` is the fastest (but gives larger files) and a value of `1` is the slowest but compresses the most
-        case webPLossless(maxDimension: CGFloat?, cropRect: CGRect?, compressionEffort: CGFloat)
-        
-        case gif(maxDimension: CGFloat?, cropRect: CGRect?, compressionQuality: CGFloat)
-        
-        public static var png: ConversionFormat { .png(maxDimension: nil, cropRect: nil) }
-        public static func png(maxDimension: CGFloat?) -> ConversionFormat {
-            .png(maxDimension: maxDimension, cropRect: nil)
-        }
-        public static func png(cropRect: CGRect?) -> ConversionFormat {
-            .png(maxDimension: nil, cropRect: cropRect)
-        }
-        
         fileprivate static let defaultWebPCompressionQuality: CGFloat = 0.8
         fileprivate static let defaultWebPCompressionEffort: CGFloat = 0.25
+        fileprivate static let defaultGifCompressionQuality: CGFloat = 0.8
+        fileprivate static let defaultResizeMode: UIImage.ResizeMode = .fit
         
-        public static var webPLossy: ConversionFormat {
-            .webPLossy(maxDimension: nil, cropRect: nil, compressionQuality: defaultWebPCompressionQuality)
+        case current
+        case mp4
+        case png(maxDimension: CGFloat?, cropRect: CGRect?, resizeMode: UIImage.ResizeMode)
+        
+        /// A `compressionQuality` value of `0` gives the smallest size and `1` the largest
+        case webPLossy(maxDimension: CGFloat?, cropRect: CGRect?, resizeMode: UIImage.ResizeMode, compressionQuality: CGFloat)
+        
+        /// A `compressionEffort` value of `0` is the fastest (but gives larger files) and a value of `1` is the slowest but compresses the most
+        case webPLossless(maxDimension: CGFloat?, cropRect: CGRect?, resizeMode: UIImage.ResizeMode, compressionEffort: CGFloat)
+        
+        case gif(maxDimension: CGFloat?, cropRect: CGRect?, resizeMode: UIImage.ResizeMode, compressionQuality: CGFloat)
+        
+        public static var png: ConversionFormat {
+            .png(
+                maxDimension: nil,
+                cropRect: nil,
+                resizeMode: defaultResizeMode
+            )
         }
-        public static func webPLossy(maxDimension: CGFloat? = nil, cropRect: CGRect? = nil) -> ConversionFormat {
-            .webPLossy(maxDimension: maxDimension, cropRect: cropRect, compressionQuality: defaultWebPCompressionQuality)
+        public static func png(
+            maxDimension: CGFloat? = nil,
+            cropRect: CGRect? = nil,
+            resizeMode: UIImage.ResizeMode? = nil
+        ) -> ConversionFormat {
+            return .png(
+                maxDimension: maxDimension,
+                cropRect: cropRect,
+                resizeMode: (resizeMode ?? defaultResizeMode)
+            )
+        }
+
+        public static var webPLossy: ConversionFormat {
+            .webPLossy(
+                maxDimension: nil,
+                cropRect: nil,
+                resizeMode: defaultResizeMode,
+                compressionQuality: defaultWebPCompressionQuality
+            )
+        }
+        public static func webPLossy(
+            maxDimension: CGFloat? = nil,
+            cropRect: CGRect? = nil,
+            resizeMode: UIImage.ResizeMode? = nil
+        ) -> ConversionFormat {
+            return .webPLossy(
+                maxDimension: maxDimension,
+                cropRect: cropRect,
+                resizeMode: (resizeMode ?? defaultResizeMode),
+                compressionQuality: defaultWebPCompressionQuality
+            )
         }
         
         public static var webPLossless: ConversionFormat {
-            .webPLossless(maxDimension: nil, cropRect: nil, compressionEffort: defaultWebPCompressionEffort)
+            .webPLossless(
+                maxDimension: nil,
+                cropRect: nil,
+                resizeMode: defaultResizeMode,
+                compressionEffort: defaultWebPCompressionEffort
+            )
         }
-        public static func webPLossless(maxDimension: CGFloat? = nil, cropRect: CGRect? = nil) -> ConversionFormat {
-            .webPLossless(maxDimension: maxDimension, cropRect: cropRect, compressionEffort: defaultWebPCompressionEffort)
+        public static func webPLossless(
+            maxDimension: CGFloat? = nil,
+            cropRect: CGRect? = nil,
+            resizeMode: UIImage.ResizeMode? = nil
+        ) -> ConversionFormat {
+            return .webPLossless(
+                maxDimension: maxDimension,
+                cropRect: cropRect,
+                resizeMode: (resizeMode ?? defaultResizeMode),
+                compressionEffort: defaultWebPCompressionEffort
+            )
         }
         
-        fileprivate static let defaultGifCompressionQuality: CGFloat = 0.8
         public static var gif: ConversionFormat {
-            .gif(maxDimension: nil, cropRect: nil, compressionQuality: defaultGifCompressionQuality)
+            .gif(
+                maxDimension: nil,
+                cropRect: nil,
+                resizeMode: defaultResizeMode,
+                compressionQuality: defaultGifCompressionQuality
+            )
         }
-        public static func gif(maxDimension: CGFloat? = nil, cropRect: CGRect? = nil) -> ConversionFormat {
-            .gif(maxDimension: maxDimension, cropRect: cropRect, compressionQuality: defaultGifCompressionQuality)
+        public static func gif(
+            maxDimension: CGFloat? = nil,
+            cropRect: CGRect? = nil,
+            resizeMode: UIImage.ResizeMode? = nil
+        ) -> ConversionFormat {
+            return .gif(
+                maxDimension: maxDimension,
+                cropRect: cropRect,
+                resizeMode: (resizeMode ?? defaultResizeMode),
+                compressionQuality: defaultGifCompressionQuality
+            )
         }
         
         var webPIsLossless: Bool {
@@ -754,10 +817,10 @@ public extension PendingAttachment {
                             result.cropRect
                         )
                         
-                    case .png(let maxDimension, let cropRect),
-                        .webPLossy(let maxDimension, let cropRect, _),
-                        .webPLossless(let maxDimension, let cropRect, _),
-                        .gif(let maxDimension, let cropRect, _):
+                    case .png(let maxDimension, let cropRect, _),
+                        .webPLossy(let maxDimension, let cropRect, _, _),
+                        .webPLossless(let maxDimension, let cropRect, _, _),
+                        .gif(let maxDimension, let cropRect, _, _):
                         let finalMax: CGFloat?
                         let finalCrop: CGRect?
                         let validCurrentCrop: CGRect? = (result.cropRect != nil && result.cropRect != fullRect ?
@@ -1036,7 +1099,15 @@ public extension PendingAttachment {
                 let destination = CGImageDestinationCreateWithData(outputData as CFMutableData, sourceType as CFString, 1, nil)
             else { throw AttachmentError.invalidData }
             
-            CGImageDestinationAddImage(destination, cgImage, nil)
+            /// Preserve orientation metadata
+            let properties: [String: Any]? = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any]
+            let orientation: Any? = properties?[kCGImagePropertyOrientation as String]
+            let imageProperties: [CFString: Any] = (
+                orientation.map { [kCGImagePropertyOrientation: $0] } ??
+                [:]
+            )
+            
+            CGImageDestinationAddImage(destination, cgImage, imageProperties as CFDictionary)
             
             guard CGImageDestinationFinalize(destination) else {
                 throw AttachmentError.couldNotResizeImage
@@ -1202,7 +1273,7 @@ public extension PendingAttachment {
         }()
         let imageSize: CGSize? = {
             switch metadata {
-                case .media(let mediaMetadata): return mediaMetadata.unrotatedSize
+                case .media(let mediaMetadata): return mediaMetadata.displaySize
                 case .file, .none: return nil
             }
         }()
@@ -1319,17 +1390,22 @@ public extension PendingAttachment {
         /// Ensure the target format is an image format we support
         let targetMaxDimension: CGFloat?
         let targetCropRect: CGRect?
+        let targetResizeMode: UIImage.ResizeMode
         
         switch format {
-            case .png(let maxDimension, let cropRect), .gif(let maxDimension, let cropRect, _), .webPLossy(let maxDimension, let cropRect, _),
-                .webPLossless(let maxDimension, let cropRect, _):
+            case .png(let maxDimension, let cropRect, let resizeMode),
+                .gif(let maxDimension, let cropRect, let resizeMode, _),
+                .webPLossy(let maxDimension, let cropRect, let resizeMode, _),
+                .webPLossless(let maxDimension, let cropRect, let resizeMode, _):
                 targetMaxDimension = maxDimension
                 targetCropRect = cropRect
+                targetResizeMode = resizeMode
                 break
             
             case .current:
                 targetMaxDimension = nil
                 targetCropRect = nil
+                targetResizeMode = ConversionFormat.defaultResizeMode
                 break
             
             case .mp4: throw AttachmentError.couldNotConvert
@@ -1430,7 +1506,8 @@ public extension PendingAttachment {
                                 try Task.checkCancellation()
                                 
                                 let scaledImage: CGImage = cgImage.resized(
-                                    toFillPixelSize: targetSize,
+                                    toPixelSize: targetSize,
+                                    mode: targetResizeMode,
                                     opaque: isOpaque,
                                     cropRect: targetCropRect,
                                     orientation: (metadata.orientation ?? .up)
@@ -1464,7 +1541,7 @@ public extension PendingAttachment {
                             filePath: filePath
                         )
                     
-                    case .gif(_, _, let quality):
+                    case .gif(_, _, _, let quality):
                         try PendingAttachment.writeFramesAsGifToFile(
                             frames: frames,
                             metadata: metadata,
@@ -1472,7 +1549,7 @@ public extension PendingAttachment {
                             filePath: filePath
                         )
                         
-                    case .webPLossy(_, _, let quality), .webPLossless(_, _, let quality):
+                    case .webPLossy(_, _, _, let quality), .webPLossless(_, _, _, let quality):
                         try PendingAttachment.writeFramesAsWebPToFile(
                             frames: frames,
                             metadata: metadata,

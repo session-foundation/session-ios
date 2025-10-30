@@ -425,7 +425,7 @@ extension PhotoCapture: CaptureOutputDelegate {
         }
         
         let pendingAttachment: PendingAttachment = PendingAttachment(
-            source: .media(UUID().uuidString, photoData),
+            source: .media(.data(UUID().uuidString, photoData)),
             utType: .jpeg,
             sourceFilename: nil,
             using: dependencies

@@ -148,7 +148,7 @@ final class LinkPreviewView: UIView {
 
     // MARK: - Updating
     
-    public func update(
+    @MainActor public func update(
         with state: LinkPreviewState,
         isOutgoing: Bool,
         delegate: TappableLabelDelegate? = nil,

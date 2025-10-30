@@ -60,6 +60,17 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                 }
             }
             
+            guard
+                let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                    .path(for: displayPictureUrl.absoluteString),
+                dependencies[singleton: .fileManager].fileExists(atPath: filePath)
+            else {
+                Log.warn(.cat, "User has display picture but file was not found")
+                return scheduler.schedule {
+                    success(job, false)
+                }
+            }
+            
             /// Only try to extend the TTL of the users display pic if enough time has passed since it was last updated
             let lastUpdated: Date = Date(timeIntervalSince1970: profile.profileLastUpdated ?? 0)
             
@@ -122,8 +133,6 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
             
             /// Since we made it here it means that refreshing the TTL failed so we may need to reupload the display picture
             do {
-                let filePath: String = try dependencies[singleton: .displayPictureManager]
-                    .path(for: displayPictureUrl.absoluteString)
                 let pendingDisplayPicture: PendingAttachment = PendingAttachment(
                     source: .media(.url(URL(fileURLWithPath: filePath))),
                     using: dependencies

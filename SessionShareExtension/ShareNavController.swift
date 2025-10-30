@@ -36,7 +36,7 @@ final class ShareNavController: UINavigationController {
 
         /// This should be the first thing we do (Note: If you leave the share context and return to it the context will already exist, trying
         /// to override it results in the share context crashing so ensure it doesn't exist first)
-        if !dependencies[singleton: .appContext].isValid {
+        if !dependencies.has(singleton: .appContext) {
             dependencies.set(singleton: .appContext, to: ShareAppExtensionContext(rootViewController: self, using: dependencies))
             Dependencies.setIsRTLRetriever(requiresMainThread: false) { ShareAppExtensionContext.determineDeviceRTL() }
         }
