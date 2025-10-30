@@ -55,7 +55,13 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
         result.maximumZoomScale = 5
         result.showsHorizontalScrollIndicator = false
         result.showsVerticalScrollIndicator = false
-//        result.clipsToBounds = false
+        
+        return result
+    }()
+    
+    private lazy var imageContainerView: UIView = {
+        let result: UIView = UIView()
+        result.themeBackgroundColor = .clear
         
         return result
     }()
@@ -63,6 +69,72 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
     private lazy var imageView: SessionImageView = {
         let result: SessionImageView = SessionImageView(dataManager: dataManager)
         result.loadImage(source)
+        
+        return result
+    }()
+    
+    private lazy var buttonStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [cancelButton, doneButton])
+        result.axis = .horizontal
+        result.distribution = .fillEqually
+        result.alignment = .fill
+        
+        return result
+    }()
+    
+    private lazy var cancelButton: UIButton = {
+        let result: UIButton = UIButton()
+        result.titleLabel?.font = .systemFont(ofSize: 18)
+        result.setTitle("cancel".localized(), for: .normal)
+        result.setThemeTitleColor(.textPrimary, for: .normal)
+        result.setThemeBackgroundColor(.backgroundSecondary, for: .highlighted)
+        result.contentEdgeInsets = UIEdgeInsets(
+            top: Values.mediumSpacing,
+            leading: 0,
+            bottom: (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? Values.mediumSpacing),
+            trailing: 0
+        )
+        result.addTarget(self, action: #selector(cancelPressed), for: .touchUpInside)
+        
+        return result
+    }()
+    
+    private lazy var doneButton: UIButton = {
+        let result: UIButton = UIButton()
+        result.titleLabel?.font = .systemFont(ofSize: 18)
+        result.setTitle("done".localized(), for: .normal)
+        result.setThemeTitleColor(.textPrimary, for: .normal)
+        result.setThemeBackgroundColor(.backgroundPrimary, for: .highlighted)
+        result.setThemeBackgroundColor(.backgroundSecondary, for: .highlighted)
+        result.contentEdgeInsets = UIEdgeInsets(
+            top: Values.mediumSpacing,
+            leading: 0,
+            bottom: (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? Values.mediumSpacing),
+            trailing: 0
+        )
+        result.addTarget(self, action: #selector(donePressed), for: .touchUpInside)
+        
+        return result
+    }()
+       
+    private lazy var maskingView: BezierPathView = {
+        let result: BezierPathView = BezierPathView()
+        result.configureShapeLayer = { [weak self] layer, bounds in
+            guard let self = self else { return }
+            
+            let path = UIBezierPath(rect: bounds)
+            let circleRect = cropFrame(forBounds: bounds)
+            let radius = circleRect.size.width * 0.5
+            let circlePath = UIBezierPath(roundedRect: circleRect, cornerRadius: radius)
+
+            path.append(circlePath)
+            path.usesEvenOddFillRule = true
+
+            layer.path = path.cgPath
+            layer.fillRule = .evenOdd
+            layer.themeFillColor = .black
+            layer.opacity = 0.75
+        }
         
         return result
     }()
@@ -87,7 +159,7 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
         
         super.init(nibName: nil, bundle: nil)
 
-        srcImageSizePoints = (source.sizeFromMetadata ?? .zero)
+        srcImageSizePoints = (source.displaySizeFromMetadata ?? .zero)
     }
 
     // MARK: View Lifecycle
@@ -112,153 +184,78 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
         title = "attachmentsMoveAndScale".localized()
         view.themeBackgroundColor = .backgroundPrimary
 
-        let contentView = UIView()
-        contentView.themeBackgroundColor = .backgroundPrimary
-        self.view.addSubview(contentView)
-        contentView.pin(to: self.view)
+        view.addSubview(scrollView)
+        view.addSubview(maskingView)
+        view.addSubview(buttonStackView)
+        scrollView.addSubview(imageContainerView)
+        imageContainerView.addSubview(imageView)
         
-        contentView.addSubview(scrollView)
-        scrollView.pin(.top, to: .top, of: contentView, withInset: (Values.massiveSpacing + Values.smallSpacing))
-        scrollView.pin(.leading, to: .leading, of: contentView)
-        scrollView.pin(.trailing, to: .trailing, of: contentView)
+        scrollView.pin(.top, to: .top, of: view)
+        scrollView.pin(.leading, to: .leading, of: view)
+        scrollView.pin(.trailing, to: .trailing, of: view)
+        scrollView.pin(.bottom, to: .top, of: buttonStackView)
         
-        imageView.frame = CGRect(origin: .zero, size: srcImageSizePoints)
-        scrollView.addSubview(imageView)
-        scrollView.contentSize = srcImageSizePoints
+        maskingView.pin(to: scrollView)
         
-        let buttonRowBackground: UIView = UIView()
-        buttonRowBackground.themeBackgroundColor = .backgroundPrimary
-        contentView.addSubview(buttonRowBackground)
+        imageContainerView.pin(to: scrollView)
+        imageView.pin(to: imageContainerView)
+        imageView.set(.width, to: srcImageSizePoints.width)
+        imageView.set(.height, to: srcImageSizePoints.height)
         
-        let buttonRow: UIView = createButtonRow()
-        contentView.addSubview(buttonRow)
-        buttonRow.pin(.top, to: .bottom, of: scrollView)
-        buttonRow.pin(.leading, to: .leading, of: contentView)
-        buttonRow.pin(.trailing, to: .trailing, of: contentView)
-        buttonRow.pin(.bottom, to: .bottom, of: contentView)
-        buttonRow.set(
-            .height,
-            to: (
-                Values.scaleFromIPhone5To7Plus(35, 45) +
-                Values.mediumSpacing +
-                (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? Values.mediumSpacing)
-            )
-        )
-        buttonRowBackground.pin(to: buttonRow)
-        
-        let maskingView = BezierPathView()
-        contentView.addSubview(maskingView)
-
-        maskingView.configureShapeLayer = { [weak self] layer, bounds in
-            guard let self = self else { return }
-            
-            let path = UIBezierPath(rect: bounds)
-            let circleRect = cropFrame(forBounds: bounds)
-            let radius = circleRect.size.width * 0.5
-            let circlePath = UIBezierPath(roundedRect: circleRect, cornerRadius: radius)
-
-            path.append(circlePath)
-            path.usesEvenOddFillRule = true
-
-            layer.path = path.cgPath
-            layer.fillRule = .evenOdd
-            layer.themeFillColor = .black
-            layer.opacity = 0.75
-        }
-        maskingView.pin(.top, to: .top, of: contentView, withInset: (Values.massiveSpacing + Values.smallSpacing))
-        maskingView.pin(.leading, to: .leading, of: contentView)
-        maskingView.pin(.trailing, to: .trailing, of: contentView)
-        maskingView.pin(.bottom, to: .top, of: buttonRow)
+        buttonStackView.pin(.leading, to: .leading, of: view)
+        buttonStackView.pin(.trailing, to: .trailing, of: view)
+        buttonStackView.pin(.bottom, to: .bottom, of: view)
     }
     
     private func configureScrollView() {
         guard srcImageSizePoints.width > 0 && srcImageSizePoints.height > 0 else { return }
-        
-        let scrollViewBounds = scrollView.bounds
-        guard scrollViewBounds.width > 0 && scrollViewBounds.height > 0 else { return }
+        guard scrollView.bounds.width > 0 && scrollView.bounds.height > 0 else { return }
         
         // Get the crop circle size
-        let cropCircleSize = min(scrollViewBounds.width, scrollViewBounds.height) - (maskMargin * 2)
+        let cropCircleSize: CGFloat = min(scrollView.bounds.width, scrollView.bounds.height) - (maskMargin * 2)
         
-        // Calculate the scale to fit the image to fill the crop circle
-        let widthScale = cropCircleSize / srcImageSizePoints.width
-        let heightScale = cropCircleSize / srcImageSizePoints.height
+        // Calculate the scale to fit the image to fill the crop circle then start at min scale
+        let widthScale: CGFloat = (cropCircleSize / srcImageSizePoints.width)
+        let heightScale: CGFloat = (cropCircleSize / srcImageSizePoints.height)
         let minScale = max(widthScale, heightScale)  // Fill, not fit
-        let maxScale = minScale * 5.0
-        
         scrollView.minimumZoomScale = minScale
-        scrollView.maximumZoomScale = maxScale
-        
-        // Start at minimum scale (fills the circle)
+        scrollView.maximumZoomScale = (minScale * 5.0)
         scrollView.zoomScale = minScale
         
         // Center the content
-        centerScrollViewContents()
-    }
-    
-    private func centerScrollViewContents() {
-        let scrollViewSize = scrollView.bounds.size
-        let imageViewSize = imageView.frame.size
-        
-        let horizontalInset = max(0, (scrollViewSize.width - imageViewSize.width) / 2)
-        let verticalInset = max(0, (scrollViewSize.height - imageViewSize.height) / 2)
+        let cropRect: CGRect = cropFrame(forBounds: scrollView.bounds)
+        let scaledImageWidth: CGFloat = (srcImageSizePoints.width * minScale)
+        let scaledImageHeight: CGFloat = (srcImageSizePoints.height * minScale)
+        let offsetX: CGFloat = ((cropCircleSize - scaledImageWidth) / 2)
+        let offsetY: CGFloat = ((cropCircleSize - scaledImageHeight) / 2)
         
         scrollView.contentInset = UIEdgeInsets(
-            top: verticalInset,
-            left: horizontalInset,
-            bottom: verticalInset,
-            right: horizontalInset
+            top: cropRect.minY,
+            left: cropRect.minX,
+            bottom: (scrollView.bounds.height - cropRect.maxY),
+            right: (scrollView.bounds.width - cropRect.maxX)
+        )
+        scrollView.contentOffset = CGPoint(
+            x: -cropRect.minX - offsetX,
+            y: -cropRect.minY - offsetY
         )
     }
 
     // Given the current bounds for the image view, return the frame of the
     // crop region within that view.
     private func cropFrame(forBounds bounds: CGRect) -> CGRect {
-        let radius = min(bounds.size.width, bounds.size.height) * 0.5 - self.maskMargin
-        // Center the circle's bounding rectangle
-        let circleRect = CGRect(x: bounds.size.width * 0.5 - radius, y: bounds.size.height * 0.5 - radius, width: radius * 2, height: radius * 2)
-        return circleRect
+        let radius: CGFloat = ((min(bounds.size.width, bounds.size.height) * 0.5) - self.maskMargin)
+        
+        return CGRect(
+            x: ((bounds.size.width * 0.5) - radius),
+            y: ((bounds.size.height * 0.5) - radius),
+            width: (radius * 2),
+            height: (radius * 2)
+        )
     }
     
     func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-        return imageView
-    }
-
-    func scrollViewDidZoom(_ scrollView: UIScrollView) {
-        centerScrollViewContents()
-    }
-
-    private func createButtonRow() -> UIView {
-        let result: UIStackView = UIStackView()
-        result.axis = .horizontal
-        result.distribution = .fillEqually
-        result.alignment = .fill
-
-        let cancelButton = createButton(title: "cancel".localized(), action: #selector(cancelPressed))
-        result.addArrangedSubview(cancelButton)
-
-        let doneButton = createButton(title: "done".localized(), action: #selector(donePressed))
-        doneButton.accessibilityLabel = "Done"
-        result.addArrangedSubview(doneButton)
-        
-        return result
-    }
-
-    private func createButton(title: String, action: Selector) -> UIButton {
-        let button: UIButton = UIButton()
-        button.titleLabel?.font = .systemFont(ofSize: 18)
-        button.setTitle(title, for: .normal)
-        button.setThemeTitleColor(.textPrimary, for: .normal)
-        button.setThemeBackgroundColor(.backgroundSecondary, for: .highlighted)
-        button.contentEdgeInsets = UIEdgeInsets(
-            top: Values.mediumSpacing,
-            leading: 0,
-            bottom: (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? Values.mediumSpacing),
-            trailing: 0
-        )
-        button.addTarget(self, action: action, for: .touchUpInside)
-        
-        return button
+        return imageContainerView
     }
 
     // MARK: - Event Handlers
@@ -278,28 +275,21 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
     // MARK: - Internal Functions
     
     private func calculateCropRect() -> CGRect {
-        let scrollViewBounds = scrollView.bounds
-        let cropCircleFrame = cropFrame(forBounds: scrollViewBounds)
-        
-        // Convert crop circle frame to image coordinates
+        let cropCircleFrame = cropFrame(forBounds: scrollView.bounds)
         let zoomScale = scrollView.zoomScale
         let contentOffset = scrollView.contentOffset
         let contentInset = scrollView.contentInset
         
-        // Crop circle center in scroll view coordinates
-        let cropCenterX = cropCircleFrame.midX
-        let cropCenterY = cropCircleFrame.midY
-        
         // Convert to content coordinates
-        let contentX = (cropCenterX + contentOffset.x - contentInset.left) / zoomScale
-        let contentY = (cropCenterY + contentOffset.y - contentInset.top) / zoomScale
+        let contentX = (contentOffset.x + contentInset.left) / zoomScale
+        let contentY = (contentOffset.y + contentInset.top) / zoomScale
         
         // Crop size in image coordinates
         let cropSize = cropCircleFrame.width / zoomScale
         
         // Convert to normalized coordinates (0-1)
-        let normalizedX = (contentX - cropSize / 2) / srcImageSizePoints.width
-        let normalizedY = (contentY - cropSize / 2) / srcImageSizePoints.height
+        let normalizedX = contentX / srcImageSizePoints.width
+        let normalizedY = contentY / srcImageSizePoints.height
         let normalizedWidth = cropSize / srcImageSizePoints.width
         let normalizedHeight = cropSize / srcImageSizePoints.height
         
@@ -317,5 +307,3 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
         )
     }
 }
-// TODO: Fix modal on Dean's calls PR
-// TODO: Create the libSession PR to re-enable the profile_updated stuff, also merge in the attachment encryption stuff
