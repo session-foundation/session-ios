@@ -600,9 +600,17 @@ public final class ProfilePictureView: UIView {
         else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
         
         switch source.orientationFromMetadata {
-            case .up, .upMirrored: return cropRect
-
-            case .down, .downMirrored:
+            case .up: return cropRect
+                
+            case .upMirrored:
+                return CGRect(
+                    x: (1 - cropRect.maxX),
+                    y: cropRect.minY,
+                    width: cropRect.width,
+                    height: cropRect.height
+                )
+                
+            case .down:
                 return CGRect(
                     x: (1 - cropRect.maxX),
                     y: (1 - cropRect.maxY),
@@ -610,18 +618,42 @@ public final class ProfilePictureView: UIView {
                     height: cropRect.height
                 )
 
-            case .left, .leftMirrored:
+            case .downMirrored:
+                return CGRect(
+                    x: cropRect.minX,
+                    y: (1 - cropRect.maxY),
+                    width: cropRect.width,
+                    height: cropRect.height
+                )
+
+            case .left:
+                return CGRect(
+                    x: (1 - cropRect.maxY),
+                    y: cropRect.minX,
+                    width: cropRect.height,
+                    height: cropRect.width
+                )
+                
+            case .leftMirrored:
+                return CGRect(
+                    x: cropRect.minY,
+                    y: cropRect.minX,
+                    width: cropRect.height,
+                    height: cropRect.width
+                )
+                    
+            case .right:
                 return CGRect(
                     x: cropRect.minY,
                     y: (1 - cropRect.maxX),
                     width: cropRect.height,
                     height: cropRect.width
                 )
-                    
-            case .right, .rightMirrored:
+                
+            case .rightMirrored:
                 return CGRect(
                     x: (1 - cropRect.maxY),
-                    y: cropRect.minX,
+                    y: (1 - cropRect.maxX),
                     width: cropRect.height,
                     height: cropRect.width
                 )

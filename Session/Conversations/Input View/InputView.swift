@@ -21,6 +21,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
     var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
+    private var linkPreviewLoadTask: Task<Void, Never>?
     private var voiceMessageRecordingView: VoiceMessageRecordingView?
     private lazy var mentionsViewHeightConstraint = mentionsView.set(.height, to: 0)
 
@@ -231,6 +232,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     required init?(coder: NSCoder) {
         preconditionFailure("Use init(delegate:) instead.")
     }
+    
+    deinit {
+        linkPreviewLoadTask?.cancel()
+    }
 
     private func setUpViewHierarchy() {
         autoresizingMask = .flexibleHeight
@@ -400,7 +405,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         }
     }
 
-    func autoGenerateLinkPreview() {
+    @MainActor func autoGenerateLinkPreview() {
         // Check that a valid URL is present
         guard let linkPreviewURL = LinkPreview.previewUrl(for: text, selectedRange: inputTextView.selectedRange, using: dependencies) else {
             return
@@ -425,37 +430,43 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         linkPreviewView.pin(.bottom, to: .bottom, of: additionalContentContainer, withInset: -4)
         
         // Build the link preview
-        LinkPreview
-            .tryToBuildPreviewInfo(
-                previewUrl: linkPreviewURL,
-                skipImageDownload: (inputState.allowedInputTypes != .all),  /// Disable image download if attachments are disabled
-                using: dependencies
-            )
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished: break
-                        case .failure:
-                            guard self?.linkPreviewInfo?.url == linkPreviewURL else { return } // Obsolete
-                            
-                            self?.linkPreviewInfo = nil
-                            self?.additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
-                    }
-                },
-                receiveValue: { [weak self, dependencies] draft in
-                    guard self?.linkPreviewInfo?.url == linkPreviewURL else { return } // Obsolete
+        linkPreviewLoadTask?.cancel()
+        linkPreviewLoadTask = Task.detached(priority: .userInitiated) { [weak self, allowedInputTypes = inputState.allowedInputTypes, dependencies] in
+            do {
+                /// Load the draft
+                let draft: LinkPreviewDraft = try await LinkPreview.tryToBuildPreviewInfo(
+                    previewUrl: linkPreviewURL,
+                    skipImageDownload: (allowedInputTypes != .all),  /// Disable if attachments are disabled
+                    using: dependencies
+                )
+                try Task.checkCancellation()
+                
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
                     
-                    self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
-                    self?.linkPreviewView.update(
+                    linkPreviewInfo = (url: linkPreviewURL, draft: draft)
+                    linkPreviewView.update(
                         with: LinkPreview.DraftState(linkPreviewDraft: draft),
                         isOutgoing: false,
                         using: dependencies
                     )
+                    setNeedsLayout()
+                    layoutIfNeeded()
                 }
-            )
-            .store(in: &disposables)
+            }
+            catch {
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
+                    
+                    linkPreviewInfo = nil
+                    additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
+                    setNeedsLayout()
+                    layoutIfNeeded()
+                }
+            }
+        }
     }
 
     func setMessageInputState(_ updatedInputState: SessionThreadViewModel.MessageInputState) {

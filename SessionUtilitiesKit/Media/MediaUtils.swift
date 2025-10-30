@@ -131,7 +131,7 @@ public enum MediaUtils {
             return (duration == 0)
         }
         
-        public var unrotatedSize: CGSize {
+        public var displaySize: CGSize {
             /// If the metadata doesn't have an orientation then don't rotate the size (WebP and videos shouldn't have orientations)
             guard let orientation: UIImage.Orientation = orientation else { return pixelSize }
             
@@ -371,7 +371,7 @@ public enum MediaUtils {
         return result
     }
     
-    public static func unrotatedSize(
+    public static func displaySize(
         for path: String,
         utType: UTType?,
         sourceFilename: String?,
@@ -386,7 +386,7 @@ public enum MediaUtils {
             )
         else { return .zero }
         
-        return metadata.unrotatedSize
+        return metadata.displaySize
     }
     
     private static func getFrameDuration(from source: CGImageSource, at index: Int) -> TimeInterval {

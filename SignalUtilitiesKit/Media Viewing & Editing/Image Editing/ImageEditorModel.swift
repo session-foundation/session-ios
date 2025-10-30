@@ -72,16 +72,16 @@ public class ImageEditorModel {
             throw ImageEditorError.invalidInput
         }
         
-        let unrotatedSize: CGSize = metadata.unrotatedSize
+        let displaySize: CGSize = metadata.displaySize
         
-        guard unrotatedSize.width > 0, unrotatedSize.height > 0 else {
+        guard displaySize.width > 0, displaySize.height > 0 else {
             Log.error("[ImageEditorModel] Couldn't determine image size.")
             throw ImageEditorError.invalidInput
         }
         
         self.src = source
         self.srcMetadata = metadata
-        self.srcImageSizePixels = unrotatedSize
+        self.srcImageSizePixels = displaySize
 
         self.contents = ImageEditorContents()
         self.transform = ImageEditorTransform.defaultTransform(srcImageSizePixels: srcImageSizePixels)

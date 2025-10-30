@@ -314,8 +314,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 if let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft {
                     linkPreviewPreparedAttachment = try? await LinkPreview.prepareAttachmentIfPossible(
                         urlString: linkPreviewDraft.urlString,
-                        imageData: linkPreviewDraft.jpegImageData,
-                        type: .jpeg,
+                        imageSource: linkPreviewDraft.imageSource,
                         using: dependencies
                     )
                 }

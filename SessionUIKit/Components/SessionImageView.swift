@@ -15,7 +15,7 @@ public class SessionImageView: UIImageView {
     public private(set) var currentFrameIndex: Int = 0
     public private(set) var accumulatedTime: TimeInterval = 0
     
-    public var imageSizeMetadata: CGSize?
+    public var imageDisplaySizeMetadata: CGSize?
     
     public override var image: UIImage? {
         didSet {
@@ -27,7 +27,7 @@ public class SessionImageView: UIImageView {
             frameBuffer = nil
             currentFrameIndex = 0
             accumulatedTime = 0
-            imageSizeMetadata = nil
+            imageDisplaySizeMetadata = nil
         }
     }
     
@@ -162,7 +162,7 @@ public class SessionImageView: UIImageView {
         
         /// Otherwise read the size of the image from the metadata (so we can layout prior to the image being loaded) and schedule the
         /// background task for loading
-        imageSizeMetadata = source.sizeFromMetadata
+        imageDisplaySizeMetadata = source.displaySizeFromMetadata
         
         guard let dataManager: ImageDataManagerType = self.dataManager else {
             #if DEBUG
@@ -249,7 +249,7 @@ public class SessionImageView: UIImageView {
         self.image = other.image
         self.currentFrameIndex = other.currentFrameIndex
         self.accumulatedTime = other.accumulatedTime
-        self.imageSizeMetadata = other.imageSizeMetadata
+        self.imageDisplaySizeMetadata = other.imageDisplaySizeMetadata
         self.shouldAnimateImage = other.shouldAnimateImage
         
         if other.isAnimating {
@@ -291,7 +291,7 @@ public class SessionImageView: UIImageView {
         frameBuffer = nil
         currentFrameIndex = 0
         accumulatedTime = 0
-        imageSizeMetadata = nil
+        imageDisplaySizeMetadata = nil
     }
     
     @MainActor
@@ -306,7 +306,7 @@ public class SessionImageView: UIImageView {
         /// it first and then store data afterwards (otherwise it'd just be cleared)
         self.image = buffer.firstFrame
         self.frameBuffer = buffer
-        self.imageSizeMetadata = buffer.firstFrame.size
+        self.imageDisplaySizeMetadata = buffer.firstFrame.size
         
         guard buffer.durations.count > 1 && self.shouldAnimateImage else { return }
         
