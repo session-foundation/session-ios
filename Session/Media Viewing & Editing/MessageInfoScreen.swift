@@ -281,7 +281,7 @@ struct MessageInfoScreen: View {
                                 HStack(
                                     spacing: 10
                                 ) {
-                                    let (info, additionalInfo) = ProfilePictureView.getProfilePictureInfo(
+                                    let (info, additionalInfo) = ProfilePictureView.Info.generateInfoFrom(
                                         size: .message,
                                         publicKey: (
                                             // Prioritise the profile.id because we override it for
@@ -296,7 +296,7 @@ struct MessageInfoScreen: View {
                                         using: dependencies
                                     )
                                     
-                                    let size: ProfilePictureView.Size = .list
+                                    let size: ProfilePictureView.Info.Size = .list
                                     
                                     if let info: ProfilePictureView.Info = info {
                                         ProfilePictureSwiftUI(
@@ -473,8 +473,7 @@ struct MessageBubble: View {
                         switch linkPreview.variant {
                             case .standard:
                                 LinkPreviewView_SwiftUI(
-                                    state: LinkPreview.SentState(
-                                        linkPreview: linkPreview,
+                                    viewModel: linkPreview.sentState(
                                         imageAttachment: messageViewModel.linkPreviewAttachment,
                                         using: dependencies
                                     ),
@@ -495,18 +494,19 @@ struct MessageBubble: View {
                         }
                     }
                     else {
-                        if let quotedInfo: MessageViewModel.QuotedInfo = messageViewModel.quotedInfo {
+                        if let quoteViewModel: QuoteViewModel = messageViewModel.quoteViewModel {
                             QuoteView_SwiftUI(
-                                info: .init(
-                                    mode: .regular,
-                                    authorId: quotedInfo.authorId,
-                                    quotedText: quotedInfo.body,
-                                    threadVariant: messageViewModel.threadVariant,
-                                    currentUserSessionIds: (messageViewModel.currentUserSessionIds ?? []),
-                                    direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
-                                    attachment: quotedInfo.attachment
+                                viewModel: quoteViewModel.with(
+                                    thumbnailSource: .thumbnailFrom(
+                                        quoteViewModel: quoteViewModel,
+                                        using: dependencies
+                                    ),
+                                    displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                                        threadVariant: messageViewModel.threadVariant,
+                                        using: dependencies
+                                    )
                                 ),
-                                using: dependencies
+                                dataManager: dependencies[singleton: .imageDataManager]
                             )
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, Self.inset)
@@ -633,7 +633,7 @@ struct MessageInfoView_Previews: PreviewProvider {
                 id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                 name: "TestUser"
             ),
-            quotedInfo: nil,
+            quoteViewModel: nil,
             linkPreview: nil,
             linkPreviewAttachment: nil,
             attachments: nil

@@ -62,71 +62,28 @@ public extension LinkPreview {
         }
     }
     
-    // MARK: SentState
+    // MARK: - SentState
     
-    struct SentState: LinkPreviewState {
-        var isLoaded: Bool { true }
-        var urlString: String? { linkPreview.url }
-
-        var title: String? {
-            guard let value = linkPreview.title, value.count > 0 else { return nil }
-            
-            return value
-        }
-
-        var imageState: LinkPreview.ImageState {
-            guard linkPreview.attachmentId != nil else { return .none }
-            guard let imageAttachment: Attachment = imageAttachment else {
-                Log.error("[LinkPreview] Missing imageAttachment.")
-                return .none
-            }
-            
-            switch imageAttachment.state {
-                case .downloaded, .uploaded:
-                    guard imageAttachment.isImage && imageAttachment.isValid else {
-                        return .invalid
-                    }
-                    
-                    return .loaded
-                    
-                case .pendingDownload, .downloading, .uploading: return .loading
-                case .failedDownload, .failedUpload, .invalid: return .invalid
-            }
-        }
-
-        var imageSource: ImageDataManager.DataSource? {
-            // Note: We don't check if the image is valid here because that can be confirmed
-            // in 'imageState' and it's a little inefficient
-            guard
-                imageAttachment?.isImage == true,
-                let imageDownloadUrl: String = imageAttachment?.downloadUrl,
-                let path: String = try? dependencies[singleton: .attachmentManager]
-                    .path(for: imageDownloadUrl)
-            else { return nil }
-            
-            return .url(URL(fileURLWithPath: path))
-        }
-        
-        // MARK: - Type Specific
-        
-        private let dependencies: Dependencies
-        private let linkPreview: LinkPreview
-        private let imageAttachment: Attachment?
-
-        public var imageSize: CGSize {
-            guard let width: UInt = imageAttachment?.width, let height: UInt = imageAttachment?.height else {
-                return CGSize.zero
-            }
-            
-            return CGSize(width: CGFloat(width), height: CGFloat(height))
-        }
-        
-        // MARK: - Initialization
-
-        init(linkPreview: LinkPreview, imageAttachment: Attachment?, using dependencies: Dependencies) {
-            self.dependencies = dependencies
-            self.linkPreview = linkPreview
-            self.imageAttachment = imageAttachment
-        }
+    func sentState(
+        imageAttachment: Attachment?,
+        using dependencies: Dependencies
+    ) -> LinkPreviewViewModel {
+        return LinkPreviewViewModel(
+            state: .sent,
+            urlString: url,
+            title: (title?.isEmpty == false ? title : nil),
+            imageSource: {
+                /// **Note:** We don't check if the image is valid here because that can be confirmed in 'imageState' and it's a
+                /// little inefficient
+                guard
+                    imageAttachment?.isImage == true,
+                    let imageDownloadUrl: String = imageAttachment?.downloadUrl,
+                    let path: String = try? dependencies[singleton: .attachmentManager]
+                        .path(for: imageDownloadUrl)
+                else { return nil }
+                
+                return .url(URL(fileURLWithPath: path))
+            }()
+        )
     }
 }

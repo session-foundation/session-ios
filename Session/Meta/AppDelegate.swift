@@ -1065,16 +1065,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { preconditionFailure() }
         
         let callVC: CallVC = CallVC(for: call, using: dependencies)
-        
-        if
-            let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
-            conversationVC.viewModel.threadData.threadId == call.sessionId
-        {
-            callVC.conversationVC = conversationVC
-            conversationVC.resignFirstResponder()
-            conversationVC.hideInputAccessoryView()
-        }
-        
         presentingVC.present(callVC, animated: true, completion: nil)
     }
 }

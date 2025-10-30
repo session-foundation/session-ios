@@ -746,7 +746,7 @@ public actor Logger: LoggerType {
                 matches.forEach { match in
                     guard let matchRange: Range = Range(match.range, in: text) else { return }
                     
-                    updatedText.replaceSubrange(matchRange, with: String(text[matchRange]).truncated())
+                    updatedText.replaceSubrange(matchRange, with: String(text[matchRange]).logTruncated())
                 }
                 
                 return updatedText
@@ -975,5 +975,11 @@ public struct AllLoggingCategories: FeatureOption {
 private extension String {
     func then(_ transform: (String) -> String) -> String {
         return transform(self)
+    }
+    
+    func logTruncated(prefix: Int = 4, suffix: Int = 4) -> String {
+        guard count > (prefix + suffix) else { return self }
+        
+        return "\(self.prefix(prefix))...\(self.suffix(suffix))"
     }
 }

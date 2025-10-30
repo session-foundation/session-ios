@@ -254,7 +254,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     static let contactThreadHSpacing = Values.mediumSpacing
 
     static var gutterSize: CGFloat = {
-        var result = groupThreadHSpacing + ProfilePictureView.Size.message.viewSize + groupThreadHSpacing
+        var result = groupThreadHSpacing + ProfilePictureView.Info.Size.message.viewSize + groupThreadHSpacing
         
         if UIDevice.current.isIPad {
             result += 168
@@ -263,7 +263,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return result
     }()
     
-    static var leftGutterSize: CGFloat { groupThreadHSpacing + ProfilePictureView.Size.message.viewSize + groupThreadHSpacing }
+    static var leftGutterSize: CGFloat { groupThreadHSpacing + ProfilePictureView.Info.Size.message.viewSize + groupThreadHSpacing }
     
     // MARK: Direction & Position
     
@@ -549,28 +549,38 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             if let linkPreview: LinkPreview = cellViewModel.linkPreview {
                 switch linkPreview.variant {
                     case .standard:
-                        let linkPreviewView: LinkPreviewView = LinkPreviewView(
-                            maxWidth: maxWidth,
-                            using: dependencies
-                        )
+                        let stackView: UIStackView = UIStackView()
+                        stackView.axis = .vertical
+                        bubbleView.addSubview(stackView)
+                        stackView.pin(to: bubbleView)
+                        snContentView.addArrangedSubview(bubbleBackgroundView)
+                        
+                        let linkPreviewView: LinkPreviewView = LinkPreviewView()
                         linkPreviewView.update(
-                            with: LinkPreview.SentState(
-                                linkPreview: linkPreview,
+                            with: linkPreview.sentState(
                                 imageAttachment: cellViewModel.linkPreviewAttachment,
                                 using: dependencies
                             ),
                             isOutgoing: cellViewModel.variant.isOutgoing,
-                            delegate: self,
-                            cellViewModel: cellViewModel,
-                            bodyLabelTextColor: bodyLabelTextColor,
-                            lastSearchText: lastSearchText,
-                            using: dependencies
+                            dataManager: dependencies[singleton: .imageDataManager]
                         )
+                        stackView.addArrangedSubview(linkPreviewView)
                         self.linkPreviewView = linkPreviewView
-                        bubbleView.addSubview(linkPreviewView)
-                        linkPreviewView.pin(to: bubbleView, withInset: 0)
-                        snContentView.addArrangedSubview(bubbleBackgroundView)
-                        self.bodyTappableLabel = linkPreviewView.bodyTappableLabel
+                        
+                        let bodyTappableLabelContainer: UIView = UIView()
+                        let bodyTappableLabel = VisibleMessageCell.getBodyTappableLabel(
+                            for: cellViewModel,
+                            with: maxWidth,
+                            textColor: bodyLabelTextColor,
+                            searchText: lastSearchText,
+                            delegate: self,
+                            using: dependencies
+                        ).label
+                        
+                        bodyTappableLabelContainer.addSubview(bodyTappableLabel)
+                        bodyTappableLabel.pin(to: bodyTappableLabelContainer, withInset: 12)
+                        stackView.addArrangedSubview(bodyTappableLabelContainer)
+                        self.bodyTappableLabel = bodyTappableLabel
                         
                     case .openGroupInvitation:
                         let openGroupInvitationView: OpenGroupInvitationView = OpenGroupInvitationView(
@@ -596,17 +606,20 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 stackView.setCompressionResistance(.vertical, to: .required)
                 
                 // Quote view
-                if let quotedInfo: MessageViewModel.QuotedInfo = cellViewModel.quotedInfo {
+                if let quoteViewModel: QuoteViewModel = cellViewModel.quoteViewModel {
                     let hInset: CGFloat = 2
                     let quoteView: QuoteView = QuoteView(
-                        for: .regular,
-                        authorId: quotedInfo.authorId,
-                        quotedText: quotedInfo.body,
-                        threadVariant: cellViewModel.threadVariant,
-                        currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-                        direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
-                        attachment: quotedInfo.attachment,
-                        using: dependencies
+                        viewModel: quoteViewModel.with(
+                            thumbnailSource: .thumbnailFrom(
+                                quoteViewModel: quoteViewModel,
+                                using: dependencies
+                            ),
+                            displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                                threadVariant: cellViewModel.threadVariant,
+                                using: dependencies
+                            )
+                        ),
+                        dataManager: dependencies[singleton: .imageDataManager]
                     )
                     self.quoteView = quoteView
                     let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
@@ -679,9 +692,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             ) - 2 * inset
         )
         
-        switch (cellViewModel.quotedInfo, cellViewModel.body) {
+        switch (cellViewModel.quoteViewModel, cellViewModel.body) {
             /// Both quote and body
-            case (.some(let quotedInfo), .some(let body)) where !body.isEmpty:
+            case (.some(let quoteViewModel), .some(let body)) where !body.isEmpty:
                 // Stack view
                 let stackView = UIStackView(arrangedSubviews: [])
                 stackView.axis = .vertical
@@ -690,14 +703,17 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 // Quote view
                 let hInset: CGFloat = 2
                 let quoteView: QuoteView = QuoteView(
-                    for: .regular,
-                    authorId: quotedInfo.authorId,
-                    quotedText: quotedInfo.body,
-                    threadVariant: cellViewModel.threadVariant,
-                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-                    direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
-                    attachment: quotedInfo.attachment,
-                    using: dependencies
+                    viewModel: quoteViewModel.with(
+                        thumbnailSource: .thumbnailFrom(
+                            quoteViewModel: quoteViewModel,
+                            using: dependencies
+                        ),
+                        displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                            threadVariant: cellViewModel.threadVariant,
+                            using: dependencies
+                        )
+                    ),
+                    dataManager: dependencies[singleton: .imageDataManager]
                 )
                 self.quoteView = quoteView
                 let quoteViewContainer = UIView(wrapping: quoteView, withInsets: UIEdgeInsets(top: 0, leading: hInset, bottom: 0, trailing: hInset))
@@ -767,16 +783,19 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 snContentView.addArrangedSubview(bubbleBackgroundView)
             
             /// Just quote
-            case (.some(let quotedInfo), _):
+            case (.some(let quoteViewModel), _):
                 let quoteView: QuoteView = QuoteView(
-                    for: .regular,
-                    authorId: quotedInfo.authorId,
-                    quotedText: quotedInfo.body,
-                    threadVariant: cellViewModel.threadVariant,
-                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-                    direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
-                    attachment: quotedInfo.attachment,
-                    using: dependencies
+                    viewModel: quoteViewModel.with(
+                        thumbnailSource: .thumbnailFrom(
+                            quoteViewModel: quoteViewModel,
+                            using: dependencies
+                        ),
+                        displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                            threadVariant: cellViewModel.threadVariant,
+                            using: dependencies
+                        )
+                    ),
+                    dataManager: dependencies[singleton: .imageDataManager]
                 )
                 self.quoteView = quoteView
 
@@ -1261,7 +1280,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 cellViewModel.canHaveProfile
             else { return 0 }
             
-            return ProfilePictureView.Size.message.viewSize + groupThreadHSpacing
+            return ProfilePictureView.Info.Size.message.viewSize + groupThreadHSpacing
         }()
         let oppositeEdgePadding: CGFloat = (includingOppositeGutter ? gutterSize : contactThreadHSpacing)
         

@@ -572,7 +572,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     joinToPagedType: MessageViewModel.TypingIndicatorInfo.joinToViewModelQuerySQL,
                     associateData: MessageViewModel.TypingIndicatorInfo.createAssociateDataClosure()
                 ),
-                AssociatedRecord<MessageViewModel.QuotedInfo, MessageViewModel>(
+                AssociatedRecord<QuoteViewModel, MessageViewModel>(
                     trackedAgainst: Quote.self,
                     observedChanges: [
                         PagedData.ObservedChanges(
@@ -584,13 +584,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                             columns: [.state]
                         )
                     ],
-                    dataQuery: MessageViewModel.QuotedInfo.baseQuery(
+                    dataQuery: QuoteViewModel.baseQuery(
                         userSessionId: userSessionId,
                         currentUserSessionIds: currentUserSessionIds
                     ),
-                    joinToPagedType: MessageViewModel.QuotedInfo.joinToViewModelQuerySQL(),
-                    retrieveRowIdsForReferencedRowIds: MessageViewModel.QuotedInfo.createReferencedRowIdsRetriever(),
-                    associateData: MessageViewModel.QuotedInfo.createAssociateDataClosure()
+                    joinToPagedType: QuoteViewModel.joinToViewModelQuerySQL(),
+                    retrieveRowIdsForReferencedRowIds: QuoteViewModel.createReferencedRowIdsRetriever(),
+                    associateData: QuoteViewModel.createAssociateDataClosure()
                 )
             ],
             onChangeUnsorted: { [weak self] updatedData, updatedPageInfo in
@@ -714,7 +714,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         attachmentData: [Attachment]?,
         linkPreviewDraft: LinkPreviewDraft?,
         linkPreviewPreparedAttachment: PreparedAttachment?,
-        quoteModel: QuotedReplyModel?
+        quoteViewModel: QuoteViewModel?
     )
     
     @ThreadSafeObject private var optimisticallyInsertedMessages: [UUID: OptimisticMessageData] = [:]
@@ -725,7 +725,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         sentTimestampMs: Int64,
         attachments: [PendingAttachment]?,
         linkPreviewDraft: LinkPreviewDraft?,
-        quoteModel: QuotedReplyModel?
+        quoteViewModel: QuoteViewModel?
     ) async -> OptimisticMessageData {
         // Generate the optimistic data
         let optimisticMessageId: UUID = UUID()
@@ -801,7 +801,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 }
             }(),
             currentUserProfile: currentUserProfile,
-            quotedInfo: MessageViewModel.QuotedInfo(replyModel: quoteModel),
+            quoteViewModel: quoteViewModel,//MessageViewModel.QuotedInfo(replyModel: quoteModel),
             linkPreview: linkPreviewDraft.map { draft in
                 LinkPreview(
                     url: draft.urlString,
@@ -820,7 +820,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             optimisticAttachments,
             linkPreviewDraft,
             linkPreviewPreparedAttachment,
-            quoteModel
+            quoteViewModel
         )
         
         _optimisticallyInsertedMessages.performUpdate { $0.setting(optimisticMessageId, optimisticData) }
@@ -844,7 +844,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         $0.attachmentData,
                         $0.linkPreviewDraft,
                         $0.linkPreviewPreparedAttachment,
-                        $0.quoteModel
+                        $0.quoteViewModel
                     )
                 }
             )
@@ -907,42 +907,19 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     
     // MARK: - Mentions
     
-    public func mentions(for query: String = "") -> [MentionInfo] {
-        let threadData: SessionThreadViewModel = self.internalThreadData
+    public func mentions(for query: String = "") async throws -> [MentionSelectionView.ViewModel] {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         
-        return dependencies[singleton: .storage]
-            .read { [weak self, dependencies] db -> [MentionInfo] in
-                let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                let pattern: FTS5Pattern? = try? SessionThreadViewModel.pattern(db, searchTerm: query, forTable: Profile.self)
-                let capabilities: Set<Capability.Variant> = (threadData.threadVariant != .community ?
-                    nil :
-                    try? Capability
-                        .select(.variant)
-                        .filter(Capability.Columns.openGroupServer == threadData.openGroupServer)
-                        .asRequest(of: Capability.Variant.self)
-                        .fetchSet(db)
-                )
-                .defaulting(to: [])
-                let targetPrefixes: [SessionId.Prefix] = (capabilities.contains(.blind) ?
-                    [.blinded15, .blinded25] :
-                    [.standard]
-                )
-                
-                return (try MentionInfo
-                    .query(
-                        threadId: threadData.threadId,
-                        threadVariant: threadData.threadVariant,
-                        targetPrefixes: targetPrefixes,
-                        currentUserSessionIds: (
-                            self?.threadData.currentUserSessionIds ??
-                            [userSessionId.hexString]
-                        ),
-                        pattern: pattern
-                    )?
-                    .fetchAll(db))
-                    .defaulting(to: [])
-            }
-            .defaulting(to: [])
+        return try await MentionSelectionView.ViewModel.mentions(
+            for: query,
+            threadId: self.internalThreadData.threadId,
+            threadVariant: self.internalThreadData.threadVariant,
+            currentUserSessionIds: (threadData.currentUserSessionIds ?? [userSessionId.hexString]),
+            communityInfo: self.internalThreadData.openGroupServer.map { server in
+                self.internalThreadData.openGroupRoomToken.map { (server: server, roomToken: $0) }
+            },
+            using: dependencies
+        )
     }
     
     // MARK: - Functions

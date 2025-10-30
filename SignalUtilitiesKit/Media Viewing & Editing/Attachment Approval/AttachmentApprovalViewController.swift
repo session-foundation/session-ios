@@ -69,6 +69,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private let threadId: String
     private let threadVariant: SessionThread.Variant
     private let isAddMoreVisible: Bool
+    private var quoteDraft: QuoteViewModel?
     private var isSessionPro: Bool {
         dependencies[cache: .libSession].isSessionPro
     }
@@ -142,6 +143,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         threadId: String,
         threadVariant: SessionThread.Variant,
         attachments: [PendingAttachment],
+        quoteDraft: QuoteViewModel?,
         disableLinkPreviewImageDownload: Bool,
         didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?,
         using dependencies: Dependencies
@@ -155,6 +157,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         let attachmentItems = attachments.map {
             PendingAttachmentRailItem(attachment: $0, using: dependencies)
         }
+        self.quoteDraft = quoteDraft
         self.isAddMoreVisible = (mode == .sharedNavigation)
         self.disableLinkPreviewImageDownload = disableLinkPreviewImageDownload
         self.didLoadLinkPreview = didLoadLinkPreview
@@ -187,6 +190,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         threadId: String,
         threadVariant: SessionThread.Variant,
         attachments: [PendingAttachment],
+        quoteDraft: QuoteViewModel?,
         approvalDelegate: AttachmentApprovalViewControllerDelegate,
         disableLinkPreviewImageDownload: Bool,
         didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?,
@@ -197,6 +201,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             threadId: threadId,
             threadVariant: threadVariant,
             attachments: attachments,
+            quoteDraft: quoteDraft,
             disableLinkPreviewImageDownload: disableLinkPreviewImageDownload,
             didLoadLinkPreview: didLoadLinkPreview,
             using: dependencies
@@ -212,6 +217,18 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     
     private let kSpacingBetweenItems: CGFloat = 20
     
+    lazy var footerControlsStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            galleryRailView,
+            snInputView
+        ])
+        result.axis = .vertical
+        result.alignment = .fill
+        result.distribution = .fill
+        
+        return result
+    }()
+    
     private lazy var bottomToolView: AttachmentApprovalInputAccessoryView = {
         let bottomToolView = AttachmentApprovalInputAccessoryView(delegate: self, using: dependencies)
         bottomToolView.delegate = self
@@ -222,6 +239,35 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     }()
 
     private var galleryRailView: GalleryRailView { return bottomToolView.galleryRailView }
+    
+    private lazy var snInputView: InputView = InputView(
+        delegate: self,
+        displayNameRetriever: Profile.defaultDisplayNameRetriever(
+            threadVariant: threadVariant,
+            using: dependencies
+        ),
+        using: dependencies
+    )
+    
+    lazy var inputBackgroundView: UIView = {
+        let result: UIView = UIView()
+        
+        let backgroundView: UIView = UIView()
+        backgroundView.themeBackgroundColor = .backgroundSecondary
+        backgroundView.alpha = Values.lowOpacity
+        result.addSubview(backgroundView)
+        backgroundView.pin(to: result)
+        
+        let blurView: UIVisualEffectView = UIVisualEffectView()
+        result.addSubview(blurView)
+        blurView.pin(to: result)
+        
+        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
+            blurView?.effect = UIBlurEffect(style: theme.blurStyle)
+        }
+        
+        return result
+    }()
 
     private lazy var pagerScrollView: UIScrollView? = {
         // This is kind of a hack. Since we don't have first class access to the superview's `scrollView`
@@ -653,9 +699,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
         guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
-            beforePresented: { [weak self] in
-                self?.hideInputAccessoryView()
-            },
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()
                 self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
@@ -694,9 +737,6 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
     @MainActor func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar) {
         guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
-            beforePresented: { [weak self] in
-                self?.hideInputAccessoryView()
-            },
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()
                 self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")

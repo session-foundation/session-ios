@@ -20,15 +20,22 @@ class SendMediaNavigationController: UINavigationController {
     private let dependencies: Dependencies
     private let threadId: String
     private let threadVariant: SessionThread.Variant
+    private var quoteDraft: QuoteViewModel?
     private var disposables: Set<AnyCancellable> = Set()
     private var loadMediaTask: Task<Void, Never>?
     
     // MARK: - Initialization
     
-    init(threadId: String, threadVariant: SessionThread.Variant, using dependencies: Dependencies) {
+    init(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        quoteDraft: QuoteViewModel?,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
         self.threadId = threadId
         self.threadVariant = threadVariant
+        self.quoteDraft = quoteDraft
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -83,15 +90,35 @@ class SendMediaNavigationController: UINavigationController {
 
     public weak var sendMediaNavDelegate: SendMediaNavDelegate?
 
-    public class func showingCameraFirst(threadId: String, threadVariant: SessionThread.Variant, using dependencies: Dependencies) -> SendMediaNavigationController {
-        let navController = SendMediaNavigationController(threadId: threadId, threadVariant: threadVariant, using: dependencies)
+    public class func showingCameraFirst(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        quoteDraft: QuoteViewModel?,
+        using dependencies: Dependencies
+    ) -> SendMediaNavigationController {
+        let navController: SendMediaNavigationController = SendMediaNavigationController(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            quoteDraft: quoteDraft,
+            using: dependencies
+        )
         navController.viewControllers = [navController.captureViewController]
 
         return navController
     }
 
-    public class func showingMediaLibraryFirst(threadId: String, threadVariant: SessionThread.Variant, using dependencies: Dependencies) -> SendMediaNavigationController {
-        let navController = SendMediaNavigationController(threadId: threadId, threadVariant: threadVariant, using: dependencies)
+    public class func showingMediaLibraryFirst(
+        threadId: String,
+        threadVariant: SessionThread.Variant,
+        quoteDraft: QuoteViewModel?,
+        using dependencies: Dependencies
+    ) -> SendMediaNavigationController {
+        let navController: SendMediaNavigationController = SendMediaNavigationController(
+            threadId: threadId,
+            threadVariant: threadVariant,
+            quoteDraft: quoteDraft,
+            using: dependencies
+        )
         navController.viewControllers = [navController.mediaLibraryViewController]
 
         return navController
@@ -244,6 +271,7 @@ class SendMediaNavigationController: UINavigationController {
                 threadId: self.threadId,
                 threadVariant: self.threadVariant,
                 attachments: self.attachments,
+                quoteDraft: self.quoteDraft,
                 disableLinkPreviewImageDownload: false,
                 didLoadLinkPreview: nil,
                 using: dependencies

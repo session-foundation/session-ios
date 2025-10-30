@@ -96,29 +96,6 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         case isContactApproved
     }
     
-    public struct MessageInputState: Equatable {
-        public let allowedInputTypes: MessageInputTypes
-        public let message: String?
-        public let accessibility: Accessibility?
-        public let messageAccessibility: Accessibility?
-        
-        public static var all: MessageInputState = MessageInputState(allowedInputTypes: .all)
-        
-        // MARK: - Initialization
-        
-        init(
-            allowedInputTypes: MessageInputTypes,
-            message: String? = nil,
-            accessibility: Accessibility? = nil,
-            messageAccessibility: Accessibility? = nil
-        ) {
-            self.allowedInputTypes = allowedInputTypes
-            self.message = message
-            self.accessibility = accessibility
-            self.messageAccessibility = messageAccessibility
-        }
-    }
-    
     public var differenceIdentifier: String { threadId }
     public var id: String { threadId }
     
@@ -267,10 +244,10 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         return Date(timeIntervalSince1970: TimeInterval(Double(interactionTimestampMs) / 1000))
     }
     
-    public var messageInputState: MessageInputState {
-        guard !threadIsNoteToSelf else { return MessageInputState(allowedInputTypes: .all) }
+    public var messageInputState: InputView.InputState {
+        guard !threadIsNoteToSelf else { return InputView.InputState(allowedInputTypes: .all) }
         guard threadIsBlocked != true else {
-            return MessageInputState(
+            return InputView.InputState(
                 allowedInputTypes: .none,
                 message: "blockBlockedDescription".localized(),
                 messageAccessibility: Accessibility(
@@ -280,17 +257,22 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         }
         
         if threadVariant == .community && threadCanWrite == false {
-            return MessageInputState(
+            return InputView.InputState(
                 allowedInputTypes: .none,
                 message: "permissionsWriteCommunity".localized()
             )
         }
         
-        return MessageInputState(
-            allowedInputTypes: (threadRequiresApproval == false && threadIsMessageRequest == false ?
-                .all :
-                .textOnly
-            )
+        /// Attachments shouldn't be allowed for message requests or if uploads are disabled
+        let finalInputType: InputView.InputTypes
+        
+        switch (threadRequiresApproval, threadIsMessageRequest, threadCanUpload) {
+            case (false, false, true): finalInputType = .all
+            default: finalInputType = .textOnly
+        }
+        
+        return InputView.InputState(
+            allowedInputTypes: finalInputType
         )
     }
     

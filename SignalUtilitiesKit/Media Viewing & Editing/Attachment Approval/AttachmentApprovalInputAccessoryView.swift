@@ -3,6 +3,7 @@
 import Foundation
 import UIKit
 import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 protocol AttachmentApprovalInputAccessoryViewDelegate: AnyObject {
@@ -17,6 +18,7 @@ class AttachmentApprovalInputAccessoryView: UIView {
 
     let attachmentTextToolbar: AttachmentTextToolbar
     let galleryRailView: GalleryRailView
+    var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
 
     var isEditingMediaMessage: Bool {
         return attachmentTextToolbar.inputView?.isFirstResponder ?? false

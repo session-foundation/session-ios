@@ -220,6 +220,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     threadId: self.viewModel.viewData[indexPath.row].threadId,
                     threadVariant: self.viewModel.viewData[indexPath.row].threadVariant,
                     attachments: attachments,
+                    quoteDraft: nil,
                     approvalDelegate: self,
                     disableLinkPreviewImageDownload: (
                         self.viewModel.viewData[indexPath.row].threadCanUpload != true

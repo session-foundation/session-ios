@@ -4,6 +4,7 @@ import Foundation
 import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit
+import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit

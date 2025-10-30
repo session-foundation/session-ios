@@ -370,7 +370,6 @@ public protocol SessionProManagerType: AnyObject {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
-        beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool
@@ -380,14 +379,12 @@ public protocol SessionProManagerType: AnyObject {
 public extension SessionProManagerType {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
-        beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
         showSessionProCTAIfNeeded(
             variant,
             dismissType: .recursive,
-            beforePresented: beforePresented,
             afterClosed: afterClosed,
             presenting: presenting
         )
@@ -400,7 +397,6 @@ public extension SessionProManagerType {
         showSessionProCTAIfNeeded(
             variant,
             dismissType: .recursive,
-            beforePresented: nil,
             afterClosed: nil,
             presenting: presenting
         )

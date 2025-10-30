@@ -14,6 +14,7 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     
     var maxFileSize: UInt { Network.maxFileSize }
     var isStorageValid: Bool { dependencies[singleton: .storage].isValid }
+    var isRTL: Bool { Dependencies.isRTL }
     
     // MARK: - Initialization
     

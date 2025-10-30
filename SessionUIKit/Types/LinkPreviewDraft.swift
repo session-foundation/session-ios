@@ -1,8 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
-import SessionUIKit
-
+ TODO: Remove this and just use `LinkPreviewViewModel`
 public struct LinkPreviewDraft: Equatable, Hashable {
     public var urlString: String
     public var title: String?

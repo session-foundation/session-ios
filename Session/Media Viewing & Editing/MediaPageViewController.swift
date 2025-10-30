@@ -204,6 +204,9 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
+        /// Apply the nav styling in `viewWillAppear` instead of `viewDidLoad` as it's possible the nav stack isn't fully setup
+        /// and could crash when trying to access it (whereas by the time `viewWillAppear` is called it should be setup)
+        ThemeManager.applyNavigationStylingIfNeeded(to: self)
         startObservingChanges()
     }
     
@@ -960,8 +963,8 @@ extension MediaPageViewController: MediaPresentationContextProvider {
             cornerMask: CACornerMask()
         )
     }
-
-    func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
-        return self.navigationController?.navigationBar.generateSnapshot(in: coordinateSpace)
+    
+    func lowestViewToRenderAboveContent() -> UIView? {
+        return nil
     }
 }

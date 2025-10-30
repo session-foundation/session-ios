@@ -10,12 +10,12 @@ public extension ProfilePictureView {
         threadVariant: SessionThread.Variant,
         displayPictureUrl: String?,
         profile: Profile?,
-        profileIcon: ProfileIcon = .none,
+        profileIcon: Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfileIcon = .none,
+        additionalProfileIcon: Info.ProfileIcon = .none,
         using dependencies: Dependencies
     ) {
-        let (info, additionalInfo): (Info?, Info?) = ProfilePictureView.getProfilePictureInfo(
+        let (info, additionalInfo): (front: Info?, back: Info?) = Info.generateInfoFrom(
             size: self.size,
             publicKey: publicKey,
             threadVariant: threadVariant,
@@ -31,8 +31,10 @@ public extension ProfilePictureView {
         
         update(info, additionalInfo: additionalInfo)
     }
-    
-    static func getProfilePictureInfo(
+}
+
+public extension ProfilePictureView.Info {
+    static func generateInfoFrom(
         size: Size,
         publicKey: String,
         threadVariant: SessionThread.Variant,
@@ -42,7 +44,7 @@ public extension ProfilePictureView {
         additionalProfile: Profile? = nil,
         additionalProfileIcon: ProfileIcon = .none,
         using dependencies: Dependencies
-    ) -> (Info?, Info?) {
+    ) -> (front: ProfilePictureView.Info?, back: ProfilePictureView.Info?) {
         let explicitPath: String? = try? dependencies[singleton: .displayPictureManager].path(
             for: displayPictureUrl
         )
@@ -53,7 +55,7 @@ public extension ProfilePictureView {
             case (.some(let path), true, _, .legacyGroup), (.some(let path), true, _, .group): fallthrough
             case (.some(let path), true, _, .community):
                 /// If we are given an explicit `displayPictureUrl` then only use that
-                return (Info(
+                return (ProfilePictureView.Info(
                     source: .url(URL(fileURLWithPath: path)),
                     animationBehaviour: .generic(true),
                     icon: profileIcon
@@ -62,7 +64,7 @@ public extension ProfilePictureView {
             case (.some(let path), true, _, _):
                 /// If we are given an explicit `displayPictureUrl` then only use that
                 return (
-                    Info(
+                    ProfilePictureView.Info(
                         source: .url(URL(fileURLWithPath: path)),
                         animationBehaviour: ProfilePictureView.animationBehaviour(from: profile, using: dependencies),
                         icon: profileIcon
@@ -72,7 +74,7 @@ public extension ProfilePictureView {
             
             case (_, _, _, .community):
                 return (
-                    Info(
+                    ProfilePictureView.Info(
                         source: {
                             switch size {
                                 case .navigation, .message: return .image("SessionWhite16", #imageLiteral(resourceName: "SessionWhite16"))
@@ -117,7 +119,7 @@ public extension ProfilePictureView {
                 }()
                 
                 return (
-                    Info(
+                    ProfilePictureView.Info(
                         source: source,
                         animationBehaviour: ProfilePictureView.animationBehaviour(from: profile, using: dependencies),
                         icon: profileIcon
@@ -140,14 +142,14 @@ public extension ProfilePictureView {
                                 return ImageDataManager.DataSource.url(URL(fileURLWithPath: path))
                             }()
                             
-                            return Info(
+                            return ProfilePictureView.Info(
                                 source: source,
                                 animationBehaviour: ProfilePictureView.animationBehaviour(from: other, using: dependencies),
                                 icon: additionalProfileIcon
                             )
                         }
                         .defaulting(
-                            to: Info(
+                            to: ProfilePictureView.Info(
                                 source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
                                 animationBehaviour: .generic(false),
                                 renderingMode: .alwaysTemplate,
@@ -182,7 +184,7 @@ public extension ProfilePictureView {
                 }()
                 
                 return (
-                    Info(
+                    ProfilePictureView.Info(
                         source: source,
                         animationBehaviour: ProfilePictureView.animationBehaviour(from: profile, using: dependencies),
                         icon: profileIcon),
@@ -210,17 +212,17 @@ public extension ProfilePictureView {
 
 public extension ProfilePictureSwiftUI {
     init?(
-        size: ProfilePictureView.Size,
+        size: ProfilePictureView.Info.Size,
         publicKey: String,
         threadVariant: SessionThread.Variant,
         displayPictureUrl: String?,
         profile: Profile?,
-        profileIcon: ProfilePictureView.ProfileIcon = .none,
+        profileIcon: ProfilePictureView.Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfilePictureView.ProfileIcon = .none,
+        additionalProfileIcon: ProfilePictureView.Info.ProfileIcon = .none,
         using dependencies: Dependencies
     ) {
-        let (info, additionalInfo) = ProfilePictureView.getProfilePictureInfo(
+        let (info, additionalInfo) = ProfilePictureView.Info.generateInfoFrom(
             size: size,
             publicKey: publicKey,
             threadVariant: threadVariant,

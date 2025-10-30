@@ -1,57 +1,93 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import UniformTypeIdentifiers
 import Combine
-import SessionUIKit
-import SessionMessagingKit
-import SessionUtilitiesKit
-import SignalUtilitiesKit
 
-final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, MentionSelectionViewDelegate {
+public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, MentionSelectionViewDelegate {
+    public enum InputTypes: Equatable {
+        case all
+        case textOnly
+        case none
+    }
+    
+    public struct InputState: Equatable {
+        public let allowedInputTypes: InputTypes
+        public let message: String?
+        public let accessibility: Accessibility?
+        public let messageAccessibility: Accessibility?
+        
+        public static var all: InputState = InputState(allowedInputTypes: .all)
+        
+        // MARK: - Initialization
+        
+        init(
+            allowedInputTypes: InputTypes,
+            message: String? = nil,
+            accessibility: Accessibility? = nil,
+            messageAccessibility: Accessibility? = nil
+        ) {
+            self.allowedInputTypes = allowedInputTypes
+            self.message = message
+            self.accessibility = accessibility
+            self.messageAccessibility = messageAccessibility
+        }
+    }
+    
     // MARK: - Variables
     
     private static let linkPreviewViewInset: CGFloat = 6
     private static let thresholdForCharacterLimit: Int = 200
 
     private var disposables: Set<AnyCancellable> = Set()
-    private let dependencies: Dependencies
-    private let threadVariant: SessionThread.Variant
+    private let dataManager: ImageDataManagerType
+    private let displayNameRetriever: (String, Bool) -> String?
     private weak var delegate: InputViewDelegate?
     private var sessionProState: SessionProManagerType?
     
-    var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
-    var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
+    public var quoteDraft: QuoteViewModel? { didSet { handleQuoteDraftChanged() } }
+    public var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
     private var linkPreviewLoadTask: Task<Void, Never>?
     private var voiceMessageRecordingView: VoiceMessageRecordingView?
     private lazy var mentionsViewHeightConstraint = mentionsView.set(.height, to: 0)
 
-    private lazy var linkPreviewView: LinkPreviewView = {
-        let maxWidth: CGFloat = (self.additionalContentContainer.bounds.width - InputView.linkPreviewViewInset)
+    private lazy var linkPreviewContainerView: UIView = {
+        let result: UIView = UIView()
+        result.isHidden = true
+        result.addSubview(linkPreviewView)
+        linkPreviewView.pin(.top, to: .top, of: result, withInset: 10)
+        linkPreviewView.pin(.leading, to: .leading, of: result, withInset: (12 + InputView.linkPreviewViewInset))
+        linkPreviewView.pin(.trailing, to: .trailing, of: result, withInset: -14)
+        linkPreviewView.pin(.bottom, to: .bottom, of: result, withInset: -4)
         
-        return LinkPreviewView(maxWidth: maxWidth, using: dependencies) { [weak self] in
-            self?.linkPreviewInfo = nil
-            self?.additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
-        }
+        return result
     }()
+    
+    private lazy var linkPreviewView: LinkPreviewView = LinkPreviewView { [weak self] in
+        self?.linkPreviewInfo = nil
+        self?.linkPreviewContainerView.isHidden = true
+    }
 
-    var text: String {
+    @MainActor public var text: String {
         get { inputTextView.text ?? "" }
         set { inputTextView.text = newValue }
     }
     
-    var selectedRange: NSRange {
+    @MainActor var selectedRange: NSRange {
         get { inputTextView.selectedRange }
         set { inputTextView.selectedRange = newValue }
     }
     
-    var inputState: SessionThreadViewModel.MessageInputState = .all {
-        didSet {
-            setMessageInputState(inputState)
-        }
+    @MainActor var inputState: InputState = .all {
+        didSet { setMessageInputState(inputState) }
     }
 
-    override var intrinsicContentSize: CGSize { CGSize.zero }
+    public override var intrinsicContentSize: CGSize { CGSize.zero }
     var lastSearchedText: String? { nil }
+    
+    public var isInputFirstResponder: Bool {
+        inputTextView.isFirstResponder
+    }
 
     // MARK: - UI
     
@@ -72,17 +108,17 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         return result
     }()
     
-    private var bottomStackView: UIStackView?
-    private lazy var attachmentsButton: ExpandingAttachmentsButton = {
-        let result = ExpandingAttachmentsButton(delegate: delegate)
+    public lazy var attachmentsButton: InputViewButton = {
+        let result = InputViewButton(icon: #imageLiteral(resourceName: "ic_plus_24"), delegate: self)
         result.accessibilityLabel = "Attachments button"
         result.accessibilityIdentifier = "Attachments button"
         result.isAccessibilityElement = true
         
         return result
     }()
+    public lazy var attachmentsButtonContainer = InputViewButton.container(for: attachmentsButton)
 
-    private lazy var voiceMessageButton: InputViewButton = {
+    public lazy var voiceMessageButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "Microphone"), delegate: self)
         result.accessibilityLabel = "New voice message"
         result.accessibilityIdentifier = "New voice message"
@@ -91,7 +127,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         return result
     }()
 
-    private lazy var sendButton: InputViewButton = {
+    public lazy var sendButton: InputViewButton = {
         let result = InputViewButton(icon: #imageLiteral(resourceName: "ArrowUp"), isSendButton: true, delegate: self)
         result.isHidden = true
         result.accessibilityIdentifier = "Send message button"
@@ -100,10 +136,32 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         
         return result
     }()
-    private lazy var voiceMessageButtonContainer = container(for: voiceMessageButton)
+    private lazy var voiceMessageButtonContainer = InputViewButton.container(for: voiceMessageButton)
+    
+    private lazy var bottomStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            attachmentsButtonContainer,
+            inputTextView,
+            InputViewButton.container(for: sendButton)
+        ])
+        result.axis = .horizontal
+        result.spacing = Values.smallSpacing
+        result.alignment = .center
+        result.isLayoutMarginsRelativeArrangement = true
+        
+        let adjustment: CGFloat = (InputViewButton.expandedSize - InputViewButton.size) / 2
+        result.layoutMargins = UIEdgeInsets(
+            top: 2,
+            leading: Values.mediumSpacing - adjustment,
+            bottom: 2,
+            trailing: Values.mediumSpacing - adjustment
+        )
+        
+        return result
+    }()
 
     private lazy var mentionsView: MentionSelectionView = {
-        let result: MentionSelectionView = MentionSelectionView(using: dependencies)
+        let result: MentionSelectionView = MentionSelectionView(dataManager: dataManager)
         result.delegate = self
         
         return result
@@ -114,6 +172,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         result.accessibilityLabel = "Mentions list"
         result.accessibilityIdentifier = "Mentions list"
         result.alpha = 0
+        result.isHidden = true
         
         let backgroundView = UIView()
         backgroundView.themeBackgroundColor = .backgroundSecondary
@@ -129,8 +188,54 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
             blurView?.effect = UIBlurEffect(style: theme.blurStyle)
         }
         
+        result.addSubview(mentionsView)
+        mentionsView.pin(to: result)
+        
         return result
     }()
+    
+    private lazy var separator: UIView = {
+        let result: UIView = UIView()
+        result.themeBackgroundColor = .borderSeparator
+        result.set(.height, to: Values.separatorThickness)
+        
+        return result
+    }()
+    
+    private lazy var quoteViewContainerView: UIView = {
+        let result: UIView = UIView()
+        result.isHidden = true
+        
+        result.addSubview(quoteView)
+        quoteView.pin(.top, to: .top, of: result, withInset: 12)
+        quoteView.pin(.leading, to: .leading, of: result, withInset: (12 + 6))
+        quoteView.pin(.trailing, to: .trailing, of: result, withInset: -11)
+        quoteView.pin(.bottom, to: .bottom, of: result, withInset: -6)
+        
+        return result
+    }()
+    
+    private lazy var quoteView: QuoteView = QuoteView(
+        viewModel: QuoteViewModel(
+            mode: .draft,
+            direction: .outgoing,
+            currentUserSessionIds: [],
+            rowId: 0,
+            interactionId: nil,
+            authorId: "",
+            timestampMs: 0,
+            quotedInteractionId: 0,
+            quotedInteractionIsDeleted: false,
+            quotedText: nil,
+            quotedAttachmentInfo: nil,
+            displayNameRetriever: displayNameRetriever
+        ),
+        dataManager: dataManager,
+        onCancel: { [weak self] in
+           self?.quoteDraft = nil
+           self?.quoteViewContainerView.isHidden = true
+        }
+    )
 
     private lazy var inputTextView: InputTextView = {
         // HACK: When restoring a draft the input text view won't have a frame yet, and therefore it won't
@@ -190,24 +295,53 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: .small)
-        result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
+        // TODO: Need to add this back
+//        result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
+        
+        return result
+    }()
+    
+    private lazy var mainStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            mentionsViewContainer,
+            separator,
+            linkPreviewContainerView,
+            quoteViewContainerView,
+            bottomStackView
+        ])
+        result.axis = .vertical
+        result.alignment = .fill
+        result.distribution = .fill
+        
+        return result
+    }()
+    
+    public var inputContainerForBackground: UIView { mainStackView }
+    
+    private lazy var extraStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            mentionsViewContainer,
+            mainStackView
+        ])
+        result.axis = .vertical
+        result.alignment = .fill
+        result.distribution = .fill
         
         return result
     }()
 
-    private lazy var additionalContentContainer = UIView()
-    
-    public var isInputFirstResponder: Bool {
-        inputTextView.isFirstResponder
-    }
-
     // MARK: - Initialization
     
-    init(threadVariant: SessionThread.Variant, delegate: InputViewDelegate, using dependencies: Dependencies) {
-        self.dependencies = dependencies
-        self.threadVariant = threadVariant
+    public init(
+        delegate: InputViewDelegate,
+        displayNameRetriever: @escaping (String, Bool) -> String?,
+        dataManager: ImageDataManagerType,
+        sessionProState: SessionProManagerType?
+    ) {
+        self.dataManager = dataManager
         self.delegate = delegate
-        self.sessionProState = dependencies[singleton: .sessionProState]
+        self.displayNameRetriever = displayNameRetriever
+        self.sessionProState = sessionProState
         
         super.init(frame: CGRect.zero)
         
@@ -243,46 +377,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         addGestureRecognizer(tapGestureRecognizer)
         addGestureRecognizer(swipeGestureRecognizer)
         
-        // Background & blur
-        let backgroundView = UIView()
-        backgroundView.themeBackgroundColor = .backgroundSecondary
-        backgroundView.alpha = Values.lowOpacity
-        addSubview(backgroundView)
-        backgroundView.pin(to: self)
-        
-        let blurView = UIVisualEffectView()
-        addSubview(blurView)
-        blurView.pin(to: self)
-        
-        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
-            blurView?.effect = UIBlurEffect(style: theme.blurStyle)
-        }
-        
-        // Separator
-        let separator = UIView()
-        separator.themeBackgroundColor = .borderSeparator
-        separator.set(.height, to: Values.separatorThickness)
-        addSubview(separator)
-        separator.pin([ UIView.HorizontalEdge.leading, UIView.VerticalEdge.top, UIView.HorizontalEdge.trailing ], to: self)
-        
-        // Bottom stack view
-        let bottomStackView = UIStackView(arrangedSubviews: [ attachmentsButton, inputTextView, container(for: sendButton) ])
-        bottomStackView.axis = .horizontal
-        bottomStackView.spacing = Values.smallSpacing
-        bottomStackView.alignment = .center
-        self.bottomStackView = bottomStackView
-        
         // Main stack view
-        let mainStackView = UIStackView(arrangedSubviews: [ additionalContentContainer, bottomStackView ])
-        mainStackView.axis = .vertical
-        mainStackView.isLayoutMarginsRelativeArrangement = true
-        
-        let adjustment = (InputViewButton.expandedSize - InputViewButton.size) / 2
-        mainStackView.layoutMargins = UIEdgeInsets(top: 2, leading: Values.mediumSpacing - adjustment, bottom: 2, trailing: Values.mediumSpacing - adjustment)
-        addSubview(mainStackView)
-        mainStackView.pin(.top, to: .bottom, of: separator)
-        mainStackView.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing ], to: self)
-        mainStackView.pin(.bottom, to: .bottom, of: self)
+        addSubview(extraStackView)
+        extraStackView.pin(to: self)
+        mentionsViewHeightConstraint.isActive = true
         
         // Pro stack view
         addSubview(proStackView)
@@ -295,14 +393,6 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         disabledInputLabel.pin(.leading, to: .leading, of: inputTextView)
         disabledInputLabel.pin(.trailing, to: .trailing, of: inputTextView)
         disabledInputLabel.set(.height, to: InputViewButton.expandedSize)
-
-        // Mentions
-        insertSubview(mentionsViewContainer, belowSubview: mainStackView)
-        mentionsViewContainer.pin([ UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing ], to: self)
-        mentionsViewContainer.pin(.bottom, to: .top, of: self)
-        mentionsViewContainer.addSubview(mentionsView)
-        mentionsView.pin(to: mentionsViewContainer)
-        mentionsViewHeightConstraint.isActive = true
         
         // Voice message button
         addSubview(voiceMessageButtonContainer)
@@ -311,12 +401,12 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
 
     // MARK: - Updating
     
-    @MainActor func inputTextViewDidChangeSize(_ inputTextView: InputTextView) {
+    @MainActor public func inputTextViewDidChangeSize(_ inputTextView: InputTextView) {
         invalidateIntrinsicContentSize()
-        self.bottomStackView?.alignment = (inputTextView.contentSize.height > inputTextView.minHeight) ? .top : .center
+        self.bottomStackView.alignment = (inputTextView.contentSize.height > inputTextView.minHeight) ? .top : .center
     }
 
-    @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
+    @MainActor public func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
         let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         sendButton.isHidden = !hasText
         voiceMessageButtonContainer.isHidden = hasText
@@ -328,7 +418,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     @MainActor func updateNumberOfCharactersLeft(_ text: String) {
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
             for: text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: dependencies[cache: .libSession].isSessionPro
+            // TODO: Need to add this back
+            isSessionPro: false
+//            isSessionPro: dependencies[cache: .libSession].isSessionPro
         )
         characterLimitLabel.text = "\(numberOfCharactersLeft.formatted(format: .abbreviated(decimalPlaces: 1)))"
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
@@ -336,7 +428,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         characterLimitLabelTapGestureRecognizer.isEnabled = (numberOfCharactersLeft < Self.thresholdForCharacterLimit)
     }
 
-    @MainActor func didPasteImageDataFromPasteboard(_ inputTextView: InputTextView, imageData: Data) {
+    @MainActor public func didPasteImageDataFromPasteboard(_ inputTextView: InputTextView, imageData: Data) {
         delegate?.didPasteImageDataFromPasteboard(imageData)
     }
 
@@ -345,31 +437,16 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     // URL before removing the quote draft.
 
     private func handleQuoteDraftChanged() {
-        additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
         linkPreviewInfo = nil
+        linkPreviewContainerView.isHidden = true
         
-        guard let quoteDraftInfo = quoteDraftInfo else { return }
-        
-        let hInset: CGFloat = 6 // Slight visual adjustment
-
-        let quoteView: QuoteView = QuoteView(
-            for: .draft,
-            authorId: quoteDraftInfo.model.authorId,
-            quotedText: quoteDraftInfo.model.body,
-            threadVariant: threadVariant,
-            currentUserSessionIds: quoteDraftInfo.model.currentUserSessionIds,
-            direction: (quoteDraftInfo.isOutgoing ? .outgoing : .incoming),
-            attachment: quoteDraftInfo.model.attachment,
-            using: dependencies
-        ) { [weak self] in
-            self?.quoteDraftInfo = nil
+        guard let quoteDraft: QuoteViewModel = quoteDraft else {
+            quoteViewContainerView.isHidden = true
+            return
         }
         
-        additionalContentContainer.addSubview(quoteView)
-        quoteView.pin(.leading, to: .leading, of: additionalContentContainer, withInset: hInset)
-        quoteView.pin(.top, to: .top, of: additionalContentContainer, withInset: 12)
-        quoteView.pin(.trailing, to: .trailing, of: additionalContentContainer, withInset: -hInset)
-        quoteView.pin(.bottom, to: .bottom, of: additionalContentContainer, withInset: -6)
+        quoteView.update(viewModel: quoteDraft)
+        quoteViewContainerView.isHidden = false
     }
 
     private func autoGenerateLinkPreviewIfPossible() {
@@ -379,7 +456,8 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         // Suggest that the user enable link previews if they haven't already and we haven't
         // told them about link previews yet
         let text = inputTextView.text!
-        DispatchQueue.global(qos: .userInitiated).async { [weak self, dependencies] in
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let areLinkPreviewsEnabled: Bool = dependencies.mutate(cache: .libSession) { cache in
                 cache.get(.areLinkPreviewsEnabled)
             }
@@ -415,61 +493,79 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         guard linkPreviewURL != self.linkPreviewInfo?.url else { return }
         
         // Clear content container
-        additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
-        quoteDraftInfo = nil
+        quoteDraft = nil
+        quoteViewContainerView.isHidden = true
         
-        // Set the state to loading
+        // Set the state to loading (but don't show yet)
         linkPreviewInfo = (url: linkPreviewURL, draft: nil)
-        linkPreviewView.update(with: LinkPreview.LoadingState(), isOutgoing: false, using: dependencies)
-
-        // Add the link preview view
-        additionalContentContainer.addSubview(linkPreviewView)
-        linkPreviewView.pin(.leading, to: .leading, of: additionalContentContainer, withInset: InputView.linkPreviewViewInset)
-        linkPreviewView.pin(.top, to: .top, of: additionalContentContainer, withInset: 10)
-        linkPreviewView.pin(.trailing, to: .trailing, of: additionalContentContainer)
-        linkPreviewView.pin(.bottom, to: .bottom, of: additionalContentContainer, withInset: -4)
+        linkPreviewView.update(
+            with: LinkPreview.LoadingState(),
+            maxWidth: (mainStackView.bounds.width - InputView.linkPreviewViewInset),
+            isOutgoing: false,
+            using: dependencies
+        )
         
         // Build the link preview
         linkPreviewLoadTask?.cancel()
         linkPreviewLoadTask = Task.detached(priority: .userInitiated) { [weak self, allowedInputTypes = inputState.allowedInputTypes, dependencies] in
-            do {
-                /// Load the draft
-                let draft: LinkPreviewDraft = try await LinkPreview.tryToBuildPreviewInfo(
-                    previewUrl: linkPreviewURL,
-                    skipImageDownload: (allowedInputTypes != .all),  /// Disable if attachments are disabled
-                    using: dependencies
-                )
-                try Task.checkCancellation()
+            await withThrowingTaskGroup(of: Void.self) { [weak self] group in
+                /// Wait for a short period before showing the link preview UI (this is to avoid a situation where an invalid URL shows
+                /// the loading state very briefly before it disappears
+                group.addTask { [weak self] in
+                    try await Task.sleep(for: .milliseconds(50))
+                    
+                    await MainActor.run { [weak self] in
+                        guard let self else { return }
+                        guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
+                        
+                        linkPreviewContainerView.isHidden = false
+                    }
+                }
+                group.addTask { [weak self] in
+                    do {
+                        /// Load the draft
+                        let draft: LinkPreviewDraft = try await LinkPreview.tryToBuildPreviewInfo(
+                            previewUrl: linkPreviewURL,
+                            skipImageDownload: (allowedInputTypes != .all),  /// Disable if attachments are disabled
+                            using: dependencies
+                        )
+                        try Task.checkCancellation()
+                        
+                        await MainActor.run { [weak self] in
+                            guard let self else { return }
+                            guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
+                            
+                            linkPreviewInfo = (url: linkPreviewURL, draft: draft)
+                            linkPreviewView.update(
+                                with: LinkPreview.DraftState(linkPreviewDraft: draft),
+                                maxWidth: (mainStackView.bounds.width - InputView.linkPreviewViewInset),
+                                isOutgoing: false,
+                                using: dependencies
+                            )
+                            linkPreviewContainerView.isHidden = false
+                            setNeedsLayout()
+                            layoutIfNeeded()
+                        }
+                    }
+                    catch {
+                        await MainActor.run { [weak self] in
+                            guard let self else { return }
+                            guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
+                            
+                            linkPreviewInfo = nil
+                            linkPreviewContainerView.isHidden = true
+                            setNeedsLayout()
+                            layoutIfNeeded()
+                        }
+                    }
+                }
                 
-                await MainActor.run { [weak self] in
-                    guard let self else { return }
-                    guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
-                    
-                    linkPreviewInfo = (url: linkPreviewURL, draft: draft)
-                    linkPreviewView.update(
-                        with: LinkPreview.DraftState(linkPreviewDraft: draft),
-                        isOutgoing: false,
-                        using: dependencies
-                    )
-                    setNeedsLayout()
-                    layoutIfNeeded()
-                }
-            }
-            catch {
-                await MainActor.run { [weak self] in
-                    guard let self else { return }
-                    guard linkPreviewInfo?.url == linkPreviewURL else { return } /// Obsolete
-                    
-                    linkPreviewInfo = nil
-                    additionalContentContainer.subviews.forEach { $0.removeFromSuperview() }
-                    setNeedsLayout()
-                    layoutIfNeeded()
-                }
+                try? await group.waitForAll()
             }
         }
     }
 
-    func setMessageInputState(_ updatedInputState: SessionThreadViewModel.MessageInputState) {
+    @MainActor func setMessageInputState(_ updatedInputState: InputState) {
         guard inputState != updatedInputState else { return }
 
         self.accessibilityIdentifier = updatedInputState.accessibility?.identifier
@@ -485,10 +581,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         voiceMessageButton.isSoftDisabled = (updatedInputState.allowedInputTypes != .all)
 
         UIView.animate(withDuration: 0.3) { [weak self] in
-            self?.bottomStackView?.arrangedSubviews.forEach { $0.alpha = (updatedInputState.allowedInputTypes != .none ? 1 : 0) }
+            self?.bottomStackView.arrangedSubviews.forEach { $0.alpha = (updatedInputState.allowedInputTypes != .none ? 1 : 0) }
             
             self?.attachmentsButton.alpha = (updatedInputState.allowedInputTypes == .all ? 1 : 0.4)
-            self?.attachmentsButton.mainButton.updateAppearance(isEnabled: updatedInputState.allowedInputTypes == .all)
+            self?.attachmentsButton.updateAppearance(isEnabled: updatedInputState.allowedInputTypes == .all)
             
             self?.voiceMessageButton.alpha =  (updatedInputState.allowedInputTypes == .all ? 1 : 0.4)
             self?.voiceMessageButton.updateAppearance(isEnabled: updatedInputState.allowedInputTypes == .all)
@@ -498,46 +594,23 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     }
 
     // MARK: - Interaction
-    
-    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        // Needed so that the user can tap the buttons when the expanding attachments button is expanded
-        let buttonContainers = [ attachmentsButton.mainButton, attachmentsButton.cameraButton,
-            attachmentsButton.libraryButton, attachmentsButton.documentButton, attachmentsButton.gifButton ]
-        
-        if let buttonContainer: InputViewButton = buttonContainers.first(where: { $0.superview?.convert($0.frame, to: self).contains(point) == true }) {
-            return buttonContainer
-        }
-        
-        return super.hitTest(point, with: event)
-    }
 
-    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        let buttonContainers = [ attachmentsButton.gifButtonContainer, attachmentsButton.documentButtonContainer,
-            attachmentsButton.libraryButtonContainer, attachmentsButton.cameraButtonContainer, attachmentsButton.mainButtonContainer ]
-        let isPointInsideAttachmentsButton = buttonContainers
-            .contains { $0.superview!.convert($0.frame, to: self).contains(point) }
-        
-        if isPointInsideAttachmentsButton {
-            // Needed so that the user can tap the buttons when the expanding attachments button is expanded
-            return true
+    @MainActor public func handleInputViewButtonTapped(_ inputViewButton: InputViewButton) {
+        if inputViewButton == attachmentsButton {
+            if inputState.allowedInputTypes != .all {
+                delegate?.handleDisabledAttachmentButtonTapped()
+            }
+            else {
+                delegate?.handleAttachmentButtonTapped()
+            }
         }
-        
-        if mentionsViewContainer.frame.contains(point) {
-            // Needed so that the user can tap mentions
-            return true
-        }
-        
-        return super.point(inside: point, with: event)
-    }
-
-    @MainActor func handleInputViewButtonTapped(_ inputViewButton: InputViewButton) {
         if inputViewButton == sendButton { delegate?.handleSendButtonTapped() }
         if inputViewButton == voiceMessageButton && inputState.allowedInputTypes != .all {
             delegate?.handleDisabledVoiceMessageButtonTapped()
         }
     }
 
-    @MainActor func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?) {
+    @MainActor public func handleInputViewButtonLongPressBegan(_ inputViewButton: InputViewButton?) {
         guard inputViewButton == voiceMessageButton else { return }
         guard inputState.allowedInputTypes == .all else { return }
         
@@ -548,7 +621,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         delegate?.startVoiceMessageRecording()
     }
 
-    @MainActor func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?) {
+    @MainActor public func handleInputViewButtonLongPressMoved(_ inputViewButton: InputViewButton, with touch: UITouch?) {
         guard
             let voiceMessageRecordingView: VoiceMessageRecordingView = voiceMessageRecordingView,
             inputViewButton == voiceMessageButton,
@@ -558,7 +631,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         voiceMessageRecordingView.handleLongPressMoved(to: location)
     }
 
-    @MainActor func handleInputViewButtonLongPressEnded(_ inputViewButton: InputViewButton, with touch: UITouch?) {
+    @MainActor public func handleInputViewButtonLongPressEnded(_ inputViewButton: InputViewButton, with touch: UITouch?) {
         guard
             let voiceMessageRecordingView: VoiceMessageRecordingView = voiceMessageRecordingView,
             inputViewButton == voiceMessageButton,
@@ -568,12 +641,12 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         voiceMessageRecordingView.handleLongPressEnded(at: location)
     }
 
-    override func resignFirstResponder() -> Bool {
+    public override func resignFirstResponder() -> Bool {
         inputTextView.resignFirstResponder()
     }
     
     @discardableResult
-    override func becomeFirstResponder() -> Bool {
+    public override func becomeFirstResponder() -> Bool {
         inputTextView.becomeFirstResponder()
     }
 
@@ -596,54 +669,57 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         voiceMessageRecordingView.pin(to: self)
         self.voiceMessageRecordingView = voiceMessageRecordingView
         voiceMessageRecordingView.animate()
-        let allOtherViews = [ attachmentsButton, sendButton, inputTextView, additionalContentContainer ]
+        let allOtherViews = [ attachmentsButton, sendButton, inputTextView ]
         UIView.animate(withDuration: 0.25) {
             allOtherViews.forEach { $0.alpha = 0 }
         }
     }
 
     func hideVoiceMessageUI() {
-        let allOtherViews = [ attachmentsButton, sendButton, inputTextView, additionalContentContainer ]
-        UIView.animate(withDuration: 0.25, animations: {
-            allOtherViews.forEach { $0.alpha = 1 }
-            self.voiceMessageRecordingView?.alpha = 0
-        }, completion: { [weak self] _ in
-            self?.voiceMessageRecordingView?.removeFromSuperview()
-            self?.voiceMessageRecordingView = nil
-        })
-    }
-
-    func hideMentionsUI() {
+        let allOtherViews = [ attachmentsButton, sendButton, inputTextView ]
         UIView.animate(
             withDuration: 0.25,
+            animations: {
+                allOtherViews.forEach { $0.alpha = 1 }
+                self.voiceMessageRecordingView?.alpha = 0
+            },
+            completion: { [weak self] _ in
+                self?.voiceMessageRecordingView?.removeFromSuperview()
+                self?.voiceMessageRecordingView = nil
+            }
+        )
+    }
+
+    @MainActor func showMentionsUI(for candidates: [MentionSelectionView.ViewModel]) {
+        mentionsView.candidates = candidates
+        
+        let mentionCellHeight = (ProfilePictureView.Info.Size.message.viewSize + 2 * Values.smallSpacing)
+        mentionsViewHeightConstraint.constant = CGFloat(min(3, candidates.count)) * mentionCellHeight
+        self.mentionsViewContainer.alpha = 0
+        self.mentionsViewContainer.isHidden = false
+        layoutIfNeeded()
+        
+        UIView.animate(withDuration: 0.15) { [weak self] in
+            self?.mentionsViewContainer.alpha = 1
+        }
+    }
+    
+    @MainActor func hideMentionsUI() {
+        UIView.animate(
+            withDuration: 0.15,
             animations: { [weak self] in
                 self?.mentionsViewContainer.alpha = 0
             },
             completion: { [weak self] _ in
+                self?.mentionsViewContainer.isHidden = true
                 self?.mentionsViewHeightConstraint.constant = 0
                 self?.mentionsView.contentOffset = CGPoint.zero
             }
         )
     }
 
-    func showMentionsUI(
-        for candidates: [MentionInfo],
-        currentUserSessionIds: Set<String>
-    ) {
-        mentionsView.currentUserSessionIds = currentUserSessionIds
-        mentionsView.candidates = candidates
-        
-        let mentionCellHeight = (ProfilePictureView.Size.message.viewSize + 2 * Values.smallSpacing)
-        mentionsViewHeightConstraint.constant = CGFloat(min(3, candidates.count)) * mentionCellHeight
-        layoutIfNeeded()
-        
-        UIView.animate(withDuration: 0.25) {
-            self.mentionsViewContainer.alpha = 1
-        }
-    }
-
-    @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView) {
-        delegate?.handleMentionSelected(mentionInfo, from: view)
+    @MainActor public func handleMentionSelected(_ viewModel: MentionSelectionView.ViewModel, from view: MentionSelectionView) {
+        delegate?.handleMentionSelected(viewModel, from: view)
     }
     
     func tapableLabel(_ label: TappableLabel, didTapUrl url: String, atRange range: NSRange) {
@@ -661,29 +737,19 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     @objc private func didSwipeDown() {
         inputTextView.resignFirstResponder()
     }
-
-    // MARK: - Convenience
-    
-    private func container(for button: InputViewButton) -> UIView {
-        let result: UIView = UIView()
-        result.addSubview(button)
-        result.set(.width, to: InputViewButton.expandedSize)
-        result.set(.height, to: InputViewButton.expandedSize)
-        button.center(in: result)
-        
-        return result
-    }
 }
 
 // MARK: - Delegate
 
-protocol InputViewDelegate: ExpandingAttachmentsButtonDelegate, VoiceMessageRecordingViewDelegate {
+public protocol InputViewDelegate: VoiceMessageRecordingViewDelegate, AnyObject {
     @MainActor func showLinkPreviewSuggestionModal()
     @MainActor func handleSendButtonTapped()
     @MainActor func handleDisabledInputTapped()
+    @MainActor func handleAttachmentButtonTapped()
+    @MainActor func handleDisabledAttachmentButtonTapped()
     @MainActor func handleDisabledVoiceMessageButtonTapped()
     @MainActor func handleCharacterLimitLabelTapped()
     @MainActor func inputTextViewDidChangeContent(_ inputTextView: InputTextView)
-    @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView)
+    @MainActor func handleMentionSelected(_ viewModel: MentionSelectionView.ViewModel, from view: MentionSelectionView)
     @MainActor func didPasteImageDataFromPasteboard(_ imageData: Data)
 }

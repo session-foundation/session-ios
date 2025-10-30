@@ -10,6 +10,7 @@ public actor SNUIKit {
     public protocol ConfigType {
         var maxFileSize: UInt { get }
         var isStorageValid: Bool { get }
+        var isRTL: Bool { get }
         
         func themeChanged(_ theme: Theme, _ primaryColor: Theme.PrimaryColor, _ matchSystemNightModeSetting: Bool)
         func navBarSessionIcon() -> NavBarSessionIcon
@@ -28,6 +29,7 @@ public actor SNUIKit {
     
     @MainActor public static var mainWindow: UIWindow? = nil
     internal static var config: ConfigType? = nil
+    private static let configLock = NSLock()
     
     @MainActor public static func setMainWindow(_ mainWindow: UIWindow) {
         self.mainWindow = mainWindow
@@ -40,7 +42,16 @@ public actor SNUIKit {
             primaryColor: themeSettings?.primaryColor,
             matchSystemNightModeSetting: themeSettings?.matchSystemNightModeSetting
         )
+        configLock.lock()
         self.config = config
+        configLock.unlock()
+    }
+    
+    public static var isRTL: Bool {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
+        return config?.isRTL == true
     }
     
     internal static func themeSettingsChanged(
@@ -48,50 +59,74 @@ public actor SNUIKit {
         _ primaryColor: Theme.PrimaryColor,
         _ matchSystemNightModeSetting: Bool
     ) {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
         config?.themeChanged(theme, primaryColor, matchSystemNightModeSetting)
     }
     
     @MainActor internal static func navBarSessionIcon() -> NavBarSessionIcon {
-        guard let config: ConfigType = self.config else { return NavBarSessionIcon() }
+        configLock.lock()
+        defer { configLock.unlock() }
         
-        return config.navBarSessionIcon()
+        return (config?.navBarSessionIcon() ?? navBarSessionIcon())
     }
     
     internal static func topBannerChanged(to warning: TopBannerController.Warning?) {
         guard let warning: TopBannerController.Warning = warning else {
+            configLock.lock()
+            defer { configLock.unlock() }
+            
             config?.persistentTopBannerChanged(warningKey: nil)
             return
         }
         guard warning.shouldAppearOnResume else { return }
         
+        configLock.lock()
+        defer { configLock.unlock() }
+        
         config?.persistentTopBannerChanged(warningKey: warning.rawValue)
     }
     
     public static func shouldShowStringKeys() -> Bool {
-        guard let config: ConfigType = self.config else { return false }
+        configLock.lock()
+        defer { configLock.unlock() }
         
-        return config.shouldShowStringKeys()
+        return (config?.shouldShowStringKeys() == true)
     }
     
     internal static func assetInfo(for path: String, utType: UTType, sourceFilename: String?) -> (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void)? {
-        guard let config: ConfigType = self.config else { return nil }
+        configLock.lock()
+        defer { configLock.unlock() }
         
-        return config.assetInfo(for: path, utType: utType, sourceFilename: sourceFilename)
+        return config?.assetInfo(for: path, utType: utType, sourceFilename: sourceFilename)
     }
     
     internal static func mediaDecoderDefaultImageOptions() -> CFDictionary? {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
         return config?.mediaDecoderDefaultImageOptions()
     }
     
     internal static func mediaDecoderDefaultThumbnailOptions(maxDimension: CGFloat) -> CFDictionary? {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
         return config?.mediaDecoderDefaultThumbnailOptions(maxDimension: maxDimension)
     }
     
     internal static func mediaDecoderSource(for url: URL) -> CGImageSource? {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
         return config?.mediaDecoderSource(for: url)
     }
     
     internal static func mediaDecoderSource(for data: Data) -> CGImageSource? {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
         return config?.mediaDecoderSource(for: data)
     }
 }

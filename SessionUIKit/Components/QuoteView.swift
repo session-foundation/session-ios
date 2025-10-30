@@ -1,11 +1,9 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUIKit
-import SessionMessagingKit
-import SessionUtilitiesKit
+import UniformTypeIdentifiers
 
-final class QuoteView: UIView {
+public final class QuoteView: UIView {
     static let thumbnailSize: CGFloat = 48
     static let iconSize: CGFloat = 24
     static let labelStackViewSpacing: CGFloat = 2
@@ -20,36 +18,24 @@ final class QuoteView: UIView {
     
     // MARK: - Variables
     
-    private let dependencies: Dependencies
-    private let onCancel: (() -> ())?
+    private let viewModel: QuoteViewModel
+    private let dataManager: ImageDataManagerType
+    private var onCancel: (() -> Void)?
 
     // MARK: - Lifecycle
     
-    init(
-        for mode: Mode,
-        authorId: String,
-        quotedText: String?,
-        threadVariant: SessionThread.Variant,
-        currentUserSessionIds: Set<String>,
-        direction: Direction,
-        attachment: Attachment?,
-        using dependencies: Dependencies,
-        onCancel: (() -> ())? = nil
+    public init(
+        viewModel: QuoteViewModel,
+        dataManager: ImageDataManagerType,
+        onCancel: (() -> Void)? = nil
     ) {
-        self.dependencies = dependencies
+        self.viewModel = viewModel
+        self.dataManager = dataManager
         self.onCancel = onCancel
         
         super.init(frame: CGRect.zero)
         
-        setUpViewHierarchy(
-            mode: mode,
-            authorId: authorId,
-            quotedText: quotedText,
-            threadVariant: threadVariant,
-            currentUserSessionIds: currentUserSessionIds,
-            direction: direction,
-            attachment: attachment
-        )
+        setUpViewHierarchy(viewModel: viewModel)
     }
 
     override init(frame: CGRect) {
@@ -60,15 +46,7 @@ final class QuoteView: UIView {
         preconditionFailure("Use init(for:maxMessageWidth:) instead.")
     }
 
-    private func setUpViewHierarchy(
-        mode: Mode,
-        authorId: String,
-        quotedText: String?,
-        threadVariant: SessionThread.Variant,
-        currentUserSessionIds: Set<String>,
-        direction: Direction,
-        attachment: Attachment?
-    ) {
+    private func setUpViewHierarchy(viewModel: QuoteViewModel) {
         // There's quite a bit of calculation going on here. It's a bit complex so don't make changes
         // if you don't need to. If you do then test:
         // • Quoted text in both private chats and group chats
@@ -81,14 +59,13 @@ final class QuoteView: UIView {
         let labelStackViewVMargin = QuoteView.labelStackViewVMargin
         let smallSpacing = Values.smallSpacing
         let cancelButtonSize = QuoteView.cancelButtonSize
-        var body: String? = quotedText
         
         // Main stack view
         let mainStackView = UIStackView(arrangedSubviews: [])
         mainStackView.axis = .horizontal
         mainStackView.spacing = smallSpacing
         mainStackView.isLayoutMarginsRelativeArrangement = true
-        mainStackView.layoutMargins = UIEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: smallSpacing)
+        mainStackView.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: smallSpacing)
         mainStackView.alignment = .center
         mainStackView.setCompressionResistance(.vertical, to: .required)
         
@@ -97,57 +74,39 @@ final class QuoteView: UIView {
         addSubview(contentView)
         contentView.pin(to: self)
         
-        if let attachment: Attachment = attachment {
-            let isAudio: Bool = attachment.isAudio
-            let fallbackImageName: String = (isAudio ? "attachment_audio" : "actionsheet_document_black") // stringlint:ignore
+        if viewModel.hasAttachment {
             let imageContainerView: UIView = UIView()
             imageContainerView.themeBackgroundColor = .messageBubble_overlay
-            imageContainerView.layer.cornerRadius = VisibleMessageCell.smallCornerRadius
+            imageContainerView.layer.cornerRadius = 4
             imageContainerView.layer.masksToBounds = true
             imageContainerView.set(.width, to: thumbnailSize)
             imageContainerView.set(.height, to: thumbnailSize)
             mainStackView.addArrangedSubview(imageContainerView)
             
             let imageView: SessionImageView = SessionImageView(
-                image: UIImage(named: fallbackImageName)?.withRenderingMode(.alwaysTemplate),
-                dataManager: dependencies[singleton: .imageDataManager]
+                image: viewModel.fallbackImage,
+                dataManager: dataManager
             )
-            imageView.themeTintColor = {
-                switch mode {
-                    case .regular: return (direction == .outgoing ?
-                        .messageBubble_outgoingText :
-                        .messageBubble_incomingText
-                    )
-                    case .draft: return .textPrimary
-                }
-            }()
+            imageView.themeTintColor = viewModel.targetThemeColor
             imageView.contentMode = .scaleAspectFit
             imageView.set(.width, to: iconSize)
             imageView.set(.height, to: iconSize)
             imageContainerView.addSubview(imageView)
             imageView.center(in: imageContainerView)
             
-            if (body ?? "").isEmpty {
-                body = attachment.shortDescription
-            }
-            
             // Generate the thumbnail if needed
-            imageView.loadThumbnail(size: .small, attachment: attachment, using: dependencies) { [weak imageView] buffer in
-                guard buffer != nil else { return }
-                
-                imageView?.contentMode = .scaleAspectFill
+            if let source: ImageDataManager.DataSource = viewModel.quotedAttachmentInfo?.thumbnailSource {
+                imageView.loadImage(source) { [weak imageView] buffer in
+                    guard buffer != nil else { return }
+                    
+                    imageView?.contentMode = .scaleAspectFill
+                }
             }
         }
         else {
             // Line view
-            let lineColor: ThemeValue = {
-                switch mode {
-                    case .regular: return (direction == .outgoing ? .messageBubble_outgoingText : .primary)
-                    case .draft: return .primary
-                }
-            }()
             let lineView = UIView()
-            lineView.themeBackgroundColor = lineColor
+            lineView.themeBackgroundColor = viewModel.lineColor
             mainStackView.addArrangedSubview(lineView)
             
             lineView.pin(.top, to: .top, of: mainStackView)
@@ -159,65 +118,13 @@ final class QuoteView: UIView {
         let bodyLabel = TappableLabel()
         bodyLabel.lineBreakMode = .byTruncatingTail
         bodyLabel.numberOfLines = 2
-        
-        let targetThemeColor: ThemeValue = {
-            switch mode {
-                case .regular: return (direction == .outgoing ?
-                    .messageBubble_outgoingText :
-                    .messageBubble_incomingText
-                )
-                case .draft: return .textPrimary
-            }
-        }()
-        bodyLabel.font = .systemFont(ofSize: Values.smallFontSize)
-        bodyLabel.themeAttributedText = body
-            .map {
-                MentionUtilities.highlightMentions(
-                    in: $0,
-                    threadVariant: threadVariant,
-                    currentUserSessionIds: currentUserSessionIds,
-                    location: {
-                        switch (mode, direction) {
-                            case (.draft, _): return .quoteDraft
-                            case (_, .outgoing): return .outgoingQuote
-                            case (_, .incoming): return .incomingQuote
-                        }
-                    }(),
-                    textColor: targetThemeColor,
-                    attributes: [
-                        .themeForegroundColor: targetThemeColor
-                    ],
-                    using: dependencies
-                )
-            }
-            .defaulting(
-                to: attachment.map {
-                    ThemedAttributedString(string: $0.shortDescription, attributes: [ .themeForegroundColor: targetThemeColor ])
-                }
-            )
-            .defaulting(to: ThemedAttributedString(string: "messageErrorOriginal".localized(), attributes: [ .themeForegroundColor: targetThemeColor ]))
+        bodyLabel.themeAttributedText = viewModel.attributedText
         
         // Label stack view
         let authorLabel = UILabel()
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
-        authorLabel.text = {
-            guard !currentUserSessionIds.contains(authorId) else { return "you".localized() }
-            guard body != nil else {
-                // When we can't find the quoted message we want to hide the author label
-                return Profile.displayNameNoFallback(
-                    id: authorId,
-                    threadVariant: threadVariant,
-                    using: dependencies
-                )
-            }
-            
-            return Profile.displayName(
-                id: authorId,
-                threadVariant: threadVariant,
-                using: dependencies
-            )
-        }()
-        authorLabel.themeTextColor = targetThemeColor
+        authorLabel.text = viewModel.author
+        authorLabel.themeTextColor = viewModel.targetThemeColor
         authorLabel.lineBreakMode = .byTruncatingTail
         authorLabel.isHidden = (authorLabel.text == nil)
         authorLabel.numberOfLines = 1
@@ -236,7 +143,7 @@ final class QuoteView: UIView {
         contentView.addSubview(mainStackView)
         mainStackView.pin(to: contentView)
         
-        if mode == .draft {
+        if viewModel.mode == .draft {
             // Cancel button
             let cancelButton = UIButton(type: .custom)
             cancelButton.setImage(UIImage(named: "X")?.withRenderingMode(.alwaysTemplate), for: .normal)
@@ -254,5 +161,13 @@ final class QuoteView: UIView {
     
     @objc private func cancel() {
         onCancel?()
+    }
+    
+    // MARK: - Functions
+    
+    public func update(viewModel: QuoteViewModel) {
+        subviews.forEach { $0.removeFromSuperview() }
+        
+        setUpViewHierarchy(viewModel: viewModel)
     }
 }

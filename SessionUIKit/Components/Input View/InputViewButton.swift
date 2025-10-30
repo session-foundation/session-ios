@@ -141,12 +141,24 @@ public final class InputViewButton: UIView {
         backgroundView.themeBackgroundColor = isEnabled ? .inputButton_background : .disabled
     }
     
+    // MARK: - Convenience
+    
+    public static func container(for button: InputViewButton) -> UIView {
+        let result: UIView = UIView()
+        result.addSubview(button)
+        result.set(.width, to: InputViewButton.expandedSize)
+        result.set(.height, to: InputViewButton.expandedSize)
+        button.center(in: result)
+        
+        return result
+    }
+    
     // MARK: - Interaction
     
     // We want to detect both taps and long presses
     
     public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard !isSoftDisabled && isUserInteractionEnabled else { return }
+        guard !isSoftDisabled && isUserInteractionEnabled && alpha > 0 else { return }
         
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
         expand()
@@ -158,7 +170,7 @@ public final class InputViewButton: UIView {
     }
 
     public override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard !isSoftDisabled && isUserInteractionEnabled else { return }
+        guard !isSoftDisabled && isUserInteractionEnabled && alpha > 0 else { return }
         
         if isLongPress {
             delegate?.handleInputViewButtonLongPressMoved(self, with: touches.first)
@@ -166,7 +178,7 @@ public final class InputViewButton: UIView {
     }
 
     public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard isUserInteractionEnabled else { return }
+        guard isUserInteractionEnabled && alpha > 0 else { return }
         guard !isSoftDisabled else {
             delegate?.handleInputViewButtonTapped(self)
             onTap?()
