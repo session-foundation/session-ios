@@ -15,7 +15,7 @@ public extension Singleton {
 
 // MARK: - SessionProState
 
-public class SessionProState: SessionProManagerType, ProfilePictureAnimationManagerType, SessionProCTAManagerType {
+public class SessionProState: SessionProManagerType, ProfilePictureAnimationManagerType {
     public let dependencies: Dependencies
     public var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never>
     public var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> {
@@ -142,17 +142,22 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                 .with(originatingPlatform: newValue)
         )
     }
-    
+}
+
+// MARK: - SessionProCTAManagerType
+
+extension SessionProState: SessionProCTAManagerType {
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
         beforePresented: (() -> Void)?,
+        onConfirm: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
-        guard dependencies[feature: .sessionProEnabled] else {
-            return false
-        }
+        guard dependencies[feature: .sessionProEnabled] else { return false }
+        if case .active = sessionProStateSubject.value { return false }
+        
         beforePresented?()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
@@ -160,13 +165,25 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                 dataManager: dependencies[singleton: .imageDataManager],
                 dismissType: dismissType,
                 afterClosed: afterClosed,
-                onConfirm: {
-                    
-                }
+                onConfirm: onConfirm
             )
         )
         presenting?(sessionProModal)
         
         return true
+    }
+    
+    @MainActor public func showSessionProBottomSheetIfNeeded(
+        showLoadingModal: ((String, String) -> Void)?,
+        showErrorModal: ((String, ThemedAttributedString) -> Void)?,
+        openUrl: ((URL) -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) {
+        let sessionProBottomSheet: BottomSheetHostingViewController = BottomSheetHostingViewController(
+            bottomSheet: BottomSheet(hasCloseButton: true) { [dependencies] in
+                SessionListScreen(viewModel: SessionProBottomSheetViewModel(using: dependencies))
+            }
+        )
+        presenting?(sessionProBottomSheet)
     }
 }

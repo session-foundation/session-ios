@@ -308,6 +308,9 @@ struct MessageInfoScreen: View {
                                     .onTapGesture {
                                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                                             proCTAVariant,
+                                            onConfirm: {
+                                                
+                                            },
                                             presenting: { modal in
                                                 self.host.controller?.present(modal, animated: true)
                                             }
@@ -402,6 +405,9 @@ struct MessageInfoScreen: View {
                                                     .onTapGesture {
                                                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                                                             proCTAVariant,
+                                                            onConfirm: {
+                                                                
+                                                            },
                                                             presenting: { modal in
                                                                 self.host.controller?.present(modal, animated: true)
                                                             }
@@ -621,6 +627,9 @@ struct MessageInfoScreen: View {
                     onProBadgeTapped: {
                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                             proCTAVariant,
+                            onConfirm: {
+                                
+                            },
                             presenting: { modal in
                                 self.host.controller?.present(modal, animated: true)
                             }

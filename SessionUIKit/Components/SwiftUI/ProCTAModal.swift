@@ -41,7 +41,7 @@ public struct ProCTAModal: View {
                 ZStack {
                     if let animatedAvatarImageURL = variant.animatedAvatarImageURL {
                         GeometryReader { geometry in
-                            let size: CGFloat = geometry.size.width / 1522.0 * 135
+                            let size: CGFloat = geometry.size.width / 1522.0 * variant.animatedAvatarImageSize
                             let scale: CGFloat = geometry.size.width / 1522.0
                             SessionAsyncImage(
                                 source: .url(animatedAvatarImageURL),
@@ -225,8 +225,8 @@ public struct ProCTAModal: View {
                         HStack(spacing: Values.smallSpacing) {
                             // Upgrade Button
                             ShineButton {
-                                onConfirm?()
                                 close(nil)
+                                onConfirm?()
                             } label: {
                                 Text(variant.confirmButtonTitle)
                                     .font(.Body.baseRegular)
@@ -320,8 +320,16 @@ public extension ProCTAModal {
         public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
             switch self {
                 case .generic: return (1293, 743)
-                case .animatedProfileImage: return (690, 363)
+                case .animatedProfileImage: return (680, 363)
                 default: return (0, 0)
+            }
+        }
+        
+        public var animatedAvatarImageSize: CGFloat {
+            switch self {
+                case .generic: return 135
+                case .animatedProfileImage: return 200
+                default: return 0
             }
         }
 
@@ -463,9 +471,17 @@ public protocol SessionProCTAManagerType: AnyObject {
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
         beforePresented: (() -> Void)?,
+        onConfirm: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool
+    
+    @MainActor func showSessionProBottomSheetIfNeeded(
+        showLoadingModal: ((String, String) -> Void)?,
+        showErrorModal: ((String, ThemedAttributedString) -> Void)?,
+        openUrl: ((URL) -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    )
 }
 
 // MARK: - Convenience
@@ -474,6 +490,7 @@ public extension SessionProCTAManagerType {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         beforePresented: (() -> Void)?,
+        onConfirm: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
@@ -481,6 +498,7 @@ public extension SessionProCTAManagerType {
             variant,
             dismissType: .recursive,
             beforePresented: beforePresented,
+            onConfirm: onConfirm,
             afterClosed: afterClosed,
             presenting: presenting
         )
@@ -488,12 +506,14 @@ public extension SessionProCTAManagerType {
     
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
+        onConfirm: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
         showSessionProCTAIfNeeded(
             variant,
             dismissType: .recursive,
             beforePresented: nil,
+            onConfirm: onConfirm,
             afterClosed: nil,
             presenting: presenting
         )

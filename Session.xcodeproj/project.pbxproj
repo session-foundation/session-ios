@@ -214,6 +214,9 @@
 		947D7FE82D51837200E8E413 /* PopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FE52D51837200E8E413 /* PopoverView.swift */; };
 		947D7FE92D51837200E8E413 /* Text+CopyButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FE62D51837200E8E413 /* Text+CopyButton.swift */; };
 		94805EB22EB087FD0055EBBC /* BottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EB12EB087F90055EBBC /* BottomSheet.swift */; };
+		94805EB92EB1E16D0055EBBC /* SessionProBottomSheet+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EB82EB1E1650055EBBC /* SessionProBottomSheet+Models.swift */; };
+		94805EBB2EB3118F0055EBBC /* SessionProState+BottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EBA2EB311860055EBBC /* SessionProState+BottomSheet.swift */; };
+		94805EBD2EB3149F0055EBBC /* SessionProBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EBC2EB314930055EBBC /* SessionProBottomSheet.swift */; };
 		9499E6032DDD9BF900091434 /* ExpandableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */; };
 		9499E68B2DF92F4E00091434 /* ThreadNotificationSettingsViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9499E68A2DF92F3B00091434 /* ThreadNotificationSettingsViewModelSpec.swift */; };
 		94A6B9DB2DD6BF7C00DB4B44 /* Constants+Apple.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A6B9DA2DD6BF6E00DB4B44 /* Constants+Apple.swift */; };
@@ -1634,6 +1637,9 @@
 		947D7FE52D51837200E8E413 /* PopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverView.swift; sourceTree = "<group>"; };
 		947D7FE62D51837200E8E413 /* Text+CopyButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Text+CopyButton.swift"; sourceTree = "<group>"; };
 		94805EB12EB087F90055EBBC /* BottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomSheet.swift; sourceTree = "<group>"; };
+		94805EB82EB1E1650055EBBC /* SessionProBottomSheet+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProBottomSheet+Models.swift"; sourceTree = "<group>"; };
+		94805EBA2EB311860055EBBC /* SessionProState+BottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProState+BottomSheet.swift"; sourceTree = "<group>"; };
+		94805EBC2EB314930055EBBC /* SessionProBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProBottomSheet.swift; sourceTree = "<group>"; };
 		9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandableLabel.swift; sourceTree = "<group>"; };
 		9499E68A2DF92F3B00091434 /* ThreadNotificationSettingsViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationSettingsViewModelSpec.swift; sourceTree = "<group>"; };
 		94A6B9DA2DD6BF6E00DB4B44 /* Constants+Apple.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Constants+Apple.swift"; sourceTree = "<group>"; };
@@ -3015,6 +3021,15 @@
 			path = SessionNetworkScreen;
 			sourceTree = "<group>";
 		};
+		94805EB72EB1E15B0055EBBC /* SessionProBottomSheet */ = {
+			isa = PBXGroup;
+			children = (
+				94805EB82EB1E1650055EBBC /* SessionProBottomSheet+Models.swift */,
+				94805EBC2EB314930055EBBC /* SessionProBottomSheet.swift */,
+			);
+			path = SessionProBottomSheet;
+			sourceTree = "<group>";
+		};
 		94CD96282E1B855E0097754D /* Input View */ = {
 			isa = PBXGroup;
 			children = (
@@ -3784,6 +3799,7 @@
 			isa = PBXGroup;
 			children = (
 				94B6BAF52E30A88800E718BB /* SessionProState.swift */,
+				94805EBA2EB311860055EBBC /* SessionProState+BottomSheet.swift */,
 				FD428B1E2B4B758B006D0888 /* AppReadiness.swift */,
 				FDE5218D2E03A06700061B8E /* AttachmentManager.swift */,
 				FDE5219D2E0D0B9800061B8E /* AsyncAccessible.swift */,
@@ -4953,6 +4969,7 @@
 		FD8A5AFF2DBEFB21004C689B /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				94805EB72EB1E15B0055EBBC /* SessionProBottomSheet */,
 				9438D5542E6A6843008C7FFE /* SessionProSettings */,
 				947D7FDC2D5180F200E8E413 /* SessionNetworkScreen */,
 			);
@@ -6388,6 +6405,7 @@
 				FDE5219C2E08E76C00061B8E /* SessionAsyncImage.swift in Sources */,
 				FD3FAB632AEB9A1500DC5421 /* ToastController.swift in Sources */,
 				C331FFE72558FB0000070591 /* SNTextField.swift in Sources */,
+				94805EB92EB1E16D0055EBBC /* SessionProBottomSheet+Models.swift in Sources */,
 				942256962C23F8DD00C0FDBF /* CompatibleScrollingVStack.swift in Sources */,
 				FD71165B28E6DDBC00B47552 /* StyledNavigationController.swift in Sources */,
 				C331FFE32558FB0000070591 /* TabBar.swift in Sources */,
@@ -6433,6 +6451,7 @@
 				94363E662E60186A0004EE43 /* SessionListScreen+Section.swift in Sources */,
 				FDB11A612DD5BDCC00BEF49F /* ImageDataManager.swift in Sources */,
 				FD6673FD2D77F54600041530 /* ScreenLockViewController.swift in Sources */,
+				94805EBD2EB3149F0055EBBC /* SessionProBottomSheet.swift in Sources */,
 				94805EB22EB087FD0055EBBC /* BottomSheet.swift in Sources */,
 				94B6BB042E3B208C00E718BB /* Seperator+SwiftUI.swift in Sources */,
 				FD8A5B222DC0489C004C689B /* AdaptiveHStack.swift in Sources */,
@@ -6973,6 +6992,7 @@
 				B8856D11256F112A001CE70E /* OWSAudioSession.swift in Sources */,
 				FD2272762C32911C004D8A6C /* ExpirationUpdateJob.swift in Sources */,
 				FD716E722850647600C96BF4 /* Data+Utilities.swift in Sources */,
+				94805EBB2EB3118F0055EBBC /* SessionProState+BottomSheet.swift in Sources */,
 				FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */,
 				FD5C7301284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift in Sources */,
 				C3C2A75F2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift in Sources */,

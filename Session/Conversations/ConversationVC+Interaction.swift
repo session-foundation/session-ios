@@ -538,6 +538,9 @@ extension ConversationVC:
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
             },
+            onConfirm: { [weak self] in
+                
+            },
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
@@ -643,6 +646,9 @@ extension ConversationVC:
             .longerMessages,
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
+            },
+            onConfirm: { [weak self] in
+                
             },
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()
@@ -1685,6 +1691,9 @@ extension ConversationVC:
                             dismissType: .single,
                             beforePresented: { [weak self] in
                                 self?.hideInputAccessoryView()
+                            },
+                            onConfirm: { [weak self] in
+                                
                             },
                             afterClosed: { [weak self] in
                                 self?.showInputAccessoryView()

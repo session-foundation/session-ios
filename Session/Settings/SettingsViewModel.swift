@@ -776,12 +776,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             dataManager: dependencies[singleton: .imageDataManager],
             onProBageTapped: { [weak self, dependencies] in
                 Task { @MainActor in
-                    guard case .active = dependencies[singleton: .sessionProState].sessionProStateSubject.value else { return }
-                    
                     dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                         .animatedProfileImage(
                             isSessionProActivated: dependencies[cache: .libSession].isSessionPro
                         ),
+                        onConfirm: {
+                            dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                showLoadingModal: nil,
+                                showErrorModal: nil,
+                                openUrl: nil,
+                                presenting: { bottomSheet in
+                                    self?.transitionToScreen(bottomSheet, transitionType: .present)
+                                }
+                            )
+                        },
                         presenting: { modal in
                             self?.transitionToScreen(modal, transitionType: .present)
                         }
@@ -834,6 +842,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                             .animatedProfileImage(
                                                 isSessionProActivated: dependencies[cache: .libSession].isSessionPro
                                             ),
+                                            onConfirm: {
+                                                
+                                            },
                                             presenting: { modal in
                                                 self?.transitionToScreen(modal, transitionType: .present)
                                             }

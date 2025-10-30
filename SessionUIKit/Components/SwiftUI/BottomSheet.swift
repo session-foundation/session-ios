@@ -4,17 +4,20 @@ import SwiftUI
 import Lucide
 
 public struct BottomSheet<Content>: View where Content: View {
-    let host: HostWrapper
-    let dismissType: Modal.DismissType
+    @EnvironmentObject var host: HostWrapper
     let hasCloseButton: Bool
-    let afterClosed: (() -> Void)?
-    let content: (@escaping ((() -> Void)?) -> Void) -> Content
+    let content: () -> Content
 
     let cornerRadius: CGFloat = 11
     let shadowRadius: CGFloat = 10
     let shadowOpacity: Double = 0.4
 
     @State private var show: Bool = true
+    
+    public init(hasCloseButton: Bool, content: @escaping () -> Content) {
+        self.hasCloseButton = hasCloseButton
+        self.content = content
+    }
 
     public var body: some View {
         ZStack(alignment: .bottom) {
@@ -23,20 +26,17 @@ public struct BottomSheet<Content>: View where Content: View {
                 .fill(.ultraThinMaterial)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
-                .onTapGesture { close() }
             
             // Bottom Sheet
-            VStack {
+            VStack() {
                 Spacer()
                 
                 ZStack(alignment: .topTrailing) {
-                    content { internalAfterClosed in
-                        close(internalAfterClosed)
-                    }
+                    content()
                     
                     if hasCloseButton {
                         Button {
-                            close(nil)
+                            close()
                         } label: {
                             AttributedText(Lucide.Icon.x.attributedString(size: 20))
                                 .font(.system(size: 20))
@@ -57,6 +57,7 @@ public struct BottomSheet<Content>: View where Content: View {
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .animation(.spring(), value: show)
         }
+        .ignoresSafeArea(edges: .bottom)
         .frame(
             maxWidth: .infinity,
             maxHeight: .infinity,
@@ -74,14 +75,8 @@ public struct BottomSheet<Content>: View where Content: View {
 
     // MARK: - Dismiss Logic
 
-    private func close(_ internalAfterClosed: (() -> Void)? = nil) {
-        host.controller?.presentingViewController?.dismiss(
-            animated: true,
-            completion: {
-                afterClosed?()
-                internalAfterClosed?()
-            }
-        )
+    private func close() {
+        host.controller?.presentingViewController?.dismiss(animated: true)
     }
 }
 

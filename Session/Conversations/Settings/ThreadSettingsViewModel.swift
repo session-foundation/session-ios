@@ -345,6 +345,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }),
                                         proBadgeImage: SessionProBadge(size: .mini).toImage(using: dependencies)
                                     ),
+                                    onConfirm: { [weak self] in
+                                        
+                                    },
                                     presenting: { modal in
                                         self?.transitionToScreen(modal, transitionType: .present)
                                     }

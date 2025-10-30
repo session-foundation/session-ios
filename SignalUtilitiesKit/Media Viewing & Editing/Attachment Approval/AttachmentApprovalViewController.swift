@@ -644,6 +644,9 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
             },
+            onConfirm: { [weak self] in
+                
+            },
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()
                 self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
@@ -684,6 +687,9 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
             .longerMessages,
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
+            },
+            onConfirm: { [weak self] in
+                
             },
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()

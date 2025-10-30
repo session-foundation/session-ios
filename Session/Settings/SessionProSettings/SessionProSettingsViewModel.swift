@@ -16,7 +16,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     public let navigatableState: NavigatableState = NavigatableState()
     public let title: String = ""
     public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
-    private let isBottomSheet: Bool
     
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: ViewModelState
@@ -24,11 +23,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     
     // MARK: - Initialization
     
-    @MainActor init(
-        isBottomSheet: Bool = false,
-        using dependencies: Dependencies
-    ) {
-        self.isBottomSheet = isBottomSheet
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.internalState = ViewModelState.initialState()
         
@@ -106,11 +101,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         case recoverPlan
         case proBadge
         
-        case largerGroups
         case longerMessages
+        case unlimitedPins
         case animatedDisplayPictures
         case badges
-        case unlimitedPins
         case plusLoadsMore
         
         case cancelPlan
@@ -375,59 +369,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         let proFeatures: SectionModel = SectionModel(
             model: .proFeatures,
-            elements: ProFeaturesInfo.allCases(state.currentProPlanState).map { info in
-                SessionListScreenContent.ListItemInfo(
-                    id: info.id,
-                    variant: .cell(
-                        info: .init(
-                            leadingAccessory: .icon(
-                                info.icon,
-                                iconSize: .medium,
-                                customTint: .black,
-                                gradientBackgroundColors: info.backgroundColors,
-                                backgroundSize: .veryLarge,
-                                backgroundCornerRadius: 8
-                            ),
-                            title: .init(info.title, font: .Headings.H9, accessory: info.accessory),
-                            description: .init(info.description, font: .Body.smallRegular, color: .textSecondary)
-                        )
-                    )
-                )
-            }.appending(
-                SessionListScreenContent.ListItemInfo(
-                    id: .plusLoadsMore,
-                    variant: .cell(
-                        info: .init(
-                            leadingAccessory: .icon(
-                                Lucide.image(icon: .circlePlus, size: IconSize.medium.size),
-                                iconSize: .medium,
-                                customTint: .black,
-                                gradientBackgroundColors: {
-                                    return switch state.currentProPlanState {
-                                        case .expired: [ThemeValue.disabled]
-                                        default: [.explicitPrimary(.orange), .explicitPrimary(.yellow)]
-                                    }
-                                }(),
-                                backgroundSize: .veryLarge,
-                                backgroundCornerRadius: 8
-                            ),
-                            title: .init("plusLoadsMore".localized(), font: .Headings.H9),
-                            description: .init(
-                                font: .Body.smallRegular,
-                                attributedString: "plusLoadsMoreDescription"
-                                    .put(key: "pro", value: Constants.pro)
-                                    .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
-                                    .localizedFormatted(Fonts.Body.smallRegular),
-                                color: .textSecondary
-                            )
-                        )
-                    ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_roadmap) }
-                )
-            )
+            elements: getProFeaturesElements(state: state, previousState: previousState, viewModel: viewModel)
         )
-        
-        guard !viewModel.isBottomSheet else { return [ logo, proFeatures ] }
         
         let proStats: SectionModel = SectionModel(
             model: .proStats,
@@ -575,6 +518,76 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             case .refunding:
                 [ logo, proStats, proSettings, proFeatures, help ]
         }
+    }
+    
+    // MARK: - Pro Features Elements
+    
+    private static func getProFeaturesElements(
+        state: ViewModelState,
+        previousState: ViewModelState,
+        viewModel: SessionProSettingsViewModel
+    ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
+        let proFeaturesIds: [ListItem] = [ .longerMessages, .unlimitedPins, .animatedDisplayPictures, .badges ]
+        let proFeatureInfos: [ProFeaturesInfo] = ProFeaturesInfo.allCases(
+            proStateExpired: {
+                if case .expired = state.currentProPlanState {
+                    return true
+                } else {
+                    return false
+                }
+            }()
+        )
+        
+        return zip(proFeaturesIds, proFeatureInfos).map { id, info in
+            SessionListScreenContent.ListItemInfo(
+                id: id,
+                variant: .cell(
+                    info: .init(
+                        leadingAccessory: .icon(
+                            info.icon,
+                            iconSize: .medium,
+                            customTint: .black,
+                            gradientBackgroundColors: info.backgroundColors,
+                            backgroundSize: .veryLarge,
+                            backgroundCornerRadius: 8
+                        ),
+                        title: .init(info.title, font: .Headings.H9, accessory: info.accessory),
+                        description: .init(font: .Body.smallRegular, attributedString: info.description, color: .textSecondary)
+                    )
+                )
+            )
+        }.appending(
+            SessionListScreenContent.ListItemInfo(
+                id: .plusLoadsMore,
+                variant: .cell(
+                    info: .init(
+                        leadingAccessory: .icon(
+                            Lucide.image(icon: .circlePlus, size: IconSize.medium.size),
+                            iconSize: .medium,
+                            customTint: .black,
+                            gradientBackgroundColors: {
+                                return switch state.currentProPlanState {
+                                    case .expired: [ThemeValue.disabled]
+                                    default: [.explicitPrimary(.orange), .explicitPrimary(.yellow)]
+                                }
+                            }(),
+                            backgroundSize: .veryLarge,
+                            backgroundCornerRadius: 8
+                        ),
+                        title: .init("plusLoadsMore".localized(), font: .Headings.H9),
+                        description: .init(
+                            font: .Body.smallRegular,
+                            attributedString: "plusLoadsMoreDescription"
+                                .put(key: "pro", value: Constants.pro)
+                                .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
+                                .localizedFormatted(Fonts.Body.smallRegular),
+                            color: .textSecondary
+                        )
+                    )
+                ),
+                onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_roadmap) }
+            )
+        )
     }
     
     // MARK: - Pro Settings Elements
@@ -951,24 +964,24 @@ extension SessionProSettingsViewModel {
                 info: ConfirmationModal.Info(
                     title: (
                         result ?
-                            "proAccessRestored"
-                                .put(key: "pro", value: Constants.pro)
-                                .localized() :
+                        "proAccessRestored"
+                            .put(key: "pro", value: Constants.pro)
+                            .localized() :
                             "proAccessNotFound"
-                                .put(key: "pro", value: Constants.pro)
-                                .localized()
+                            .put(key: "pro", value: Constants.pro)
+                            .localized()
                     ),
                     body: .text(
                         (
                             result ?
-                                "proAccessRestoredDescription"
-                                    .put(key: "app_name", value: Constants.app_name)
-                                    .put(key: "pro", value: Constants.pro)
-                                    .localized() :
+                            "proAccessRestoredDescription"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .put(key: "pro", value: Constants.pro)
+                                .localized() :
                                 "proAccessNotFoundDescription"
-                                    .put(key: "app_name", value: Constants.app_name)
-                                    .put(key: "pro", value: Constants.pro)
-                                    .localized()
+                                .put(key: "app_name", value: Constants.app_name)
+                                .put(key: "pro", value: Constants.pro)
+                                .localized()
                         ),
                         scrollMode: .never
                     ),
@@ -985,7 +998,7 @@ extension SessionProSettingsViewModel {
                     }
                 )
             )
-                
+            
             self?.transitionToScreen(modal, transitionType: .present)
         }
     }
@@ -999,8 +1012,8 @@ extension SessionProSettingsViewModel {
                         flow: .cancel(
                             originatingPlatform: {
                                 switch dependencies[singleton: .sessionProState].sessionProStateSubject.value.originatingPlatform {
-                                    case .iOS: return .iOS
-                                    case .Android: return .Android
+                                case .iOS: return .iOS
+                                case .Android: return .Android
                                 }
                             }()
                         ),
@@ -1021,8 +1034,8 @@ extension SessionProSettingsViewModel {
                         flow: .refund(
                             originatingPlatform: {
                                 switch dependencies[singleton: .sessionProState].sessionProStateSubject.value.originatingPlatform {
-                                    case .iOS: return .iOS
-                                    case .Android: return .Android
+                                case .iOS: return .iOS
+                                case .Android: return .Android
                                 }
                             }(),
                             requestedAt: nil
@@ -1033,96 +1046,6 @@ extension SessionProSettingsViewModel {
             )
         )
         self.transitionToScreen(viewController)
-    }
-}
-
-// MARK: - Pro Features Info
-
-extension SessionProSettingsViewModel {
-    struct ProFeaturesInfo {
-        let id: ListItem
-        let icon: UIImage?
-        let backgroundColors: [ThemeValue]
-        let title: String
-        let description: String
-        let accessory: SessionListScreenContent.TextInfo.Accessory
-        
-        static func allCases(_ state: SessionProPlanState) -> [ProFeaturesInfo] {
-            return [
-                ProFeaturesInfo(
-                    id: .largerGroups,
-                    icon: UIImage(named: "ic_user_group_plus"),
-                    backgroundColors: {
-                        return switch state {
-                            case .expired: [ThemeValue.disabled]
-                            default: [.explicitPrimary(.green), .explicitPrimary(.blue)]
-                        }
-                    }(),
-                    title: "proLargerGroups".localized(),
-                    description: "proLargerGroupsDescription".localized(),
-                    accessory: .none
-                ),
-                ProFeaturesInfo(
-                    id: .longerMessages,
-                    icon: Lucide.image(icon: .messageSquare, size: IconSize.medium.size),
-                    backgroundColors: {
-                        return switch state {
-                            case .expired: [ThemeValue.disabled]
-                            default: [.explicitPrimary(.blue), .explicitPrimary(.purple)]
-                        }
-                    }(),
-                    title: "proLongerMessages".localized(),
-                    description: "proLongerMessagesDescription".localized(),
-                    accessory: .none
-                ),
-                ProFeaturesInfo(
-                    id: .animatedDisplayPictures,
-                    icon: Lucide.image(icon: .squarePlay, size: IconSize.medium.size),
-                    backgroundColors: {
-                        return switch state {
-                            case .expired: [ThemeValue.disabled]
-                            default: [.explicitPrimary(.purple), .explicitPrimary(.pink)]
-                        }
-                    }(),
-                    title: "proAnimatedDisplayPictures".localized(),
-                    description: "proAnimatedDisplayPicturesDescription".localized(),
-                    accessory: .none
-                ),
-                ProFeaturesInfo(
-                    id: .badges,
-                    icon: Lucide.image(icon: .rectangleEllipsis, size: IconSize.medium.size),
-                    backgroundColors: {
-                        return switch state {
-                            case .expired: [ThemeValue.disabled]
-                            default: [.explicitPrimary(.pink), .explicitPrimary(.red)]
-                        }
-                    }(),
-                    title: "proBadges".localized(),
-                    description: "proBadgesDescription".put(key: "app_name", value: Constants.app_name).localized(),
-                    accessory: .proBadgeLeading(
-                        themeBackgroundColor: {
-                            return switch state {
-                                case .expired: .disabled
-                                default: .primary
-                            }
-                        }()
-                    )
-                ),
-                ProFeaturesInfo(
-                    id: .unlimitedPins,
-                    icon: Lucide.image(icon: .pin, size: IconSize.medium.size),
-                    backgroundColors: {
-                        return switch state {
-                            case .expired: [ThemeValue.disabled]
-                            default: [.explicitPrimary(.red), .explicitPrimary(.orange)]
-                        }
-                    }(),
-                    title: "proUnlimitedPins".localized(),
-                    description: "proUnlimitedPinsDescription".localized(),
-                    accessory: .none
-                )
-            ]
-        }
     }
 }
 
