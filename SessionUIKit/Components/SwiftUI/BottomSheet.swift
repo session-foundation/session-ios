@@ -2,11 +2,14 @@
 
 import SwiftUI
 import Lucide
+import Combine
 
 public struct BottomSheet<Content>: View where Content: View {
     @EnvironmentObject var host: HostWrapper
+    let navigatableState: BottomSheetNavigatableState
     let hasCloseButton: Bool
     let content: () -> Content
+    private var disposables: Set<AnyCancellable> = Set()
 
     let cornerRadius: CGFloat = 11
     let shadowRadius: CGFloat = 10
@@ -15,9 +18,15 @@ public struct BottomSheet<Content>: View where Content: View {
     @State private var show: Bool = true
     @State private var contentHeight: CGFloat = 80
     
-    public init(hasCloseButton: Bool, content: @escaping () -> Content) {
+    public init(
+        navigatableState: BottomSheetNavigatableState,
+        hasCloseButton: Bool,
+        content: @escaping () -> Content)
+    {
+        self.navigatableState = navigatableState
         self.hasCloseButton = hasCloseButton
         self.content = content
+        navigatableState.setupBindings(viewController: host.controller, disposables: &disposables)
     }
 
     public var body: some View {
@@ -102,5 +111,63 @@ open class BottomSheetHostingViewController<Content>: UIHostingController<Modifi
         ThemeManager.applyNavigationStylingIfNeeded(to: self)
 
         setNeedsStatusBarAppearanceUpdate()
+    }
+}
+
+// MARK: BottomSheetNavigatableStateHolder
+
+public protocol BottomSheetNavigatableStateHolder {
+    var navigatableState: BottomSheetNavigatableState { get }
+}
+
+public extension BottomSheetNavigatableStateHolder {
+    func transitionToScreen(_ viewController: UIViewController, transitionType: TransitionType = .push) {
+        navigatableState._transitionToScreen.send((viewController, transitionType))
+    }
+}
+
+// MARK: BottomSheetNavigatableState
+
+public struct BottomSheetNavigatableState {
+    let transitionToScreen: AnyPublisher<(UIViewController, TransitionType), Never>
+    
+    // MARK: - Internal Variables
+    
+    fileprivate let _transitionToScreen: PassthroughSubject<(UIViewController, TransitionType), Never> = PassthroughSubject()
+    
+    // MARK: - Initialization
+    
+    init() {
+        self.transitionToScreen = _transitionToScreen
+            .subscribe(on: DispatchQueue.main)
+            .eraseToAnyPublisher()
+    }
+    
+    // MARK: - Functions
+    
+    public func setupBindings(
+        viewController: UIViewController?,
+        disposables: inout Set<AnyCancellable>
+    ) {
+        self.transitionToScreen
+            .receive(on: DispatchQueue.main)
+            .sink { [weak viewController] targetViewController, transitionType in
+                switch transitionType {
+                    case .push:
+                        viewController?.navigationController?.pushViewController(targetViewController, animated: true)
+                    
+                    case .present:
+                        let presenter: UIViewController? = (viewController?.presentedViewController ?? viewController)
+                        
+                        if UIDevice.current.isIPad {
+                            targetViewController.popoverPresentationController?.permittedArrowDirections = []
+                            targetViewController.popoverPresentationController?.sourceView = presenter?.view
+                            targetViewController.popoverPresentationController?.sourceRect = (presenter?.view.bounds ?? UIScreen.main.bounds)
+                        }
+                        
+                        presenter?.present(targetViewController, animated: true)
+                }
+            }
+            .store(in: &disposables)
     }
 }
