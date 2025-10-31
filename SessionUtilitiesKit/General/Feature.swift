@@ -90,10 +90,6 @@ public extension FeatureStorage {
         identifier: "sessionPro"
     )
     
-    static let mockCurrentUserSessionPro: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "mockCurrentUserSessionPro"
-    )
-    
     static let treatAllIncomingMessagesAsProMessages: FeatureConfig<Bool> = Dependencies.create(
         identifier: "treatAllIncomingMessagesAsProMessages"
     )

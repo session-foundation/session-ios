@@ -375,7 +375,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         // Onion request path countries cache
         Task.detached(priority: .background) { [dependencies = viewModel.dependencies] in
-            dependencies.warmCache(cache: .ip2Country)
+            dependencies.warm(cache: .ip2Country)
         }
         
         // Bind the UI to the view model

@@ -942,7 +942,7 @@ public class ExtensionHelper: ExtensionHelperType {
     @discardableResult public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool {
         return await withThrowingTaskGroup(of: Bool.self) { [weak self] group in
             group.addTask {
-                guard await self?.messagesLoadedStream.currentValue != true else { return true }
+                guard await self?.messagesLoadedStream.getCurrent() != true else { return true }
                 _ = await self?.messagesLoadedStream.stream.first { $0 == true }
                 return true
             }

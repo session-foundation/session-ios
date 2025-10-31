@@ -651,7 +651,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     }
     
     @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
-        guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+        let didShowCTAModal: Bool = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
             .longerMessages,
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
@@ -663,9 +663,9 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             presenting: { [weak self] modal in
                 self?.present(modal, animated: true)
             }
-        ) else {
-            return
-        }
+        )
+        
+        guard didShowCTAModal else { return }
         
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -673,7 +673,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit))
+                        .put(key: "limit", value: (isSessionPro ? SessionPro.ProCharacterLimit : SessionPro.CharacterLimit))
                         .localized(),
                     scrollMode: .never
                 ),
@@ -692,7 +692,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
 extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
     @MainActor func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar) {
-        guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+        let didShowCTAModal: Bool = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
             .longerMessages,
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
@@ -704,9 +704,9 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
             presenting: { [weak self] modal in
                 self?.present(modal, animated: true)
             }
-        ) else {
-            return
-        }
+        )
+        
+        guard didShowCTAModal else { return }
         
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -714,7 +714,7 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit))
+                        .put(key: "limit", value: (isSessionPro ? SessionPro.ProCharacterLimit : SessionPro.CharacterLimit))
                         .localized(),
                     scrollMode: .never
                 ),
@@ -731,9 +731,8 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
     @MainActor func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar) {
         guard
             let text = attachmentTextToolbar.text,
-            LibSession.numberOfCharactersLeft(
-                for: text.trimmingCharacters(in: .whitespacesAndNewlines),
-                isSessionPro: isSessionPro
+            dependencies[singleton: .sessionProManager].numberOfCharactersLeft(
+                for: text.trimmingCharacters(in: .whitespacesAndNewlines)
             ) >= 0
         else {
             showModalForMessagesExceedingCharacterLimit(isSessionPro: isSessionPro)

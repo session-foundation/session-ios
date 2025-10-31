@@ -126,9 +126,9 @@ public extension Crypto.Generator {
         }
     }
     
-    static func ed25519KeyPair(seed: [UInt8]) -> Crypto.Generator<KeyPair> {
+    static func ed25519KeyPair<I: DataProtocol>(seed: I) -> Crypto.Generator<KeyPair> {
         return Crypto.Generator(id: "ed25519KeyPair_Seed", args: [seed]) {
-            var cSeed: [UInt8] = seed
+            var cSeed: [UInt8] = Array(seed)
             var pubkey: [UInt8] = [UInt8](repeating: 0, count: 32)
             var seckey: [UInt8] = [UInt8](repeating: 0, count: 64)
             
@@ -141,9 +141,9 @@ public extension Crypto.Generator {
         }
     }
     
-    static func ed25519Seed(ed25519SecretKey: [UInt8]) -> Crypto.Generator<Data> {
+    static func ed25519Seed<I: DataProtocol>(ed25519SecretKey: I) -> Crypto.Generator<Data> {
         return Crypto.Generator(id: "ed25519Seed", args: [ed25519SecretKey]) {
-            var cEd25519SecretKey: [UInt8] = ed25519SecretKey
+            var cEd25519SecretKey: [UInt8] = Array(ed25519SecretKey)
             var seed: [UInt8] = [UInt8](repeating: 0, count: 32)
             
             guard

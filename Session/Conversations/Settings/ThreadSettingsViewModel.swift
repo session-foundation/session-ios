@@ -506,9 +506,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                             label: "Pin Conversation"
                         ),
                         onTap: { [weak self] in
-                            self?.toggleConversationPinnedStatus(
-                                currentPinnedPriority: threadViewModel.threadPinnedPriority
-                            )
+                            Task {
+                                await self?.toggleConversationPinnedStatus(
+                                    currentPinnedPriority: threadViewModel.threadPinnedPriority
+                                )
+                            }
                         }
                     )
                  ),
@@ -1923,22 +1925,25 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
         }
     }
     
-    private func toggleConversationPinnedStatus(currentPinnedPriority: Int32) {
+    private func toggleConversationPinnedStatus(currentPinnedPriority: Int32) async {
         let isCurrentlyPinned: Bool = (currentPinnedPriority > LibSession.visiblePriority)
+        let isSessionPro: Bool = await dependencies[singleton: .sessionProManager]
+            .currentUserIsPro
+            .first(defaultValue: false)
         
-        if !isCurrentlyPinned && !dependencies[cache: .libSession].isSessionPro {
+        if !isCurrentlyPinned && !isSessionPro {
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
-            dependencies[singleton: .storage].writeAsync (
-                updates: { [threadId, dependencies] db in
+            do {
+                let numPinnedConversations: Int = try await dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
                     let numPinnedConversations: Int = try SessionThread
                         .filter(SessionThread.Columns.pinnedPriority > LibSession.visiblePriority)
                         .fetchCount(db)
                     
-                    guard numPinnedConversations < LibSession.PinnedConversationLimit else {
+                    guard numPinnedConversations < SessionPro.PinnedConversationLimit else {
                         return numPinnedConversations
                     }
                     
-                    // We have the space to pin the conversation, so do so
+                    /// We have the space to pin the conversation, so do so
                     try SessionThread.updateVisibility(
                         db,
                         threadId: threadId,
@@ -1948,30 +1953,30 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigatableStateHolder, Ob
                     )
                     
                     return -1
-                },
-                completion: { [weak self, dependencies] result in
-                    guard
-                        let numPinnedConversations: Int = try? result.successOrThrow(),
-                        numPinnedConversations > 0
-                    else { return }
-                    
+                }
+                
+                /// If we already have too many conversations pinned then we need to show the CTA modal
+                guard numPinnedConversations > 0 else { return }
+                
+                await MainActor.run { [weak self, dependencies] in
                     let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                         modal: ProCTAModal(
-                            delegate: dependencies[singleton: .sessionProState],
                             variant: .morePinnedConvos(
-                                isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit)
+                                isGrandfathered: (numPinnedConversations > SessionPro.PinnedConversationLimit)
                             ),
-                            dataManager: dependencies[singleton: .imageDataManager]
+                            dataManager: dependencies[singleton: .imageDataManager],
+                            sessionProUIManager: dependencies[singleton: .sessionProManager]
                         )
                     )
                     self?.transitionToScreen(sessionProModal, transitionType: .present)
                 }
-            )
+            }
+            catch {}
             return
         }
         
         // If we are unpinning then no need to check the current count, just unpin immediately
-        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+        try? await dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
             try SessionThread.updateVisibility(
                 db,
                 threadId: threadId,

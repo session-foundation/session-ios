@@ -166,22 +166,30 @@ public extension CAccessible {
     func get(_ keyPath: KeyPath<Self, CChar224>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CChar268>) -> String { withUnsafePointer(to: self) { $0.get(keyPath) } }
     
-    func get(_ keyPath: KeyPath<Self, CChar65>, nullIfEmpty: Bool = false) -> String? {
-        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    func get(_ keyPath: KeyPath<Self, CChar65>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
-    func get(_ keyPath: KeyPath<Self, CChar67>, nullIfEmpty: Bool = false) -> String? {
-        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    func get(_ keyPath: KeyPath<Self, CChar67>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
-    func get(_ keyPath: KeyPath<Self, CChar101>, nullIfEmpty: Bool = false) -> String? {
-        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    func get(_ keyPath: KeyPath<Self, CChar101>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
-    func get(_ keyPath: KeyPath<Self, CChar128>, nullIfEmpty: Bool = false) -> String? {
-        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    func get(_ keyPath: KeyPath<Self, CChar128>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
-    func get(_ keyPath: KeyPath<Self, CChar224>, nullIfEmpty: Bool = false) -> String? {
-        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    func get(_ keyPath: KeyPath<Self, CChar224>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
     }
-    func get(_ keyPath: KeyPath<Self, CChar268>, nullIfEmpty: Bool = false) -> String? {
+    func get(_ keyPath: KeyPath<Self, CChar268>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength) }
+    }
+    
+    func get(_ keyPath: KeyPath<Self, string8>) -> String {
+        withUnsafePointer(to: self) { $0.get(keyPath) }
+    }
+    
+    func get(_ keyPath: KeyPath<Self, string8>, nullIfEmpty: Bool) -> String? {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
     }
     
@@ -337,22 +345,30 @@ public extension ReadablePointer {
     func get(_ keyPath: KeyPath<Pointee, CChar224>) -> String { getCString(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CChar268>) -> String { getCString(keyPath) }
     
-    func get(_ keyPath: KeyPath<Pointee, CChar65>, nullIfEmpty: Bool = false) -> String? {
-        getCString(keyPath, nullIfEmpty: nullIfEmpty)
+    func get(_ keyPath: KeyPath<Pointee, CChar65>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
-    func get(_ keyPath: KeyPath<Pointee, CChar67>, nullIfEmpty: Bool = false) -> String? {
-        getCString(keyPath, nullIfEmpty: nullIfEmpty)
+    func get(_ keyPath: KeyPath<Pointee, CChar67>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
-    func get(_ keyPath: KeyPath<Pointee, CChar101>, nullIfEmpty: Bool = false) -> String? {
-        getCString(keyPath, nullIfEmpty: nullIfEmpty)
+    func get(_ keyPath: KeyPath<Pointee, CChar101>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
-    func get(_ keyPath: KeyPath<Pointee, CChar128>, nullIfEmpty: Bool = false) -> String? {
-        getCString(keyPath, nullIfEmpty: nullIfEmpty)
+    func get(_ keyPath: KeyPath<Pointee, CChar128>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
-    func get(_ keyPath: KeyPath<Pointee, CChar224>, nullIfEmpty: Bool = false) -> String? {
-        getCString(keyPath, nullIfEmpty: nullIfEmpty)
+    func get(_ keyPath: KeyPath<Pointee, CChar224>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
     }
-    func get(_ keyPath: KeyPath<Pointee, CChar268>, nullIfEmpty: Bool = false) -> String? {
+    func get(_ keyPath: KeyPath<Pointee, CChar268>, nullIfEmpty: Bool = false, explicitLength: Int? = nil) -> String? {
+        getCString(keyPath, nullIfEmpty: nullIfEmpty, explicitLength: explicitLength)
+    }
+    
+    func get(_ keyPath: KeyPath<Pointee, string8>) -> String {
+        getCString(keyPath)
+    }
+    
+    func get(_ keyPath: KeyPath<Pointee, string8>, nullIfEmpty: Bool) -> String? {
         getCString(keyPath, nullIfEmpty: nullIfEmpty)
     }
     
@@ -476,12 +492,17 @@ private extension ReadablePointer {
         return (!nullIfEmpty || result.contains(where: { $0 != 0 }) ? result : nil)
     }
     
-    func _string<T>(from value: T) -> String {
+    func _string<T>(from value: T, explicitLength: Int? = nil) -> String {
         withUnsafeBytes(of: value) { rawBufferPointer in
             guard let buffer = rawBufferPointer.baseAddress?.assumingMemoryBound(to: CChar.self) else {
                 return ""
             }
             
+            if let length: Int = explicitLength {
+                return (String(pointer: buffer, length: length) ?? "")
+            }
+            
+            /// If we weren't given an explicit length then assume the string is null-terminated
             return String(cString: buffer)
         }
     }
@@ -506,8 +527,21 @@ private extension ReadablePointer {
         return _string(from: ptr[keyPath: keyPath])
     }
     
-    func getCString<T>(_ keyPath: KeyPath<Pointee, T>, nullIfEmpty: Bool) -> String? {
-        let result: String = _string(from: ptr[keyPath: keyPath])
+    func getCString<T>(_ keyPath: KeyPath<Pointee, T>, nullIfEmpty: Bool, explicitLength: Int?) -> String? {
+        let result: String = _string(from: ptr[keyPath: keyPath], explicitLength: explicitLength)
+        
+        return (!nullIfEmpty || !result.isEmpty ? result : nil)
+    }
+    
+    func getCString(_ keyPath: KeyPath<Pointee, string8>) -> String {
+        let stringPtr: string8 = ptr[keyPath: keyPath]
+        
+        return (String(pointer: stringPtr.data, length: stringPtr.size) ?? "")
+    }
+    
+    func getCString(_ keyPath: KeyPath<Pointee, string8>, nullIfEmpty: Bool) -> String? {
+        let stringPtr: string8 = ptr[keyPath: keyPath]
+        let result: String = (String(pointer: stringPtr.data, length: stringPtr.size) ?? "")
         
         return (!nullIfEmpty || !result.isEmpty ? result : nil)
     }

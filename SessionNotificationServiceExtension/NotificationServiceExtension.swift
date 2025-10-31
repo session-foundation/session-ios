@@ -100,7 +100,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         }
         
         /// Setup Version Info and Network
-        dependencies.warmCache(cache: .appVersion)
+        dependencies.warm(cache: .appVersion)
+        dependencies.warm(singleton: .sessionProManager)
         
         /// Configure the different targets
         SNUtilitiesKit.configure(

@@ -196,7 +196,7 @@
 		94AAB15E2E24C97400A6FA18 /* AnimatedProfileCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */; };
 		94AAB1602E24C97400A6FA18 /* AnimatedProfileCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */; };
 		94B3DC172AF8592200C88531 /* QuoteView_SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */; };
-		94B6BAF62E30A88800E718BB /* SessionProState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAF52E30A88800E718BB /* SessionProState.swift */; };
+		94B6BAF62E30A88800E718BB /* SessionProManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAF52E30A88800E718BB /* SessionProManager.swift */; };
 		94B6BAFE2E39F51800E718BB /* UserProfileModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAFD2E39F50E00E718BB /* UserProfileModal.swift */; };
 		94B6BB002E3AE83C00E718BB /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BAFF2E3AE83500E718BB /* QRCodeView.swift */; };
 		94B6BB022E3AE85C00E718BB /* QRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B6BB012E3AE85800E718BB /* QRCode.swift */; };
@@ -965,6 +965,7 @@
 		FDAA167B2AC28E2F00DDBF77 /* SnodeRequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167A2AC28E2F00DDBF77 /* SnodeRequestSpec.swift */; };
 		FDAA167D2AC528A200DDBF77 /* Preferences+Sound.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */; };
 		FDAA167F2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167E2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift */; };
+		FDAA36C02EB435950040603E /* SessionProUIManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA36BF2EB435910040603E /* SessionProUIManagerType.swift */; };
 		FDB11A4C2DCC527D00BEF49F /* NotificationContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A4B2DCC527900BEF49F /* NotificationContent.swift */; };
 		FDB11A502DCC6ADE00BEF49F /* ThreadUpdateInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A4F2DCC6ADD00BEF49F /* ThreadUpdateInfo.swift */; };
 		FDB11A522DCC6B0000BEF49F /* OpenGroupUrlInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A512DCC6AFF00BEF49F /* OpenGroupUrlInfo.swift */; };
@@ -1612,7 +1613,7 @@
 		94AAB1562E24BD3700A6FA18 /* PinnedConversationsCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = PinnedConversationsCTA.webp; sourceTree = "<group>"; };
 		94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = AnimatedProfileCTA.webp; sourceTree = "<group>"; };
 		94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteView_SwiftUI.swift; sourceTree = "<group>"; };
-		94B6BAF52E30A88800E718BB /* SessionProState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProState.swift; sourceTree = "<group>"; };
+		94B6BAF52E30A88800E718BB /* SessionProManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProManager.swift; sourceTree = "<group>"; };
 		94B6BAFD2E39F50E00E718BB /* UserProfileModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileModal.swift; sourceTree = "<group>"; };
 		94B6BAFF2E3AE83500E718BB /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
 		94B6BB012E3AE85800E718BB /* QRCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCode.swift; sourceTree = "<group>"; };
@@ -2254,6 +2255,7 @@
 		FDAA167A2AC28E2F00DDBF77 /* SnodeRequestSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnodeRequestSpec.swift; sourceTree = "<group>"; };
 		FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Preferences+Sound.swift"; sourceTree = "<group>"; };
 		FDAA167E2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Preferences+NotificationPreviewType.swift"; sourceTree = "<group>"; };
+		FDAA36BF2EB435910040603E /* SessionProUIManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProUIManagerType.swift; sourceTree = "<group>"; };
 		FDB11A4B2DCC527900BEF49F /* NotificationContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContent.swift; sourceTree = "<group>"; };
 		FDB11A4F2DCC6ADD00BEF49F /* ThreadUpdateInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadUpdateInfo.swift; sourceTree = "<group>"; };
 		FDB11A512DCC6AFF00BEF49F /* OpenGroupUrlInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupUrlInfo.swift; sourceTree = "<group>"; };
@@ -3712,7 +3714,6 @@
 		C3BBE0B32554F0D30050F1E3 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				94B6BAF52E30A88800E718BB /* SessionProState.swift */,
 				FD428B1E2B4B758B006D0888 /* AppReadiness.swift */,
 				FDE5218D2E03A06700061B8E /* AttachmentManager.swift */,
 				FD47E0B02AA6A05800A55E41 /* Authentication+SessionMessagingKit.swift */,
@@ -3737,6 +3738,7 @@
 				FD16AB602A1DD9B60083D849 /* ProfilePictureView+Convenience.swift */,
 				C38EF2EC255B6DBA007E1867 /* ProximityMonitoringManager.swift */,
 				FDE754FF2C9BB0FA002A2623 /* SessionEnvironment.swift */,
+				94B6BAF52E30A88800E718BB /* SessionProManager.swift */,
 				C38EEF09255B49A8007E1867 /* SNProtoEnvelope+Conversion.swift */,
 				FDE754FD2C9BB0D0002A2623 /* Threading+SessionMessagingKit.swift */,
 				FD72BDA02BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift */,
@@ -4717,6 +4719,7 @@
 				FD71163128E2C42A00B47552 /* IconSize.swift */,
 				FDB11A602DD5BDC900BEF49F /* ImageDataManager.swift */,
 				943C6D832B86B5F1004ACE64 /* Localization.swift */,
+				FDAA36BF2EB435910040603E /* SessionProUIManagerType.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -6401,6 +6404,7 @@
 				FD8A5B202DC03337004C689B /* AdaptiveText.swift in Sources */,
 				947D7FE92D51837200E8E413 /* Text+CopyButton.swift in Sources */,
 				FD71162A28DA83DF00B47552 /* GradientView.swift in Sources */,
+				FDAA36C02EB435950040603E /* SessionProUIManagerType.swift in Sources */,
 				94AAB14F2E1F6CC100A6FA18 /* SessionProBadge+SwiftUI.swift in Sources */,
 				94AAB14B2E1E198200A6FA18 /* Modal+SwiftUI.swift in Sources */,
 				94AAB1532E1F8AE200A6FA18 /* ShineButton.swift in Sources */,
@@ -6861,7 +6865,7 @@
 				FDB5DAE02A95D84D002C8721 /* GroupUpdateMemberLeftMessage.swift in Sources */,
 				FD8FD7622C37B7BD001E38C7 /* Position.swift in Sources */,
 				7B93D07127CF194000811CB6 /* MessageRequestResponse.swift in Sources */,
-				94B6BAF62E30A88800E718BB /* SessionProState.swift in Sources */,
+				94B6BAF62E30A88800E718BB /* SessionProManager.swift in Sources */,
 				FDB5DADE2A95D847002C8721 /* GroupUpdatePromoteMessage.swift in Sources */,
 				FD245C5B2850660500B966DD /* ReadReceipt.swift in Sources */,
 				FD428B1F2B4B758B006D0888 /* AppReadiness.swift in Sources */,

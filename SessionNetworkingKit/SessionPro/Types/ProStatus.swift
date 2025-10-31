@@ -1,10 +1,13 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 import SessionUtil
+import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    enum ProStatus: CaseIterable, CustomStringConvertible {
+    enum ProStatus: Sendable, CaseIterable, CustomStringConvertible {
         case neverBeenPro
         case active
         case expired
@@ -32,6 +35,53 @@ public extension Network.SessionPro {
                 case .active: return "Active"
                 case .expired: return "Expired"
             }
+        }
+    }
+}
+
+// MARK: - FeatureStorage
+
+public extension FeatureStorage {
+    static let mockCurrentUserSessionProStatus: FeatureConfig<Network.SessionPro.ProStatus?> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProStatus"
+    )
+}
+
+// MARK: - Router
+
+extension Optional: @retroactive RawRepresentable, @retroactive FeatureOption where Wrapped == Network.SessionPro.ProStatus {
+    public typealias RawValue = Int
+    
+    public var rawValue: Int {
+        switch self {
+            case .none: return -1
+            case .neverBeenPro: return 1
+            case .active: return 2
+            case .expired: return 3
+        }
+    }
+    
+    public init?(rawValue: Int) {
+        switch rawValue {
+            case 1: self = .neverBeenPro
+            case 2: self = .active
+            case 3: self = .expired
+            default: self = nil
+        }
+    }
+    
+    // MARK: - Feature Option
+    
+    public static var defaultOption: Network.SessionPro.ProStatus? = nil
+    
+    public var title: String { (self.map { "\($0)" } ?? "None") }
+    
+    public var subtitle: String? {
+        switch self {
+            case .none: return "Use the current users <i>actual</i> status."
+            case .neverBeenPro: return "The user has never had Session Pro before."
+            case .active: return "The user has an active Session Pro subscription."
+            case .expired: return "The user's Session Pro subscription has expired."
         }
     }
 }

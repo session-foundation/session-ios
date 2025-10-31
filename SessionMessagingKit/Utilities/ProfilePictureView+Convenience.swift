@@ -200,7 +200,7 @@ public extension ProfilePictureView {
             case .none: return .generic(false)
             
             case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
-                return .currentUser(dependencies[singleton: .sessionProState])
+                return .currentUser(dependencies[singleton: .sessionProManager])
                 
             case .some(let profile):
                 return .contact(dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }))

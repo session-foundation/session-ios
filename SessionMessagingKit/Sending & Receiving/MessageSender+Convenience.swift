@@ -429,7 +429,7 @@ extension MessageSender {
 public extension VisibleMessage {
     static func from(_ db: ObservingDatabase, interaction: Interaction, proProof: String? = nil) -> VisibleMessage {
         let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
-        let shouldAttachProProof: Bool = ((interaction.body ?? "").utf16.count > LibSession.CharacterLimit)
+        let shouldAttachProProof: Bool = ((interaction.body ?? "").utf16.count > SessionPro.CharacterLimit)
         
         let visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,

@@ -3,6 +3,7 @@
 import Foundation
 import UIKit
 import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 import Combine
 
@@ -23,10 +24,9 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     
     // MARK: - Variables
     
-    private var disposables: Set<AnyCancellable> = Set()
     public weak var delegate: AttachmentTextToolbarDelegate?
     private let dependencies: Dependencies
-    private var sessionProState: SessionProManagerType?
+    private var proObservationTask: Task<Void, Never>?
 
     var text: String? {
         get { inputTextView.text }
@@ -91,7 +91,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: .small)
-        result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
+        result.isHidden = dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
         
         return result
     }()
@@ -101,26 +101,27 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     init(delegate: AttachmentTextToolbarDelegate, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.delegate = delegate
-        self.sessionProState = dependencies[singleton: .sessionProState]
         
         super.init(frame: CGRect.zero)
         
         setUpViewHierarchy()
         
-        self.sessionProState?.isSessionProPublisher
-            .subscribe(on: DispatchQueue.main)
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveValue: { [weak self] isPro in
+        proObservationTask = Task(priority: .userInitiated) { [weak self, sessionProUIManager = dependencies[singleton: .sessionProManager]] in
+            for await isPro in sessionProUIManager.currentUserIsPro {
+                await MainActor.run {
                     self?.sessionProBadge.isHidden = isPro
                     self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
                 }
-            )
-            .store(in: &disposables)
+            }
+        }
     }
 
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    deinit {
+        proObservationTask?.cancel()
     }
     
     private func setUpViewHierarchy() {
@@ -164,11 +165,11 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
         proStackView.center(.horizontal, in: sendButton)
     }
     
-    func updateNumberOfCharactersLeft(_ text: String) {
-        let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
-            for: text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: dependencies[cache: .libSession].isSessionPro
+    @MainActor func updateNumberOfCharactersLeft(_ text: String) {
+        let numberOfCharactersLeft: Int = dependencies[singleton: .sessionProManager].numberOfCharactersLeft(
+            for: text.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+        
         characterLimitLabel.text = "\(numberOfCharactersLeft.formatted(format: .abbreviated(decimalPlaces: 1)))"
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
         proStackView.alpha = (numberOfCharactersLeft <= Self.thresholdForCharacterLimit) ? 1 : 0

@@ -5,18 +5,6 @@ import GRDB
 import SessionUtil
 import SessionUtilitiesKit
 
-// MARK: - Character Limits
-
-public extension LibSession {
-    static var CharacterLimit: Int { 2000 }
-    static var ProCharacterLimit: Int { 10000 }
-    static var PinnedConversationLimit: Int { 5 }
-    
-    static func numberOfCharactersLeft(for content: String, isSessionPro: Bool) -> Int {
-        return ((isSessionPro ? ProCharacterLimit : CharacterLimit) - content.utf16.count)
-    }
-}
-
 // MARK: - Session Pro
 // TODO: Implementation
 

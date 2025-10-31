@@ -9,7 +9,7 @@ public final class ProfilePictureView: UIView {
         public enum AnimationBehaviour {
             case generic(Bool) // For communities and when Pro is not enabled
             case contact(Bool)
-            case currentUser(SessionProManagerType)
+            case currentUser(SessionProUIManagerType)
         }
         
         let source: ImageDataManager.DataSource?
@@ -116,7 +116,7 @@ public final class ProfilePictureView: UIView {
     }
     
     private var dataManager: ImageDataManagerType?
-    private var disposables: Set<AnyCancellable> = Set()
+    private var proObservationTask: Task<Void, Never>?
     public var size: Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)
@@ -451,7 +451,8 @@ public final class ProfilePictureView: UIView {
     
     private func prepareForReuse() {
         /// Reset the disposables in case this was called with different data/
-        disposables = Set()
+        proObservationTask?.cancel()
+        proObservationTask = nil
         
         imageView.image = nil
         imageView.shouldAnimateImage = false
@@ -667,17 +668,15 @@ public final class ProfilePictureView: UIView {
             case .generic(let enableAnimation), .contact(let enableAnimation):
                 targetImageView.shouldAnimateImage = enableAnimation
 
-            case .currentUser(let currentUserSessionProState):
-                targetImageView.shouldAnimateImage = currentUserSessionProState.isSessionProSubject.value
-                currentUserSessionProState.isSessionProPublisher
-                    .subscribe(on: DispatchQueue.main)
-                    .receive(on: DispatchQueue.main)
-                    .sink(
-                        receiveValue: { [weak targetImageView] isPro in
+            case .currentUser(let sessionProUIManager):
+                proObservationTask?.cancel()
+                proObservationTask = Task(priority: .userInitiated) { [weak targetImageView] in
+                    for await isPro in sessionProUIManager.currentUserIsPro {
+                        await MainActor.run {
                             targetImageView?.shouldAnimateImage = isPro
                         }
-                    )
-                    .store(in: &disposables)
+                    }
+                }
         }
     }
 }

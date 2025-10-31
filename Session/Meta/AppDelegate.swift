@@ -57,7 +57,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         dependencies.set(singleton: .appContext, to: MainAppContext(using: dependencies))
         verifyDBKeysAvailableBeforeBackgroundLaunch()
 
-        dependencies.warmCache(cache: .appVersion)
+        dependencies.warm(cache: .appVersion)
         dependencies[singleton: .pushRegistrationManager].createVoipRegistryIfNecessary()
 
         // Prevent the device from sleeping during database view async registration
@@ -79,7 +79,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
                 // Setup LibSession
                 LibSession.setupLogger(using: dependencies)
-                dependencies.warmCache(cache: .libSessionNetwork)
+                dependencies.warm(cache: .libSessionNetwork)
+                dependencies.warm(singleton: .network)
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(
@@ -805,7 +806,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         // Navigate to the approriate screen depending on the onboarding state
-        dependencies.warmCache(cache: .onboarding)
+        dependencies.warm(cache: .onboarding)
         
         switch dependencies[cache: .onboarding].state {
             case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:

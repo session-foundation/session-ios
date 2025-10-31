@@ -521,6 +521,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                     options: options.enumerated().map { otherIndex, otherInfo in
                                         Info.Body.RadioOptionInfo(
                                             title: otherInfo.title,
+                                            descriptionText: otherInfo.descriptionText,
                                             enabled: otherInfo.enabled,
                                             selected: (index == otherIndex),
                                             accessibility: otherInfo.accessibility
@@ -531,6 +532,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                         )
                     }
                     radioButton.text = optionInfo.title
+                    radioButton.descriptionText = optionInfo.descriptionText
                     radioButton.accessibilityLabel = optionInfo.accessibility?.label
                     radioButton.accessibilityIdentifier = optionInfo.accessibility?.identifier
                     radioButton.update(isEnabled: optionInfo.enabled, isSelected: optionInfo.selected)
@@ -1033,17 +1035,20 @@ public extension ConfirmationModal.Info {
         
         public struct RadioOptionInfo: Equatable, Hashable {
             public let title: String
+            public let descriptionText: ThemedAttributedString?
             public let enabled: Bool
             public let selected: Bool
             public let accessibility: Accessibility?
             
             public init(
                 title: String,
+                descriptionText: ThemedAttributedString? = nil,
                 enabled: Bool,
                 selected: Bool = false,
                 accessibility: Accessibility? = nil
             ) {
                 self.title = title
+                self.descriptionText = descriptionText
                 self.enabled = enabled
                 self.selected = selected
                 self.accessibility = accessibility
@@ -1083,7 +1088,7 @@ public extension ConfirmationModal.Info {
             description: NSAttributedString?,
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
-            onProBageTapped: (() -> Void)?,
+            onProBageTapped: (@MainActor () -> Void)?,
             onClick: (@MainActor (@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
         )
         

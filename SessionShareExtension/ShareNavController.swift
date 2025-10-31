@@ -43,7 +43,7 @@ final class ShareNavController: UINavigationController {
 
         guard !SNUtilitiesKit.isRunningTests else { return }
         
-        dependencies.warmCache(cache: .appVersion)
+        dependencies.warm(cache: .appVersion)
 
         AppSetup.setupEnvironment(
             appSpecificBlock: { [dependencies] in
@@ -60,7 +60,8 @@ final class ShareNavController: UINavigationController {
                 // stringlint:ignore_stop
                 
                 // Setup LibSession
-                dependencies.warmCache(cache: .libSessionNetwork)
+                dependencies.warm(cache: .libSessionNetwork)
+                dependencies.warm(singleton: .sessionProManager)
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(

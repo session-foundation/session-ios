@@ -70,15 +70,15 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case enableSessionPro
         
+        case proStatus
+        case proIncomingMessages
+        
         case purchaseProSubscription
         case manageProSubscriptions
         case restoreProSubscription
         case requestRefund
         case submitPurchaseToProBackend
         case refreshProStatus
-        
-        case proStatus
-        case proIncomingMessages
         
         // MARK: - Conformance
         
@@ -88,15 +88,15 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             switch self {
                 case .enableSessionPro: return "enableSessionPro"
                     
+                case .proStatus: return "proStatus"
+                case .proIncomingMessages: return "proIncomingMessages"
+                    
                 case .purchaseProSubscription: return "purchaseProSubscription"
                 case .manageProSubscriptions: return "manageProSubscriptions"
                 case .restoreProSubscription: return "restoreProSubscription"
                 case .requestRefund: return "requestRefund"
                 case .submitPurchaseToProBackend: return "submitPurchaseToProBackend"
                 case .refreshProStatus: return "refreshProStatus"
-                    
-                case .proStatus: return "proStatus"
-                case .proIncomingMessages: return "proIncomingMessages"
             }
         }
         
@@ -109,15 +109,15 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             switch TableItem.enableSessionPro {
                 case .enableSessionPro: result.append(.enableSessionPro); fallthrough
                     
+                case .proStatus: result.append(.proStatus); fallthrough
+                case .proIncomingMessages: result.append(.proIncomingMessages); fallthrough
+                    
                 case .purchaseProSubscription: result.append(.purchaseProSubscription); fallthrough
                 case .manageProSubscriptions: result.append(.manageProSubscriptions); fallthrough
                 case .restoreProSubscription: result.append(.restoreProSubscription); fallthrough
                 case .requestRefund: result.append(.requestRefund); fallthrough
                 case .submitPurchaseToProBackend: result.append(.submitPurchaseToProBackend); fallthrough
-                case .refreshProStatus: result.append(.refreshProStatus); fallthrough
-                    
-                case .proStatus: result.append(.proStatus); fallthrough
-                case .proIncomingMessages: result.append(.proIncomingMessages)
+                case .refreshProStatus: result.append(.refreshProStatus)
             }
             
             return result
@@ -136,6 +136,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public struct State: Equatable, ObservableKeyProvider {
         let sessionProEnabled: Bool
         
+        let mockCurrentUserSessionProStatus: Network.SessionPro.ProStatus?
+        let treatAllIncomingMessagesAsProMessages: Bool
+        
         let products: [Product]
         let purchasedProduct: Product?
         let purchaseError: String?
@@ -151,9 +154,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let currentProStatus: String?
         let currentProStatusErrored: Bool
         
-        let mockCurrentUserSessionPro: Bool
-        let treatAllIncomingMessagesAsProMessages: Bool
-        
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
                 state: self,
@@ -164,14 +164,17 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         public let observedKeys: Set<ObservableKey> = [
             .feature(.sessionProEnabled),
-            .updateScreen(DeveloperSettingsProViewModel.self),
-            .feature(.mockCurrentUserSessionPro),
-            .feature(.treatAllIncomingMessagesAsProMessages)
+            .feature(.mockCurrentUserSessionProStatus),
+            .feature(.treatAllIncomingMessagesAsProMessages),
+            .updateScreen(DeveloperSettingsProViewModel.self)
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
             return State(
                 sessionProEnabled: dependencies[feature: .sessionProEnabled],
+                
+                mockCurrentUserSessionProStatus: dependencies[feature: .mockCurrentUserSessionProStatus],
+                treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
                 
                 products: [],
                 purchasedProduct: nil,
@@ -186,10 +189,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 submittedTransactionErrored: false,
                 
                 currentProStatus: nil,
-                currentProStatusErrored: false,
-                
-                mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-                treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+                currentProStatusErrored: false
             )
         }
     }
@@ -202,6 +202,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         isInitialQuery: Bool,
         using dependencies: Dependencies
     ) async -> State {
+        var currentProStatus: String? = previousState.currentProStatus
+        var currentProStatusErrored: Bool = previousState.currentProStatusErrored
+        
         var products: [Product] = previousState.products
         var purchasedProduct: Product? = previousState.purchasedProduct
         var purchaseError: String? = previousState.purchaseError
@@ -212,8 +215,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         var submittedTransactionRotatingKeyPair: KeyPair? = previousState.submittedTransactionRotatingKeyPair
         var submittedTransactionStatus: String? = previousState.submittedTransactionStatus
         var submittedTransactionErrored: Bool = previousState.submittedTransactionErrored
-        var currentProStatus: String? = previousState.currentProStatus
-        var currentProStatusErrored: Bool = previousState.currentProStatusErrored
         
         events.forEach { event in
             guard let eventValue: DeveloperSettingsProEvent = event.value as? DeveloperSettingsProEvent else { return }
@@ -243,6 +244,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         return State(
             sessionProEnabled: dependencies[feature: .sessionProEnabled],
+            mockCurrentUserSessionProStatus: dependencies[feature: .mockCurrentUserSessionProStatus],
+            treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
             products: products,
             purchasedProduct: purchasedProduct,
             purchaseError: purchaseError,
@@ -254,9 +257,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             submittedTransactionStatus: submittedTransactionStatus,
             submittedTransactionErrored: submittedTransactionErrored,
             currentProStatus: currentProStatus,
-            currentProStatusErrored: currentProStatusErrored,
-            mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-            treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+            currentProStatusErrored: currentProStatusErrored
         )
     }
     
@@ -287,6 +288,54 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         )
         
         guard state.sessionProEnabled else { return [general] }
+        
+        // MARK: - Mockable Features
+        
+        let mockedProStatus: String = {
+            switch state.mockCurrentUserSessionProStatus {
+                case .some(let status): return "<span>\(status)</span>"
+                case .none: return "<disabled>None</disabled>"
+            }
+        }()
+        
+        let features: SectionModel = SectionModel(
+            model: .features,
+            elements: [
+                SessionCell.Info(
+                    id: .proStatus,
+                    title: "Mocked Pro Status",
+                    subtitle: """
+                    Force the current users Session Pro to a specific status locally.
+                    
+                    <b>Current:</b> \(mockedProStatus)
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showMockProStatusModal(currentStatus: state.mockCurrentUserSessionProStatus)
+                    }
+                ),
+                
+                SessionCell.Info(
+                    id: .proIncomingMessages,
+                    title: "All Pro Incoming Messages",
+                    subtitle: """
+                    Treat all incoming messages as Pro messages.
+                    """,
+                    trailingAccessory: .toggle(
+                        state.treatAllIncomingMessagesAsProMessages,
+                        oldValue: previousState.treatAllIncomingMessagesAsProMessages
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .treatAllIncomingMessagesAsProMessages,
+                            to: !state.treatAllIncomingMessagesAsProMessages
+                        )
+                    }
+                )
+            ]
+        )
+        
+        // MARK: - Actual Pro Transactions and APIs
         
         let purchaseStatus: String = {
             switch (state.purchaseError, state.purchaseStatus) {
@@ -337,6 +386,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     title: "Purchase Subscription",
                     subtitle: """
                     Purchase Session Pro via the App Store.
+                    
+                    <b>Note:</b> This only works on a real device (and some old iOS versions don't seem to support Sandbox accounts (eg. iOS 16).
                     
                     <b>Status:</b> \(purchaseStatus)
                     <b>Product Name:</b> \(productName)
@@ -417,47 +468,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             ]
         )
         
-        let features: SectionModel = SectionModel(
-            model: .features,
-            elements: [
-                SessionCell.Info(
-                    id: .proStatus,
-                    title: "Pro Status",
-                    subtitle: """
-                    Mock current user a Session Pro user locally.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.mockCurrentUserSessionPro,
-                        oldValue: previousState.mockCurrentUserSessionPro
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.set(
-                            feature: .mockCurrentUserSessionPro,
-                            to: !state.mockCurrentUserSessionPro
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .proIncomingMessages,
-                    title: "All Pro Incoming Messages",
-                    subtitle: """
-                    Treat all incoming messages as Pro messages.
-                    """,
-                    trailingAccessory: .toggle(
-                        state.treatAllIncomingMessagesAsProMessages,
-                        oldValue: previousState.treatAllIncomingMessagesAsProMessages
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.set(
-                            feature: .treatAllIncomingMessagesAsProMessages,
-                            to: !state.treatAllIncomingMessagesAsProMessages
-                        )
-                    }
-                )
-            ]
-        )
-        
-        return [general, subscriptions, features]
+        return [general, features, subscriptions]
     }
     
     // MARK: - Functions
@@ -465,7 +476,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public static func disableDeveloperMode(using dependencies: Dependencies) {
         let features: [FeatureConfig<Bool>] = [
             .sessionProEnabled,
-            .mockCurrentUserSessionPro,
             .treatAllIncomingMessagesAsProMessages
         ]
         
@@ -474,19 +484,84 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             
             dependencies.set(feature: feature, to: nil)
         }
+        
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProStatus) {
+            dependencies.set(feature: .mockCurrentUserSessionProStatus, to: nil)
+        }
     }
+    
+    // MARK: - Internal Functions
     
     private func updateSessionProEnabled(current: Bool) {
         dependencies.set(feature: .sessionProEnabled, to: !current)
         
-        if dependencies.hasSet(feature: .mockCurrentUserSessionPro) {
-            dependencies.set(feature: .mockCurrentUserSessionPro, to: nil)
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProStatus) {
+            dependencies.set(feature: .mockCurrentUserSessionProStatus, to: nil)
         }
         
         if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
             dependencies.set(feature: .treatAllIncomingMessagesAsProMessages, to: nil)
         }
     }
+    
+    private func showMockProStatusModal(currentStatus: Network.SessionPro.ProStatus?) {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Mocked Pro Status",
+                    body: .radio(
+                        explanation: ThemedAttributedString(
+                            string: "Force the current users Session Pro to a specific status locally."
+                        ),
+                        warning: nil,
+                        options: {
+                            return ([nil] + Network.SessionPro.ProStatus.allCases).map { status in
+                                ConfirmationModal.Info.Body.RadioOptionInfo(
+                                    title: status.title,
+                                    descriptionText: status.subtitle.map {
+                                        ThemedAttributedString(
+                                            stringWithHTMLTags: $0,
+                                            font: RadioButton.descriptionFont
+                                        )
+                                    },
+                                    enabled: true,
+                                    selected: currentStatus == status
+                                )
+                            }
+                        }()
+                    ),
+                    confirmTitle: "select".localized(),
+                    cancelStyle: .alert_text,
+                    onConfirm: { [dependencies] modal in
+                        let selectedStatus: Network.SessionPro.ProStatus? = {
+                            switch modal.info.body {
+                                case .radio(_, _, let options):
+                                    return options
+                                        .enumerated()
+                                        .first(where: { _, value in value.selected })
+                                        .map { index, _ in
+                                            let targetIndex: Int = (index - 1)
+                                            
+                                            guard targetIndex >= 0 && (targetIndex - 1) < Network.SessionPro.ProStatus.allCases.count else {
+                                                return nil
+                                            }
+                                            
+                                            return Network.SessionPro.ProStatus.allCases[targetIndex]
+                                        }
+                                
+                                default: return nil
+                            }
+                        }()
+                        
+                        dependencies.set(feature: .mockCurrentUserSessionProStatus, to: selectedStatus)
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    // MARK: - Pro Requests
     
     private func purchaseSubscription() async {
         do {

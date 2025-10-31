@@ -13,11 +13,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     private static let linkPreviewViewInset: CGFloat = 6
     private static let thresholdForCharacterLimit: Int = 200
 
-    private var disposables: Set<AnyCancellable> = Set()
     private let dependencies: Dependencies
     private let threadVariant: SessionThread.Variant
     private weak var delegate: InputViewDelegate?
-    private var sessionProState: SessionProManagerType?
+    private var proObservationTask: Task<Void, Never>?
     
     var quoteDraftInfo: (model: QuotedReplyModel, isOutgoing: Bool)? { didSet { handleQuoteDraftChanged() } }
     var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
@@ -190,7 +189,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: .small)
-        result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
+        result.isHidden = dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
         
         return result
     }()
@@ -207,22 +206,19 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         self.dependencies = dependencies
         self.threadVariant = threadVariant
         self.delegate = delegate
-        self.sessionProState = dependencies[singleton: .sessionProState]
         
         super.init(frame: CGRect.zero)
         
         setUpViewHierarchy()
         
-        self.sessionProState?.isSessionProPublisher
-            .subscribe(on: DispatchQueue.main)
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveValue: { [weak self] isPro in
+        proObservationTask = Task(priority: .userInitiated) { [weak self, sessionProUIManager = dependencies[singleton: .sessionProManager]] in
+            for await isPro in sessionProUIManager.currentUserIsPro {
+                await MainActor.run {
                     self?.sessionProBadge.isHidden = isPro
                     self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
                 }
-            )
-            .store(in: &disposables)
+            }
+        }
     }
 
     override init(frame: CGRect) {
@@ -235,6 +231,7 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     
     deinit {
         linkPreviewLoadTask?.cancel()
+        proObservationTask?.cancel()
     }
 
     private func setUpViewHierarchy() {
@@ -326,10 +323,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
     }
     
     @MainActor func updateNumberOfCharactersLeft(_ text: String) {
-        let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
-            for: text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: dependencies[cache: .libSession].isSessionPro
+        let numberOfCharactersLeft: Int = dependencies[singleton: .sessionProManager].numberOfCharactersLeft(
+            for: text.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+        
         characterLimitLabel.text = "\(numberOfCharactersLeft.formatted(format: .abbreviated(decimalPlaces: 1)))"
         characterLimitLabel.themeTextColor = (numberOfCharactersLeft < 0) ? .danger : .textPrimary
         proStackView.alpha = (numberOfCharactersLeft <= Self.thresholdForCharacterLimit) ? 1 : 0

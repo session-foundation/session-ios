@@ -379,6 +379,30 @@ public extension Crypto.Verification {
     }
 }
 
+// MARK: - Session Pro
+
+public extension Crypto.Generator {
+    static func sessionProMasterKeyPair() -> Crypto.Generator<KeyPair> {
+        return Crypto.Generator(
+            id: "encodedMessage",
+            args: []
+        ) { dependencies in
+            let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+            var cMasterSecretKey: [UInt8] = [UInt8](repeating: 0, count: 256)
+            
+            guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
+            
+            guard session_ed25519_pro_privkey_for_ed25519_seed(cEd25519SecretKey, &cMasterSecretKey) else {
+                throw CryptoError.keyGenerationFailed
+            }
+            
+            let seed: Data = try dependencies[singleton: .crypto].tryGenerate(.ed25519Seed(ed25519SecretKey: cMasterSecretKey))
+            
+            return try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair(seed: seed))
+        }
+    }
+}
+
 extension bytes32: CAccessible & CMutable {}
 extension bytes33: CAccessible & CMutable {}
 extension bytes64: CAccessible & CMutable {}

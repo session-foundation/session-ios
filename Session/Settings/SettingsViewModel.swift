@@ -8,6 +8,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
@@ -133,6 +134,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public struct State: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
+        let sessionProStatus: Network.SessionPro.ProStatus?
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let developerModeEnabled: Bool
@@ -145,6 +147,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         public var observedKeys: Set<ObservableKey> {
             [
                 .profile(userSessionId.hexString),
+                .feature(.mockCurrentUserSessionProStatus),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
                 .setting(.developerModeEnabled),
@@ -156,6 +159,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             return State(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
+                sessionProStatus: nil,
                 serviceNetwork: .mainnet,
                 forceOffline: false,
                 developerModeEnabled: false,
@@ -189,6 +193,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     ) async -> State {
         /// Store mutable copies of the data to update
         var profile: Profile = previousState.profile
+        var sessionProStatus: Network.SessionPro.ProStatus? = previousState.sessionProStatus
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
         var developerModeEnabled: Bool = previousState.developerModeEnabled
@@ -203,6 +208,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 developerModeEnabled = libSession.get(.developerModeEnabled)
                 hideRecoveryPasswordPermanently = libSession.get(.hideRecoveryPasswordPermanently)
             }
+        }
+        
+        /// If the device has a mock pro status set then use that
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProStatus) {
+            sessionProStatus = dependencies[feature: .mockCurrentUserSessionProStatus]
         }
         
         /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
@@ -255,6 +265,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return State(
             userSessionId: previousState.userSessionId,
             profile: profile,
+            sessionProStatus: sessionProStatus,
             serviceNetwork: serviceNetwork,
             forceOffline: forceOffline,
             developerModeEnabled: developerModeEnabled,
@@ -294,7 +305,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         label: "Profile picture"
                     ),
                     onTap: { [weak viewModel] in
-                        viewModel?.updateProfilePicture(currentUrl: state.profile.displayPictureUrl)
+                        viewModel?.updateProfilePicture(
+                            currentUrl: state.profile.displayPictureUrl,
+                            sessionProStatus: state.sessionProStatus
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -666,7 +680,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         )
     }
     
-    private func updateProfilePicture(currentUrl: String?) {
+    private func updateProfilePicture(
+        currentUrl: String?,
+        sessionProStatus: Network.SessionPro.ProStatus?
+    ) {
         let iconName: String = "profile_placeholder" // stringlint:ignore
         var hasSetNewProfilePicture: Bool = false
         let currentSource: ImageDataManager.DataSource? = {
@@ -717,16 +734,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             ),
             dataManager: dependencies[singleton: .imageDataManager],
             onProBageTapped: { [weak self, dependencies] in
-                Task { @MainActor in
-                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                        .animatedProfileImage(
-                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro
-                        ),
-                        presenting: { modal in
-                            self?.transitionToScreen(modal, transitionType: .present)
-                        }
-                    )
-                }
+                dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                    .animatedProfileImage(isSessionProActivated: (sessionProStatus == .active)),
+                    presenting: { modal in
+                        self?.transitionToScreen(modal, transitionType: .present)
+                    }
+                )
             },
             onClick: { [weak self] onDisplayPictureSelected in
                 self?.onDisplayPictureSelected = { source, cropRect in
@@ -767,24 +780,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         switch modal.info.body {
                             case .image(.some(let source), _, _, let style, _, _, _, _, _):
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
+                                var didShowCTAModal: Bool = false
                                 
-                                guard (
-                                    !isAnimatedImage ||
-                                    dependencies[cache: .libSession].isSessionPro ||
-                                    !dependencies[feature: .sessionProEnabled]
-                                ) else {
-                                    Task { @MainActor in
-                                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                                            .animatedProfileImage(
-                                                isSessionProActivated: dependencies[cache: .libSession].isSessionPro
-                                            ),
-                                            presenting: { modal in
-                                                self?.transitionToScreen(modal, transitionType: .present)
-                                            }
-                                        )
-                                    }
-                                    return
+                                if isAnimatedImage && !dependencies[feature: .sessionProEnabled] {
+                                    didShowCTAModal = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                                        .animatedProfileImage(isSessionProActivated: (sessionProStatus == .active)),
+                                        presenting: { modal in
+                                            self?.transitionToScreen(modal, transitionType: .present)
+                                        }
+                                    )
                                 }
+                                
+                                /// If we showed the CTA modal then the user doesn't have Session Pro so can't use the
+                                /// selected image as their display picture
+                                guard !didShowCTAModal else { return }
                                 
                                 self?.updateProfile(
                                     displayPictureUpdateGenerator: { [weak self] in

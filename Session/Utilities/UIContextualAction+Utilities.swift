@@ -234,15 +234,15 @@ public extension UIContextualAction {
                                        .filter(SessionThread.Columns.pinnedPriority > 0)
                                        .fetchCount(db)
                                }),
-                               pinnedConversationsNumber >= LibSession.PinnedConversationLimit
+                               pinnedConversationsNumber >= SessionPro.PinnedConversationLimit
                             {
                                 let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                                     modal: ProCTAModal(
-                                        delegate: dependencies[singleton: .sessionProState],
                                         variant: .morePinnedConvos(
-                                            isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
+                                            isGrandfathered: (pinnedConversationsNumber > SessionPro.PinnedConversationLimit)
                                         ),
                                         dataManager: dependencies[singleton: .imageDataManager],
+                                        sessionProUIManager: dependencies[singleton: .sessionProManager],
                                         afterClosed: { [completionHandler] in
                                             completionHandler(true)
                                         }

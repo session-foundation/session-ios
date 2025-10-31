@@ -311,6 +311,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        
+        let sessionProStatus: String = (dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")
+        let mockedProStatus: String = {
+            switch (dependencies[feature: .sessionProEnabled], dependencies[feature: .mockCurrentUserSessionProStatus]) {
+                case (true, .some(let status)): return "<span>\(status)</span>"
+                case (false, _), (_, .none): return "<disabled>None</disabled>"
+            }
+        }()
         let sessionPro: SectionModel = SectionModel(
             model: .sessionPro,
             elements: [
@@ -320,7 +328,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     subtitle: """
                     Configure settings related to Session Pro.
                     
-                    <b>Session Pro:</b> <span>\(dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")</span>
+                    <b>Session Pro:</b> <span>\(sessionProStatus)</span>
+                    <b>Mock Pro Status:</b> \(mockedProStatus)
                     """,
                     trailingAccessory: .icon(.chevronRight),
                     onTap: { [weak self, dependencies] in
@@ -1115,7 +1124,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         dependencies.set(feature: .serviceNetwork, to: updatedNetwork)
         
         /// Start the new network cache and clear out the old one
-        dependencies.warmCache(cache: .libSessionNetwork)
+        dependencies.warm(cache: .libSessionNetwork)
         
         /// Free the `oldNetworkCache` so it can be destroyed(the 'if' is only there to prevent the "variable never read" warning)
         if oldNetworkCache != nil { oldNetworkCache = nil }

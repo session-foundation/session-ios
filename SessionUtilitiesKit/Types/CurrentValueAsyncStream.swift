@@ -6,7 +6,7 @@ public actor CurrentValueAsyncStream<Element: Sendable>: CancellationAwareStream
     private let lifecycleManager: StreamLifecycleManager<Element> = StreamLifecycleManager()
     
     /// This is the most recently emitted value
-    public private(set) var currentValue: Element
+    private var currentValue: Element
     
     // MARK: - Initialization
 
@@ -15,7 +15,11 @@ public actor CurrentValueAsyncStream<Element: Sendable>: CancellationAwareStream
     }
     
     // MARK: - Functions
-
+    
+    public func getCurrent() async -> Element {
+        return currentValue
+    }
+    
     public func send(_ newValue: Element) async {
         currentValue = newValue
         lifecycleManager.send(newValue)

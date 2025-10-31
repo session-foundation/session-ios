@@ -558,7 +558,7 @@ extension ConversationVC:
     }
     
     @MainActor func handleCharacterLimitLabelTapped() {
-        guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+        let didShowCTAModal: Bool = viewModel.dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
             .longerMessages,
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
@@ -570,16 +570,15 @@ extension ConversationVC:
             presenting: { [weak self] modal in
                 self?.present(modal, animated: true)
             }
-        ) else {
-            return
-        }
+        )
+        
+        guard !didShowCTAModal else { return }
         
         self.hideInputAccessoryView()
-        let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
-            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: viewModel.isCurrentUserSessionPro
+        let numberOfCharactersLeft: Int = viewModel.dependencies[singleton: .sessionProManager].numberOfCharactersLeft(
+            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines)
         )
-        let limit: Int = (viewModel.isCurrentUserSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit)
+        let limit: Int = (viewModel.isCurrentUserSessionPro ? SessionPro.ProCharacterLimit : SessionPro.CharacterLimit)
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -648,9 +647,8 @@ extension ConversationVC:
     // MARK: --Message Sending
     
     @MainActor func handleSendButtonTapped() {
-        guard LibSession.numberOfCharactersLeft(
-            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            isSessionPro: viewModel.isCurrentUserSessionPro
+        guard viewModel.dependencies[singleton: .sessionProManager].numberOfCharactersLeft(
+            for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines)
         ) >= 0 else {
             showModalForMessagesExceedingCharacterLimit(isSessionPro: viewModel.isCurrentUserSessionPro)
             return
@@ -664,7 +662,7 @@ extension ConversationVC:
     }
     
     @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
-        guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+        let didShowCTAModal: Bool = viewModel.dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
             .longerMessages,
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
@@ -676,9 +674,9 @@ extension ConversationVC:
             presenting: { [weak self] modal in
                 self?.present(modal, animated: true)
             }
-        ) else {
-            return
-        }
+        )
+        
+        guard !didShowCTAModal else { return }
         
         self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
@@ -686,7 +684,7 @@ extension ConversationVC:
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit))
+                        .put(key: "limit", value: (isSessionPro ? SessionPro.ProCharacterLimit : SessionPro.CharacterLimit))
                         .localized(),
                     scrollMode: .never
                 ),
@@ -1703,7 +1701,7 @@ extension ConversationVC:
                         )
                     },
                     onProBadgeTapped: { [weak self, dependencies] in
-                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                        dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                             .generic,
                             dismissType: .single,
                             beforePresented: { [weak self] in

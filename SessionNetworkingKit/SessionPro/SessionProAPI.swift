@@ -95,7 +95,6 @@ public extension Network.SessionPro {
     
     static func getProStatus(
         includeHistory: Bool = false,
-        page: UInt32 = 0,
         masterKeyPair: KeyPair,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<GetProStatusResponse> {
@@ -107,7 +106,7 @@ public extension Network.SessionPro {
                 cMasterPrivateKey,
                 cMasterPrivateKey.count,
                 timestampMs,
-                page
+                includeHistory
             )
         )
         
