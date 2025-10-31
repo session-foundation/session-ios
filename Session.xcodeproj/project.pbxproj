@@ -600,7 +600,7 @@
 		FD306BD02EB02F3900ADB003 /* GetProStatusResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCF2EB02F3500ADB003 /* GetProStatusResponse.swift */; };
 		FD306BD22EB031AE00ADB003 /* PaymentItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD12EB031AB00ADB003 /* PaymentItem.swift */; };
 		FD306BD42EB031C200ADB003 /* PaymentStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD32EB031BF00ADB003 /* PaymentStatus.swift */; };
-		FD306BD62EB0323000ADB003 /* ProStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD52EB0322E00ADB003 /* ProStatus.swift */; };
+		FD306BD62EB0323000ADB003 /* BackendUserProStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD52EB0322E00ADB003 /* BackendUserProStatus.swift */; };
 		FD306BD82EB033CD00ADB003 /* Plan.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD72EB033CB00ADB003 /* Plan.swift */; };
 		FD306BDA2EB0359B00ADB003 /* PaymentProviderMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD92EB0359600ADB003 /* PaymentProviderMetadata.swift */; };
 		FD306BDC2EB0436C00ADB003 /* GetProProofRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BDB2EB0436800ADB003 /* GetProProofRequest.swift */; };
@@ -966,6 +966,12 @@
 		FDAA167D2AC528A200DDBF77 /* Preferences+Sound.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */; };
 		FDAA167F2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA167E2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift */; };
 		FDAA36C02EB435950040603E /* SessionProUIManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA36BF2EB435910040603E /* SessionProUIManagerType.swift */; };
+		FDAA36C62EB474C80040603E /* SessionProFeaturesForMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA36C52EB474C40040603E /* SessionProFeaturesForMessage.swift */; };
+		FDAA36C82EB475180040603E /* SessionProFeatureStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA36C72EB475140040603E /* SessionProFeatureStatus.swift */; };
+		FDAA36CA2EB476090040603E /* SessionProFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA36C92EB476060040603E /* SessionProFeatures.swift */; };
+		FDAA36CC2EB47D7D0040603E /* SessionProExtraFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA36CB2EB47D7B0040603E /* SessionProExtraFeatures.swift */; };
+		FDAA36CE2EB4844F0040603E /* SessionProDecodedProForMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA36CD2EB484450040603E /* SessionProDecodedProForMessage.swift */; };
+		FDAA36D02EB485F20040603E /* SessionProStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDAA36CF2EB485EF0040603E /* SessionProStatus.swift */; };
 		FDB11A4C2DCC527D00BEF49F /* NotificationContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A4B2DCC527900BEF49F /* NotificationContent.swift */; };
 		FDB11A502DCC6ADE00BEF49F /* ThreadUpdateInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A4F2DCC6ADD00BEF49F /* ThreadUpdateInfo.swift */; };
 		FDB11A522DCC6B0000BEF49F /* OpenGroupUrlInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A512DCC6AFF00BEF49F /* OpenGroupUrlInfo.swift */; };
@@ -1986,7 +1992,7 @@
 		FD306BCF2EB02F3500ADB003 /* GetProStatusResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProStatusResponse.swift; sourceTree = "<group>"; };
 		FD306BD12EB031AB00ADB003 /* PaymentItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentItem.swift; sourceTree = "<group>"; };
 		FD306BD32EB031BF00ADB003 /* PaymentStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentStatus.swift; sourceTree = "<group>"; };
-		FD306BD52EB0322E00ADB003 /* ProStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProStatus.swift; sourceTree = "<group>"; };
+		FD306BD52EB0322E00ADB003 /* BackendUserProStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendUserProStatus.swift; sourceTree = "<group>"; };
 		FD306BD72EB033CB00ADB003 /* Plan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Plan.swift; sourceTree = "<group>"; };
 		FD306BD92EB0359600ADB003 /* PaymentProviderMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentProviderMetadata.swift; sourceTree = "<group>"; };
 		FD306BDB2EB0436800ADB003 /* GetProProofRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProProofRequest.swift; sourceTree = "<group>"; };
@@ -2256,6 +2262,12 @@
 		FDAA167C2AC528A200DDBF77 /* Preferences+Sound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Preferences+Sound.swift"; sourceTree = "<group>"; };
 		FDAA167E2AC5290000DDBF77 /* Preferences+NotificationPreviewType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Preferences+NotificationPreviewType.swift"; sourceTree = "<group>"; };
 		FDAA36BF2EB435910040603E /* SessionProUIManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProUIManagerType.swift; sourceTree = "<group>"; };
+		FDAA36C52EB474C40040603E /* SessionProFeaturesForMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProFeaturesForMessage.swift; sourceTree = "<group>"; };
+		FDAA36C72EB475140040603E /* SessionProFeatureStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProFeatureStatus.swift; sourceTree = "<group>"; };
+		FDAA36C92EB476060040603E /* SessionProFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProFeatures.swift; sourceTree = "<group>"; };
+		FDAA36CB2EB47D7B0040603E /* SessionProExtraFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProExtraFeatures.swift; sourceTree = "<group>"; };
+		FDAA36CD2EB484450040603E /* SessionProDecodedProForMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProDecodedProForMessage.swift; sourceTree = "<group>"; };
+		FDAA36CF2EB485EF0040603E /* SessionProStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProStatus.swift; sourceTree = "<group>"; };
 		FDB11A4B2DCC527900BEF49F /* NotificationContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationContent.swift; sourceTree = "<group>"; };
 		FDB11A4F2DCC6ADD00BEF49F /* ThreadUpdateInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadUpdateInfo.swift; sourceTree = "<group>"; };
 		FDB11A512DCC6AFF00BEF49F /* OpenGroupUrlInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupUrlInfo.swift; sourceTree = "<group>"; };
@@ -3738,7 +3750,6 @@
 				FD16AB602A1DD9B60083D849 /* ProfilePictureView+Convenience.swift */,
 				C38EF2EC255B6DBA007E1867 /* ProximityMonitoringManager.swift */,
 				FDE754FF2C9BB0FA002A2623 /* SessionEnvironment.swift */,
-				94B6BAF52E30A88800E718BB /* SessionProManager.swift */,
 				C38EEF09255B49A8007E1867 /* SNProtoEnvelope+Conversion.swift */,
 				FDE754FD2C9BB0D0002A2623 /* Threading+SessionMessagingKit.swift */,
 				FD72BDA02BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift */,
@@ -3830,6 +3841,7 @@
 				C3A721332558BDDF0043A11F /* Open Groups */,
 				C300A5F02554B08500555489 /* Sending & Receiving */,
 				FD8ECF7529340F4800C0D1BB /* LibSession */,
+				FDAA36C32EB4740E0040603E /* SessionPro */,
 				FD3E0C82283B581F002A425C /* Shared Models */,
 				C3BBE0B32554F0D30050F1E3 /* Utilities */,
 				FD245C612850664300B966DD /* Configuration.swift */,
@@ -4107,7 +4119,7 @@
 				FD306BD32EB031BF00ADB003 /* PaymentStatus.swift */,
 				FD306BD72EB033CB00ADB003 /* Plan.swift */,
 				FD0F85762EA83D8F004E0B98 /* ProProof.swift */,
-				FD306BD52EB0322E00ADB003 /* ProStatus.swift */,
+				FD306BD52EB0322E00ADB003 /* BackendUserProStatus.swift */,
 				FD0F85782EA83EAA004E0B98 /* ResponseHeader.swift */,
 				FD0F857A2EA85FA4004E0B98 /* Request+SessionProAPI.swift */,
 				FD306BCD2EB02E3400ADB003 /* Signature.swift */,
@@ -5019,6 +5031,28 @@
 				FDAA167A2AC28E2F00DDBF77 /* SnodeRequestSpec.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		FDAA36C32EB4740E0040603E /* SessionPro */ = {
+			isa = PBXGroup;
+			children = (
+				FDAA36C42EB474B50040603E /* Types */,
+				94B6BAF52E30A88800E718BB /* SessionProManager.swift */,
+			);
+			path = SessionPro;
+			sourceTree = "<group>";
+		};
+		FDAA36C42EB474B50040603E /* Types */ = {
+			isa = PBXGroup;
+			children = (
+				FDAA36CD2EB484450040603E /* SessionProDecodedProForMessage.swift */,
+				FDAA36CB2EB47D7B0040603E /* SessionProExtraFeatures.swift */,
+				FDAA36C92EB476060040603E /* SessionProFeatures.swift */,
+				FDAA36C52EB474C40040603E /* SessionProFeaturesForMessage.swift */,
+				FDAA36C72EB475140040603E /* SessionProFeatureStatus.swift */,
+				FDAA36CF2EB485EF0040603E /* SessionProStatus.swift */,
+			);
+			path = Types;
 			sourceTree = "<group>";
 		};
 		FDB5DAD22A9483D4002C8721 /* Group Update Messages */ = {
@@ -6535,7 +6569,7 @@
 				FD0F856F2EA83664004E0B98 /* UserTransaction.swift in Sources */,
 				FDF848BD29405C5A007DCAE5 /* GetMessagesRequest.swift in Sources */,
 				FD2272B02C33E337004D8A6C /* NetworkError.swift in Sources */,
-				FD306BD62EB0323000ADB003 /* ProStatus.swift in Sources */,
+				FD306BD62EB0323000ADB003 /* BackendUserProStatus.swift in Sources */,
 				FD0F85772EA83D92004E0B98 /* ProProof.swift in Sources */,
 				FD6B92AB2E77A920004463B5 /* SOGS.swift in Sources */,
 				FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */,
@@ -6787,6 +6821,7 @@
 				7B81682C28B72F480069F315 /* PendingChange.swift in Sources */,
 				FD5C7309285007920029977D /* BlindedIdLookup.swift in Sources */,
 				FD71161C28D194FB00B47552 /* MentionInfo.swift in Sources */,
+				FDAA36CE2EB4844F0040603E /* SessionProDecodedProForMessage.swift in Sources */,
 				7B4C75CB26B37E0F0000AC89 /* UnsendRequest.swift in Sources */,
 				C300A5F22554B09800555489 /* MessageSender.swift in Sources */,
 				FDB11A4C2DCC527D00BEF49F /* NotificationContent.swift in Sources */,
@@ -6796,6 +6831,7 @@
 				FD22726C2C32911C004D8A6C /* GroupLeavingJob.swift in Sources */,
 				FDE33BBE2D5C3AF100E56F42 /* _037_GroupsExpiredFlag.swift in Sources */,
 				FDF848F729414477007DCAE5 /* CurrentUserPoller.swift in Sources */,
+				FDAA36CC2EB47D7D0040603E /* SessionProExtraFeatures.swift in Sources */,
 				C3C2A74D2553A39700C340D1 /* VisibleMessage.swift in Sources */,
 				FD2272FD2C352D8E004D8A6C /* LibSession+ConvoInfoVolatile.swift in Sources */,
 				FD22727E2C32911C004D8A6C /* GarbageCollectionJob.swift in Sources */,
@@ -6822,6 +6858,7 @@
 				FDB5DAC72A9447E7002C8721 /* _036_GroupsRebuildChanges.swift in Sources */,
 				FD09B7E5288670BB00ED0B66 /* _017_EmojiReacts.swift in Sources */,
 				7B8D5FC428332600008324D9 /* VisibleMessage+Reaction.swift in Sources */,
+				FDAA36C82EB475180040603E /* SessionProFeatureStatus.swift in Sources */,
 				FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */,
 				FD2272FA2C352D8E004D8A6C /* LibSession+SharedGroup.swift in Sources */,
 				FD37EA0F28AB3330003AE748 /* _014_FixHiddenModAdminSupport.swift in Sources */,
@@ -6902,6 +6939,7 @@
 				FDC1BD662CFD6C4F002CDC71 /* Config.swift in Sources */,
 				FD245C53285065DB00B966DD /* ProximityMonitoringManager.swift in Sources */,
 				FD245C55285065E500B966DD /* OpenGroupManager.swift in Sources */,
+				FDAA36CA2EB476090040603E /* SessionProFeatures.swift in Sources */,
 				C32C599E256DB02B003C73A2 /* TypingIndicators.swift in Sources */,
 				FDE7549B2C940108002A2623 /* MessageViewModel+DeletionActions.swift in Sources */,
 				FD09799527FE7B8E00936362 /* Interaction.swift in Sources */,
@@ -6933,6 +6971,7 @@
 				FD16AB612A1DD9B60083D849 /* ProfilePictureView+Convenience.swift in Sources */,
 				B8856D11256F112A001CE70E /* OWSAudioSession.swift in Sources */,
 				FD2272762C32911C004D8A6C /* ExpirationUpdateJob.swift in Sources */,
+				FDAA36C62EB474C80040603E /* SessionProFeaturesForMessage.swift in Sources */,
 				FD716E722850647600C96BF4 /* Data+Utilities.swift in Sources */,
 				FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */,
 				FD5C7301284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift in Sources */,
@@ -6966,6 +7005,7 @@
 				FDB5DADA2A95D839002C8721 /* GroupUpdateInfoChangeMessage.swift in Sources */,
 				FDF71EA32B072C2800A8D6B5 /* LibSessionMessage.swift in Sources */,
 				FDAA167D2AC528A200DDBF77 /* Preferences+Sound.swift in Sources */,
+				FDAA36D02EB485F20040603E /* SessionProStatus.swift in Sources */,
 				FDD23AED2E4590A10057E853 /* _041_RenameTableSettingToKeyValueStore.swift in Sources */,
 				FDE754FE2C9BB0D0002A2623 /* Threading+SessionMessagingKit.swift in Sources */,
 				FDF0B75E280AAF35004C14C5 /* Preferences.swift in Sources */,

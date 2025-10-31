@@ -147,7 +147,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         public var observedKeys: Set<ObservableKey> {
             [
                 .profile(userSessionId.hexString),
-                .feature(.mockCurrentUserSessionProStatus),
+                .feature(.mockCurrentUserSessionProBackendStatus),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
                 .setting(.developerModeEnabled),
@@ -211,8 +211,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         }
         
         /// If the device has a mock pro status set then use that
-        if dependencies.hasSet(feature: .mockCurrentUserSessionProStatus) {
-            sessionProStatus = dependencies[feature: .mockCurrentUserSessionProStatus]
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
+            sessionProStatus = dependencies[feature: .mockCurrentUserSessionProBackendStatus]
         }
         
         /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
@@ -709,24 +709,28 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             icon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: {
-                guard dependencies[feature: .sessionProEnabled] else { return nil }
-                return dependencies[cache: .libSession].isSessionPro ?
-                    "proAnimatedDisplayPictureModalDescription"
-                        .localized()
-                        .addProBadge(
-                            at: .leading,
-                            font: .systemFont(ofSize: Values.smallFontSize),
-                            textColor: .textSecondary,
-                            proBadgeSize: .small
-                        ):
-                    "proAnimatedDisplayPicturesNonProModalDescription"
-                        .localized()
-                        .addProBadge(
-                            at: .trailing,
-                            font: .systemFont(ofSize: Values.smallFontSize),
-                            textColor: .textSecondary,
-                            proBadgeSize: .small
-                        )
+                switch (dependencies[feature: .sessionProEnabled], sessionProStatus) {
+                    case (false, _): return nil
+                    case (true, .active):
+                        return "proAnimatedDisplayPictureModalDescription"
+                            .localized()
+                            .addProBadge(
+                                at: .leading,
+                                font: .systemFont(ofSize: Values.smallFontSize),
+                                textColor: .textSecondary,
+                                proBadgeSize: .small
+                            )
+                        
+                    case (true, _):
+                        return "proAnimatedDisplayPicturesNonProModalDescription"
+                            .localized()
+                            .addProBadge(
+                                at: .trailing,
+                                font: .systemFont(ofSize: Values.smallFontSize),
+                                textColor: .textSecondary,
+                                proBadgeSize: .small
+                            )
+                }
             }(),
             accessibility: Accessibility(
                 identifier: "Upload",
@@ -866,7 +870,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return .currentUserUpdateTo(
             url: result.downloadUrl,
             key: result.encryptionKey,
-            sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() },
+            sessionProProof: dependencies[singleton: .sessionProManager].currentUserCurrentProProof,
             isReupload: false
         )
     }

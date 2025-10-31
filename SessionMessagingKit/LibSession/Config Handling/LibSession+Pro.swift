@@ -9,10 +9,6 @@ import SessionUtilitiesKit
 // TODO: Implementation
 
 public extension LibSessionCacheType {
-    var isSessionPro: Bool {
-        guard dependencies[feature: .sessionProEnabled] else { return false }
-        return dependencies[feature: .mockCurrentUserSessionPro]
-    }
     
     func validateProProof(for message: Message?) -> Bool {
         guard let message = message, dependencies[feature: .sessionProEnabled] else { return false }
@@ -22,12 +18,5 @@ public extension LibSessionCacheType {
     func validateProProof(for profile: Profile?) -> Bool {
         guard let profile = profile, dependencies[feature: .sessionProEnabled] else { return false }
         return dependencies[feature: .treatAllIncomingMessagesAsProMessages]
-    }
-    
-    func getProProof() -> String? {
-        guard isSessionPro else {
-            return nil
-        }
-        return ""
     }
 }

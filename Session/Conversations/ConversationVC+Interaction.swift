@@ -684,7 +684,7 @@ extension ConversationVC:
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: (isSessionPro ? SessionPro.ProCharacterLimit : SessionPro.CharacterLimit))
+                        .put(key: "limit", value: viewModel.dependencies[singleton: .sessionProManager].characterLimit)
                         .localized(),
                     scrollMode: .never
                 ),

@@ -7,7 +7,7 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    enum ProStatus: Sendable, CaseIterable, CustomStringConvertible {
+    enum BackendUserProStatus: Sendable, CaseIterable, CustomStringConvertible {
         case neverBeenPro
         case active
         case expired
@@ -42,14 +42,14 @@ public extension Network.SessionPro {
 // MARK: - FeatureStorage
 
 public extension FeatureStorage {
-    static let mockCurrentUserSessionProStatus: FeatureConfig<Network.SessionPro.ProStatus?> = Dependencies.create(
-        identifier: "mockCurrentUserSessionProStatus"
+    static let mockCurrentUserSessionProBackendStatus: FeatureConfig<Network.SessionPro.BackendUserProStatus?> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProBackendStatus"
     )
 }
 
 // MARK: - Router
 
-extension Optional: @retroactive RawRepresentable, @retroactive FeatureOption where Wrapped == Network.SessionPro.ProStatus {
+extension Optional: @retroactive RawRepresentable, @retroactive FeatureOption where Wrapped == Network.SessionPro.BackendUserProStatus {
     public typealias RawValue = Int
     
     public var rawValue: Int {
@@ -72,7 +72,7 @@ extension Optional: @retroactive RawRepresentable, @retroactive FeatureOption wh
     
     // MARK: - Feature Option
     
-    public static var defaultOption: Network.SessionPro.ProStatus? = nil
+    public static var defaultOption: Network.SessionPro.BackendUserProStatus? = nil
     
     public var title: String { (self.map { "\($0)" } ?? "None") }
     

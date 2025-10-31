@@ -314,7 +314,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         let sessionProStatus: String = (dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")
         let mockedProStatus: String = {
-            switch (dependencies[feature: .sessionProEnabled], dependencies[feature: .mockCurrentUserSessionProStatus]) {
+            switch (dependencies[feature: .sessionProEnabled], dependencies[feature: .mockCurrentUserSessionProBackendStatus]) {
                 case (true, .some(let status)): return "<span>\(status)</span>"
                 case (false, _), (_, .none): return "<disabled>None</disabled>"
             }

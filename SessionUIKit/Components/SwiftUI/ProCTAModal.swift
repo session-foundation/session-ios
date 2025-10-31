@@ -168,6 +168,7 @@ public struct ProCTAModal: View {
                                     Text(variant.benefits[index])
                                         .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
                         }

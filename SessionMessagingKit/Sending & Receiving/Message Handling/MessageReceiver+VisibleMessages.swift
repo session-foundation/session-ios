@@ -693,8 +693,7 @@ extension MessageReceiver {
         
         let utf16View = text.utf16
         // TODO: Remove after Session Pro is enabled
-        let isSessionProEnabled: Bool = (dependencies.hasSet(feature: .sessionProEnabled) && dependencies[feature: .sessionProEnabled])
-        let offset: Int = (isSessionProEnabled && !isProMessage ?
+        let offset: Int = (dependencies[feature: .sessionProEnabled] && !isProMessage ?
             SessionPro.CharacterLimit :
             SessionPro.ProCharacterLimit
         )

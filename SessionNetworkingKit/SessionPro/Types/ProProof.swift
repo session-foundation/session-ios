@@ -12,6 +12,22 @@ public extension Network.SessionPro {
         let expiryUnixTimestampMs: UInt64
         let signature: [UInt8]
         
+        // MARK: - Initialization
+        
+        public init(
+            version: UInt8 = Network.SessionPro.apiVersion,
+            genIndexHash: [UInt8] = [],
+            rotatingPubkey: [UInt8] = [],
+            expiryUnixTimestampMs: UInt64 = 0,
+            signature: [UInt8] = []
+        ) {
+            self.version = version
+            self.genIndexHash = genIndexHash
+            self.rotatingPubkey = rotatingPubkey
+            self.expiryUnixTimestampMs = expiryUnixTimestampMs
+            self.signature = signature
+        }
+        
         init(_ libSessionValue: session_protocol_pro_proof) {
             version = libSessionValue.version
             genIndexHash = libSessionValue.get(\.gen_index_hash)

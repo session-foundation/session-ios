@@ -69,9 +69,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private let threadId: String
     private let threadVariant: SessionThread.Variant
     private let isAddMoreVisible: Bool
-    private var isSessionPro: Bool {
-        dependencies[cache: .libSession].isSessionPro
-    }
     
     var isKeyboardVisible: Bool = false
     private let disableLinkPreviewImageDownload: Bool
@@ -673,7 +670,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: (isSessionPro ? SessionPro.ProCharacterLimit : SessionPro.CharacterLimit))
+                        .put(key: "limit", value: dependencies[singleton: .sessionProManager].characterLimit)
                         .localized(),
                     scrollMode: .never
                 ),
@@ -714,7 +711,7 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: (isSessionPro ? SessionPro.ProCharacterLimit : SessionPro.CharacterLimit))
+                        .put(key: "limit", value: dependencies[singleton: .sessionProManager].characterLimit)
                         .localized(),
                     scrollMode: .never
                 ),

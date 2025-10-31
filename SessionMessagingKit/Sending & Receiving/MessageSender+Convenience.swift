@@ -25,11 +25,7 @@ extension MessageSender {
         
         send(
             db,
-            message: VisibleMessage.from(
-                db,
-                interaction: interaction,
-                proProof: dependencies.mutate(cache: .libSession, { $0.getProProof() })
-            ),
+            message: VisibleMessage.from(db, interaction: interaction),
             threadId: threadId,
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
@@ -427,9 +423,8 @@ extension MessageSender {
 // MARK: - Database Type Conversion
 
 public extension VisibleMessage {
-    static func from(_ db: ObservingDatabase, interaction: Interaction, proProof: String? = nil) -> VisibleMessage {
+    static func from(_ db: ObservingDatabase, interaction: Interaction) -> VisibleMessage {
         let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
-        let shouldAttachProProof: Bool = ((interaction.body ?? "").utf16.count > SessionPro.CharacterLimit)
         
         let visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,
@@ -460,7 +455,6 @@ public extension VisibleMessage {
             expiresInSeconds: interaction.expiresInSeconds,
             expiresStartedAtMs: interaction.expiresStartedAtMs
         )
-        .with(proProof: (shouldAttachProProof ? proProof : nil))
         
         return visibleMessage
     }

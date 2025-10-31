@@ -33,30 +33,30 @@ public class DisplayPictureManager {
         case none
         
         case contactRemove
-        case contactUpdateTo(url: String, key: Data, contactProProof: String?)
+        case contactUpdateTo(url: String, key: Data, sessionProProof: Network.SessionPro.ProProof?)
         
         case currentUserRemove
-        case currentUserUpdateTo(url: String, key: Data, sessionProProof: String?, isReupload: Bool)
+        case currentUserUpdateTo(url: String, key: Data, sessionProProof: Network.SessionPro.ProProof?, isReupload: Bool)
         
         case groupRemove
         case groupUploadImage(source: ImageDataManager.DataSource, cropRect: CGRect?)
         case groupUpdateTo(url: String, key: Data)
         
         static func from(_ profile: VisibleMessage.VMProfile, fallback: Update, using dependencies: Dependencies) -> Update {
-            return from(profile.profilePictureUrl, key: profile.profileKey, contactProProof: profile.sessionProProof, fallback: fallback, using: dependencies)
+            return from(profile.profilePictureUrl, key: profile.profileKey, contactProProof: profile.proProof, fallback: fallback, using: dependencies)
         }
         
         public static func from(_ profile: Profile, fallback: Update, using dependencies: Dependencies) -> Update {
-            return from(profile.displayPictureUrl, key: profile.displayPictureEncryptionKey, contactProProof: profile.sessionProProof, fallback: fallback, using: dependencies)
+            return from(profile.displayPictureUrl, key: profile.displayPictureEncryptionKey, contactProProof: profile.proProof, fallback: fallback, using: dependencies)
         }
         
-        static func from(_ url: String?, key: Data?, contactProProof: String?, fallback: Update, using dependencies: Dependencies) -> Update {
+        static func from(_ url: String?, key: Data?, contactProProof: Network.SessionPro.ProProof?, fallback: Update, using dependencies: Dependencies) -> Update {
             guard
                 let url: String = url,
                 let key: Data = key
             else { return fallback }
             
-            return .contactUpdateTo(url: url, key: key, contactProProof: contactProProof)
+            return .contactUpdateTo(url: url, key: key, sessionProProof: contactProProof)
         }
     }
     

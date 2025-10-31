@@ -1,0 +1,33 @@
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+
+import Foundation
+import SessionUtil
+import SessionNetworkingKit
+
+public extension SessionPro {
+    struct DecodedProForMessage: Equatable {
+        let status: SessionPro.ProStatus
+        let proProof: Network.SessionPro.ProProof
+        let features: Features
+        
+        public static let none: DecodedProForMessage = DecodedProForMessage(
+            status: .none,
+            proProof: Network.SessionPro.ProProof(),
+            features: .none
+        )
+        
+        // MARK: - Initialization
+        
+        init(status: SessionPro.ProStatus, proProof: Network.SessionPro.ProProof, features: Features) {
+            self.status = status
+            self.proProof = proProof
+            self.features = features
+        }
+        
+        init(_ libSessionValue: session_protocol_decoded_pro) {
+            status = SessionPro.ProStatus(libSessionValue.status)
+            proProof = Network.SessionPro.ProProof(libSessionValue.proof)
+            features = Features(libSessionValue.features)
+        }
+    }
+}

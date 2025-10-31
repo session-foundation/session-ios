@@ -228,7 +228,7 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { _, _, completionHandler in
                             if !isCurrentlyPinned,
-                               !dependencies[cache: .libSession].isSessionPro,
+                               !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro,
                                let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
                                    try SessionThread
                                        .filter(SessionThread.Columns.pinnedPriority > 0)

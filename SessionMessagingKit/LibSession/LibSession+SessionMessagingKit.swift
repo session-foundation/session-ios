@@ -969,7 +969,6 @@ public extension LibSession {
 public protocol LibSessionImmutableCacheType: ImmutableCacheType {
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
-    var isSessionPro: Bool { get }
     var allDumpSessionIds: Set<SessionId> { get }
     
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
@@ -981,7 +980,6 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var dependencies: Dependencies { get }
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
-    var isSessionPro: Bool { get }
     var allDumpSessionIds: Set<SessionId> { get }
     
     // MARK: - State Management
@@ -1246,7 +1244,6 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     let dependencies: Dependencies
     let userSessionId: SessionId = .invalid
     let isEmpty: Bool = true
-    var isSessionPro: Bool = false
     let allDumpSessionIds: Set<SessionId> = []
     
     init(using dependencies: Dependencies) {

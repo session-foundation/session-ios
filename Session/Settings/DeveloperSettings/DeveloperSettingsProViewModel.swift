@@ -136,7 +136,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public struct State: Equatable, ObservableKeyProvider {
         let sessionProEnabled: Bool
         
-        let mockCurrentUserSessionProStatus: Network.SessionPro.ProStatus?
+        let mockCurrentUserSessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
         let treatAllIncomingMessagesAsProMessages: Bool
         
         let products: [Product]
@@ -164,7 +164,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         public let observedKeys: Set<ObservableKey> = [
             .feature(.sessionProEnabled),
-            .feature(.mockCurrentUserSessionProStatus),
+            .feature(.mockCurrentUserSessionProBackendStatus),
             .feature(.treatAllIncomingMessagesAsProMessages),
             .updateScreen(DeveloperSettingsProViewModel.self)
         ]
@@ -173,7 +173,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             return State(
                 sessionProEnabled: dependencies[feature: .sessionProEnabled],
                 
-                mockCurrentUserSessionProStatus: dependencies[feature: .mockCurrentUserSessionProStatus],
+                mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
                 treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
                 
                 products: [],
@@ -244,7 +244,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         return State(
             sessionProEnabled: dependencies[feature: .sessionProEnabled],
-            mockCurrentUserSessionProStatus: dependencies[feature: .mockCurrentUserSessionProStatus],
+            mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
             treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
             products: products,
             purchasedProduct: purchasedProduct,
@@ -292,7 +292,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         // MARK: - Mockable Features
         
         let mockedProStatus: String = {
-            switch state.mockCurrentUserSessionProStatus {
+            switch state.mockCurrentUserSessionProBackendStatus {
                 case .some(let status): return "<span>\(status)</span>"
                 case .none: return "<disabled>None</disabled>"
             }
@@ -311,7 +311,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     """,
                     trailingAccessory: .icon(.squarePen),
                     onTap: { [weak viewModel] in
-                        viewModel?.showMockProStatusModal(currentStatus: state.mockCurrentUserSessionProStatus)
+                        viewModel?.showMockProStatusModal(currentStatus: state.mockCurrentUserSessionProBackendStatus)
                     }
                 ),
                 
@@ -485,8 +485,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             dependencies.set(feature: feature, to: nil)
         }
         
-        if dependencies.hasSet(feature: .mockCurrentUserSessionProStatus) {
-            dependencies.set(feature: .mockCurrentUserSessionProStatus, to: nil)
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
+            dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
         }
     }
     
@@ -495,8 +495,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     private func updateSessionProEnabled(current: Bool) {
         dependencies.set(feature: .sessionProEnabled, to: !current)
         
-        if dependencies.hasSet(feature: .mockCurrentUserSessionProStatus) {
-            dependencies.set(feature: .mockCurrentUserSessionProStatus, to: nil)
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
+            dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
         }
         
         if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
@@ -504,7 +504,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
     }
     
-    private func showMockProStatusModal(currentStatus: Network.SessionPro.ProStatus?) {
+    private func showMockProStatusModal(currentStatus: Network.SessionPro.BackendUserProStatus?) {
         self.transitionToScreen(
             ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -515,7 +515,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         ),
                         warning: nil,
                         options: {
-                            return ([nil] + Network.SessionPro.ProStatus.allCases).map { status in
+                            return ([nil] + Network.SessionPro.BackendUserProStatus.allCases).map { status in
                                 ConfirmationModal.Info.Body.RadioOptionInfo(
                                     title: status.title,
                                     descriptionText: status.subtitle.map {
@@ -533,7 +533,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     confirmTitle: "select".localized(),
                     cancelStyle: .alert_text,
                     onConfirm: { [dependencies] modal in
-                        let selectedStatus: Network.SessionPro.ProStatus? = {
+                        let selectedStatus: Network.SessionPro.BackendUserProStatus? = {
                             switch modal.info.body {
                                 case .radio(_, _, let options):
                                     return options
@@ -542,18 +542,18 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                                         .map { index, _ in
                                             let targetIndex: Int = (index - 1)
                                             
-                                            guard targetIndex >= 0 && (targetIndex - 1) < Network.SessionPro.ProStatus.allCases.count else {
+                                            guard targetIndex >= 0 && (targetIndex - 1) < Network.SessionPro.BackendUserProStatus.allCases.count else {
                                                 return nil
                                             }
                                             
-                                            return Network.SessionPro.ProStatus.allCases[targetIndex]
+                                            return Network.SessionPro.BackendUserProStatus.allCases[targetIndex]
                                         }
                                 
                                 default: return nil
                             }
                         }()
                         
-                        dependencies.set(feature: .mockCurrentUserSessionProStatus, to: selectedStatus)
+                        dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: selectedStatus)
                     }
                 )
             ),

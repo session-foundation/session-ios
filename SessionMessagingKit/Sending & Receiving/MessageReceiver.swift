@@ -65,7 +65,7 @@ public enum MessageReceiver {
         }
         
         /// For all other cases we can just decode the message
-        let (proto, sender, sentTimestampMs): (SNProtoContent, String, UInt64) = try dependencies[singleton: .crypto].tryGenerate(
+        let (proto, sender, sentTimestampMs, decodedProForMessage): (SNProtoContent, String, UInt64) = try dependencies[singleton: .crypto].tryGenerate(
             .decodedMessage(
                 encodedMessage: data,
                 origin: origin
@@ -173,6 +173,7 @@ public enum MessageReceiver {
                 threadVariant: threadVariant,
                 serverExpirationTimestamp: serverExpirationTimestamp,
                 proto: proto
+                // TODO: [PRO] Store the pro proof in these details
             ),
             uniqueIdentifier: uniqueIdentifier
         )
