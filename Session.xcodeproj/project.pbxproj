@@ -216,7 +216,6 @@
 		94805EB22EB087FD0055EBBC /* BottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EB12EB087F90055EBBC /* BottomSheet.swift */; };
 		94805EB92EB1E16D0055EBBC /* SessionProBottomSheet+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EB82EB1E1650055EBBC /* SessionProBottomSheet+Models.swift */; };
 		94805EBB2EB3118F0055EBBC /* SessionProState+BottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EBA2EB311860055EBBC /* SessionProState+BottomSheet.swift */; };
-		94805EBD2EB3149F0055EBBC /* SessionProBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EBC2EB314930055EBBC /* SessionProBottomSheet.swift */; };
 		9499E6032DDD9BF900091434 /* ExpandableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */; };
 		9499E68B2DF92F4E00091434 /* ThreadNotificationSettingsViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9499E68A2DF92F3B00091434 /* ThreadNotificationSettingsViewModelSpec.swift */; };
 		94A6B9DB2DD6BF7C00DB4B44 /* Constants+Apple.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A6B9DA2DD6BF6E00DB4B44 /* Constants+Apple.swift */; };
@@ -1639,7 +1638,6 @@
 		94805EB12EB087F90055EBBC /* BottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomSheet.swift; sourceTree = "<group>"; };
 		94805EB82EB1E1650055EBBC /* SessionProBottomSheet+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProBottomSheet+Models.swift"; sourceTree = "<group>"; };
 		94805EBA2EB311860055EBBC /* SessionProState+BottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProState+BottomSheet.swift"; sourceTree = "<group>"; };
-		94805EBC2EB314930055EBBC /* SessionProBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProBottomSheet.swift; sourceTree = "<group>"; };
 		9499E6022DDD9BEE00091434 /* ExpandableLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandableLabel.swift; sourceTree = "<group>"; };
 		9499E68A2DF92F3B00091434 /* ThreadNotificationSettingsViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationSettingsViewModelSpec.swift; sourceTree = "<group>"; };
 		94A6B9DA2DD6BF6E00DB4B44 /* Constants+Apple.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Constants+Apple.swift"; sourceTree = "<group>"; };
@@ -3025,7 +3023,6 @@
 			isa = PBXGroup;
 			children = (
 				94805EB82EB1E1650055EBBC /* SessionProBottomSheet+Models.swift */,
-				94805EBC2EB314930055EBBC /* SessionProBottomSheet.swift */,
 			);
 			path = SessionProBottomSheet;
 			sourceTree = "<group>";
@@ -6451,7 +6448,6 @@
 				94363E662E60186A0004EE43 /* SessionListScreen+Section.swift in Sources */,
 				FDB11A612DD5BDCC00BEF49F /* ImageDataManager.swift in Sources */,
 				FD6673FD2D77F54600041530 /* ScreenLockViewController.swift in Sources */,
-				94805EBD2EB3149F0055EBBC /* SessionProBottomSheet.swift in Sources */,
 				94805EB22EB087FD0055EBBC /* BottomSheet.swift in Sources */,
 				94B6BB042E3B208C00E718BB /* Seperator+SwiftUI.swift in Sources */,
 				FD8A5B222DC0489C004C689B /* AdaptiveHStack.swift in Sources */,

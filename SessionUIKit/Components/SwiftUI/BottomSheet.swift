@@ -13,6 +13,7 @@ public struct BottomSheet<Content>: View where Content: View {
     let shadowOpacity: Double = 0.4
 
     @State private var show: Bool = true
+    @State private var contentHeight: CGFloat = 80
     
     public init(hasCloseButton: Bool, content: @escaping () -> Content) {
         self.hasCloseButton = hasCloseButton
@@ -28,32 +29,29 @@ public struct BottomSheet<Content>: View where Content: View {
                 .ignoresSafeArea()
             
             // Bottom Sheet
-            VStack() {
-                Spacer()
+            ZStack(alignment: .topTrailing) {
+                content()
                 
-                ZStack(alignment: .topTrailing) {
-                    content()
-                    
-                    if hasCloseButton {
-                        Button {
-                            close()
-                        } label: {
-                            AttributedText(Lucide.Icon.x.attributedString(size: 20))
-                                .font(.system(size: 20))
-                                .foregroundColor(themeColor: .textPrimary)
-                        }
-                        .frame(width: 24, height: 24)
-                        .padding(Values.mediumSmallSpacing)
+                if hasCloseButton {
+                    Button {
+                        close()
+                    } label: {
+                        AttributedText(Lucide.Icon.x.attributedString(size: 20))
+                            .font(.system(size: 20))
+                            .foregroundColor(themeColor: .textPrimary)
                     }
+                    .frame(width: 24, height: 24)
+                    .padding(Values.mediumSmallSpacing)
                 }
-                .backgroundColor(themeColor: .alert_background)
-                .cornerRadius(cornerRadius, corners: [.topLeft, .topRight])
-                .shadow(color: Color.black.opacity(shadowOpacity), radius: shadowRadius)
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .topTrailing
-                )
             }
+            .backgroundColor(themeColor: .backgroundPrimary)
+            .cornerRadius(cornerRadius, corners: [.topLeft, .topRight])
+            .shadow(color: Color.black.opacity(shadowOpacity), radius: shadowRadius)
+            .frame(
+                maxWidth: .infinity,
+                alignment: .topTrailing
+            )
+            .padding(.top, 80)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .animation(.spring(), value: show)
         }
