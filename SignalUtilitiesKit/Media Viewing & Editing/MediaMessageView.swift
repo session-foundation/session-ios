@@ -18,12 +18,12 @@ public class MediaMessageView: UIView {
     // MARK: Properties
 
     private let dependencies: Dependencies
-    private var disposables: Set<AnyCancellable> = Set()
     public let mode: Mode
     public let attachment: PendingAttachment
     private let disableLinkPreviewImageDownload: Bool
-    private let didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?
+    private let didLoadLinkPreview: (@MainActor (LinkPreviewDraft) -> Void)?
     private var linkPreviewInfo: (url: String, draft: LinkPreviewDraft?)?
+    private var linkPreviewLoadTask: Task<Void, Never>?
 
     // MARK: Initializers
 
@@ -34,11 +34,11 @@ public class MediaMessageView: UIView {
 
     // Currently we only use one mode (AttachmentApproval), so we could simplify this class, but it's kind
     // of nice that it's written in a flexible way in case we'd want to use it elsewhere again in the future.
-    public required init(
+    @MainActor public required init(
         attachment: PendingAttachment,
         mode: MediaMessageView.Mode,
         disableLinkPreviewImageDownload: Bool,
-        didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?,
+        didLoadLinkPreview: (@MainActor (LinkPreviewDraft) -> Void)?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
@@ -64,6 +64,8 @@ public class MediaMessageView: UIView {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        
+        linkPreviewLoadTask?.cancel()
     }
     
     // MARK: - UI
@@ -270,7 +272,7 @@ public class MediaMessageView: UIView {
     
     // MARK: - Layout
 
-    private func setupViews(using dependencies: Dependencies) {
+    @MainActor private func setupViews(using dependencies: Dependencies) {
         switch attachment.source {
             case .text: return  /// Plain text will just be put in the 'message' input so do nothing
             default: break
@@ -319,7 +321,7 @@ public class MediaMessageView: UIView {
         }
     }
     
-    private func setupLayout() {
+    @MainActor private func setupLayout() {
         switch attachment.source {
             case .text: return  /// Plain text will just be put in the 'message' input so do nothing
             default: break
@@ -423,58 +425,65 @@ public class MediaMessageView: UIView {
     
     // MARK: - Link Loading
     
-    private func loadLinkPreview(
+    @MainActor private func loadLinkPreview(
         linkPreviewURL: String,
         skipImageDownload: Bool,
         using dependencies: Dependencies
     ) {
         loadingView.startAnimating()
         
-        LinkPreview.tryToBuildPreviewInfo(previewUrl: linkPreviewURL, skipImageDownload: skipImageDownload, using: dependencies)
-            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished: break
-                        case .failure:
-                            self?.loadingView.alpha = 0
-                            self?.loadingView.stopAnimating()
-                            self?.imageView.alpha = 1
-                            self?.titleLabel.numberOfLines = 1  // Truncates the URL at 1 line so the error is more readable
-                            self?.subtitleLabel.isHidden = false
-                            
-                            // Set the error text appropriately
-                            if URLComponents(string: linkPreviewURL)?.scheme?.lowercased() != "https" { // stringlint:ignore
-                                // This error case is handled already in the 'subtitleLabel' creation
-                            }
-                            else {
-                                self?.subtitleLabel.font = UIFont.systemFont(ofSize: Values.verySmallFontSize)
-                                self?.subtitleLabel.text = "linkPreviewsErrorLoad".localized()
-                                self?.subtitleLabel.themeTextColor = (self?.mode == .attachmentApproval ?
-                                    .textSecondary :
-                                    .primary
-                                )
-                                self?.subtitleLabel.textAlignment = .left
-                            }
-                    }
-                },
-                receiveValue: { [weak self] draft in
-                    self?.didLoadLinkPreview?(draft)
-                    self?.linkPreviewInfo = (url: linkPreviewURL, draft: draft)
+        linkPreviewLoadTask?.cancel()
+        linkPreviewLoadTask = Task.detached(priority: .userInitiated) { [weak self] in
+            do {
+                let draft: LinkPreviewDraft = try await LinkPreview.tryToBuildPreviewInfo(
+                    previewUrl: linkPreviewURL,
+                    skipImageDownload: skipImageDownload,
+                    using: dependencies
+                )
+                
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    
+                    didLoadLinkPreview?(draft)
+                    linkPreviewInfo = (url: linkPreviewURL, draft: draft)
                     
                     // Update the UI
-                    self?.titleLabel.text = (draft.title ?? self?.titleLabel.text)
-                    self?.loadingView.alpha = 0
-                    self?.loadingView.stopAnimating()
-                    self?.imageView.alpha = 1
+                    titleLabel.text = (draft.title ?? titleLabel.text)
+                    loadingView.alpha = 0
+                    loadingView.stopAnimating()
+                    imageView.alpha = 1
                     
-                    if let jpegImageData: Data = draft.jpegImageData, let loadedImage: UIImage = UIImage(data: jpegImageData) {
-                        self?.imageView.image = loadedImage
-                        self?.imageView.contentMode = .scaleAspectFill
+                    if let imageSource: ImageDataManager.DataSource = draft.imageSource {
+                        imageView.loadImage(imageSource)
                     }
                 }
-            )
-            .store(in: &disposables)
+            }
+            catch {
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    
+                    loadingView.alpha = 0
+                    loadingView.stopAnimating()
+                    imageView.alpha = 1
+                    titleLabel.numberOfLines = 1  /// Truncates the URL at 1 line so the error is more readable
+                    subtitleLabel.isHidden = false
+                    
+                    /// Set the error text appropriately
+                    let httpsScheme: String = "https" // stringlint:ignore
+                    if URLComponents(string: linkPreviewURL)?.scheme?.lowercased() != httpsScheme {
+                        // This error case is handled already in the 'subtitleLabel' creation
+                    }
+                    else {
+                        subtitleLabel.font = UIFont.systemFont(ofSize: Values.verySmallFontSize)
+                        subtitleLabel.text = "linkPreviewsErrorLoad".localized()
+                        subtitleLabel.themeTextColor = (mode == .attachmentApproval ?
+                            .textSecondary :
+                            .primary
+                        )
+                        subtitleLabel.textAlignment = .left
+                    }
+                }
+            }
+        }
     }
 }

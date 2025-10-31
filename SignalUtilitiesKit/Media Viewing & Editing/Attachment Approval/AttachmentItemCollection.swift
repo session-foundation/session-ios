@@ -46,8 +46,7 @@ class PendingAttachmentRailItem: Equatable {
             ImageEditorModel.isFeatureEnabled &&
             attachment.utType.isImage &&
             attachment.duration == 0,
-            case .media(let mediaSource) = attachment.source,
-            case .url = mediaSource
+            case .media = attachment.metadata
         {
             do {
                 imageEditorModel = try ImageEditorModel(attachment: attachment, using: dependencies)

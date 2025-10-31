@@ -6,10 +6,11 @@ import UIKit
 import SessionUIKit
 
 public extension NSObject {
-    func navigationBarButton(imageName: String, selector: Selector) -> UIView {
+    func navigationBarButton(imageName: String, enabled: Bool = true, selector: Selector) -> UIView {
         let button = OWSButton()
         button.setImage(imageName: imageName)
         button.themeTintColor = .textPrimary
+        button.isEnabled = enabled
         button.addTarget(self, action: selector, for: .touchUpInside)
         
         return button

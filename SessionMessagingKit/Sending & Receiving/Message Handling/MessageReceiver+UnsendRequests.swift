@@ -61,7 +61,7 @@ extension MessageReceiver {
         
         /// If it's the `Note to Self` conversation then we want to just delete the interaction
         if userSessionId.hexString == interactionInfo.threadId {
-            try Interaction.deleteOne(db, id: interactionInfo.id)
+            try Interaction.deleteWhere(db, .filter(Interaction.Columns.id == interactionInfo.id))
         }
         
         /// Can't delete from the legacy group swarm so only bother for contact conversations
