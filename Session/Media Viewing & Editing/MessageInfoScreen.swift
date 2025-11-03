@@ -336,24 +336,24 @@ struct MessageInfoScreen: View {
                                 }
                             }
                             
-                            InfoBlock(title: "sent".localized()) {
-                                Text(messageViewModel.dateForUI.fromattedForMessageInfo)
-                                    .font(.Body.largeRegular)
-                                    .foregroundColor(themeColor: .textPrimary)
-                            }
-                            
-                            InfoBlock(title: "received".localized()) {
-                                Text(messageViewModel.receivedDateForUI.fromattedForMessageInfo)
-                                    .font(.Body.largeRegular)
-                                    .foregroundColor(themeColor: .textPrimary)
-                            }
-                            
                             if isMessageFailed {
                                 let failureText: String = messageViewModel.mostRecentFailureText ?? "messageStatusFailedToSend".localized()
                                 InfoBlock(title: "theError".localized() + ":") {
                                     Text(failureText)
                                         .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .danger)
+                                }
+                            } else {
+                                InfoBlock(title: "sent".localized()) {
+                                    Text(messageViewModel.dateForUI.fromattedForMessageInfo)
+                                        .font(.Body.largeRegular)
+                                        .foregroundColor(themeColor: .textPrimary)
+                                }
+                                
+                                InfoBlock(title: "received".localized()) {
+                                    Text(messageViewModel.receivedDateForUI.fromattedForMessageInfo)
+                                        .font(.Body.largeRegular)
+                                        .foregroundColor(themeColor: .textPrimary)
                                 }
                             }
                             
