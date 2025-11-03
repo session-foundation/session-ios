@@ -88,14 +88,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         guard case .active(let currentPlan, let expiredOn, _, let originatingPlatform) = self.sessionProStateSubject.value else {
             return
         }
-        self.sessionProStateSubject.send(
-            SessionProPlanState.active(
-                currentPlan: currentPlan,
-                expiredOn: expiredOn,
-                isAutoRenewing: false,
-                originatingPlatform: originatingPlatform
-            )
-        )
+        self.sessionProStateSubject.send(.none)
         self.shouldAnimateImageSubject.send(false)
         completion?(true)
     }
@@ -179,9 +172,10 @@ extension SessionProState: SessionProCTAManagerType {
         openUrl: ((URL) -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) {
+        let viewModel = SessionProBottomSheetViewModel(using: dependencies)
         let sessionProBottomSheet: BottomSheetHostingViewController = BottomSheetHostingViewController(
-            bottomSheet: BottomSheet(hasCloseButton: true) { [dependencies] in
-                SessionListScreen(viewModel: SessionProBottomSheetViewModel(using: dependencies))
+            bottomSheet: BottomSheet(hasCloseButton: true) {
+                SessionListScreen(viewModel: viewModel)
             }
         )
         presenting?(sessionProBottomSheet)

@@ -13,7 +13,7 @@ extension SessionProPaymentScreenContent {
         
         private var dependencies: Dependencies
         
-        init(dependencies: Dependencies, dataModel: DataModel) {
+        public init(dependencies: Dependencies, dataModel: DataModel) {
             self.dependencies = dependencies
             self.dataModel = dataModel
         }
@@ -40,10 +40,6 @@ extension SessionProPaymentScreenContent {
                     failure?()
                 }
             }
-        }
-        
-        public func openURL(_ url: URL) {
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }
     }
 }

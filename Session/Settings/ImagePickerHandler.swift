@@ -3,6 +3,7 @@
 import UIKit
 import UniformTypeIdentifiers
 import SessionUtilitiesKit
+import SessionUIKit
 
 class ImagePickerHandler: NSObject, UIImagePickerControllerDelegate & UINavigationControllerDelegate {
     private let onTransition: (UIViewController, TransitionType) -> Void

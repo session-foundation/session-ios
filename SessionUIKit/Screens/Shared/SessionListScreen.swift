@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Combine
 
 public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelType>: View {
     @EnvironmentObject var host: HostWrapper
@@ -18,12 +19,63 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     
     private let coordinateSpaceName: String = "SessionListScreen" // stringlint:ignore
     
+    // MARK: - init
+    
     public init(viewModel: ViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
         _state = ObservedObject(wrappedValue: viewModel.state)
+        
+        if let navigatableStateHolder = viewModel as? any SessionListScreenContent.NavigatableStateHolder {
+            navigatableState = navigatableStateHolder.navigatableState
+        } else {
+            navigatableState = nil
+        }
     }
     
+    // MARK: - Navigatable
+    
+    @State private var navigationDestination: SessionListScreenContent.NavigationDestination? = nil
+    @State private var isNavigationActive: Bool = false
+    private let navigatableState: SessionListScreenContent.NavigatableState?
+    private var navigationPublisher: AnyPublisher<(SessionListScreenContent.NavigationDestination, TransitionType), Never> {
+        navigatableState?.transitionToScreen ?? Empty().eraseToAnyPublisher()
+    }
+    
+    @ViewBuilder
+    private var destinationView: some View {
+        if let destination = navigationDestination {
+            destination.view
+        } else {
+            EmptyView()
+        }
+    }
+    
+    // MARK: - Body
+    
     public var body: some View {
+        ZStack {
+            listContent
+                    
+            // Hidden NavigationLink for publisher-driven navigation
+            NavigationLink(
+                destination: destinationView,
+                isActive: $isNavigationActive
+            ) {
+                EmptyView()
+            }
+            .hidden()
+        }
+        .onReceive(navigationPublisher) { destination, transitionType in
+            // Only handle push transitions in SwiftUI
+            // Present transitions are handled by UIKit in setupBindings
+            if transitionType == .push {
+                navigationDestination = destination
+                isNavigationActive = true
+            }
+        }
+    }
+    
+    private var listContent: some View {
         List {
             ForEach(state.listItemData, id: \.model) { section in 
                 Section {
@@ -161,4 +213,3 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
         )
     }
 }
-

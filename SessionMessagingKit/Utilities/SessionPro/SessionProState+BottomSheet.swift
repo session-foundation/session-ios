@@ -4,8 +4,9 @@ import SessionUIKit
 import SessionUtilitiesKit
 import DifferenceKit
 
-public class SessionProBottomSheetViewModel: SessionProBottomSheetViewModelType {
+public class SessionProBottomSheetViewModel: SessionProBottomSheetViewModelType, SessionListScreenContent.NavigatableStateHolder {
     public let dependencies: Dependencies
+    public let navigatableState: SessionListScreenContent.NavigatableState = .init()
     public var title: String = ""
     public var state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
     
@@ -229,8 +230,7 @@ public class SessionProBottomSheetViewModel: SessionProBottomSheetViewModelType 
                                     .localizedFormatted()
                             )
                         case .success:
-                            break
-//                            viewModel?.updateProPlan()
+                            viewModel?.updateProPlan()
                         }
                     }
                 )
@@ -302,6 +302,21 @@ public class SessionProBottomSheetViewModel: SessionProBottomSheetViewModelType 
         )
             
         return result
+    }
+    
+    func updateProPlan() {
+        self.transitionToScreen(
+            SessionProPaymentScreen(
+                viewModel: SessionProPaymentScreenContent.ViewModel(
+                    dependencies: dependencies,
+                    dataModel: .init(
+                        flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(),
+                        plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                    )
+                )
+            ),
+            transitionType: .push
+        )
     }
     
     public func showLoadingModal(title: String, description: String) {

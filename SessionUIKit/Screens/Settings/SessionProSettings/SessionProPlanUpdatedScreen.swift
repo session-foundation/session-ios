@@ -11,7 +11,7 @@ public struct SessionProPlanUpdatedScreen: View {
     var dismissButtonTitle: String {
         switch flow {
             case .purchase, .renew:
-                "Start Using Pro"
+            "proStartUsing".put(key: "pro", value: Constants.pro).localized()
             case .update:
                 "theReturn".localized()
             default: 
@@ -20,7 +20,7 @@ public struct SessionProPlanUpdatedScreen: View {
     }
     var desription: ThemedAttributedString {
         switch flow {
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform):
+            case .update(_, let expiredOn, _, _):
                 "proAllSetDescription"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "pro", value: Constants.pro)
@@ -28,6 +28,11 @@ public struct SessionProPlanUpdatedScreen: View {
                     .localizedFormatted(Fonts.Body.baseRegular)
             case .renew:
                 "proPlanRenewSupport"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "network_name", value: Constants.network_name)
+                    .localizedFormatted(Fonts.Body.baseRegular)
+            case .purchase:
+                "proUpgraded"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "network_name", value: Constants.network_name)
                     .localizedFormatted(Fonts.Body.baseRegular)

@@ -251,7 +251,9 @@ public struct SessionProPaymentScreen: View {
                     Constants.session_pro_privacy_url
                 ],
                 openURL: { url in
-                    viewModel.openURL(url)
+                    if let extensionContext = self.host.controller?.extensionContext {
+                        extensionContext.open(url, completionHandler: nil)
+                    }
                 }
             )
         )
@@ -274,7 +276,11 @@ public struct SessionProPaymentScreen: View {
                 confirmStyle: .danger,
                 cancelTitle: "urlCopy".localized(),
                 cancelStyle: .alert_text,
-                onConfirm:  { _ in viewModel.openURL(url) },
+                onConfirm:  { _ in
+                    if let extensionContext = self.host.controller?.extensionContext {
+                        extensionContext.open(url, completionHandler: nil)
+                    }
+                },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
                     modal.close()
