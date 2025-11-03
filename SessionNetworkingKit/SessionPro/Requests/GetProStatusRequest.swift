@@ -8,7 +8,7 @@ public extension Network.SessionPro {
     struct GetProStatusRequest: Encodable, Equatable {
         public let masterPublicKey: [UInt8]
         public let timestampMs: UInt64
-        public let includeHistory: Bool
+        public let count: UInt32
         public let signature: Signature
         
         // MARK: - Functions
@@ -19,7 +19,7 @@ public extension Network.SessionPro {
             result.set(\.master_pkey, to: masterPublicKey)
             result.set(\.master_sig, to: signature.signature)
             result.unix_ts_ms = timestampMs
-            result.history = includeHistory
+            result.count = count
             
             return result
         }

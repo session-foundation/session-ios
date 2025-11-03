@@ -14,9 +14,9 @@ public extension Log.Category {
 }
 
 public extension Network.SessionPro {
-    static func test(using dependencies: Dependencies) throws -> Network.PreparedRequest<AddProPaymentOrGetProProofResponse> {
-        let masterKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
-        let rotatingKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
+//    static func test(using dependencies: Dependencies) throws -> Network.PreparedRequest<AddProPaymentOrGetProProofResponse> {
+//        let masterKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
+//        let rotatingKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
     static func addProPaymentOrGetProProof(
         transactionId: String,
         masterKeyPair: KeyPair,
@@ -94,7 +94,7 @@ public extension Network.SessionPro {
     }
     
     static func getProStatus(
-        includeHistory: Bool = false,
+        count: UInt32 = 1,
         masterKeyPair: KeyPair,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<GetProStatusResponse> {
@@ -106,7 +106,7 @@ public extension Network.SessionPro {
                 cMasterPrivateKey,
                 cMasterPrivateKey.count,
                 timestampMs,
-                includeHistory
+                count
             )
         )
         
@@ -117,7 +117,7 @@ public extension Network.SessionPro {
                 body: GetProStatusRequest(
                     masterPublicKey: masterKeyPair.publicKey,
                     timestampMs: timestampMs,
-                    includeHistory: includeHistory,
+                    count: count,
                     signature: signature
                 )
             ),

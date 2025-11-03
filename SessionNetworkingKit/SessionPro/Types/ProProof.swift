@@ -28,7 +28,7 @@ public extension Network.SessionPro {
             self.signature = signature
         }
         
-        init(_ libSessionValue: session_protocol_pro_proof) {
+        public init(_ libSessionValue: session_protocol_pro_proof) {
             version = libSessionValue.version
             genIndexHash = libSessionValue.get(\.gen_index_hash)
             rotatingPubkey = libSessionValue.get(\.rotating_pubkey)

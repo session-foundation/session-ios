@@ -8,11 +8,12 @@ public extension Network.SessionPro {
     struct GetProStatusResponse: Decodable, Equatable {
         public let header: ResponseHeader
         public let items: [PaymentItem]
-        public let status: ProStatus
+        public let status: BackendUserProStatus
         public let errorReport: ErrorReport
         public let autoRenewing: Bool
         public let expiryTimestampMs: UInt64
         public let gracePeriodDurationMs: UInt64
+        public let paymentsTotal: UInt32
         
         public init(from decoder: any Decoder) throws {
             let container: SingleValueDecodingContainer = try decoder.singleValueContainer()
@@ -45,11 +46,12 @@ public extension Network.SessionPro {
             defer { session_pro_backend_get_pro_status_response_free(&result) }
             
             self.header = ResponseHeader(result.header)
-            self.status = ProStatus(result.status)
+            self.status = BackendUserProStatus(result.status)
             self.errorReport = ErrorReport(result.error_report)
             self.autoRenewing = result.auto_renewing
             self.expiryTimestampMs = result.expiry_unix_ts_ms
             self.gracePeriodDurationMs = result.grace_period_duration_ms
+            self.paymentsTotal = result.payments_total
             
             if result.items_count > 0 {
                 self.items = (0..<result.items_count).map { index in
