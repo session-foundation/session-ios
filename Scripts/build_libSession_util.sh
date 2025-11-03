@@ -24,16 +24,6 @@ if [ "${ACTION}" = "install" ] || [ "${CONFIGURATION}" = "Release" ]; then
   fi
 fi
 
-# Robustly removes a directory, first clearing any immutable flags (work around Xcode's indexer file locking)
-remove_locked_dir() {
-  local dir_to_remove="$1"
-  if [ -d "${dir_to_remove}" ]; then
-    echo "- Unlocking and removing ${dir_to_remove}"
-    chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
-    rm -rf "${dir_to_remove}"
-  fi
-}
-
 sync_headers() {
     local source_dir="$1"
     echo "- Syncing headers from ${source_dir}"
@@ -53,9 +43,28 @@ sync_headers() {
     
     for dest in "${destinations[@]}"; do
         if [ -n "$dest" ]; then
-            remove_locked_dir "$dest"
-            mkdir -p "$dest"
-            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$dest/"
+            local temp_dest="${dest}.tmp-$(uuidgen)"
+            rm -rf "$temp_dest"
+            mkdir -p "$temp_dest"
+            
+            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$temp_dest/"
+            
+            # Atomically move the old directory out of the way
+            local old_dest="${dest}.old-$(uuidgen)"
+            if [ -d "$dest" ]; then
+                mv "$dest" "$old_dest"
+            fi
+            
+            # Atomically move the new, correct directory into place
+            mv "$temp_dest" "$dest"
+            
+            # Clean up the old directory
+            if [ -d "$old_dest" ]; then
+                # Clear any immutable flags (work around Xcode's indexer file locking)
+                chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
+                rm -rf "$old_dest"
+            fi
+            
             echo "  Synced to: $dest"
         fi
     done
