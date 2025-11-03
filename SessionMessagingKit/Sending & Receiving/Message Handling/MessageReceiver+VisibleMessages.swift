@@ -43,7 +43,7 @@ extension MessageReceiver {
                 publicKey: sender,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
-                blocksCommunityMessageRequests: profile.blocksCommunityMessageRequests,
+                blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )

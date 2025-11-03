@@ -51,7 +51,8 @@ public protocol PollerType: AnyObject {
     var pollerName: String { get }
     var pollerDestination: PollerDestination { get }
     var logStartAndStopCalls: Bool { get }
-    var receivedPollResponse: AnyPublisher<PollResponse, Never> { get }
+    nonisolated var receivedPollResponse: AsyncStream<PollResponse> { get }
+    nonisolated var successfulPollCount: AsyncStream<Int> { get }
     
     var isPolling: Bool { get set }
     var pollCount: Int { get set }

@@ -27,6 +27,7 @@ class BatchRequestSpec: QuickSpec {
                         destination: try! .server(
                             server: "testServer",
                             queryParameters: [:],
+                            fragmentParameters: [:],
                             headers: [
                                 "TestCustomHeader": "TestCustom",
                                 HTTPHeader.testHeader: "Test"
@@ -63,6 +64,7 @@ class BatchRequestSpec: QuickSpec {
                         destination: try! .server(
                             server: "testServer",
                             queryParameters: [:],
+                            fragmentParameters: [:],
                             headers: [
                                 "TestCustomHeader": "TestCustom",
                                 HTTPHeader.testHeader: "Test"
@@ -102,6 +104,7 @@ class BatchRequestSpec: QuickSpec {
                                     destination: try! .server(
                                         server: "testServer",
                                         queryParameters: [:],
+                                        fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
@@ -132,6 +135,7 @@ class BatchRequestSpec: QuickSpec {
                                     destination: try! .server(
                                         server: "testServer",
                                         queryParameters: [:],
+                                        fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
@@ -162,6 +166,7 @@ class BatchRequestSpec: QuickSpec {
                                     destination: try! .server(
                                         server: "testServer",
                                         queryParameters: [:],
+                                        fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
@@ -196,6 +201,7 @@ class BatchRequestSpec: QuickSpec {
                                     destination: try! .server(
                                         server: "testServer",
                                         queryParameters: [:],
+                                        fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
@@ -227,6 +233,7 @@ class BatchRequestSpec: QuickSpec {
                                     destination: try! .server(
                                         server: "testServer",
                                         queryParameters: [:],
+                                        fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),
@@ -258,6 +265,7 @@ class BatchRequestSpec: QuickSpec {
                                     destination: try! .server(
                                         server: "testServer",
                                         queryParameters: [:],
+                                        fragmentParameters: [:],
                                         headers: [:],
                                         x25519PublicKey: "05\(TestConstants.publicKey)"
                                     ),

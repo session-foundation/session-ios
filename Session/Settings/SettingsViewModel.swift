@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import PhotosUI
 import Combine
 import Lucide
 import GRDB
@@ -17,12 +18,13 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
     private var updatedName: String?
-    private var onDisplayPictureSelected: ((ConfirmationModal.ValueUpdate) -> Void)?
+    private var onDisplayPictureSelected: ((ImageDataManager.DataSource, CGRect?) -> Void)?
     private lazy var imagePickerHandler: ImagePickerHandler = ImagePickerHandler(
         onTransition: { [weak self] in self?.transitionToScreen($0, transitionType: $1) },
-        onImageDataPicked: { [weak self] identifier, resultImageData in
-            self?.onDisplayPictureSelected?(.image(identifier: identifier, data: resultImageData))
-        }
+        onImagePicked: { [weak self] source, cropRect in
+            self?.onDisplayPictureSelected?(source, cropRect)
+        },
+        using: dependencies
     )
     
     /// This value is the current state of the view
@@ -231,6 +233,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             }
         }
         
+        /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
+        /// it then then there will be a diff in the `State` and the UI will update
+        if
+            let displayPictureUrl: String = profile.displayPictureUrl,
+            let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                .path(for: displayPictureUrl),
+            !dependencies[singleton: .fileManager].fileExists(atPath: filePath)
+        {
+            profile = profile.with(displayPictureUrl: .set(to: nil))
+        }
+        
         /// Process any event changes
         let groupedEvents: [GenericObservableKey: Set<ObservedEvent>]? = events
             .reduce(into: [:]) { result, event in
@@ -239,8 +252,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         groupedEvents?[.profile]?.forEach { event in
             switch (event.value as? ProfileEvent)?.change {
                 case .name(let name): profile = profile.with(name: name)
-                case .nickname(let nickname): profile = profile.with(nickname: nickname)
-                case .displayPictureUrl(let url): profile = profile.with(displayPictureUrl: url)
+                case .nickname(let nickname): profile = profile.with(nickname: .set(to: nickname))
+                case .displayPictureUrl(let url): profile = profile.with(displayPictureUrl: .set(to: url))
                 default: break
             }
         }
@@ -691,19 +704,26 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     private func updateProfilePicture(currentUrl: String?) {
         let iconName: String = "profile_placeholder" // stringlint:ignore
         var hasSetNewProfilePicture: Bool = false
-        let body: ConfirmationModal.Info.Body = .image(
-            source: nil,
-            placeholder: currentUrl
+        let currentSource: ImageDataManager.DataSource? = {
+            let source: ImageDataManager.DataSource? = currentUrl
                 .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
                 .map { ImageDataManager.DataSource.url(URL(fileURLWithPath: $0)) }
-                .defaulting(to: Lucide.image(icon: .image, size: 40).map { image in
+            
+            return (source?.contentExists == true ? source : nil)
+        }()
+        let body: ConfirmationModal.Info.Body = .image(
+            source: nil,
+            placeholder: (
+                currentSource ??
+                Lucide.image(icon: .image, size: 40).map { image in
                     ImageDataManager.DataSource.image(
                         iconName,
                         image
                             .withTintColor(#colorLiteral(red: 0.631372549, green: 0.6352941176, blue: 0.631372549, alpha: 1), renderingMode: .alwaysTemplate)
                             .withCircularBackground(backgroundColor: #colorLiteral(red: 0.1764705882, green: 0.1764705882, blue: 0.1764705882, alpha: 1))
                     )
-                }),
+                }
+            ),
             icon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: {
@@ -746,8 +766,13 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 }
             },
             onClick: { [weak self] onDisplayPictureSelected in
-                self?.onDisplayPictureSelected = { valueUpdate in
-                    onDisplayPictureSelected(valueUpdate)
+                self?.onDisplayPictureSelected = { source, cropRect in
+                    onDisplayPictureSelected(.image(
+                        source: source,
+                        cropRect: cropRect,
+                        replacementIcon: .pencil,
+                        replacementCancelTitle: "clear".localized()
+                    ))
                     hasSetNewProfilePicture = true
                 }
                 self?.showPhotoLibraryForAvatar()
@@ -762,24 +787,22 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     confirmTitle: "save".localized(),
                     confirmEnabled: .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
                     },
                     cancelTitle: "remove".localized(),
-                    cancelEnabled: (currentUrl != nil) ? .bool(true) : .afterChange { info in
+                    cancelEnabled: (currentUrl != nil ? .bool(true) : .afterChange { info in
                         switch info.body {
-                            case .image(let source, _, _, _, _, _, _, _, _): return (source?.imageData != nil)
+                            case .image(.some(let source), _, _, _, _, _, _, _, _): return source.contentExists
                             default: return false
                         }
-                    },
+                    }),
                     hasCloseButton: true,
                     dismissOnConfirm: false,
                     onConfirm: { [weak self, dependencies] modal in
                         switch modal.info.body {
-                            case .image(.some(let source), _, _, _, _, _, _, _, _):
-                                guard let imageData: Data = source.imageData else { return }
-                            
+                            case .image(.some(let source), _, _, let style, _, _, _, _, _):
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
                                 guard (
                                     !isAnimatedImage ||
@@ -798,9 +821,16 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     }
                                     return
                                 }
-                            
+                                
                                 self?.updateProfile(
-                                    displayPictureUpdate: .currentUserUploadImageData(data: imageData, isReupload: false),
+                                    displayPictureUpdateGenerator: { [weak self] in
+                                        guard let self = self else { throw AttachmentError.uploadFailed }
+                                        
+                                        return try await uploadDisplayPicture(
+                                            source: source,
+                                            cropRect: style.cropRect
+                                        )
+                                    },
                                     onComplete: { [weak modal] in modal?.close() }
                                 )
                             
@@ -818,7 +848,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             hasSetNewProfilePicture = false
                         } else {
                             self?.updateProfile(
-                                displayPictureUpdate: .currentUserRemove,
+                                displayPictureUpdateGenerator: { .currentUserRemove },
                                 onComplete: { [weak modal] in modal?.close() }
                             )
                         }
@@ -832,9 +862,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     @MainActor private func showPhotoLibraryForAvatar() {
         Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
             DispatchQueue.main.async {
-                let picker: UIImagePickerController = UIImagePickerController()
-                picker.sourceType = .photoLibrary
-                picker.mediaTypes = [ "public.image" ]  // stringlint:ignore
+                var configuration: PHPickerConfiguration = PHPickerConfiguration()
+                configuration.selectionLimit = 1
+                configuration.filter = .any(of: [.images, .livePhotos])
+                
+                let picker: PHPickerViewController = PHPickerViewController(configuration: configuration)
                 picker.delegate = self?.imagePickerHandler
                 
                 self?.transitionToScreen(picker, transitionType: .present)
@@ -842,55 +874,80 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         }
     }
     
+    fileprivate func uploadDisplayPicture(
+        source: ImageDataManager.DataSource,
+        cropRect: CGRect?
+    ) async throws -> DisplayPictureManager.Update {
+        let pendingAttachment: PendingAttachment = PendingAttachment(
+            source: .media(source),
+            using: dependencies
+        )
+        let preparedAttachment: PreparedAttachment = try await dependencies[singleton: .displayPictureManager].prepareDisplayPicture(
+            attachment: pendingAttachment,
+            fallbackIfConversionTakesTooLong: true,
+            cropRect: cropRect
+        )
+        let result = try await dependencies[singleton: .displayPictureManager]
+            .uploadDisplayPicture(preparedAttachment: preparedAttachment)
+        
+        return .currentUserUpdateTo(
+            url: result.downloadUrl,
+            key: result.encryptionKey,
+            sessionProProof: dependencies.mutate(cache: .libSession) { $0.getCurrentUserProProof() },
+            isReupload: false
+        )
+    }
+    
     @MainActor fileprivate func updateProfile(
         displayNameUpdate: Profile.DisplayNameUpdate = .none,
-        displayPictureUpdate: DisplayPictureManager.Update = .none,
+        displayPictureUpdateGenerator generator: @escaping () async throws -> DisplayPictureManager.Update = { .none },
         onComplete: @escaping () -> ()
     ) {
-        let viewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, dependencies] modalActivityIndicator in
-            Profile
-                .updateLocal(
+        let indicator: ModalActivityIndicatorViewController = ModalActivityIndicatorViewController()
+        self.transitionToScreen(indicator, transitionType: .present)
+        
+        Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies] in
+            var displayPictureUpdate: DisplayPictureManager.Update = .none
+            
+            do {
+                displayPictureUpdate = try await generator()
+                try await Profile.updateLocal(
                     displayNameUpdate: displayNameUpdate,
                     displayPictureUpdate: displayPictureUpdate,
                     using: dependencies
                 )
-                .subscribe(on: DispatchQueue.global(qos: .default), using: dependencies)
-                .receive(on: DispatchQueue.main, using: dependencies)
-                .sinkUntilComplete(
-                    receiveCompletion: { result in
-                        modalActivityIndicator.dismiss {
-                            switch result {
-                                case .finished: onComplete()
-                                case .failure(let error):
-                                    let message: String = {
-                                        switch (displayPictureUpdate, error) {
-                                            case (.currentUserRemove, _): return "profileDisplayPictureRemoveError".localized()
-                                            case (_, .uploadMaxFileSizeExceeded):
-                                                return "profileDisplayPictureSizeError".localized()
-                                            
-                                            default: return "errorConnection".localized()
-                                        }
-                                    }()
-                                    
-                                    self?.transitionToScreen(
-                                        ConfirmationModal(
-                                            info: ConfirmationModal.Info(
-                                                title: "profileErrorUpdate".localized(),
-                                                body: .text(message),
-                                                cancelTitle: "okay".localized(),
-                                                cancelStyle: .alert_text,
-                                                dismissType: .single
-                                            )
-                                        ),
-                                        transitionType: .present
-                                    )
-                            }
-                        }
+                
+                await indicator.dismiss {
+                    onComplete()
+                }
+            }
+            catch {
+                let message: String = {
+                    switch (displayPictureUpdate, error) {
+                        case (.currentUserRemove, _): return "profileDisplayPictureRemoveError".localized()
+                        case (_, AttachmentError.fileSizeTooLarge):
+                            return "profileDisplayPictureSizeError".localized()
+                        
+                        default: return "errorConnection".localized()
                     }
-                )
+                }()
+                
+                await indicator.dismiss {
+                    self?.transitionToScreen(
+                        ConfirmationModal(
+                            info: ConfirmationModal.Info(
+                                title: "profileErrorUpdate".localized(),
+                                body: .text(message),
+                                cancelTitle: "okay".localized(),
+                                cancelStyle: .alert_text,
+                                dismissType: .single
+                            )
+                        ),
+                        transitionType: .present
+                    )
+                }
+            }
         }
-        
-        self.transitionToScreen(viewController, transitionType: .present)
     }
     
     private func copySessionId(_ sessionId: String, button: SessionButton?) {

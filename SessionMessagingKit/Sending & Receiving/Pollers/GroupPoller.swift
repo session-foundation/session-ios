@@ -50,34 +50,37 @@ public final class GroupPoller: SwarmPoller {
         /// If the keys generation is greated than `0` then it means we have a valid config so shouldn't continue
         guard numKeys == 0 else { return }
         
-        dependencies[singleton: .storage]
-            .readPublisher { [pollerDestination] db in
+        Task.detached { [weak self, pollerDestination, dependencies] in
+            guard let self = self else { return }
+            
+            let isExpired: Bool? = try await dependencies[singleton: .storage].readAsync { [pollerDestination] db in
                 try ClosedGroup
                     .filter(id: pollerDestination.target)
                     .select(.expired)
                     .asRequest(of: Bool.self)
                     .fetchOne(db)
             }
-            .filter { ($0 != true) }
-            .flatMap { [receivedPollResponse] _ in receivedPollResponse }
-            .first()
-            .map { $0.filter { $0.isConfigMessage } }
-            .filter { !$0.contains(where: { $0.namespace == Network.SnodeAPI.Namespace.configGroupKeys }) }
-            .sinkUntilComplete(
-                receiveValue: { [pollerDestination, pollerName, dependencies] configMessages in
-                    Log.error(.poller, "\(pollerName) received no config messages in it's first poll, flagging as expired.")
-                    
-                    dependencies[singleton: .storage].writeAsync { db in
-                        try ClosedGroup
-                            .filter(id: pollerDestination.target)
-                            .updateAllAndConfig(
-                                db,
-                                ClosedGroup.Columns.expired.set(to: true),
-                                using: dependencies
-                            )
-                    }
-                }
-            )
+            
+            /// If we haven't set the `expired` value then we should check the first poll response to see if it's missing the
+            /// `GroupKeys` config message
+            guard
+                isExpired != true,
+                let response: PollResponse = await receivedPollResponse.first(),
+                !response.contains(where: { $0.namespace == .configGroupKeys })
+            else { return }
+            
+            /// There isn't `GroupKeys` config so flag the group as `expired`
+            Log.error(.poller, "\(pollerName) received no config messages in it's first poll, flagging as expired.")
+            try await dependencies[singleton: .storage].writeAsync { db in
+                try ClosedGroup
+                    .filter(id: pollerDestination.target)
+                    .updateAllAndConfig(
+                        db,
+                        ClosedGroup.Columns.expired.set(to: true),
+                        using: dependencies
+                    )
+            }
+        }
     }
     
     // MARK: - Abstract Methods

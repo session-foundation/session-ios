@@ -158,7 +158,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     
     public let contactLastKnownClientVersion: FeatureVersion?
     public let threadDisplayPictureUrl: String?
-    internal let contactProfile: Profile?
+    public let contactProfile: Profile?
     internal let closedGroupProfileFront: Profile?
     internal let closedGroupProfileBack: Profile?
     internal let closedGroupProfileBackFallback: Profile?
@@ -1764,7 +1764,6 @@ public extension SessionThreadViewModel {
                     GROUP_CONCAT(IFNULL(\(profile[.nickname]), \(profile[.name])), ', ') AS \(GroupMemberInfo.Columns.threadMemberNames)
                 FROM \(GroupMember.self)
                 JOIN \(Profile.self) ON \(profile[.id]) = \(groupMember[.profileId])
-                WHERE \(SQL("\(groupMember[.role]) = \(GroupMember.Role.standard)"))
                 GROUP BY \(groupMember[.groupId])
             ) AS \(groupMemberInfo) ON \(groupMemberInfo[.groupId]) = \(closedGroup[.threadId])
             LEFT JOIN \(closedGroupProfileFront) ON (

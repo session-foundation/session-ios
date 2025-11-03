@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -9,7 +10,7 @@ protocol LinkPreviewState {
     var urlString: String? { get }
     var title: String? { get }
     var imageState: LinkPreview.ImageState { get }
-    var image: UIImage? { get }
+    var imageSource: ImageDataManager.DataSource? { get }
 }
 
 public extension LinkPreview {
@@ -27,7 +28,7 @@ public extension LinkPreview {
         var urlString: String? { nil }
         var title: String? { nil }
         var imageState: LinkPreview.ImageState { .none }
-        var image: UIImage? { nil }
+        var imageSource: ImageDataManager.DataSource? { nil }
     }
     
     // MARK: DraftState
@@ -43,20 +44,12 @@ public extension LinkPreview {
         }
         
         var imageState: LinkPreview.ImageState {
-            if linkPreviewDraft.jpegImageData != nil { return .loaded }
+            if linkPreviewDraft.imageSource != nil { return .loaded }
             
             return .none
         }
         
-        var image: UIImage? {
-            guard let jpegImageData = linkPreviewDraft.jpegImageData else { return nil }
-            guard let image = UIImage(data: jpegImageData) else {
-                Log.error("[LinkPreview] Could not load image: \(jpegImageData.count)")
-                return nil
-            }
-            
-            return image
-        }
+        var imageSource: ImageDataManager.DataSource? { linkPreviewDraft.imageSource }
         
         // MARK: - Type Specific
         
@@ -101,19 +94,17 @@ public extension LinkPreview {
             }
         }
 
-        var image: UIImage? {
+        var imageSource: ImageDataManager.DataSource? {
             // Note: We don't check if the image is valid here because that can be confirmed
             // in 'imageState' and it's a little inefficient
-            guard imageAttachment?.isImage == true else { return nil }
-            guard let imageData: Data = try? imageAttachment?.readDataFromFile(using: dependencies) else {
-                return nil
-            }
-            guard let image = UIImage(data: imageData) else {
-                Log.error("[LinkPreview] Could not load image: \(imageAttachment?.downloadUrl ?? "unknown")")
-                return nil
-            }
+            guard
+                imageAttachment?.isImage == true,
+                let imageDownloadUrl: String = imageAttachment?.downloadUrl,
+                let path: String = try? dependencies[singleton: .attachmentManager]
+                    .path(for: imageDownloadUrl)
+            else { return nil }
             
-            return image
+            return .url(URL(fileURLWithPath: path))
         }
         
         // MARK: - Type Specific

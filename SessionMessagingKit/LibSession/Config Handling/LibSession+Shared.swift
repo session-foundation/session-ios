@@ -779,6 +779,7 @@ public extension LibSession.Cache {
             
             let displayPic: user_profile_pic = user_profile_get_pic(conf)
             let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
+            let lastUpdated: TimeInterval = max((profileLastUpdatedInMessage ?? 0), TimeInterval(user_profile_get_profile_updated(conf)))
             
             return Profile(
                 id: contactId,
@@ -786,7 +787,7 @@ public extension LibSession.Cache {
                 nickname: nil,
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : displayPic.get(\.key)),
-                profileLastUpdated: profileLastUpdatedInMessage
+                profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil)
             )
         }
         
@@ -807,6 +808,7 @@ public extension LibSession.Cache {
             }
             
             let displayPictureUrl: String? = member.get(\.profile_pic.url, nullIfEmpty: true)
+            let lastUpdated: TimeInterval = max((profileLastUpdatedInMessage ?? 0), TimeInterval(member.get( \.profile_updated)))
             
             /// The `displayNameInMessage` value is likely newer than the `name` value in the config so use that if available
             return Profile(
@@ -815,7 +817,7 @@ public extension LibSession.Cache {
                 nickname: nil,
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : member.get(\.profile_pic.key)),
-                profileLastUpdated: TimeInterval(member.get(\.profile_updated))
+                profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil)
             )
         }
         
@@ -832,6 +834,7 @@ public extension LibSession.Cache {
         }
         
         let displayPictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
+        let lastUpdated: TimeInterval = max((profileLastUpdatedInMessage ?? 0), TimeInterval(contact.get( \.profile_updated)))
         
         /// The `displayNameInMessage` value is likely newer than the `name` value in the config so use that if available
         return Profile(
@@ -840,7 +843,7 @@ public extension LibSession.Cache {
             nickname: contact.get(\.nickname, nullIfEmpty: true),
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-            profileLastUpdated: TimeInterval(contact.get( \.profile_updated))
+            profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil)
         )
     }
     

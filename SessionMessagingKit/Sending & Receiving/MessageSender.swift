@@ -400,7 +400,7 @@ public final class MessageSender {
                             .addingAttachmentsIfNeeded(message, attachments?.map { $0.attachment })
                     else { throw MessageSenderError.protoConversionFailed }
                     
-                    return try Result(proto.serializedData().paddedMessageBody())
+                    return try Result { try proto.serializedData().paddedMessageBody() }
                         .mapError { MessageSenderError.other(nil, "Couldn't serialize proto", $0) }
                         .successOrThrow()
                     
@@ -410,7 +410,7 @@ public final class MessageSender {
                             .addingAttachmentsIfNeeded(message, attachments?.map { $0.attachment })
                     else { throw MessageSenderError.protoConversionFailed }
                     
-                    return try Result(proto.serializedData())
+                    return try Result { try proto.serializedData() }
                         .map { serialisedData -> Data in
                             switch destination {
                                 case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
@@ -427,14 +427,14 @@ public final class MessageSender {
         switch (destination, namespace) {
             /// Updated group messages should be wrapped _before_ encrypting
             case (.closedGroup(let groupId), .groupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:
-                let messageData: Data = try Result(
-                    MessageWrapper.wrap(
+                let messageData: Data = try Result {
+                    try MessageWrapper.wrap(
                         type: .closedGroupMessage,
                         timestampMs: sentTimestampMs,
                         content: plaintext,
                         wrapInWebSocketMessage: false
                     )
-                )
+                }
                 .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }
                 .successOrThrow()
                 
@@ -459,7 +459,7 @@ public final class MessageSender {
                     )
                 )
                 
-                return try Result(
+                return try Result {
                     try MessageWrapper.wrap(
                         type: try {
                             switch destination {
@@ -477,7 +477,7 @@ public final class MessageSender {
                         }(),
                         content: ciphertext
                     )
-                )
+                }
                 .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }
                 .successOrThrow()
             
