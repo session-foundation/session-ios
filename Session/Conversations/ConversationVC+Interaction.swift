@@ -259,9 +259,14 @@ extension ConversationVC:
         didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments)
+        sendMessage(
+            text: (messageText ?? ""),
+            attachments: attachments,
+            quoteViewModel: quoteViewModel
+        )
         resetMentions()
         
         dismiss(animated: true)
@@ -282,9 +287,10 @@ extension ConversationVC:
         didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments)
+        sendMessage(text: (messageText ?? ""), attachments: attachments, quoteViewModel: quoteViewModel)
         resetMentions()
         
         dismiss(animated: true)
@@ -467,14 +473,17 @@ extension ConversationVC:
     func handleLibraryButtonTapped() {
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
-        let quoteDraft: QuoteViewModel? = self.snInputView.quoteDraft
+        let quoteViewModel: QuoteViewModel? = self.snInputView.quoteViewModel
         
         Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] in
             DispatchQueue.main.async {
                 let sendMediaNavController = SendMediaNavigationController.showingMediaLibraryFirst(
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    quoteDraft: quoteDraft,
+                    quoteViewModel: quoteViewModel,
+                    onQuoteCancelled: { [weak self] in
+                        self?.snInputView.quoteViewModel = nil
+                    },
                     using: dependencies
                 )
                 sendMediaNavController.sendMediaNavDelegate = self
@@ -496,7 +505,10 @@ extension ConversationVC:
         let sendMediaNavController = SendMediaNavigationController.showingCameraFirst(
             threadId: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
-            quoteDraft: self.snInputView.quoteDraft,
+            quoteViewModel: self.snInputView.quoteViewModel,
+            onQuoteCancelled: { [weak self] in
+                self?.snInputView.quoteViewModel = nil
+            },
             using: self.viewModel.dependencies
         )
         sendMediaNavController.sendMediaNavDelegate = self
@@ -512,16 +524,23 @@ extension ConversationVC:
     }
     
     func showAttachmentApprovalDialog(for attachments: [PendingAttachment]) {
-        guard let navController = AttachmentApprovalViewController.wrappedInNavController(
-            threadId: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
+        let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
+            mode: .modal,
+            delegate: self,
+            threadId: viewModel.threadData.threadId,
+            threadVariant: viewModel.threadData.threadVariant,
             attachments: attachments,
-            quoteDraft: snInputView.quoteDraft,
-            approvalDelegate: self,
-            disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
+            messageText: snInputView.text,
+            quoteViewModel: snInputView.quoteViewModel,
+            disableLinkPreviewImageDownload: (viewModel.threadData.threadCanUpload != true),
             didLoadLinkPreview: nil,
-            using: self.viewModel.dependencies
-        ) else { return }
+            onQuoteCancelled: { [weak self] in
+                self?.snInputView.quoteViewModel = nil
+            },
+            using: viewModel.dependencies
+        )
+        
+        let navController = StyledNavigationController(rootViewController: viewController)
         navController.modalPresentationStyle = .fullScreen
         
         present(navController, animated: true, completion: nil)
@@ -583,26 +602,39 @@ extension ConversationVC:
     
     @MainActor func handleAttachmentButtonTapped() {
         if attachmentButtonStackView.isHidden {
-            snInputView.attachmentsButton.accessibilityLabel = "Collapse attachment options"
-            attachmentButtonStackView.isHidden = false
-            
-            UIView.animate(withDuration: 0.25) {
-                self.attachmentButtonStackView.arrangedSubviews.forEach { $0.isHidden = false }
-                self.attachmentButtonStackView.alpha = 1
-            }
+            expandAttachmentButtons()
         } else {
-            snInputView.attachmentsButton.accessibilityLabel = "Add attachment"
-            UIView.animate(
-                withDuration: 0.25,
-                animations: {
-                    self.attachmentButtonStackView.arrangedSubviews.forEach { $0.isHidden = true }
-                    self.attachmentButtonStackView.alpha = 0
-                },
-                completion: { [weak self] _ in
-                    self?.attachmentButtonStackView.isHidden = true
-                }
-            )
+            collapseAttachmentButtons()
         }
+    }
+    
+    @MainActor func expandAttachmentButtons() {
+        guard attachmentButtonStackView.isHidden else { return }
+        
+        snInputView.attachmentsButton.accessibilityLabel = "Collapse attachment options"
+        attachmentButtonStackView.isHidden = false
+        
+        UIView.animate(withDuration: 0.25) {
+            self.attachmentButtonStackView.arrangedSubviews.forEach { $0.isHidden = false }
+            self.attachmentButtonStackView.alpha = 1
+        }
+    }
+    
+    @MainActor func collapseAttachmentButtons() {
+        guard !attachmentButtonStackView.isHidden else { return }
+        
+        snInputView.attachmentsButton.accessibilityLabel = "Add attachment"
+        
+        UIView.animate(
+            withDuration: 0.25,
+            animations: {
+                self.attachmentButtonStackView.arrangedSubviews.forEach { $0.isHidden = true }
+                self.attachmentButtonStackView.alpha = 0
+            },
+            completion: { [weak self] _ in
+                self?.attachmentButtonStackView.isHidden = true
+            }
+        )
     }
     
     @MainActor func handleDisabledAttachmentButtonTapped() {
@@ -738,7 +770,7 @@ extension ConversationVC:
         
         // Clearing this out immediately to make this appear more snappy
         snInputView.text = ""
-        snInputView.quoteDraft = nil
+        snInputView.quoteViewModel = nil
 
         resetMentions()
         scrollToBottom(isAnimated: false)
@@ -911,7 +943,9 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies.setAsync(.areLinkPreviewsEnabled, true) {
-                        self?.snInputView.autoGenerateLinkPreview()
+                        Task {
+                            await self?.snInputView.autoGenerateLinkPreview()
+                        }
                     }
                 }
             )
@@ -957,19 +991,7 @@ extension ConversationVC:
             using: viewModel.dependencies
         )
         
-        guard let approvalVC = AttachmentApprovalViewController.wrappedInNavController(
-            threadId: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
-            attachments: [ pendingAttachment ],
-            quoteDraft: self.snInputView.quoteDraft,
-            approvalDelegate: self,
-            disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
-            didLoadLinkPreview: nil,
-            using: self.viewModel.dependencies
-        ) else { return }
-        approvalVC.modalPresentationStyle = .fullScreen
-        
-        self.present(approvalVC, animated: true, completion: nil)
+        showAttachmentApprovalDialog(for: [pendingAttachment])
     }
 
     // MARK: --Mentions
@@ -2319,7 +2341,7 @@ extension ConversationVC:
             cellViewModel.linkPreviewAttachment
         )
         
-        snInputView.quoteDraft = QuoteViewModel(
+        snInputView.quoteViewModel = QuoteViewModel(
             mode: .draft,
             direction: (cellViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
             currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),

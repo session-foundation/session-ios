@@ -11,6 +11,7 @@ public protocol LinkPreviewManagerType {
     func setHasSeenLinkPreviewSuggestion(_ value: Bool) async
     func allPreviewUrls(forMessageBodyText body: String) async -> [String]
     func previewUrl(for text: String?, selectedRange: NSRange?) async -> String?
+    func ensureLinkPreviewsEnabled() async throws
     func tryToBuildPreviewInfo(previewUrl: String, skipImageDownload: Bool) async throws -> LinkPreviewViewModel
 }
 

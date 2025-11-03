@@ -350,8 +350,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             threadVariant: self.viewModel.initialThreadVariant,
             using: self.viewModel.dependencies
         ),
-        dataManager: self.viewModel.dependencies[singleton: .imageDataManager],
-        sessionProState: self.viewModel.dependencies[singleton: .sessionProState]
+        imageDataManager: self.viewModel.dependencies[singleton: .imageDataManager],
+        linkPreviewManager: self.viewModel.dependencies[singleton: .linkPreviewManager],
+        sessionProState: self.viewModel.dependencies[singleton: .sessionProState],
+        didLoadLinkPreview: nil
     )
     
     lazy var inputBackgroundView: UIView = {
@@ -394,6 +396,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     lazy var gifButton: UIView = {
         let button: InputViewButton = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_gif_black"), hasOpaqueBackground: true) { [weak self] in
             self?.handleGIFButtonTapped()
+            self?.collapseAttachmentButtons()
         }
         button.accessibilityIdentifier = "GIF button"
         button.isAccessibilityElement = true
@@ -406,6 +409,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     lazy var documentButton: UIView = {
         let button: InputViewButton = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_document_black"), hasOpaqueBackground: true) { [weak self] in
             self?.handleDocumentButtonTapped()
+            self?.collapseAttachmentButtons()
         }
         button.accessibilityIdentifier = "Documents folder"
         button.accessibilityLabel = "Files"
@@ -419,6 +423,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     lazy var libraryButton: UIView = {
         let button: InputViewButton = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_camera_roll_black"), hasOpaqueBackground: true) { [weak self] in
             self?.handleLibraryButtonTapped()
+            self?.collapseAttachmentButtons()
         }
         button.accessibilityIdentifier = "Images folder"
         button.accessibilityLabel = "Photo library"
@@ -432,6 +437,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     lazy var cameraButton: UIView = {
         let button: InputViewButton = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_camera_black"), hasOpaqueBackground: true) { [weak self] in
             self?.handleCameraButtonTapped()
+            self?.collapseAttachmentButtons()
         }
         button.accessibilityIdentifier = "Select camera button"
         button.accessibilityLabel = "Camera"

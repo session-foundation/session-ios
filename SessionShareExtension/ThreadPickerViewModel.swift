@@ -99,8 +99,11 @@ public class ThreadPickerViewModel {
     
     // MARK: - Functions
     
-    @MainActor public func didLoadLinkPreview(linkPreview: LinkPreviewViewModel) {
-        linkPreviewViewModels.append(linkPreview)
+    @MainActor public func didLoadLinkPreview(result: LinkPreviewViewModel.LoadResult) {
+        switch result {
+            case .success(let linkPreview): linkPreviewViewModels.append(linkPreview)
+            default: break
+        }
     }
     
     public func updateData(_ updatedData: [SessionThreadViewModel]) {

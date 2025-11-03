@@ -215,27 +215,32 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             
             guard
                 !attachments.isEmpty,
-                let self = self,
-                let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
-                    threadId: self.viewModel.viewData[indexPath.row].threadId,
-                    threadVariant: self.viewModel.viewData[indexPath.row].threadVariant,
-                    attachments: attachments,
-                    quoteDraft: nil,
-                    approvalDelegate: self,
-                    disableLinkPreviewImageDownload: (
-                        self.viewModel.viewData[indexPath.row].threadCanUpload != true
-                    ),
-                    didLoadLinkPreview: { [weak self] linkPreview in
-                        self?.viewModel.didLoadLinkPreview(linkPreview: linkPreview)
-                    },
-                    using: self.viewModel.dependencies
-                )
+                let self = self
             else {
                 self?.shareNavController?.shareViewFailed(error: AttachmentError.invalidData)
                 return
             }
             
-            navigationController?.present(approvalVC, animated: true, completion: nil)
+            let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
+                mode: .modal,
+                delegate: self,
+                threadId: viewModel.viewData[indexPath.row].threadId,
+                threadVariant: viewModel.viewData[indexPath.row].threadVariant,
+                attachments: attachments,
+                messageText: nil,
+                quoteViewModel: nil,
+                disableLinkPreviewImageDownload: (viewModel.viewData[indexPath.row].threadCanUpload != true),
+                didLoadLinkPreview: { [weak self] result in
+                    self?.viewModel.didLoadLinkPreview(result: result)
+                },
+                onQuoteCancelled: nil,
+                using: viewModel.dependencies
+            )
+            
+            let navController = StyledNavigationController(rootViewController: viewController)
+            navController.modalPresentationStyle = .fullScreen
+            
+            navigationController?.present(navController, animated: true, completion: nil)
         }
     }
     
@@ -244,7 +249,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?
     ) {
         // Sharing a URL or plain text will populate the 'messageText' field so in those
         // cases we should ignore the attachments

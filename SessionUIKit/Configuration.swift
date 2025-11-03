@@ -25,6 +25,8 @@ public actor SNUIKit {
         func mediaDecoderDefaultThumbnailOptions(maxDimension: CGFloat) -> CFDictionary
         func mediaDecoderSource(for url: URL) -> CGImageSource?
         func mediaDecoderSource(for data: Data) -> CGImageSource?
+        
+        @MainActor func numberOfCharactersLeft(for text: String) -> Int
     }
     
     @MainActor public static var mainWindow: UIWindow? = nil
@@ -128,5 +130,12 @@ public actor SNUIKit {
         defer { configLock.unlock() }
         
         return config?.mediaDecoderSource(for: data)
+    }
+    
+    @MainActor internal static func numberOfCharactersLeft(for text: String) -> Int {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
+        return (config?.numberOfCharactersLeft(for: text) ?? 0)
     }
 }

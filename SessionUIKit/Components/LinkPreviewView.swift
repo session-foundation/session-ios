@@ -12,6 +12,12 @@ public struct LinkPreviewViewModel {
         case sent
     }
     
+    public enum LoadResult {
+        case success(LinkPreviewViewModel)
+        case error(Error)
+        case obsolete
+    }
+    
     public var state: State
     public var urlString: String
     public var title: String?

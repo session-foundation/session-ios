@@ -26,7 +26,7 @@ public actor LinkPreviewManager: LinkPreviewManagerType {
     /// Twitter doesn't return OpenGraph tags to Signal
     /// `curl -A Signal "https://twitter.com/signalapp/status/1280166087577997312?s=20"`
     /// If this ever changes, we can switch back to our default User-Agent
-    private static let userAgentString: String = "WhatsApp"
+    private static let userAgentString: String = "WhatsApp" // strinlint:ignore
     
     private nonisolated let dependencies: Dependencies
     private let urlMatchCache: StringCache = StringCache(
@@ -98,14 +98,19 @@ public actor LinkPreviewManager: LinkPreviewManagerType {
         return urlMatch.urlString
     }
     
+    public func ensureLinkPreviewsEnabled() async throws {
+        if await !areLinkPreviewsEnabled {
+            throw LinkPreviewError.featureDisabled
+        }
+    }
+    
     public func tryToBuildPreviewInfo(
         previewUrl: String,
         skipImageDownload: Bool
     ) async throws -> LinkPreviewViewModel {
-        guard await areLinkPreviewsEnabled else { throw LinkPreviewError.featureDisabled }
+        try await ensureLinkPreviewsEnabled()
         
         /// Force the url to lowercase to ensure we casing doesn't result in redownloading the details
-        let targetUrl: String = previewUrl.lowercased()
         let metadata: HTMLMetadata
         
         /// Check if we have an in-memory cache of the metadata (no point downloading it again if so)
@@ -239,6 +244,13 @@ public actor LinkPreviewManager: LinkPreviewManagerType {
         url urlString: String,
         remainingRetries: UInt = 3
     ) async throws -> (Data, URLResponse) {
+        /// We only load Link Previews for HTTPS urls so append an explanation for not
+        let httpsScheme: String = "https"   // stringlint:ignore
+
+        guard URLComponents(string: urlString)?.scheme?.lowercased() == httpsScheme else {
+            throw LinkPreviewError.insecureLink
+        }
+
         Log.verbose(.linkPreview, "Download url: \(urlString)")
         
         /// Don't use any caching to protect privacy of these requests

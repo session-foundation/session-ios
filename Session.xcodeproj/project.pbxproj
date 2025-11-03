@@ -267,7 +267,7 @@
 		B8D64FBE25BA78310029CFC0 /* SessionUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A679255388CC00C340D1 /* SessionUtilitiesKit.framework */; };
 		B8D64FC725BA78520029CFC0 /* SessionMessagingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3C2A6F025539DE700C340D1 /* SessionMessagingKit.framework */; };
 		B8D64FCB25BA78A90029CFC0 /* SignalUtilitiesKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C33FD9AB255A548A00E217F9 /* SignalUtilitiesKit.framework */; };
-		B8D84EA325DF745A005A043E /* LinkPreviewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D84EA225DF745A005A043E /* LinkPreviewState.swift */; };
+		B8D84EA325DF745A005A043E /* LinkPreview+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D84EA225DF745A005A043E /* LinkPreview+Convenience.swift */; };
 		B8DE1FB626C22FCB0079C9CE /* CallMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8DE1FB526C22FCB0079C9CE /* CallMessage.swift */; };
 		B8EB20EE2640F28000773E52 /* VisibleMessage+OpenGroupInvitation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8EB20ED2640F28000773E52 /* VisibleMessage+OpenGroupInvitation.swift */; };
 		B8EB20F02640F7F000773E52 /* OpenGroupInvitationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8EB20EF2640F7F000773E52 /* OpenGroupInvitationView.swift */; };
@@ -325,7 +325,6 @@
 		C38EF363255B6DCC007E1867 /* ModalActivityIndicatorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF349255B6DC7007E1867 /* ModalActivityIndicatorViewController.swift */; };
 		C38EF372255B6DCC007E1867 /* MediaMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF358255B6DCC007E1867 /* MediaMessageView.swift */; };
 		C38EF385255B6DD2007E1867 /* AttachmentTextToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF37C255B6DCF007E1867 /* AttachmentTextToolbar.swift */; };
-		C38EF386255B6DD2007E1867 /* AttachmentApprovalInputAccessoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF37D255B6DCF007E1867 /* AttachmentApprovalInputAccessoryView.swift */; };
 		C38EF387255B6DD2007E1867 /* AttachmentItemCollection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF37E255B6DD0007E1867 /* AttachmentItemCollection.swift */; };
 		C38EF388255B6DD2007E1867 /* AttachmentApprovalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF37F255B6DD0007E1867 /* AttachmentApprovalViewController.swift */; };
 		C38EF389255B6DD2007E1867 /* AttachmentTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EF380255B6DD0007E1867 /* AttachmentTextView.swift */; };
@@ -1680,7 +1679,7 @@
 		B8D07404265C683300F77E07 /* ElegantIcons.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = ElegantIcons.ttf; sourceTree = "<group>"; };
 		B8D0A25825E367AC00C1835E /* Notification+MessageReceiver.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Notification+MessageReceiver.swift"; path = "SessionMessagingKit/Sending & Receiving/Notification+MessageReceiver.swift"; sourceTree = SOURCE_ROOT; };
 		B8D0A26825E4A2C200C1835E /* Onboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding.swift; sourceTree = "<group>"; };
-		B8D84EA225DF745A005A043E /* LinkPreviewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreviewState.swift; sourceTree = "<group>"; };
+		B8D84EA225DF745A005A043E /* LinkPreview+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LinkPreview+Convenience.swift"; sourceTree = "<group>"; };
 		B8DE1FB526C22FCB0079C9CE /* CallMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallMessage.swift; sourceTree = "<group>"; };
 		B8EB20ED2640F28000773E52 /* VisibleMessage+OpenGroupInvitation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VisibleMessage+OpenGroupInvitation.swift"; sourceTree = "<group>"; };
 		B8EB20EF2640F7F000773E52 /* OpenGroupInvitationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupInvitationView.swift; sourceTree = "<group>"; };
@@ -1740,7 +1739,6 @@
 		C38EF349255B6DC7007E1867 /* ModalActivityIndicatorViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ModalActivityIndicatorViewController.swift; path = "SignalUtilitiesKit/Shared View Controllers/ModalActivityIndicatorViewController.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF358255B6DCC007E1867 /* MediaMessageView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MediaMessageView.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/MediaMessageView.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF37C255B6DCF007E1867 /* AttachmentTextToolbar.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentTextToolbar.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentTextToolbar.swift"; sourceTree = SOURCE_ROOT; };
-		C38EF37D255B6DCF007E1867 /* AttachmentApprovalInputAccessoryView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentApprovalInputAccessoryView.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentApprovalInputAccessoryView.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF37E255B6DD0007E1867 /* AttachmentItemCollection.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentItemCollection.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentItemCollection.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF37F255B6DD0007E1867 /* AttachmentApprovalViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentApprovalViewController.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentApprovalViewController.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF380255B6DD0007E1867 /* AttachmentTextView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AttachmentTextView.swift; path = "SignalUtilitiesKit/Media Viewing & Editing/Attachment Approval/AttachmentTextView.swift"; sourceTree = SOURCE_ROOT; };
@@ -2771,6 +2769,7 @@
 				C35E8AAD2485E51D00ACB629 /* IP2Country.swift */,
 				FDB3DA8C2E24881200148F8D /* ImageLoading+Convenience.swift */,
 				FDE521992E08DBB000061B8E /* ImageLoading+Convenience.swift */,
+				B8D84EA225DF745A005A043E /* LinkPreview+Convenience.swift */,
 				FDB3DA832E1CA21C00148F8D /* UIActivityViewController+Utilities.swift */,
 				B8783E9D23EB948D00404FB8 /* UILabel+Interaction.swift */,
 				FD1C98E3282E3C5B00B76F9E /* UINavigationBar+Utilities.swift */,
@@ -2989,7 +2988,6 @@
 				34B6A902218B3F62007C4606 /* TypingIndicatorView.swift */,
 				C328250E25CA06020062D0A7 /* VoiceMessageView.swift */,
 				B8569AE225CBB19A00DBA3DB /* DocumentView.swift */,
-				B8D84EA225DF745A005A043E /* LinkPreviewState.swift */,
 				B8EB20EF2640F7F000773E52 /* OpenGroupInvitationView.swift */,
 				7B4C75CC26BB92060000AC89 /* DeletedMessageView.swift */,
 				7B7037422834B81F000DCF35 /* ReactionContainerView.swift */,
@@ -3654,7 +3652,6 @@
 		C379DCEA2567334F0002D4EB /* Attachment Approval */ = {
 			isa = PBXGroup;
 			children = (
-				C38EF37D255B6DCF007E1867 /* AttachmentApprovalInputAccessoryView.swift */,
 				C38EF37F255B6DD0007E1867 /* AttachmentApprovalViewController.swift */,
 				C38EF37E255B6DD0007E1867 /* AttachmentItemCollection.swift */,
 				C38EF382255B6DD1007E1867 /* AttachmentPrepViewController.swift */,
@@ -6474,7 +6471,6 @@
 				C38EF3B9255B6DE7007E1867 /* ImageEditorPinchGestureRecognizer.swift in Sources */,
 				FDB3487E2BE856C800B716C2 /* UIBezierPath+Utilities.swift in Sources */,
 				C38EF3B8255B6DE7007E1867 /* ImageEditorTextViewController.swift in Sources */,
-				C38EF386255B6DD2007E1867 /* AttachmentApprovalInputAccessoryView.swift in Sources */,
 				B8C2B2C82563685C00551B4D /* CircleView.swift in Sources */,
 				C38EF2B3255B6D9C007E1867 /* UIViewController+Utilities.swift in Sources */,
 				C38EF3BE255B6DE7007E1867 /* OrderedDictionary.swift in Sources */,
@@ -7056,7 +7052,7 @@
 				7BA6890F27325CE300EFC32F /* SessionCallManager+CXProvider.swift in Sources */,
 				7B46AAAF28766DF4001AF2DC /* AllMediaViewController.swift in Sources */,
 				FD71162228D983ED00B47552 /* QRCodeScanningViewController.swift in Sources */,
-				B8D84EA325DF745A005A043E /* LinkPreviewState.swift in Sources */,
+				B8D84EA325DF745A005A043E /* LinkPreview+Convenience.swift in Sources */,
 				45C0DC1E1E69011F00E04C47 /* UIStoryboard+OWS.swift in Sources */,
 				FDE754B02C9B96B4002A2623 /* WebRTCSession.swift in Sources */,
 				B835246E25C38ABF0089A44F /* ConversationVC.swift in Sources */,

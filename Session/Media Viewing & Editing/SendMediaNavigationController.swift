@@ -20,7 +20,8 @@ class SendMediaNavigationController: UINavigationController {
     private let dependencies: Dependencies
     private let threadId: String
     private let threadVariant: SessionThread.Variant
-    private var quoteDraft: QuoteViewModel?
+    private var quoteViewModel: QuoteViewModel?
+    private let onQuoteCancelled: (() -> Void)?
     private var disposables: Set<AnyCancellable> = Set()
     private var loadMediaTask: Task<Void, Never>?
     
@@ -29,13 +30,15 @@ class SendMediaNavigationController: UINavigationController {
     init(
         threadId: String,
         threadVariant: SessionThread.Variant,
-        quoteDraft: QuoteViewModel?,
+        quoteViewModel: QuoteViewModel?,
+        onQuoteCancelled: (() -> Void)?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.threadId = threadId
         self.threadVariant = threadVariant
-        self.quoteDraft = quoteDraft
+        self.quoteViewModel = quoteViewModel
+        self.onQuoteCancelled = onQuoteCancelled
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -93,13 +96,15 @@ class SendMediaNavigationController: UINavigationController {
     public class func showingCameraFirst(
         threadId: String,
         threadVariant: SessionThread.Variant,
-        quoteDraft: QuoteViewModel?,
+        quoteViewModel: QuoteViewModel?,
+        onQuoteCancelled: (() -> Void)?,
         using dependencies: Dependencies
     ) -> SendMediaNavigationController {
         let navController: SendMediaNavigationController = SendMediaNavigationController(
             threadId: threadId,
             threadVariant: threadVariant,
-            quoteDraft: quoteDraft,
+            quoteViewModel: quoteViewModel,
+            onQuoteCancelled: onQuoteCancelled,
             using: dependencies
         )
         navController.viewControllers = [navController.captureViewController]
@@ -110,13 +115,15 @@ class SendMediaNavigationController: UINavigationController {
     public class func showingMediaLibraryFirst(
         threadId: String,
         threadVariant: SessionThread.Variant,
-        quoteDraft: QuoteViewModel?,
+        quoteViewModel: QuoteViewModel?,
+        onQuoteCancelled: (() -> Void)?,
         using dependencies: Dependencies
     ) -> SendMediaNavigationController {
         let navController: SendMediaNavigationController = SendMediaNavigationController(
             threadId: threadId,
             threadVariant: threadVariant,
-            quoteDraft: quoteDraft,
+            quoteViewModel: quoteViewModel,
+            onQuoteCancelled: onQuoteCancelled,
             using: dependencies
         )
         navController.viewControllers = [navController.mediaLibraryViewController]
@@ -265,23 +272,24 @@ class SendMediaNavigationController: UINavigationController {
             return false
         }
 
-        guard
-            let approvalViewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
-                mode: .sharedNavigation,
-                threadId: self.threadId,
-                threadVariant: self.threadVariant,
-                attachments: self.attachments,
-                quoteDraft: self.quoteDraft,
-                disableLinkPreviewImageDownload: false,
-                didLoadLinkPreview: nil,
-                using: dependencies
-            )
-        else { return false }
-        
-        approvalViewController.approvalDelegate = self
-        approvalViewController.messageText = sendMediaNavDelegate.sendMediaNavInitialMessageText(self)
+        let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
+            mode: .sharedNavigation,
+            delegate: self,
+            threadId: self.threadId,
+            threadVariant: self.threadVariant,
+            attachments: self.attachments,
+            messageText: sendMediaNavDelegate.sendMediaNavInitialMessageText(self),
+            quoteViewModel: self.quoteViewModel,
+            disableLinkPreviewImageDownload: false,
+            didLoadLinkPreview: nil,
+            onQuoteCancelled: { [weak self] in
+                self?.quoteViewModel = nil
+                self?.onQuoteCancelled?()
+            },
+            using: dependencies
+        )
 
-        pushViewController(approvalViewController, animated: true)
+        pushViewController(viewController, animated: true)
         return true
     }
 
@@ -505,14 +513,16 @@ extension SendMediaNavigationController: AttachmentApprovalViewControllerDelegat
         didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?
     ) {
         sendMediaNavDelegate?.sendMediaNav(
             self,
             didApproveAttachments: attachments,
             forThreadId: threadId,
             threadVariant: threadVariant,
-            messageText: messageText
+            messageText: messageText,
+            quoteViewModel: quoteViewModel
         )
     }
 
@@ -835,7 +845,7 @@ private class DoneButton: UIView {
 
 protocol SendMediaNavDelegate: AnyObject {
     func sendMediaNavDidCancel(_ sendMediaNavigationController: SendMediaNavigationController?)
-    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [PendingAttachment], forThreadId threadId: String, threadVariant: SessionThread.Variant, messageText: String?)
+    func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didApproveAttachments attachments: [PendingAttachment], forThreadId threadId: String, threadVariant: SessionThread.Variant, messageText: String?, quoteViewModel: QuoteViewModel?)
 
     func sendMediaNavInitialMessageText(_ sendMediaNavigationController: SendMediaNavigationController) -> String?
     func sendMediaNav(_ sendMediaNavigationController: SendMediaNavigationController, didChangeMessageText newMessageText: String?)

@@ -5,6 +5,7 @@ import AVFoundation
 import UniformTypeIdentifiers
 import SessionUIKit
 import SessionNetworkingKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 // MARK: - SessionSNUIKitConfig
@@ -117,5 +118,12 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     
     func mediaDecoderSource(for data: Data) -> CGImageSource? {
         return dependencies[singleton: .mediaDecoder].source(for: data)
+    }
+    
+    @MainActor func numberOfCharactersLeft(for text: String) -> Int {
+        return LibSession.numberOfCharactersLeft(
+            for: text,
+            isSessionPro: dependencies[cache: .libSession].isSessionPro
+        )
     }
 }

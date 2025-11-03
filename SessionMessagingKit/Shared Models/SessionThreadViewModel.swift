@@ -245,10 +245,10 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     }
     
     public var messageInputState: InputView.InputState {
-        guard !threadIsNoteToSelf else { return InputView.InputState(allowedInputTypes: .all) }
+        guard !threadIsNoteToSelf else { return InputView.InputState(inputs: .all) }
         guard threadIsBlocked != true else {
             return InputView.InputState(
-                allowedInputTypes: .none,
+                inputs: .disabled,
                 message: "blockBlockedDescription".localized(),
                 messageAccessibility: Accessibility(
                     identifier: "Blocked banner"
@@ -258,21 +258,21 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         
         if threadVariant == .community && threadCanWrite == false {
             return InputView.InputState(
-                allowedInputTypes: .none,
+                inputs: .disabled,
                 message: "permissionsWriteCommunity".localized()
             )
         }
         
         /// Attachments shouldn't be allowed for message requests or if uploads are disabled
-        let finalInputType: InputView.InputTypes
+        let finalInputs: InputView.Input
         
         switch (threadRequiresApproval, threadIsMessageRequest, threadCanUpload) {
-            case (false, false, true): finalInputType = .all
-            default: finalInputType = .textOnly
+            case (false, false, true): finalInputs = .all
+            default: finalInputs = [.text, .attachmentsDisabled, .voiceMessagesDisabled]
         }
         
         return InputView.InputState(
-            allowedInputTypes: finalInputType
+            inputs: finalInputs
         )
     }
     

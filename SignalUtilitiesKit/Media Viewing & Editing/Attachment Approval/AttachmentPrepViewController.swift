@@ -10,7 +10,6 @@ import SessionUtilitiesKit
 
 protocol AttachmentPrepViewControllerDelegate: AnyObject {
     @MainActor func prepViewControllerUpdateNavigationBar()
-    @MainActor func prepViewControllerUpdateControls()
 }
 
 // MARK: -
@@ -29,8 +28,6 @@ public class AttachmentPrepViewController: OWSViewController {
 
     let attachmentItem: PendingAttachmentRailItem
     var attachment: PendingAttachment { return attachmentItem.attachment }
-    private let disableLinkPreviewImageDownload: Bool
-    private let didLoadLinkPreview: ((LinkPreviewViewModel) -> Void)?
     
     // MARK: - UI
     
@@ -58,16 +55,14 @@ public class AttachmentPrepViewController: OWSViewController {
         return view
     }()
     
-    private lazy var mediaMessageView: MediaMessageView = {
+    internal lazy var mediaMessageView: MediaMessageView = {
         let view: MediaMessageView = MediaMessageView(
             attachment: attachment,
             mode: .attachmentApproval,
-            disableLinkPreviewImageDownload: disableLinkPreviewImageDownload,
-            didLoadLinkPreview: didLoadLinkPreview,
             using: dependencies
         )
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.isHidden = (imageEditorView != nil)
+        view.isHidden = (imageEditorView != nil && !attachmentItem.attachment.utType.conforms(to: .url))
         
         return view
     }()
@@ -103,14 +98,10 @@ public class AttachmentPrepViewController: OWSViewController {
 
     init(
         attachmentItem: PendingAttachmentRailItem,
-        disableLinkPreviewImageDownload: Bool,
-        didLoadLinkPreview: ((LinkPreviewViewModel) -> Void)?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.attachmentItem = attachmentItem
-        self.disableLinkPreviewImageDownload = disableLinkPreviewImageDownload
-        self.didLoadLinkPreview = didLoadLinkPreview
         
         super.init(nibName: nil, bundle: nil)
     }
@@ -152,14 +143,12 @@ public class AttachmentPrepViewController: OWSViewController {
         super.viewWillAppear(animated)
         
         prepDelegate?.prepViewControllerUpdateNavigationBar()
-        prepDelegate?.prepViewControllerUpdateControls()
     }
 
     override public func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
 
         prepDelegate?.prepViewControllerUpdateNavigationBar()
-        prepDelegate?.prepViewControllerUpdateControls()
     }
     
     override public func viewWillLayoutSubviews() {
@@ -412,9 +401,5 @@ extension AttachmentPrepViewController: ImageEditorViewDelegate {
 
     public func imageEditorUpdateNavigationBar() {
         prepDelegate?.prepViewControllerUpdateNavigationBar()
-    }
-
-    public func imageEditorUpdateControls() {
-        prepDelegate?.prepViewControllerUpdateControls()
     }
 }
