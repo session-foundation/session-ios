@@ -16,7 +16,6 @@ COMMON_ARGS=(
     -project Session.xcodeproj
     -scheme Session
     -derivedDataPath ./build/derivedData
-    -parallelizeTargets
     -configuration "App_Store_Release"
 )
 
@@ -80,6 +79,9 @@ if [[ "$MODE" == "test" ]]; then
     exit "$xcodebuild_exit_code"
     
 elif [[ "$MODE" == "archive" ]]; then
+
+    # Clean derived data to prevent race conditions
+    rm -rf ./build/derivedData
     
     echo "--- Running Simulator Archive Build (App_Store_Release) ---"
     
