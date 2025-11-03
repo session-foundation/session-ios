@@ -165,21 +165,13 @@ public extension CGImage {
             max(finalSize.width / sourceRect.width, finalSize.height / sourceRect.height) :
             min(finalSize.width / sourceRect.width, finalSize.height / sourceRect.height)
         )
-        let physicalSize = CGSize(width: self.width, height: self.height)
-        let drawRect: CGRect = CGRect(
-            x: -(sourceRect.origin.x * scale),
-            y: -(sourceRect.origin.y * scale),
-            width: (physicalSize.width * scale),
-            height: (physicalSize.height * scale)
-        )
-        
+
         if colorSpace.model == .monochrome {
             bitmapInfo = (opaque ?
                 CGImageAlphaInfo.none.rawValue :
                 CGImageAlphaInfo.alphaOnly.rawValue
             )
         } else {
-            // RGB/RGBA context
             bitmapInfo = (opaque ?
                 CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue :
                 CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
@@ -195,9 +187,57 @@ public extension CGImage {
             space: colorSpace,
             bitmapInfo: bitmapInfo
         ) else { return self }
-
+        
+        // Transform the context to have the correct orientation, positioning and scale (order matters here)
+        let drawRect: CGRect = CGRect(origin: .zero, size: CGSize(width: self.width, height: self.height))
         ctx.interpolationQuality = .high
         ctx.applyOrientationTransform(orientation: orientation, size: finalSize)
+        
+        // After orientation, we need to translate/scale in the NEW coordinate space
+        // For rotated orientations, the coordinate axes are swapped
+        let translateX: CGFloat
+        let translateY: CGFloat
+
+        switch orientation {
+            case .up:
+                translateX = -sourceRect.origin.x
+                translateY = -(srcSize.height - sourceRect.maxY)
+                
+            case .upMirrored:
+                translateX = -(srcSize.width - sourceRect.maxX)
+                translateY = -(srcSize.height - sourceRect.maxY)
+                
+            case .down:
+                translateX = -(srcSize.width - sourceRect.maxX)
+                translateY = -sourceRect.origin.y
+                
+            case .downMirrored:
+                translateX = -sourceRect.origin.x
+                translateY = -sourceRect.origin.y
+            
+            case .left:
+                translateX = -(srcSize.height - sourceRect.maxY)
+                translateY = -(srcSize.width - sourceRect.maxX)
+                
+            case .leftMirrored:
+                translateX = -sourceRect.origin.y
+                translateY = -(srcSize.width - sourceRect.maxX)
+            
+            case .right:
+                translateX = -sourceRect.origin.y
+                translateY = -sourceRect.origin.x
+                
+            case .rightMirrored:
+                translateX = -(srcSize.height - sourceRect.maxY)
+                translateY = -sourceRect.origin.x
+                
+            @unknown default:
+                translateX = -sourceRect.origin.x
+                translateY = -sourceRect.origin.y
+        }
+        
+        ctx.scaleBy(x: scale, y: scale)
+        ctx.translateBy(x: translateX, y: translateY)
         ctx.draw(self, in: drawRect, byTiling: false)
         
         return (ctx.makeImage() ?? self)
@@ -205,6 +245,7 @@ public extension CGImage {
 }
 
 // MARK: - Conveneince
+
 private extension CGContext {
     func applyOrientationTransform(orientation: UIImage.Orientation, size: CGSize) {
         switch orientation {
@@ -230,13 +271,16 @@ private extension CGContext {
                 scaleBy(x: 1, y: -1)
                 
             case .leftMirrored:
-                translateBy(x: size.width, y: size.height)
+                translateBy(x: size.width, y: 0)
                 rotate(by: .pi / 2)
-                scaleBy(x: 1, y: -1)
+                translateBy(x: size.height, y: 0)
+                scaleBy(x: -1, y: 1)
                 
             case .rightMirrored:
+                translateBy(x: 0, y: size.height)
                 rotate(by: -.pi / 2)
-                scaleBy(x: 1, y: -1)
+                translateBy(x: size.width, y: 0)
+                scaleBy(x: -1, y: 1)
                 
             @unknown default: break
         }

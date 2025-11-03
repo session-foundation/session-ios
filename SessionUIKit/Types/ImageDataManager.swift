@@ -983,7 +983,7 @@ public extension ImageDataManager.DataSource {
     static let maxValidDimension: Int = 1 << 18 // 262,144 pixels
     
     @MainActor
-    var sizeFromMetadata: CGSize? {
+    var displaySizeFromMetadata: CGSize? {
         /// There are a number of types which have fixed sizes, in those cases we should return the target size rather than try to
         /// read it from data so we doncan avoid processing
         switch self {
@@ -1014,7 +1014,25 @@ public extension ImageDataManager.DataSource {
             sourceHeight < ImageDataManager.DataSource.maxValidDimension
         else { return nil }
         
-        return CGSize(width: sourceWidth, height: sourceHeight)
+        /// Since we want the "display size" (ie. size after the orientation has been applied) we may need to rotate the resolution
+        let orientation: UIImage.Orientation? = {
+            guard
+                let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation as String] as? UInt32,
+                let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+            else { return nil }
+    
+            return UIImage.Orientation(cgOrientation)
+        }()
+        
+        switch orientation {
+            case .up, .upMirrored, .down, .downMirrored, .none:
+                return CGSize(width: sourceWidth, height: sourceHeight)
+            
+            case .leftMirrored, .left, .rightMirrored, .right:
+                return CGSize(width: sourceHeight, height: sourceWidth)
+            
+            @unknown default: return CGSize(width: sourceWidth, height: sourceHeight)
+        }
     }
     
     @MainActor
