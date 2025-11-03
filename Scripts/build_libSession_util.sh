@@ -84,9 +84,17 @@ fi
 
 if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
   echo "Using pre-packaged SessionUtil"
-  sync_headers "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/"
   
-  # Create the placeholder in the FINAL products directory to satisfy dependency.
+    if [ "$CI" = "true" ] || [ "$DRONE" = "true" ]; then
+    # In CI, Xcode's SPM integration is reliable. Skip manual header sync
+    # to avoid the 'redefinition of module' error.
+    echo "- CI environment detected, skipping manual header sync to rely on SPM"
+  else
+    echo "- Local build detected, syncing headers to assist Xcode indexer"
+    sync_headers "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/"
+  fi
+  
+  # Create the placeholder in the FINAL products directory to satisfy dependency
   touch "${BUILT_PRODUCTS_DIR}/libsession-util.a"
   
   echo "- Revert to SPM complete."
