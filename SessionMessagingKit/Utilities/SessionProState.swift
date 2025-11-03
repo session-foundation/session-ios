@@ -42,7 +42,13 @@ public class SessionProState: SessionProManagerType {
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
-        guard dependencies[feature: .sessionProEnabled] && (!dependencies[feature: .mockCurrentUserSessionPro]) else {
+        let shouldShowProCTA: Bool = {
+            guard dependencies[feature: .sessionProEnabled] else { return false }
+            if case .groupLimit = variant { return true }
+            return !dependencies[feature: .mockCurrentUserSessionPro]
+        }()
+        
+        guard shouldShowProCTA else {
             return false
         }
         beforePresented?()

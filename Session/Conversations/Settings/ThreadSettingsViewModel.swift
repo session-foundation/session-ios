@@ -333,7 +333,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         label: threadViewModel.displayName
                     ),
                     onTapView: { [weak self, threadId, dependencies] targetView in
-                        guard targetView is SessionProBadge else {
+                        guard targetView is SessionProBadge, !dependencies[cache: .libSession].isSessionPro else {
                             guard
                                 let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
                                     threadViewModel: threadViewModel,
@@ -357,7 +357,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             }
                         }()
                         
-                        self?.showSessionProCTAIfNeeded(proCTAModalVariant)
+                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                            proCTAModalVariant,
+                            presenting: { modal in
+                                self?.transitionToScreen(modal, transitionType: .present)
+                            }
+                        )
                     }
                 ),
                 
@@ -402,29 +407,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             label: threadDescription
                         )
                     )
-                },
-
-                (!showThreadPubkey ? nil :
-                    SessionCell.Info(
-                        id: .sessionId,
-                        subtitle: SessionCell.TextInfo(
-                            threadViewModel.id,
-                            font: .monoSmall,
-                            alignment: .center,
-                            interaction: .copy
-                        ),
-                        onTap: { [weak self] in
-                            guard
-                                let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
-                                    threadViewModel: threadViewModel,
-                                    currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
-                                )
-                            else { return }
-                            
-                            self?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
-                        }
-                    )
-                 )
+                }
             ].compactMap { $0 }
         )
         
@@ -1230,7 +1213,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         
         return [
             conversationInfoSection,
-            (threadViewModel.threadVariant != .contact ? nil : sessionIdSection),
+            (!showThreadPubkey ? nil : sessionIdSection),
             standardActionsSection,
             adminActionsSection,
             destructiveActionsSection
@@ -2128,26 +2111,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             
             case (.community, _), (.legacyGroup, false), (.group, false): return nil
         }
-    }
-    
-    private func showSessionProCTAIfNeeded(_ variant: ProCTAModal.Variant) {
-        let shouldShowProCTA: Bool = {
-            guard dependencies[feature: .sessionProEnabled] else { return false }
-            if case .groupLimit = variant { return true }
-            return !dependencies[cache: .libSession].isSessionPro
-        }()
-        
-        guard shouldShowProCTA else { return }
-        
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
-                variant: variant,
-                dataManager: dependencies[singleton: .imageDataManager]
-            )
-        )
-        
-        self.transitionToScreen(sessionProModal, transitionType: .present)
     }
     
     private func showQRCodeLightBox(for threadViewModel: SessionThreadViewModel) {
