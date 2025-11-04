@@ -6,6 +6,7 @@ import Foundation
 import Combine
 import UniformTypeIdentifiers
 import GRDB
+import SessionUIKit
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
@@ -20,6 +21,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
     
     /// We want to cache url previews to the nearest 100,000 seconds (~28 hours - simpler than 86,400) to ensure the user isn't shown a preview that is too stale
     internal static let timstampResolution: Double = 100000
+    internal static let maxImageDimension: CGFloat = 600
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -131,21 +133,32 @@ public extension LinkPreview {
         return (floor(sentTimestampMs / 1000 / LinkPreview.timstampResolution) * LinkPreview.timstampResolution)
     }
     
-    static func generateAttachmentIfPossible(imageData: Data?, type: UTType, using dependencies: Dependencies) throws -> Attachment? {
-        guard let imageData: Data = imageData, !imageData.isEmpty else { return nil }
-        guard let fileExtension: String = type.sessionFileExtension(sourceFilename: nil) else { return nil }
-        guard let mimeType: String = type.preferredMIMEType else { return nil }
+    static func prepareAttachmentIfPossible(
+        urlString: String,
+        imageSource: ImageDataManager.DataSource?,
+        using dependencies: Dependencies
+    ) async throws -> PreparedAttachment? {
+        guard let imageSource: ImageDataManager.DataSource = imageSource, imageSource.contentExists else {
+            return nil
+        }
         
-        let filePath = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: fileExtension)
-        try imageData.write(to: NSURL.fileURL(withPath: filePath), options: .atomicWrite)
-        let dataSource: DataSourcePath = DataSourcePath(
-            filePath: filePath,
-            sourceFilename: nil,
-            shouldDeleteOnDeinit: true,
+        let pendingAttachment: PendingAttachment = PendingAttachment(
+            source: .media(imageSource),
             using: dependencies
         )
+        let targetFormat: PendingAttachment.ConversionFormat = (dependencies[feature: .usePngInsteadOfWebPForFallbackImageType] ?
+            .png(maxDimension: LinkPreview.maxImageDimension) : .webPLossy(maxDimension: LinkPreview.maxImageDimension)
+        )
         
-        return Attachment(contentType: mimeType, dataSource: dataSource, using: dependencies)
+        return try await pendingAttachment.prepare(
+            operations: [
+                .convert(to: targetFormat),
+                .stripImageMetadata
+            ],
+            /// We only call `prepareAttachmentIfPossible` before sending so always store at the pending upload path
+            storeAtPendingAttachmentUploadPath: true,
+            using: dependencies
+        )
     }
     
     static func isValidLinkUrl(_ urlString: String) -> Bool {
@@ -314,49 +327,43 @@ public extension LinkPreview {
         previewUrl: String?,
         skipImageDownload: Bool,
         using dependencies: Dependencies
-    ) -> AnyPublisher<LinkPreviewDraft, Error> {
+    ) async throws -> LinkPreviewDraft {
         guard dependencies.mutate(cache: .libSession, { $0.get(.areLinkPreviewsEnabled) }) else {
-            return Fail(error: LinkPreviewError.featureDisabled)
-                .eraseToAnyPublisher()
+            throw LinkPreviewError.featureDisabled
         }
         
         // Force the url to lowercase to ensure we casing doesn't result in redownloading the
         // details
         guard let previewUrl: String = previewUrl?.lowercased() else {
-            return Fail(error: LinkPreviewError.invalidInput)
-                .eraseToAnyPublisher()
+            throw LinkPreviewError.invalidInput
         }
         
         if let cachedInfo = cachedLinkPreview(forPreviewUrl: previewUrl) {
-            return Just(cachedInfo)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+            return cachedInfo
         }
         
-        return downloadLink(url: previewUrl)
-            .flatMap { [dependencies] data, response in
-                parseLinkDataAndBuildDraft(
-                    linkData: data,
-                    response: response,
-                    linkUrlString: previewUrl,
-                    skipImageDownload: skipImageDownload,
-                    using: dependencies
-                )
-            }
-            .tryMap { [dependencies] linkPreviewDraft -> LinkPreviewDraft in
-                guard linkPreviewDraft.isValid() else { throw LinkPreviewError.noPreview }
+        let (data, response) = try await downloadLink(url: previewUrl)
+        try Task.checkCancellation()    /// No use trying to parse and potentially download an image if the task was cancelled
+        
+        let linkPreviewDraft: LinkPreviewDraft = try await parseLinkDataAndBuildDraft(
+            linkData: data,
+            response: response,
+            linkUrlString: previewUrl,
+            skipImageDownload: skipImageDownload,
+            using: dependencies
+        )
+        
+        guard linkPreviewDraft.isValid() else { throw LinkPreviewError.noPreview }
                 
-                setCachedLinkPreview(linkPreviewDraft, forPreviewUrl: previewUrl, using: dependencies)
-
-                return linkPreviewDraft
-            }
-            .eraseToAnyPublisher()
+        setCachedLinkPreview(linkPreviewDraft, forPreviewUrl: previewUrl, using: dependencies)
+        
+        return linkPreviewDraft
     }
 
     private static func downloadLink(
         url urlString: String,
         remainingRetries: UInt = 3
-    ) -> AnyPublisher<(Data, URLResponse), Error> {
+    ) async throws -> (Data, URLResponse) {
         Log.verbose("[LinkPreview] Download url: \(urlString)")
 
         // let sessionConfiguration = ContentProxy.sessionConfiguration() // Loki: Signal's proxy appears to have been banned by YouTube
@@ -368,45 +375,42 @@ public extension LinkPreview {
         
         guard
             var request: URLRequest = URL(string: urlString).map({ URLRequest(url: $0) }),
+            request.url?.scheme != nil,
+            (request.url?.host ?? "").isEmpty == false,
             ContentProxy.configureProxiedRequest(request: &request)
-        else {
-            return Fail(error: LinkPreviewError.assertionFailure)
-                .eraseToAnyPublisher()
-        }
+        else { throw LinkPreviewError.assertionFailure }
         
         request.setValue(self.userAgentString, forHTTPHeaderField: "User-Agent") // Set a fake value
 
         let session: URLSession = URLSession(configuration: sessionConfiguration)
         
-        return session
-            .dataTaskPublisher(for: request)
-            .mapError { _ -> Error in NetworkError.unknown }   // URLError codes are negative values
-            .tryMap { data, response -> (Data, URLResponse) in
-                guard let urlResponse: HTTPURLResponse = response as? HTTPURLResponse else {
-                    throw LinkPreviewError.assertionFailure
-                }
-                if let contentType: String = urlResponse.allHeaderFields["Content-Type"] as? String {
-                    guard contentType.lowercased().hasPrefix("text/") else {
-                        throw LinkPreviewError.invalidContent
-                    }
-                }
-                guard data.count > 0 else { throw LinkPreviewError.invalidContent }
-                
-                return (data, response)
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            guard let urlResponse: HTTPURLResponse = response as? HTTPURLResponse else {
+                throw LinkPreviewError.assertionFailure
             }
-            .catch { error -> AnyPublisher<(Data, URLResponse), Error> in
-                guard isRetryable(error: error), remainingRetries > 0 else {
-                    return Fail(error: LinkPreviewError.couldNotDownload)
-                        .eraseToAnyPublisher()
+            
+            if let contentType: String = urlResponse.allHeaderFields["Content-Type"] as? String {
+                guard contentType.lowercased().hasPrefix("text/") else {
+                    throw LinkPreviewError.invalidContent
                 }
-                
-                return LinkPreview
-                    .downloadLink(
-                        url: urlString,
-                        remainingRetries: (remainingRetries - 1)
-                    )
             }
-            .eraseToAnyPublisher()
+            
+            guard data.count > 0 else { throw LinkPreviewError.invalidContent }
+            
+            return (data, response)
+        }
+        catch {
+            guard isRetryable(error: error), remainingRetries > 0 else {
+                throw LinkPreviewError.couldNotDownload
+            }
+            
+            return try await LinkPreview.downloadLink(
+                url: urlString,
+                remainingRetries: (remainingRetries - 1)
+            )
+        }
     }
     
     private static func parseLinkDataAndBuildDraft(
@@ -415,51 +419,35 @@ public extension LinkPreview {
         linkUrlString: String,
         skipImageDownload: Bool,
         using dependencies: Dependencies
-    ) -> AnyPublisher<LinkPreviewDraft, Error> {
+    ) async throws -> LinkPreviewDraft {
+        let contents: LinkPreview.Contents = try parse(linkData: linkData, response: response)
+        let title: String? = contents.title
+        
+        /// If we don't want to download the image then just return the non-image content
+        guard !skipImageDownload else {
+            return LinkPreviewDraft(urlString: linkUrlString, title: title)
+        }
+        
         do {
-            let contents = try parse(linkData: linkData, response: response)
-            let title = contents.title
-
-            // If we don't want to download the image then just return the non-image content
-            guard !skipImageDownload else {
-                return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            }
+            /// If the image isn't valid then just return the non-image content
+            let imageUrl: URL = try contents.imageUrl.map({ URL(string: $0) }) ?? {
+                throw LinkPreviewError.invalidContent
+            }()
+            let imageSource: ImageDataManager.DataSource = try await downloadImage(
+                url: imageUrl,
+                using: dependencies
+            )
             
-            // If the image isn't valid then just return the non-image content
-            guard
-                let imageUrl: String = contents.imageUrl,
-                URL(string: imageUrl) != nil,
-                let imageFileExtension: String = fileExtension(forImageUrl: imageUrl),
-                let imageMimeType: String = UTType(sessionFileExtension: imageFileExtension)?.preferredMIMEType
-            else {
-                return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            }
-
-            return LinkPreview
-                .downloadImage(url: imageUrl, imageMimeType: imageMimeType, using: dependencies)
-                .map { imageData -> LinkPreviewDraft in
-                    // We always recompress images to Jpeg
-                    LinkPreviewDraft(urlString: linkUrlString, title: title, jpegImageData: imageData)
-                }
-                .catch { _ -> AnyPublisher<LinkPreviewDraft, Error> in
-                    return Just(LinkPreviewDraft(urlString: linkUrlString, title: title))
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                }
-                .eraseToAnyPublisher()
-        } catch {
-            return Fail(error: error)
-                .eraseToAnyPublisher()
+            return LinkPreviewDraft(urlString: linkUrlString, title: title, imageSource: imageSource)
+        }
+        catch {
+            return LinkPreviewDraft(urlString: linkUrlString, title: title)
         }
     }
     
     private static func parse(linkData: Data, response: URLResponse) throws -> Contents {
         guard let linkText = String(bytes: linkData, encoding: response.stringEncoding ?? .utf8) else {
-            print("Could not parse link text.")
+            Log.verbose("[LinkPreview] Could not parse link text.")
             throw LinkPreviewError.invalidInput
         }
         
@@ -488,71 +476,32 @@ public extension LinkPreview {
     }
     
     private static func downloadImage(
-        url urlString: String,
-        imageMimeType: String,
+        url: URL,
         using dependencies: Dependencies
-    ) -> AnyPublisher<Data, Error> {
-        guard
-            let url = URL(string: urlString),
-            let assetDescription: ProxiedContentAssetDescription = ProxiedContentAssetDescription(
-                url: url as NSURL
-            )
-        else {
-            return Fail(error: LinkPreviewError.invalidInput)
-                .eraseToAnyPublisher()
-        }
+    ) async throws -> ImageDataManager.DataSource {
+        guard let assetDescription: ProxiedContentAssetDescription = ProxiedContentAssetDescription(
+            url: url as NSURL
+        ) else { throw LinkPreviewError.invalidInput }
         
-        return dependencies[singleton: .proxiedContentDownloader]
-            .requestAsset(
-                assetDescription: assetDescription,
-                priority: .high,
-                shouldIgnoreSignalProxy: true
-            )
-            .tryMap { asset, _ -> Data in
-                let type: UTType? = UTType(sessionMimeType: imageMimeType)
-                let imageSize = MediaUtils.unrotatedSize(
-                    for: asset.filePath,
-                    type: type,
-                    mimeType: imageMimeType,
-                    sourceFilename: nil,
-                    using: dependencies
+        do {
+            let asset: ProxiedContentAsset = try await dependencies[singleton: .proxiedContentDownloader]
+                .requestAsset(
+                    assetDescription: assetDescription,
+                    priority: .high,
+                    shouldIgnoreSignalProxy: true
                 )
-
-                guard imageSize.width > 0, imageSize.height > 0 else {
-                    throw LinkPreviewError.invalidContent
-                }
-                
-                // Loki: If it's a GIF then ensure its validity and don't download it as a JPG
-                if type == .gif && MediaUtils.isValidImage(at: asset.filePath, type: .gif, using: dependencies) {
-                    return try Data(contentsOf: URL(fileURLWithPath: asset.filePath))
-                }
-                
-                guard let data: Data = try? Data(contentsOf: URL(fileURLWithPath: asset.filePath)) else {
-                    throw LinkPreviewError.assertionFailure
-                }
-
-                guard let srcImage = UIImage(data: data) else { throw LinkPreviewError.invalidContent }
-                
-                let maxImageSize: CGFloat = 1024
-                let shouldResize = imageSize.width > maxImageSize || imageSize.height > maxImageSize
-                
-                guard shouldResize else {
-                    guard let dstData = srcImage.jpegData(compressionQuality: 0.8) else {
-                        throw LinkPreviewError.invalidContent
-                    }
-                    
-                    return dstData
-                }
-
-                guard
-                    let dstImage = srcImage.resized(maxDimensionPoints: maxImageSize),
-                    let dstData = dstImage.jpegData(compressionQuality: 0.8)
-                else { throw LinkPreviewError.invalidContent }
-                
-                return dstData
-            }
-            .mapError { _ -> Error in LinkPreviewError.couldNotDownload }
-            .eraseToAnyPublisher()
+            let pendingAttachment: PendingAttachment = PendingAttachment(
+                source: .media(.url(URL(fileURLWithPath: asset.filePath))),
+                using: dependencies
+            )
+            let preparedAttachment: PreparedAttachment = try await pendingAttachment.prepare(
+                operations: [.convert(to: .webPLossy(maxDimension: 1024))],
+                using: dependencies
+            )
+            
+            return .url(URL(fileURLWithPath: preparedAttachment.filePath))
+        }
+        catch { throw LinkPreviewError.couldNotDownload }
     }
     
     private static func isRetryable(error: Error) -> Bool {

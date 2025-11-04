@@ -42,9 +42,10 @@ public protocol NetworkType {
     func getSwarm(for swarmPublicKey: String) -> AnyPublisher<Set<LibSession.Snode>, Error>
     func getRandomNodes(count: Int) -> AnyPublisher<Set<LibSession.Snode>, Error>
     
-    func send(
-        _ body: Data?,
-        to destination: Network.Destination,
+    func send<E: EndpointType>(
+        endpoint: E,
+        destination: Network.Destination,
+        body: Data?,
         requestTimeout: TimeInterval,
         requestAndPathBuildTimeout: TimeInterval?
     ) -> AnyPublisher<(ResponseInfoType, Data?), Error>

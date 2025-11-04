@@ -149,9 +149,9 @@ public class SessionApp: SessionAppType {
         Log.info("Data Reset Complete.")
         Log.flush()
         
-        /// Wait until the next run loop to kill the app (hoping to avoid a crash due to the connection closes
-        /// triggering logs)
-        DispatchQueue.main.async {
+        /// Wait for a small duration before killing the app (hoping to avoid a crash due to `libSession` shutting down connections
+        /// which result in spdlog trying to log and crashing)
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(10)) {
             exit(0)
         }
     }

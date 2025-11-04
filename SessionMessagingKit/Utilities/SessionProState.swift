@@ -150,7 +150,16 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
-        guard dependencies[feature: .sessionProEnabled], case .active = sessionProStateSubject.value else {
+        let shouldShowProCTA: Bool = {
+            guard dependencies[feature: .sessionProEnabled] else { return false }
+            if case .groupLimit = variant { return true }
+            switch sessionProStateSubject.value {
+                case .active, .refunding: return false
+                case .none, .expired: return true
+            }
+        }()
+        
+        guard shouldShowProCTA else {
             return false
         }
         beforePresented?()

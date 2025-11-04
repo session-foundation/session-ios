@@ -31,7 +31,7 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
         self.library = library
         self.thumbnailPixelDimension = thumbnailSize.pixelDimension()
         self.onCollectionSelected = onCollectionSelected
-        self.photoCollections = CurrentValueSubject(library.allPhotoCollections())
+        self.photoCollections = CurrentValueSubject(library.allPhotoCollections(using: dependencies))
     }
     
     // MARK: - Config
@@ -65,12 +65,12 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
 
     lazy var observation: TargetObservation = ObservationBuilderOld
         .subject(photoCollections)
-        .map { [thumbnailSize, thumbnailPixelDimension] collections -> [SectionModel] in
+        .map { [thumbnailSize, thumbnailPixelDimension, dependencies] collections -> [SectionModel] in
             [
                 SectionModel(
                     model: .content,
                     elements: collections.map { collection in
-                        let contents: PhotoCollectionContents = collection.contents()
+                        let contents: PhotoCollectionContents = collection.contents(using: dependencies)
                         let lastAssetItem: PhotoPickerAssetItem? = contents.lastAssetItem(size: thumbnailSize, pixelDimension: thumbnailPixelDimension)
                         
                         return SessionCell.Info(
@@ -94,6 +94,6 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
     // MARK: PhotoLibraryDelegate
 
     func photoLibraryDidChange(_ photoLibrary: PhotoLibrary) {
-        self.photoCollections.send(library.allPhotoCollections())
+        self.photoCollections.send(library.allPhotoCollections(using: dependencies))
     }
 }

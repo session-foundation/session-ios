@@ -12,6 +12,12 @@ public enum ProxiedContentRequestPriority: Equatable {
     case low, high
 }
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("ProxiedContentDownloader", defaultLevel: .off)
+}
+
 // MARK: - Singleton
 
 public extension Singleton {
@@ -154,8 +160,8 @@ public class ProxiedContentAssetRequest: Equatable {
     // Exactly one of success or failure should be called once,
     // on the main thread _unless_ this request is cancelled before
     // the request succeeds or fails.
-    private var success: ((ProxiedContentAssetRequest?, ProxiedContentAsset) -> Void)?
-    private var failure: ((ProxiedContentAssetRequest) -> Void)?
+    private var success: (@MainActor (ProxiedContentAssetRequest?, ProxiedContentAsset) -> Void)?
+    private var failure: (@MainActor (ProxiedContentAssetRequest) -> Void)?
     
     var shouldIgnoreSignalProxy = false
     var wasCancelled = false
@@ -176,8 +182,8 @@ public class ProxiedContentAssetRequest: Equatable {
     init(
         assetDescription: ProxiedContentAssetDescription,
         priority: ProxiedContentRequestPriority,
-        success: @escaping ((ProxiedContentAssetRequest?, ProxiedContentAsset) -> Void),
-        failure: @escaping ((ProxiedContentAssetRequest) -> Void),
+        success: @escaping (@MainActor (ProxiedContentAssetRequest?, ProxiedContentAsset) -> Void),
+        failure: @escaping (@MainActor (ProxiedContentAssetRequest) -> Void),
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
@@ -340,17 +346,21 @@ public class ProxiedContentAssetRequest: Equatable {
     }
 
     public func requestDidSucceed(asset: ProxiedContentAsset) {
-        success?(self, asset)
-
+        let callback: (@MainActor (ProxiedContentAssetRequest?, ProxiedContentAsset) -> Void)? = success
+        
         // Only one of the callbacks should be called, and only once.
         clearCallbacks()
+        
+        Task { @MainActor in callback?(self, asset) }
     }
 
     public func requestDidFail() {
-        failure?(self)
-
+        let callback: (@MainActor (ProxiedContentAssetRequest) -> Void)? = failure
+        
         // Only one of the callbacks should be called, and only once.
         clearCallbacks()
+        
+        Task { @MainActor in callback?(self) }
     }
     
     public static func == (lhs: ProxiedContentAssetRequest, rhs: ProxiedContentAssetRequest) -> Bool {
@@ -482,12 +492,12 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
     // which case the ProxiedContentAssetRequest parameter will be nil.
     public func requestAsset(assetDescription: ProxiedContentAssetDescription,
                              priority: ProxiedContentRequestPriority,
-                             success:@escaping ((ProxiedContentAssetRequest?, ProxiedContentAsset) -> Void),
-                             failure:@escaping ((ProxiedContentAssetRequest) -> Void),
+                             success:@escaping (@MainActor (ProxiedContentAssetRequest?, ProxiedContentAsset) -> Void),
+                             failure:@escaping (@MainActor (ProxiedContentAssetRequest) -> Void),
                              shouldIgnoreSignalProxy: Bool = false) -> ProxiedContentAssetRequest? {
         if let asset = assetMap.get(key: assetDescription.url) {
             // Synchronous cache hit.
-            success(nil, asset)
+            Task { @MainActor in success(nil, asset) }
             return nil
         }
 
@@ -636,9 +646,8 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
     //
     // stringlint:ignore_contents
     @MainActor private func processRequestQueueSync() {
-        guard let assetRequest = popNextAssetRequest() else {
-            return
-        }
+        guard let assetRequest = popNextAssetRequest() else { return }
+        
         guard !assetRequest.wasCancelled else {
             // Discard the cancelled asset request and try again.
             removeAssetRequestFromQueue(assetRequest: assetRequest)
@@ -698,7 +707,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
             // Start a download task.
 
             guard let assetSegment = assetRequest.firstWaitingSegment() else {
-                print("queued asset request does not have a waiting segment.")
+                Log.verbose(.cat, "queued asset request does not have a waiting segment.")
                 return
             }
             assetSegment.state = .downloading
@@ -739,13 +748,13 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
         }
         guard let data = data,
         data.count > 0 else {
-            print("Asset size response missing data.")
+            Log.debug(.cat, "Asset size response missing data.")
             assetRequest.state = .failed
             self.assetRequestDidFail(assetRequest: assetRequest)
             return
         }
         guard let httpResponse = response as? HTTPURLResponse else {
-            print("Asset size response is invalid.")
+            Log.debug(.cat, "Asset size response is invalid.")
             assetRequest.state = .failed
             self.assetRequestDidFail(assetRequest: assetRequest)
             return
@@ -753,7 +762,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
         var firstContentRangeString: String?
         for header in httpResponse.allHeaderFields.keys {
             guard let headerString = header as? String else {
-                print("Invalid header: \(header)")
+                Log.debug(.cat, "Invalid header: \(header)")
                 continue
             }
             if headerString.lowercased() == "content-range" { // stringlint:ignore
@@ -761,7 +770,7 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
             }
         }
         guard let contentRangeString = firstContentRangeString else {
-            print("Asset size response is missing content range.")
+            Log.debug(.cat, "Asset size response is missing content range.")
             assetRequest.state = .failed
             self.assetRequestDidFail(assetRequest: assetRequest)
             return
@@ -778,13 +787,13 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
         }
         guard contentLengthString.count > 0,
             let contentLength = Int(contentLengthString) else {
-            print("Asset size response has unparsable content length.")
+            Log.debug(.cat, "Asset size response has unparsable content length.")
             assetRequest.state = .failed
             self.assetRequestDidFail(assetRequest: assetRequest)
             return
         }
         guard contentLength > 0 else {
-            print("Asset size response has invalid content length.")
+            Log.debug(.cat, "Asset size response has invalid content length.")
             assetRequest.state = .failed
             self.assetRequestDidFail(assetRequest: assetRequest)
             return
@@ -939,6 +948,50 @@ open class ProxiedContentDownloader: NSObject, URLSessionTaskDelegate, URLSessio
             try? dependencies[singleton: .fileManager].protectFileOrFolder(at: dirPath)
         } catch {
             downloadFolderPath = tempDirPath
+        }
+    }
+}
+
+extension ProxiedContentDownloader {
+    /// Async/await version of requestAsset
+    public func requestAsset(
+        assetDescription: ProxiedContentAssetDescription,
+        priority: ProxiedContentRequestPriority,
+        shouldIgnoreSignalProxy: Bool = false
+    ) async throws -> ProxiedContentAsset {
+        if let asset: ProxiedContentAsset = assetMap.get(key: assetDescription.url) {
+            return asset
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            var hasResumed: Bool = false
+            let lock: NSLock = NSLock()
+            let safeResume: (Result<ProxiedContentAsset, Error>) -> Void = { result in
+                lock.lock()
+                defer { lock.unlock() }
+                
+                guard !hasResumed else { return }
+                hasResumed = true
+                
+                switch result {
+                    case .success(let asset): continuation.resume(returning: asset)
+                    case .failure(let error): continuation.resume(throwing: error)
+                }
+            }
+            
+            let request: ProxiedContentAssetRequest? = requestAsset(
+                assetDescription: assetDescription,
+                priority: priority,
+                success: { _, asset in safeResume(.success(asset)) },
+                failure: { _ in safeResume(.failure(NetworkError.invalidResponse)) },
+                shouldIgnoreSignalProxy: shouldIgnoreSignalProxy
+            )
+            
+            // If the task is already cancelled, cancel the request immediately
+            if Task.isCancelled {
+                request?.cancel()
+                safeResume(.failure(CancellationError()))
+            }
         }
     }
 }

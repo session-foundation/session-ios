@@ -62,6 +62,7 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
     }
     
     public enum TableItem: Hashable, Differentiable, CaseIterable {
+        case groupsShowPubkeyInConversationSettings
         case updatedGroupsDisableAutoApprove
         case updatedGroupsRemoveMessagesOnKick
         case updatedGroupsAllowHistoricAccessOnInvite
@@ -78,6 +79,7 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
         
         public var differenceIdentifier: String {
             switch self {
+                case .groupsShowPubkeyInConversationSettings: return "groupsShowPubkeyInConversationSettings"
                 case .updatedGroupsDisableAutoApprove: return "updatedGroupsDisableAutoApprove"
                 case .updatedGroupsRemoveMessagesOnKick: return "updatedGroupsRemoveMessagesOnKick"
                 case .updatedGroupsAllowHistoricAccessOnInvite: return "updatedGroupsAllowHistoricAccessOnInvite"
@@ -96,7 +98,8 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
         
         public static var allCases: [TableItem] {
             var result: [TableItem] = []
-            switch TableItem.updatedGroupsDisableAutoApprove {
+            switch TableItem.groupsShowPubkeyInConversationSettings {
+                case .groupsShowPubkeyInConversationSettings: result.append(groupsShowPubkeyInConversationSettings); fallthrough
                 case .updatedGroupsDisableAutoApprove: result.append(.updatedGroupsDisableAutoApprove); fallthrough
                 case .updatedGroupsRemoveMessagesOnKick: result.append(.updatedGroupsRemoveMessagesOnKick); fallthrough
                 case .updatedGroupsAllowHistoricAccessOnInvite:
@@ -116,6 +119,7 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
     // MARK: - Content
     
     public struct State: Equatable, ObservableKeyProvider {
+        let groupsShowPubkeyInConversationSettings: Bool
         let updatedGroupsDisableAutoApprove: Bool
         let updatedGroupsRemoveMessagesOnKick: Bool
         let updatedGroupsAllowHistoricAccessOnInvite: Bool
@@ -135,6 +139,7 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
         }
         
         public let observedKeys: Set<ObservableKey> = [
+            .feature(.groupsShowPubkeyInConversationSettings),
             .feature(.updatedGroupsDisableAutoApprove),
             .feature(.updatedGroupsRemoveMessagesOnKick),
             .feature(.updatedGroupsAllowHistoricAccessOnInvite),
@@ -148,6 +153,7 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
         
         static func initialState(using dependencies: Dependencies) -> State {
             return State(
+                groupsShowPubkeyInConversationSettings: dependencies[feature: .groupsShowPubkeyInConversationSettings],
                 updatedGroupsDisableAutoApprove: dependencies[feature: .updatedGroupsDisableAutoApprove],
                 updatedGroupsRemoveMessagesOnKick: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
                 updatedGroupsAllowHistoricAccessOnInvite: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
@@ -170,6 +176,7 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
         using dependencies: Dependencies
     ) async -> State {
         return State(
+            groupsShowPubkeyInConversationSettings: dependencies[feature: .groupsShowPubkeyInConversationSettings],
             updatedGroupsDisableAutoApprove: dependencies[feature: .updatedGroupsDisableAutoApprove],
             updatedGroupsRemoveMessagesOnKick: dependencies[feature: .updatedGroupsRemoveMessagesOnKick],
             updatedGroupsAllowHistoricAccessOnInvite: dependencies[feature: .updatedGroupsAllowHistoricAccessOnInvite],
@@ -190,6 +197,23 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
         let general: SectionModel = SectionModel(
             model: .general,
             elements: [
+                SessionCell.Info(
+                    id: .groupsShowPubkeyInConversationSettings,
+                    title: "Show Group Pubkey in Conversation Settings",
+                    subtitle: """
+                    Makes the group identity public key appear in the conversation settings screen.
+                    """,
+                    trailingAccessory: .toggle(
+                        state.groupsShowPubkeyInConversationSettings,
+                        oldValue: previousState.groupsShowPubkeyInConversationSettings
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .groupsShowPubkeyInConversationSettings,
+                            to: !state.groupsShowPubkeyInConversationSettings
+                        )
+                    }
+                ),
                 SessionCell.Info(
                     id: .updatedGroupsDisableAutoApprove,
                     title: "Disable Auto Approve",

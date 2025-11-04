@@ -2,6 +2,7 @@
 
 import Foundation
 import GRDB
+import SDWebImageWebPCoder
 import SessionUIKit
 import SessionNetworkingKit
 import SessionMessagingKit
@@ -31,6 +32,9 @@ public enum AppSetup {
                 at: NSTemporaryDirectory(),
                 fileProtectionType: .completeUntilFirstUserAuthentication
             )
+            
+            // Need to register the WebP coder for encoding purposes
+            SDImageCodersManager.shared.addCoder(SDImageWebPCoder.shared)
 
             SessionEnvironment.shared = SessionEnvironment(
                 audioSession: OWSAudioSession(),

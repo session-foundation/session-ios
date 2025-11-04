@@ -68,4 +68,11 @@ public extension LibSessionCacheType {
         }
         return ""
     }
+    
+    func getContanctProProof(for sessionId: String) -> String? {
+        guard dependencies[feature: .allUsersSessionPro] else {
+            return nil
+        }
+        return ""
+    }
 }

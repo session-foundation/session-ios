@@ -48,9 +48,10 @@ class RequestSpec: QuickSpec {
                     )
                 )
                 
-                expect(request.destination.url?.absoluteString).to(equal("testServer/test1"))
+                expect(request.endpoint).to(equal(.test1))
+                expect(request.destination.server).to(equal("testServer"))
+                expect(request.destination.queryParameters).to(equal([:]))
                 expect(request.destination.method.rawValue).to(equal("DELETE"))
-                expect(request.destination.urlPathAndParamsString).to(equal("/test1"))
                 expect(request.destination.headers).to(equal(["TestHeader": "test"]))
                 expect(request.body).to(beNil())
             }

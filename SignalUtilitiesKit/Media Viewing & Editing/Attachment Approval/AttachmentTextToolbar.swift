@@ -221,5 +221,5 @@ extension AttachmentTextToolbar: InputTextViewDelegate {
         delegate?.attachmentTextToolbarDidChange(self)
     }
     
-    @MainActor func didPasteImageFromPasteboard(_ inputTextView: InputTextView, image: UIImage) {}
+    @MainActor func didPasteImageDataFromPasteboard(_ inputTextView: InputTextView, imageData: Data) {}
 }

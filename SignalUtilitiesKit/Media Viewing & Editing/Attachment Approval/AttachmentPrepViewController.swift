@@ -27,9 +27,10 @@ public class AttachmentPrepViewController: OWSViewController {
     private let dependencies: Dependencies
     weak var prepDelegate: AttachmentPrepViewControllerDelegate?
 
-    let attachmentItem: SignalAttachmentItem
-    var attachment: SignalAttachment { return attachmentItem.attachment }
+    let attachmentItem: PendingAttachmentRailItem
+    var attachment: PendingAttachment { return attachmentItem.attachment }
     private let disableLinkPreviewImageDownload: Bool
+    private let didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?
     
     // MARK: - UI
     
@@ -62,6 +63,7 @@ public class AttachmentPrepViewController: OWSViewController {
             attachment: attachment,
             mode: .attachmentApproval,
             disableLinkPreviewImageDownload: disableLinkPreviewImageDownload,
+            didLoadLinkPreview: didLoadLinkPreview,
             using: dependencies
         )
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -100,19 +102,17 @@ public class AttachmentPrepViewController: OWSViewController {
     // MARK: - Initializers
 
     init(
-        attachmentItem: SignalAttachmentItem,
+        attachmentItem: PendingAttachmentRailItem,
         disableLinkPreviewImageDownload: Bool,
+        didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.attachmentItem = attachmentItem
         self.disableLinkPreviewImageDownload = disableLinkPreviewImageDownload
+        self.didLoadLinkPreview = didLoadLinkPreview
         
         super.init(nibName: nil, bundle: nil)
-        
-        if attachment.hasError {
-            Log.error("[AttachmentPrepViewController] \(attachment.error.debugDescription)")
-        }
     }
 
     public required init?(coder aDecoder: NSCoder) {
@@ -135,13 +135,13 @@ public class AttachmentPrepViewController: OWSViewController {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(screenTapped))
         mediaMessageView.addGestureRecognizer(tapGesture)
         
-        if attachment.isImage, let editorView: ImageEditorView = imageEditorView {
+        if attachment.utType.isImage && attachment.duration == 0, let editorView: ImageEditorView = imageEditorView {
             view.addSubview(editorView)
             
             imageEditorUpdateNavigationBar()
         }
 
-        if attachment.isVideo || attachment.isAudio {
+        if attachment.utType.isVideo || attachment.utType.isAudio {
             contentContainerView.addSubview(playButton)
         }
         
@@ -199,8 +199,8 @@ public class AttachmentPrepViewController: OWSViewController {
             mediaMessageView.heightAnchor.constraint(equalTo: view.heightAnchor)
         ])
         
-        if attachment.isImage, let editorView: ImageEditorView = imageEditorView {
-            let size: CGSize = (attachment.imageSize ?? CGSize.zero)
+        if attachment.utType.isImage && attachment.duration == 0, let editorView: ImageEditorView = imageEditorView {
+            let size: CGSize = (attachment.metadata?.pixelSize ?? CGSize.zero)
             let isPortrait: Bool = (size.height > size.width)
             
             NSLayoutConstraint.activate([
@@ -216,10 +216,12 @@ public class AttachmentPrepViewController: OWSViewController {
             ])
         }
          
-        if attachment.isVideo || attachment.isAudio {
+        if attachment.utType.isVideo || attachment.utType.isAudio {
             let playButtonSize: CGFloat = Values.scaleFromIPhone5(70)
-            
-            let playButtonVerticalOffset = attachment.isAudio ? 0 : -AttachmentPrepViewController.verticalCenterOffset
+            let playButtonVerticalOffset = (attachment.utType.isAudio ?
+                0 :
+                -AttachmentPrepViewController.verticalCenterOffset
+            )
             
             NSLayoutConstraint.activate([
                 playButton.centerXAnchor.constraint(equalTo: contentContainerView.centerXAnchor),
@@ -250,10 +252,13 @@ public class AttachmentPrepViewController: OWSViewController {
     }
 
     @objc public func playButtonTapped() {
-        guard let fileUrl: URL = attachment.dataUrl else { return Log.error(.media, "Missing video file") }
+        guard
+            case .media(let mediaSource) = self.attachment.source,
+            case .url(let fileUrl) = mediaSource
+        else { return Log.error(.media, "Missing video file") }
         
-        /// The `attachment` here is a `SignalAttachment` which is pointing to a file outside of the app (which would have a
-        /// proper file extension) so no need to create a temporary copy of the video, or clean it up by using our custom
+        /// The `attachment` here is a `PendingAttachment` which is pointing to a temporary file which has a proper file
+        /// extension) so no need to create a temporary copy of the video, or clean it up by using our custom
         /// `DismissCallbackAVPlayerViewController` callback logic
         let player: AVPlayer = AVPlayer(url: fileUrl)
         let viewController: AVPlayerViewController = AVPlayerViewController()
@@ -267,7 +272,7 @@ public class AttachmentPrepViewController: OWSViewController {
     // MARK: - Helpers
 
     var isZoomable: Bool {
-        return attachment.isImage || attachment.isVideo
+        return attachment.utType.isImage || attachment.utType.isAnimated || attachment.utType.isVideo
     }
 
     func zoomOut(animated: Bool) {

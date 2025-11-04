@@ -8,46 +8,33 @@ import SessionUtilitiesKit
 public extension Network {
     enum Destination: Equatable {
         public struct ServerInfo: Equatable {
-            private static let invalidServer: String = "INVALID_SERVER"
-            private static let invalidUrl: URL = URL(fileURLWithPath: "INVALID_URL")
-            
-            private let server: String
-            private let queryParameters: [HTTPQueryParam: String]
-            private let _url: URL
-            private let _pathAndParamsString: String
-            
             public let method: HTTPMethod
+            public let server: String
+            public let queryParameters: [HTTPQueryParam: String]
+            public let fragmentParameters: [HTTPFragmentParam: String]
             public let headers: [HTTPHeader: String]
             public let x25519PublicKey: String
             
-            public var url: URL {
-                get throws {
-                    guard _url != ServerInfo.invalidUrl else { throw NetworkError.invalidURL }
-                    
-                    return _url
-                }
-            }
-            public var pathAndParamsString: String {
-                get throws {
-                    guard _url != ServerInfo.invalidUrl else { throw NetworkError.invalidPreparedRequest }
-                    
-                    return _pathAndParamsString
-                }
-            }
+            // Use iOS URL processing to extract the values from `server`
+            
+            public var host: String? { URLComponents(string: server)?.host }
+            public var scheme: String? { URLComponents(string: server)?.scheme }
+            public var port: Int? { URLComponents(string: server)?.port }
+            
+            // MARK: - Initialization
             
             public init(
                 method: HTTPMethod,
                 server: String,
                 queryParameters: [HTTPQueryParam: String],
+                fragmentParameters: [HTTPFragmentParam: String],
                 headers: [HTTPHeader: String],
                 x25519PublicKey: String
             ) {
-                self._url = ServerInfo.invalidUrl
-                self._pathAndParamsString = ""
-                
                 self.method = method
                 self.server = server
                 self.queryParameters = queryParameters
+                self.fragmentParameters = fragmentParameters
                 self.headers = headers
                 self.x25519PublicKey = x25519PublicKey
             }
@@ -56,52 +43,24 @@ public extension Network {
                 method: HTTPMethod,
                 url: URL,
                 server: String?,
-                pathAndParamsString: String?,
-                queryParameters: [HTTPQueryParam: String] = [:],
+                queryParameters: [HTTPQueryParam: String],
+                fragmentParameters: [HTTPFragmentParam: String],
                 headers: [HTTPHeader: String],
                 x25519PublicKey: String
-            ) {
-                self._url = url
-                self._pathAndParamsString = (pathAndParamsString ?? url.path)
-                
+            ) throws {
                 self.method = method
-                self.server = {
+                self.server = try {
                     if let explicitServer: String = server { return explicitServer }
                     if let urlHost: String = url.host {
                         return "\(url.scheme.map { "\($0)://" } ?? "")\(urlHost)"
                     }
                     
-                    return ServerInfo.invalidServer
+                    throw NetworkError.invalidURL
                 }()
                 self.queryParameters = queryParameters
+                self.fragmentParameters = fragmentParameters
                 self.headers = headers
                 self.x25519PublicKey = x25519PublicKey
-            }
-            
-            fileprivate func updated<E: EndpointType>(for endpoint: E) throws -> ServerInfo {
-                let pathAndParamsString: String = generatePathsAndParams(endpoint: endpoint, queryParameters: queryParameters)
-                
-                return ServerInfo(
-                    method: method,
-                    url: try (URL(string: "\(server)\(pathAndParamsString)") ?? { throw NetworkError.invalidURL }()),
-                    server: server,
-                    pathAndParamsString: pathAndParamsString,
-                    queryParameters: queryParameters,
-                    headers: headers,
-                    x25519PublicKey: x25519PublicKey
-                )
-            }
-            
-            public func updated(with headers: [HTTPHeader: String]) -> ServerInfo {
-                return ServerInfo(
-                    method: method,
-                    url: _url,
-                    server: server,
-                    pathAndParamsString: _pathAndParamsString,
-                    queryParameters: queryParameters,
-                    headers: self.headers.updated(with: headers),
-                    x25519PublicKey: x25519PublicKey
-                )
             }
         }
         
@@ -126,11 +85,10 @@ public extension Network {
             }
         }
         
-        public var url: URL? {
+        public var server: String? {
             switch self {
-                case .server(let info), .serverUpload(let info, _), .serverDownload(let info): return try? info.url
-                case .snode, .randomSnode, .randomSnodeLatestNetworkTimeTarget: return nil
-                case .cached: return nil
+                case .server(let info), .serverUpload(let info, _), .serverDownload(let info): return info.server
+                default: return nil
             }
         }
         
@@ -144,11 +102,21 @@ public extension Network {
             }
         }
         
-        public var urlPathAndParamsString: String {
+        public var queryParameters: [HTTPQueryParam: String] {
             switch self {
                 case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
-                    return ((try? info.pathAndParamsString) ?? "")
-                default: return ""
+                    return info.queryParameters
+                    
+                default: return [:]
+            }
+        }
+        
+        public var fragmentParameters: [HTTPFragmentParam: String] {
+            switch self {
+                case .server(let info), .serverUpload(let info, _), .serverDownload(let info):
+                    return info.fragmentParameters
+                    
+                default: return [:]
             }
         }
         
@@ -156,6 +124,7 @@ public extension Network {
             method: HTTPMethod = .get,
             server: String,
             queryParameters: [HTTPQueryParam: String] = [:],
+            fragmentParameters: [HTTPFragmentParam: String] = [:],
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String
         ) throws -> Destination {
@@ -163,6 +132,26 @@ public extension Network {
                 method: method,
                 server: server,
                 queryParameters: queryParameters,
+                fragmentParameters: fragmentParameters,
+                headers: headers,
+                x25519PublicKey: x25519PublicKey
+            ))
+        }
+        
+        public static func server(
+            method: HTTPMethod = .get,
+            url: URL,
+            queryParameters: [HTTPQueryParam: String] = [:],
+            fragmentParameters: [HTTPFragmentParam: String] = [:],
+            headers: [HTTPHeader: String] = [:],
+            x25519PublicKey: String
+        ) throws -> Destination {
+            return .server(info: try ServerInfo(
+                method: method,
+                url: url,
+                server: nil,
+                queryParameters: queryParameters,
+                fragmentParameters: fragmentParameters,
                 headers: headers,
                 x25519PublicKey: x25519PublicKey
             ))
@@ -171,6 +160,7 @@ public extension Network {
         public static func serverUpload(
             server: String,
             queryParameters: [HTTPQueryParam: String] = [:],
+            fragmentParameters: [HTTPFragmentParam: String] = [:],
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String,
             fileName: String?
@@ -180,6 +170,7 @@ public extension Network {
                     method: .post,
                     server: server,
                     queryParameters: queryParameters,
+                    fragmentParameters: fragmentParameters,
                     headers: headers,
                     x25519PublicKey: x25519PublicKey
                 ),
@@ -190,15 +181,17 @@ public extension Network {
         public static func serverDownload(
             url: URL,
             queryParameters: [HTTPQueryParam: String] = [:],
+            fragmentParameters: [HTTPFragmentParam: String] = [:],
             headers: [HTTPHeader: String] = [:],
             x25519PublicKey: String,
             fileName: String?
         ) throws -> Destination {
-            return .serverDownload(info: ServerInfo(
+            return .serverDownload(info: try ServerInfo(
                 method: .get,
                 url: url,
                 server: nil,
-                pathAndParamsString: nil,
+                queryParameters: queryParameters,
+                fragmentParameters: fragmentParameters,
                 headers: headers,
                 x25519PublicKey: x25519PublicKey
             ))
@@ -225,27 +218,25 @@ public extension Network {
         
         // MARK: - Convenience
         
-        internal static func generatePathsAndParams<E: EndpointType>(endpoint: E, queryParameters: [HTTPQueryParam: String]) -> String {
-            return [
+        internal static func generatePathWithParamsAndFragments<E: EndpointType>(
+            endpoint: E,
+            queryParameters: [HTTPQueryParam: String],
+            fragmentParameters: [HTTPFragmentParam: String]
+        ) -> String {
+            let pathWithParams: String = [
                 "/\(endpoint.path)",
-                queryParameters
-                    .map { key, value in "\(key)=\(value)" }
-                    .joined(separator: "&")
+                HTTPQueryParam.string(for: queryParameters)
             ]
-            .compactMap { $0 }
             .filter { !$0.isEmpty }
             .joined(separator: "?")
-        }
-        
-        internal func withGeneratedUrl<E: EndpointType>(for endpoint: E) throws -> Destination {
-            switch self {
-                case .server(let info): return .server(info: try info.updated(for: endpoint))
-                case .serverUpload(let info, let fileName):
-                    return .serverUpload(info: try info.updated(for: endpoint), fileName: fileName)
-                case .serverDownload(let info): return .serverDownload(info: try info.updated(for: endpoint))
-                    
-                default: return self
-            }
+            
+            
+            return [
+                pathWithParams,
+                HTTPFragmentParam.string(for: fragmentParameters)
+            ]
+            .filter { !$0.isEmpty }
+            .joined(separator: "#")
         }
         
         // MARK: - Equatable

@@ -385,7 +385,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             .filter(Profile.Columns.displayPictureUrl != nil)
                             .asRequest(of: String.self)
                             .fetchSet(db)
-                            .compactMap { try? dependencies[singleton: .displayPictureManager].path(for:  $0) })
+                            .compactMap { try? dependencies[singleton: .displayPictureManager].path(for: $0) })
                     )
                     displayPictureFilePaths.insert(
                         contentsOf: Set(try ClosedGroup
@@ -393,7 +393,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             .filter(ClosedGroup.Columns.displayPictureUrl != nil)
                             .asRequest(of: String.self)
                             .fetchSet(db)
-                            .compactMap { try? dependencies[singleton: .displayPictureManager].path(for:  $0) })
+                            .compactMap { try? dependencies[singleton: .displayPictureManager].path(for: $0) })
                     )
                     displayPictureFilePaths.insert(
                         contentsOf: Set(try OpenGroup
@@ -401,7 +401,7 @@ public enum GarbageCollectionJob: JobExecutor {
                             .filter(OpenGroup.Columns.displayPictureOriginalUrl != nil)
                             .asRequest(of: String.self)
                             .fetchSet(db)
-                            .compactMap { try? dependencies[singleton: .displayPictureManager].path(for:  $0) })
+                            .compactMap { try? dependencies[singleton: .displayPictureManager].path(for: $0) })
                     )
                 }
                 

@@ -74,7 +74,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case proConfig
         case groupConfig
         
-        case shortenFileTTL
+        case fileServerConfig
         case animationsEnabled
         case showStringKeys
         case truncatePubkeysInLogs
@@ -82,6 +82,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case copyAppGroupPath
         case resetAppReviewPrompt
         case simulateAppReviewLimit
+        case usePngInsteadOfWebPForFallbackImageType
+        case versionDeprecationWarning
+        case versionDeprecationMinimum
         
         case defaultLogLevel
         case advancedLogging
@@ -115,7 +118,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .proConfig: return "proConfig"
                 case .groupConfig: return "groupConfig"
                 
-                case .shortenFileTTL: return "shortenFileTTL"
+                case .fileServerConfig: return "fileServerConfig"
                 case .animationsEnabled: return "animationsEnabled"
                 case .showStringKeys: return "showStringKeys"
                 case .truncatePubkeysInLogs: return "truncatePubkeysInLogs"
@@ -123,6 +126,9 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .copyAppGroupPath: return "copyAppGroupPath"
                 case .resetAppReviewPrompt: return "resetAppReviewPrompt"
                 case .simulateAppReviewLimit: return "simulateAppReviewLimit"
+                case .usePngInsteadOfWebPForFallbackImageType: return "usePngInsteadOfWebPForFallbackImageType"
+                case .versionDeprecationWarning: return "versionDeprecationWarning"
+                case .versionDeprecationMinimum: return "versionDeprecationMinimum"
                 
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
@@ -159,7 +165,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .proConfig: result.append(.proConfig); fallthrough
                 case .groupConfig: result.append(.groupConfig); fallthrough
                     
-                case .shortenFileTTL: result.append(.shortenFileTTL); fallthrough
+                case .fileServerConfig: result.append(.fileServerConfig); fallthrough
                 case .animationsEnabled: result.append(.animationsEnabled); fallthrough
                 case .showStringKeys: result.append(.showStringKeys); fallthrough
                 case .truncatePubkeysInLogs: result.append(.truncatePubkeysInLogs); fallthrough
@@ -167,6 +173,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .copyAppGroupPath: result.append(.copyAppGroupPath); fallthrough
                 case .resetAppReviewPrompt: result.append(.resetAppReviewPrompt); fallthrough
                 case .simulateAppReviewLimit: result.append(.simulateAppReviewLimit); fallthrough
+                case .usePngInsteadOfWebPForFallbackImageType:
+                    result.append(usePngInsteadOfWebPForFallbackImageType); fallthrough
+                case .versionDeprecationWarning: result.append(.versionDeprecationWarning); fallthrough
+                case .versionDeprecationMinimum: result.append(.versionDeprecationMinimum); fallthrough
                 
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
@@ -220,6 +230,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let forceSlowDatabaseQueries: Bool
         
         let updateSimulateAppReviewLimit: Bool
+        let usePngInsteadOfWebPForFallbackImageType: Bool
+        
+        let versionDeprecationWarning: Bool
+        let versionDeprecationMinimum: Int
     }
     
     let title: String = "Developer Settings"
@@ -262,7 +276,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 communityPollLimit: dependencies[feature: .communityPollLimit],
                 
                 forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries],
-                updateSimulateAppReviewLimit: dependencies[feature: .simulateAppReviewLimit]
+                updateSimulateAppReviewLimit: dependencies[feature: .simulateAppReviewLimit],
+                usePngInsteadOfWebPForFallbackImageType: dependencies[feature: .usePngInsteadOfWebPForFallbackImageType],
+                
+                versionDeprecationWarning: dependencies[feature: .versionDeprecationWarning],
+                versionDeprecationMinimum: dependencies[feature: .versionDeprecationMinimum]
             )
         }
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
@@ -339,17 +357,21 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .general,
             elements: [
                 SessionCell.Info(
-                    id: .shortenFileTTL,
-                    title: "Shorten File TTL",
-                    subtitle: "Set the TTL for files in the cache to 1 minute",
-                    trailingAccessory: .toggle(
-                        current.shortenFileTTL,
-                        oldValue: previous?.shortenFileTTL
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .shortenFileTTL,
-                            to: !current.shortenFileTTL
+                    id: .fileServerConfig,
+                    title: "File Server Configuration",
+                    subtitle: """
+                    Configure settings related to the File Server.
+                    
+                    <b>File TTL:</b> <span>\(dependencies[feature: .shortenFileTTL] ? "60 Seconds" : "14 Days")</span>
+                    <b>Deterministic Encryption:</b> <span>\(dependencies[feature: .deterministicAttachmentEncryption] ? "Enabled" : "Disabled")</span>
+                    <b>File Server:</b> <span>\(Network.FileServer.server(using: dependencies))</span>
+                    """,
+                    trailingAccessory: .icon(.chevronRight),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: DeveloperSettingsFileServerViewModel(using: dependencies)
+                            )
                         )
                     }
                 ),
@@ -460,6 +482,71 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         )
                     }
                 ),
+                SessionCell.Info(
+                    id: .usePngInsteadOfWebPForFallbackImageType,
+                    title: "Use PNG instead of WebP for fallback image type",
+                    subtitle: """
+                    Controls whether we should encode to PNG and GIF when sending less common image types (eg. HEIC/HEIF).
+                    
+                    This is beneficial to enable when testing Debug builds as the WebP encoding is an order of magnitude slower than in Release builds.
+                    """,
+                    trailingAccessory: .toggle(
+                        current.usePngInsteadOfWebPForFallbackImageType,
+                        oldValue: previous?.usePngInsteadOfWebPForFallbackImageType
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .usePngInsteadOfWebPForFallbackImageType,
+                            to: !current.usePngInsteadOfWebPForFallbackImageType
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .versionDeprecationWarning,
+                    title: "Version Deprecation Banner",
+                    subtitle: """
+                    Enable the banner that warns users when their operating system (iOS 15.x or earlier) is nearing the end of support or cannot access the latest features.
+                    """,
+                    trailingAccessory: .toggle(
+                        current.versionDeprecationWarning,
+                        oldValue: previous?.versionDeprecationWarning
+                    ),
+                    onTap: { [weak self] in
+                        self?.updateFlag(
+                            for: .versionDeprecationWarning,
+                            to: !current.versionDeprecationWarning
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .versionDeprecationMinimum,
+                    title: "Version Deprecation Minimum Version",
+                    subtitle: """
+                    The minimum version allowed before showing version deprecation warning.
+                    """,
+                    trailingAccessory: .dropDown { "iOS \(current.versionDeprecationMinimum)" },
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: SessionListViewModel<WarningVersion>(
+                                    title: "Minimum iOS Version",
+                                    options: [
+                                        WarningVersion(version: 16),
+                                        WarningVersion(version: 17),
+                                        WarningVersion(version: 18)
+                                    ],
+                                    behaviour: .autoDismiss(
+                                        initialSelection: WarningVersion(version: current.versionDeprecationMinimum),
+                                        onOptionSelected: { [weak self] selected in
+                                            dependencies.set(feature: .versionDeprecationMinimum, to: selected.version)
+                                        }
+                                    ),
+                                    using: dependencies
+                                )
+                            )
+                        )
+                    }
+                )
             ]
         )
         let logging: SectionModel = SectionModel(
@@ -635,6 +722,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        
         let communities: SectionModel = SectionModel(
             model: .communities,
             elements: [
@@ -786,15 +874,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     .copyAppGroupPath, .resetSnodeCache, .createMockContacts, .exportDatabase,
                     .importDatabase, .advancedLogging, .resetAppReviewPrompt:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
-
+                
                 case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)
                 case .proConfig: DeveloperSettingsProViewModel.disableDeveloperMode(using: dependencies)
-
-                case .shortenFileTTL:
-                    guard dependencies.hasSet(feature: .shortenFileTTL) else { return }
+                case .fileServerConfig:
+                    DeveloperSettingsFileServerViewModel.disableDeveloperMode(using: dependencies)
                     
-                    updateFlag(for: .shortenFileTTL, to: nil)
-
                 case .animationsEnabled:
                     guard dependencies.hasSet(feature: .animationsEnabled) else { return }
                     
@@ -814,6 +899,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     guard dependencies.hasSet(feature: .simulateAppReviewLimit) else { return }
                     
                     updateFlag(for: .simulateAppReviewLimit, to: nil)
+                    
+                case .usePngInsteadOfWebPForFallbackImageType:
+                    guard dependencies.hasSet(feature: .usePngInsteadOfWebPForFallbackImageType) else { return }
+                    
+                    updateFlag(for: .usePngInsteadOfWebPForFallbackImageType, to: nil)
                     
                 case .defaultLogLevel: updateDefaulLogLevel(to: nil)    // Always reset
                 case .loggingCategory: resetLoggingCategories()         // Always reset
@@ -837,7 +927,16 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     guard dependencies.hasSet(feature: .debugDisappearingMessageDurations) else { return }
                     
                     updateFlag(for: .debugDisappearingMessageDurations, to: nil)
-
+                
+                case .versionDeprecationWarning:
+                    guard dependencies.hasSet(feature: .versionDeprecationWarning) else { return }
+                    
+                    updateFlag(for: .versionDeprecationWarning, to: nil)
+                case .versionDeprecationMinimum:
+                    guard dependencies.hasSet(feature: .versionDeprecationMinimum) else { return }
+                    
+                    dependencies.set(feature: .versionDeprecationMinimum, to: nil)
+                    
                 case .communityPollLimit:
                     guard dependencies.hasSet(feature: .communityPollLimit) else { return }
                     
@@ -1028,7 +1127,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             x25519KeyPair: identityData.x25519KeyPair,
             displayName: existingProfile.name
                 .nullIfEmpty
-                .defaulting(to: "Anonymous"),
+                .defaulting(to: "anonymous".localized()),
             using: dependencies
         ).completeRegistration { [dependencies] in
             /// Re-enable developer mode
@@ -1793,6 +1892,13 @@ final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accesso
     }
 }
 
+// MARK: - WarningVersion
+struct WarningVersion: Listable {
+    var version: Int
+    
+    var id: String { "\(version)" }
+    var title: String { "iOS \(version)" }
+}
 
 // MARK: - Listable Conformance
 

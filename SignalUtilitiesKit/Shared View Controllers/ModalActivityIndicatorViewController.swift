@@ -12,7 +12,7 @@ import SessionUtilitiesKit
 public class ModalActivityIndicatorViewController: OWSViewController {
     let canCancel: Bool
     let message: String?
-    private let onAppear: (ModalActivityIndicatorViewController) -> Void
+    private let onAppear: ((ModalActivityIndicatorViewController) -> Void)?
 
     private var hasAppeared: Bool = false
     public var wasCancelled: Bool = false
@@ -87,7 +87,7 @@ public class ModalActivityIndicatorViewController: OWSViewController {
     @MainActor public required init(
         canCancel: Bool = false,
         message: String? = nil,
-        onAppear: @escaping (ModalActivityIndicatorViewController) -> Void
+        onAppear: ((ModalActivityIndicatorViewController) -> Void)? = nil
     ) {
         self.canCancel = canCancel
         self.message = message
@@ -114,14 +114,7 @@ public class ModalActivityIndicatorViewController: OWSViewController {
         )
     }
 
-    public func dismiss(completion: @escaping () -> Void) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in
-                self?.dismiss(completion: completion)
-            }
-            return
-        }
-
+    @MainActor public func dismiss(completion: (@MainActor () -> Void)? = nil) {
         if !wasDimissed {
             // Only dismiss once.
             self.dismiss(animated: false, completion: completion)
@@ -129,9 +122,7 @@ public class ModalActivityIndicatorViewController: OWSViewController {
         }
         else {
             // If already dismissed, wait a beat then call completion.
-            DispatchQueue.main.async {
-                completion()
-            }
+            completion?()
         }
     }
 
@@ -183,7 +174,7 @@ public class ModalActivityIndicatorViewController: OWSViewController {
             self.hasAppeared = true
             
             DispatchQueue.global().async {
-                self.onAppear(self)
+                self.onAppear?(self)
             }
         }
     }
@@ -232,9 +223,11 @@ public extension Publisher {
                 .flatMap { result -> AnyPublisher<Output, Failure> in
                     Deferred {
                         Future<Output, Failure> { resolver in
-                            indicator.dismiss(completion: {
-                                resolver(result)
-                            })
+                            DispatchQueue.main.async {
+                                indicator.dismiss(completion: {
+                                    resolver(result)
+                                })
+                            }
                         }
                     }.eraseToAnyPublisher()
                 }

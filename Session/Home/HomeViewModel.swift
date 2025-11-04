@@ -35,6 +35,13 @@ public class HomeViewModel: NavigatableStateHolder {
     
     private static let pageSize: Int = (UIDevice.current.isIPad ? 20 : 15)
     
+    // Reusable OS version check for initial and updated state check
+    // Check if the current device is running a version LESS THAN iOS 16.0
+    private static func isOSVersionDeprecated(using dependencies: Dependencies) -> Bool {
+        let systemVersion = ProcessInfo.processInfo.operatingSystemVersion
+        return systemVersion.majorVersion < dependencies[feature: .versionDeprecationMinimum]
+    }
+    
     public let dependencies: Dependencies
     private let userSessionId: SessionId
     private var didPresentAppReviewPrompt: Bool = false
@@ -53,7 +60,8 @@ public class HomeViewModel: NavigatableStateHolder {
             appReviewPromptState: AppReviewPromptModel
                 .loadInitialAppReviewPromptState(using: dependencies),
             appWasInstalledPriorToAppReviewRelease: AppReviewPromptModel
-                .checkIfAppWasInstalledPriorToAppReviewRelease(using: dependencies)
+                .checkIfAppWasInstalledPriorToAppReviewRelease(using: dependencies),
+            showVersionSupportBanner: Self.isOSVersionDeprecated(using: dependencies) && dependencies[feature: .versionDeprecationWarning]
         )
         
         /// Bind the state
@@ -94,9 +102,11 @@ public class HomeViewModel: NavigatableStateHolder {
         let unreadMessageRequestThreadCount: Int
         let loadedPageInfo: PagedData.LoadedInfo<SessionThreadViewModel.ID>
         let itemCache: [String: SessionThreadViewModel]
+        let profileCache: [String: Profile]
         let appReviewPromptState: AppReviewPromptState?
         let pendingAppReviewPromptState: AppReviewPromptState?
         let appWasInstalledPriorToAppReviewRelease: Bool
+        let showVersionSupportBanner: Bool
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -124,7 +134,9 @@ public class HomeViewModel: NavigatableStateHolder {
                 .userDefault(.hasVisitedPathScreen),
                 .userDefault(.hasPressedDonateButton),
                 .userDefault(.hasChangedTheme),
-                .updateScreen(HomeViewModel.self)
+                .updateScreen(HomeViewModel.self),
+                .feature(.versionDeprecationWarning),
+                .feature(.versionDeprecationMinimum)
             ]
             
             itemCache.values.forEach { threadViewModel in
@@ -151,7 +163,12 @@ public class HomeViewModel: NavigatableStateHolder {
             return result
         }
         
-        static func initialState(using dependencies: Dependencies, appReviewPromptState: AppReviewPromptState?, appWasInstalledPriorToAppReviewRelease: Bool) -> State {
+        static func initialState(
+            using dependencies: Dependencies,
+            appReviewPromptState: AppReviewPromptState?,
+            appWasInstalledPriorToAppReviewRelease: Bool,
+            showVersionSupportBanner: Bool
+        ) -> State {
             return State(
                 viewState: .loading,
                 userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
@@ -176,9 +193,11 @@ public class HomeViewModel: NavigatableStateHolder {
                     orderSQL: SessionThreadViewModel.homeOrderSQL
                 ),
                 itemCache: [:],
+                profileCache: [:],
                 appReviewPromptState: nil,
                 pendingAppReviewPromptState: appReviewPromptState,
-                appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease
+                appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
+                showVersionSupportBanner: showVersionSupportBanner
             )
         }
     }
@@ -200,9 +219,11 @@ public class HomeViewModel: NavigatableStateHolder {
         var unreadMessageRequestThreadCount: Int = previousState.unreadMessageRequestThreadCount
         var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
         var itemCache: [String: SessionThreadViewModel] = previousState.itemCache
+        var profileCache: [String: Profile] = previousState.profileCache
         var appReviewPromptState: AppReviewPromptState? = previousState.appReviewPromptState
         var pendingAppReviewPromptState: AppReviewPromptState? = previousState.pendingAppReviewPromptState
         let appWasInstalledPriorToAppReviewRelease: Bool = previousState.appWasInstalledPriorToAppReviewRelease
+        var showVersionSupportBanner: Bool = previousState.showVersionSupportBanner
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -221,6 +242,20 @@ public class HomeViewModel: NavigatableStateHolder {
                 showViewedSeedBanner = !libSession.get(.hasViewedSeed)
                 hasHiddenMessageRequests = libSession.get(.hasHiddenMessageRequests)
             }
+            
+            /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
+            /// it then then there will be a diff in the `State` and the UI will update
+            if
+                let displayPictureUrl: String = userProfile.displayPictureUrl,
+                let filePath: String = try? dependencies[singleton: .displayPictureManager]
+                    .path(for: displayPictureUrl),
+                !dependencies[singleton: .fileManager].fileExists(atPath: filePath)
+            {
+                userProfile = userProfile.with(displayPictureUrl: .set(to: nil))
+            }
+            
+            // TODO: [Database Relocation] All profiles should be stored in the `profileCache`
+            profileCache[userProfile.id] = userProfile
             
             /// If we haven't hidden the message requests banner then we should include that in the initial fetch
             if !hasHiddenMessageRequests {
@@ -245,8 +280,30 @@ public class HomeViewModel: NavigatableStateHolder {
                         result[.other, default: []].insert(next)
                 }
             }
+        let groupedOtherEvents: [GenericObservableKey: Set<ObservedEvent>]? = splitEvents[.other]?
+            .reduce(into: [:]) { result, event in
+                result[event.key.generic, default: []].insert(event)
+            }
         
-        /// Handle database events first
+        /// Handle profile events first
+        groupedOtherEvents?[.profile]?.forEach { event in
+            guard
+                let eventValue: ProfileEvent = event.value as? ProfileEvent,
+                eventValue.id == userProfile.id
+            else { return }
+            
+            switch eventValue.change {
+                case .name(let name): userProfile = userProfile.with(name: name)
+                case .nickname(let nickname): userProfile = userProfile.with(nickname: .set(to: nickname))
+                case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: .set(to: url))
+            }
+            
+            // TODO: [Database Relocation] All profiles should be stored in the `profileCache`
+            profileCache[eventValue.id] = userProfile
+        }
+        
+        
+        /// Then handle database events
         if !dependencies[singleton: .storage].isSuspended, let databaseEvents: Set<ObservedEvent> = splitEvents[.databaseQuery], !databaseEvents.isEmpty {
             do {
                 var fetchedConversations: [SessionThreadViewModel] = []
@@ -360,23 +417,7 @@ public class HomeViewModel: NavigatableStateHolder {
             Log.warn(.homeViewModel, "Ignored \(databaseEvents.count) database event(s) sent while storage was suspended.")
         }
         
-        /// Then handle non-database events
-        let groupedOtherEvents: [GenericObservableKey: Set<ObservedEvent>]? = splitEvents[.other]?
-            .reduce(into: [:]) { result, event in
-                result[event.key.generic, default: []].insert(event)
-            }
-        groupedOtherEvents?[.profile]?.forEach { event in
-            guard
-                let eventValue: ProfileEvent = event.value as? ProfileEvent,
-                eventValue.id == userProfile.id
-            else { return }
-            
-            switch eventValue.change {
-                case .name(let name): userProfile = userProfile.with(name: name)
-                case .nickname(let nickname): userProfile = userProfile.with(nickname: nickname)
-                case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: url)
-            }
-        }
+        /// Then handle remaining non-database events
         groupedOtherEvents?[.setting]?.forEach { event in
             guard let updatedValue: Bool = event.value as? Bool else { return }
             
@@ -394,6 +435,12 @@ public class HomeViewModel: NavigatableStateHolder {
             }
             else if event.key == .feature(.forceOffline), let updatedValue = event.value as? Bool {
                 forceOffline = updatedValue
+            }
+            else if event.key == .feature(.versionDeprecationWarning), let updatedValue = event.value as? Bool {
+                showVersionSupportBanner = isOSVersionDeprecated(using: dependencies) && updatedValue
+            }
+            else if event.key == .feature(.versionDeprecationMinimum) {
+                showVersionSupportBanner = isOSVersionDeprecated(using: dependencies) && dependencies[feature: .versionDeprecationWarning]
             }
         }
         
@@ -440,9 +487,11 @@ public class HomeViewModel: NavigatableStateHolder {
             unreadMessageRequestThreadCount: unreadMessageRequestThreadCount,
             loadedPageInfo: loadResult.info,
             itemCache: itemCache,
+            profileCache: profileCache,
             appReviewPromptState: appReviewPromptState,
             pendingAppReviewPromptState: pendingAppReviewPromptState,
-            appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease
+            appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
+            showVersionSupportBanner: showVersionSupportBanner
         )
     }
     
@@ -495,6 +544,8 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     private static func sections(state: State, viewModel: HomeViewModel) -> [SectionModel] {
+        let userSessionId: SessionId = viewModel.dependencies[cache: .general].sessionId
+        
         return [
             /// If the message request section is hidden or there are no unread message requests then hide the message request banner
             (state.hasHiddenMessageRequests || state.unreadMessageRequestThreadCount == 0 ?
@@ -520,7 +571,7 @@ public class HomeViewModel: NavigatableStateHolder {
                                 recentReactionEmoji: nil,
                                 openGroupCapabilities: nil,
                                 // TODO: [Database Relocation] Do we need all of these????
-                                currentUserSessionIds: [viewModel.dependencies[cache: .general].sessionId.hexString],
+                                currentUserSessionIds: [userSessionId.hexString],
                                 wasKickedFromGroup: (
                                     conversation.threadVariant == .group &&
                                     viewModel.dependencies.mutate(cache: .libSession) { cache in

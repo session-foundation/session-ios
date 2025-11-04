@@ -22,7 +22,7 @@ class AttachmentApprovalInputAccessoryView: UIView {
         return attachmentTextToolbar.inputView?.isFirstResponder ?? false
     }
 
-    private var currentAttachmentItem: SignalAttachmentItem?
+    private var currentAttachmentItem: PendingAttachmentRailItem?
 
     let kGalleryRailViewHeight: CGFloat = 72
 
@@ -95,7 +95,7 @@ class AttachmentApprovalInputAccessoryView: UIView {
         }
     }
 
-    public func update(currentAttachmentItem: SignalAttachmentItem?, shouldHideControls: Bool) {
+    public func update(currentAttachmentItem: PendingAttachmentRailItem?, shouldHideControls: Bool) {
         self.currentAttachmentItem = currentAttachmentItem
         self.shouldHideControls = shouldHideControls
 
