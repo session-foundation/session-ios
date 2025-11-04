@@ -139,7 +139,15 @@ class OpenGroupManagerSpec: QuickSpec {
         @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
             initialSetup: { network in
                 network
-                    .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
                     .thenReturn(MockNetwork.errorResponse())
             }
         )
@@ -669,7 +677,15 @@ class OpenGroupManagerSpec: QuickSpec {
                     }
                     
                     mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                requestTimeout: .any,
+                                requestAndPathBuildTimeout: .any
+                            )
+                        }
                         .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
                     
                     mockUserDefaults
@@ -807,7 +823,15 @@ class OpenGroupManagerSpec: QuickSpec {
                 context("with an invalid response") {
                     beforeEach {
                         mockNetwork
-                            .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
                             .thenReturn(MockNetwork.response(data: Data()))
                         
                         mockUserDefaults
@@ -2559,8 +2583,9 @@ class OpenGroupManagerSpec: QuickSpec {
                     expect(mockNetwork)
                         .to(call { network in
                             network.send(
-                                expectedRequest.body,
-                                to: expectedRequest.destination,
+                                endpoint: Network.SOGS.Endpoint.sequence,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
                                 requestTimeout: expectedRequest.requestTimeout,
                                 requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
                             )
@@ -2574,7 +2599,15 @@ class OpenGroupManagerSpec: QuickSpec {
                     cache.defaultRoomsPublisher.sinkUntilComplete()
                     
                     expect(mockNetwork)
-                        .toNot(call { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) })
+                        .toNot(call {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                requestTimeout: .any,
+                                requestAndPathBuildTimeout: .any
+                            )
+                        })
                 }
             }
         }

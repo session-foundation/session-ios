@@ -223,6 +223,14 @@ public extension String {
         return self.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
+    var replacingWhitespacesWithUnderscores: String {
+        let sanitizedFileNameComponents = components(separatedBy: .whitespaces)
+        
+        return sanitizedFileNameComponents
+            .filter { !$0.isEmpty }
+            .joined(separator: "_")
+    }
+    
     private var hasExcessiveDiacriticals: Bool {
         for char in self.enumerated() {
             let scalarCount = String(char.element).unicodeScalars.count

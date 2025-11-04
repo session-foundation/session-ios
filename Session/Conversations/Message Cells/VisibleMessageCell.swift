@@ -558,7 +558,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         stackView.axis = .vertical
                         stackView.spacing = 2
                     
-                        let linkPreviewView: LinkPreviewView = LinkPreviewView(maxWidth: maxWidth)
+                        let linkPreviewView: LinkPreviewView = LinkPreviewView(
+                            maxWidth: maxWidth,
+                            using: dependencies
+                        )
                         linkPreviewView.update(
                             with: LinkPreview.SentState(
                                 linkPreview: linkPreview,
@@ -618,16 +621,16 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 stackView.setCompressionResistance(.vertical, to: .required)
                 
                 // Quote view
-                if let quote: Quote = cellViewModel.quote {
+                if let quotedInfo: MessageViewModel.QuotedInfo = cellViewModel.quotedInfo {
                     let hInset: CGFloat = 2
                     let quoteView: QuoteView = QuoteView(
                         for: .regular,
-                        authorId: quote.authorId,
-                        quotedText: quote.body,
+                        authorId: quotedInfo.authorId,
+                        quotedText: quotedInfo.body,
                         threadVariant: cellViewModel.threadVariant,
                         currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                         direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
-                        attachment: cellViewModel.quoteAttachment,
+                        attachment: quotedInfo.attachment,
                         using: dependencies
                     )
                     self.quoteView = quoteView
@@ -702,9 +705,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
         let lineHeight: CGFloat = UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight
         
-        switch (cellViewModel.quote, cellViewModel.body) {
+        switch (cellViewModel.quotedInfo, cellViewModel.body) {
             /// Both quote and body
-            case (.some(let quote), .some(let body)) where !body.isEmpty:
+            case (.some(let quotedInfo), .some(let body)) where !body.isEmpty:
                 // Stack view
                 let stackView = UIStackView(arrangedSubviews: [])
                 stackView.axis = .vertical
@@ -714,12 +717,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 let hInset: CGFloat = 2
                 let quoteView: QuoteView = QuoteView(
                     for: .regular,
-                    authorId: quote.authorId,
-                    quotedText: quote.body,
+                    authorId: quotedInfo.authorId,
+                    quotedText: quotedInfo.body,
                     threadVariant: cellViewModel.threadVariant,
                     currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                     direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
-                    attachment: cellViewModel.quoteAttachment,
+                    attachment: quotedInfo.attachment,
                     using: dependencies
                 )
                 self.quoteView = quoteView
@@ -790,15 +793,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 snContentView.addArrangedSubview(bubbleBackgroundView)
             
             /// Just quote
-            case (.some(let quote), _):
+            case (.some(let quotedInfo), _):
                 let quoteView: QuoteView = QuoteView(
                     for: .regular,
-                    authorId: quote.authorId,
-                    quotedText: quote.body,
+                    authorId: quotedInfo.authorId,
+                    quotedText: quotedInfo.body,
                     threadVariant: cellViewModel.threadVariant,
                     currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
                     direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
-                    attachment: cellViewModel.quoteAttachment,
+                    attachment: quotedInfo.attachment,
                     using: dependencies
                 )
                 self.quoteView = quoteView

@@ -7,7 +7,7 @@ import Combine
 
 class MockCommunityPoller: Mock<CommunityPollerType>, CommunityPollerType {
     var isPolling: Bool { mock() }
-    var receivedPollResponse: AnyPublisher<PollResponse, Never> { mock() }
+    nonisolated var receivedPollResponse: AsyncStream<PollResponse> { mock() }
     
     func startIfNeeded() { mockNoReturn() }
     func stop() { mockNoReturn() }

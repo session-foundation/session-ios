@@ -1,6 +1,7 @@
 //  Copyright (c) 2019 Open Whisper Systems. All rights reserved.
 
 import UIKit
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -24,60 +25,56 @@ class AddMoreRailItem: GalleryRailItem {
     }
 }
 
-class SignalAttachmentItem: Equatable {
+class PendingAttachmentRailItem: Equatable {
 
-    enum SignalAttachmentItemError: Error {
+    enum PendingAttachmentRailItemError: Error {
         case noThumbnail
     }
 
     let uniqueIdentifier: UUID = UUID()
-    let attachment: SignalAttachment
+    let attachment: PendingAttachment
 
     // This might be nil if the attachment is not a valid image.
     var imageEditorModel: ImageEditorModel?
 
-    init(attachment: SignalAttachment, using dependencies: Dependencies) {
+    init(attachment: PendingAttachment, using dependencies: Dependencies) {
         self.attachment = attachment
 
         // Try and make a ImageEditorModel.
         // This will only apply for valid images.
-        if ImageEditorModel.isFeatureEnabled,
-            let dataUrl: URL = attachment.dataUrl,
-            dataUrl.isFileURL {
-            let path = dataUrl.path
+        if
+            ImageEditorModel.isFeatureEnabled &&
+            attachment.utType.isImage &&
+            attachment.duration == 0,
+            case .media = attachment.metadata
+        {
             do {
-                imageEditorModel = try ImageEditorModel(srcImagePath: path, using: dependencies)
+                imageEditorModel = try ImageEditorModel(attachment: attachment, using: dependencies)
             } catch {
                 // Usually not an error; this usually indicates invalid input.
-                Log.warn("[SignalAttachmentItem] Could not create image editor: \(error)")
+                Log.warn("[PendingAttachmentRailItem] Could not create image editor: \(error)")
             }
         }
     }
 
-    // MARK: 
-
-    var captionText: String? {
-        return attachment.captionText
-    }
-
     // MARK: Equatable
 
-    static func == (lhs: SignalAttachmentItem, rhs: SignalAttachmentItem) -> Bool {
+    static func == (lhs: PendingAttachmentRailItem, rhs: PendingAttachmentRailItem) -> Bool {
         return lhs.attachment == rhs.attachment
     }
 }
 
 // MARK: -
 
-class AttachmentItemCollection {
-    private(set) var attachmentItems: [SignalAttachmentItem]
+class PendingAttachmentRailItemCollection {
+    private(set) var attachmentItems: [PendingAttachmentRailItem]
     let isAddMoreVisible: Bool
-    init(attachmentItems: [SignalAttachmentItem], isAddMoreVisible: Bool) {
+    init(attachmentItems: [PendingAttachmentRailItem], isAddMoreVisible: Bool) {
         self.attachmentItems = attachmentItems
         self.isAddMoreVisible = isAddMoreVisible
     }
 
-    func itemAfter(item: SignalAttachmentItem) -> SignalAttachmentItem? {
+    func itemAfter(item: PendingAttachmentRailItem) -> PendingAttachmentRailItem? {
         guard let currentIndex = attachmentItems.firstIndex(of: item) else {
             Log.error("[AttachmentItemCollection] itemAfter currentIndex was unexpectedly nil.")
             return nil
@@ -88,7 +85,7 @@ class AttachmentItemCollection {
         return attachmentItems[safe: nextIndex]
     }
 
-    func itemBefore(item: SignalAttachmentItem) -> SignalAttachmentItem? {
+    func itemBefore(item: PendingAttachmentRailItem) -> PendingAttachmentRailItem? {
         guard let currentIndex = attachmentItems.firstIndex(of: item) else {
             Log.error("[AttachmentItemCollection] itemBefore currentIndex was unexpectedly nil.")
             return nil
@@ -99,7 +96,7 @@ class AttachmentItemCollection {
         return attachmentItems[safe: prevIndex]
     }
 
-    func remove(item: SignalAttachmentItem) {
+    func remove(item: PendingAttachmentRailItem) {
         attachmentItems = attachmentItems.filter { $0 != item }
     }
 

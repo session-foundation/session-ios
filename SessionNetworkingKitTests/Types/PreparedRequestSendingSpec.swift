@@ -45,7 +45,15 @@ class PreparedRequestSendingSpec: QuickSpec {
             context("when sending") {
                 beforeEach {
                     mockNetwork
-                        .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                requestTimeout: .any,
+                                requestAndPathBuildTimeout: .any
+                            )
+                        }
                         .thenReturn(MockNetwork.response(with: 1))
                 }
                 
@@ -352,7 +360,15 @@ class PreparedRequestSendingSpec: QuickSpec {
                         
                         beforeEach {
                             mockNetwork
-                                .when { $0.send(.any, to: .any, requestTimeout: .any, requestAndPathBuildTimeout: .any) }
+                                .when {
+                                    $0.send(
+                                        endpoint: MockEndpoint.any,
+                                        destination: .any,
+                                        body: .any,
+                                        requestTimeout: .any,
+                                        requestAndPathBuildTimeout: .any
+                                    )
+                                }
                                 .thenReturn(
                                     MockNetwork.batchResponseData(with: [
                                         (endpoint: TestEndpoint.endpoint1, data: TestType.mockBatchSubResponse()),

@@ -6,8 +6,7 @@ import NaturalLanguage
 
 public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
     @State private var loadedImage: UIImage? = nil
-    @State private var animationFrames: [UIImage?]?
-    @State private var animationFrameDurations: [TimeInterval]?
+    @State private var frameBuffer: ImageDataManager.FrameBuffer?
     @State private var isAnimating: Bool = false
     
     @State private var currentFrameIndex: Int = 0
@@ -59,7 +58,7 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
             await loadAndProcessData()
         }
         .onChange(of: shouldAnimateImage) { newValue in
-            if let frames = animationFrames, !frames.isEmpty {
+            if let buffer = frameBuffer, !buffer.durations.isEmpty {
                 isAnimating = newValue
             }
         }
@@ -71,71 +70,47 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
         /// Reset the state before loading new data
         await MainActor.run { resetAnimationState() }
         
-        let processedData = await dataManager.load(source)
+        guard let buffer: ImageDataManager.FrameBuffer = await dataManager.load(source) else {
+            return await MainActor.run {
+                self.loadedImage = nil
+                self.frameBuffer = nil
+            }
+        }
         
         guard !Task.isCancelled else { return }
         
-        switch processedData?.type {
-            case .staticImage(let image):
-                await MainActor.run {
-                    self.loadedImage = image
-                }
+        /// Set the first frame
+        await MainActor.run {
+            self.loadedImage = buffer.firstFrame
+            self.frameBuffer = buffer
+            self.currentFrameIndex = 0
+            self.accumulatedTime = 0.0
+        }
+        
+        guard buffer.durations.count > 1 && self.shouldAnimateImage else {
+            self.isAnimating = false /// Treat as a static image
+            return
+        }
+        
+        for await event in buffer.stream {
+            guard !Task.isCancelled else { break }
             
-            case .animatedImage(let frames, let durations) where frames.count > 1:
-                await MainActor.run {
-                    self.animationFrames = frames
-                    self.animationFrameDurations = durations
-                    self.loadedImage = frames.first
-                    
-                    if self.shouldAnimateImage {
-                        self.isAnimating = true /// Activate the `TimelineView`
-                    }
+            await MainActor.run {
+                switch event {
+                    case .frameLoaded, .completed: break
+                    case .readyToAnimate:
+                        guard self.shouldAnimateImage else { return }
+                        
+                        self.isAnimating = true
                 }
-                
-            case .bufferedAnimatedImage(let firstFrame, let durations, let bufferedFrameStream) where durations.count > 1:
-                await MainActor.run {
-                    self.loadedImage = firstFrame
-                    self.animationFrameDurations = durations
-                    self.animationFrames = Array(repeating: nil, count: durations.count)
-                    self.animationFrames?[0] = firstFrame
-                }
-                
-                for await event in bufferedFrameStream {
-                    guard !Task.isCancelled else { break }
-                    
-                    await MainActor.run {
-                        switch event {
-                            case .frame(let index, let frame): self.animationFrames?[index] = frame
-                            case .readyToPlay:
-                                guard self.shouldAnimateImage else { return }
-                                
-                                self.isAnimating = true
-                        }
-                    }
-                }
-                
-            case .animatedImage(let frames, _):
-                await MainActor.run {
-                    self.loadedImage = frames.first
-                }
-                
-            case .bufferedAnimatedImage(let firstFrame, _, _):
-                await MainActor.run {
-                    self.loadedImage = firstFrame
-                }
-
-            default:
-                await MainActor.run {
-                    self.loadedImage = nil
-                }
+            }
         }
     }
     
     @MainActor
     private func resetAnimationState() {
         self.loadedImage = nil
-        self.animationFrames = nil
-        self.animationFrameDurations = nil
+        self.frameBuffer = nil
         self.isAnimating = false
         self.currentFrameIndex = 0
         self.accumulatedTime = 0.0
@@ -145,11 +120,9 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
     private func updateAnimationFrame(at date: Date) {
         guard
             isAnimating,
-            let frames: [UIImage?] = animationFrames,
-            let durations = animationFrameDurations,
-            !frames.isEmpty,
-            !durations.isEmpty,
-            currentFrameIndex < durations.count,
+            let buffer: ImageDataManager.FrameBuffer = frameBuffer,
+            !buffer.durations.isEmpty,
+            currentFrameIndex < buffer.durations.count,
             let lastDate = lastFrameDate
         else {
             isAnimating = false
@@ -161,34 +134,38 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
         self.lastFrameDate = date
         accumulatedTime += elapsed
         
-        var currentFrameDuration: TimeInterval = durations[currentFrameIndex]
+        var currentFrameDuration: TimeInterval = buffer.durations[currentFrameIndex]
         
         // Advance frames if the accumulated time exceeds the current frame's duration
         while accumulatedTime >= currentFrameDuration {
             accumulatedTime -= currentFrameDuration
-            let nextFrameIndex: Int = ((currentFrameIndex + 1) % durations.count)
+            let nextFrameIndex: Int = ((currentFrameIndex + 1) % buffer.durations.count)
             
             /// If the next frame hasn't been decoded yet, pause on the current frame, we'll re-evaluate on the next display tick.
-            guard nextFrameIndex < frames.count, frames[nextFrameIndex] != nil else { break }
-
-
+            guard
+                nextFrameIndex < buffer.frameCount,
+                buffer.getFrame(at: nextFrameIndex) != nil
+            else { break }
             
             /// Prevent an infinite loop for all zero durations
-            guard durations[nextFrameIndex] > 0.001 else { break }
+            guard buffer.durations[nextFrameIndex] > 0.001 else { break }
             
             currentFrameIndex = nextFrameIndex
-            currentFrameDuration = durations[currentFrameIndex]
+            currentFrameDuration = buffer.durations[currentFrameIndex]
         }
         
         /// Make sure we don't cause an index-out-of-bounds somehow
-        guard currentFrameIndex < frames.count else {
+        guard currentFrameIndex < buffer.durations.count else {
             isAnimating = false
             return
         }
         
         /// Update the displayed image only if the frame has changed
-        if loadedImage !== frames[currentFrameIndex] {
-            loadedImage = frames[currentFrameIndex]
+        if
+            let nextFrame: UIImage = buffer.getFrame(at: currentFrameIndex),
+            loadedImage !== nextFrame
+        {
+            loadedImage = nextFrame
         }
     }
 }

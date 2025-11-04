@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import AVFoundation
 import ImageIO
 
@@ -12,18 +13,18 @@ public actor ImageDataManager: ImageDataManagerType {
     )
     
     /// Max memory size for a decoded animation to be considered "small" enough to be fully cached
-    private static let decodedAnimationCacheLimit: Int = 20 * 1024 * 1024 // 20 M
+    private static let maxCachableSize: Int = 20 * 1024 * 1024 // 20 M
     private static let maxAnimatedImageDownscaleDimention: CGFloat = 4096
     
     /// `NSCache` has more nuanced memory management systems than just listening for `didReceiveMemoryWarningNotification`
     /// and can clear out values gradually, it can also remove items based on their "cost" so is better suited than our custom `LRUCache`
-    private let cache: NSCache<NSString, ProcessedImageData> = {
-        let result: NSCache<NSString, ProcessedImageData> = NSCache()
+    private let cache: NSCache<NSString, FrameBuffer> = {
+        let result: NSCache<NSString, FrameBuffer> = NSCache()
         result.totalCostLimit = 200 * 1024 * 1024 // Max 200MB of image data
         
         return result
     }()
-    private var activeLoadTasks: [String: Task<ProcessedImageData?, Never>] = [:]
+    private var activeLoadTasks: [String: Task<FrameBuffer?, Never>] = [:]
     
     // MARK: - Initialization
     
@@ -31,41 +32,41 @@ public actor ImageDataManager: ImageDataManagerType {
     
     // MARK: - Functions
     
-    @discardableResult public func load(_ source: DataSource) async -> ProcessedImageData? {
+    @discardableResult public func load(_ source: DataSource) async -> FrameBuffer? {
         let identifier: String = source.identifier
         
-        if let cachedData: ProcessedImageData = cache.object(forKey: identifier as NSString) {
+        if let cachedData: FrameBuffer = cache.object(forKey: identifier as NSString) {
             return cachedData
         }
         
-        if let existingTask: Task<ProcessedImageData?, Never> = activeLoadTasks[identifier] {
+        if let existingTask: Task<FrameBuffer?, Never> = activeLoadTasks[identifier] {
             return await existingTask.value
         }
         
         /// Kick off a new processing task in the background
-        let newTask: Task<ProcessedImageData?, Never> = Task.detached(priority: .userInitiated) {
+        let newTask: Task<FrameBuffer?, Never> = Task.detached(priority: .userInitiated) {
             await ImageDataManager.processSource(source)
         }
         activeLoadTasks[identifier] = newTask
         
         /// Wait for the result then cache and return it
-        let processedData: ProcessedImageData? = await newTask.value
+        let maybeBuffer: FrameBuffer? = await newTask.value
         
-        if let data: ProcessedImageData = processedData, data.isCacheable {
-            self.cache.setObject(data, forKey: identifier as NSString, cost: data.estimatedCacheCost)
+        if let buffer: FrameBuffer = maybeBuffer {
+            self.cache.setObject(buffer, forKey: identifier as NSString, cost: buffer.estimatedCacheCost)
         }
         
         self.activeLoadTasks[identifier] = nil
-        return processedData
+        return maybeBuffer
     }
     
     @MainActor
     public func load(
         _ source: ImageDataManager.DataSource,
-        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void
+        onComplete: @MainActor @escaping (ImageDataManager.FrameBuffer?) -> Void
     ) {
         Task { [weak self] in
-            let result: ImageDataManager.ProcessedImageData? = await self?.load(source)
+            let result: ImageDataManager.FrameBuffer? = await self?.load(source)
             
             await MainActor.run {
                 onComplete(result)
@@ -73,7 +74,7 @@ public actor ImageDataManager: ImageDataManagerType {
         }
     }
     
-    public func cachedImage(identifier: String) async -> ProcessedImageData? {
+    public func cachedImage(identifier: String) async -> FrameBuffer? {
         return cache.object(forKey: identifier as NSString)
     }
     
@@ -87,49 +88,50 @@ public actor ImageDataManager: ImageDataManagerType {
     
     // MARK: - Internal Functions
 
-    private static func processSource(_ dataSource: DataSource) async -> ProcessedImageData? {
+    private static func processSource(_ dataSource: DataSource) async -> FrameBuffer? {
         switch dataSource {
+            case .icon(let icon, let size, let renderingMode):
+                guard let image: UIImage = Lucide.image(icon: icon, size: size) else { return nil }
+                
+                return FrameBuffer(image: image.withRenderingMode(renderingMode))
+                
             /// If we were given a direct `UIImage` value then use it
             case .image(_, let maybeImage):
                 guard let image: UIImage = maybeImage else { return nil }
                 
-                return ProcessedImageData(
-                    type: .staticImage(image)
-                )
+                return FrameBuffer(image: image)
             
             /// Custom handle `videoUrl` values since it requires thumbnail generation
-            case .videoUrl(let url, let mimeType, let sourceFilename, let thumbnailManager):
+            case .videoUrl(let url, let utType, let sourceFilename, let thumbnailManager):
                 /// If we had already generated a thumbnail then use that
                 if
-                    let existingThumbnail: UIImage = thumbnailManager.existingThumbnailImage(url: url, size: .large),
-                    let existingThumbCgImage: CGImage = existingThumbnail.cgImage,
+                    let existingThumbnailSource: ImageDataManager.DataSource = thumbnailManager
+                        .existingThumbnail(name: url.lastPathComponent, size: .large),
+                    let source: CGImageSource = existingThumbnailSource.createImageSource(),
+                    let existingThumbCgImage: CGImage = createCGImage(source, index: 0, maxDimensionInPixels: nil),
                     let decodingContext: CGContext = createDecodingContext(
                         width: existingThumbCgImage.width,
                         height: existingThumbCgImage.height
                     ),
                     let decodedImage: UIImage = predecode(cgImage: existingThumbCgImage, using: decodingContext)
                 {
-                    let processedData: ProcessedImageData = ProcessedImageData(
-                        type: .staticImage(decodedImage)
-                    )
-                    
-                    return processedData
+                    return FrameBuffer(image: decodedImage)
                 }
                 
                 /// Otherwise we need to generate a new one
-                let assetInfo: (asset: AVURLAsset, cleanup: () -> Void)? = SNUIKit.asset(
-                    for: url.path,
-                    mimeType: mimeType,
-                    sourceFilename: sourceFilename
-                )
-                
                 guard
-                    let asset: AVURLAsset = assetInfo?.asset,
-                    asset.isValidVideo
+                    let assetInfo: (asset: AVURLAsset, isValidVideo: Bool, cleanup: () -> Void) = SNUIKit.assetInfo(
+                        for: url.path,
+                        utType: utType,
+                        sourceFilename: sourceFilename
+                    )
                 else { return nil }
+                defer { assetInfo.cleanup() }
+                
+                guard assetInfo.isValidVideo else { return nil }
                 
                 let time: CMTime = CMTimeMake(value: 1, timescale: 60)
-                let generator: AVAssetImageGenerator = AVAssetImageGenerator(asset: asset)
+                let generator: AVAssetImageGenerator = AVAssetImageGenerator(asset: assetInfo.asset)
                 generator.appliesPreferredTrackTransform = true
                 
                 guard
@@ -141,71 +143,101 @@ public actor ImageDataManager: ImageDataManagerType {
                     let decodedImage: UIImage = predecode(cgImage: cgImage, using: decodingContext)
                 else { return nil }
                 
-                let processedData: ProcessedImageData = ProcessedImageData(
-                    type: .staticImage(decodedImage)
-                )
-                assetInfo?.cleanup()
+                let result: FrameBuffer = FrameBuffer(image: decodedImage)
                 
                 /// Since we generated a new thumbnail we should save it to disk
-                saveThumbnailToDisk(
-                    image: decodedImage,
-                    url: url,
-                    size: .large,
-                    thumbnailManager: thumbnailManager
-                )
+                Task.detached(priority: .background) {
+                    saveThumbnailToDisk(
+                        name: url.lastPathComponent,
+                        frames: [decodedImage],
+                        durations: [],      /// Static image so no durations
+                        hasAlpha: false,    /// Video can't have alpha
+                        size: .large,
+                        thumbnailManager: thumbnailManager
+                    )
+                }
                 
-                return processedData
+                return result
                 
             /// Custom handle `urlThumbnail` generation
             case .urlThumbnail(let url, let size, let thumbnailManager):
+                let maxDimensionInPixels: CGFloat = await size.pixelDimension()
+                let flooredPixels: Int = Int(floor(maxDimensionInPixels))
+                
                 /// If we had already generated a thumbnail then use that
                 if
-                    let existingThumbnail: UIImage = thumbnailManager.existingThumbnailImage(url: url, size: .large),
-                    let existingThumbCgImage: CGImage = existingThumbnail.cgImage,
-                    let decodingContext: CGContext = createDecodingContext(
-                        width: existingThumbCgImage.width,
-                        height: existingThumbCgImage.height
-                    ),
-                    let decodedImage: UIImage = predecode(cgImage: existingThumbCgImage, using: decodingContext)
+                    let existingThumbnailSource: ImageDataManager.DataSource = thumbnailManager
+                        .existingThumbnail(name: url.lastPathComponent, size: size),
+                    let source: CGImageSource = existingThumbnailSource.createImageSource()
                 {
-                    let processedData: ProcessedImageData = ProcessedImageData(
-                        type: .staticImage(decodedImage)
+                    return await createBuffer(
+                        source,
+                        orientation: .up,   /// Thumbnails will always have their orientation removed
+                        sourceWidth: flooredPixels,
+                        sourceHeight: flooredPixels
                     )
-                    
-                    return processedData
                 }
                 
-                /// Otherwise we need to generate a new one
-                let maxDimensionInPixels: CGFloat = await size.pixelDimension()
-                let options: [CFString: Any] = [
-                    kCGImageSourceShouldCache: false,
-                    kCGImageSourceShouldCacheImmediately: false,
-                    kCGImageSourceCreateThumbnailFromImageAlways: true,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
-                    kCGImageSourceThumbnailMaxPixelSize: maxDimensionInPixels
-                ]
-
+                /// If not then check whether there would be any benefit in creating a thumbnail
                 guard
-                    let source: CGImageSource = dataSource.createImageSource(options: options),
-                    let cgImage: CGImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary),
-                    let decodingContext: CGContext = createDecodingContext(
-                        width: cgImage.width,
-                        height: cgImage.height
-                    ),
-                    let decodedImage: UIImage = predecode(cgImage: cgImage, using: decodingContext)
+                    let newThumbnailSource: CGImageSource = dataSource.createImageSource(),
+                    let properties: [String: Any] = CGImageSourceCopyPropertiesAtIndex(newThumbnailSource, 0, nil) as? [String: Any],
+                    let sourceWidth: Int = properties[kCGImagePropertyPixelWidth as String] as? Int,
+                    let sourceHeight: Int = properties[kCGImagePropertyPixelHeight as String] as? Int,
+                    sourceWidth > 0,
+                    sourceHeight > 0
                 else { return nil }
                 
-                /// Since we generated a new thumbnail we should save it to disk
-                saveThumbnailToDisk(
-                    image: decodedImage,
-                    url: url,
-                    size: size,
-                    thumbnailManager: thumbnailManager
-                )
+                /// If the source is smaller than the target thumbnail size then we should just return the target directly
+                guard sourceWidth > flooredPixels || sourceHeight > flooredPixels else {
+                    return await processSource(.url(url))
+                }
                 
-                return ProcessedImageData(
-                    type: .staticImage(decodedImage)
-                )
+                /// Otherwise, generate the thumbnail
+                guard
+                    let result: FrameBuffer = await createBuffer(
+                        newThumbnailSource,
+                        orientation: .up,   /// Thumbnails will always have their orientation removed
+                        sourceWidth: sourceWidth,
+                        sourceHeight: sourceHeight,
+                        maxDimensionInPixels: maxDimensionInPixels,
+                        customLoaderGenerator: {
+                            /// If we had already generated a thumbnail then use that
+                            if
+                                let existingThumbnailSource: ImageDataManager.DataSource = thumbnailManager
+                                    .existingThumbnail(name: url.lastPathComponent, size: size),
+                                let source: CGImageSource = existingThumbnailSource.createImageSource()
+                            {
+                                let existingThumbnailBuffer: FrameBuffer? = await createBuffer(
+                                    source,
+                                    orientation: .up,   /// Thumbnails will always have their orientation removed
+                                    sourceWidth: flooredPixels,
+                                    sourceHeight: flooredPixels
+                                )
+                                
+                                return await existingThumbnailBuffer?.generateLoadClosure?()
+                            }
+                            
+                            return nil
+                        }
+                    )
+                else { return nil }
+                
+                /// Since we generated a new thumbnail we should save it to disk (only do this if we created a new thumbnail)
+                Task.detached(priority: .background) {
+                    let allFrames: [UIImage] = await result.allFramesOnceLoaded()
+                    
+                    saveThumbnailToDisk(
+                        name: url.lastPathComponent,
+                        frames: allFrames,
+                        durations: result.durations,
+                        hasAlpha: (properties[kCGImagePropertyHasAlpha as String] as? Bool),
+                        size: size,
+                        thumbnailManager: thumbnailManager
+                    )
+                }
+                
+                return result
                 
             /// Custom handle `placeholderIcon` generation
             case .placeholderIcon(let seed, let text, let size):
@@ -218,15 +250,9 @@ public actor ImageDataManager: ImageDataManagerType {
                         height: cgImage.height
                     ),
                     let decodedImage: UIImage = predecode(cgImage: cgImage, using: decodingContext)
-                else {
-                    return ProcessedImageData(
-                        type: .staticImage(image)
-                    )
-                }
+                else { return FrameBuffer(image: image) }
                 
-                return ProcessedImageData(
-                    type: .staticImage(decodedImage)
-                )
+                return FrameBuffer(image: decodedImage)
                 
             case .asyncSource(_, let sourceRetriever):
                 guard let source: DataSource = await sourceRetriever() else { return nil }
@@ -248,174 +274,208 @@ public actor ImageDataManager: ImageDataManagerType {
             sourceHeight > 0,
             sourceHeight < ImageDataManager.DataSource.maxValidDimension
         else { return nil }
-
+        
+        return await createBuffer(
+            source,
+            orientation: orientation(from: properties),
+            sourceWidth: sourceWidth,
+            sourceHeight: sourceHeight
+        )
+    }
+    
+    private static func orientation(from properties: [String: Any]) -> UIImage.Orientation {
+        if
+            let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation as String] as? UInt32,
+            let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+        {
+            return UIImage.Orientation(cgOrientation)
+        }
+        
+        return .up
+    }
+    
+    private static func createBuffer(
+        _ source: CGImageSource,
+        orientation: UIImage.Orientation,
+        sourceWidth: Int,
+        sourceHeight: Int,
+        maxDimensionInPixels: CGFloat? = nil,
+        customLoaderGenerator: (() async -> AsyncLoadStream.Loader?)? = nil
+    ) async -> FrameBuffer? {
         /// Get the number of frames in the image
         let count: Int = CGImageSourceGetCount(source)
         
-        switch count {
-            /// Invalid image
-            case ..<1: return nil
+        /// Invalid image
+        guard count > 0 else { return nil }
+        
+        /// Load the first frame
+        guard
+            let firstFrameCgImage: CGImage = createCGImage(
+                source,
+                index: 0,
+                maxDimensionInPixels: maxDimensionInPixels
+            )
+        else { return nil }
+        
+        /// The share extension has limited RAM (~120Mb on an iPhone X) and pre-decoding an image results in approximately `3x`
+        /// the RAM usage of the standard lazy loading (as buffers need to be allocated and image data copied during the pre-decode),
+        /// in order to avoid this we check if the estimated pre-decoded image RAM usage is smaller than `80%` of the currently
+        /// available RAM and if not we just rely on lazy `UIImage` loading and the OS
+        let hasEnoughMemoryToPreDecode: Bool = {
+            #if targetEnvironment(simulator)
+            /// On the simulator `os_proc_available_memory` seems to always return `0` so just assume we have enough memort
+            return true
+            #else
+            let estimatedMemorySize: Int = (sourceWidth * sourceHeight * 4)
+            let estimatedMemorySizeToLoad: Int = (estimatedMemorySize * 3)
+            let currentAvailableMemory: Int = os_proc_available_memory()
+            
+            return (estimatedMemorySizeToLoad < Int(floor(CGFloat(currentAvailableMemory) * 0.8)))
+            #endif
+        }()
+        
+        guard hasEnoughMemoryToPreDecode else {
+            return FrameBuffer(
+                image: UIImage(cgImage: firstFrameCgImage, scale: 1, orientation: orientation)
+            )
+        }
+        
+        /// Otherwise we want to "predecode" the first (and other) frames while in the background to reduce the load on the UI thread
+        guard
+            let firstFrameContext: CGContext = createDecodingContext(
+                width: firstFrameCgImage.width,
+                height: firstFrameCgImage.height
+            ),
+            let decodedFirstFrameImage: UIImage = predecode(cgImage: firstFrameCgImage, using: firstFrameContext),
+            let decodedCgImage: CGImage = decodedFirstFrameImage.cgImage
+        else { return nil }
+        
+        /// Static image
+        guard count > 1 else {
+            return FrameBuffer(
+                image: UIImage(cgImage: decodedCgImage, scale: 1, orientation: orientation)
+            )
+        }
+
+        /// Animated Image
+        let durations: [TimeInterval] = getFrameDurations(from: source, count: count)
+        let standardLoaderGenerator: AsyncLoadStream.Loader = { stream, buffer in
+            /// Since the `AsyncLoadStream.Loader` gets run in it's own task we need to create a context within the task
+            guard
+                let decodingContext: CGContext = createDecodingContext(
+                    width: firstFrameCgImage.width,
+                    height: firstFrameCgImage.height
+                )
+            else { return }
+        
+            var (frameIndexesToBuffer, probeFrames) = await self.calculateHeuristicBuffer(
+                startIndex: 1,  /// We have already decoded the first frame so skip it
+                source: source,
+                durations: durations,
+                maxDimensionInPixels: maxDimensionInPixels,
+                using: decodingContext
+            )
+            let lastBufferedFrameIndex: Int = (
+                frameIndexesToBuffer.max() ??
+                probeFrames.count
+            )
+            
+            /// Immediately yield the frames decoded when calculating the buffer size
+            for (index, frame) in probeFrames.enumerated() {
+                if Task.isCancelled { break }
                 
-            /// Static image
-            case 1:
-                /// Extract image orientation if present
-                var orientation: UIImage.Orientation = .up
-                
-                if
-                    let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation as String] as? UInt32,
-                    let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
-                {
-                    orientation = UIImage.Orientation(cgOrientation)
+                /// We `+ 1` because the first frame is always manually assigned
+                let bufferIndex: Int = (index + 1)
+                buffer.setFrame(frame, at: bufferIndex)
+                await stream.send(.frameLoaded(index: bufferIndex))
+            }
+            
+            /// Clear out the `proveFrames` array so we don't use the extra memory
+            probeFrames.removeAll(keepingCapacity: false)
+            
+            /// Load in any additional buffer frames needed
+            for i in frameIndexesToBuffer {
+                guard !Task.isCancelled else {
+                    await stream.cancel()
+                    return
                 }
                 
-                /// Try to decode the image direct from the `CGImage`
-                let options: [CFString: Any] = [
-                    kCGImageSourceShouldCache: false,
-                    kCGImageSourceShouldCacheImmediately: false
-                ]
-                
-                guard
-                    let cgImage: CGImage = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary),
-                    let decodingContext = createDecodingContext(width: cgImage.width, height: cgImage.height),
-                    let decodedImage: UIImage = predecode(cgImage: cgImage, using: decodingContext),
-                    let decodedCgImage: CGImage = decodedImage.cgImage
-                else { return nil }
-                
-                let finalImage: UIImage = UIImage(cgImage: decodedCgImage, scale: 1, orientation: orientation)
-                
-                return ProcessedImageData(
-                    type: .staticImage(finalImage)
-                )
-                
-            /// Animated Image
-            default:
-                /// Load the first frame
-                guard
-                    let firstFrameCgImage: CGImage = CGImageSourceCreateImageAtIndex(source, 0, nil),
-                    let decodingContext: CGContext = createDecodingContext(
-                        width: firstFrameCgImage.width,
-                        height: firstFrameCgImage.height
-                    ),
-                    let decodedFirstFrameImage: UIImage = predecode(cgImage: firstFrameCgImage, using: decodingContext)
-                else { return nil }
-                
-                /// If the memory usage of the full animation when is small enough then we should fully decode and cache the decoded
-                /// result in memory, otherwise we don't want to cache the decoded data, but instead want to generate a buffered stream
-                /// of frame data to start playing the animation as soon as possible whilst we continue to decode in the background
-                let decodedMemoryCost: Int = (firstFrameCgImage.width * firstFrameCgImage.height * 4 * count)
-                let durations: [TimeInterval] = getFrameDurations(from: source, count: count)
-                
-                guard decodedMemoryCost > decodedAnimationCacheLimit else {
-                    var frames: [UIImage] = [decodedFirstFrameImage]
-                    
-                    for i in 1..<count {
-                        autoreleasepool {
-                            guard
-                                let cgImage: CGImage = CGImageSourceCreateImageAtIndex(source, i, nil),
-                                let decoded: UIImage = predecode(cgImage: cgImage, using: decodingContext)
-                            else {
-                                /// If a frame fails then use the previous frame as a fallback, otherwise fail as it was the first frame
-                                /// which failed
-                                guard let lastFrame: UIImage = frames.last else { return }
-                                
-                                frames.append(lastFrame)
-                                return
-                            }
-                            frames.append(decoded)
-                        }
-                    }
-                    
-                    return ProcessedImageData(
-                        type: .animatedImage(frames: frames, durations: durations)
+                var decodedFrame: UIImage?
+                autoreleasepool {
+                    decodedFrame = predecode(
+                        cgImage: createCGImage(
+                            source,
+                            index: i,
+                            maxDimensionInPixels: maxDimensionInPixels
+                        ),
+                        using: decodingContext
                     )
                 }
                 
-                /// Kick off out buffered frame loading logic for the animation
-                let stream: AsyncStream<BufferedFrameStreamEvent> = AsyncStream { continuation in
-                    let task = Task.detached(priority: .userInitiated) {
-                        var (frameIndexesToBuffer, probeFrames) = await self.calculateHeuristicBuffer(
-                            startIndex: 1,  /// We have already decoded the first frame so skip it
-                            source: source,
-                            durations: durations,
+                if let frame: UIImage = decodedFrame {
+                    buffer.setFrame(frame, at: i)
+                    await stream.send(.frameLoaded(index: i))
+                }
+            }
+            
+            /// Now that we have buffered enough frames we can start the animation
+            if !Task.isCancelled {
+                await stream.send(.readyToAnimate)
+            }
+            
+            /// Start loading the remaining frames (`+ 1` as we want to start from the index after the last buffered index)
+            if lastBufferedFrameIndex < count {
+                for i in (lastBufferedFrameIndex + 1)..<count {
+                    if Task.isCancelled { break }
+                    
+                    var decodedFrame: UIImage?
+                    autoreleasepool {
+                        decodedFrame = predecode(
+                            cgImage: createCGImage(
+                                source,
+                                index: i,
+                                maxDimensionInPixels: maxDimensionInPixels
+                            ),
                             using: decodingContext
                         )
-                        let lastBufferedFrameIndex: Int = (
-                            frameIndexesToBuffer.max() ??
-                            probeFrames.count
-                        )
-                        
-                        /// Immediately yield the frames decoded when calculating the buffer size
-                        for (index, frame) in probeFrames.enumerated() {
-                            if Task.isCancelled { break }
-                            
-                            /// We `+ 1` because the first frame is always manually assigned
-                            continuation.yield(.frame(index: index + 1, frame: frame))
-                        }
-                        
-                        /// Clear out the `proveFrames` array so we don't use the extra memory
-                        probeFrames.removeAll(keepingCapacity: false)
-                        
-                        /// Load in any additional buffer frames needed
-                        for i in frameIndexesToBuffer {
-                            guard !Task.isCancelled else {
-                                continuation.finish()
-                                return
-                            }
-                            
-                            var decodedFrame: UIImage?
-                            autoreleasepool {
-                                decodedFrame = predecode(
-                                    cgImage: CGImageSourceCreateImageAtIndex(source, i, nil),
-                                    using: decodingContext
-                                )
-                            }
-                            
-                            if let frame: UIImage = decodedFrame {
-                                continuation.yield(.frame(index: i, frame: frame))
-                            }
-                        }
-                        
-                        /// Now that we have buffered enough frames we can start the animation
-                        if !Task.isCancelled {
-                            continuation.yield(.readyToPlay)
-                        }
-                        
-                        /// Start loading the remaining frames (`+ 1` as we want to start from the index after the last buffered index)
-                        if lastBufferedFrameIndex < count {
-                            for i in (lastBufferedFrameIndex + 1)..<count {
-                                if Task.isCancelled { break }
-                                
-                                var decodedFrame: UIImage?
-                                autoreleasepool {
-                                    decodedFrame = predecode(
-                                        cgImage: CGImageSourceCreateImageAtIndex(source, i, nil),
-                                        using: decodingContext
-                                    )
-                                }
-                                
-                                if let frame: UIImage = decodedFrame {
-                                    continuation.yield(.frame(index: i, frame: frame))
-                                }
-                            }
-                        }
-                        
-                        /// Complete the stream
-                        continuation.finish()
                     }
                     
-                    continuation.onTermination = { @Sendable _ in
-                        task.cancel()
+                    if let frame: UIImage = decodedFrame {
+                        buffer.setFrame(frame, at: i)
+                        await stream.send(.frameLoaded(index: i))
                     }
                 }
-                
-                return ProcessedImageData(
-                    type: .bufferedAnimatedImage(
-                        firstFrame: decodedFirstFrameImage,
-                        durations: durations,
-                        bufferedFrameStream: stream
-                    )
-                )
+            }
+            
+            /// Mark the `frameBuffer` as complete
+            buffer.markComplete()
+            
+            /// Complete the stream
+            await stream.send(.completed)
         }
+        
+        return FrameBuffer(
+            firstFrame: decodedFirstFrameImage,
+            durations: durations,
+            shouldAutoPurgeIfEstimatedCostExceedsLimit: ImageDataManager.maxCachableSize,
+            generateLoadClosure: { await customLoaderGenerator?() ?? standardLoaderGenerator }
+        )
+    }
+    
+    private static func createCGImage(
+        _ source: CGImageSource,
+        index: Int,
+        maxDimensionInPixels: CGFloat?
+    ) -> CGImage? {
+        /// If we don't have a `maxDimension` then we should just load the full image
+        guard let maxDimension: CGFloat = maxDimensionInPixels else {
+            return CGImageSourceCreateImageAtIndex(source, index, SNUIKit.mediaDecoderDefaultImageOptions())
+        }
+        
+        /// Otherwise we should create a thumbnail
+        let options: CFDictionary? = SNUIKit.mediaDecoderDefaultThumbnailOptions(maxDimension: maxDimension)
+
+        return CGImageSourceCreateThumbnailAtIndex(source, index, options)
     }
     
     private static func createDecodingContext(width: Int, height: Int) -> CGContext? {
@@ -497,10 +557,11 @@ public actor ImageDataManager: ImageDataManagerType {
         startIndex: Int,
         source: CGImageSource,
         durations: [TimeInterval],
+        maxDimensionInPixels: CGFloat?,
         using context: CGContext
     ) async -> (frameIndexesToBuffer: [Int], probeFrames: [UIImage]) {
-        let probeFrameCount: Int = 5    /// Number of frames to decode in order to calculate the approx. time to load each frame
-        let safetyMargin: Double = 2    /// Number of extra frames to be buffered just in case
+        let probeFrameCount: Int = 8    /// Number of frames to decode in order to calculate the approx. time to load each frame
+        let safetyMargin: Double = 4    /// Number of extra frames to be buffered just in case
         
         guard durations.count > (startIndex + probeFrameCount) else {
             return (Array(startIndex..<durations.count), [])
@@ -513,7 +574,7 @@ public actor ImageDataManager: ImageDataManagerType {
         for i in startIndex..<(startIndex + probeFrameCount) {
             autoreleasepool {
                 guard
-                    let cgImage = CGImageSourceCreateImageAtIndex(source, i, nil),
+                    let cgImage = createCGImage(source, index: i, maxDimensionInPixels: maxDimensionInPixels),
                     let decoded: UIImage = predecode(cgImage: cgImage, using: context)
                 else { return }
                 
@@ -523,7 +584,7 @@ public actor ImageDataManager: ImageDataManagerType {
         
         let totalDecodeTimeForProbe: CFTimeInterval = (CACurrentMediaTime() - startTime)
         let avgDecodeTime: Double = (totalDecodeTimeForProbe / Double(probeFrameCount))
-        let avgDisplayDuration: Double = (durations.prefix(probeFrameCount).reduce(0, +) / Double(probeFrameCount))
+        let avgDisplayDuration: Double = (durations.dropFirst(startIndex).prefix(probeFrameCount).reduce(0, +) / Double(probeFrameCount))
         
         /// Protect against divide by zero errors
         guard avgDisplayDuration > 0.001 else { return ([], probeFrames) }
@@ -538,17 +599,20 @@ public actor ImageDataManager: ImageDataManagerType {
     }
 
     private static func saveThumbnailToDisk(
-        image: UIImage,
-        url: URL,
+        name: String,
+        frames: [UIImage],
+        durations: [TimeInterval],
+        hasAlpha: Bool?,
         size: ImageDataManager.ThumbnailSize,
         thumbnailManager: ThumbnailManager
     ) {
-        /// Don't want to block updating the UI so detatch this task
-        Task.detached(priority: .background) {
-            guard let data: Data = image.jpegData(compressionQuality: 0.85) else { return }
-            
-            thumbnailManager.saveThumbnail(data: data, size: size, url: url)
-        }
+        thumbnailManager.saveThumbnail(
+            name: name,
+            frames: frames,
+            durations: durations,
+            hasAlpha: hasAlpha,
+            size: size
+        )
     }
 }
 
@@ -558,8 +622,9 @@ public extension ImageDataManager {
     enum DataSource: Sendable, Equatable, Hashable {
         case url(URL)
         case data(String, Data)
+        case icon(Lucide.Icon, size: CGFloat, renderingMode: UIImage.RenderingMode = .alwaysOriginal)
         case image(String, UIImage?)
-        case videoUrl(URL, String, String?, ThumbnailManager)
+        case videoUrl(URL, UTType, String?, ThumbnailManager)
         case urlThumbnail(URL, ImageDataManager.ThumbnailSize, ThumbnailManager)
         case placeholderIcon(seed: String, text: String, size: CGFloat)
         case asyncSource(String, @Sendable () async -> DataSource?)
@@ -568,6 +633,9 @@ public extension ImageDataManager {
             switch self {
                 case .url(let url): return url.absoluteString
                 case .data(let identifier, _): return identifier
+                case .icon(let icon, let size, let renderingMode):
+                    return "\(icon.rawValue)-\(Int(floor(size)))-\(renderingMode.rawValue)"
+                
                 case .image(let identifier, _): return identifier
                 case .videoUrl(let url, _, _, _): return url.absoluteString
                 case .urlThumbnail(let url, let size, _):
@@ -586,41 +654,26 @@ public extension ImageDataManager {
             }
         }
         
-        public var imageData: Data? {
+        public var contentExists: Bool {
             switch self {
-                case .url(let url): return try? Data(contentsOf: url, options: [.dataReadingMapped])
-                case .data(_, let data): return data
-                case .image(_, let image): return image?.pngData()
-                case .videoUrl: return nil
-                case .urlThumbnail: return nil
-                case .placeholderIcon: return nil
-                case .asyncSource: return nil
+                case .url(let url), .videoUrl(let url, _, _, _), .urlThumbnail(let url, _, _):
+                    return FileManager.default.fileExists(atPath: url.path)
+                    
+                case .data(_, let data): return !data.isEmpty
+                case .image(_, let image): return (image != nil)
+                case .icon, .placeholderIcon: return true
+                case .asyncSource: return true /// Need to assume it exists
             }
         }
         
-        public var directImage: UIImage? {
+        public func createImageSource() -> CGImageSource? {
             switch self {
-                case .image(_, let image): return image
-                default: return nil
-            }
-        }
-        
-        public func createImageSource(options: [CFString: Any]? = nil) -> CGImageSource? {
-            let finalOptions: CFDictionary = (
-                options ??
-                [
-                    kCGImageSourceShouldCache: false,
-                    kCGImageSourceShouldCacheImmediately: false
-                ]
-            ) as CFDictionary
-            
-            switch self {
-                case .url(let url): return CGImageSourceCreateWithURL(url as CFURL, finalOptions)
-                case .data(_, let data): return CGImageSourceCreateWithData(data as CFData, finalOptions)
-                case .urlThumbnail(let url, _, _): return CGImageSourceCreateWithURL(url as CFURL, finalOptions)
+                case .url(let url): return SNUIKit.mediaDecoderSource(for: url)
+                case .data(_, let data): return SNUIKit.mediaDecoderSource(for: data)
+                case .urlThumbnail(let url, _, _): return SNUIKit.mediaDecoderSource(for: url)
                     
                 // These cases have special handling which doesn't use `createImageSource`
-                case .image, .videoUrl, .placeholderIcon, .asyncSource: return nil
+                case .icon, .image, .videoUrl, .placeholderIcon, .asyncSource: return nil
             }
         }
         
@@ -633,14 +686,21 @@ public extension ImageDataManager {
                         lhsData == rhsData
                     )
                     
+                case (.icon(let lhsIcon, let lhsSize, let lhsRenderingMode), .icon(let rhsIcon, let rhsSize, let rhsRenderingMode)):
+                    return (
+                        lhsIcon == rhsIcon &&
+                        lhsSize == rhsSize &&
+                        lhsRenderingMode == rhsRenderingMode
+                    )
+                    
                 case (.image(let lhsIdentifier, _), .image(let rhsIdentifier, _)):
                     /// `UIImage` is not _really_ equatable so we need to use a separate identifier to use instead
                     return (lhsIdentifier == rhsIdentifier)
                     
-                case (.videoUrl(let lhsUrl, let lhsMimeType, let lhsSourceFilename, _), .videoUrl(let rhsUrl, let rhsMimeType, let rhsSourceFilename, _)):
+                case (.videoUrl(let lhsUrl, let lhsUTType, let lhsSourceFilename, _), .videoUrl(let rhsUrl, let rhsUTType, let rhsSourceFilename, _)):
                     return (
                         lhsUrl == rhsUrl &&
-                        lhsMimeType == rhsMimeType &&
+                        lhsUTType == rhsUTType &&
                         lhsSourceFilename == rhsSourceFilename
                     )
                     
@@ -671,13 +731,18 @@ public extension ImageDataManager {
                     identifier.hash(into: &hasher)
                     data.hash(into: &hasher)
                     
+                case .icon(let icon, let size, let renderingMode):
+                    icon.hash(into: &hasher)
+                    size.hash(into: &hasher)
+                    renderingMode.hash(into: &hasher)
+                    
                 case .image(let identifier, _):
                     /// `UIImage` is not actually hashable so we need to provide a separate identifier to use instead
                     identifier.hash(into: &hasher)
                     
-                case .videoUrl(let url, let mimeType, let sourceFilename, _):
+                case .videoUrl(let url, let utType, let sourceFilename, _):
                     url.hash(into: &hasher)
-                    mimeType.hash(into: &hasher)
+                    utType.hash(into: &hasher)
                     sourceFilename.hash(into: &hasher)
                     
                 case .urlThumbnail(let url, let size, _):
@@ -696,79 +761,214 @@ public extension ImageDataManager {
     }
 }
 
-// MARK: - ImageDataManager.DataType
-
-public extension ImageDataManager {
-    enum DataType {
-        case staticImage(UIImage)
-        case animatedImage(frames: [UIImage], durations: [TimeInterval])
-        case bufferedAnimatedImage(
-            firstFrame: UIImage,
-            durations: [TimeInterval],
-            bufferedFrameStream: AsyncStream<BufferedFrameStreamEvent>
-        )
-    }
-    
-    enum BufferedFrameStreamEvent {
-        case frame(index: Int, frame: UIImage)
-        case readyToPlay
-    }
-}
-
 // MARK: - ImageDataManager.isAnimatedImage
 
 public extension ImageDataManager {
-    static func isAnimatedImage(_ dataSource: DataSource?) -> Bool {
-        guard let dataSource: DataSource = dataSource, let imageSource = dataSource.createImageSource() else {
-            return false
-        }
-        let frameCount = CGImageSourceGetCount(imageSource)
-        return frameCount > 1
+    static func isAnimatedImage(_ source: ImageDataManager.DataSource?) -> Bool {
+        guard let source, let imageSource: CGImageSource = source.createImageSource() else { return false }
+        
+        return (CGImageSourceGetCount(imageSource) > 1)
     }
 }
 
-// MARK: - ImageDataManager.ProcessedImageData
+// MARK: - ImageDataManager.FrameBuffer
 
 public extension ImageDataManager {
-    class ProcessedImageData: @unchecked Sendable {
-        public let type: DataType
+    enum AsyncLoadEvent: Equatable {
+        case frameLoaded(index: Int)
+        case readyToAnimate
+        case completed
+    }
+    
+    final class FrameBuffer: @unchecked Sendable {
+        fileprivate final class Box: @unchecked Sendable {
+            var frameBuffer: FrameBuffer?
+        }
+        
+        private let lock: NSLock = NSLock()
         public let frameCount: Int
+        public let firstFrame: UIImage
+        public let durations: [TimeInterval]
         public let estimatedCacheCost: Int
-        
-        public var isCacheable: Bool {
-            switch type {
-                case .staticImage, .animatedImage: return true
-                case .bufferedAnimatedImage: return false
-            }
+        public var stream: AsyncStream<ImageDataManager.AsyncLoadEvent> {
+            loadIfNeeded()
+            return asyncLoadStream.stream
         }
         
-        init(type: DataType) {
-            self.type = type
+        public var isComplete: Bool {
+            lock.lock()
+            defer { lock.unlock() }
             
-            switch type {
-                case .staticImage(let image):
-                    frameCount = 1
-                    estimatedCacheCost = ProcessedImageData.calculateCost(for: [image])
-                    
-                case .animatedImage(let frames, _):
-                    frameCount = frames.count
-                    estimatedCacheCost = ProcessedImageData.calculateCost(for: frames)
-                    
-                case .bufferedAnimatedImage(_, let durations, _):
-                    frameCount = durations.count
-                    estimatedCacheCost = 0
+            return _isComplete
+        }
+        public var framesPurged: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            
+            return _framesPurged
+        }
+        
+        fileprivate let generateLoadClosure: (() async -> AsyncLoadStream.Loader)?
+        private let asyncLoadStream: AsyncLoadStream
+        private let purgeable: Bool
+        private var _isLoading: Bool = false
+        private var _isComplete: Bool = false
+        private var _framesPurged: Bool = false
+        private var activeObservers: Set<UUID> = []
+        private var otherFrames: [UIImage?]
+        
+        // MARK: - Initialization
+        
+        public init(image: UIImage) {
+            self.frameCount = 1
+            self.firstFrame = image
+            self.durations = []
+            self.estimatedCacheCost = FrameBuffer.calculateCost(
+                forPixelSize: image.size,
+                count: 1,
+                bitsPerPixel: image.cgImage?.bitsPerPixel
+            )
+            self.generateLoadClosure = nil
+            self.purgeable = false
+            self.asyncLoadStream = .completed
+            self._isComplete = true
+            self.otherFrames = []
+        }
+        
+        fileprivate init(
+            firstFrame: UIImage,
+            durations: [TimeInterval],
+            shouldAutoPurgeIfEstimatedCostExceedsLimit cacheLimit: Int,
+            generateLoadClosure: @escaping @Sendable () async -> AsyncLoadStream.Loader
+        ) {
+            let fullCost: Int = FrameBuffer.calculateCost(
+                forPixelSize: firstFrame.size,
+                count: durations.count,
+                bitsPerPixel: firstFrame.cgImage?.bitsPerPixel
+            )
+            
+            self.frameCount = durations.count
+            self.firstFrame = firstFrame
+            self.durations = durations
+            self.purgeable = (fullCost > cacheLimit)
+            self.otherFrames = Array(repeating: nil, count: max(0, (durations.count - 1)))
+            self.generateLoadClosure = generateLoadClosure
+            self.asyncLoadStream = AsyncLoadStream()
+            
+            /// For purgeable buffers we don't keep the full images in the cache (just the first frame) and we release the remaining
+            /// frames once the final observers have stopped observing
+            self.estimatedCacheCost = (!purgeable ?
+                fullCost :
+                FrameBuffer.calculateCost(
+                    forPixelSize: firstFrame.size,
+                    count: 1,
+                    bitsPerPixel: firstFrame.cgImage?.bitsPerPixel
+                )
+            )
+        }
+        
+        // MARK: - Functions
+        
+        public func getFrame(at index: Int) -> UIImage? {
+            loadIfNeeded()
+            
+            if index == 0 {
+                return firstFrame
+            }
+            
+            lock.lock()
+            defer { lock.unlock() }
+            
+            let otherIndex: Int = (index - 1)
+            guard otherIndex >= 0, otherIndex < otherFrames.count else { return nil }
+            
+            return otherFrames[otherIndex]
+        }
+        
+        // MARK: - Internal Functions
+        
+        fileprivate func setFrame(_ frame: UIImage, at index: Int) {
+            lock.lock()
+            defer { lock.unlock() }
+            
+            guard index > 0, index < (otherFrames.count + 1) else { return }
+            
+            otherFrames[index - 1] = frame
+        }
+
+        fileprivate func markComplete() {
+            lock.lock()
+            defer { lock.unlock() }
+            
+            _isComplete = true
+            _isLoading = false
+        }
+        
+        fileprivate func allFramesOnceLoaded() async -> [UIImage] {
+            _ = await asyncLoadStream.stream.first(where: { $0 == .completed })
+            
+            return getAllLoadedFrames()
+        }
+        
+        private func loadIfNeeded() {
+            let needsLoad: Bool = {
+                lock.lock()
+                defer { lock.unlock() }
+                
+                return (
+                    !_isLoading && (
+                        _framesPurged ||
+                        !_isComplete
+                    )
+                )
+            }()
+            
+            guard needsLoad, let generateLoadClosure = generateLoadClosure else { return }
+            
+            /// Update the loading and purged states
+            lock.lock()
+            _isLoading = true
+            _framesPurged = false
+            lock.unlock()
+            
+            Task.detached { [weak self] in
+                guard let self else { return }
+                
+                await asyncLoadStream.start(with: generateLoadClosure(), buffer: self)
             }
         }
         
-        static func calculateCost(for images: [UIImage]) -> Int {
-            return images.reduce(0) { totalCost, image in
-                guard let cgImage: CGImage = image.cgImage else { return totalCost }
-                
-                let bytesPerPixel: Int = (cgImage.bitsPerPixel / 8)
-                let imagePixels: Int = (cgImage.width * cgImage.height)
-                
-                return totalCost + (imagePixels * (bytesPerPixel > 0 ? bytesPerPixel : 4))
-            }
+        private func getAllLoadedFrames() -> [UIImage] {
+            lock.lock()
+            defer { lock.unlock() }
+            
+            return [firstFrame] + otherFrames.compactMap { $0 }
+        }
+        
+        fileprivate func purgeIfNeeded() {
+            guard purgeable else { return }
+            
+            lock.lock()
+            defer { lock.unlock() }
+            
+            guard !_framesPurged else { return }
+            
+            /// Keep first frame, clear others
+            otherFrames = Array(repeating: nil, count: otherFrames.count)
+            _framesPurged = true
+            _isComplete = false
+        }
+        
+        private static func calculateCost(
+            forPixelSize size: CGSize,
+            count: Int,
+            bitsPerPixel: Int?
+        ) -> Int {
+            /// Assume the standard 32 bits per pixel
+            let imagePixels: Int = Int(size.width * size.height)
+            let bytesPerPixel: Int = ((bitsPerPixel ?? 32) / 8)
+            
+            return (count * (imagePixels * bytesPerPixel))
         }
     }
 }
@@ -778,34 +978,16 @@ public extension ImageDataManager {
 /// Needed for `actor` usage (ie. assume safe access)
 extension UIImage: @unchecked Sendable {}
 
-extension AVAsset {
-    var isValidVideo: Bool {
-        var maxTrackSize = CGSize.zero
-        
-        for track: AVAssetTrack in tracks(withMediaType: .video) {
-            let trackSize: CGSize = track.naturalSize
-            maxTrackSize.width = max(maxTrackSize.width, trackSize.width)
-            maxTrackSize.height = max(maxTrackSize.height, trackSize.height)
-        }
-        
-        return (
-            maxTrackSize.width >= 1 &&
-            maxTrackSize.height >= 1 &&
-            maxTrackSize.width < (3 * 1024) &&
-            maxTrackSize.height < (3 * 1024)
-        )
-    }
-}
-
 public extension ImageDataManager.DataSource {
     /// We need to ensure that the image size is "reasonable", otherwise trying to load it could cause out-of-memory crashes
     static let maxValidDimension: Int = 1 << 18 // 262,144 pixels
     
     @MainActor
-    var sizeFromMetadata: CGSize? {
+    var displaySizeFromMetadata: CGSize? {
         /// There are a number of types which have fixed sizes, in those cases we should return the target size rather than try to
         /// read it from data so we doncan avoid processing
         switch self {
+            case .icon(_, let size, _): return CGSize(width: size, height: size)
             case .image(_, let image):
                 guard let image: UIImage = image else { break }
                 
@@ -832,7 +1014,48 @@ public extension ImageDataManager.DataSource {
             sourceHeight < ImageDataManager.DataSource.maxValidDimension
         else { return nil }
         
-        return CGSize(width: sourceWidth, height: sourceHeight)
+        /// Since we want the "display size" (ie. size after the orientation has been applied) we may need to rotate the resolution
+        let orientation: UIImage.Orientation? = {
+            guard
+                let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation as String] as? UInt32,
+                let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
+            else { return nil }
+    
+            return UIImage.Orientation(cgOrientation)
+        }()
+        
+        switch orientation {
+            case .up, .upMirrored, .down, .downMirrored, .none:
+                return CGSize(width: sourceWidth, height: sourceHeight)
+            
+            case .leftMirrored, .left, .rightMirrored, .right:
+                return CGSize(width: sourceHeight, height: sourceWidth)
+            
+            @unknown default: return CGSize(width: sourceWidth, height: sourceHeight)
+        }
+    }
+    
+    @MainActor
+    var orientationFromMetadata: UIImage.Orientation {
+        /// There are a number of types which have fixed sizes, in those cases we should return the target size rather than try to
+        /// read it from data so we doncan avoid processing
+        switch self {
+            case .icon, .urlThumbnail, .placeholderIcon: return .up
+            case .image(_, let image):
+                guard let image: UIImage = image else { break }
+                
+                return image.imageOrientation
+                
+            case .url, .data, .videoUrl, .asyncSource: break
+        }
+        
+        /// Since we don't have a direct size, try to extract it from the data
+        guard
+            let source: CGImageSource = createImageSource(),
+            let properties: [String: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any]
+        else { return .up }
+        
+        return ImageDataManager.orientation(from: properties)
     }
 }
 
@@ -863,15 +1086,15 @@ public extension ImageDataManager {
 // MARK: - ImageDataManagerType
 
 public protocol ImageDataManagerType {
-    @discardableResult func load(_ source: ImageDataManager.DataSource) async -> ImageDataManager.ProcessedImageData?
+    @discardableResult func load(_ source: ImageDataManager.DataSource) async -> ImageDataManager.FrameBuffer?
     
     @MainActor
     func load(
         _ source: ImageDataManager.DataSource,
-        onComplete: @MainActor @escaping (ImageDataManager.ProcessedImageData?) -> Void
+        onComplete: @MainActor @escaping (ImageDataManager.FrameBuffer?) -> Void
     )
     
-    func cachedImage(identifier: String) async -> ImageDataManager.ProcessedImageData?
+    func cachedImage(identifier: String) async -> ImageDataManager.FrameBuffer?
     func removeImage(identifier: String) async
     func clearCache() async
 }
@@ -879,6 +1102,128 @@ public protocol ImageDataManagerType {
 // MARK: - ThumbnailManager
 
 public protocol ThumbnailManager: Sendable {
-    func existingThumbnailImage(url: URL, size: ImageDataManager.ThumbnailSize) -> UIImage?
-    func saveThumbnail(data: Data, size: ImageDataManager.ThumbnailSize, url: URL)
+    func existingThumbnail(name: String, size: ImageDataManager.ThumbnailSize) -> ImageDataManager.DataSource?
+    func saveThumbnail(
+        name: String,
+        frames: [UIImage],
+        durations: [TimeInterval],
+        hasAlpha: Bool?,
+        size: ImageDataManager.ThumbnailSize
+    )
+}
+
+// MARK: AsyncLoadStream
+
+public actor AsyncLoadStream {
+    public typealias Loader = @Sendable (AsyncLoadStream, ImageDataManager.FrameBuffer) async -> Void
+    
+    fileprivate static let completed: AsyncLoadStream = AsyncLoadStream(isFinished: true)
+    
+    private var continuations: [UUID: AsyncStream<ImageDataManager.AsyncLoadEvent>.Continuation] = [:]
+    private var lastEvent: ImageDataManager.AsyncLoadEvent?
+    private var isFinished: Bool = false
+    
+    /// This being `nonisolated(unsafe)` is ok because it only gets set in `init` or accessed from isolated methods (`send`
+    /// and `cancel`)
+    private nonisolated(unsafe) var loadingTask: Task<Void, Never>?
+    private weak var frameBuffer: ImageDataManager.FrameBuffer?
+    
+    public nonisolated var stream: AsyncStream<ImageDataManager.AsyncLoadEvent> {
+        AsyncStream { continuation in
+            let id = UUID()
+            Task {
+                guard await !self.isFinished else {
+                    if let lastEvent = await self.lastEvent {
+                        continuation.yield(lastEvent)
+                    }
+                    
+                    /// Don't finish, add to continuations to keep the observer registered and the `FrameBuffer` alive (in case
+                    /// it's purgeable)
+                    await self.addContinuation(id: id, continuation: continuation)
+                    return
+                }
+                
+                // Replay the last event if there is one
+                if let lastEvent = await self.lastEvent {
+                    continuation.yield(lastEvent)
+                }
+                
+                await self.addContinuation(id: id, continuation: continuation)
+            }
+            continuation.onTermination = { _ in
+                Task { await self.removeContinuation(id: id) }
+            }
+        }
+    }
+    
+    // MARK: - Initialization
+    
+    fileprivate init() {}
+    
+    private init(isFinished: Bool) {
+        self.lastEvent = .completed
+        self.isFinished = isFinished
+        self.loadingTask = nil
+    }
+    
+    // MARK: - Functions
+    
+    public func start(
+        priority: TaskPriority? = nil,
+        with load: @escaping Loader,
+        buffer: ImageDataManager.FrameBuffer
+    ) {
+        loadingTask?.cancel()
+        loadingTask = nil
+        
+        lastEvent = nil
+        isFinished = false
+        frameBuffer = buffer
+        loadingTask = Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            
+            await load(self, buffer)
+        }
+    }
+    
+    public func send(_ event: ImageDataManager.AsyncLoadEvent) {
+        guard !isFinished else { return }
+        
+        lastEvent = event
+        continuations.values.forEach { $0.yield(event) }
+        
+        /// Mark as finished by **don't** `finish` the streams so we don't unintentionally purge memory
+        if case .completed = event {
+            isFinished = true
+            loadingTask = nil
+        }
+    }
+    
+    public func cancel() {
+        loadingTask?.cancel()
+        loadingTask = nil
+        continuations.values.forEach { $0.finish() }
+        continuations.removeAll()
+        isFinished = true
+    }
+    
+    // MARK: - Internal Functions
+    
+    private func addContinuation(id: UUID, continuation: AsyncStream<ImageDataManager.AsyncLoadEvent>.Continuation) {
+        continuations[id] = continuation
+    }
+    
+    private func removeContinuation(id: UUID) {
+        continuations.removeValue(forKey: id)
+        
+        /// When last observer removed, trigger purge check
+        if continuations.isEmpty {
+            loadingTask?.cancel()
+            loadingTask = nil
+            
+            Task.detached { [weak frameBuffer] in
+                frameBuffer?.purgeIfNeeded()
+            }
+        }
+    }
 }

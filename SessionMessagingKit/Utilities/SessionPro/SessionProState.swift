@@ -148,9 +148,18 @@ extension SessionProState: SessionProCTAManagerType {
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
-        guard dependencies[feature: .sessionProEnabled] else { return false }
-        if case .active = sessionProStateSubject.value { return false }
+        let shouldShowProCTA: Bool = {
+            guard dependencies[feature: .sessionProEnabled] else { return false }
+            if case .groupLimit = variant { return true }
+            switch sessionProStateSubject.value {
+                case .active, .refunding: return false
+                case .none, .expired: return true
+            }
+        }()
         
+        guard shouldShowProCTA else {
+            return false
+        }
         beforePresented?()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(

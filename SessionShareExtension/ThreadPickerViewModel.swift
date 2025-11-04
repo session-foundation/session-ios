@@ -14,6 +14,8 @@ public class ThreadPickerViewModel {
     public let dependencies: Dependencies
     public let userMetadata: ExtensionHelper.UserMetadata?
     public let hasNonTextAttachment: Bool
+    // FIXME: Clean up to follow proper MVVM
+    @MainActor public private(set) var linkPreviewDrafts: [LinkPreviewDraft] = []
     
     init(
         userMetadata: ExtensionHelper.UserMetadata?,
@@ -60,18 +62,17 @@ public class ThreadPickerViewModel {
                 .shareQuery(userSessionId: userSessionId)
                 .fetchAll(db)
                 .map { threadViewModel in
-                    let wasKickedFromGroup: Bool = (
-                        threadViewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession) { cache in
-                            cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
+                    let (wasKickedFromGroup, groupIsDestroyed): (Bool, Bool) = {
+                        guard threadViewModel.threadVariant == .group else { return (false, false) }
+                        
+                        let sessionId: SessionId = SessionId(.group, hex: threadViewModel.threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            (
+                                cache.wasKickedFromGroup(groupSessionId: sessionId),
+                                cache.groupIsDestroyed(groupSessionId: sessionId)
+                            )
                         }
-                    )
-                    let groupIsDestroyed: Bool = (
-                        threadViewModel.threadVariant == .group &&
-                        dependencies.mutate(cache: .libSession) { cache in
-                            cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadViewModel.threadId))
-                        }
-                    )
+                    }()
                     
                     return threadViewModel.populatingPostQueryData(
                         recentReactionEmoji: nil,
@@ -96,6 +97,10 @@ public class ThreadPickerViewModel {
         .handleEvents(didFail: { Log.error("Observation failed with error: \($0)") })
     
     // MARK: - Functions
+    
+    @MainActor public func didLoadLinkPreview(linkPreview: LinkPreviewDraft) {
+        linkPreviewDrafts.append(linkPreview)
+    }
     
     public func updateData(_ updatedData: [SessionThreadViewModel]) {
         self.viewData = updatedData

@@ -23,7 +23,6 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         through: interactionAttachments,
         using: InteractionAttachment.attachment
     )
-    public static let quote = hasOne(Quote.self, using: Quote.interactionForeignKey)
     
     /// Whenever using this `linkPreview` association make sure to filter the result using
     /// `.filter(literal: Interaction.linkPreviewFilterLiteral)` to ensure the correct LinkPreview is returned
@@ -246,10 +245,6 @@ public struct Interaction: Codable, Identifiable, Equatable, Hashable, Fetchable
         
         return request(for: Interaction.attachments)
             .order(interactionAttachment[.albumIndex])
-    }
-
-    public var quote: QueryInterfaceRequest<Quote> {
-        request(for: Interaction.quote)
     }
 
     public var linkPreview: QueryInterfaceRequest<LinkPreview> {
@@ -536,6 +531,9 @@ public extension Interaction {
         _ db: ObservingDatabase,
         using dependencies: Dependencies
     ) throws -> Int {
+        /// If we don't have an account yet then no need to do any queries
+        guard dependencies[cache: .general].userExists else { return 0 }
+        
         // TODO: [Database Relocation] Should be able to clean this up by getting the conversation list and filtering
         struct ThreadIdVariant: Decodable, Hashable, FetchableRecord {
             let id: String

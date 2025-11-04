@@ -118,7 +118,9 @@ public class ScreenLockWindow {
         ///
         /// It's not safe to access `isScreenLockEnabled` in `storage` until the app is ready
         dependencies[singleton: .appReadiness].runNowOrWhenAppWillBecomeReady { [weak self, dependencies] in
-            self?.isScreenLockLocked = dependencies.mutate(cache: .libSession, { $0.get(.isScreenLockEnabled) })
+            if dependencies[cache: .general].userExists {
+                self?.isScreenLockLocked = dependencies.mutate(cache: .libSession, { $0.get(.isScreenLockEnabled) })
+            }
             
             switch Thread.isMainThread {
                 case true: self?.ensureUI()

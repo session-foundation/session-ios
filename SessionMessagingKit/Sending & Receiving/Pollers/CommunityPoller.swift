@@ -23,7 +23,7 @@ public protocol CommunityPollerType {
     typealias PollResponse = (info: ResponseInfoType, data: Network.BatchResponseMap<Network.SOGS.Endpoint>)
     
     var isPolling: Bool { get }
-    var receivedPollResponse: AnyPublisher<PollResponse, Never> { get }
+    nonisolated var receivedPollResponse: AsyncStream<PollResponse> { get }
     
     func startIfNeeded()
     func stop()
@@ -54,9 +54,8 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     public let pollerName: String
     public let pollerDestination: PollerDestination
     public let logStartAndStopCalls: Bool
-    public var receivedPollResponse: AnyPublisher<PollResponse, Never> {
-        receivedPollResponseSubject.eraseToAnyPublisher()
-    }
+    nonisolated public var receivedPollResponse: AsyncStream<PollResponse> { responseStream.stream }
+    nonisolated public var successfulPollCount: AsyncStream<Int> { pollCountStream.stream }
     
     public var isPolling: Bool = false
     public var pollCount: Int = 0
@@ -65,7 +64,8 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     public var cancellable: AnyCancellable?
     
     private let shouldStoreMessages: Bool
-    private let receivedPollResponseSubject: PassthroughSubject<PollResponse, Never> = PassthroughSubject()
+    nonisolated private let responseStream: CancellationAwareAsyncStream<PollResponse> = CancellationAwareAsyncStream()
+    nonisolated private let pollCountStream: CurrentValueAsyncStream<Int> = CurrentValueAsyncStream(0)
     
     // MARK: - Initialization
     
@@ -88,6 +88,13 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         self.failureCount = failureCount
         self.shouldStoreMessages = shouldStoreMessages
         self.logStartAndStopCalls = logStartAndStopCalls
+    }
+    
+    deinit {
+        // Send completion events to the observables
+        Task { [stream = responseStream] in
+            await stream.finishCurrentStreams()
+        }
     }
     
     // MARK: - Abstract Methods
@@ -119,7 +126,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 }
                 return .continuePolling
         }
-        //[pollerName, pollerDestination, failureCount, dependencies]
+        
         func handleError(_ error: Error) throws -> AnyPublisher<Void, Error> {
             /// Log the error first
             Log.error(.poller, "\(pollerName) failed to update capabilities due to error: \(error).")
@@ -328,7 +335,12 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
             }
             .handleEvents(
                 receiveOutput: { [weak self, dependencies] _ in
-                    self?.pollCount += 1
+                    let updatedPollCount: Int = ((self?.pollCount ?? 0) + 1)
+                    self?.pollCount = updatedPollCount
+                    
+                    Task { [weak self] in
+                        await self?.pollCountStream.send(updatedPollCount)
+                    }
                     
                     dependencies.mutate(cache: .openGroupManager) { cache in
                         cache.setLastSuccessfulCommunityPollTimestamp(

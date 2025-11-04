@@ -595,7 +595,7 @@ fileprivate extension LibSessionUtilSpec {
                     
                 case .profile_pic:
                     contact.set(\.profile_pic.url, to: rand.nextBytes(count: LibSession.sizeMaxProfileUrlBytes).toHexString())
-                    contact.set(\.profile_pic.key, to: rand.nextBytes(count: DisplayPictureManager.aes256KeyByteLength))
+                    contact.set(\.profile_pic.key, to: rand.nextBytes(count: DisplayPictureManager.encryptionKeySize))
             }
         }
         
@@ -2695,7 +2695,7 @@ fileprivate extension LibSessionUtilSpec {
                 
                 case .profile_pic:
                     member.set(\.profile_pic.url, to: rand.nextBytes(count: LibSession.sizeMaxProfileUrlBytes).toHexString())
-                    member.set(\.profile_pic.key, to: Data(rand.nextBytes(count: DisplayPictureManager.aes256KeyByteLength)))
+                    member.set(\.profile_pic.key, to: Data(rand.nextBytes(count: DisplayPictureManager.encryptionKeySize)))
             }
         }
         
