@@ -5,6 +5,7 @@ import Lucide
 
 public struct SessionProPaymentScreen: View {
     @EnvironmentObject var host: HostWrapper
+    @State private var isNavigationActive: Bool = false
     @State var currentSelection: Int
     @State private var isShowingTooltip: Bool = false
     
@@ -32,116 +33,29 @@ public struct SessionProPaymentScreen: View {
     public var body: some View {
         GeometryReader { geometry in
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: Values.mediumSmallSpacing) {
-                    ListItemLogoWithPro(
-                        info: .init(
-                            style: {
-                                switch viewModel.dataModel.flow {
-                                    case .refund, .cancel: return .disabled
-                                    default: return .normal
-                                }
-                            }(),
-                            state: .success,
-                            description: viewModel.dataModel.flow.description
+                ZStack(alignment: .topLeading) {
+                    content
+                        .padding(.horizontal, Values.largeSpacing)
+                        .frame(
+                            maxWidth: .infinity,
+                            minHeight: geometry.size.height
                         )
-                    )
-                    if case .purchase = viewModel.dataModel.flow {
-                        SessionProPlanPurchaseContent(
-                            currentSelection: $currentSelection,
-                            isShowingTooltip: $isShowingTooltip,
-                            suppressUntil: $suppressUntil,
-                            currentPlan: nil,
-                            sessionProPlans: viewModel.dataModel.plans,
-                            actionButtonTitle: "Upgrade",
-                            purchaseAction: { updatePlan() },
-                            openTosPrivacyAction: { openTosPrivacy() }
-                        )
-                    } else if case .renew(let originatingPlatform) = viewModel.dataModel.flow {
-                        if viewModel.dataModel.plans.isEmpty {
-                            RenewPlanNoBillingAccessContent(
-                                originatingPlatform: originatingPlatform,
-                                openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
-                            )
-                        } else {
-                            SessionProPlanPurchaseContent(
-                                currentSelection: $currentSelection,
-                                isShowingTooltip: $isShowingTooltip,
-                                suppressUntil: $suppressUntil,
-                                currentPlan: nil,
-                                sessionProPlans: viewModel.dataModel.plans,
-                                actionButtonTitle: "renew".localized(),
-                                purchaseAction: { updatePlan() },
-                                openTosPrivacyAction: { openTosPrivacy() }
-                            )
+                        .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
+                            guard self.isShowingTooltip else { return }
+                            suppressUntil = Date().addingTimeInterval(0.2)
+                            withAnimation(.spring()) {
+                                self.isShowingTooltip = false
+                            }
                         }
-                    } else if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = viewModel.dataModel.flow {
-                        if originatingPlatform == .iOS {
-                            SessionProPlanPurchaseContent(
-                                currentSelection: $currentSelection,
-                                isShowingTooltip: $isShowingTooltip,
-                                suppressUntil: $suppressUntil,
-                                currentPlan: currentPlan,
-                                sessionProPlans: viewModel.dataModel.plans,
-                                actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
-                                purchaseAction: { updatePlan() },
-                                openTosPrivacyAction: { openTosPrivacy() }
-                            )
-                        } else {
-                            UpdatePlanNonOriginatingPlatformContent(
-                                currentPlan: currentPlan,
-                                currentPlanExpiredOn: expiredOn,
-                                isAutoRenewing: isAutoRenewing,
-                                originatingPlatform: originatingPlatform,
-                                openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
-                            )
-                        }
-                    } else if case .refund(let originatingPlatform, let requestedAt) = viewModel.dataModel.flow {
-                        if originatingPlatform == .iOS {
-                            RequestRefundOriginatingPlatformContent(
-                                requestRefundAction: {}
-                            )
-                        } else {
-                            RequestRefundNonOriginatingPlatformContent(
-                                originatingPlatform: originatingPlatform,
-                                requestedAt: requestedAt,
-                                openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
-                            )
-                        }
-                    } else if case .cancel(let originatingPlatform) = viewModel.dataModel.flow {
-                        if originatingPlatform == .iOS {
-                            CancelPlanOriginatingPlatformContent(
-                                cancelPlanAction: {
-                                    viewModel.cancelPro(
-                                        success: {
-                                            host.controller?.navigationController?.popViewController(animated: true)
-                                        },
-                                        failure: {
-                                            
-                                        }
-                                    )
-                                }
-                            )
-                        } else {
-                            CancelPlanNonOriginatingPlatformContent(
-                                originatingPlatform: originatingPlatform,
-                                openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
-                            )
-                        }
-                    }
                     
-                    Spacer()
-                }
-                .padding(.horizontal, Values.largeSpacing)
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: geometry.size.height
-                )
-                .onAnyInteraction(scrollCoordinateSpaceName: coordinateSpaceName) {
-                    guard self.isShowingTooltip else { return }
-                    suppressUntil = Date().addingTimeInterval(0.2)
-                    withAnimation(.spring()) {
-                        self.isShowingTooltip = false
+                    // Hidden NavigationLink for publisher-driven navigation
+                    NavigationLink(
+                        destination: destinationView,
+                        isActive: $isNavigationActive
+                    ) {
+                        EmptyView()
                     }
+                    .hidden()
                 }
             }
             .coordinateSpace(name: coordinateSpaceName)
@@ -174,64 +88,172 @@ public struct SessionProPaymentScreen: View {
         }
     }
     
-    private func updatePlan() {
-        let updatedPlan = viewModel.dataModel.plans[currentSelection]
-        if
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _) = viewModel.dataModel.flow,
-            let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: expiredOn)
-        {
-            let confirmationModal = ConfirmationModal(
+    private var destinationView: some View {
+        SessionProPlanUpdatedScreen(
+            flow: self.viewModel.dataModel.flow,
+            expiredOn: nil
+        )
+    }
+    
+    private var content: some View {
+        VStack(spacing: Values.mediumSmallSpacing) {
+            ListItemLogoWithPro(
                 info: .init(
-                    title: "updateAccess"
-                        .put(key: "pro", value: Constants.pro)
-                        .localized(),
-                    body: .attributedText(
-                        isAutoRenewing ?
-                            "proUpdateAccessDescription"
-                                .put(key: "current_plan_length", value: currentPlan.durationString)
-                                .put(key: "selected_plan_length", value: updatedPlan.durationString)
-                                .put(key: "selected_plan_length_singular", value: updatedPlan.durationStringSingular)
-                                .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                                .put(key: "pro", value: Constants.pro)
-                                .localizedFormatted(Fonts.Body.largeRegular) :
-                            "proUpdateAccessExpireDescription"
-                                .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                                .put(key: "selected_plan_length", value: updatedPlan.durationString)
-                                .put(key: "pro", value: Constants.pro)
-                                .localizedFormatted(Fonts.Body.largeRegular),
-                        scrollMode: .never
-                    ),
-                    confirmTitle: "update".localized(),
-                    onConfirm: { _ in
-                        self.viewModel.purchase(
-                            planInfo: updatedPlan,
-                            success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
-                            failure: {
-                                
-                            }
-                        )
-                    }
+                    themeStyle: {
+                        switch viewModel.dataModel.flow {
+                            case .refund, .cancel: return .disabled
+                            default: return .normal
+                        }
+                    }(),
+                    glowingBackgroundStyle: .base,
+                    state: .success,
+                    description: viewModel.dataModel.flow.description
                 )
             )
-            self.host.controller?.present(confirmationModal, animated: true)
-        }
-        
-        switch viewModel.dataModel.flow {
-            case .purchase, .renew:
-                if let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: Date()) {
-                    self.viewModel.purchase(
-                        planInfo: updatedPlan,
-                        success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
-                        failure: {
-                            
-                        }
+            if case .purchase = viewModel.dataModel.flow {
+                SessionProPlanPurchaseContent(
+                    currentSelection: $currentSelection,
+                    isShowingTooltip: $isShowingTooltip,
+                    suppressUntil: $suppressUntil,
+                    currentPlan: nil,
+                    sessionProPlans: viewModel.dataModel.plans,
+                    actionButtonTitle: "upgrade".localized(),
+                    purchaseAction: { updatePlan() },
+                    openTosPrivacyAction: { openTosPrivacy() }
+                )
+            } else if case .renew(let originatingPlatform) = viewModel.dataModel.flow {
+                if viewModel.dataModel.plans.isEmpty {
+                    RenewPlanNoBillingAccessContent(
+                        originatingPlatform: originatingPlatform,
+                        openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                    )
+                } else {
+                    SessionProPlanPurchaseContent(
+                        currentSelection: $currentSelection,
+                        isShowingTooltip: $isShowingTooltip,
+                        suppressUntil: $suppressUntil,
+                        currentPlan: nil,
+                        sessionProPlans: viewModel.dataModel.plans,
+                        actionButtonTitle: "renew".localized(),
+                        purchaseAction: { updatePlan() },
+                        openTosPrivacyAction: { openTosPrivacy() }
                     )
                 }
+            } else if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform) = viewModel.dataModel.flow {
+                if originatingPlatform == .iOS {
+                    SessionProPlanPurchaseContent(
+                        currentSelection: $currentSelection,
+                        isShowingTooltip: $isShowingTooltip,
+                        suppressUntil: $suppressUntil,
+                        currentPlan: currentPlan,
+                        sessionProPlans: viewModel.dataModel.plans,
+                        actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
+                        purchaseAction: { updatePlan() },
+                        openTosPrivacyAction: { openTosPrivacy() }
+                    )
+                } else {
+                    UpdatePlanNonOriginatingPlatformContent(
+                        currentPlan: currentPlan,
+                        currentPlanExpiredOn: expiredOn,
+                        isAutoRenewing: isAutoRenewing,
+                        originatingPlatform: originatingPlatform,
+                        openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                    )
+                }
+            } else if case .refund(let originatingPlatform, let requestedAt) = viewModel.dataModel.flow {
+                if originatingPlatform == .iOS {
+                    RequestRefundOriginatingPlatformContent(
+                        requestRefundAction: {}
+                    )
+                } else {
+                    RequestRefundNonOriginatingPlatformContent(
+                        originatingPlatform: originatingPlatform,
+                        requestedAt: requestedAt,
+                        openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                    )
+                }
+            } else if case .cancel(let originatingPlatform) = viewModel.dataModel.flow {
+                if originatingPlatform == .iOS {
+                    CancelPlanOriginatingPlatformContent(
+                        cancelPlanAction: {
+                            viewModel.cancelPro(
+                                success: {
+                                    host.controller?.navigationController?.popViewController(animated: true)
+                                },
+                                failure: {
+                                    
+                                }
+                            )
+                        }
+                    )
+                } else {
+                    CancelPlanNonOriginatingPlatformContent(
+                        originatingPlatform: originatingPlatform,
+                        openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                    )
+                }
+            }
+        }
+    }
+    
+    private func updatePlan() {
+        let updatedPlan = viewModel.dataModel.plans[currentSelection]
+        switch viewModel.dataModel.flow {
+            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _):
+                if let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: expiredOn) {
+                    let confirmationModal = ConfirmationModal(
+                        info: .init(
+                            title: "updateAccess"
+                                .put(key: "pro", value: Constants.pro)
+                                .localized(),
+                            body: .attributedText(
+                                isAutoRenewing ?
+                                    "proUpdateAccessDescription"
+                                        .put(key: "current_plan_length", value: currentPlan.durationString)
+                                        .put(key: "selected_plan_length", value: updatedPlan.durationString)
+                                        .put(key: "selected_plan_length_singular", value: updatedPlan.durationStringSingular)
+                                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localizedFormatted(Fonts.Body.largeRegular) :
+                                    "proUpdateAccessExpireDescription"
+                                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                        .put(key: "selected_plan_length", value: updatedPlan.durationString)
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localizedFormatted(Fonts.Body.largeRegular),
+                                scrollMode: .never
+                            ),
+                            confirmTitle: "update".localized(),
+                            onConfirm: { _ in
+                                self.viewModel.purchase(
+                                    planInfo: updatedPlan,
+                                    success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
+                                    failure: {
+                                        
+                                    }
+                                )
+                            }
+                        )
+                    )
+                    self.host.controller?.present(confirmationModal, animated: true)
+                }
+            case .purchase, .renew:
+                self.viewModel.purchase(
+                    planInfo: updatedPlan,
+                    success: { onPaymentSuccess(expiredOn: nil) },
+                    failure: {
+                        
+                    }
+                )
             default: break
         }
     }
     
-    private func onPaymentSuccess(expiredOn: Date) {
+    private func onPaymentSuccess(expiredOn: Date?) {
+        guard !self.viewModel.isFromBottomSheet else {
+            isNavigationActive = true
+            return
+        }
+        
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPlanUpdatedScreen(
                 flow: self.viewModel.dataModel.flow,

@@ -123,7 +123,8 @@ public class SessionProBottomSheetViewModel: SessionProBottomSheetViewModelType,
                     id: .logoWithPro,
                     variant: .logoWithPro(
                         info: .init(
-                            style:.normal,
+                            themeStyle:.normal,
+                            glowingBackgroundStyle: .base,
                             state: {
                                 switch state.loadingState {
                                 case .loading:
@@ -312,7 +313,8 @@ public class SessionProBottomSheetViewModel: SessionProBottomSheetViewModelType,
                     dataModel: .init(
                         flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(),
                         plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
-                    )
+                    ),
+                    isFromBottomSheet: true
                 )
             ),
             transitionType: .push

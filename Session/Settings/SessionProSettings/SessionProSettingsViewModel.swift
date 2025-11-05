@@ -231,12 +231,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .logoWithPro,
                     variant: .logoWithPro(
                         info: .init(
-                            style:{
+                            themeStyle:{
                                 switch state.currentProPlanState {
                                     case .expired: .disabled
                                     default: .normal
                                 }
                             }(),
+                            glowingBackgroundStyle: .base,
                             state: {
                                 switch state.loadingState {
                                     case .loading:
@@ -951,7 +952,8 @@ extension SessionProSettingsViewModel {
                     dataModel: .init(
                         flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(),
                         plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
-                    )
+                    ),
+                    isFromBottomSheet: false
                 )
             )
         )
@@ -1018,7 +1020,8 @@ extension SessionProSettingsViewModel {
                             }()
                         ),
                         plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
-                    )
+                    ),
+                    isFromBottomSheet: false
                 )
             )
         )
@@ -1041,7 +1044,8 @@ extension SessionProSettingsViewModel {
                             requestedAt: nil
                         ),
                         plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
-                    )
+                    ),
+                    isFromBottomSheet: false
                 )
             )
         )

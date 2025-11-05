@@ -16,7 +16,7 @@ public struct BottomSheet<Content>: View where Content: View {
     let shadowOpacity: Double = 0.4
 
     @State private var show: Bool = true
-    @State private var contentHeight: CGFloat = 80
+    @State private var topPadding: CGFloat = 80
     
     public init(
         hasCloseButton: Bool,
@@ -34,34 +34,46 @@ public struct BottomSheet<Content>: View where Content: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
             
-            // Bottom Sheet
-            ZStack(alignment: .topTrailing) {
-                NavigationView {
-                    content()
-                        .navigationBarHidden(true)
-                }
-                .navigationViewStyle(.stack)
+            VStack(spacing: Values.verySmallSpacing) {
+                Capsule()
+                    .fill(themeColor: .value(.textPrimary, alpha: 0.8))
+                    .frame(width: 35, height: 3)
                 
-                if hasCloseButton {
-                    Button {
-                        close()
-                    } label: {
-                        AttributedText(Lucide.Icon.x.attributedString(size: 20))
-                            .font(.system(size: 20))
-                            .foregroundColor(themeColor: .textPrimary)
+                // Bottom Sheet
+                ZStack(alignment: .topTrailing) {
+                    GeometryReader { geo in
+                        NavigationView {
+                            content()
+                                .padding(.top, 44)
+                        }
+                        .navigationViewStyle(.stack)
+                        .onAppear {
+                            let screenHeight = UIScreen.main.bounds.height
+                            let bottomSafeInset = host.controller?.view.safeAreaInsets.bottom ?? 0
+                            topPadding = screenHeight - bottomSafeInset - geo.size.height - 44 - Values.largeSpacing
+                        }
                     }
-                    .frame(width: 24, height: 24)
-                    .padding(Values.mediumSmallSpacing)
+                    
+                    if hasCloseButton {
+                        Button {
+                            close()
+                        } label: {
+                            AttributedText(Lucide.Icon.x.attributedString(size: 20))
+                                .font(.system(size: 20))
+                                .foregroundColor(themeColor: .textPrimary)
+                        }
+                        .frame(width: 24, height: 24)
+                        .padding(Values.mediumSmallSpacing)
+                    }
                 }
+                .backgroundColor(themeColor: .backgroundPrimary)
+                .cornerRadius(cornerRadius, corners: [.topLeft, .topRight])
+                .frame(
+                    maxWidth: .infinity,
+                    alignment: .topTrailing
+                )
             }
-            .backgroundColor(themeColor: .backgroundPrimary)
-            .cornerRadius(cornerRadius, corners: [.topLeft, .topRight])
-            .shadow(color: Color.black.opacity(shadowOpacity), radius: shadowRadius)
-            .frame(
-                maxWidth: .infinity,
-                alignment: .topTrailing
-            )
-            .padding(.top, 80)
+            .padding(.top, topPadding)
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .animation(.spring(), value: show)
         }

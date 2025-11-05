@@ -6,12 +6,12 @@ import Lucide
 public struct SessionProPlanUpdatedScreen: View {
     @EnvironmentObject var host: HostWrapper
     let flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow
-    let expiredOn: Date
+    let expiredOn: Date?
     var blurSize: CGFloat { UIScreen.main.bounds.width - 2 * Values.mediumSpacing }
     var dismissButtonTitle: String {
         switch flow {
             case .purchase, .renew:
-            "proStartUsing".put(key: "pro", value: Constants.pro).localized()
+                "proStartUsing".put(key: "pro", value: Constants.pro).localized()
             case .update:
                 "theReturn".localized()
             default: 
@@ -20,19 +20,20 @@ public struct SessionProPlanUpdatedScreen: View {
     }
     var desription: ThemedAttributedString {
         switch flow {
-            case .update(_, let expiredOn, _, _):
-                "proAllSetDescription"
+            case .update:
+                guard let expiredOn else { fallthrough }
+                return "proAllSetDescription"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "pro", value: Constants.pro)
                     .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                     .localizedFormatted(Fonts.Body.baseRegular)
             case .renew:
-                "proPlanRenewSupport"
+                return "proPlanRenewSupport"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "network_name", value: Constants.network_name)
                     .localizedFormatted(Fonts.Body.baseRegular)
             case .purchase:
-                "proUpgraded"
+                return "proUpgraded"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "network_name", value: Constants.network_name)
                     .localizedFormatted(Fonts.Body.baseRegular)
@@ -100,5 +101,6 @@ public struct SessionProPlanUpdatedScreen: View {
             .padding(.horizontal, Values.mediumSpacing)
             .padding(.vertical, (blurSize - 111) / 2)
         }
+        .navigationBarBackButtonHidden(true)
     }
 }

@@ -144,6 +144,7 @@ public extension SessionProPaymentScreenContent {
         var dataModel: DataModel { get set }
         var isRefreshing: Bool { get set }
         var errorString: String? { get set }
+        var isFromBottomSheet: Bool { get }
         
         func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?)
         func cancelPro(success: (() -> Void)?, failure: (() -> Void)?)

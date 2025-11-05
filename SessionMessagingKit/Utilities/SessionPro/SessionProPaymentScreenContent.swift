@@ -10,12 +10,14 @@ extension SessionProPaymentScreenContent {
         public var dataModel: DataModel
         public var isRefreshing: Bool = false
         public var errorString: String?
+        public var isFromBottomSheet: Bool
         
         private var dependencies: Dependencies
         
-        public init(dependencies: Dependencies, dataModel: DataModel) {
+        public init(dependencies: Dependencies, dataModel: DataModel, isFromBottomSheet: Bool) {
             self.dependencies = dependencies
             self.dataModel = dataModel
+            self.isFromBottomSheet = isFromBottomSheet
         }
         
         public func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?) {
