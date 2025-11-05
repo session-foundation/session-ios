@@ -956,6 +956,7 @@
 		FD99A3A22EBAA6AA00E59F94 /* Envelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3A12EBAA6A500E59F94 /* Envelope.swift */; };
 		FD99A3A42EBAA6BD00E59F94 /* EnvelopeFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3A32EBAA6BA00E59F94 /* EnvelopeFlags.swift */; };
 		FD99A3A62EBAAA1700E59F94 /* DecodedMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3A52EBAAA1400E59F94 /* DecodedMessage.swift */; };
+		FD99A3A82EBB0EE500E59F94 /* SessionProConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3A72EBB0EE200E59F94 /* SessionProConfig.swift */; };
 		FD99D0872D0FA731005D2E15 /* ThreadSafe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */; };
 		FD99D0922D10F5EE005D2E15 /* ThreadSafeSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */; };
 		FD9AECA52AAA9609009B3406 /* NotificationResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */; };
@@ -2259,6 +2260,7 @@
 		FD99A3A12EBAA6A500E59F94 /* Envelope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Envelope.swift; sourceTree = "<group>"; };
 		FD99A3A32EBAA6BA00E59F94 /* EnvelopeFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvelopeFlags.swift; sourceTree = "<group>"; };
 		FD99A3A52EBAAA1400E59F94 /* DecodedMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecodedMessage.swift; sourceTree = "<group>"; };
+		FD99A3A72EBB0EE200E59F94 /* SessionProConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProConfig.swift; sourceTree = "<group>"; };
 		FD99D0862D0FA72E005D2E15 /* ThreadSafe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafe.swift; sourceTree = "<group>"; };
 		FD99D0912D10F5EB005D2E15 /* ThreadSafeSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSafeSpec.swift; sourceTree = "<group>"; };
 		FD9AECA42AAA9609009B3406 /* NotificationResolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationResolution.swift; sourceTree = "<group>"; };
@@ -5065,6 +5067,7 @@
 		FDAA36C42EB474B50040603E /* Types */ = {
 			isa = PBXGroup;
 			children = (
+				FD99A3A72EBB0EE200E59F94 /* SessionProConfig.swift */,
 				FDAA36CD2EB484450040603E /* SessionProDecodedProForMessage.swift */,
 				FDAA36CB2EB47D7B0040603E /* SessionProExtraFeatures.swift */,
 				FDAA36C92EB476060040603E /* SessionProFeatures.swift */,
@@ -6882,6 +6885,7 @@
 				FDAA36C82EB475180040603E /* SessionProFeatureStatus.swift in Sources */,
 				FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */,
 				FD2272FA2C352D8E004D8A6C /* LibSession+SharedGroup.swift in Sources */,
+				FD99A3A82EBB0EE500E59F94 /* SessionProConfig.swift in Sources */,
 				FD37EA0F28AB3330003AE748 /* _014_FixHiddenModAdminSupport.swift in Sources */,
 				FD2272772C32911C004D8A6C /* AttachmentUploadJob.swift in Sources */,
 				FD22727C2C32911C004D8A6C /* GroupPromoteMemberJob.swift in Sources */,

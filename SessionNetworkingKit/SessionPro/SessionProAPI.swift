@@ -98,7 +98,8 @@ public extension Network.SessionPro {
                         paymentId: transactionId
                     ),
                     signatures: signatures
-                )
+                ),
+                using: dependencies
             ),
             responseType: AddProPaymentOrGetProProofResponse.self,
             using: dependencies
@@ -133,7 +134,8 @@ public extension Network.SessionPro {
                     rotatingPublicKey: rotatingKeyPair.publicKey,
                     timestampMs: timestampMs,
                     signatures: signatures
-                )
+                ),
+                using: dependencies
             ),
             responseType: AddProPaymentOrGetProProofResponse.self,
             using: dependencies
@@ -166,7 +168,8 @@ public extension Network.SessionPro {
                     timestampMs: timestampMs,
                     count: count,
                     signature: signature
-                )
+                ),
+                using: dependencies
             ),
             responseType: GetProStatusResponse.self,
             using: dependencies

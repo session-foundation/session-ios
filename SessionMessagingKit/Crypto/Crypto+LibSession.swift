@@ -133,7 +133,7 @@ public extension Crypto.Generator {
             args: []
         ) { dependencies in
             let cEncodedMessage: [UInt8] = Array(encodedMessage)
-            let cBackendPubkey: [UInt8] = Array(Data(hex: Network.SessionPro.serverPublicKey))
+            let cBackendPubkey: [UInt8] = Array(Data(hex: Network.SessionPro.serverEdPublicKey))
             let currentTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             var error: [CChar] = [CChar](repeating: 0, count: 256)
             

@@ -698,7 +698,7 @@ extension MessageReceiver {
             for: decodedMessage.decodedPro?.proProof,
             verifyPubkey: {
                 switch threadVariant {
-                    case .community: return Array(Data(hex: Network.SessionPro.serverPublicKey))
+                    case .community: return Array(Data(hex: Network.SessionPro.serverEdPublicKey))
                     default: return decodedMessage.senderEd25519Pubkey
                 }
             }(),

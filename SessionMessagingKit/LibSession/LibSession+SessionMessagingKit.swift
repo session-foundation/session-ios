@@ -1075,6 +1075,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?)
     
     var displayName: String? { get }
+    var proConfig: SessionPro.ProConfig? { get }
     
     func updateProfile(
         displayName: Update<String>,
@@ -1355,6 +1356,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     // MARK: - State Access
     
     var displayName: String? { return nil }
+    var proConfig: SessionPro.ProConfig? { return nil }
     
     func set(_ key: Setting.BoolKey, _ value: Bool?) {}
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {}

@@ -66,7 +66,10 @@ public actor SessionProManager: SessionProManagerType {
         self.syncState = SessionProManagerSyncState(using: dependencies)
         self.masterKeyPair = dependencies[singleton: .crypto].generate(.sessionProMasterKeyPair())
         
-        Task { await startProStatusObservations() }
+        Task {
+            await updateWithLatestFromUserConfig()
+            await startProStatusObservations()
+        }
     }
     
     deinit {
@@ -121,6 +124,29 @@ public actor SessionProManager: SessionProManagerType {
                 extraFeatures.libSessionValue
             )
         )
+    }
+    
+    public func updateWithLatestFromUserConfig() async {
+        let proConfig: SessionPro.ProConfig? = dependencies.mutate(cache: .libSession) { $0.proConfig }
+        
+        let rotatingKeyPair: KeyPair? = try? proConfig.map { config in
+            guard config.rotatingPrivateKey.count >= 32 else { return nil }
+            
+            return try dependencies[singleton: .crypto].tryGenerate(
+                .ed25519KeyPair(seed: config.rotatingPrivateKey.prefix(upTo: 32))
+            )
+        }
+        
+        /// Update the `syncState` first (just in case an update triggered from the async state results in something accessing the
+        /// sync state)
+        syncState.update(
+            rotatingKeyPair: .set(to: rotatingKeyPair),
+            proProof: .set(to: proConfig?.proProof)
+        )
+        
+        /// Then update the async state and streams
+        self.rotatingKeyPair = rotatingKeyPair
+        await self.proProofStream.send(proConfig?.proProof)
     }
     
     public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) async {
@@ -262,6 +288,7 @@ public protocol SessionProManagerType: SessionProUIManagerType {
         atTimestampMs timestampMs: UInt64
     ) -> SessionPro.ProStatus
     nonisolated func features(for message: String, extraFeatures: SessionPro.ExtraFeatures) -> SessionPro.FeaturesForMessage
+    func updateWithLatestFromUserConfig() async
 }
 
 public extension SessionProManagerType {

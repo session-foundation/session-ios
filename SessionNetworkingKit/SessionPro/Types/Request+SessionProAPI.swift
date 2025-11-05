@@ -9,7 +9,8 @@ public extension Request where Endpoint == Network.SessionPro.Endpoint {
         endpoint: Endpoint,
         queryParameters: [HTTPQueryParam: String] = [:],
         headers: [HTTPHeader: String] = [:],
-        body: T? = nil
+        body: T? = nil,
+        using dependencies: Dependencies
     ) throws {
         self = try Request(
             endpoint: endpoint,
@@ -18,7 +19,7 @@ public extension Request where Endpoint == Network.SessionPro.Endpoint {
                 server: Network.SessionPro.server,
                 queryParameters: queryParameters,
                 headers: headers,
-                x25519PublicKey: Network.SessionPro.serverPublicKey
+                x25519PublicKey: Network.SessionPro.x25519PublicKey(using: dependencies)
             ),
             body: body
         )

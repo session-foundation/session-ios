@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtil
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - LibSession
@@ -141,6 +142,11 @@ internal extension LibSessionCacheType {
             db.addContactEvent(id: userSessionId.hexString, change: .isApproved(true))
             db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
         }
+        
+        // Update the SessionProManager with these changes
+        db.afterCommit { [sessionProManager = dependencies[singleton: .sessionProManager]] in
+            Task { await sessionProManager.updateWithLatestFromUserConfig() }
+        }
     }
 }
 
@@ -210,6 +216,17 @@ public extension LibSession.Cache {
         else { return nil }
         
         return String(cString: profileNamePtr)
+    }
+    
+    var proConfig: SessionPro.ProConfig? {
+        var cProConfig: pro_pro_config = pro_pro_config()
+        
+        guard
+            case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId),
+            user_profile_get_pro_config(conf, &cProConfig)
+        else { return nil }
+        
+        return SessionPro.ProConfig(cProConfig)
     }
     
     func updateProfile(
