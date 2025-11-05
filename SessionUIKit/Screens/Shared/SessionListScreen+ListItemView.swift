@@ -155,19 +155,12 @@ public struct ListItemLogoWithPro: View {
         
         var verticalPaddings: CGFloat {
             switch self {
-                case .base, .large:
+                case .base:
+                    return 10
+                case .large:
                     return (blurSize.height - 111) / 2
                 case .largeNoPaddings:
                     return 0
-            }
-        }
-        
-        var blurMaxHeight: CGFloat {
-            switch self {
-                case .large:
-                    return UIScreen.main.bounds.width - 2 * Values.mediumSpacing
-                case .base, .largeNoPaddings:
-                    return 111
             }
         }
     }
@@ -220,18 +213,16 @@ public struct ListItemLogoWithPro: View {
 
     public var body: some View {
         ZStack(alignment: .top) {
-            ZStack {
-                Ellipse()
-                    .fill(themeColor: info.themeStyle.growingBackgroundColor)
-                    .frame(
-                        width: info.glowingBackgroundStyle.blurSize.width,
-                        height: info.glowingBackgroundStyle.blurSize.height
-                    )
-                    .shadow(radius: info.glowingBackgroundStyle.shadowRadius)
-                    .opacity(0.17)
-                    .blur(radius: info.glowingBackgroundStyle.blurRadius)
-            }
-            .frame(maxHeight: info.glowingBackgroundStyle.blurMaxHeight)
+            Ellipse()
+                .fill(themeColor: info.themeStyle.growingBackgroundColor)
+                .frame(
+                    width: info.glowingBackgroundStyle.blurSize.width,
+                    height: info.glowingBackgroundStyle.blurSize.height
+                )
+                .shadow(radius: info.glowingBackgroundStyle.shadowRadius)
+                .opacity(0.17)
+                .blur(radius: info.glowingBackgroundStyle.blurRadius)
+                .padding(.top, info.glowingBackgroundStyle.blurRadius / 2)
             
             VStack(spacing: 0) {
                 Image("SessionGreen64")

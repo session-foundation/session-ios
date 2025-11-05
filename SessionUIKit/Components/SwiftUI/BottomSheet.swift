@@ -50,7 +50,7 @@ public struct BottomSheet<Content>: View where Content: View {
                         .onAppear {
                             let screenHeight = UIScreen.main.bounds.height
                             let bottomSafeInset = host.controller?.view.safeAreaInsets.bottom ?? 0
-                            topPadding = screenHeight - bottomSafeInset - geo.size.height - 44 - Values.largeSpacing
+                            topPadding = screenHeight - bottomSafeInset - geo.size.height - 44 - Values.veryLargeSpacing
                         }
                     }
                     
