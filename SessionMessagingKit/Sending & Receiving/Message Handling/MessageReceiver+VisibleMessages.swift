@@ -20,19 +20,11 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: VisibleMessage,
+        decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
-        associatedWithProto proto: SNProtoContent,
         suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo {
-        guard let sender: String = message.sender, let dataMessage = proto.dataMessage else {
-            throw MessageError.missingRequiredField
-        }
-        
-        // Note: `message.sentTimestamp` is in ms (convert to TimeInterval before converting to
-        // seconds to maintain the accuracy)
-        let messageSentTimestampMs: UInt64 = message.sentTimestampMs ?? 0
-        let messageSentTimestamp: TimeInterval = TimeInterval(Double(messageSentTimestampMs) / 1000)
         let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
         
         // Update profile if needed (want to do this regardless of whether the message exists or
@@ -40,10 +32,11 @@ extension MessageReceiver {
         if let profile = message.profile {
             try Profile.updateIfNeeded(
                 db,
-                publicKey: sender,
+                publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
+                decodedPro: decodedMessage.decodedPro,
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
@@ -72,7 +65,9 @@ extension MessageReceiver {
             id: threadId,
             variant: threadVariant,
             values: SessionThread.TargetValues(
-                creationDateTimestamp: .useExistingOrSetTo(messageSentTimestamp),
+                creationDateTimestamp: .useExistingOrSetTo(
+                    TimeInterval(Double(decodedMessage.sentTimestampMs) / 1000)
+                ),
                 shouldBeVisible: .useExisting
             ),
             using: dependencies
@@ -83,24 +78,21 @@ extension MessageReceiver {
             return try? LibSession.OpenGroupUrlInfo.fetchOne(db, id: threadId)
         }()
         let variant: Interaction.Variant = try {
-            guard
-                let senderSessionId: SessionId = try? SessionId(from: sender),
-                let openGroupUrlInfo: LibSession.OpenGroupUrlInfo = openGroupUrlInfo
-            else {
-                return (sender == userSessionId.hexString ?
+            guard let openGroupUrlInfo: LibSession.OpenGroupUrlInfo = openGroupUrlInfo else {
+                return (decodedMessage.sender == userSessionId ?
                     .standardOutgoing :
                     .standardIncoming
                 )
             }
 
             // Need to check if the blinded id matches for open groups
-            switch senderSessionId.prefix {
+            switch decodedMessage.sender.prefix {
                 case .blinded15, .blinded25:
                     guard
                         dependencies[singleton: .crypto].verify(
                             .sessionId(
                                 userSessionId.hexString,
-                                matchesBlindedId: sender,
+                                matchesBlindedId: decodedMessage.sender.hexString,
                                 serverPublicKey: openGroupUrlInfo.publicKey
                             )
                         )
@@ -109,7 +101,7 @@ extension MessageReceiver {
                     return .standardOutgoing
                     
                 case .standard, .unblinded:
-                    return (sender == userSessionId.hexString ?
+                    return (decodedMessage.sender == userSessionId ?
                         .standardOutgoing :
                         .standardIncoming
                     )
@@ -149,9 +141,7 @@ extension MessageReceiver {
             db,
             thread: thread,
             message: message,
-            associatedWithProto: proto,
-            sender: sender,
-            messageSentTimestamp: messageSentTimestamp,
+            decodedMessage: decodedMessage,
             openGroupUrlInfo: openGroupUrlInfo,
             currentUserSessionIds: generateCurrentUserSessionIds(),
             suppressNotifications: suppressNotifications,
@@ -173,7 +163,7 @@ extension MessageReceiver {
                 cache.timestampAlreadyRead(
                     threadId: thread.id,
                     threadVariant: thread.variant,
-                    timestampMs: Int64(messageSentTimestamp * 1000),
+                    timestampMs: decodedMessage.sentTimestampMs,
                     openGroupUrlInfo: openGroupUrlInfo
                 )
             }
@@ -187,10 +177,10 @@ extension MessageReceiver {
             using: dependencies
         )
         do {
-            let isProMessage: Bool = dependencies.mutate(cache: .libSession, { $0.validateProProof(for: message) })
-            let processedMessageBody: String? = Self.truncateMessageTextIfNeeded(
+            let processedMessageBody: String? = processMessageBody(
                 message.text,
-                isProMessage: isProMessage,
+                decodedMessage: decodedMessage,
+                threadVariant: thread.variant,
                 dependencies: dependencies
             )
             
@@ -198,16 +188,16 @@ extension MessageReceiver {
                 serverHash: message.serverHash, // Keep track of server hash
                 threadId: thread.id,
                 threadVariant: thread.variant,
-                authorId: sender,
+                authorId: decodedMessage.sender.hexString,
                 variant: variant,
                 body: processedMessageBody,
-                timestampMs: Int64(messageSentTimestamp * 1000),
+                timestampMs: Int64(decodedMessage.sentTimestampMs),
                 wasRead: wasRead,
                 hasMention: Interaction.isUserMentioned(
                     db,
                     threadId: thread.id,
                     body: processedMessageBody,
-                    quoteAuthorId: dataMessage.quote?.author,
+                    quoteAuthorId: message.quote?.authorId,
                     using: dependencies
                 ),
                 expiresInSeconds: messageExpirationInfo.expiresInSeconds,
@@ -233,9 +223,9 @@ extension MessageReceiver {
                         variant == .standardOutgoing,
                         let existingInteractionId: Int64 = try? thread.interactions
                             .select(.id)
-                            .filter(Interaction.Columns.timestampMs == (messageSentTimestamp * 1000))
+                            .filter(Interaction.Columns.timestampMs == decodedMessage.sentTimestampMs)
                             .filter(Interaction.Columns.variant == variant)
-                            .filter(Interaction.Columns.authorId == sender)
+                            .filter(Interaction.Columns.authorId == decodedMessage.sender.hexString)
                             .asRequest(of: Int64.self)
                             .fetchOne(db)
                     else { break }
@@ -247,7 +237,7 @@ extension MessageReceiver {
                         db,
                         thread: thread,
                         interactionId: existingInteractionId,
-                        messageSentTimestamp: messageSentTimestamp,
+                        messageSentTimestampMs: decodedMessage.sentTimestampMs,
                         variant: variant,
                         syncTarget: message.syncTarget,
                         using: dependencies
@@ -276,7 +266,7 @@ extension MessageReceiver {
             db,
             thread: thread,
             interactionId: interactionId,
-            messageSentTimestamp: messageSentTimestamp,
+            messageSentTimestampMs: decodedMessage.sentTimestampMs,
             variant: variant,
             syncTarget: message.syncTarget,
             using: dependencies
@@ -303,45 +293,61 @@ extension MessageReceiver {
             expireInSeconds: message.expiresInSeconds,
             using: dependencies
         )
-        
+
         // Parse & persist attachments
-        let attachments: [Attachment] = try dataMessage.attachments
-            .compactMap { proto -> Attachment? in
-                let attachment: Attachment = Attachment(proto: proto)
-                
-                // Attachments on received messages must have a 'downloadUrl' otherwise
-                // they are invalid and we can ignore them
-                return (attachment.downloadUrl != nil ? attachment : nil)
-            }
-            .enumerated()
-            .map { index, attachment in
-                let savedAttachment: Attachment = try attachment.upserted(db)
-                
-                // Link the attachment to the interaction and add to the id lookup
-                try InteractionAttachment(
-                    albumIndex: index,
-                    interactionId: interactionId,
-                    attachmentId: savedAttachment.id
-                ).insert(db)
-                
-                return savedAttachment
-            }
+        let proto: SNProtoContent = try decodedMessage.decodeProtoContent()
+        var attachments: [Attachment] = []
         
-        message.attachmentIds = attachments.map { $0.id }
+        if
+            let protoAttachments: [SNProtoAttachmentPointer] = proto.dataMessage?.attachments,
+            !protoAttachments.isEmpty
+        {
+            attachments = try protoAttachments
+                .compactMap { proto -> Attachment? in
+                    let attachment: Attachment = Attachment(proto: proto)
+                    
+                    // Attachments on received messages must have a 'downloadUrl' otherwise
+                    // they are invalid and we can ignore them
+                    return (attachment.downloadUrl != nil ? attachment : nil)
+                }
+                .enumerated()
+                .map { index, attachment in
+                    let savedAttachment: Attachment = try attachment.upserted(db)
+                    
+                    // Link the attachment to the interaction and add to the id lookup
+                    try InteractionAttachment(
+                        albumIndex: index,
+                        interactionId: interactionId,
+                        attachmentId: savedAttachment.id
+                    ).insert(db)
+                    
+                    return savedAttachment
+                }
+            
+            message.attachmentIds = attachments.map { $0.id }
+        }
         
         // Persist quote if needed
-        try? Quote(
-            proto: dataMessage,
-            interactionId: interactionId,
-            thread: thread
-        )?.insert(db)
+        if let quote: VisibleMessage.VMQuote = message.quote {
+            try? Quote(
+                interactionId: interactionId,
+                authorId: quote.authorId,
+                timestampMs: Int64(quote.timestamp)
+            ).insert(db)
+        }
         
         // Parse link preview if needed
-        let linkPreview: LinkPreview? = try? LinkPreview(
-            db,
-            proto: dataMessage,
-            sentTimestampMs: (messageSentTimestamp * 1000)
-        )?.upserted(db)
+        var linkPreviewAttachmentId: String?
+        if let linkPreview: VisibleMessage.VMLinkPreview = message.linkPreview {
+            let linkPreview: LinkPreview? = try? LinkPreview(
+                db,
+                linkPreview: linkPreview,
+                sentTimestampMs: decodedMessage.sentTimestampMs
+            )
+            _ = try? linkPreview?.upserted(db)
+            
+            linkPreviewAttachmentId = linkPreview?.attachmentId
+        }
         
         // Open group invitations are stored as LinkPreview values so create one if needed
         if
@@ -350,7 +356,7 @@ extension MessageReceiver {
         {
             try LinkPreview(
                 url: openGroupInvitationUrl,
-                timestamp: LinkPreview.timestampFor(sentTimestampMs: (messageSentTimestamp * 1000)),
+                timestamp: LinkPreview.timestampFor(sentTimestampMs: decodedMessage.sentTimestampMs),
                 variant: .openGroupInvitation,
                 title: openGroupInvitationName,
                 using: dependencies
@@ -359,12 +365,12 @@ extension MessageReceiver {
         
         // Start attachment downloads if needed (ie. trusted contact or group thread)
         // FIXME: Replace this to check the `autoDownloadAttachments` flag we are adding to threads
-        let isContactTrusted: Bool = ((try? Contact.fetchOne(db, id: sender))?.isTrusted ?? false)
+        let isContactTrusted: Bool = ((try? Contact.fetchOne(db, id: decodedMessage.sender.hexString))?.isTrusted ?? false)
 
         if isContactTrusted || thread.variant != .contact {
             attachments
                 .map { $0.id }
-                .appending(linkPreview?.attachmentId)
+                .appending(linkPreviewAttachmentId)
                 .forEach { attachmentId in
                     dependencies[singleton: .jobRunner].add(
                         db,
@@ -401,7 +407,7 @@ extension MessageReceiver {
             case .contact:
                 try MessageReceiver.updateContactApprovalStatusIfNeeded(
                     db,
-                    senderSessionId: sender,
+                    senderSessionId: decodedMessage.sender.hexString,
                     threadId: thread.id,
                     using: dependencies
                 )
@@ -409,7 +415,7 @@ extension MessageReceiver {
             case .group:
                 try MessageReceiver.updateMemberApprovalStatusIfNeeded(
                     db,
-                    senderSessionId: sender,
+                    senderSessionId: decodedMessage.sender.hexString,
                     groupSessionIdHexString: thread.id,
                     profile: nil,   // Don't update the profile in this case
                     using: dependencies
@@ -508,18 +514,13 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         thread: SessionThread,
         message: VisibleMessage,
-        associatedWithProto proto: SNProtoContent,
-        sender: String,
-        messageSentTimestamp: TimeInterval,
+        decodedMessage: DecodedMessage,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?,
         currentUserSessionIds: Set<String>,
         suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> Int64? {
-        guard
-            let vmReaction: VisibleMessage.VMReaction = message.reaction,
-            proto.dataMessage?.reaction != nil
-        else { return nil }
+        guard let vmReaction: VisibleMessage.VMReaction = message.reaction else { return nil }
         
         // Since we have database access here make sure the original message for this reaction exists
         // before handling it or showing a notification
@@ -548,13 +549,12 @@ extension MessageReceiver {
                 // Determine whether the app is active based on the prefs rather than the UIApplication state to avoid
                 // requiring main-thread execution
                 let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
-                let timestampMs: Int64 = Int64(messageSentTimestamp * 1000)
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 _ = try Reaction(
                     interactionId: interactionId,
                     serverHash: message.serverHash,
-                    timestampMs: timestampMs,
-                    authorId: sender,
+                    timestampMs: Int64(decodedMessage.sentTimestampMs),
+                    authorId: decodedMessage.sender.hexString,
                     emoji: vmReaction.emoji,
                     count: 1,
                     sortId: sortId
@@ -563,7 +563,7 @@ extension MessageReceiver {
                     cache.timestampAlreadyRead(
                         threadId: thread.id,
                         threadVariant: thread.variant,
-                        timestampMs: timestampMs,
+                        timestampMs: decodedMessage.sentTimestampMs,
                         openGroupUrlInfo: openGroupUrlInfo
                     )
                 }
@@ -572,9 +572,9 @@ extension MessageReceiver {
                 // the conversation or the reaction is for the sender's own message
                 if
                     !suppressNotifications &&
-                    sender != userSessionId.hexString &&
+                    decodedMessage.sender != userSessionId &&
                     !timestampAlreadyRead &&
-                    vmReaction.publicKey != sender
+                    vmReaction.publicKey != decodedMessage.sender.hexString
                 {
                     try? dependencies[singleton: .notificationsManager].notifyUser(
                         cat: .messageReceiver,
@@ -620,7 +620,7 @@ extension MessageReceiver {
             case .remove:
                 try Reaction
                     .filter(Reaction.Columns.interactionId == interactionId)
-                    .filter(Reaction.Columns.authorId == sender)
+                    .filter(Reaction.Columns.authorId == decodedMessage.sender.hexString)
                     .filter(Reaction.Columns.emoji == vmReaction.emoji)
                     .deleteAll(db)
         }
@@ -632,7 +632,7 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         thread: SessionThread,
         interactionId: Int64,
-        messageSentTimestamp: TimeInterval,
+        messageSentTimestampMs: UInt64,
         variant: Interaction.Variant,
         syncTarget: String?,
         using dependencies: Dependencies
@@ -668,7 +668,7 @@ extension MessageReceiver {
         // Process any PendingReadReceipt values
         let maybePendingReadReceipt: PendingReadReceipt? = try PendingReadReceipt
             .filter(PendingReadReceipt.Columns.threadId == thread.id)
-            .filter(PendingReadReceipt.Columns.interactionTimestampMs == Int64(messageSentTimestamp * 1000))
+            .filter(PendingReadReceipt.Columns.interactionTimestampMs == messageSentTimestampMs)
             .fetchOne(db)
         
         if let pendingReadReceipt: PendingReadReceipt = maybePendingReadReceipt {
@@ -684,24 +684,46 @@ extension MessageReceiver {
         }
     }
     
-    private static func truncateMessageTextIfNeeded(
+    private static func processMessageBody(
         _ text: String?,
-        isProMessage: Bool,
+        decodedMessage: DecodedMessage,
+        threadVariant: SessionThread.Variant,
         dependencies: Dependencies
     ) -> String? {
-        guard let text = text else { return nil }
+        guard let text: String = text else { return nil }
         
-        let utf16View = text.utf16
-        // TODO: Remove after Session Pro is enabled
-        let offset: Int = (dependencies[feature: .sessionProEnabled] && !isProMessage ?
-            SessionPro.CharacterLimit :
-            SessionPro.ProCharacterLimit
+        /// Extract the features used for the message
+        let info: SessionPro.FeaturesForMessage = dependencies[singleton: .sessionProManager].features(for: text)
+        let proStatus: SessionPro.ProStatus = dependencies[singleton: .sessionProManager].proStatus(
+            for: decodedMessage.decodedPro?.proProof,
+            verifyPubkey: {
+                switch threadVariant {
+                    case .community: return Array(Data(hex: Network.SessionPro.serverPublicKey))
+                    default: return decodedMessage.senderEd25519Pubkey
+                }
+            }(),
+            atTimestampMs: decodedMessage.sentTimestampMs
         )
         
-        guard utf16View.count > offset else { return text }
+        /// Check if the message is too long
+        guard
+            info.status == .exceedsCharacterLimit || (
+                proStatus != .valid &&
+                info.features.contains(.largerCharacterLimit)
+            )
+        else { return text }
+        
+        // FIXME: Replace this with a libSession-based truncation solution
+        let utf16View = text.utf16
+        let characterLimit: Int = (proStatus == .valid ?
+            SessionPro.ProCharacterLimit :
+            SessionPro.CharacterLimit
+        )
+        
+        guard utf16View.count > characterLimit else { return text }
         
         // Get the index at the maxUnits position in UTF16
-        let endUTF16Index = utf16View.index(utf16View.startIndex, offsetBy: offset)
+        let endUTF16Index = utf16View.index(utf16View.startIndex, offsetBy: characterLimit)
         
         // Try converting that UTF16 index back to a String.Index
         if let endIndex = String.Index(endUTF16Index, within: text) {

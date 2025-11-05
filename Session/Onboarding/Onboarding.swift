@@ -412,6 +412,9 @@ extension Onboarding {
                                     publicKey: userSessionId.hexString,
                                     displayNameUpdate: .currentUserUpdate(displayName),
                                     displayPictureUpdate: .none,
+                                    // TODO: [PRO] Need to decide if this is accurate
+                                    /// We won't have the current users Session Pro state at this stage
+                                    decodedPro: nil,
                                     profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
                                     using: dependencies
                                 )

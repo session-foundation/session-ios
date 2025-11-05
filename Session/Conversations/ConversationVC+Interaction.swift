@@ -871,6 +871,7 @@ extension ConversationVC:
                             fallback: .none,
                             using: dependencies
                         ),
+                        decodedPro: dependencies[singleton: .sessionProManager].currentUserCurrentDecodedProForMessage,
                         profileUpdateTimestamp: currentUserProfile.profileLastUpdated,
                         using: dependencies
                     )
@@ -1245,7 +1246,7 @@ extension ConversationVC:
                 ) { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies[singleton: .storage].writeAsync { db in
                         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                        let currentTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        let currentTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
                         
                         let interactionId = try messageDisappearingConfig
                             .upserted(db)

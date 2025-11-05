@@ -143,7 +143,7 @@ public extension NotificationsManagerType {
                 !cache.timestampAlreadyRead(
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    timestampMs: (message.sentTimestampMs.map { Int64($0) } ?? 0),  /// Default to unread
+                    timestampMs: (message.sentTimestampMs.map { UInt64($0) } ?? 0),  /// Default to unread
                     openGroupUrlInfo: openGroupUrlInfo
                 )
             })

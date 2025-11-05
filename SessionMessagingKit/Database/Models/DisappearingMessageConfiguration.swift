@@ -305,7 +305,7 @@ public extension DisappearingMessagesConfiguration {
         _ db: ObservingDatabase,
         threadVariant: SessionThread.Variant,
         authorId: String,
-        timestampMs: Int64,
+        timestampMs: UInt64,
         serverHash: String?,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
@@ -368,7 +368,7 @@ public extension DisappearingMessagesConfiguration {
                 ),
                 using: dependencies
             ),
-            timestampMs: timestampMs,
+            timestampMs: Int64(timestampMs),
             wasRead: wasRead,
             expiresInSeconds: interactionExpirationInfo?.expiresInSeconds,
             expiresStartedAtMs: interactionExpirationInfo?.expiresStartedAtMs,

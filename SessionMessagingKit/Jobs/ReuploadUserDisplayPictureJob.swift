@@ -113,7 +113,6 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                     displayPictureUpdate: .currentUserUpdateTo(
                         url: displayPictureUrl.absoluteString,
                         key: displayPictureEncryptionKey,
-                        sessionProProof: dependencies[singleton: .sessionProManager].currentUserCurrentProProof,
                         isReupload: true
                     ),
                     using: dependencies
@@ -173,7 +172,6 @@ public enum ReuploadUserDisplayPictureJob: JobExecutor {
                     displayPictureUpdate: .currentUserUpdateTo(
                         url: result.downloadUrl,
                         key: result.encryptionKey,
-                        sessionProProof: dependencies[singleton: .sessionProManager].currentUserCurrentProProof,
                         isReupload: true
                     ),
                     using: dependencies

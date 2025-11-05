@@ -171,7 +171,6 @@ public enum ProcessedMessage {
     case standard(
         threadId: String,
         threadVariant: SessionThread.Variant,
-        proto: SNProtoContent,
         messageInfo: MessageReceiveJob.Details.MessageInfo,
         uniqueIdentifier: String
     )
@@ -186,14 +185,14 @@ public enum ProcessedMessage {
     
     public var threadId: String {
         switch self {
-            case .standard(let threadId, _, _, _, _): return threadId
+            case .standard(let threadId, _, _, _): return threadId
             case .config(let publicKey, _, _, _, _, _): return publicKey
         }
     }
     
     var namespace: Network.SnodeAPI.Namespace {
         switch self {
-            case .standard(_, let threadVariant, _, _, _):
+            case .standard(_, let threadVariant, _, _):
                 switch threadVariant {
                     case .group: return .groupMessages
                     case .legacyGroup: return .legacyClosedGroup
@@ -206,7 +205,7 @@ public enum ProcessedMessage {
     
     var uniqueIdentifier: String {
         switch self {
-            case .standard(_, _, _, _, let uniqueIdentifier): return uniqueIdentifier
+            case .standard(_, _, _, let uniqueIdentifier): return uniqueIdentifier
             case .config(_, _, _, _, _, let uniqueIdentifier): return uniqueIdentifier
         }
     }
@@ -358,18 +357,18 @@ public extension Message {
 }
 
 public extension Message {
-    static func createMessageFrom(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) throws -> Message {
-        let decodedMessage: Message? = Variant
+    static func createMessageFrom(_ proto: SNProtoContent, decodedMessage: DecodedMessage, using dependencies: Dependencies) throws -> Message {
+        let result: Message? = Variant
             .allCases
             .sorted { lhs, rhs -> Bool in lhs.protoPriority < rhs.protoPriority }
             .filter { variant -> Bool in variant.isProtoConvetible }
             .reduce(nil) { prev, variant in
                 guard prev == nil else { return prev }
                 
-                return variant.messageType.fromProto(proto, sender: sender, using: dependencies)
+                return variant.messageType.fromProto(proto, sender: decodedMessage.sender.hexString, using: dependencies)
             }
         
-        return try decodedMessage ?? { throw MessageError.unknownMessage(proto) }()
+        return try result ?? { throw MessageError.unknownMessage(decodedMessage) }()
     }
     
     static func shouldSync(message: Message) -> Bool {

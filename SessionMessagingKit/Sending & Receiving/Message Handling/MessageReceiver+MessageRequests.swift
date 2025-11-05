@@ -12,6 +12,7 @@ extension MessageReceiver {
     internal static func handleMessageRequestResponse(
         _ db: ObservingDatabase,
         message: MessageRequestResponse,
+        decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         let userSessionId = dependencies[cache: .general].sessionId
@@ -29,6 +30,7 @@ extension MessageReceiver {
                 publicKey: senderId,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
+                decodedPro: decodedMessage.decodedPro,
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )

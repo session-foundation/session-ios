@@ -11,18 +11,16 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
+        decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
-        proto: SNProtoContent,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
+        let proto: SNProtoContent = try decodedMessage.decodeProtoContent()
+        
         guard proto.hasExpirationType || proto.hasExpirationTimer else {
             throw MessageError.invalidMessage("Message missing required fields")
         }
-        guard
-            threadVariant == .contact,    // Groups are handled via the GROUP_INFO config instead
-            let sender: String = message.sender,
-            let timestampMs: UInt64 = message.sentTimestampMs
-        else { throw MessageError.invalidMessage("Message missing required fields") }
+        guard threadVariant == .contact else { throw MessageError.invalidMessage("Message type should be handled by config change") }
         
         let localConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
             .fetchOne(db, id: threadId)
@@ -50,8 +48,8 @@ extension MessageReceiver {
         return try updatedConfig.insertControlMessage(
             db,
             threadVariant: threadVariant,
-            authorId: sender,
-            timestampMs: Int64(timestampMs),
+            authorId: decodedMessage.sender.hexString,
+            timestampMs: decodedMessage.sentTimestampMs,
             serverHash: message.serverHash,
             serverExpirationTimestamp: serverExpirationTimestamp,
             using: dependencies
@@ -62,16 +60,20 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         messageVariant: Message.Variant?,
         contactId: String?,
-        version: FeatureVersion?,
+        decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) {
         guard
             let messageVariant: Message.Variant = messageVariant,
             let contactId: String = contactId,
-            let version: FeatureVersion = version
+            [ .visibleMessage, .expirationTimerUpdate ].contains(messageVariant),
+            let proto: SNProtoContent = try? decodedMessage.decodeProtoContent()
         else { return }
         
-        guard [ .visibleMessage, .expirationTimerUpdate ].contains(messageVariant) else { return }
+        let version: FeatureVersion = ((!proto.hasExpirationType && !proto.hasExpirationTimer) ?
+            .legacyDisappearingMessages :
+            .newDisappearingMessages
+        )
         
         _ = try? Contact
             .filter(id: contactId)

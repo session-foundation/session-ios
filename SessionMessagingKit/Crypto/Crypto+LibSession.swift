@@ -18,6 +18,9 @@ public extension Crypto.Generator {
             args: []
         ) { dependencies in
             let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+            let cRotatingProPubkey: [UInt8]? = dependencies[singleton: .sessionProManager]
+                .currentUserCurrentRotatingKeyPair?
+                .publicKey
             
             guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
             
@@ -36,8 +39,8 @@ public extension Crypto.Generator {
                         cEd25519SecretKey.count,
                         sentTimestampMs,
                         &cPubkey,
-                        nil,
-                        0,
+                        cRotatingProPubkey,
+                        (cRotatingProPubkey?.count ?? 0),
                         &error,
                         error.count
                     )
@@ -52,8 +55,8 @@ public extension Crypto.Generator {
                         cEd25519SecretKey.count,
                         sentTimestampMs,
                         &cPubkey,
-                        nil,
-                        0,
+                        cRotatingProPubkey,
+                        (cRotatingProPubkey?.count ?? 0),
                         &error,
                         error.count
                     )
@@ -75,8 +78,8 @@ public extension Crypto.Generator {
                         sentTimestampMs,
                         &cPubkey,
                         &cCurrentGroupEncPrivateKey,
-                        nil,
-                        0,
+                        cRotatingProPubkey,
+                        (cRotatingProPubkey?.count ?? 0),
                         &error,
                         error.count
                     )
@@ -85,8 +88,8 @@ public extension Crypto.Generator {
                     result = session_protocol_encode_for_community(
                         cPlaintext,
                         cPlaintext.count,
-                        nil,
-                        0,
+                        cRotatingProPubkey,
+                        (cRotatingProPubkey?.count ?? 0),
                         &error,
                         error.count
                     )
@@ -104,8 +107,8 @@ public extension Crypto.Generator {
                         sentTimestampMs,
                         &cRecipientPubkey,
                         &cServerPubkey,
-                        nil,
-                        0,
+                        cRotatingProPubkey,
+                        (cRotatingProPubkey?.count ?? 0),
                         &error,
                         error.count
                     )
@@ -124,40 +127,35 @@ public extension Crypto.Generator {
     static func decodedMessage<I: DataProtocol>(
         encodedMessage: I,
         origin: Message.Origin
-    ) throws -> Crypto.Generator<(proto: SNProtoContent, sender: String, sentTimestampMs: UInt64)> {
+    ) throws -> Crypto.Generator<DecodedMessage> {
         return Crypto.Generator(
             id: "decodedMessage",
             args: []
         ) { dependencies in
             let cEncodedMessage: [UInt8] = Array(encodedMessage)
+            let cBackendPubkey: [UInt8] = Array(Data(hex: Network.SessionPro.serverPublicKey))
             let currentTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             var error: [CChar] = [CChar](repeating: 0, count: 256)
             
             switch origin {
                 case .community(_, let sender, let posted, _, _, _, _):
-                    var result: session_protocol_decoded_community_message = session_protocol_decode_for_community(
+                    var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
                         cEncodedMessage,
                         cEncodedMessage.count,
                         currentTimestampMs,
-                        nil,
-                        0,
+                        cBackendPubkey,
+                        cBackendPubkey.count,
                         &error,
                         error.count
                     )
-                    defer { session_protocol_decode_for_community_free(&result) }
+                    defer { session_protocol_decode_for_community_free(&cResult) }
                     
-                    guard result.success else {
+                    guard cResult.success else {
                         Log.error(.messageSender, "Failed to decode community message due to error: \(String(cString: error))")
                         throw MessageError.decodingFailed
                     }
                     
-                    let plaintext: Data = Data(UnsafeBufferPointer(start: result.content_plaintext.data, count: result.content_plaintext_unpadded_size))
-                    let proto: SNProtoContent = try Result(catching: { try SNProtoContent.parseData(plaintext) })
-                        .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
-                        .get()
-                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
-                    
-                    return (proto, sender, sentTimestampMs)
+                    return try DecodedMessage(decodedValue: cResult, sender: sender, posted: posted)
                     
                 case .communityInbox(let posted, _, let serverPublicKey, let senderId, let recipientId):
                     // FIXME: Fold into `session_protocol_decode_envelope` once support is added
@@ -169,14 +167,14 @@ public extension Crypto.Generator {
                             serverPublicKey: serverPublicKey
                         )
                     )
+                    let plaintext: Data = plaintextWithPadding.removePadding()
                     
-                    let plaintext = plaintextWithPadding.removePadding()
-                    let proto: SNProtoContent = try Result(catching: { try SNProtoContent.parseData(plaintext) })
-                        .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
-                        .get()
-                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
-                    
-                    return (proto, sender, sentTimestampMs)
+                    return DecodedMessage(
+                        content: plaintext,
+                        sender: try SessionId(from: senderId),
+                        decodedEnvelope: nil,   // TODO: [PRO] If we don't set this then we won't know the pro status
+                        sentTimestampMs: UInt64(floor(posted * 1000))
+                    )
                     
                 case .swarm(let publicKey, let namespace, _, _, _):
                     /// Function to provide pointers to the keys based on the namespace the message was received from
@@ -229,30 +227,24 @@ public extension Crypto.Generator {
                             cKeys.set(\.group_ed25519_pubkey, to: cPublicKey)
                         }
                         
-                        var result: session_protocol_decoded_envelope = session_protocol_decode_envelope(
+                        var cResult: session_protocol_decoded_envelope = session_protocol_decode_envelope(
                             &cKeys,
                             cEncodedMessage,
                             cEncodedMessage.count,
                             currentTimestampMs,
-                            nil,
-                            0,
+                            cBackendPubkey,
+                            cBackendPubkey.count,
                             &error,
                             error.count
                         )
-                        defer { session_protocol_decode_envelope_free(&result) }
+                        defer { session_protocol_decode_envelope_free(&cResult) }
                         
-                        guard result.success else {
+                        guard cResult.success else {
                             Log.error(.messageReceiver, "Failed to decode message due to error: \(String(cString: error))")
                             throw MessageError.decodingFailed
                         }
                         
-                        let plaintext: Data = Data(UnsafeBufferPointer(start: result.content_plaintext.data, count: result.content_plaintext.size))
-                        let proto: SNProtoContent = try Result(catching: { try SNProtoContent.parseData(plaintext) })
-                            .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
-                            .get()
-                        let sender: SessionId = SessionId(.standard, publicKey: result.get(\.sender_x25519_pubkey))
-                        
-                        return (proto, sender.hexString, result.envelope.timestamp_ms)
+                        return DecodedMessage(decodedValue: cResult)
                     }
             }
         }
@@ -407,4 +399,3 @@ extension bytes32: CAccessible & CMutable {}
 extension bytes33: CAccessible & CMutable {}
 extension bytes64: CAccessible & CMutable {}
 extension session_protocol_decode_envelope_keys: CAccessible & CMutable {}
-extension session_protocol_decoded_envelope: CAccessible & CMutable {}

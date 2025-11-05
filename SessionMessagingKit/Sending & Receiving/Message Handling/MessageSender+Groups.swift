@@ -455,7 +455,7 @@ extension MessageSender {
                         .fetchOne(db)
                 else { throw MessageError.requiresGroupIdentityPrivateKey }
                 
-                let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                let currentOffsetTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             
                 /// Perform the config changes without triggering a config sync (we will trigger one manually as part of the process)
                 try dependencies.mutate(cache: .libSession) { cache in

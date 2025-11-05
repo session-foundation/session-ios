@@ -12,6 +12,7 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
+        decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
         suppressNotifications: Bool,
         using dependencies: Dependencies
@@ -21,6 +22,7 @@ extension MessageReceiver {
                 return try MessageReceiver.handleGroupInvite(
                     db,
                     message: message,
+                    decodedMessage: decodedMessage,
                     suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
@@ -29,6 +31,7 @@ extension MessageReceiver {
                 return try MessageReceiver.handleGroupPromotion(
                     db,
                     message: message,
+                    decodedMessage: decodedMessage,
                     suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
@@ -38,6 +41,7 @@ extension MessageReceiver {
                     db,
                     groupSessionId: sessionId,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
@@ -47,6 +51,7 @@ extension MessageReceiver {
                     db,
                     groupSessionId: sessionId,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
@@ -56,6 +61,7 @@ extension MessageReceiver {
                     db,
                     groupSessionId: sessionId,
                     message: message,
+                    decodedMessage: decodedMessage,
                     using: dependencies
                 )
                 return nil
@@ -65,6 +71,7 @@ extension MessageReceiver {
                     db,
                     groupSessionId: sessionId,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
                 )
@@ -74,6 +81,7 @@ extension MessageReceiver {
                     db,
                     groupSessionId: sessionId,
                     message: message,
+                    decodedMessage: decodedMessage,
                     using: dependencies
                 )
                 return nil
@@ -83,6 +91,7 @@ extension MessageReceiver {
                     db,
                     groupSessionId: sessionId,
                     message: message,
+                    decodedMessage: decodedMessage,
                     using: dependencies
                 )
                 return nil
@@ -130,14 +139,10 @@ extension MessageReceiver {
     private static func handleGroupInvite(
         _ db: ObservingDatabase,
         message: GroupUpdateInviteMessage,
+        decodedMessage: DecodedMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
-        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
-        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
-            throw MessageError.missingRequiredField("sentTimestampMs")
-        }
-        
         // Ensure the message is valid
         try validateGroupInvite(message: message, using: dependencies)
         
@@ -145,10 +150,11 @@ extension MessageReceiver {
         if let profile = message.profile {
             try Profile.updateIfNeeded(
                 db,
-                publicKey: sender,
+                publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
+                decodedPro: decodedMessage.decodedPro,
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
@@ -157,8 +163,7 @@ extension MessageReceiver {
         return try processGroupInvite(
             db,
             message: message,
-            sender: sender,
-            sentTimestampMs: Int64(sentTimestampMs),
+            decodedMessage: decodedMessage,
             groupSessionId: message.groupSessionId,
             groupName: message.groupName,
             memberAuthData: message.memberAuthData,
@@ -232,14 +237,10 @@ extension MessageReceiver {
     private static func handleGroupPromotion(
         _ db: ObservingDatabase,
         message: GroupUpdatePromoteMessage,
+        decodedMessage: DecodedMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
-        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
-        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
-            throw MessageError.missingRequiredField("sentTimestampMs")
-        }
-        
         let groupIdentityKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(
             .ed25519KeyPair(seed: Array(message.groupIdentitySeed))
         )
@@ -249,10 +250,11 @@ extension MessageReceiver {
         if let profile = message.profile {
             try Profile.updateIfNeeded(
                 db,
-                publicKey: sender,
+                publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
+                decodedPro: decodedMessage.decodedPro,
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
@@ -262,8 +264,7 @@ extension MessageReceiver {
         let insertedInteractionInfo: InsertedInteractionInfo? = try processGroupInvite(
             db,
             message: message,
-            sender: sender,
-            sentTimestampMs: Int64(sentTimestampMs),
+            decodedMessage: decodedMessage,
             groupSessionId: groupSessionId,
             groupName: message.groupName,
             memberAuthData: nil,
@@ -324,20 +325,17 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateInfoChangeMessage,
+        decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
-        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
-        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
-            throw MessageError.missingRequiredField("sentTimestampMs")
-        }
         guard
             Authentication.verify(
                 signature: message.adminSignature,
                 publicKey: groupSessionId.publicKey,
                 verificationBytes: GroupUpdateInfoChangeMessage.generateVerificationBytes(
                     changeType: message.changeType,
-                    timestampMs: sentTimestampMs
+                    timestampMs: decodedMessage.sentTimestampMs
                 ),
                 using: dependencies
             )
@@ -361,13 +359,13 @@ extension MessageReceiver {
                     serverHash: message.serverHash,
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
-                    authorId: sender,
+                    authorId: decodedMessage.sender.hexString,
                     variant: .infoGroupInfoUpdated,
                     body: message.updatedName
                         .map { ClosedGroup.MessageInfo.updatedName($0) }
                         .defaulting(to: ClosedGroup.MessageInfo.updatedNameFallback)
                         .infoString(using: dependencies),
-                    timestampMs: Int64(sentTimestampMs),
+                    timestampMs: Int64(decodedMessage.sentTimestampMs),
                     expiresInSeconds: messageExpirationInfo.expiresInSeconds,
                     expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
                     using: dependencies
@@ -378,12 +376,12 @@ extension MessageReceiver {
                     serverHash: message.serverHash,
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
-                    authorId: sender,
+                    authorId: decodedMessage.sender.hexString,
                     variant: .infoGroupInfoUpdated,
                     body: ClosedGroup.MessageInfo
                         .updatedDisplayPicture
                         .infoString(using: dependencies),
-                    timestampMs: Int64(sentTimestampMs),
+                    timestampMs: Int64(decodedMessage.sentTimestampMs),
                     expiresInSeconds: messageExpirationInfo.expiresInSeconds,
                     expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
                     using: dependencies
@@ -401,8 +399,8 @@ extension MessageReceiver {
                 return try config.insertControlMessage(
                     db,
                     threadVariant: .group,
-                    authorId: sender,
-                    timestampMs: Int64(sentTimestampMs),
+                    authorId: decodedMessage.sender.hexString,
+                    timestampMs: decodedMessage.sentTimestampMs,
                     serverHash: message.serverHash,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     using: dependencies
@@ -418,20 +416,17 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateMemberChangeMessage,
+        decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
-        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
-        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
-            throw MessageError.missingRequiredField("sentTimestampMs")
-        }
         guard
             Authentication.verify(
                 signature: message.adminSignature,
                 publicKey: groupSessionId.publicKey,
                 verificationBytes: GroupUpdateMemberChangeMessage.generateVerificationBytes(
                     changeType: message.changeType,
-                    timestampMs: sentTimestampMs
+                    timestampMs: decodedMessage.sentTimestampMs
                 ),
                 using: dependencies
             )
@@ -501,10 +496,10 @@ extension MessageReceiver {
                 let interaction: Interaction = try Interaction(
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
-                    authorId: sender,
+                    authorId: decodedMessage.sender.hexString,
                     variant: .infoGroupMembersUpdated,
                     body: messageBody,
-                    timestampMs: Int64(sentTimestampMs),
+                    timestampMs: Int64(decodedMessage.sentTimestampMs),
                     expiresInSeconds: messageExpirationInfo.expiresInSeconds,
                     expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
                     using: dependencies
@@ -522,14 +517,11 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateMemberLeftMessage,
+        decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) throws {
         // If the user is a group admin then we need to remove the member from the group, we already have a
         // "member left" message so `sendMemberChangedMessage` should be `false`
-        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
-        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
-            throw MessageError.missingRequiredField("sentTimestampMs")
-        }
         guard
             dependencies.mutate(cache: .libSession, { cache in
                 cache.isAdmin(groupSessionId: groupSessionId)
@@ -541,10 +533,10 @@ extension MessageReceiver {
             MessageSender
                 .removeGroupMembers(
                     groupSessionId: groupSessionId.hexString,
-                    memberIds: [sender],
+                    memberIds: [decodedMessage.sender.hexString],
                     removeTheirMessages: false,
                     sendMemberChangedMessage: false,
-                    changeTimestampMs: Int64(sentTimestampMs),
+                    changeTimestampMs: Int64(decodedMessage.sentTimestampMs),
                     using: dependencies
                 )
                 .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
@@ -556,14 +548,10 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateMemberLeftNotificationMessage,
+        decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
-        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
-        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
-            throw MessageError.missingRequiredField("sentTimestampMs")
-        }
-        
         // Add a record of the specific change to the conversation (the actual change is handled via
         // config messages so these are only for record purposes)
         let messageExpirationInfo: Message.MessageExpirationInfo = Message.getMessageExpirationInfo(
@@ -575,6 +563,7 @@ extension MessageReceiver {
             using: dependencies
         )
         
+        let sender: String = decodedMessage.sender.hexString
         let interaction: Interaction = try Interaction(
             threadId: groupSessionId.hexString,
             threadVariant: .group,
@@ -589,7 +578,7 @@ extension MessageReceiver {
                     )
                 )
                 .infoString(using: dependencies),
-            timestampMs: Int64(sentTimestampMs),
+            timestampMs: Int64(decodedMessage.sentTimestampMs),
             expiresInSeconds: messageExpirationInfo.expiresInSeconds,
             expiresStartedAtMs: messageExpirationInfo.expiresStartedAtMs,
             using: dependencies
@@ -604,13 +593,9 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateInviteResponseMessage,
+        decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) throws {
-        guard let sender: String = message.sender else { throw MessageError.missingRequiredField("sender") }
-        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
-            throw MessageError.missingRequiredField("sentTimestampMs")
-        }
-        
         // Only process the invite response if it was an approval
         guard message.isApproved else { throw MessageError.ignorableMessage }
         
@@ -618,10 +603,11 @@ extension MessageReceiver {
         if let profile = message.profile {
             try Profile.updateIfNeeded(
                 db,
-                publicKey: sender,
+                publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
+                decodedPro: decodedMessage.decodedPro,
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 using: dependencies
             )
@@ -630,12 +616,12 @@ extension MessageReceiver {
         // Update the member approval state
         try MessageReceiver.updateMemberApprovalStatusIfNeeded(
             db,
-            senderSessionId: sender,
+            senderSessionId: decodedMessage.sender.hexString,
             groupSessionIdHexString: groupSessionId.hexString,
             profile: message.profile.map { profile in
                 profile.displayName.map {
                     Profile(
-                        id: sender,
+                        id: decodedMessage.sender.hexString,
                         name: $0,
                         displayPictureUrl: profile.profilePictureUrl,
                         displayPictureEncryptionKey: profile.profileKey,
@@ -651,12 +637,9 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         groupSessionId: SessionId,
         message: GroupUpdateDeleteMemberContentMessage,
+        decodedMessage: DecodedMessage,
         using dependencies: Dependencies
     ) throws {
-        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
-            throw MessageError.missingRequiredField("sentTimestampMs")
-        }
-        
         let interactionIdsToRemove: [Int64]
         let explicitHashesToRemove: [String]
         let memberSessionIdsContainsSender: Bool = message.memberSessionIds
@@ -672,7 +655,7 @@ extension MessageReceiver {
                         verificationBytes: GroupUpdateDeleteMemberContentMessage.generateVerificationBytes(
                             memberSessionIds: message.memberSessionIds,
                             messageHashes: message.messageHashes,
-                            timestampMs: sentTimestampMs
+                            timestampMs: decodedMessage.sentTimestampMs
                         ),
                         using: dependencies
                     )
@@ -682,13 +665,13 @@ extension MessageReceiver {
                 let interactionIdsForRemovedHashes: [Int64] = try Interaction
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                     .filter(message.messageHashes.asSet().contains(Interaction.Columns.serverHash))
-                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .filter(Interaction.Columns.timestampMs < decodedMessage.sentTimestampMs)
                     .asRequest(of: Int64.self)
                     .fetchAll(db)
                 let interactionIdsSentByRemovedSenders: [Int64] = try Interaction
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                     .filter(message.memberSessionIds.asSet().contains(Interaction.Columns.authorId))
-                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .filter(Interaction.Columns.timestampMs < decodedMessage.sentTimestampMs)
                     .asRequest(of: Int64.self)
                     .fetchAll(db)
                 interactionIdsToRemove = interactionIdsForRemovedHashes + interactionIdsSentByRemovedSenders
@@ -699,14 +682,14 @@ extension MessageReceiver {
                 interactionIdsToRemove = try Interaction
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                     .filter(Interaction.Columns.authorId == sender)
-                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .filter(Interaction.Columns.timestampMs < decodedMessage.sentTimestampMs)
                     .select(.id)
                     .asRequest(of: Int64.self)
                     .fetchAll(db)
                 explicitHashesToRemove = try Interaction
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                     .filter(Interaction.Columns.authorId == sender)
-                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .filter(Interaction.Columns.timestampMs < decodedMessage.sentTimestampMs)
                     .filter(Interaction.Columns.serverHash != nil)
                     .select(.serverHash)
                     .asRequest(of: String.self)
@@ -718,7 +701,7 @@ extension MessageReceiver {
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                     .filter(Interaction.Columns.authorId == sender)
                     .filter(message.messageHashes.asSet().contains(Interaction.Columns.serverHash))
-                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .filter(Interaction.Columns.timestampMs < decodedMessage.sentTimestampMs)
                     .select(.id)
                     .asRequest(of: Int64.self)
                     .fetchAll(db)
@@ -726,7 +709,7 @@ extension MessageReceiver {
                     .filter(Interaction.Columns.threadId == groupSessionId.hexString)
                     .filter(Interaction.Columns.authorId == sender)
                     .filter(message.messageHashes.asSet().contains(Interaction.Columns.serverHash))
-                    .filter(Interaction.Columns.timestampMs < sentTimestampMs)
+                    .filter(Interaction.Columns.timestampMs < decodedMessage.sentTimestampMs)
                     .filter(Interaction.Columns.serverHash != nil)
                     .select(.serverHash)
                     .asRequest(of: String.self)
@@ -876,11 +859,10 @@ extension MessageReceiver {
     
     // MARK: - Shared
     
-    internal static func processGroupInvite(
+    private static func processGroupInvite(
         _ db: ObservingDatabase,
         message: Message,
-        sender: String,
-        sentTimestampMs: Int64,
+        decodedMessage: DecodedMessage,
         groupSessionId: SessionId,
         groupName: String,
         memberAuthData: Data?,
@@ -896,7 +878,7 @@ extension MessageReceiver {
         let inviteSenderIsApproved: Bool = {
             guard !dependencies[feature: .updatedGroupsDisableAutoApprove] else { return false }
             
-            return ((try? Contact.fetchOne(db, id: sender))?.isApproved == true)
+            return ((try? Contact.fetchOne(db, id: decodedMessage.sender.hexString))?.isApproved == true)
         }()
         let threadAlreadyExisted: Bool = ((try? SessionThread.exists(db, id: groupSessionId.hexString)) ?? false)
         
@@ -911,7 +893,7 @@ extension MessageReceiver {
             groupIdentityPrivateKey: groupIdentityPrivateKey,
             name: groupName,
             authData: memberAuthData,
-            joinedAt: TimeInterval(Double(sentTimestampMs) / 1000),
+            joinedAt: TimeInterval(Double(decodedMessage.sentTimestampMs) / 1000),
             invited: !inviteSenderIsApproved,
             forceMarkAsInvited: wasKickedFromGroup,
             using: dependencies
@@ -920,7 +902,7 @@ extension MessageReceiver {
         /// Add the sender as a group admin (so we can retrieve their profile details for Group Message Request UI)
         try GroupMember(
             groupId: groupSessionId.hexString,
-            profileId: sender,
+            profileId: decodedMessage.sender.hexString,
             role: .admin,
             roleStatus: .accepted,
             isHidden: false
@@ -967,10 +949,11 @@ extension MessageReceiver {
         /// Unline most control messages we don't bother setting expiration values for this message, this is because we won't actually
         /// have the current disappearing messages config as we won't have polled the group yet (and the settings are stored in the
         /// `GroupInfo` config)
+        let sender: String = decodedMessage.sender.hexString
         let interaction: Interaction = try Interaction(
             threadId: groupSessionId.hexString,
             threadVariant: .group,
-            authorId: sender,
+            authorId: decodedMessage.sender.hexString,
             variant: .infoGroupInfoInvited,
             body: {
                 switch groupIdentityPrivateKey {
@@ -993,12 +976,12 @@ extension MessageReceiver {
                             .infoString(using: dependencies)
                 }
             }(),
-            timestampMs: sentTimestampMs,
+            timestampMs: Int64(decodedMessage.sentTimestampMs),
             wasRead: dependencies.mutate(cache: .libSession) { cache in
                 cache.timestampAlreadyRead(
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
-                    timestampMs: sentTimestampMs,
+                    timestampMs: decodedMessage.sentTimestampMs,
                     openGroupUrlInfo: nil
                 )
             },

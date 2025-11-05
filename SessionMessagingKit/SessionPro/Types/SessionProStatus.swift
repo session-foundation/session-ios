@@ -7,7 +7,7 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension SessionPro {
-    enum ProStatus: Sendable, CaseIterable {
+    enum ProStatus: Sendable, Codable, CaseIterable {
         case none
         case invalidProBackendSig
         case invalidUserSig

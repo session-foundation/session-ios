@@ -59,19 +59,3 @@ public extension Quote {
         )
     }
 }
-
-// MARK: - Protobuf
-
-public extension Quote {
-    init?(proto: SNProtoDataMessage, interactionId: Int64, thread: SessionThread) throws {
-        guard
-            let quoteProto = proto.quote,
-            quoteProto.id != 0,
-            !quoteProto.author.isEmpty
-        else { return nil }
-        
-        self.interactionId = interactionId
-        self.timestampMs = Int64(quoteProto.id)
-        self.authorId = quoteProto.author
-    }
-}

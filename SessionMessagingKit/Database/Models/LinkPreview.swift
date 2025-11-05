@@ -82,15 +82,17 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
 // MARK: - Protobuf
 
 public extension LinkPreview {
-    init?(_ db: ObservingDatabase, proto: SNProtoDataMessage, sentTimestampMs: TimeInterval) throws {
-        guard let previewProto = proto.preview.first else { throw LinkPreviewError.noPreview }
-        guard URL(string: previewProto.url) != nil else { throw LinkPreviewError.invalidInput }
-        guard LinkPreview.isValidLinkUrl(previewProto.url) else { throw LinkPreviewError.invalidInput }
+    init?(
+        _ db: ObservingDatabase,
+        linkPreview: VisibleMessage.VMLinkPreview,
+        sentTimestampMs: UInt64
+    ) throws {
+        guard LinkPreview.isValidLinkUrl(linkPreview.url) else { throw LinkPreviewError.invalidInput }
         
         // Try to get an existing link preview first
         let timestamp: TimeInterval = LinkPreview.timestampFor(sentTimestampMs: sentTimestampMs)
         let maybeLinkPreview: LinkPreview? = try? LinkPreview
-            .filter(LinkPreview.Columns.url == previewProto.url)
+            .filter(LinkPreview.Columns.url == linkPreview.url)
             .filter(LinkPreview.Columns.timestamp == timestamp)
             .fetchOne(db)
         
@@ -99,13 +101,12 @@ public extension LinkPreview {
             return
         }
         
-        self.url = previewProto.url
+        self.url = linkPreview.url
         self.timestamp = timestamp
         self.variant = .standard
-        self.title = LinkPreview.normalizeTitle(title: previewProto.title)
+        self.title = LinkPreview.normalizeTitle(title: linkPreview.title)
         
-        if let imageProto = previewProto.image {
-            let attachment: Attachment = Attachment(proto: imageProto)
+        if let attachment: Attachment = linkPreview.nonInsertedAttachment {
             try attachment.insert(db)
             
             self.attachmentId = attachment.id
@@ -127,10 +128,10 @@ public extension LinkPreview {
         let matchRange: NSRange
     }
     
-    static func timestampFor(sentTimestampMs: Double) -> TimeInterval {
+    static func timestampFor(sentTimestampMs: UInt64) -> TimeInterval {
         // We want to round the timestamp down to the nearest 100,000 seconds (~28 hours - simpler
         // than 86,400) to optimise LinkPreview storage without having too stale data
-        return (floor(sentTimestampMs / 1000 / LinkPreview.timstampResolution) * LinkPreview.timstampResolution)
+        return (floor(Double(sentTimestampMs) / 1000 / LinkPreview.timstampResolution) * LinkPreview.timstampResolution)
     }
     
     static func prepareAttachmentIfPossible(

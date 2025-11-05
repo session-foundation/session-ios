@@ -32,7 +32,7 @@ extension MessageReceiver {
             cache.timestampAlreadyRead(
                 threadId: threadId,
                 threadVariant: threadVariant,
-                timestampMs: timestampMs,
+                timestampMs: UInt64(timestampMs),
                 openGroupUrlInfo: nil
             )
         }

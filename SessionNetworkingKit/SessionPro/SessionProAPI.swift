@@ -14,9 +14,56 @@ public extension Log.Category {
 }
 
 public extension Network.SessionPro {
-//    static func test(using dependencies: Dependencies) throws -> Network.PreparedRequest<AddProPaymentOrGetProProofResponse> {
-//        let masterKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
-//        let rotatingKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
+    static func test(using dependencies: Dependencies) {
+        let masterKeyPair: KeyPair = try! dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
+        let rotatingKeyPair: KeyPair = try! dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
+        
+        Task {
+            // FIXME: Make this async/await when the refactored networking is merged
+            do {
+                let addProProofRequest = try? Network.SessionPro.addProPaymentOrGetProProof(
+                    transactionId: "12345678",
+                    masterKeyPair: masterKeyPair,
+                    rotatingKeyPair: rotatingKeyPair,
+                    using: dependencies
+                )
+                let addProProofResponse = try await addProProofRequest
+                    .send(using: dependencies)
+                    .values
+                    .first(where: { _ in true })?.1
+                
+                let proProofRequest = try? Network.SessionPro.getProProof(
+                    masterKeyPair: masterKeyPair,
+                    rotatingKeyPair: rotatingKeyPair,
+                    using: dependencies
+                )
+                let proProofResponse = try await proProofRequest
+                    .send(using: dependencies)
+                    .values
+                    .first(where: { _ in true })?.1
+                
+                let proStatusRequest = try? Network.SessionPro.getProStatus(
+                    masterKeyPair: masterKeyPair,
+                    using: dependencies
+                )
+                let proStatusResponse = try await proStatusRequest
+                    .send(using: dependencies)
+                    .values
+                    .first(where: { _ in true })?.1
+                
+                await MainActor.run {
+                    let tmp1 = addProProofResponse
+                    let tmp2 = proProofResponse
+                    let tmp3 = proStatusResponse
+                    print("RAWR Test Success")
+                }
+            }
+            catch {
+                print("RAWR Test Error")
+            }
+        }
+    }
+    
     static func addProPaymentOrGetProProof(
         transactionId: String,
         masterKeyPair: KeyPair,

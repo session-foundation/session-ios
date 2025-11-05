@@ -647,7 +647,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         self.approvalDelegate?.attachmentApprovalDidCancel(self)
     }
     
-    @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
+    @MainActor func showModalForMessagesExceedingCharacterLimit() {
         let didShowCTAModal: Bool = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
             .longerMessages,
             beforePresented: { [weak self] in
@@ -732,7 +732,7 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
                 for: text.trimmingCharacters(in: .whitespacesAndNewlines)
             ) >= 0
         else {
-            showModalForMessagesExceedingCharacterLimit(isSessionPro: isSessionPro)
+            showModalForMessagesExceedingCharacterLimit()
             return
         }
         

@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import SessionUIKit
 import SessionUtilitiesKit
 
 public enum MessageError: Error, CustomStringConvertible {
@@ -18,7 +19,7 @@ public enum MessageError: Error, CustomStringConvertible {
     case ignorableMessageRequestMessage
     case deprecatedMessage
     case protoConversionFailed
-    case unknownMessage(SNProtoContent?)
+    case unknownMessage(DecodedMessage)
     
     case requiredSignatureMissing
     case invalidConfigMessageHandling
@@ -63,40 +64,49 @@ public enum MessageError: Error, CustomStringConvertible {
             case .ignorableMessageRequestMessage: return "Message request message should be ignored."
             case .deprecatedMessage: return "This message type has been deprecated."
             case .protoConversionFailed: return "Failed to convert to protobuf message."
-            case .unknownMessage(let content):
-                switch content {
-                    case .none: return "Unknown message type (no content)."
-                    case .some(let content):
-                        let protoInfo: [(String, Bool)] = [
-                            ("hasDataMessage", (content.dataMessage != nil)),
-                            ("hasProfile", (content.dataMessage?.profile != nil)),
-                            ("hasBody", (content.dataMessage?.hasBody == true)),
-                            ("hasAttachments", (content.dataMessage?.attachments.isEmpty == false)),
-                            ("hasReaction", (content.dataMessage?.reaction != nil)),
-                            ("hasQuote", (content.dataMessage?.quote != nil)),
-                            ("hasLinkPreview", (content.dataMessage?.preview != nil)),
-                            ("hasOpenGroupInvitation", (content.dataMessage?.openGroupInvitation != nil)),
-                            ("hasGroupV2ControlMessage", (content.dataMessage?.groupUpdateMessage != nil)),
-                            ("hasTimestamp", (content.dataMessage?.hasTimestamp == true)),
-                            ("hasSyncTarget", (content.dataMessage?.hasSyncTarget == true)),
-                            ("hasBlocksCommunityMessageRequests", (content.dataMessage?.hasBlocksCommunityMessageRequests == true)),
-                            ("hasCallMessage", (content.callMessage != nil)),
-                            ("hasReceiptMessage", (content.receiptMessage != nil)),
-                            ("hasTypingMessage", (content.typingMessage != nil)),
-                            ("hasDataExtractionMessage", (content.dataExtractionNotification != nil)),
-                            ("hasUnsendRequest", (content.unsendRequest != nil)),
-                            ("hasMessageRequestResponse", (content.messageRequestResponse != nil)),
-                            ("hasExpirationTimer", (content.hasExpirationTimer == true)),
-                            ("hasExpirationType", (content.hasExpirationType == true)),
-                            ("hasSigTimestamp", (content.hasSigTimestamp == true))
-                        ]
-                        
-                        let protoInfoString: String = protoInfo
-                            .filter { _, val in val }
-                            .map { name, _ in name }
-                            .joined(separator: ", ")
-                        return "Unknown message type (\(protoInfoString))."
+            case .unknownMessage(let decodedMessage):
+                var messageInfo: [String] = [
+                    "size: \(Format.fileSize(UInt(decodedMessage.content.count)))"
+                ]
+                
+                if decodedMessage.decodedEnvelope != nil {
+                    messageInfo.append("hasDecodedEnvelope")
                 }
+                
+                if let proto: SNProtoContent = try? decodedMessage.decodeProtoContent() {
+                    let protoInfo: [(String, Bool)] = [
+                        ("hasDataMessage", (proto.dataMessage != nil)),
+                        ("hasProfile", (proto.dataMessage?.profile != nil)),
+                        ("hasBody", (proto.dataMessage?.hasBody == true)),
+                        ("hasAttachments", (proto.dataMessage?.attachments.isEmpty == false)),
+                        ("hasReaction", (proto.dataMessage?.reaction != nil)),
+                        ("hasQuote", (proto.dataMessage?.quote != nil)),
+                        ("hasLinkPreview", (proto.dataMessage?.preview != nil)),
+                        ("hasOpenGroupInvitation", (proto.dataMessage?.openGroupInvitation != nil)),
+                        ("hasGroupV2ControlMessage", (proto.dataMessage?.groupUpdateMessage != nil)),
+                        ("hasTimestamp", (proto.dataMessage?.hasTimestamp == true)),
+                        ("hasSyncTarget", (proto.dataMessage?.hasSyncTarget == true)),
+                        ("hasBlocksCommunityMessageRequests", (proto.dataMessage?.hasBlocksCommunityMessageRequests == true)),
+                        ("hasCallMessage", (proto.callMessage != nil)),
+                        ("hasReceiptMessage", (proto.receiptMessage != nil)),
+                        ("hasTypingMessage", (proto.typingMessage != nil)),
+                        ("hasDataExtractionMessage", (proto.dataExtractionNotification != nil)),
+                        ("hasUnsendRequest", (proto.unsendRequest != nil)),
+                        ("hasMessageRequestResponse", (proto.messageRequestResponse != nil)),
+                        ("hasExpirationTimer", (proto.hasExpirationTimer == true)),
+                        ("hasExpirationType", (proto.hasExpirationType == true)),
+                        ("hasSigTimestamp", (proto.hasSigTimestamp == true))
+                    ]
+                    
+                    messageInfo.append(
+                        contentsOf: protoInfo
+                            .filter { _, val in val }
+                            .map { name, _ in "proto.\(name)" }
+                    )
+                }
+                
+                let infoString: String = messageInfo.joined(separator: ", ")
+                return "Unknown message type (\(infoString))."
             
             case .requiredSignatureMissing: return "Required signature missing."
             case .invalidConfigMessageHandling: return "Invalid handling of a config message."

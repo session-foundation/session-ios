@@ -131,6 +131,7 @@ public extension Profile {
                     publicKey: userSessionId.hexString,
                     displayNameUpdate: displayNameUpdate,
                     displayPictureUpdate: displayPictureUpdate,
+                    decodedPro: dependencies[singleton: .sessionProManager].currentUserCurrentDecodedProForMessage,
                     profileUpdateTimestamp: profileUpdateTimestamp,
                     using: dependencies
                 )
@@ -146,6 +147,7 @@ public extension Profile {
         displayPictureUpdate: DisplayPictureManager.Update = .none,
         nicknameUpdate: Update<String?> = .useExisting,
         blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
+        decodedPro: SessionPro.DecodedProForMessage?,
         profileUpdateTimestamp: TimeInterval?,
         cacheSource: CacheSource = .libSession(fallback: .database),
         suppressUserProfileConfigUpdate: Bool = false,
@@ -205,8 +207,8 @@ public extension Profile {
                         db.addProfileEvent(id: publicKey, change: .displayPictureUrl(nil))
                     }
                     
-                case (.contactUpdateTo(let url, let key, let proProof), false),
-                    (.currentUserUpdateTo(let url, let key, let proProof, _), true):
+                case (.contactUpdateTo(let url, let key), false),
+                    (.currentUserUpdateTo(let url, let key, _), true):
                     /// If we have already downloaded the image then we can just directly update the stored profile data (it normally
                     /// wouldn't be updated until after the download completes)
                     let fileExists: Bool = ((try? dependencies[singleton: .displayPictureManager]
@@ -240,7 +242,7 @@ public extension Profile {
                         }
                     }
                     
-                // TODO: Handle Pro Proof update
+                // TODO: [PRO] Handle Pro Proof update
                 
                 /// Don't want profiles in messages to modify the current users profile info so ignore those cases
                 default: break
@@ -295,7 +297,7 @@ public extension Profile {
             var targetKey: Data? = profile.displayPictureEncryptionKey
             
             switch displayPictureUpdate {
-                case .contactUpdateTo(let url, let key, _), .currentUserUpdateTo(let url, let key, _, _):
+                case .contactUpdateTo(let url, let key), .currentUserUpdateTo(let url, let key, _):
                     targetUrl = url
                     targetKey = key
                     
@@ -364,7 +366,7 @@ public extension Profile {
                             displayPictureEncryptionKey: .set(to: updatedProfile.displayPictureEncryptionKey),
                             isReuploadProfilePicture: {
                                 switch displayPictureUpdate {
-                                    case .currentUserUpdateTo(_, _, _, let isReupload): return isReupload
+                                    case .currentUserUpdateTo(_, _, let isReupload): return isReupload
                                     default: return false
                                 }
                             }()

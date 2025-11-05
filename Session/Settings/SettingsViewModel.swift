@@ -134,7 +134,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public struct State: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
-        let sessionProStatus: Network.SessionPro.ProStatus?
+        let sessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let developerModeEnabled: Bool
@@ -159,7 +159,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             return State(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
-                sessionProStatus: nil,
+                sessionProBackendStatus: nil,
                 serviceNetwork: .mainnet,
                 forceOffline: false,
                 developerModeEnabled: false,
@@ -193,7 +193,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     ) async -> State {
         /// Store mutable copies of the data to update
         var profile: Profile = previousState.profile
-        var sessionProStatus: Network.SessionPro.ProStatus? = previousState.sessionProStatus
+        var sessionProBackendStatus: Network.SessionPro.BackendUserProStatus? = previousState.sessionProBackendStatus
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
         var developerModeEnabled: Bool = previousState.developerModeEnabled
@@ -212,7 +212,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         
         /// If the device has a mock pro status set then use that
         if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
-            sessionProStatus = dependencies[feature: .mockCurrentUserSessionProBackendStatus]
+            sessionProBackendStatus = dependencies[feature: .mockCurrentUserSessionProBackendStatus]
         }
         
         /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
@@ -265,7 +265,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return State(
             userSessionId: previousState.userSessionId,
             profile: profile,
-            sessionProStatus: sessionProStatus,
+            sessionProBackendStatus: sessionProBackendStatus,
             serviceNetwork: serviceNetwork,
             forceOffline: forceOffline,
             developerModeEnabled: developerModeEnabled,
@@ -307,7 +307,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     onTap: { [weak viewModel] in
                         viewModel?.updateProfilePicture(
                             currentUrl: state.profile.displayPictureUrl,
-                            sessionProStatus: state.sessionProStatus
+                            sessionProBackendStatus: state.sessionProBackendStatus
                         )
                     }
                 ),
@@ -682,7 +682,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     private func updateProfilePicture(
         currentUrl: String?,
-        sessionProStatus: Network.SessionPro.ProStatus?
+        sessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
     ) {
         let iconName: String = "profile_placeholder" // stringlint:ignore
         var hasSetNewProfilePicture: Bool = false
@@ -709,7 +709,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             icon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: {
-                switch (dependencies[feature: .sessionProEnabled], sessionProStatus) {
+                switch (dependencies[feature: .sessionProEnabled], sessionProBackendStatus) {
                     case (false, _): return nil
                     case (true, .active):
                         return "proAnimatedDisplayPictureModalDescription"
@@ -739,7 +739,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             dataManager: dependencies[singleton: .imageDataManager],
             onProBageTapped: { [weak self, dependencies] in
                 dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-                    .animatedProfileImage(isSessionProActivated: (sessionProStatus == .active)),
+                    .animatedProfileImage(isSessionProActivated: (sessionProBackendStatus == .active)),
                     presenting: { modal in
                         self?.transitionToScreen(modal, transitionType: .present)
                     }
@@ -788,7 +788,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                 
                                 if isAnimatedImage && !dependencies[feature: .sessionProEnabled] {
                                     didShowCTAModal = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-                                        .animatedProfileImage(isSessionProActivated: (sessionProStatus == .active)),
+                                        .animatedProfileImage(isSessionProActivated: (sessionProBackendStatus == .active)),
                                         presenting: { modal in
                                             self?.transitionToScreen(modal, transitionType: .present)
                                         }
@@ -870,7 +870,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return .currentUserUpdateTo(
             url: result.downloadUrl,
             key: result.encryptionKey,
-            sessionProProof: dependencies[singleton: .sessionProManager].currentUserCurrentProProof,
             isReupload: false
         )
     }

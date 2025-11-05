@@ -56,7 +56,6 @@ internal extension LibSessionCacheType {
                 return .currentUserUpdateTo(
                     url: displayPictureUrl,
                     key: displayPictureEncryptionKey,
-                    sessionProProof: dependencies[singleton: .sessionProManager].currentUserCurrentProProof,
                     isReupload: false
                 )
             }(),

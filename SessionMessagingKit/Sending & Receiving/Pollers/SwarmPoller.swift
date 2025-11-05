@@ -374,7 +374,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 else {
                     /// Individually process non-config messages
                     processedMessages.forEach { processedMessage in
-                        guard case .standard(let threadId, let threadVariant, let proto, let messageInfo, _) = processedMessage else {
+                        guard case .standard(let threadId, let threadVariant, let messageInfo, _) = processedMessage else {
                             return
                         }
                         
@@ -384,8 +384,8 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                                 threadId: threadId,
                                 threadVariant: threadVariant,
                                 message: messageInfo.message,
+                                decodedMessage: messageInfo.decodedMessage,
                                 serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                associatedWithProto: proto,
                                 suppressNotifications: (source == .pushNotification),   /// Have already shown
                                 using: dependencies
                             )

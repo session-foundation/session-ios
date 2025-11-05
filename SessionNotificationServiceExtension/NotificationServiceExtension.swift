@@ -221,7 +221,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 threadVariant = nil
                 threadDisplayName = nil
                 
-            case .standard(let threadId, let threadVariantVal, _, let messageInfo, _):
+            case .standard(let threadId, let threadVariantVal, let messageInfo, _):
                 threadVariant = threadVariantVal
                 threadDisplayName = dependencies.mutate(cache: .libSession) { cache in
                     cache.conversationDisplayName(
@@ -265,12 +265,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     data: data
                 )
                 
-            case .standard(let threadId, let threadVariant, let proto, let messageInfo, _):
+            case .standard(let threadId, let threadVariant, let messageInfo, _):
                 try handleStandardMessage(
                     notification,
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    proto: proto,
                     messageInfo: messageInfo
                 )
         }
@@ -372,7 +371,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         _ notification: ProcessedNotification,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        proto: SNProtoContent,
         messageInfo: MessageReceiveJob.Details.MessageInfo
     ) throws {
         /// Throw if the message is outdated and shouldn't be processed (this is based on pretty flaky logic which checks if the config
@@ -430,7 +428,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     groupName: inviteMessage.groupName,
                     memberAuthData: inviteMessage.memberAuthData,
                     groupIdentitySeed: nil,
-                    proto: proto,
                     messageInfo: messageInfo,
                     currentUserSessionIds: currentUserSessionIds,
                     displayNameRetriever: displayNameRetriever
@@ -454,7 +451,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     groupName: promoteMessage.groupName,
                     memberAuthData: nil,
                     groupIdentitySeed: promoteMessage.groupIdentitySeed,
-                    proto: proto,
                     messageInfo: messageInfo,
                     currentUserSessionIds: currentUserSessionIds,
                     displayNameRetriever: displayNameRetriever
@@ -661,7 +657,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             notification,
             threadId: threadId,
             threadVariant: threadVariant,
-            proto: proto,
             messageInfo: messageInfo,
             currentUserSessionIds: currentUserSessionIds,
             displayNameRetriever: displayNameRetriever
@@ -677,7 +672,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         groupName: String,
         memberAuthData: Data?,
         groupIdentitySeed: Data?,
-        proto: SNProtoContent,
         messageInfo: MessageReceiveJob.Details.MessageInfo,
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String, Bool) -> String?
@@ -798,7 +792,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     notification,
                     threadId: groupSessionId.hexString,
                     threadVariant: .group,
-                    proto: proto,
                     messageInfo: messageInfo,
                     currentUserSessionIds: currentUserSessionIds,
                     displayNameRetriever: displayNameRetriever
@@ -876,7 +869,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         !cache.timestampAlreadyRead(
                             threadId: threadId,
                             threadVariant: threadVariant,
-                            timestampMs: (messageInfo.message.sentTimestampMs.map { Int64($0) } ?? 0),  /// Default to unread
+                            timestampMs: messageInfo.decodedMessage.sentTimestampMs,
                             openGroupUrlInfo: nil  /// Communities currently don't support PNs
                         )
                     }) &&
@@ -926,7 +919,6 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         _ notification: ProcessedNotification,
         threadId: String,
         threadVariant: SessionThread.Variant,
-        proto: SNProtoContent,
         messageInfo: MessageReceiveJob.Details.MessageInfo,
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String, Bool) -> String?
@@ -955,6 +947,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         )
         
         /// Try to show a notification for the message
+        let proto: SNProtoContent = try messageInfo.decodedMessage.decodeProtoContent()
         try dependencies[singleton: .notificationsManager].notifyUser(
             cat: .cat,
             message: messageInfo.message,

@@ -207,6 +207,9 @@ public extension CAccessible {
     func get(_ keyPath: KeyPath<Self, CUChar100>) -> Data { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get(_ keyPath: KeyPath<Self, CUChar100>) -> [UInt8] { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func getHex(_ keyPath: KeyPath<Self, CUChar100>) -> String { withUnsafePointer(to: self) { $0.getHex(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, span_u8>) -> Data { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func get(_ keyPath: KeyPath<Self, span_u8>) -> [UInt8] { withUnsafePointer(to: self) { $0.get(keyPath) } }
+    func getHex(_ keyPath: KeyPath<Self, span_u8>) -> String { withUnsafePointer(to: self) { $0.getHex(keyPath) } }
     func get<T: CTupleWrapper>(_ keyPath: KeyPath<Self, T>) -> Data { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func get<T: CTupleWrapper>(_ keyPath: KeyPath<Self, T>) -> [UInt8] { withUnsafePointer(to: self) { $0.get(keyPath) } }
     func getHex<T: CTupleWrapper>(_ keyPath: KeyPath<Self, T>) -> String { withUnsafePointer(to: self) { $0.getHex(keyPath) } }
@@ -245,6 +248,15 @@ public extension CAccessible {
         withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
     }
     func getHex(_ keyPath: KeyPath<Self, CUChar100>, nullIfEmpty: Bool = false) -> String? {
+        withUnsafePointer(to: self) { $0.getHex(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func get(_ keyPath: KeyPath<Self, span_u8>, nullIfEmpty: Bool = false) -> Data? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func get(_ keyPath: KeyPath<Self, span_u8>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        withUnsafePointer(to: self) { $0.get(keyPath, nullIfEmpty: nullIfEmpty) }
+    }
+    func getHex(_ keyPath: KeyPath<Self, span_u8>, nullIfEmpty: Bool = false) -> String? {
         withUnsafePointer(to: self) { $0.getHex(keyPath, nullIfEmpty: nullIfEmpty) }
     }
     func get<T: CTupleWrapper>(_ keyPath: KeyPath<Self, T>, nullIfEmpty: Bool = false) -> Data? {
@@ -386,6 +398,9 @@ public extension ReadablePointer {
     func get(_ keyPath: KeyPath<Pointee, CUChar100>) -> Data { getData(keyPath) }
     func get(_ keyPath: KeyPath<Pointee, CUChar100>) -> [UInt8] { Array(getData(keyPath)) }
     func getHex(_ keyPath: KeyPath<Pointee, CUChar100>) -> String { getData(keyPath).toHexString() }
+    func get(_ keyPath: KeyPath<Pointee, span_u8>) -> Data { getData(keyPath) }
+    func get(_ keyPath: KeyPath<Pointee, span_u8>) -> [UInt8] { Array(getData(keyPath)) }
+    func getHex(_ keyPath: KeyPath<Pointee, span_u8>) -> String { getData(keyPath).toHexString() }
     
     func get<T: CTupleWrapper>(_ keyPath: KeyPath<Pointee, T>) -> Data { getData(keyPath) }
     func get<T: CTupleWrapper>(_ keyPath: KeyPath<Pointee, T>) -> [UInt8] { Array(getData(keyPath)) }
@@ -425,6 +440,15 @@ public extension ReadablePointer {
         getData(keyPath, nullIfEmpty: nullIfEmpty).map { Array($0) }
     }
     func getHex(_ keyPath: KeyPath<Pointee, CUChar100>, nullIfEmpty: Bool = false) -> String? {
+        getData(keyPath, nullIfEmpty: nullIfEmpty).map { $0.toHexString() }
+    }
+    func get(_ keyPath: KeyPath<Pointee, span_u8>, nullIfEmpty: Bool = false) -> Data? {
+        getData(keyPath, nullIfEmpty: nullIfEmpty)
+    }
+    func get(_ keyPath: KeyPath<Pointee, span_u8>, nullIfEmpty: Bool = false) -> [UInt8]? {
+        getData(keyPath, nullIfEmpty: nullIfEmpty).map { Array($0) }
+    }
+    func getHex(_ keyPath: KeyPath<Pointee, span_u8>, nullIfEmpty: Bool = false) -> String? {
         getData(keyPath, nullIfEmpty: nullIfEmpty).map { $0.toHexString() }
     }
     func get<T: CTupleWrapper>(_ keyPath: KeyPath<Pointee, T>, nullIfEmpty: Bool = false) -> Data? {
@@ -486,8 +510,20 @@ private extension ReadablePointer {
         return withUnsafeBytes(of: byteArray) { Data($0) }
     }
     
+    private func _getData(_ span: span_u8) -> Data {
+        guard let data: UnsafeMutablePointer<UInt8> = span.data else { return Data() }
+        
+        return Data(bytes: data, count: span.size)
+    }
+    
     func _getData<T>(_ byteArray: T, nullIfEmpty: Bool) -> Data? {
         let result: Data = _getData(byteArray)
+        
+        return (!nullIfEmpty || result.contains(where: { $0 != 0 }) ? result : nil)
+    }
+    
+    func _getData(_ span: span_u8, nullIfEmpty: Bool) -> Data? {
+        let result: Data = _getData(span)
         
         return (!nullIfEmpty || result.contains(where: { $0 != 0 }) ? result : nil)
     }
@@ -511,7 +547,15 @@ private extension ReadablePointer {
         return _getData(ptr[keyPath: keyPath])
     }
     
+    func getData(_ keyPath: KeyPath<Pointee, span_u8>) -> Data {
+        return _getData(ptr[keyPath: keyPath])
+    }
+    
     func getData<T>(_ keyPath: KeyPath<Pointee, T>, nullIfEmpty: Bool) -> Data? {
+        return _getData(ptr[keyPath: keyPath], nullIfEmpty: nullIfEmpty)
+    }
+    
+    func getData(_ keyPath: KeyPath<Pointee, span_u8>, nullIfEmpty: Bool) -> Data? {
         return _getData(ptr[keyPath: keyPath], nullIfEmpty: nullIfEmpty)
     }
     

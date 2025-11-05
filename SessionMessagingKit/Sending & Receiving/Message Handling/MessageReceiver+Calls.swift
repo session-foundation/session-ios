@@ -21,6 +21,7 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: CallMessage,
+        decodedMessage: DecodedMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
@@ -36,6 +37,7 @@ extension MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
@@ -57,6 +59,7 @@ extension MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
@@ -74,6 +77,7 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: CallMessage,
+        decodedMessage: DecodedMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
@@ -87,7 +91,6 @@ extension MessageReceiver {
         // for this call would be dropped because of no Session call instance
         guard
             dependencies[singleton: .appContext].isMainApp,
-            let sender: String = message.sender,
             dependencies.mutate(cache: .libSession, { cache in
                 !cache.isMessageRequest(threadId: threadId, threadVariant: threadVariant)
             })
@@ -98,7 +101,7 @@ extension MessageReceiver {
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, threadId: threadId, threadVariant: threadVariant, for: message, state: .missed, using: dependencies), let interactionId: Int64 = interaction.id {
                 let thread: SessionThread = try SessionThread.upsert(
                     db,
-                    id: sender,
+                    id: decodedMessage.sender.hexString,
                     variant: .contact,
                     values: .existingOrDefault,
                     using: dependencies
@@ -165,7 +168,7 @@ extension MessageReceiver {
             if let interaction: Interaction = try MessageReceiver.insertCallInfoMessage(db, threadId: threadId, threadVariant: threadVariant, for: message, state: state, using: dependencies), let interactionId: Int64 = interaction.id {
                 let thread: SessionThread = try SessionThread.upsert(
                     db,
-                    id: sender,
+                    id: decodedMessage.sender.hexString,
                     variant: .contact,
                     values: .existingOrDefault,
                     using: dependencies
@@ -220,7 +223,7 @@ extension MessageReceiver {
                 NotificationCenter.default.post(
                     name: .missedCall,
                     object: nil,
-                    userInfo: [ Notification.Key.senderId.rawValue: sender ]
+                    userInfo: [ Notification.Key.senderId.rawValue: decodedMessage.sender.hexString ]
                 )
                 return (threadId, threadVariant, interactionId, interaction.variant, interaction.wasRead, 0)
             }
@@ -238,6 +241,7 @@ extension MessageReceiver {
                 threadId: threadId,
                 threadVariant: threadVariant,
                 message: message,
+                decodedMessage: decodedMessage,
                 suppressNotifications: suppressNotifications,
                 using: dependencies
             )
@@ -263,7 +267,7 @@ extension MessageReceiver {
         
         /// Handle UI for the new call
         dependencies[singleton: .callManager].showCallUIForCall(
-            caller: sender,
+            caller: decodedMessage.sender.hexString,
             uuid: message.uuid,
             mode: .answer,
             interactionId: interaction?.id
@@ -355,37 +359,33 @@ extension MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: CallMessage,
+        decodedMessage: DecodedMessage,
         suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         let messageInfo: CallMessage.MessageInfo = CallMessage.MessageInfo(state: .missed)
         
         guard
-            let caller: String = message.sender,
             let messageInfoData: Data = try? JSONEncoder(using: dependencies).encode(messageInfo),
             dependencies.mutate(cache: .libSession, { cache in
-                !cache.isMessageRequest(threadId: caller, threadVariant: threadVariant)
+                !cache.isMessageRequest(threadId: decodedMessage.sender.hexString, threadVariant: threadVariant)
             })
         else { throw MessageError.missingRequiredField }
         
-        let messageSentTimestampMs: Int64 = (
-            message.sentTimestampMs.map { Int64($0) } ??
-            dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        )
         let interaction: Interaction = try Interaction(
             serverHash: message.serverHash,
             messageUuid: message.uuid,
             threadId: threadId,
             threadVariant: threadVariant,
-            authorId: caller,
+            authorId: decodedMessage.sender.hexString,
             variant: .infoCall,
             body: String(data: messageInfoData, encoding: .utf8),
-            timestampMs: messageSentTimestampMs,
+            timestampMs: Int64(decodedMessage.sentTimestampMs),
             wasRead: dependencies.mutate(cache: .libSession) { cache in
                 cache.timestampAlreadyRead(
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    timestampMs: messageSentTimestampMs,
+                    timestampMs: decodedMessage.sentTimestampMs,
                     openGroupUrlInfo: nil
                 )
             },
@@ -498,7 +498,7 @@ extension MessageReceiver {
                 cache.timestampAlreadyRead(
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    timestampMs: timestampMs,
+                    timestampMs: UInt64(timestampMs),
                     openGroupUrlInfo: nil
                 )
             },

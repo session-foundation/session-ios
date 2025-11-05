@@ -355,7 +355,7 @@ public extension MessageDeduplication {
         /// special then it could result in unexpected behaviours where config messages don't get merged correctly
         switch processedMessage {
             case .config: return
-            case .standard(_, let threadVariant, _, let messageInfo, _):
+            case .standard(_, let threadVariant, let messageInfo, _):
                 try insert(
                     db,
                     threadId: processedMessage.threadId,
@@ -491,7 +491,7 @@ private extension MessageDeduplication {
     static func getLegacyIdentifier(for processedMessage: ProcessedMessage) -> String? {
         switch processedMessage {
             case .config: return nil
-            case .standard(_, _, _, let messageInfo, _):
+            case .standard(_, _, let messageInfo, _):
                 guard
                     let timestampMs: UInt64 = messageInfo.message.sentTimestampMs,
                     let variant: _040_MessageDeduplicationTable.ControlMessageProcessRecordVariant = getLegacyVariant(for: Message.Variant(from: messageInfo.message))

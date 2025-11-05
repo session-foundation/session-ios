@@ -7,7 +7,7 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    enum BackendUserProStatus: Sendable, CaseIterable, CustomStringConvertible {
+    enum BackendUserProStatus: Sendable, CaseIterable, Equatable, CustomStringConvertible {
         case neverBeenPro
         case active
         case expired

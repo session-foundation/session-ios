@@ -30,13 +30,18 @@ public actor SessionProManager: SessionProManagerType {
     nonisolated private let syncState: SessionProManagerSyncState
     private var proStatusObservationTask: Task<Void, Never>?
     private var masterKeyPair: KeyPair?
-    private var rotatingKeyPair: KeyPair?
+    public var rotatingKeyPair: KeyPair?
     
     nonisolated private let backendUserProStatusStream: CurrentValueAsyncStream<Network.SessionPro.BackendUserProStatus?> = CurrentValueAsyncStream(nil)
     nonisolated private let proProofStream: CurrentValueAsyncStream<Network.SessionPro.ProProof?> = CurrentValueAsyncStream(nil)
+    nonisolated private let decodedProForMessageStream: CurrentValueAsyncStream<SessionPro.DecodedProForMessage?> = CurrentValueAsyncStream(nil)
     
+    nonisolated public var currentUserCurrentRotatingKeyPair: KeyPair? { syncState.rotatingKeyPair }
     nonisolated public var currentUserIsCurrentlyPro: Bool { syncState.backendUserProStatus == .active }
     nonisolated public var currentUserCurrentProProof: Network.SessionPro.ProProof? { syncState.proProof }
+    nonisolated public var currentUserCurrentDecodedProForMessage: SessionPro.DecodedProForMessage? {
+        syncState.decodedProForMessage
+    }
     nonisolated public var currentUserIsPro: AsyncStream<Bool> {
         backendUserProStatusStream.stream
             .map { $0 == .active }
@@ -50,6 +55,9 @@ public actor SessionProManager: SessionProManagerType {
         backendUserProStatusStream.stream
     }
     nonisolated public var proProof: AsyncStream<Network.SessionPro.ProProof?> { proProofStream.stream }
+    nonisolated public var decodedProForMessage: AsyncStream<SessionPro.DecodedProForMessage?> {
+        decodedProForMessageStream.stream
+    }
     
     // MARK: - Initialization
     
@@ -78,6 +86,27 @@ public actor SessionProManager: SessionProManagerType {
                 
             case .success, .exceedsCharacterLimit: return (characterLimit - features.codePointCount)
         }
+    }
+    
+    nonisolated public func proStatus<I: DataProtocol>(
+        for proof: Network.SessionPro.ProProof?,
+        verifyPubkey: I?,
+        atTimestampMs timestampMs: UInt64
+    ) -> SessionPro.ProStatus {
+        guard let proof: Network.SessionPro.ProProof else { return .none }
+        
+        var cProProof: session_protocol_pro_proof = proof.libSessionValue
+        let cVerifyPubkey: [UInt8] = (verifyPubkey.map { Array($0) } ?? [])
+        
+        return SessionPro.ProStatus(
+            session_protocol_pro_proof_status(
+                &cProProof,
+                cVerifyPubkey,
+                cVerifyPubkey.count,
+                timestampMs,
+                nil
+            )
+        )
     }
     
     nonisolated public func features(for message: String, extraFeatures: SessionPro.ExtraFeatures) -> SessionPro.FeaturesForMessage {
@@ -182,26 +211,34 @@ public actor SessionProManager: SessionProManagerType {
 private final class SessionProManagerSyncState {
     private let lock: NSLock = NSLock()
     private let _dependencies: Dependencies
+    private var _rotatingKeyPair: KeyPair? = nil
     private var _backendUserProStatus: Network.SessionPro.BackendUserProStatus? = nil
     private var _proProof: Network.SessionPro.ProProof? = nil
+    private var _decodedProForMessage: SessionPro.DecodedProForMessage? = nil
     
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
+    fileprivate var rotatingKeyPair: KeyPair? { lock.withLock { _rotatingKeyPair } }
     fileprivate var backendUserProStatus: Network.SessionPro.BackendUserProStatus? {
         lock.withLock { _backendUserProStatus }
     }
     fileprivate var proProof: Network.SessionPro.ProProof? { lock.withLock { _proProof } }
+    fileprivate var decodedProForMessage: SessionPro.DecodedProForMessage? { lock.withLock { _decodedProForMessage } }
     
     fileprivate init(using dependencies: Dependencies) {
         self._dependencies = dependencies
     }
     
     fileprivate func update(
+        rotatingKeyPair: Update<KeyPair?> = .useExisting,
         backendUserProStatus: Update<Network.SessionPro.BackendUserProStatus?> = .useExisting,
-        proProof: Update<Network.SessionPro.ProProof?> = .useExisting
+        proProof: Update<Network.SessionPro.ProProof?> = .useExisting,
+        decodedProForMessage: Update<SessionPro.DecodedProForMessage?> = .useExisting
     ) {
         lock.withLock {
+            self._rotatingKeyPair = rotatingKeyPair.or(self._rotatingKeyPair)
             self._backendUserProStatus = backendUserProStatus.or(self._backendUserProStatus)
             self._proProof = proProof.or(self._proProof)
+            self._decodedProForMessage = decodedProForMessage.or(self._decodedProForMessage)
         }
     }
 }
@@ -209,12 +246,21 @@ private final class SessionProManagerSyncState {
 // MARK: - SessionProManagerType
 
 public protocol SessionProManagerType: SessionProUIManagerType {
+    var rotatingKeyPair: KeyPair? { get }
+    
     nonisolated var characterLimit: Int { get }
+    nonisolated var currentUserCurrentRotatingKeyPair: KeyPair? { get }
     nonisolated var currentUserCurrentProProof: Network.SessionPro.ProProof? { get }
+    nonisolated var currentUserCurrentDecodedProForMessage: SessionPro.DecodedProForMessage? { get }
     
     nonisolated var backendUserProStatus: AsyncStream<Network.SessionPro.BackendUserProStatus?> { get }
     nonisolated var proProof: AsyncStream<Network.SessionPro.ProProof?> { get }
     
+    nonisolated func proStatus<I: DataProtocol>(
+        for proof: Network.SessionPro.ProProof?,
+        verifyPubkey: I?,
+        atTimestampMs timestampMs: UInt64
+    ) -> SessionPro.ProStatus
     nonisolated func features(for message: String, extraFeatures: SessionPro.ExtraFeatures) -> SessionPro.FeaturesForMessage
 }
 

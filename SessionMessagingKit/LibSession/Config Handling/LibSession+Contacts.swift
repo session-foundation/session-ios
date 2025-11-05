@@ -71,8 +71,7 @@ internal extension LibSessionCacheType {
                         
                         return .contactUpdateTo(
                             url: displayPictureUrl,
-                            key: displayPictureEncryptionKey,
-                            sessionProProof: getProProof() // TODO: [PRO] double check if this is needed after Pro Proof is implemented
+                            key: displayPictureEncryptionKey
                         )
                     }(),
                     nicknameUpdate: .set(to: data.profile.nickname),

@@ -490,16 +490,16 @@ public extension LibSessionCacheType {
     func timestampAlreadyRead(
         threadId: String,
         threadVariant: SessionThread.Variant,
-        timestampMs: Int64,
+        timestampMs: UInt64,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Bool {
-        let lastReadTimestampMs = conversationLastRead(
+        let lastReadTimestampMs: Int64? = conversationLastRead(
             threadId: threadId,
             threadVariant: threadVariant,
             openGroupUrlInfo: openGroupUrlInfo
         )
         
-        return ((lastReadTimestampMs ?? 0) >= timestampMs)
+        return ((lastReadTimestampMs ?? 0) >= Int64(timestampMs))
     }
 }
 

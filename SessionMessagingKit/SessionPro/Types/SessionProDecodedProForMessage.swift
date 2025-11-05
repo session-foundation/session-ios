@@ -5,7 +5,7 @@ import SessionUtil
 import SessionNetworkingKit
 
 public extension SessionPro {
-    struct DecodedProForMessage: Equatable {
+    struct DecodedProForMessage: Sendable, Codable, Equatable {
         let status: SessionPro.ProStatus
         let proProof: Network.SessionPro.ProProof
         let features: Features

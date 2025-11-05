@@ -589,15 +589,15 @@ public final class OpenGroupManager {
                     
                     switch processedMessage {
                         case .config: break
-                        case .standard(_, _, _, let messageInfo, _):
+                        case .standard(_, _, let messageInfo, _):
                             insertedInteractionInfo.append(
                                 try MessageReceiver.handle(
                                     db,
                                     threadId: openGroup.id,
                                     threadVariant: .community,
                                     message: messageInfo.message,
+                                    decodedMessage: messageInfo.decodedMessage,
                                     serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                    associatedWithProto: try SNProtoContent.parseData(messageInfo.serializedProtoData),
                                     suppressNotifications: false,
                                     using: dependencies
                                 )
@@ -745,7 +745,7 @@ public final class OpenGroupManager {
                 
                 switch processedMessage {
                     case .config: break
-                    case .standard(let threadId, _, let proto, let messageInfo, _):
+                    case .standard(let threadId, _, let messageInfo, _):
                         /// We want to update the BlindedIdLookup cache with the message info so we can avoid using the
                         /// "expensive" lookup when possible
                         let lookup: BlindedIdLookup = try {
@@ -796,8 +796,8 @@ public final class OpenGroupManager {
                                 threadId: (lookup.sessionId ?? lookup.blindedId),
                                 threadVariant: .contact,    // Technically not open group messages
                                 message: messageInfo.message,
+                                decodedMessage: messageInfo.decodedMessage,
                                 serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                associatedWithProto: proto,
                                 suppressNotifications: false,
                                 using: dependencies
                             )

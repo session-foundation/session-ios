@@ -44,7 +44,6 @@ public enum MessageReceiver {
                 throw MessageError.invalidRevokedRetrievalMessageHandling
             }
             
-            let proto: SNProtoContent = try SNProtoContent.builder().build()
             let message: LibSessionMessage = LibSessionMessage(ciphertext: data)
             message.sender = publicKey  /// The "group" sends these messages
             message.serverHash = serverHash
@@ -52,20 +51,19 @@ public enum MessageReceiver {
             return .standard(
                 threadId: publicKey,
                 threadVariant: .group,
-                proto: proto,
-                messageInfo: try MessageReceiveJob.Details.MessageInfo(
+                messageInfo: MessageReceiveJob.Details.MessageInfo(
                     message: message,
                     variant: .libSessionMessage,
                     threadVariant: .group,
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    proto: proto
+                    decodedMessage: .empty /// LibSession system message doesn't need a `decodedMessage`
                 ),
                 uniqueIdentifier: serverHash
             )
         }
         
         /// For all other cases we can just decode the message
-        let (proto, sender, sentTimestampMs, decodedProForMessage): (SNProtoContent, String, UInt64) = try dependencies[singleton: .crypto].tryGenerate(
+        let decodedMessage: DecodedMessage = try dependencies[singleton: .crypto].tryGenerate(
             .decodedMessage(
                 encodedMessage: data,
                 origin: origin
@@ -77,9 +75,10 @@ public enum MessageReceiver {
         let serverExpirationTimestamp: TimeInterval?
         let uniqueIdentifier: String
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let message: Message = try Message.createMessageFrom(proto, sender: sender, using: dependencies)
-        message.sender = sender
-        message.sentTimestampMs = sentTimestampMs
+        let proto: SNProtoContent = try decodedMessage.decodeProtoContent()
+        let message: Message = try Message.createMessageFrom(proto, decodedMessage: decodedMessage, using: dependencies)
+        message.sender = decodedMessage.sender.hexString
+        message.sentTimestampMs = decodedMessage.sentTimestampMs
         message.sigTimestampMs = (proto.hasSigTimestamp ? proto.sigTimestamp : nil)
         message.receivedTimestampMs = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         
@@ -104,17 +103,17 @@ public enum MessageReceiver {
                 /// Don't process community inbox messages if the sender is blocked
                 guard
                     dependencies.mutate(cache: .libSession, { cache in
-                        !cache.isContactBlocked(contactId: sender)
+                        !cache.isContactBlocked(contactId: decodedMessage.sender.hexString)
                     }) ||
                     message.processWithBlockedSender
                 else { throw MessageError.senderBlocked }
                 
                 /// Ignore self sends if needed
-                guard message.isSelfSendValid || sender != userSessionId.hexString else {
+                guard message.isSelfSendValid || decodedMessage.sender != userSessionId else {
                     throw MessageError.selfSend
                 }
                 
-                threadId = sender
+                threadId = decodedMessage.sender.hexString
                 threadVariant = .contact
                 serverExpirationTimestamp = nil
                 uniqueIdentifier = "\(messageServerId)"
@@ -124,13 +123,13 @@ public enum MessageReceiver {
                 /// Don't process 1-to-1 or group messages if the sender is blocked
                 guard
                     dependencies.mutate(cache: .libSession, { cache in
-                        !cache.isContactBlocked(contactId: sender)
+                        !cache.isContactBlocked(contactId: decodedMessage.sender.hexString)
                     }) ||
                     message.processWithBlockedSender
                 else { throw MessageError.senderBlocked }
                 
                 /// Ignore self sends if needed
-                guard message.isSelfSendValid || sender != userSessionId.hexString else {
+                guard message.isSelfSendValid || decodedMessage.sender != userSessionId else {
                     throw MessageError.selfSend
                 }
                 
@@ -138,7 +137,7 @@ public enum MessageReceiver {
                     case .default:
                         threadId = Message.threadId(
                             forMessage: message,
-                            destination: .contact(publicKey: sender),
+                            destination: .contact(publicKey: decodedMessage.sender.hexString),
                             using: dependencies
                         )
                         threadVariant = .contact
@@ -149,7 +148,7 @@ public enum MessageReceiver {
                         
                     default:
                         Log.warn(.messageReceiver, "Couldn't process message due to invalid namespace.")
-                        throw MessageError.unknownMessage(proto)
+                        throw MessageError.unknownMessage(decodedMessage)
                 }
                 
                 serverExpirationTimestamp = expirationTimestamp
@@ -164,16 +163,14 @@ public enum MessageReceiver {
         return .standard(
             threadId: threadId,
             threadVariant: threadVariant,
-            proto: proto,
-            messageInfo: try MessageReceiveJob.Details.MessageInfo(
+            messageInfo: MessageReceiveJob.Details.MessageInfo(
                 message: message,
                 variant: try Message.Variant(from: message) ?? {
                     throw MessageError.invalidMessage("Unknown message type: \(type(of: message))")
                 }(),
                 threadVariant: threadVariant,
                 serverExpirationTimestamp: serverExpirationTimestamp,
-                proto: proto
-                // TODO: [PRO] Store the pro proof in these details
+                decodedMessage: decodedMessage
             ),
             uniqueIdentifier: uniqueIdentifier
         )
@@ -186,8 +183,8 @@ public enum MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
+        decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
-        associatedWithProto proto: SNProtoContent,
         suppressNotifications: Bool,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
@@ -205,12 +202,9 @@ public enum MessageReceiver {
         
         MessageReceiver.updateContactDisappearingMessagesVersionIfNeeded(
             db,
-            messageVariant: .init(from: message),
+            messageVariant: Message.Variant(from: message),
             contactId: message.sender,
-            version: ((!proto.hasExpirationType && !proto.hasExpirationTimer) ?
-                .legacyDisappearingMessages :
-                .newDisappearingMessages
-            ),
+            decodedMessage: decodedMessage,
             using: dependencies
         )
         
@@ -244,6 +238,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     suppressNotifications: suppressNotifications,
                     using: dependencies
@@ -265,8 +260,8 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    proto: proto,
                     using: dependencies
                 )
                 
@@ -286,6 +281,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
@@ -294,6 +290,7 @@ public enum MessageReceiver {
                 interactionInfo = try MessageReceiver.handleMessageRequestResponse(
                     db,
                     message: message,
+                    decodedMessage: decodedMessage,
                     using: dependencies
                 )
                 
@@ -303,8 +300,8 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    associatedWithProto: proto,
                     suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
@@ -319,7 +316,7 @@ public enum MessageReceiver {
                     using: dependencies
                 )
             
-            default: throw MessageError.unknownMessage(proto)
+            default: throw MessageError.unknownMessage(decodedMessage)
         }
         
         // Perform any required post-handling logic
