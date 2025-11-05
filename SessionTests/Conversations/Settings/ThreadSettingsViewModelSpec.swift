@@ -241,20 +241,12 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     expect(item?.title?.text).to(equal("TestUser"))
                 }
                 
-                // MARK: ---- has an edit icon
-                it("has an edit icon") {
-                    let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                        .toEventuallyNot(beNil())
-                        .retrieveValue()
-                    expect(item?.trailingAccessory).toNot(beNil())
-                }
-                
                 // MARK: ---- presents a confirmation modal when tapped
                 it("presents a confirmation modal when tapped") {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    await item?.onTap?()
+                    await item?.onTapView?(UIView())
                     await expect(screenTransitions.first?.destination)
                         .toEventually(beAKindOf(ConfirmationModal.self))
                     expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
@@ -270,7 +262,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        await item?.onTap?()
+                        await item?.onTapView?(UIView())
                         await expect(screenTransitions.first?.destination)
                             .toEventually(beAKindOf(ConfirmationModal.self))
                         
@@ -455,21 +447,12 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         setupTestSubscriptions()
                     }
                     
-                    // MARK: ------ has an edit icon
-                    it("has an edit icon") {
-                        let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                            .toEventuallyNot(beNil())
-                            .retrieveValue()
-                        expect(item?.trailingAccessory).toNot(beNil())
-                    }
-                    
                     // MARK: ------ presents a confirmation modal when tapped
                     it("presents a confirmation modal when tapped") {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        expect(item?.trailingAccessory).toNot(beNil())
-                        await item?.onTap?()
+                        await item?.onTapView?(UIView())
                         await expect(screenTransitions.first?.destination)
                             .toEventually(beAKindOf(ConfirmationModal.self))
                         expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
@@ -584,21 +567,12 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         setupTestSubscriptions()
                     }
                     
-                    // MARK: ------ has an edit icon
-                    it("has an edit icon") {
-                        let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                            .toEventuallyNot(beNil())
-                            .retrieveValue()
-                        expect(item?.trailingAccessory).toNot(beNil())
-                    }
-                    
                     // MARK: ------ presents a confirmation modal when tapped
                     it("presents a confirmation modal when tapped") {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        expect(item?.trailingAccessory).toNot(beNil())
-                        await item?.onTap?()
+                        await item?.onTapView?(UIView())
                         await expect(screenTransitions.first?.destination)
                             .toEventually(beAKindOf(ConfirmationModal.self))
                         expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
@@ -626,7 +600,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                                 .toEventuallyNot(beNil())
                                 .retrieveValue()
-                            await item?.onTap?()
+                            await item?.onTapView?(UIView())
                             await expect(screenTransitions.first?.destination)
                                 .toEventually(beAKindOf(ConfirmationModal.self))
                             

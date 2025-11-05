@@ -297,9 +297,13 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                             SessionCell.Info(
                                 id: model,
                                 leadingAccessory: .profile(id: model.id, profile: model.profile),
-                                title: (
-                                    model.profile?.displayName() ??
-                                    model.id.truncated()
+                                title: SessionCell.TextInfo(
+                                    (model.profile?.displayName() ?? model.id.truncated()),
+                                    font: .title,
+                                    trailingImage: {
+                                        guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateProProof(for: model.profile) }) else { return nil }
+                                        return ("ProBadge", { [dependencies = viewModel.dependencies] in SessionProBadge(size: .small).toImage(using: dependencies) })
+                                    }()
                                 ),
                                 trailingAccessory: .radio(
                                     isSelected: state.selectedIds.contains(model.id)

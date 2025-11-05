@@ -4,6 +4,7 @@ import UIKit
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
+import Lucide
 
 final class QuoteView: UIView {
     static let thumbnailSize: CGFloat = 48
@@ -87,8 +88,6 @@ final class QuoteView: UIView {
         let mainStackView = UIStackView(arrangedSubviews: [])
         mainStackView.axis = .horizontal
         mainStackView.spacing = smallSpacing
-        mainStackView.isLayoutMarginsRelativeArrangement = true
-        mainStackView.layoutMargins = UIEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: smallSpacing)
         mainStackView.alignment = .center
         mainStackView.setCompressionResistance(.vertical, to: .required)
         
@@ -160,13 +159,13 @@ final class QuoteView: UIView {
         bodyLabel.lineBreakMode = .byTruncatingTail
         bodyLabel.numberOfLines = 2
         
-        let targetThemeColor: ThemeValue = {
+        let (targetThemeColor, proBadgeThemeColor): (ThemeValue, ThemeValue) = {
             switch mode {
                 case .regular: return (direction == .outgoing ?
-                    .messageBubble_outgoingText :
-                    .messageBubble_incomingText
+                    (.messageBubble_outgoingText, .white) :
+                    (.messageBubble_incomingText, .primary)
                 )
-                case .draft: return .textPrimary
+                case .draft: return (.textPrimary, .primary)
             }
         }()
         bodyLabel.font = .systemFont(ofSize: Values.smallFontSize)
@@ -198,7 +197,10 @@ final class QuoteView: UIView {
             .defaulting(to: ThemedAttributedString(string: "messageErrorOriginal".localized(), attributes: [ .themeForegroundColor: targetThemeColor ]))
         
         // Label stack view
-        let authorLabel = UILabel()
+        let authorLabel = SessionLabelWithProBadge(
+            proBadgeSize: .mini,
+            proBadgeThemeBackgroundColor: proBadgeThemeColor
+        )
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
         authorLabel.text = {
             guard !currentUserSessionIds.contains(authorId) else { return "you".localized() }
@@ -207,6 +209,7 @@ final class QuoteView: UIView {
                 return Profile.displayNameNoFallback(
                     id: authorId,
                     threadVariant: threadVariant,
+                    suppressId: true,
                     using: dependencies
                 )
             }
@@ -214,13 +217,15 @@ final class QuoteView: UIView {
             return Profile.displayName(
                 id: authorId,
                 threadVariant: threadVariant,
+                suppressId: true,
                 using: dependencies
             )
         }()
         authorLabel.themeTextColor = targetThemeColor
         authorLabel.lineBreakMode = .byTruncatingTail
-        authorLabel.isHidden = (authorLabel.text == nil)
         authorLabel.numberOfLines = 1
+        authorLabel.isHidden = (authorLabel.text == nil)
+        authorLabel.isProBadgeHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: authorId) }
         authorLabel.setCompressionResistance(.vertical, to: .required)
         
         let labelStackView = UIStackView(arrangedSubviews: [ authorLabel, bodyLabel ])
@@ -239,7 +244,7 @@ final class QuoteView: UIView {
         if mode == .draft {
             // Cancel button
             let cancelButton = UIButton(type: .custom)
-            cancelButton.setImage(UIImage(named: "X")?.withRenderingMode(.alwaysTemplate), for: .normal)
+            cancelButton.setImage(Lucide.image(icon: .x, size: 24)?.withRenderingMode(.alwaysTemplate), for: .normal)
             cancelButton.themeTintColor = .textPrimary
             cancelButton.set(.width, to: cancelButtonSize)
             cancelButton.set(.height, to: cancelButtonSize)
@@ -247,6 +252,8 @@ final class QuoteView: UIView {
             
             mainStackView.addArrangedSubview(cancelButton)
             cancelButton.center(.vertical, in: self)
+            mainStackView.isLayoutMarginsRelativeArrangement = true
+            mainStackView.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 1)
         }
     }
 

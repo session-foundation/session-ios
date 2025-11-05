@@ -345,6 +345,31 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         )
     }
     
+    public func isSessionPro(using dependencies: Dependencies) -> Bool {
+        guard threadIsNoteToSelf == false && threadVariant != .community else {
+            return false
+        }
+        return dependencies.mutate(cache: .libSession) { [threadId] in $0.validateSessionProState(for: threadId)}
+    }
+    
+    public func getQRCodeString() -> String {
+        switch self.threadVariant {
+            case .contact, .legacyGroup, .group:
+                return self.threadId
+
+            case .community:
+                guard
+                    let urlString: String = LibSession.communityUrlFor(
+                        server: self.openGroupServer,
+                        roomToken: self.openGroupRoomToken,
+                        publicKey: self.openGroupPublicKey
+                    )
+                else { return "" }
+
+                return urlString
+        }
+    }
+    
     // MARK: - Marking as Read
     
     public enum ReadTarget {

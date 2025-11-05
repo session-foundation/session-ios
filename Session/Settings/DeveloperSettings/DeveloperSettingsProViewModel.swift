@@ -71,7 +71,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case enableSessionPro
         
         case proStatus
-        case proIncomingMessages
+        case allUsersSessionPro
+
+        case messageFeatureProBadge
+        case messageFeatureLongMessage
+        case messageFeatureAnimatedAvatar
         
         case purchaseProSubscription
         case manageProSubscriptions
@@ -89,7 +93,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .enableSessionPro: return "enableSessionPro"
                     
                 case .proStatus: return "proStatus"
-                case .proIncomingMessages: return "proIncomingMessages"
+                case .allUsersSessionPro: return "allUsersSessionPro"
+                
+                case .messageFeatureProBadge: return "messageFeatureProBadge"
+                case .messageFeatureLongMessage: return "messageFeatureLongMessage"
+                case .messageFeatureAnimatedAvatar: return "messageFeatureAnimatedAvatar"
                     
                 case .purchaseProSubscription: return "purchaseProSubscription"
                 case .manageProSubscriptions: return "manageProSubscriptions"
@@ -110,7 +118,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .enableSessionPro: result.append(.enableSessionPro); fallthrough
                     
                 case .proStatus: result.append(.proStatus); fallthrough
-                case .proIncomingMessages: result.append(.proIncomingMessages); fallthrough
+                case .allUsersSessionPro: result.append(.allUsersSessionPro); fallthrough
+
+                case .messageFeatureProBadge: result.append(.messageFeatureProBadge); fallthrough
+                case .messageFeatureLongMessage: result.append(.messageFeatureLongMessage); fallthrough
+                case .messageFeatureAnimatedAvatar: result.append(.messageFeatureAnimatedAvatar)
                     
                 case .purchaseProSubscription: result.append(.purchaseProSubscription); fallthrough
                 case .manageProSubscriptions: result.append(.manageProSubscriptions); fallthrough
@@ -137,7 +149,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let sessionProEnabled: Bool
         
         let mockCurrentUserSessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
-        let treatAllIncomingMessagesAsProMessages: Bool
+        let allUsersSessionPro: Bool
+
+        let messageFeatureProBadge: Bool
+        let messageFeatureLongMessage: Bool
+        let messageFeatureAnimatedAvatar: Bool
         
         let products: [Product]
         let purchasedProduct: Product?
@@ -165,7 +181,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         public let observedKeys: Set<ObservableKey> = [
             .feature(.sessionProEnabled),
             .feature(.mockCurrentUserSessionProBackendStatus),
-            .feature(.treatAllIncomingMessagesAsProMessages),
+            .feature(.allUsersSessionPro),
+            .feature(.messageFeatureProBadge),
+            .feature(.messageFeatureLongMessage),
+            .feature(.messageFeatureAnimatedAvatar),
             .updateScreen(DeveloperSettingsProViewModel.self)
         ]
         
@@ -174,7 +193,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 sessionProEnabled: dependencies[feature: .sessionProEnabled],
                 
                 mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
-                treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
+                allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
+
+                messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
+                messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
+                messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar]
                 
                 products: [],
                 purchasedProduct: nil,
@@ -245,7 +268,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         return State(
             sessionProEnabled: dependencies[feature: .sessionProEnabled],
             mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
-            treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages],
+            allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
+            messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
+            messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
+            messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar],
             products: products,
             purchasedProduct: purchasedProduct,
             purchaseError: purchaseError,
@@ -298,7 +324,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             }
         }()
         
-        let features: SectionModel = SectionModel(
+        var features: SectionModel = SectionModel(
             model: .features,
             elements: [
                 SessionCell.Info(
@@ -314,23 +340,71 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         viewModel?.showMockProStatusModal(currentStatus: state.mockCurrentUserSessionProBackendStatus)
                     }
                 ),
-                
                 SessionCell.Info(
-                    id: .proIncomingMessages,
-                    title: "All Pro Incoming Messages",
+                    id: .allUsersSessionPro,
+                    title: "Everyone is a Pro",
                     subtitle: """
                     Treat all incoming messages as Pro messages.
+                    Treat all contacts, groups as Session Pro.
                     """,
                     trailingAccessory: .toggle(
-                        state.treatAllIncomingMessagesAsProMessages,
-                        oldValue: previousState.treatAllIncomingMessagesAsProMessages
+                        state.allUsersSessionPro,
+                        oldValue: previousState.allUsersSessionPro
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
-                            feature: .treatAllIncomingMessagesAsProMessages,
-                            to: !state.treatAllIncomingMessagesAsProMessages
+                            feature: .allUsersSessionPro,
+                            to: !state.allUsersSessionPro
                         )
                     }
+                ),
+                (!state.allUsersSessionPro ? nil :
+                    SessionCell.Info(
+                        id: .messageFeatureProBadge,
+                        title: SessionCell.TextInfo("Message Feature: Pro Badge", font: .subtitle),
+                        trailingAccessory: .toggle(
+                            state.messageFeatureProBadge,
+                            oldValue: previousState.messageFeatureProBadge
+                        ),
+                        onTap: { [dependencies = viewModel.dependencies] in
+                            dependencies.set(
+                                feature: .messageFeatureProBadge,
+                                to: !state.messageFeatureProBadge
+                            )
+                        }
+                    )
+                ),
+                (!state.allUsersSessionPro ? nil :
+                    SessionCell.Info(
+                        id: .messageFeatureLongMessage,
+                        title: SessionCell.TextInfo("Message Feature: Long Message", font: .subtitle),
+                        trailingAccessory: .toggle(
+                            state.messageFeatureLongMessage,
+                            oldValue: previousState.messageFeatureLongMessage
+                        ),
+                        onTap: { [dependencies = viewModel.dependencies] in
+                            dependencies.set(
+                                feature: .messageFeatureLongMessage,
+                                to: !state.messageFeatureLongMessage
+                            )
+                        }
+                    )
+                ),
+                (!state.allUsersSessionPro ? nil :
+                    SessionCell.Info(
+                        id: .messageFeatureAnimatedAvatar,
+                        title: SessionCell.TextInfo("Message Feature: Animated Avatar", font: .subtitle),
+                        trailingAccessory: .toggle(
+                            state.messageFeatureAnimatedAvatar,
+                            oldValue: previousState.messageFeatureAnimatedAvatar
+                        ),
+                        onTap: { [dependencies = viewModel.dependencies] in
+                            dependencies.set(
+                                feature: .messageFeatureAnimatedAvatar,
+                                to: !state.messageFeatureAnimatedAvatar
+                            )
+                        }
+                    )
                 )
             ]
         )
@@ -476,7 +550,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public static func disableDeveloperMode(using dependencies: Dependencies) {
         let features: [FeatureConfig<Bool>] = [
             .sessionProEnabled,
-            .treatAllIncomingMessagesAsProMessages
+            .allUsersSessionPro,
+            .messageFeatureProBadge,
+            .messageFeatureLongMessage,
+            .messageFeatureAnimatedAvatar,
         ]
         
         features.forEach { feature in
@@ -499,8 +576,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
         }
         
-        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
-            dependencies.set(feature: .treatAllIncomingMessagesAsProMessages, to: nil)
+        if dependencies.hasSet(feature: .allUsersSessionPro) {
+            dependencies.set(feature: .allUsersSessionPro, to: nil)
         }
     }
     

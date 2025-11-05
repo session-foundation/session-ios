@@ -66,82 +66,13 @@ public enum MentionUtilities {
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String, Bool) -> String?
     ) -> String {
-        /// **Note:** We are returning the string here so the 'textColor' and 'primaryColor' values are irrelevant
-        return highlightMentions(
-            in: string,
-            currentUserSessionIds: currentUserSessionIds,
-            location: .styleFree,
-            textColor: .black,
-            attributes: [:],
-            displayNameRetriever: displayNameRetriever
-        )
-        .string
-        .deformatted()
-    }
-
-    public static func highlightMentions(
-        in string: String,
-        currentUserSessionIds: Set<String>,
-        location: MentionLocation,
-        textColor: ThemeValue,
-        attributes: [NSAttributedString.Key: Any],
-        displayNameRetriever: (String, Bool) -> String?
-    ) -> ThemedAttributedString {
-        let (string, mentions) = getMentions(
+        let (string, _) = getMentions(
             in: string,
             currentUserSessionIds: currentUserSessionIds,
             displayNameRetriever: displayNameRetriever
         )
         
-        let sizeDiff: CGFloat = (Values.smallFontSize / Values.mediumFontSize)
-        let result: ThemedAttributedString = ThemedAttributedString(string: string, attributes: attributes)
-        mentions.forEach { mention in
-            result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.smallFontSize), range: mention.range)
-            
-            if mention.isCurrentUser && location == .incomingMessage {
-                // Note: The designs don't match with the dynamic sizing so these values need to be calculated
-                // to maintain a "rounded rect" effect rather than a "pill" effect
-                result.addAttribute(.currentUserMentionBackgroundCornerRadius, value: (8 * sizeDiff), range: mention.range)
-                result.addAttribute(.currentUserMentionBackgroundPadding, value: (3 * sizeDiff), range: mention.range)
-                result.addAttribute(.currentUserMentionBackgroundColor, value: ThemeValue.primary, range: mention.range)
-                
-                // Only add the additional kern if the mention isn't at the end of the string (otherwise this
-                // would crash due to an index out of bounds exception)
-                if mention.range.upperBound < result.length {
-                    result.addAttribute(.kern, value: (3 * sizeDiff), range: NSRange(location: mention.range.upperBound, length: 1))
-                }
-            }
-            
-            var targetColor: ThemeValue = textColor
-            
-            switch (location, mention.isCurrentUser) {
-                // 1 - Incoming messages where the mention is for the current user
-                case (.incomingMessage, true):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                
-                // 2 - Incoming messages where the mention is for another user
-                case (.incomingMessage, false):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .primary)
-                    
-                // 3 - Outgoing messages
-                case (.outgoingMessage, _):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                
-                // 4 - Mentions in quotes
-                case (.outgoingQuote, _):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                case (.incomingQuote, _):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .primary)
-                    
-                // 5 - Mentions in quote drafts
-                case (.quoteDraft, _), (.styleFree, _):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: textColor)
-            }
-            
-            result.addAttribute(.themeForegroundColor, value: targetColor, range: mention.range)
-        }
-        
-        return result
+        return string
     }
 }
 

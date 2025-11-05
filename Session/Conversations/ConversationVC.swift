@@ -461,7 +461,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         titleView.initialSetup(
             with: self.viewModel.initialThreadVariant,
             isNoteToSelf: self.viewModel.threadData.threadIsNoteToSelf,
-            isMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true)
+            isMessageRequest: (self.viewModel.threadData.threadIsMessageRequest == true),
+            isSessionPro: self.viewModel.threadData.isSessionPro(using: self.viewModel.dependencies)
         )
         
         // Constraints
@@ -796,6 +797,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 with: updatedThreadData.displayName,
                 isNoteToSelf: updatedThreadData.threadIsNoteToSelf,
                 isMessageRequest: (updatedThreadData.threadIsMessageRequest == true),
+                isSessionPro: updatedThreadData.isSessionPro(using: viewModel.dependencies),
                 threadVariant: updatedThreadData.threadVariant,
                 mutedUntilTimestamp: updatedThreadData.threadMutedUntilTimestamp,
                 onlyNotifyForMentions: (updatedThreadData.threadOnlyNotifyForMentions == true),
