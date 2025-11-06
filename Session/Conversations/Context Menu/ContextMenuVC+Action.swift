@@ -251,7 +251,8 @@ extension ContextMenuVC {
         }()
         let canCopySessionId: Bool = (
             cellViewModel.variant == .standardIncoming &&
-            cellViewModel.threadVariant != .community
+            cellViewModel.threadVariant != .community &&
+            !forMessageInfoScreen
         )
         let canDelete: Bool = (MessageViewModel.DeletionBehaviours.deletionActions(
             for: [cellViewModel],
