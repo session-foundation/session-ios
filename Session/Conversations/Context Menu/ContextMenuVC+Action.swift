@@ -77,7 +77,7 @@ extension ContextMenuVC {
 
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Lucide.image(icon: .reply, size: 24),
+                icon: Dependencies.isRTL ? Lucide.image(icon: .reply, size: 24)?.flippedHorizontally() : Lucide.image(icon: .reply, size: 24),
                 title: "reply".localized(),
                 shouldDismissInfoScreen: true,
                 accessibilityLabel: "Reply to message"
