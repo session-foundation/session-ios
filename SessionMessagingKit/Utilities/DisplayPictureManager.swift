@@ -189,11 +189,11 @@ public class DisplayPictureManager {
     
     private static func standardOperations(cropRect: CGRect?) -> Set<PendingAttachment.Operation> {
         return [
-//            .convert(to: .webPLossy(
-//                maxDimension: DisplayPictureManager.maxDimension,
-//                cropRect: cropRect,
-//                resizeMode: .fill
-//            )),
+            .convert(to: .webPLossy(
+                maxDimension: DisplayPictureManager.maxDimension,
+                cropRect: cropRect,
+                resizeMode: .fill
+            )),
             .stripImageMetadata
         ]
     }
