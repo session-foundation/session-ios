@@ -88,7 +88,14 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         guard case .active(let currentPlan, let expiredOn, _, let originatingPlatform) = self.sessionProStateSubject.value else {
             return
         }
-        self.sessionProStateSubject.send(.none)
+        self.sessionProStateSubject.send(
+            SessionProPlanState.active(
+                currentPlan: currentPlan,
+                expiredOn: expiredOn,
+                isAutoRenewing: false,
+                originatingPlatform: originatingPlatform
+            )
+        )
         self.shouldAnimateImageSubject.send(false)
         completion?(true)
     }
