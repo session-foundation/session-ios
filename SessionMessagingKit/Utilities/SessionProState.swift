@@ -20,7 +20,7 @@ public class SessionProState: SessionProManagerType {
     public var isSessionProSubject: CurrentValueSubject<Bool, Never>
     public var isSessionProPublisher: AnyPublisher<Bool, Never> {
         isSessionProSubject
-            .filter { $0 }
+            .compactMap { $0 }
             .eraseToAnyPublisher()
     }
     

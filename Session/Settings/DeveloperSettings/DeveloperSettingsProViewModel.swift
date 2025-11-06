@@ -368,6 +368,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                             feature: .mockCurrentUserSessionPro,
                             to: !state.mockCurrentUserSessionPro
                         )
+                        dependencies[singleton: .sessionProState].isSessionProSubject.send(!state.mockCurrentUserSessionPro)
                     }
                 ),
                 SessionCell.Info(
