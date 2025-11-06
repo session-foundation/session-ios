@@ -250,7 +250,15 @@ public struct SessionProPaymentScreen: View {
     
     private func onPaymentSuccess(expiredOn: Date?) {
         guard !self.viewModel.isFromBottomSheet else {
-            isNavigationActive = true
+            let sessionProBottomSheet: BottomSheetHostingViewController = BottomSheetHostingViewController(
+                bottomSheet: BottomSheet(hasCloseButton: true) {
+                    SessionProPlanUpdatedScreen(
+                        flow: self.viewModel.dataModel.flow,
+                        expiredOn: expiredOn
+                    )
+                }
+            )
+            self.host.controller?.present(sessionProBottomSheet, animated: true)
             return
         }
         
@@ -263,6 +271,9 @@ public struct SessionProPaymentScreen: View {
         viewController.modalTransitionStyle = .crossDissolve
         viewController.modalPresentationStyle = .overFullScreen
         self.host.controller?.present(viewController, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(250)) {
+            self.host.controller?.navigationController?.popViewController(animated: false)
+        }
     }
     
     private func openTosPrivacy() {

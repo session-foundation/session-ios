@@ -607,7 +607,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         dependencies.set(feature: .mockCurrentUserSessionProState, to: state)
         switch state {
             case .none:
-                dependencies[singleton: .sessionProState].cancelPro(completion: nil)
+                dependencies[singleton: .sessionProState].sessionProStateSubject.send(.none)
+                dependencies[singleton: .sessionProState].shouldAnimateImageSubject.send(false)
             case .active:
                 dependencies[singleton: .sessionProState].upgradeToPro(
                     plan: SessionProPlan(variant: .threeMonths),
