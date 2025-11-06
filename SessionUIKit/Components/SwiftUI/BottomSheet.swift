@@ -44,6 +44,7 @@ public struct BottomSheet<Content>: View where Content: View {
                     GeometryReader { geo in
                         NavigationView {
                             content()
+                                .navigationTitle("")
                                 .padding(.top, 44)
                         }
                         .navigationViewStyle(.stack)
@@ -58,12 +59,12 @@ public struct BottomSheet<Content>: View where Content: View {
                         Button {
                             close()
                         } label: {
-                            AttributedText(Lucide.Icon.x.attributedString(size: 20))
-                                .font(.system(size: 20))
+                            AttributedText(Lucide.Icon.x.attributedString(size: 28))
+                                .font(.system(size: 28, weight: .bold))
                                 .foregroundColor(themeColor: .textPrimary)
                         }
-                        .frame(width: 24, height: 24)
-                        .padding(Values.mediumSmallSpacing)
+                        .frame(width: 28, height: 28)
+                        .padding(Values.smallSpacing)
                     }
                 }
                 .backgroundColor(themeColor: .backgroundPrimary)

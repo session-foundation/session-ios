@@ -155,9 +155,7 @@ public struct ListItemLogoWithPro: View {
         
         var verticalPaddings: CGFloat {
             switch self {
-                case .base:
-                    return 10
-                case .large:
+                case .base, .large:
                     return (blurSize.height - 111) / 2
                 case .largeNoPaddings:
                     return 0
