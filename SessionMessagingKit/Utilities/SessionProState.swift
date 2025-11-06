@@ -30,7 +30,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     public var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never>
     public var shouldAnimateImagePublisher: AnyPublisher<Bool, Never> {
         shouldAnimateImageSubject
-            .filter { $0 }
+            .compactMap { $0 }
             .eraseToAnyPublisher()
     }
     

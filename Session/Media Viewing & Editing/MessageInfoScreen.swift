@@ -578,13 +578,24 @@ struct MessageInfoScreen: View {
         }
         
         let (sessionId, blindedId): (String?, String?) = {
-            guard (try? SessionId.Prefix(from: messageViewModel.authorId)) == .blinded15 else {
+            guard
+                (try? SessionId.Prefix(from: messageViewModel.authorId)) == .blinded15,
+                let openGroupServer: String = messageViewModel.threadOpenGroupServer,
+                let openGroupPublicKey: String = messageViewModel.threadOpenGroupPublicKey
+            else {
                 return (messageViewModel.authorId, nil)
             }
-            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].read { db in
-                try? BlindedIdLookup.fetchOne(db, id: messageViewModel.authorId)
+            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].write { db in
+                try BlindedIdLookup.fetchOrCreate(
+                    db,
+                    blindedId: messageViewModel.authorId,
+                    openGroupServer: openGroupServer,
+                    openGroupPublicKey: openGroupPublicKey,
+                    isCheckingForOutbox: false,
+                    using: dependencies
+                )
             }
-            return (lookup?.sessionId, messageViewModel.authorId)
+            return (lookup?.sessionId, messageViewModel.authorId.truncated(prefix: 10, suffix: 10))
         }()
         
         let qrCodeImage: UIImage? = {
@@ -602,17 +613,19 @@ struct MessageInfoScreen: View {
                 return (messageViewModel.authorNameSuppressedId, nil)
             }
             
+            let profile: Profile? = (
+                dependencies.mutate(cache: .libSession) { $0.profile(contactId: sessionId) } ??
+                dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId) }
+            )
+            
             let isCurrentUser: Bool = (messageViewModel.currentUserSessionIds?.contains(sessionId) == true)
             guard !isCurrentUser else {
                 return ("you".localized(), "you".localized())
             }
             
             return (
-                messageViewModel.authorName,
-                messageViewModel.profile?.displayName(
-                    for: messageViewModel.threadVariant,
-                    ignoringNickname: true
-                )
+                (profile?.displayName(for: .contact) ?? messageViewModel.authorNameSuppressedId),
+                profile?.displayName(for: .contact, ignoringNickname: true)
             )
         }()
         
