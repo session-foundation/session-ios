@@ -605,7 +605,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 string: "messageSnippetGroup"
                     .put(key: "author", value: authorName)
                     .put(key: "message_snippet", value: "")
-                    .localized(),
+                    .localizedDeformatted(),
                 attributes: [ .themeForegroundColor: textColor ]
             ))
         }
@@ -615,7 +615,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 case .infoGroupCurrentUserErrorLeaving:
                     return "groupLeaveErrorFailed"
                         .put(key: "group_name", value: cellViewModel.displayName)
-                        .localized()
+                        .localizedDeformatted()
                 
                 default:
                     return Interaction.previewText(
@@ -627,7 +627,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                         attachmentCount: cellViewModel.interactionAttachmentCount,
                         isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
                         using: dependencies
-                    )
+                    ).localizedDeformatted()
             }
         }()
         
