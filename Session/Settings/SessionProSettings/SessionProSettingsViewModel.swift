@@ -103,7 +103,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         case recoverPlan
         case proBadge
         
-        case largerGroups
         case longerMessages
         case animatedDisplayPictures
         case badges
@@ -1018,19 +1017,6 @@ extension SessionProSettingsViewModel {
         static func allCases(_ state: SessionProPlanState) -> [ProFeaturesInfo] {
             return [
                 ProFeaturesInfo(
-                    id: .largerGroups,
-                    icon: UIImage(named: "ic_user_group_plus"),
-                    backgroundColors: {
-                        return switch state {
-                            case .expired: [ThemeValue.disabled]
-                            default: [.explicitPrimary(.green), .explicitPrimary(.blue)]
-                        }
-                    }(),
-                    title: "proLargerGroups".localized(),
-                    description: "proLargerGroupsDescription".localized(),
-                    accessory: .none
-                ),
-                ProFeaturesInfo(
                     id: .longerMessages,
                     icon: Lucide.image(icon: .messageSquare, size: IconSize.medium.size),
                     backgroundColors: {
@@ -1044,12 +1030,25 @@ extension SessionProSettingsViewModel {
                     accessory: .none
                 ),
                 ProFeaturesInfo(
+                    id: .unlimitedPins,
+                    icon: Lucide.image(icon: .pin, size: IconSize.medium.size),
+                    backgroundColors: {
+                        return switch state {
+                            case .expired: [ThemeValue.disabled]
+                            default: [.explicitPrimary(.purple), .explicitPrimary(.pink)]
+                        }
+                    }(),
+                    title: "proUnlimitedPins".localized(),
+                    description: "proUnlimitedPinsDescription".localized(),
+                    accessory: .none
+                ),
+                ProFeaturesInfo(
                     id: .animatedDisplayPictures,
                     icon: Lucide.image(icon: .squarePlay, size: IconSize.medium.size),
                     backgroundColors: {
                         return switch state {
                             case .expired: [ThemeValue.disabled]
-                            default: [.explicitPrimary(.purple), .explicitPrimary(.pink)]
+                            default: [.explicitPrimary(.pink), .explicitPrimary(.red)]
                         }
                     }(),
                     title: "proAnimatedDisplayPictures".localized(),
@@ -1062,7 +1061,7 @@ extension SessionProSettingsViewModel {
                     backgroundColors: {
                         return switch state {
                             case .expired: [ThemeValue.disabled]
-                            default: [.explicitPrimary(.pink), .explicitPrimary(.red)]
+                            default: [.explicitPrimary(.red), .explicitPrimary(.orange)]
                         }
                     }(),
                     title: "proBadges".localized(),
@@ -1075,19 +1074,6 @@ extension SessionProSettingsViewModel {
                             }
                         }()
                     )
-                ),
-                ProFeaturesInfo(
-                    id: .unlimitedPins,
-                    icon: Lucide.image(icon: .pin, size: IconSize.medium.size),
-                    backgroundColors: {
-                        return switch state {
-                            case .expired: [ThemeValue.disabled]
-                            default: [.explicitPrimary(.red), .explicitPrimary(.orange)]
-                        }
-                    }(),
-                    title: "proUnlimitedPins".localized(),
-                    description: "proUnlimitedPinsDescription".localized(),
-                    accessory: .none
                 )
             ]
         }
