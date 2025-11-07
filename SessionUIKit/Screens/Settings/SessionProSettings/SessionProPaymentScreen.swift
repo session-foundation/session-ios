@@ -91,7 +91,8 @@ public struct SessionProPaymentScreen: View {
     private var destinationView: some View {
         SessionProPlanUpdatedScreen(
             flow: self.viewModel.dataModel.flow,
-            expiredOn: nil
+            expiredOn: nil,
+            isFromBottomSheet: false
         )
     }
     
@@ -254,18 +255,21 @@ public struct SessionProPaymentScreen: View {
                 bottomSheet: BottomSheet(hasCloseButton: true) {
                     SessionProPlanUpdatedScreen(
                         flow: self.viewModel.dataModel.flow,
-                        expiredOn: expiredOn
+                        expiredOn: expiredOn,
+                        isFromBottomSheet: true
                     )
                 }
             )
-            self.host.controller?.present(sessionProBottomSheet, animated: true)
+            self.host.controller?.dismiss(animated: false)
+            self.host.controller?.presentingViewController?.present(sessionProBottomSheet, animated: true)
             return
         }
         
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPlanUpdatedScreen(
                 flow: self.viewModel.dataModel.flow,
-                expiredOn: expiredOn
+                expiredOn: expiredOn,
+                isFromBottomSheet: false
             )
         )
         viewController.modalTransitionStyle = .crossDissolve

@@ -7,6 +7,7 @@ public struct SessionProPlanUpdatedScreen: View {
     @EnvironmentObject var host: HostWrapper
     let flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow
     let expiredOn: Date?
+    let isFromBottomSheet: Bool
     var blurSize: CGFloat { UIScreen.main.bounds.width - 2 * Values.mediumSpacing }
     var dismissButtonTitle: String {
         switch flow {
@@ -99,8 +100,7 @@ public struct SessionProPlanUpdatedScreen: View {
                 .padding(.vertical, Values.smallSpacing)
             }
             .padding(.horizontal, Values.mediumSpacing)
-            .padding(.vertical, (blurSize - 111) / 2)
+            .padding(.vertical, isFromBottomSheet ? 0 : (blurSize - 111) / 2)
         }
-        .navigationBarBackButtonHidden(true)
     }
 }

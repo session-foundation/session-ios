@@ -4,6 +4,15 @@ import SwiftUI
 import Lucide
 import Combine
 
+private struct SizePreferenceKey: PreferenceKey {
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        let next = nextValue()
+        // Use the last non-zero size reported
+        if next != .zero { value = next }
+    }
+}
+
 public struct BottomSheet<Content>: View where Content: View {
     @EnvironmentObject var host: HostWrapper
     @State private var disposables: Set<AnyCancellable> = Set()
@@ -17,6 +26,7 @@ public struct BottomSheet<Content>: View where Content: View {
 
     @State private var show: Bool = true
     @State private var topPadding: CGFloat = 80
+    @State private var contentSize: CGSize = .zero
     
     public init(
         hasCloseButton: Bool,
@@ -41,19 +51,19 @@ public struct BottomSheet<Content>: View where Content: View {
                 
                 // Bottom Sheet
                 ZStack(alignment: .topTrailing) {
-                    GeometryReader { geo in
-                        NavigationView {
-                            content()
-                                .navigationTitle("")
-                                .padding(.top, 44)
-                        }
-                        .navigationViewStyle(.stack)
-                        .onAppear {
-                            let screenHeight = UIScreen.main.bounds.height
-                            let bottomSafeInset = host.controller?.view.safeAreaInsets.bottom ?? 0
-                            topPadding = screenHeight - bottomSafeInset - geo.size.height - 44 - Values.veryLargeSpacing
-                        }
+                    NavigationView {
+                        // Important: no top-level GeometryReader here that would expand.
+                        content()
+                            .navigationTitle("")
+                            .padding(.top, 44)
+                            .background(
+                                GeometryReader { proxy in
+                                    Color.clear
+                                        .preference(key: SizePreferenceKey.self, value: proxy.size)
+                                }
+                            )
                     }
+                    .navigationViewStyle(.stack)
                     
                     if hasCloseButton {
                         Button {
@@ -74,9 +84,14 @@ public struct BottomSheet<Content>: View where Content: View {
                     alignment: .topTrailing
                 )
             }
+            .onPreferenceChange(SizePreferenceKey.self) { size in
+                contentSize = size
+                recomputeTopPadding()
+            }
+            .onAppear {
+                recomputeTopPadding()
+            }
             .padding(.top, topPadding)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(.spring(), value: show)
         }
         .ignoresSafeArea(edges: .bottom)
         .frame(
@@ -98,6 +113,22 @@ public struct BottomSheet<Content>: View where Content: View {
 
     private func close() {
         host.controller?.presentingViewController?.dismiss(animated: true)
+    }
+    
+    // MARK: - Layout helpers
+    
+    private func recomputeTopPadding() {
+        let screenHeight = UIScreen.main.bounds.height
+        let bottomSafeInset = host.controller?.view.safeAreaInsets.bottom ?? 0
+        
+        let handleHeight: CGFloat = 3
+        let handleSpacing: CGFloat = Values.verySmallSpacing
+        let headerHeight: CGFloat = handleHeight + handleSpacing + 44
+        
+        let totalSheetHeight = headerHeight + contentSize.height + Values.veryLargeSpacing
+        
+        let computed = screenHeight - bottomSafeInset - totalSheetHeight
+        topPadding = max(bottomSafeInset, computed)
     }
 }
 
@@ -127,3 +158,4 @@ open class BottomSheetHostingViewController<Content>: UIHostingController<Modifi
         setNeedsStatusBarAppearanceUpdate()
     }
 }
+
