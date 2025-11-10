@@ -8,7 +8,8 @@ public struct SessionProPlanUpdatedScreen: View {
     let flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow
     let expiredOn: Date?
     let isFromBottomSheet: Bool
-    var blurSize: CGFloat { UIScreen.main.bounds.width - 2 * Values.mediumSpacing }
+    var blurSizeWidth: CGFloat { UIScreen.main.bounds.width - 2 * Values.mediumSpacing }
+    var blurSizeHeight: CGFloat { isFromBottomSheet ? 111 : blurSizeWidth }
     var dismissButtonTitle: String {
         switch flow {
             case .purchase, .renew:
@@ -46,9 +47,9 @@ public struct SessionProPlanUpdatedScreen: View {
         ZStack(alignment: .top) {
             Ellipse()
                 .fill(themeColor: .settings_glowingBackground)
-                .frame(width: blurSize, height: blurSize)
+                .frame(width: blurSizeWidth, height: blurSizeHeight)
                 .shadow(radius: 20)
-                .opacity(0.17)
+                .opacity(0.15)
                 .blur(radius: 30)
             
             VStack(spacing: Values.mediumSpacing) {
@@ -100,7 +101,7 @@ public struct SessionProPlanUpdatedScreen: View {
                 .padding(.vertical, Values.smallSpacing)
             }
             .padding(.horizontal, Values.mediumSpacing)
-            .padding(.vertical, isFromBottomSheet ? 0 : (blurSize - 111) / 2)
+            .padding(.vertical, (blurSizeHeight - 111) / 2)
         }
     }
 }
