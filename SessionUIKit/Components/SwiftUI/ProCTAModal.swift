@@ -480,6 +480,8 @@ public protocol SessionProCTAManagerType: AnyObject {
     ) -> Bool
     
     @MainActor func showSessionProBottomSheetIfNeeded(
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     )
 }

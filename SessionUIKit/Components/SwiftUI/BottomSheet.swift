@@ -18,6 +18,7 @@ public struct BottomSheet<Content>: View where Content: View {
     @State private var disposables: Set<AnyCancellable> = Set()
     
     let hasCloseButton: Bool
+    let afterClosed: (() -> Void)?
     let content: () -> Content
 
     let cornerRadius: CGFloat = 11
@@ -30,9 +31,11 @@ public struct BottomSheet<Content>: View where Content: View {
     
     public init(
         hasCloseButton: Bool,
+        afterClosed: (() -> Void)? = nil,
         content: @escaping () -> Content)
     {
         self.hasCloseButton = hasCloseButton
+        self.afterClosed = afterClosed
         self.content = content
     }
 

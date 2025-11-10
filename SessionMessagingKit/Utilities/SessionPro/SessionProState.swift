@@ -183,6 +183,8 @@ extension SessionProState: SessionProCTAManagerType {
     }
     
     @MainActor public func showSessionProBottomSheetIfNeeded(
+        beforePresented: (() -> Void)?,
+        afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) {
         let viewModel = SessionProBottomSheetViewModel(using: dependencies)
