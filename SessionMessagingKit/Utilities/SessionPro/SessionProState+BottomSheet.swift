@@ -311,7 +311,7 @@ public class SessionProBottomSheetViewModel: SessionProBottomSheetViewModelType,
                 viewModel: SessionProPaymentScreenContent.ViewModel(
                     dependencies: dependencies,
                     dataModel: .init(
-                        flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(),
+                        flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(using: dependencies),
                         plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
                     ),
                     isFromBottomSheet: true

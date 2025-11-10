@@ -156,16 +156,24 @@ struct ApproachCell: View {
         }
     }
     
-    let title: String
-    let description: ThemedAttributedString
-    let variant: Variant
-    let action: (() -> Void)?
+    struct Info {
+        let title: String
+        let description: ThemedAttributedString
+        let variant: Variant
+        let action: (() -> Void)?
+        
+        public init(title: String, description: ThemedAttributedString, variant: Variant, action: (() -> Void)? = nil) {
+            self.title = title
+            self.description = description
+            self.variant = variant
+            self.action = action
+        }
+    }
     
-    init(title: String, description: ThemedAttributedString, variant: Variant, action: (() -> Void)? = nil) {
-        self.title = title
-        self.description = description
-        self.variant = variant
-        self.action = action
+    let info: Info
+    
+    init(info: Info) {
+        self.info = info
     }
     
     var body: some View {
@@ -177,7 +185,7 @@ struct ApproachCell: View {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(themeColor: .value(.primary, alpha: 0.1))
                 
-                AttributedText(variant.icon.attributedString(size: 24))
+                AttributedText(info.variant.icon.attributedString(size: 24))
                     .foregroundColor(themeColor: .primary)
             }
             .frame(width: 34, height: 34)
@@ -186,11 +194,11 @@ struct ApproachCell: View {
                 alignment: .leading,
                 spacing: Values.verySmallSpacing
             ) {
-                Text(title)
+                Text(info.title)
                     .font(.Body.baseBold)
                     .foregroundColor(themeColor: .textPrimary)
                 
-                AttributedText(description)
+                AttributedText(info.description)
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
                     .multilineTextAlignment(.leading)
@@ -205,6 +213,6 @@ struct ApproachCell: View {
             RoundedRectangle(cornerRadius: 11)
                 .stroke(themeColor: .borderSeparator)
         )
-        .onTapGesture { action?() }
+        .onTapGesture { info.action?() }
     }
 }

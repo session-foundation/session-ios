@@ -502,7 +502,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                                 to: !state.messageFeatureAnimatedAvatar
                             )
                         }
-                    ),
+                    )
+                ]
+            )
+            .appending(
+                contentsOf: [
                     {
                         switch state.mockCurrentUserSessionPro {
                             case .none, .expired:
@@ -567,7 +571,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         }
                     )
                 ]
-            ).compactMap { $0 }
+            )
+            .compactMap { $0 }
         )
         
         return [general, subscriptions, features]

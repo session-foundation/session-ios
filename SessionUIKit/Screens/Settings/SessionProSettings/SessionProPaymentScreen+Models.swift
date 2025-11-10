@@ -6,15 +6,19 @@ public enum SessionProPaymentScreenContent {}
 
 public extension SessionProPaymentScreenContent {
     enum SessionProPlanPaymentFlow: Equatable {
-        case purchase
+        case purchase(
+            billingAccess: Bool
+        )
         case update(
             currentPlan: SessionProPlanInfo,
             expiredOn: Date,
             isAutoRenewing: Bool,
-            originatingPlatform: ClientPlatform
+            originatingPlatform: ClientPlatform,
+            billingAccess: Bool
         )
         case renew(
-            originatingPlatform: ClientPlatform
+            originatingPlatform: ClientPlatform,
+            billingAccess: Bool
         )
         case refund(
             originatingPlatform: ClientPlatform,
@@ -26,34 +30,42 @@ public extension SessionProPaymentScreenContent {
         
         var description: ThemedAttributedString {
             switch self {
-            case .purchase:
-                "proChooseAccess"
-                    .put(key: "pro", value: Constants.pro)
-                    .localizedFormatted(Fonts.Body.baseRegular)
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _):
-                isAutoRenewing ?
-                    "proAccessActivatesAuto"
-                        .put(key: "current_plan_length", value: currentPlan.durationString)
-                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                case .purchase(let billingAccess):
+                    billingAccess ?
+                        "proChooseAccess"
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(Fonts.Body.baseRegular) :
+                        "proUpgradeAccess"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localizedFormatted(Fonts.Body.baseRegular)
+                case .update(let currentPlan, let expiredOn, let isAutoRenewing, _, _):
+                    isAutoRenewing ?
+                        "proAccessActivatesAuto"
+                            .put(key: "current_plan_length", value: currentPlan.durationString)
+                            .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(Fonts.Body.baseRegular) :
+                        "proAccessActivatedNotAuto"
+                            .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(Fonts.Body.baseRegular)
+                case .renew(_, let billingAccess):
+                    billingAccess ?
+                        "proChooseAccess"
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(Fonts.Body.baseRegular) :
+                        "proAccessRenewStart"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                case .refund:
+                    "proRefundDescription"
+                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                case .cancel:
+                    "proCancelSorry"
                         .put(key: "pro", value: Constants.pro)
-                        .localizedFormatted(Fonts.Body.baseRegular) :
-                    "proAccessActivatedNotAuto"
-                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                        .put(key: "pro", value: Constants.pro)
-                        .localizedFormatted(Fonts.Body.baseRegular)
-            case .renew:
-                "proAccessRenewStart"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .put(key: "pro", value: Constants.pro)
-                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
-            case .refund:
-                "proRefundDescription"
-                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
-            case .cancel:
-                "proCancelSorry"
-                    .put(key: "pro", value: Constants.pro)
-                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
-            }
+                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                }
         }
     }
     

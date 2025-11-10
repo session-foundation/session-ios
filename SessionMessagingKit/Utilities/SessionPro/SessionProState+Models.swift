@@ -5,10 +5,12 @@ import SessionUtilitiesKit
 import Combine
 
 public extension SessionProPlanState {
-    func toPaymentFlow() -> SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
+    func toPaymentFlow(using dependencies: Dependencies) -> SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         switch self {
             case .none:
-                return .purchase
+                return .purchase(
+                    billingAccess: !dependencies[feature: .mockInstalledFromIPA]
+                )
             case .active(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform):
                 return .update(
                     currentPlan: currentPlan.info(),
@@ -19,7 +21,8 @@ public extension SessionProPlanState {
                             case .iOS: return .iOS
                             case .Android: return .Android
                         }
-                    }()
+                    }(),
+                    billingAccess: !dependencies[feature: .mockInstalledFromIPA]
                 )
             case .expired(let originatingPlatform):
                 return .renew(
@@ -28,7 +31,8 @@ public extension SessionProPlanState {
                             case .iOS: return .iOS
                             case .Android: return .Android
                         }
-                    }()
+                    }(),
+                    billingAccess: !dependencies[feature: .mockInstalledFromIPA]
                 )
             case .refunding(let originatingPlatform, let requestedAt):
                 return .refund(

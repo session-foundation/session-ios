@@ -52,29 +52,33 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                 .foregroundColor(themeColor: .textSecondary)
                 
                 ApproachCell(
-                    title: "onDevice"
-                        .put(key: "device_type", value: originatingPlatform.deviceType)
-                        .localized(),
-                    description: "onDeviceDescription"
-                        .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "device_type", value: originatingPlatform.deviceType)
-                        .put(key: "platform_account", value: originatingPlatform.account)
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "pro", value: Constants.pro)
-                        .localizedFormatted(Fonts.Body.baseRegular),
-                    variant: .device
+                    info: .init(
+                        title: "onDevice"
+                            .put(key: "device_type", value: originatingPlatform.deviceType)
+                            .localized(),
+                        description: "onDeviceDescription"
+                            .put(key: "app_name", value: Constants.app_name)
+                            .put(key: "device_type", value: originatingPlatform.deviceType)
+                            .put(key: "platform_account", value: originatingPlatform.account)
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(Fonts.Body.baseRegular),
+                        variant: .device
+                    )
                 )
                 
                 ApproachCell(
-                    title: "viaStoreWebsite"
-                        .put(key: "platform", value: originatingPlatform.name)
-                        .localized(),
-                    description: "viaStoreWebsiteDescription"
-                        .put(key: "platform_account", value: originatingPlatform.account)
-                        .put(key: "platform_store", value: originatingPlatform.store)
-                        .put(key: "pro", value: Constants.pro)
-                        .localizedFormatted(Fonts.Body.baseRegular),
-                    variant: .website
+                    info: .init(
+                        title: "viaStoreWebsite"
+                            .put(key: "platform", value: originatingPlatform.name)
+                            .localized(),
+                        description: "viaStoreWebsiteDescription"
+                            .put(key: "platform_account", value: originatingPlatform.account)
+                            .put(key: "platform_store", value: originatingPlatform.store)
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(Fonts.Body.baseRegular),
+                        variant: .website
+                    )
                 )
             }
             .padding(Values.mediumSpacing)

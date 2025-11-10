@@ -197,7 +197,7 @@
 		94519A952E851BF500F02723 /* SessionProPaymentScreen+UpdatePlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */; };
 		94519A972E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */; };
 		94519A992E8A1A4200F02723 /* SessionProPaymentScreen+CancelPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */; };
-		945E89D22E95D54700D8D907 /* SessionProPaymentScreen+Renew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */; };
+		945E89D22E95D54700D8D907 /* SessionProPaymentScreen+NoBillingAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D12E95D54000D8D907 /* SessionProPaymentScreen+NoBillingAccess.swift */; };
 		945E89D42E95D97000D8D907 /* SessionProPaymentScreen+SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */; };
 		945E89D62E9602AB00D8D907 /* SessionProPaymentScreen+Purchase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */; };
 		9463794A2E7131070017A014 /* SessionProManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946379492E71308B0017A014 /* SessionProManagerType.swift */; };
@@ -1623,7 +1623,7 @@
 		94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+RequestRefund.swift"; sourceTree = "<group>"; };
 		94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+CancelPlan.swift"; sourceTree = "<group>"; };
 		945D9C572D6FDBE7003C4C0C /* _020_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _020_AddJobUniqueHash.swift; sourceTree = "<group>"; };
-		945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Renew.swift"; sourceTree = "<group>"; };
+		945E89D12E95D54000D8D907 /* SessionProPaymentScreen+NoBillingAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+NoBillingAccess.swift"; sourceTree = "<group>"; };
 		945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+SharedViews.swift"; sourceTree = "<group>"; };
 		945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Purchase.swift"; sourceTree = "<group>"; };
 		946379492E71308B0017A014 /* SessionProManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProManagerType.swift; sourceTree = "<group>"; };
@@ -2998,7 +2998,7 @@
 				9438D5562E6A6862008C7FFE /* SessionProPaymentScreen.swift */,
 				945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */,
 				945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */,
-				945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */,
+				945E89D12E95D54000D8D907 /* SessionProPaymentScreen+NoBillingAccess.swift */,
 				94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */,
 				94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */,
 				94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */,
@@ -6407,7 +6407,7 @@
 				94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */,
 				942256972C23F8DD00C0FDBF /* SessionSearchBar.swift in Sources */,
 				FD71165928E436E800B47552 /* ConfirmationModal.swift in Sources */,
-				945E89D22E95D54700D8D907 /* SessionProPaymentScreen+Renew.swift in Sources */,
+				945E89D22E95D54700D8D907 /* SessionProPaymentScreen+NoBillingAccess.swift in Sources */,
 				FD981BD32DC9770E00564172 /* MentionUtilities.swift in Sources */,
 				7BBBDC44286EAD2D00747E59 /* TappableLabel.swift in Sources */,
 				FD8A5B252DC05B16004C689B /* Number+Utilities.swift in Sources */,
