@@ -322,14 +322,68 @@ public class SessionProBottomSheetViewModel: SessionProBottomSheetViewModelType,
     }
     
     public func showLoadingModal(title: String, description: String) {
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: title,
+                body: .text(description, scrollMode: .never),
+                cancelTitle: "okay".localized(),
+                cancelStyle: .alert_text
+            )
+        )
         
+        self.transitionToScreen(modal, transitionType: .present)
     }
     
     public func showErrorModal(title: String, description: ThemedAttributedString) {
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: title,
+                body: .attributedText(description, scrollMode: .never),
+                confirmTitle: "retry".localized(),
+                confirmStyle: .alert_text,
+                cancelTitle: "helpSupport".localized(),
+                cancelStyle: .alert_text,
+                onConfirm:  { [dependencies = self.dependencies] _ in
+                    dependencies.set(
+                        feature: .mockCurrentUserSessionProLoadingState,
+                        to: .loading
+                    )
+                },
+                onCancel: { [weak self] _ in
+                    self?.openUrl(Constants.session_pro_support_url)
+                }
+            )
+        )
         
+        self.transitionToScreen(modal, transitionType: .present)
     }
     
     public func openUrl(_ urlString: String) {
+        guard let url: URL = URL(string: urlString) else { return }
         
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "urlOpen".localized(),
+                body: .attributedText(
+                    "urlOpenDescription"
+                        .put(key: "url", value: url.absoluteString)
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                ),
+                confirmTitle: "open".localized(),
+                confirmStyle: .danger,
+                cancelTitle: "urlCopy".localized(),
+                cancelStyle: .alert_text,
+                hasCloseButton: true,
+                onConfirm:  { [dependencies] modal in
+                    dependencies[singleton: .appContext].openUrl(url)
+                    modal.dismiss(animated: true)
+                },
+                onCancel: { _ in
+                    UIPasteboard.general.string = url.absoluteString
+                }
+            )
+        )
+        
+        self.transitionToScreen(modal, transitionType: .present)
     }
 }

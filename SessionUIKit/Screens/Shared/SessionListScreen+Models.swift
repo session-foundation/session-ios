@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UIKit
 import SwiftUI
 import Combine
 
@@ -32,17 +33,20 @@ public extension SessionListScreenContent {
     }
     
     struct NavigatableState {
+        let transitionToViewController: AnyPublisher<(UIViewController, TransitionType), Never>
         let transitionToScreen: AnyPublisher<(NavigationDestination, TransitionType), Never>
         let dismissScreen: AnyPublisher<(DismissType, (() -> Void)?), Never>
         
         // MARK: - Internal Variables
 
+        fileprivate let _transitionToViewController: PassthroughSubject<(UIViewController, TransitionType), Never> = PassthroughSubject()
         fileprivate let _transitionToScreen: PassthroughSubject<(NavigationDestination, TransitionType), Never> = PassthroughSubject()
         fileprivate let _dismissScreen: PassthroughSubject<(DismissType, (() -> Void)?), Never> = PassthroughSubject()
         
         // MARK: - Initialization
         
         public init() {
+            self.transitionToViewController = _transitionToViewController.eraseToAnyPublisher()
             self.transitionToScreen = _transitionToScreen.eraseToAnyPublisher()
             self.dismissScreen = _dismissScreen.eraseToAnyPublisher()
         }
@@ -53,11 +57,9 @@ public extension SessionListScreenContent {
             viewController: UIViewController,
             disposables: inout Set<AnyCancellable>
         ) {
-            self.transitionToScreen
+            self.transitionToViewController
                 .receive(on: DispatchQueue.main)
-                .sink { [weak viewController] destination, transitionType in
-                    let targetViewController = SessionHostingViewController(rootView: destination.view)
-                    
+                .sink { [weak viewController] targetViewController, transitionType in
                     switch transitionType {
                         case .push:
                             viewController?.navigationController?.pushViewController(targetViewController, animated: true)
@@ -108,5 +110,9 @@ public extension SessionListScreenContent.NavigatableStateHolder {
     
     func transitionToScreen<V: View>(_ view: V, transitionType: TransitionType = .push) {
         navigatableState._transitionToScreen.send((SessionListScreenContent.NavigationDestination(view), transitionType))
+    }
+    
+    func transitionToScreen(_ viewController: UIViewController, transitionType: TransitionType = .push) {
+        navigatableState._transitionToViewController.send((viewController, transitionType))
     }
 }

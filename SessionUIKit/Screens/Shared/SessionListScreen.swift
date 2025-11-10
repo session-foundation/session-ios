@@ -39,6 +39,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     
     @State private var navigationDestination: SessionListScreenContent.NavigationDestination? = nil
     @State private var isNavigationActive: Bool = false
+    @State private var disposables: Set<AnyCancellable> = []
     private let navigatableState: SessionListScreenContent.NavigatableState?
     private var navigationPublisher: AnyPublisher<(SessionListScreenContent.NavigationDestination, TransitionType), Never> {
         navigatableState?.transitionToScreen ?? Empty().eraseToAnyPublisher()
@@ -74,6 +75,14 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
             if transitionType == .push {
                 navigationDestination = destination
                 isNavigationActive = true
+            }
+        }
+        .onAppear {
+            if let viewController: UIViewController = self.host.controller {
+                navigatableState?.setupBindings(
+                    viewController: viewController,
+                    disposables: &disposables
+                )
             }
         }
     }

@@ -28,6 +28,7 @@ public protocol AppContext: AnyObject {
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any])
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier)
+    func openUrl(_ url: URL)
 }
 
 // MARK: - Defaults
@@ -52,6 +53,7 @@ public extension AppContext {
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {}
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier { return .invalid }
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {}
+    func openUrl(_ url: URL) {}
 }
 
 private final class NoopAppContext: AppContext, NoopDependency {
@@ -74,4 +76,5 @@ private final class NoopAppContext: AppContext, NoopDependency {
     func ensureSleepBlocking(_ shouldBeBlocking: Bool, blockingObjects: [Any]) {}
     func beginBackgroundTask(expirationHandler: @escaping () -> ()) -> UIBackgroundTaskIdentifier { return .invalid }
     func endBackgroundTask(_ backgroundTaskIdentifier: UIBackgroundTaskIdentifier) {}
+    func openUrl(_ url: URL) {}
 }
