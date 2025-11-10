@@ -99,42 +99,46 @@ public struct ProCTAModal: View {
                 // Content
                 VStack(spacing: Values.largeSpacing) {
                     // Title
-                    if case .animatedProfileImage(let isSessionProActivated) = variant, isSessionProActivated {
-                        HStack(spacing: Values.smallSpacing) {
-                            SessionProBadge_SwiftUI(size: .large)
-                            
-                            Text("proActivated".localized())
-                                .font(.Headings.H4)
-                                .foregroundColor(themeColor: .textPrimary)
-                        }
-                    } else if case .groupLimit(_, let isSessionProActivated, _) = variant, isSessionProActivated {
-                        HStack(spacing: Values.smallSpacing) {
-                            SessionProBadge_SwiftUI(size: .large)
-                            
-                            Text("proGroupActivated".localized())
-                                .font(.Headings.H4)
-                                .foregroundColor(themeColor: .textPrimary)
-                        }
-                    } else if case .expiring(let timeLeft) = variant {
-                        let isExpired: Bool = (timeLeft?.isEmpty != false)
-                        HStack(spacing: Values.smallSpacing) {
-                            SessionProBadge_SwiftUI(
-                                size: .large,
-                                themeBackgroundColor: variant.themeColor
-                            )
-                            
-                            Text(isExpired ? "proExpired".localized() : "proExpiringSoon".localized())
-                                .font(.Headings.H4)
-                                .foregroundColor(themeColor: isExpired ? .disabled : .textPrimary)
-                        }
-                    } else {
-                        HStack(spacing: Values.smallSpacing) {
-                            Text("upgradeTo".localized())
-                                .font(.Headings.H4)
-                                .foregroundColor(themeColor: .textPrimary)
-                            
-                            SessionProBadge_SwiftUI(size: .large)
-                        }
+                    switch variant {
+                        case .animatedProfileImage(let isSessionProActivated) where isSessionProActivated:
+                            HStack(spacing: Values.smallSpacing) {
+                                SessionProBadge_SwiftUI(size: .large)
+
+                                Text("proActivated".localized())
+                                    .font(.Headings.H4)
+                                    .foregroundColor(themeColor: .textPrimary)
+                            }
+
+                        case .groupLimit(_, let isSessionProActivated, _) where isSessionProActivated:
+                            HStack(spacing: Values.smallSpacing) {
+                                SessionProBadge_SwiftUI(size: .large)
+                                
+                                Text("proGroupActivated".localized())
+                                    .font(.Headings.H4)
+                                    .foregroundColor(themeColor: .textPrimary)
+                            }
+
+                        case .expiring(let timeLeft):
+                            let isExpired: Bool = (timeLeft?.isEmpty != false)
+                            HStack(spacing: Values.smallSpacing) {
+                                SessionProBadge_SwiftUI(
+                                    size: .large,
+                                    themeBackgroundColor: variant.themeColor
+                                )
+                                
+                                Text(isExpired ? "proExpired".localized() : "proExpiringSoon".localized())
+                                    .font(.Headings.H4)
+                                    .foregroundColor(themeColor: isExpired ? .disabled : .textPrimary)
+                            }
+
+                        default:
+                            HStack(spacing: Values.smallSpacing) {
+                                Text("upgradeTo".localized())
+                                    .font(.Headings.H4)
+                                    .foregroundColor(themeColor: .textPrimary)
+                                
+                                SessionProBadge_SwiftUI(size: .large)
+                            }
                     }
                     
                     // Description, Subtitle
