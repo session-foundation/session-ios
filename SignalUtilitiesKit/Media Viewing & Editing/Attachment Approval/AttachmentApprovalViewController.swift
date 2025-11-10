@@ -656,8 +656,12 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
             },
-            onConfirm: { [weak self] in
-                
+            onConfirm: { [weak self, dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()
@@ -700,8 +704,12 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
             },
-            onConfirm: { [weak self] in
-                
+            onConfirm: { [weak self, dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()

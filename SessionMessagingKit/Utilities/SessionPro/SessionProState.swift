@@ -183,9 +183,6 @@ extension SessionProState: SessionProCTAManagerType {
     }
     
     @MainActor public func showSessionProBottomSheetIfNeeded(
-        showLoadingModal: ((String, String) -> Void)?,
-        showErrorModal: ((String, ThemedAttributedString) -> Void)?,
-        openUrl: ((URL) -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) {
         let viewModel = SessionProBottomSheetViewModel(using: dependencies)

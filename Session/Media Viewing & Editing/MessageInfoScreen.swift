@@ -309,7 +309,11 @@ struct MessageInfoScreen: View {
                                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                                             proCTAVariant,
                                             onConfirm: {
-                                                
+                                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                                    presenting: { bottomSheet in
+                                                        self.host.controller?.present(bottomSheet, animated: true)
+                                                    }
+                                                )
                                             },
                                             presenting: { modal in
                                                 self.host.controller?.present(modal, animated: true)
@@ -406,7 +410,11 @@ struct MessageInfoScreen: View {
                                                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                                                             proCTAVariant,
                                                             onConfirm: {
-                                                                
+                                                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                                                    presenting: { bottomSheet in
+                                                                        self.host.controller?.present(bottomSheet, animated: true)
+                                                                    }
+                                                                )
                                                             },
                                                             presenting: { modal in
                                                                 self.host.controller?.present(modal, animated: true)
@@ -641,7 +649,11 @@ struct MessageInfoScreen: View {
                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                             proCTAVariant,
                             onConfirm: {
-                                
+                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                    presenting: { bottomSheet in
+                                        self.host.controller?.present(bottomSheet, animated: true)
+                                    }
+                                )
                             },
                             presenting: { modal in
                                 self.host.controller?.present(modal, animated: true)

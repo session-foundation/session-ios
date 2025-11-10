@@ -563,8 +563,12 @@ extension ConversationVC:
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
             },
-            onConfirm: { [weak self] in
-                
+            onConfirm: { [weak self, dependencies = viewModel.dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()
@@ -672,8 +676,12 @@ extension ConversationVC:
             beforePresented: { [weak self] in
                 self?.hideInputAccessoryView()
             },
-            onConfirm: { [weak self] in
-                
+            onConfirm: { [weak self, dependencies = viewModel.dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             afterClosed: { [weak self] in
                 self?.showInputAccessoryView()
@@ -1720,8 +1728,12 @@ extension ConversationVC:
                             beforePresented: { [weak self] in
                                 self?.hideInputAccessoryView()
                             },
-                            onConfirm: { [weak self] in
-                                
+                            onConfirm: {
+                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                    presenting: { bottomSheet in
+                                        dependencies[singleton: .appContext].frontMostViewController?.present(bottomSheet, animated: true)
+                                    }
+                                )
                             },
                             afterClosed: { [weak self] in
                                 self?.showInputAccessoryView()

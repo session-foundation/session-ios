@@ -480,9 +480,6 @@ public protocol SessionProCTAManagerType: AnyObject {
     ) -> Bool
     
     @MainActor func showSessionProBottomSheetIfNeeded(
-        showLoadingModal: ((String, String) -> Void)?,
-        showErrorModal: ((String, ThemedAttributedString) -> Void)?,
-        openUrl: ((URL) -> Void)?,
         presenting: ((UIViewController) -> Void)?
     )
 }
