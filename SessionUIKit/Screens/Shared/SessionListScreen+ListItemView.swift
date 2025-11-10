@@ -412,7 +412,6 @@ struct ListItemButton: View {
                 RoundedRectangle(cornerRadius: 7)
                     .fill(themeColor: enabled ? .sessionButton_primaryFilledBackground : .disabled)
             )
-            .padding(.vertical, Values.smallSpacing)
     }
 }
 

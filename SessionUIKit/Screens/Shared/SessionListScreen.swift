@@ -19,11 +19,14 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     
     private let coordinateSpaceName: String = "SessionListScreen" // stringlint:ignore
     
+    private let scrollable: Bool
+    
     // MARK: - init
     
-    public init(viewModel: ViewModel) {
+    public init(viewModel: ViewModel, scrollable: Bool = true) {
         _viewModel = StateObject(wrappedValue: viewModel)
         _state = ObservedObject(wrappedValue: viewModel.state)
+        self.scrollable = scrollable
         
         if let navigatableStateHolder = viewModel as? any SessionListScreenContent.NavigatableStateHolder {
             navigatableState = navigatableStateHolder.navigatableState
@@ -76,8 +79,8 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     }
     
     private var listContent: some View {
-        List {
-            ForEach(state.listItemData, id: \.model) { section in 
+        ScrollableList(scrollable: self.scrollable) {
+            ForEach(state.listItemData, id: \.model) { section in
                 Section {
                     // MARK: - Header
                     
@@ -115,6 +118,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     }
                             }
                         }
+                        .padding(.vertical, (scrollable ? 0 : Values.mediumSpacing))
                     }
                     
                     // MARK: List Items
@@ -174,12 +178,12 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                         }
                     }
                     .cornerRadius(11)
-                    .padding(.vertical, Values.smallSpacing)
                     .listRowInsets(.init(top: 0, leading: Values.mediumSpacing, bottom: 0, trailing: Values.mediumSpacing))
                     .listRowBackground(Color.clear)
                 }
                 .listRowSeparator(.hidden)
                 .listSectionSeparator(.hidden)
+                .padding(0)
             }
         }
         .listStyle(.plain)

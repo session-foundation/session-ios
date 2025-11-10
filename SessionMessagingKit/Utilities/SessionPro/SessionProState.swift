@@ -191,7 +191,7 @@ extension SessionProState: SessionProCTAManagerType {
         let viewModel = SessionProBottomSheetViewModel(using: dependencies)
         let sessionProBottomSheet: BottomSheetHostingViewController = BottomSheetHostingViewController(
             bottomSheet: BottomSheet(hasCloseButton: true) {
-                SessionListScreen(viewModel: viewModel)
+                SessionListScreen(viewModel: viewModel, scrollable: false)
             }
         )
         presenting?(sessionProBottomSheet)
