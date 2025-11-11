@@ -2,6 +2,8 @@
 //
 // stringlint:disable
 public extension Constants {
+    // TODO: These strings will be going to be defined in libSession
+    
     // MARK: - URL
     static let session_network_url = "https://docs.getsession.org/session-network"
     static let session_staking_url = "https://docs.getsession.org/session-network/staking"

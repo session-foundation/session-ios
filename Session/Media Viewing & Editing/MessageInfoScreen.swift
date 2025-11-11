@@ -467,6 +467,7 @@ struct MessageInfoScreen: View {
                                                 Image(uiImage: actions[index].icon!.withRenderingMode(.alwaysTemplate))
                                                     .resizable()
                                                     .scaledToFit()
+                                                    .scaleEffect(x: (actions[index].flipIconForRTL ? -1 : 1), y: 1)
                                                     .foregroundColor(themeColor: tintColor)
                                                     .frame(width: 26, height: 26)
                                                 Text(actions[index].title)
