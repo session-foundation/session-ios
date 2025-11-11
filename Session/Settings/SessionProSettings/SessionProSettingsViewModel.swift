@@ -136,8 +136,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         public let observedKeys: Set<ObservableKey> = [
+            .conversationPinnedPriorityChanged,
             .setting(.groupsUpgradedCounter),
-            .setting(.pinnedConversationsCounter),
             .setting(.proBadgesSentCounter),
             .setting(.longerMessagesSentCounter),
             .setting(.isProBadgeEnabled),
@@ -179,7 +179,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             }
             dependencies[singleton: .storage].read { db in
                 numberOfGroupsUpgraded = db[.groupsUpgradedCounter] ?? 0
-                numberOfPinnedConversations = db[.pinnedConversationsCounter] ?? 0
+                numberOfPinnedConversations = (
+                    try? SessionThread
+                        .filter(SessionThread.Columns.pinnedPriority > 0)
+                        .fetchCount(db)
+                    ).defaulting(to: 0)
                 numberOfProBadgesSent = db[.proBadgesSentCounter] ?? 0
                 numberOfLongerMessagesSent = db[.longerMessagesSentCounter] ?? 0
             }
@@ -188,12 +192,17 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         /// Process any event changes
         events.forEach { event in
             switch event.key {
+                case .conversationPinnedPriorityChanged:
+                    dependencies[singleton: .storage].read { db in
+                        numberOfPinnedConversations = (
+                            try? SessionThread
+                                .filter(SessionThread.Columns.pinnedPriority > 0)
+                                .fetchCount(db)
+                        ).defaulting(to: 0)
+                    }
                 case .setting(.groupsUpgradedCounter):
                     guard let updatedValue = event.value as? Int else { return }
                     numberOfGroupsUpgraded = updatedValue
-                case .setting(.pinnedConversationsCounter):
-                    guard let updatedValue = event.value as? Int else { return }
-                    numberOfPinnedConversations = updatedValue
                 case .setting(.proBadgesSentCounter):
                     guard let updatedValue = event.value as? Int else { return }
                     numberOfProBadgesSent = updatedValue

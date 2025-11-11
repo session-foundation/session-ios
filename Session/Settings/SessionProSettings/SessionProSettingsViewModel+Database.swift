@@ -5,9 +5,9 @@ import GRDB
 import DifferenceKit
 import SessionUtilitiesKit
 
+// stringlint:ignore_contents
 public extension KeyValueStore.IntKey {
     static let groupsUpgradedCounter: KeyValueStore.IntKey = "groupsUpgradedCounter"
-    static let pinnedConversationsCounter: KeyValueStore.IntKey = "pinnedConversationsCounter"
     static let proBadgesSentCounter: KeyValueStore.IntKey = "proBadgesSentCounter"
     static let longerMessagesSentCounter: KeyValueStore.IntKey = "longerMessagesSentCounter"
 }

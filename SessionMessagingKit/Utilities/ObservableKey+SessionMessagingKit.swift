@@ -47,6 +47,7 @@ public extension ObservableKey {
     // MARK: - Conversations
     
     static let conversationCreated: ObservableKey = "conversationCreated"
+    static let conversationPinnedPriorityChanged: ObservableKey = "conversationPinnedPriorityChanged"
     static func conversationUpdated(_ id: String) -> ObservableKey {
         ObservableKey("conversationUpdated-\(id)", .conversationUpdated)
     }
