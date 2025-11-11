@@ -14,18 +14,11 @@ public extension Cache {
     )
 }
 
-public extension Cache {
-    static let generalUI: CacheConfig<GeneralUICacheType, ImmutableGeneralUICacheType> = Dependencies.create(
-        identifier: "generalUI",
-        createInstance: { dependencies in General.UICache() },
-        mutableInstance: { $0 },
-        immutableInstance: { $0 }
-    )
-}
-
 // MARK: - General.Cache
 
 public enum General {
+    public static  let UICache: NSCache<NSString, UIImage> = NSCache()
+    
     public class Cache: GeneralCacheType {
         private let dependencies: Dependencies
         public var sessionId: SessionId = SessionId.invalid
@@ -67,18 +60,6 @@ public enum General {
             self.ed25519SecretKey = ed25519SecretKey
         }
     }
-    
-    public class UICache: GeneralUICacheType {
-        private let cache: NSCache<NSString, UIImage> = NSCache()
-        
-        public func cache(_ image: UIImage, for key: String) {
-            cache.setObject(image, forKey: key as NSString)
-        }
-        
-        public func get(for key: String) -> UIImage? {
-            return cache.object(forKey: key as NSString)
-        }
-    }
 }
 
 // MARK: - GeneralCacheType
@@ -102,15 +83,4 @@ public protocol GeneralCacheType: ImmutableGeneralCacheType, MutableCacheType {
     var contextualActionLookupMap: [Int: [String: [Int: Any]]] { get set }
     
     func setSecretKey(ed25519SecretKey: [UInt8])
-}
-
-// MARK: Cache.GeneralUI
-
-/// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
-public protocol ImmutableGeneralUICacheType: ImmutableCacheType {
-    func get(for key: String) -> UIImage?
-}
-
-public protocol GeneralUICacheType: ImmutableGeneralUICacheType, MutableCacheType {
-    func cache(_ image: UIImage, for key: String)
 }

@@ -194,6 +194,7 @@
 		943B43542EC2AF86008ABC34 /* ListItemLogoWithPro.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43532EC2AF82008ABC34 /* ListItemLogoWithPro.swift */; };
 		943B43562EC2AFAC008ABC34 /* ListItemDataMatrix.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43552EC2AFAB008ABC34 /* ListItemDataMatrix.swift */; };
 		943B43582EC2AFD0008ABC34 /* ListItemButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43572EC2AFCF008ABC34 /* ListItemButton.swift */; };
+		943B435C2EC30094008ABC34 /* UIView+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B435B2EC3008B008ABC34 /* UIView+Utilities.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
 		94519A932E84C20700F02723 /* _045_LastProfileUpdateTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9BE2E4ABB9F007C4595 /* _045_LastProfileUpdateTimestamp.swift */; };
 		94519A952E851BF500F02723 /* SessionProPaymentScreen+UpdatePlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */; };
@@ -1617,6 +1618,7 @@
 		943B43532EC2AF82008ABC34 /* ListItemLogoWithPro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListItemLogoWithPro.swift; sourceTree = "<group>"; };
 		943B43552EC2AFAB008ABC34 /* ListItemDataMatrix.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListItemDataMatrix.swift; sourceTree = "<group>"; };
 		943B43572EC2AFCF008ABC34 /* ListItemButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListItemButton.swift; sourceTree = "<group>"; };
+		943B435B2EC3008B008ABC34 /* UIView+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIView+Utilities.swift"; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+UpdatePlan.swift"; sourceTree = "<group>"; };
@@ -2815,6 +2817,7 @@
 				FD848B8E283EF2A8000E298B /* UIScrollView+Utilities.swift */,
 				C3548F0724456AB6009433A8 /* UIView+Wrapping.swift */,
 				7BAADFCD27B215FE007BCF92 /* UIView+Draggable.swift */,
+				943B435B2EC3008B008ABC34 /* UIView+Utilities.swift */,
 				FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */,
 				7BFD1A892745C4F000FB91B9 /* Permissions.swift */,
 			);
@@ -7138,6 +7141,7 @@
 				FDC498B92AC15FE300EDD897 /* AppNotificationAction.swift in Sources */,
 				FD7443402D07A25C00862443 /* PushRegistrationManager.swift in Sources */,
 				7BA6890D27325CCC00EFC32F /* SessionCallManager+CXCallController.swift in Sources */,
+				943B435C2EC30094008ABC34 /* UIView+Utilities.swift in Sources */,
 				FDE71B0B2E79352D0023F5F9 /* DeveloperSettingsGroupsViewModel.swift in Sources */,
 				7B71A98F2925E2A600E54854 /* SessionFooterView.swift in Sources */,
 				C374EEEB25DA3CA70073A857 /* ConversationTitleView.swift in Sources */,
