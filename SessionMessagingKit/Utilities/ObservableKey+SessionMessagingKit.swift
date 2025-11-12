@@ -245,7 +245,7 @@ public extension ObservingDatabase {
             case .updated:
                 addEvent(ObservedEvent(key: .conversationUpdated(id), value: event))
                 if case .pinnedPriority = type.change {
-                    addEvent(.anyConversationPinnedPriorityChanged)
+                    addEvent(ObservedEvent(key: .anyConversationPinnedPriorityChanged, value: event))
                 }
             case .deleted: addEvent(ObservedEvent(key: .conversationDeleted(id), value: event))
         }
