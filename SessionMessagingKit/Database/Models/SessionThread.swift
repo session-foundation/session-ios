@@ -784,6 +784,7 @@ public extension SessionThread {
             
             if currentInfo[id]?.pinnedPriority != targetPriority {
                 db.addConversationEvent(id: id, type: .updated(.pinnedPriority(targetPriority)))
+                db.addEvent(.conversationPinnedPriorityChanged)
             }
         }
     }

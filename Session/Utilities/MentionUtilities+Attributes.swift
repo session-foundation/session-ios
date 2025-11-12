@@ -35,7 +35,10 @@ public extension MentionUtilities {
                     themeBackgroundColor: .primary,
                     backgroundCornerRadius: (8 * sizeDiff),
                     backgroundPadding: (3 * sizeDiff)
-                ).toImage(using: dependencies)
+                ).toImage(
+                    cacheKey: "Mention.CurrentUser",
+                    using: dependencies
+                )
 
                 let attachment = NSTextAttachment()
                 let offsetY = (mentionFont.capHeight - image.size.height) / 2
@@ -79,22 +82,5 @@ public extension MentionUtilities {
         }
         
         return result
-    }
-}
-
-public extension HighlightMentionView {
-    func toImage(using dependencies: Dependencies) -> UIImage {
-        let themePrimaryColor: Theme.PrimaryColor = dependencies
-            .mutate(cache: .libSession) { $0.get(.themePrimaryColor) }
-            .defaulting(to: .defaultPrimaryColor)
-        let cacheKey: String = "Mention.CurrentUser.\(themePrimaryColor)" // stringlint:ignore
-        
-        if let cachedImage = dependencies[cache: .generalUI].get(for: cacheKey) {
-            return cachedImage
-        }
-        
-        let renderedImage = self.toImage(isOpaque: self.isOpaque, scale: UIScreen.main.scale)
-        dependencies.mutate(cache: .generalUI) { $0.cache(renderedImage, for: cacheKey) }
-        return renderedImage
     }
 }

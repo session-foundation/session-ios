@@ -302,7 +302,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                     font: .title,
                                     trailingImage: {
                                         guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateProProof(for: model.profile) }) else { return nil }
-                                        return ("ProBadge", { [dependencies = viewModel.dependencies] in SessionProBadge(size: .small).toImage(using: dependencies) })
+                                        return ("ProBadge", { [dependencies = viewModel.dependencies] in SessionProBadge(size: .small).toImage(cacheKey: SessionProBadge.Size.small.cacheKey, using: dependencies) })
                                     }()
                                 ),
                                 trailingAccessory: .radio(

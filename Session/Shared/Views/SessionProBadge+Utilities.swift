@@ -16,23 +16,6 @@ public extension SessionProBadge.Size{
     }
 }
 
-public extension SessionProBadge {
-    func toImage(using dependencies: Dependencies) -> UIImage {
-        let themePrimaryColor: Theme.PrimaryColor = dependencies
-            .mutate(cache: .libSession) { $0.get(.themePrimaryColor) }
-            .defaulting(to: .defaultPrimaryColor)
-        let cacheKey: String = "\(self.size.cacheKey).\(themePrimaryColor)" // stringlint:ignore
-        
-        if let cachedImage = dependencies[cache: .generalUI].get(for: cacheKey) {
-            return cachedImage
-        }
-        
-        let renderedImage = self.toImage(isOpaque: self.isOpaque, scale: UIScreen.main.scale)
-        dependencies.mutate(cache: .generalUI) { $0.cache(renderedImage, for: cacheKey) }
-        return renderedImage
-    }
-}
-
 public extension String {
     enum SessionProBadgePosition {
         case leading, trailing
@@ -49,13 +32,35 @@ public extension String {
         let base = ThemedAttributedString()
         switch postion {
             case .leading:
-                base.append(ThemedAttributedString(imageAttachmentGenerator: { SessionProBadge(size: proBadgeSize).toImage(using: dependencies) }, referenceFont: font))
+                base.append(
+                    ThemedAttributedString(
+                        imageAttachmentGenerator: {
+                            SessionProBadge(size: proBadgeSize)
+                                .toImage(
+                                    cacheKey: proBadgeSize.cacheKey,
+                                    using: dependencies
+                                )
+                        },
+                        referenceFont: font
+                    )
+                )
                 base.append(ThemedAttributedString(string: spacing))
                 base.append(ThemedAttributedString(string: self, attributes: [.font: font, .themeForegroundColor: textColor]))
             case .trailing:
                 base.append(ThemedAttributedString(string: self, attributes: [.font: font, .themeForegroundColor: textColor]))
                 base.append(ThemedAttributedString(string: spacing))
-                base.append(ThemedAttributedString(imageAttachmentGenerator: { SessionProBadge(size: proBadgeSize).toImage(using: dependencies) }, referenceFont: font))
+                base.append(
+                    ThemedAttributedString(
+                        imageAttachmentGenerator: {
+                            SessionProBadge(size: proBadgeSize)
+                                .toImage(
+                                    cacheKey: proBadgeSize.cacheKey,
+                                    using: dependencies
+                                )
+                        },
+                        referenceFont: font
+                    )
+                )
         }
 
         return base

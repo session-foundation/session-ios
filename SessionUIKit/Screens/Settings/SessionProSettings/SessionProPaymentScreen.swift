@@ -94,97 +94,103 @@ public struct SessionProPaymentScreen: View {
                     description: viewModel.dataModel.flow.description
                 )
             )
-            if case .purchase(let billingAccess) = viewModel.dataModel.flow {
-                if billingAccess {
-                    SessionProPlanPurchaseContent(
-                        currentSelection: $currentSelection,
-                        isShowingTooltip: $isShowingTooltip,
-                        suppressUntil: $suppressUntil,
-                        currentPlan: nil,
-                        sessionProPlans: viewModel.dataModel.plans,
-                        actionButtonTitle: "upgrade".localized(),
-                        purchaseAction: { updatePlan() },
-                        openTosPrivacyAction: { openTosPrivacy() }
-                    )
-                } else {
-                    NoBillingAccessContent(
-                        isRenewingPro: false,
-                        originatingPlatform: .iOS,
-                        openPlatformStoreWebsiteAction: {}
-                    )
-                }
-            } else if case .renew(let originatingPlatform, let billingAccess) = viewModel.dataModel.flow {
-                if billingAccess {
-                    SessionProPlanPurchaseContent(
-                        currentSelection: $currentSelection,
-                        isShowingTooltip: $isShowingTooltip,
-                        suppressUntil: $suppressUntil,
-                        currentPlan: nil,
-                        sessionProPlans: viewModel.dataModel.plans,
-                        actionButtonTitle: "renew".localized(),
-                        purchaseAction: { updatePlan() },
-                        openTosPrivacyAction: { openTosPrivacy() }
-                    )
-                } else {
-                    NoBillingAccessContent(
-                        isRenewingPro: true,
-                        originatingPlatform: originatingPlatform,
-                        openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
-                    )
-                }
-            } else if case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform, _) = viewModel.dataModel.flow {
-                if originatingPlatform == .iOS {
-                    SessionProPlanPurchaseContent(
-                        currentSelection: $currentSelection,
-                        isShowingTooltip: $isShowingTooltip,
-                        suppressUntil: $suppressUntil,
-                        currentPlan: currentPlan,
-                        sessionProPlans: viewModel.dataModel.plans,
-                        actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
-                        purchaseAction: { updatePlan() },
-                        openTosPrivacyAction: { openTosPrivacy() }
-                    )
-                } else {
-                    UpdatePlanNonOriginatingPlatformContent(
-                        currentPlan: currentPlan,
-                        currentPlanExpiredOn: expiredOn,
-                        isAutoRenewing: isAutoRenewing,
-                        originatingPlatform: originatingPlatform,
-                        openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
-                    )
-                }
-            } else if case .refund(let originatingPlatform, let requestedAt) = viewModel.dataModel.flow {
-                if originatingPlatform == .iOS {
-                    RequestRefundOriginatingPlatformContent(
-                        requestRefundAction: {}
-                    )
-                } else {
-                    RequestRefundNonOriginatingPlatformContent(
-                        originatingPlatform: originatingPlatform,
-                        requestedAt: requestedAt,
-                        openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
-                    )
-                }
-            } else if case .cancel(let originatingPlatform) = viewModel.dataModel.flow {
-                if originatingPlatform == .iOS {
-                    CancelPlanOriginatingPlatformContent(
-                        cancelPlanAction: {
-                            viewModel.cancelPro(
-                                success: {
-                                    host.controller?.navigationController?.popViewController(animated: true)
-                                },
-                                failure: {
-                                    
-                                }
-                            )
-                        }
-                    )
-                } else {
-                    CancelPlanNonOriginatingPlatformContent(
-                        originatingPlatform: originatingPlatform,
-                        openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
-                    )
-                }
+            
+            switch viewModel.dataModel.flow {
+                case .purchase(let billingAccess):
+                    if billingAccess {
+                        SessionProPlanPurchaseContent(
+                            currentSelection: $currentSelection,
+                            isShowingTooltip: $isShowingTooltip,
+                            suppressUntil: $suppressUntil,
+                            currentPlan: nil,
+                            sessionProPlans: viewModel.dataModel.plans,
+                            actionButtonTitle: "upgrade".localized(),
+                            purchaseAction: { updatePlan() },
+                            openTosPrivacyAction: { openTosPrivacy() }
+                        )
+                    } else {
+                        NoBillingAccessContent(
+                            isRenewingPro: false,
+                            originatingPlatform: .iOS,
+                            openPlatformStoreWebsiteAction: {}
+                        )
+                    }
+                    
+                case .renew(let originatingPlatform, let billingAccess):
+                    if billingAccess {
+                        SessionProPlanPurchaseContent(
+                            currentSelection: $currentSelection,
+                            isShowingTooltip: $isShowingTooltip,
+                            suppressUntil: $suppressUntil,
+                            currentPlan: nil,
+                            sessionProPlans: viewModel.dataModel.plans,
+                            actionButtonTitle: "renew".localized(),
+                            purchaseAction: { updatePlan() },
+                            openTosPrivacyAction: { openTosPrivacy() }
+                        )
+                    } else {
+                        NoBillingAccessContent(
+                            isRenewingPro: true,
+                            originatingPlatform: originatingPlatform,
+                            openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                        )
+                    }
+                    
+                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform, _):
+                    if originatingPlatform == .iOS {
+                        SessionProPlanPurchaseContent(
+                            currentSelection: $currentSelection,
+                            isShowingTooltip: $isShowingTooltip,
+                            suppressUntil: $suppressUntil,
+                            currentPlan: currentPlan,
+                            sessionProPlans: viewModel.dataModel.plans,
+                            actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
+                            purchaseAction: { updatePlan() },
+                            openTosPrivacyAction: { openTosPrivacy() }
+                        )
+                    } else {
+                        UpdatePlanNonOriginatingPlatformContent(
+                            currentPlan: currentPlan,
+                            currentPlanExpiredOn: expiredOn,
+                            isAutoRenewing: isAutoRenewing,
+                            originatingPlatform: originatingPlatform,
+                            openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                        )
+                    }
+                    
+                case .refund(let originatingPlatform, let requestedAt):
+                    if originatingPlatform == .iOS {
+                        RequestRefundOriginatingPlatformContent(
+                            requestRefundAction: {}
+                        )
+                    } else {
+                        RequestRefundNonOriginatingPlatformContent(
+                            originatingPlatform: originatingPlatform,
+                            requestedAt: requestedAt,
+                            openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                        )
+                    }
+                    
+                case .cancel(let originatingPlatform):
+                    if originatingPlatform == .iOS {
+                        CancelPlanOriginatingPlatformContent(
+                            cancelPlanAction: {
+                                viewModel.cancelPro(
+                                    success: {
+                                        host.controller?.navigationController?.popViewController(animated: true)
+                                    },
+                                    failure: {
+                                        
+                                    }
+                                )
+                            }
+                        )
+                    } else {
+                        CancelPlanNonOriginatingPlatformContent(
+                            originatingPlatform: originatingPlatform,
+                            openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                        )
+                    }
             }
         }
     }

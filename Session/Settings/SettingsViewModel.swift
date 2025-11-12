@@ -347,7 +347,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     "ProBadge",
                                     {
                                         SessionProBadge(size: .medium)
-                                            .toImage(using: viewModel.dependencies)
+                                            .toImage(
+                                                cacheKey: SessionProBadge.Size.medium.cacheKey,
+                                                using: viewModel.dependencies
+                                            )
                                     }
                                 )
                             case .expired:
@@ -355,7 +358,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     "ProBadge",
                                     {
                                         SessionProBadge(size: .medium, themeBackgroundColor: .disabled)
-                                            .toImage(using: viewModel.dependencies)
+                                            .toImage(
+                                                cacheKey: SessionProBadge.Size.medium.cacheKey,
+                                                using: viewModel.dependencies
+                                            )
                                     }
                                 )
                             }
