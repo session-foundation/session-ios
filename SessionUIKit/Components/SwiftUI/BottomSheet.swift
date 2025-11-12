@@ -25,7 +25,7 @@ public struct BottomSheet<Content>: View where Content: View {
     let shadowRadius: CGFloat = 10
     let shadowOpacity: Double = 0.4
 
-    @State private var show: Bool = true
+    @State private var show: Bool = false
     @State private var topPadding: CGFloat = 80
     @State private var contentSize: CGSize = .zero
     
@@ -47,56 +47,64 @@ public struct BottomSheet<Content>: View where Content: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
             
-            VStack(spacing: Values.verySmallSpacing) {
-                Capsule()
-                    .fill(themeColor: .value(.textPrimary, alpha: 0.8))
-                    .frame(width: 35, height: 3)
-                
-                // Bottom Sheet
-                ZStack(alignment: .topTrailing) {
-                    NavigationView {
-                        // Important: no top-level GeometryReader here that would expand.
-                        content()
-                            .navigationTitle("")
-                            .padding(.top, 44)
-                            .background(
-                                GeometryReader { proxy in
-                                    Color.clear
-                                        .preference(key: SizePreferenceKey.self, value: proxy.size)
-                                }
-                            )
-                    }
-                    .navigationViewStyle(.stack)
+            if show {
+                VStack(spacing: Values.verySmallSpacing) {
+                    Capsule()
+                        .fill(themeColor: .value(.textPrimary, alpha: 0.8))
+                        .frame(width: 35, height: 3)
                     
-                    if hasCloseButton {
-                        Button {
-                            close()
-                        } label: {
-                            AttributedText(Lucide.Icon.x.attributedString(size: 28))
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(themeColor: .textPrimary)
+                    // Bottom Sheet
+                    ZStack(alignment: .topTrailing) {
+                        NavigationView {
+                            // Important: no top-level GeometryReader here that would expand.
+                            content()
+                                .navigationTitle("")
+                                .padding(.top, 44)
+                                .background(
+                                    GeometryReader { proxy in
+                                        Color.clear
+                                            .preference(key: SizePreferenceKey.self, value: proxy.size)
+                                    }
+                                )
                         }
-                        .frame(width: 28, height: 28)
-                        .padding(Values.smallSpacing)
+                        .navigationViewStyle(.stack)
+                        
+                        if hasCloseButton {
+                            Button {
+                                close()
+                            } label: {
+                                AttributedText(Lucide.Icon.x.attributedString(size: 28))
+                                    .font(.system(size: 28, weight: .bold))
+                                    .foregroundColor(themeColor: .textPrimary)
+                            }
+                            .frame(width: 28, height: 28)
+                            .padding(Values.smallSpacing)
+                        }
                     }
+                    .backgroundColor(themeColor: .backgroundPrimary)
+                    .cornerRadius(cornerRadius, corners: [.topLeft, .topRight])
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .topTrailing
+                    )
                 }
-                .backgroundColor(themeColor: .backgroundPrimary)
-                .cornerRadius(cornerRadius, corners: [.topLeft, .topRight])
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .topTrailing
-                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .onPreferenceChange(SizePreferenceKey.self) { size in
+                    contentSize = size
+                    recomputeTopPadding()
+                }
+                .onAppear {
+                    recomputeTopPadding()
+                }
+                .padding(.top, topPadding)
             }
-            .onPreferenceChange(SizePreferenceKey.self) { size in
-                contentSize = size
-                recomputeTopPadding()
-            }
-            .onAppear {
-                recomputeTopPadding()
-            }
-            .padding(.top, topPadding)
         }
         .ignoresSafeArea(edges: .bottom)
+        .onAppear {
+            withAnimation {
+                show.toggle()
+            }
+        }
         .frame(
             maxWidth: .infinity,
             maxHeight: .infinity,
@@ -115,7 +123,11 @@ public struct BottomSheet<Content>: View where Content: View {
     // MARK: - Dismiss Logic
 
     private func close() {
+        withAnimation {
+            show.toggle()
+        }
         host.controller?.presentingViewController?.dismiss(animated: true)
+        afterClosed?()
     }
     
     // MARK: - Layout helpers
@@ -143,7 +155,7 @@ open class BottomSheetHostingViewController<Content>: UIHostingController<Modifi
         let modified = bottomSheet.environmentObject(container) as! ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>
         super.init(rootView: modified)
         container.controller = self
-        self.modalTransitionStyle = .coverVertical
+        self.modalTransitionStyle = .crossDissolve
         self.modalPresentationStyle = .overFullScreen
     }
     

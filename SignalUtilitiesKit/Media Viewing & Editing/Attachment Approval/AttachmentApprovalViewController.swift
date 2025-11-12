@@ -654,16 +654,23 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
             beforePresented: { [weak self] in
-                self?.hideInputAccessoryView()
+                
             },
             onConfirm: { [weak self, dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    beforePresented: { [weak self] in
+                        self?.hideInputAccessoryView()
+                    },
+                    afterClosed: {
+                        self?.showInputAccessoryView()
+                        self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+                    },
                     presenting: { bottomSheet in
                         self?.present(bottomSheet, animated: true)
                     }
                 )
             },
-            afterClosed: { [weak self] in
+            onCancel: { [weak self] in
                 self?.showInputAccessoryView()
                 self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
             },
@@ -706,12 +713,19 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
             },
             onConfirm: { [weak self, dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    beforePresented: { [weak self] in
+                        self?.hideInputAccessoryView()
+                    },
+                    afterClosed: {
+                        self?.showInputAccessoryView()
+                        self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+                    },
                     presenting: { bottomSheet in
                         self?.present(bottomSheet, animated: true)
                     }
                 )
             },
-            afterClosed: { [weak self] in
+            onCancel: { [weak self] in
                 self?.showInputAccessoryView()
                 self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
             },

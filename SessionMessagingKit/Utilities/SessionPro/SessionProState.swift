@@ -152,6 +152,7 @@ extension SessionProState: SessionProCTAManagerType {
         dismissType: Modal.DismissType,
         beforePresented: (() -> Void)?,
         onConfirm: (() -> Void)?,
+        onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
@@ -174,7 +175,8 @@ extension SessionProState: SessionProCTAManagerType {
                 dataManager: dependencies[singleton: .imageDataManager],
                 dismissType: dismissType,
                 afterClosed: afterClosed,
-                onConfirm: onConfirm
+                onConfirm: onConfirm,
+                onCancel: onCancel
             )
         )
         presenting?(sessionProModal)
@@ -189,10 +191,14 @@ extension SessionProState: SessionProCTAManagerType {
     ) {
         let viewModel = SessionProBottomSheetViewModel(using: dependencies)
         let sessionProBottomSheet: BottomSheetHostingViewController = BottomSheetHostingViewController(
-            bottomSheet: BottomSheet(hasCloseButton: true) {
+            bottomSheet: BottomSheet(
+                hasCloseButton: true,
+                afterClosed: afterClosed,
+            ) {
                 SessionListScreen(viewModel: viewModel, scrollable: false)
             }
         )
+        beforePresented?()
         presenting?(sessionProBottomSheet)
     }
 }

@@ -565,12 +565,19 @@ extension ConversationVC:
             },
             onConfirm: { [weak self, dependencies = viewModel.dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    beforePresented: { [weak self] in
+                        self?.hideInputAccessoryView()
+                    },
+                    afterClosed: { [weak self] in
+                        self?.showInputAccessoryView()
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
                     presenting: { bottomSheet in
                         self?.present(bottomSheet, animated: true)
                     }
                 )
             },
-            afterClosed: { [weak self] in
+            onCancel: { [weak self] in
                 self?.showInputAccessoryView()
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
@@ -678,12 +685,19 @@ extension ConversationVC:
             },
             onConfirm: { [weak self, dependencies = viewModel.dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    beforePresented: { [weak self] in
+                        self?.hideInputAccessoryView()
+                    },
+                    afterClosed: { [weak self] in
+                        self?.showInputAccessoryView()
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
                     presenting: { bottomSheet in
                         self?.present(bottomSheet, animated: true)
                     }
                 )
             },
-            afterClosed: { [weak self] in
+            onCancel: { [weak self] in
                 self?.showInputAccessoryView()
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
@@ -1730,15 +1744,23 @@ extension ConversationVC:
                             },
                             onConfirm: {
                                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                    beforePresented: { [weak self] in
+                                        self?.hideInputAccessoryView()
+                                    },
+                                    afterClosed: { [weak self] in
+                                        self?.showInputAccessoryView()
+                                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                                    },
                                     presenting: { bottomSheet in
                                         dependencies[singleton: .appContext].frontMostViewController?.present(bottomSheet, animated: true)
                                     }
                                 )
                             },
-                            afterClosed: { [weak self] in
+                            onCancel: { [weak self] in
                                 self?.showInputAccessoryView()
                                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                             },
+                            afterClosed: nil,
                             presenting: { modal in
                                 dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
                             }
