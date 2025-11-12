@@ -47,7 +47,7 @@ public extension ObservableKey {
     // MARK: - Conversations
     
     static let conversationCreated: ObservableKey = "conversationCreated"
-    static let conversationPinnedPriorityChanged: ObservableKey = "conversationPinnedPriorityChanged"
+    static let anyConversationPinnedPriorityChanged: ObservableKey = "anyConversationPinnedPriorityChanged"
     static func conversationUpdated(_ id: String) -> ObservableKey {
         ObservableKey("conversationUpdated-\(id)", .conversationUpdated)
     }
@@ -242,7 +242,11 @@ public extension ObservingDatabase {
         
         switch type {
             case .created: addEvent(ObservedEvent(key: .conversationCreated, value: event))
-            case .updated: addEvent(ObservedEvent(key: .conversationUpdated(id), value: event))
+            case .updated:
+                addEvent(ObservedEvent(key: .conversationUpdated(id), value: event))
+                if case .pinnedPriority = type.change {
+                    addEvent(.anyConversationPinnedPriorityChanged)
+                }
             case .deleted: addEvent(ObservedEvent(key: .conversationDeleted(id), value: event))
         }
     }

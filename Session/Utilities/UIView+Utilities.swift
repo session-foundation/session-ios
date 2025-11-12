@@ -15,12 +15,12 @@ extension UIView {
         )
         let cacheKey: NSString = "\(cacheKey).\(cacheKeyColour)" as NSString // stringlint:ignore
         
-        if let cachedImage = General.UICache.object(forKey: cacheKey) {
+        if let cachedImage = General.imageCache.object(forKey: cacheKey) {
             return cachedImage
         }
         
         let renderedImage = self.toImage(isOpaque: self.isOpaque, scale: UIScreen.main.scale)
-        General.UICache.setObject(renderedImage, forKey: cacheKey)
+        General.imageCache.setObject(renderedImage, forKey: cacheKey)
         return renderedImage
     }
 }

@@ -136,7 +136,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         public let observedKeys: Set<ObservableKey> = [
-            .conversationPinnedPriorityChanged,
+            .anyConversationPinnedPriorityChanged,
             .setting(.groupsUpgradedCounter),
             .setting(.proBadgesSentCounter),
             .setting(.longerMessagesSentCounter),
@@ -192,7 +192,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         /// Process any event changes
         events.forEach { event in
             switch event.key {
-                case .conversationPinnedPriorityChanged:
+                case .anyConversationPinnedPriorityChanged:
                     dependencies[singleton: .storage].read { db in
                         numberOfPinnedConversations = (
                             try? SessionThread

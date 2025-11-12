@@ -96,8 +96,6 @@ extension ContextMenuVC {
                     x: (action.flipIconForRTL ? -1 : 1),
                     y: 1
                 )
-            iconImageView.transform = CGAffineTransform(
-                scaleX: -1.0, y: 1.0)
             iconContainerView.addSubview(iconImageView)
             iconImageView.center(in: iconContainerView)
             

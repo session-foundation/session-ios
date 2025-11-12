@@ -36,7 +36,7 @@ public extension MentionUtilities {
                     backgroundCornerRadius: (8 * sizeDiff),
                     backgroundPadding: (3 * sizeDiff)
                 ).toImage(
-                    cacheKey: "Mention.CurrentUser",
+                    cacheKey: "Mention.CurrentUser", // stringlint:ignore
                     using: dependencies
                 )
 
