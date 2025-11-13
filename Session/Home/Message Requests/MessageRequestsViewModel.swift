@@ -319,16 +319,20 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                             )
                                         }
                                     ),
-                                    threadCanWrite: false,  // Irrelevant for the MessageRequestsViewModel
-                                    threadCanUpload: false  // Irrelevant for the MessageRequestsViewModel
+                                    threadCanWrite: conversation.determineInitialCanWriteFlag(
+                                        using: viewModel.dependencies
+                                    ),
+                                    threadCanUpload: conversation.determineInitialCanUploadFlag(
+                                        using: viewModel.dependencies
+                                    )
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Message request"
                                 ),
                                 onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                                     let viewController: ConversationVC = ConversationVC(
-                                        threadId: conversation.threadId,
-                                        threadVariant: conversation.threadVariant,
+                                        threadViewModel: conversation,
+                                        focusedInteractionInfo: nil,
                                         using: dependencies
                                     )
                                     viewModel?.transitionToScreen(viewController, transitionType: .push)

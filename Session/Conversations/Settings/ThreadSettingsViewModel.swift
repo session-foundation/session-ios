@@ -167,6 +167,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     private struct State: Equatable {
         let threadViewModel: SessionThreadViewModel?
         let disappearingMessagesConfig: DisappearingMessagesConfiguration
+        let conversationHasProEnabled: Bool
     }
     
     var title: String {
@@ -190,7 +191,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             
             return State(
                 threadViewModel: threadViewModel,
-                disappearingMessagesConfig: disappearingMessagesConfig
+                disappearingMessagesConfig: disappearingMessagesConfig,
+                conversationHasProEnabled: false    // TODO: [PRO] Need to source this
             )
         }
         .compactMap { [weak self] current -> [SectionModel]? in
@@ -309,8 +311,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         font: .titleLarge,
                         alignment: .center,
                         trailingImage: {
-                            guard !threadViewModel.threadIsNoteToSelf else { return nil }
-                            guard (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) else { return nil }
+                            guard
+                                current.conversationHasProEnabled &&
+                                !threadViewModel.threadIsNoteToSelf
+                            else { return nil }
                             return ("ProBadge", { [dependencies] in SessionProBadge(size: .medium).toImage(using: dependencies) })
                         }()
                     ),
@@ -332,8 +336,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         identifier: "Username",
                         label: threadViewModel.displayName
                     ),
-                    onTapView: { [weak self, threadId, dependencies] targetView in
-                        guard targetView is SessionProBadge, !dependencies[cache: .libSession].isSessionPro else {
+                    onTapView: { [weak self, dependencies] targetView in
+                        guard
+                            targetView is SessionProBadge,
+                            !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
+                        else {
                             guard
                                 let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
                                     threadViewModel: threadViewModel,
@@ -350,14 +357,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 case .group:
                                     return .groupLimit(
                                         isAdmin: currentUserIsClosedGroupAdmin,
-                                        isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }),
+                                        isSessionProActivated: current.conversationHasProEnabled,
                                         proBadgeImage: SessionProBadge(size: .mini).toImage(using: dependencies)
                                     )
                                 default: return .generic
                             }
                         }()
                         
-                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                        dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                             proCTAModalVariant,
                             presenting: { modal in
                                 self?.transitionToScreen(modal, transitionType: .present)
@@ -1367,7 +1374,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
     public static func createMemberListViewController(
         threadId: String,
-        transitionToConversation: @escaping @MainActor (String) -> Void,
+        transitionToConversation: @escaping @MainActor (SessionThreadViewModel?) -> Void,
         using dependencies: Dependencies
     ) -> UIViewController {
         return SessionTableViewController(
@@ -1385,28 +1392,36 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     .filter(GroupMember.Columns.groupId == threadId)
                     .group(GroupMember.Columns.profileId),
                 onTap: .callback { _, memberInfo in
-                    dependencies[singleton: .storage].writeAsync(
-                        updates: { db in
-                            try SessionThread.upsert(
-                                db,
-                                id: memberInfo.profileId,
-                                variant: .contact,
-                                values: SessionThread.TargetValues(
-                                    creationDateTimestamp: .useExistingOrSetTo(
-                                        dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
-                                    ),
-                                    shouldBeVisible: .useExisting,
-                                    isDraft: .useExistingOrSetTo(true)
+                    let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                    let maybeThreadViewModel: SessionThreadViewModel? = try? await dependencies[singleton: .storage].writeAsync { db in
+                        try SessionThread.upsert(
+                            db,
+                            id: memberInfo.profileId,
+                            variant: .contact,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .useExistingOrSetTo(
+                                    dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
                                 ),
-                                using: dependencies
-                            )
-                        },
-                        completion: { _ in
-                            Task { @MainActor in
-                                transitionToConversation(memberInfo.profileId)
-                            }
-                        }
-                    )
+                                shouldBeVisible: .useExisting,
+                                isDraft: .useExistingOrSetTo(true)
+                            ),
+                            using: dependencies
+                        )
+                        
+                        return try ConversationViewModel.fetchThreadViewModel(
+                            db,
+                            threadId: memberInfo.profileId,
+                            userSessionId: userSessionId,
+                            currentUserSessionIds: [userSessionId.hexString],
+                            threadWasKickedFromGroup: false,
+                            threadGroupIsDestroyed: false,
+                            using: dependencies
+                        )
+                    }
+                    
+                    await MainActor.run {
+                        transitionToConversation(maybeThreadViewModel)
+                    }
                 },
                 using: dependencies
             )
@@ -1417,11 +1432,26 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         self.transitionToScreen(
             ThreadSettingsViewModel.createMemberListViewController(
                 threadId: threadId,
-                transitionToConversation: { [weak self, dependencies] selectedMemberId in
+                transitionToConversation: { [weak self, dependencies] maybeThreadViewModel in
+                    guard let threadViewModel: SessionThreadViewModel = maybeThreadViewModel else {
+                        self?.transitionToScreen(
+                            ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "theError".localized(),
+                                    body: .text("errorUnknown".localized()),
+                                    cancelTitle: "okay".localized(),
+                                    cancelStyle: .alert_text
+                                )
+                            ),
+                            transitionType: .present
+                        )
+                        return
+                    }
+                    
                     self?.transitionToScreen(
                         ConversationVC(
-                            threadId: selectedMemberId,
-                            threadVariant: .contact,
+                            threadViewModel: threadViewModel,
+                            focusedInteractionInfo: nil,
                             using: dependencies
                         ),
                         transitionType: .push

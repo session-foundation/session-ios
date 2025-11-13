@@ -118,7 +118,8 @@ public extension MessageViewModel {
 public extension MessageViewModel.DeletionBehaviours {
     static func deletionActions(
         for cellViewModels: [MessageViewModel],
-        with threadData: SessionThreadViewModel,
+        threadData: SessionThreadViewModel,
+        isUserModeratorOrAdmin: Bool,
         using dependencies: Dependencies
     ) -> MessageViewModel.DeletionBehaviours? {
         enum SelectedMessageState {
@@ -155,19 +156,7 @@ public extension MessageViewModel.DeletionBehaviours {
                     switch threadData.threadVariant {
                         case .contact: return false
                         case .group, .legacyGroup: return (threadData.currentUserIsClosedGroupAdmin == true)
-                        case .community:
-                            guard
-                                let server: String = threadData.openGroupServer,
-                                let roomToken: String = threadData.openGroupRoomToken
-                            else { return false }
-                            
-                            return dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
-                                db,
-                                publicKey: threadData.currentUserSessionId,
-                                for: roomToken,
-                                on: server,
-                                currentUserSessionIds: (threadData.currentUserSessionIds ?? [])
-                            )
+                        case .community: return isUserModeratorOrAdmin
                     }
                 }()
                 
@@ -380,7 +369,7 @@ public extension MessageViewModel.DeletionBehaviours {
                     .filter { threadData.currentUserSessionId.contains($0.authorId) }
                 let serverHashes: Set<String> = targetViewModels.compactMap { $0.serverHash }.asSet()
                     .inserting(contentsOf: Set(targetViewModels.flatMap { message in
-                        (message.reactionInfo ?? []).compactMap { $0.reaction.serverHash }
+                        message.reactionInfo.compactMap { $0.reaction.serverHash }
                     }))
                 let unsendRequests: [Network.PreparedRequest<Void>] = try targetViewModels.map { model in
                     try MessageSender.preparedSend(
@@ -526,7 +515,7 @@ public extension MessageViewModel.DeletionBehaviours {
                     .filter { (threadData.currentUserSessionIds ?? []).contains($0.authorId) }
                 let serverHashes: Set<String> = targetViewModels.compactMap { $0.serverHash }.asSet()
                     .inserting(contentsOf: Set(targetViewModels.flatMap { message in
-                        (message.reactionInfo ?? []).compactMap { $0.reaction.serverHash }
+                        message.reactionInfo.compactMap { $0.reaction.serverHash }
                     }))
                 
                 return [.cancelPendingSendJobs(targetViewModels.map { $0.id })]
@@ -583,7 +572,7 @@ public extension MessageViewModel.DeletionBehaviours {
                 /// Only try to delete messages with server hashes (can't delete them otherwise)
                 let serverHashes: Set<String> = cellViewModels.compactMap { $0.serverHash }.asSet()
                     .inserting(contentsOf: Set(cellViewModels.flatMap { message in
-                        (message.reactionInfo ?? []).compactMap { $0.reaction.serverHash }
+                        message.reactionInfo.compactMap { $0.reaction.serverHash }
                     }))
                 
                 return [.cancelPendingSendJobs(cellViewModels.map { $0.id })]

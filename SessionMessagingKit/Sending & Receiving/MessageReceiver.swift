@@ -410,28 +410,54 @@ public enum MessageReceiver {
         openGroupMessageServerId: Int64,
         openGroupReactions: [Reaction]
     ) throws {
-        struct Info: Decodable, FetchableRecord {
+        struct InteractionInfo: Decodable, FetchableRecord {
             let id: Int64
             let variant: Interaction.Variant
         }
+        struct ReactionInfo: Decodable, FetchableRecord {
+            let rowID: Int64
+            let emoji: String
+        }
         
-        guard let interactionInfo: Info = try? Interaction
+        guard let interactionInfo: InteractionInfo = try? Interaction
             .select(.id, .variant)
             .filter(Interaction.Columns.threadId == threadId)
             .filter(Interaction.Columns.openGroupServerMessageId == openGroupMessageServerId)
-            .asRequest(of: Info.self)
+            .asRequest(of: InteractionInfo.self)
             .fetchOne(db)
         else { throw MessageError.invalidMessage("Could not find message reaction is associated to") }
         
         // If the user locally deleted the message then we don't want to process reactions for it
         guard !interactionInfo.variant.isDeletedMessage else { return }
         
+        let removedReactions: [ReactionInfo] = try Reaction
+            .select(Column.rowID, Reaction.Columns.emoji)
+            .filter(Reaction.Columns.interactionId == interactionInfo.id)
+            .asRequest(of: ReactionInfo.self)
+            .fetchAll(db)
+        
         _ = try Reaction
             .filter(Reaction.Columns.interactionId == interactionInfo.id)
             .deleteAll(db)
         
+        // Send events
+        removedReactions.forEach { reaction in
+            db.addReactionEvent(
+                id: reaction.rowID,
+                messageId: interactionInfo.id,
+                change: .removed(reaction.emoji)
+            )
+        }
+        
         for reaction in openGroupReactions {
             try reaction.with(interactionId: interactionInfo.id).insert(db)
+            
+            // Send event
+            db.addReactionEvent(
+                id: db.lastInsertedRowID,
+                messageId: interactionInfo.id,
+                change: .added(reaction.emoji)
+            )
         }
     }
     

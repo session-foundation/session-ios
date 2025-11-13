@@ -186,7 +186,6 @@ final class NukeDataModal: Modal {
                                 using: dependencies
                             ),
                             try OpenGroup
-                                .filter(OpenGroup.Columns.isActive == true)
                                 .select(.server)
                                 .distinct()
                                 .asRequest(of: String.self)

@@ -124,7 +124,7 @@ final class InfoMessageCell: MessageCell {
         
         self.label.themeAttributedText = cellViewModel.body?.formatted(in: self.label)
         
-        if cellViewModel.canDoFollowingSetting() {
+        if cellViewModel.canFollowDisappearingMessagesSetting {
             self.actionLabel.isHidden = false
             self.actionLabel.text = "disappearingMessagesFollowSetting".localized()
         }
@@ -182,7 +182,10 @@ final class InfoMessageCell: MessageCell {
     override func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         guard let cellViewModel: MessageViewModel = self.viewModel else { return }
 
-        if cellViewModel.variant == .infoDisappearingMessagesUpdate && cellViewModel.canDoFollowingSetting() {
+        if
+            cellViewModel.variant == .infoDisappearingMessagesUpdate &&
+            cellViewModel.canFollowDisappearingMessagesSetting
+        {
             delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: gestureRecognizer.location(in: self))
         }
     }

@@ -396,6 +396,12 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                 threadVariant: threadVariant,
                 using: dependencies
             )
+            
+            /// Notify of update
+            db.addConversationEvent(
+                id: threadId,
+                type: .updated(.disappearingMessageConfiguration(updatedConfig))
+            )
         }
     }
 }

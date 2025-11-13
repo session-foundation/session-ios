@@ -107,4 +107,25 @@ extension Contact: ProfileAssociated {
         
         return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
     }
+    
+    public func with(
+        isTrusted: Update<Bool> = .useExisting,
+        isApproved: Update<Bool> = .useExisting,
+        isBlocked: Update<Bool> = .useExisting,
+        lastKnownClientVersion: Update<FeatureVersion?> = .useExisting,
+        didApproveMe: Update<Bool> = .useExisting,
+        hasBeenBlocked: Update<Bool> = .useExisting,
+        currentUserSessionId: SessionId
+    ) -> Contact {
+        return Contact(
+            id: id,
+            isTrusted: isTrusted.or(self.isTrusted),
+            isApproved: isApproved.or(self.isApproved),
+            isBlocked: isBlocked.or(self.isBlocked),
+            lastKnownClientVersion: lastKnownClientVersion.or(self.lastKnownClientVersion),
+            didApproveMe: didApproveMe.or(self.didApproveMe),
+            hasBeenBlocked: hasBeenBlocked.or(self.hasBeenBlocked),
+            currentUserSessionId: currentUserSessionId
+        )
+    }
 }

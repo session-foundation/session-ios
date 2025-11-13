@@ -348,10 +348,10 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
         guard let quoteDraftInfo = quoteDraftInfo else { return }
         
         let hInset: CGFloat = 6 // Slight visual adjustment
-
         let quoteView: QuoteView = QuoteView(
             for: .draft,
-            authorId: quoteDraftInfo.model.authorId,
+            authorName: quoteDraftInfo.model.authorName,
+            authorHasProBadge: quoteDraftInfo.model.proFeatures.contains(.proBadge),
             quotedText: quoteDraftInfo.model.body,
             threadVariant: threadVariant,
             currentUserSessionIds: quoteDraftInfo.model.currentUserSessionIds,

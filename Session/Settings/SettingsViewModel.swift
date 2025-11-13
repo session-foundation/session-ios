@@ -181,7 +181,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         
         static func initialState(
             userSessionId: SessionId,
-            sessionProBackendStatus: Bool
+            sessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
         ) -> State {
             return State(
                 userSessionId: userSessionId,

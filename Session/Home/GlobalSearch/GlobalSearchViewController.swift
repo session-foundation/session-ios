@@ -390,29 +390,27 @@ extension GlobalSearchViewController {
         tableView.deselectRow(at: indexPath, animated: false)
         
         let section: SectionModel = self.searchResultSet.data[indexPath.section]
+        let focusedInteractionInfo: Interaction.TimestampInfo? = {
+            switch section.model {
+                case .groupedContacts: return nil
+                case .contactsAndGroups, .messages:
+                    guard
+                        let interactionId: Int64 = section.elements[indexPath.row].interactionId,
+                        let timestampMs: Int64 = section.elements[indexPath.row].interactionTimestampMs
+                    else { return nil }
+                    
+                    return Interaction.TimestampInfo(
+                        id: interactionId,
+                        timestampMs: timestampMs
+                    )
+            }
+        }()
         
-        switch section.model {
-            case .contactsAndGroups, .messages:
-                show(
-                    threadId: section.elements[indexPath.row].threadId,
-                    threadVariant: section.elements[indexPath.row].threadVariant,
-                    focusedInteractionInfo: {
-                        guard
-                            let interactionId: Int64 = section.elements[indexPath.row].interactionId,
-                            let timestampMs: Int64 = section.elements[indexPath.row].interactionTimestampMs
-                        else { return nil }
-                        
-                        return Interaction.TimestampInfo(
-                            id: interactionId,
-                            timestampMs: timestampMs
-                        )
-                    }()
-                )
-            case .groupedContacts:
-                show(
-                    threadId: section.elements[indexPath.row].threadId,
-                    threadVariant: section.elements[indexPath.row].threadVariant
-                )
+        Task.detached(priority: .userInitiated) { [weak self] in
+            await self?.show(
+                threadViewModel: section.elements[indexPath.row],
+                focusedInteractionInfo: focusedInteractionInfo
+            )
         }
     }
     
@@ -443,39 +441,32 @@ extension GlobalSearchViewController {
     }
 
     private func show(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
+        threadViewModel: SessionThreadViewModel,
         focusedInteractionInfo: Interaction.TimestampInfo? = nil,
         animated: Bool = true
-    ) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in
-                self?.show(threadId: threadId, threadVariant: threadVariant, focusedInteractionInfo: focusedInteractionInfo, animated: animated)
-            }
-            return
-        }
-        
+    ) async {
         // If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the
         // contact has been hidden)
-        if threadVariant == .contact {
-            dependencies[singleton: .storage].write { [dependencies] db in
+        if threadViewModel.threadVariant == .contact {
+            _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
                 try SessionThread.upsert(
                     db,
-                    id: threadId,
-                    variant: threadVariant,
+                    id: threadViewModel.threadId,
+                    variant: threadViewModel.threadVariant,
                     values: .existingOrDefault,
                     using: dependencies
                 )
             }
         }
         
-        let viewController: ConversationVC = ConversationVC(
-            threadId: threadId,
-            threadVariant: threadVariant,
-            focusedInteractionInfo: focusedInteractionInfo,
-            using: dependencies
-        )
-        self.navigationController?.pushViewController(viewController, animated: true)
+        await MainActor.run {
+            let viewController: ConversationVC = ConversationVC(
+                threadViewModel: threadViewModel,
+                focusedInteractionInfo: focusedInteractionInfo,
+                using: dependencies
+            )
+            self.navigationController?.pushViewController(viewController, animated: true)
+        }
     }
 
     // MARK: - UITableViewDataSource

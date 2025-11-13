@@ -239,7 +239,8 @@ class DatabaseSpec: QuickSpec {
                     "messagingKit.RenameAttachments",
                     "messagingKit.AddProMessageFlag",
                     "LastProfileUpdateTimestamp",
-                    "RemoveQuoteUnusedColumnsAndForeignKeys"
+                    "RemoveQuoteUnusedColumnsAndForeignKeys",
+                    "DropUnneededColumnsAndTables"
                 ]))
             }
             

@@ -197,7 +197,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
 
                 messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
                 messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
-                messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar]
+                messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar],
                 
                 products: [],
                 purchasedProduct: nil,
@@ -357,57 +357,56 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                             to: !state.allUsersSessionPro
                         )
                     }
-                ),
-                (!state.allUsersSessionPro ? nil :
-                    SessionCell.Info(
-                        id: .messageFeatureProBadge,
-                        title: SessionCell.TextInfo("Message Feature: Pro Badge", font: .subtitle),
-                        trailingAccessory: .toggle(
-                            state.messageFeatureProBadge,
-                            oldValue: previousState.messageFeatureProBadge
-                        ),
-                        onTap: { [dependencies = viewModel.dependencies] in
-                            dependencies.set(
-                                feature: .messageFeatureProBadge,
-                                to: !state.messageFeatureProBadge
-                            )
-                        }
-                    )
-                ),
-                (!state.allUsersSessionPro ? nil :
-                    SessionCell.Info(
-                        id: .messageFeatureLongMessage,
-                        title: SessionCell.TextInfo("Message Feature: Long Message", font: .subtitle),
-                        trailingAccessory: .toggle(
-                            state.messageFeatureLongMessage,
-                            oldValue: previousState.messageFeatureLongMessage
-                        ),
-                        onTap: { [dependencies = viewModel.dependencies] in
-                            dependencies.set(
-                                feature: .messageFeatureLongMessage,
-                                to: !state.messageFeatureLongMessage
-                            )
-                        }
-                    )
-                ),
-                (!state.allUsersSessionPro ? nil :
-                    SessionCell.Info(
-                        id: .messageFeatureAnimatedAvatar,
-                        title: SessionCell.TextInfo("Message Feature: Animated Avatar", font: .subtitle),
-                        trailingAccessory: .toggle(
-                            state.messageFeatureAnimatedAvatar,
-                            oldValue: previousState.messageFeatureAnimatedAvatar
-                        ),
-                        onTap: { [dependencies = viewModel.dependencies] in
-                            dependencies.set(
-                                feature: .messageFeatureAnimatedAvatar,
-                                to: !state.messageFeatureAnimatedAvatar
-                            )
-                        }
-                    )
                 )
             ]
         )
+        
+        if state.allUsersSessionPro {
+            features = features.appending(contentsOf: [
+                SessionCell.Info(
+                    id: .messageFeatureProBadge,
+                    title: SessionCell.TextInfo("Message Feature: Pro Badge", font: .subtitle),
+                    trailingAccessory: .toggle(
+                        state.messageFeatureProBadge,
+                        oldValue: previousState.messageFeatureProBadge
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .messageFeatureProBadge,
+                            to: !state.messageFeatureProBadge
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .messageFeatureLongMessage,
+                    title: SessionCell.TextInfo("Message Feature: Long Message", font: .subtitle),
+                    trailingAccessory: .toggle(
+                        state.messageFeatureLongMessage,
+                        oldValue: previousState.messageFeatureLongMessage
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .messageFeatureLongMessage,
+                            to: !state.messageFeatureLongMessage
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .messageFeatureAnimatedAvatar,
+                    title: SessionCell.TextInfo("Message Feature: Animated Avatar", font: .subtitle),
+                    trailingAccessory: .toggle(
+                        state.messageFeatureAnimatedAvatar,
+                        oldValue: previousState.messageFeatureAnimatedAvatar
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .messageFeatureAnimatedAvatar,
+                            to: !state.messageFeatureAnimatedAvatar
+                        )
+                    }
+                )
+            ])
+        }
         
         // MARK: - Actual Pro Transactions and APIs
         

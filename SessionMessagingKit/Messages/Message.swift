@@ -430,7 +430,7 @@ public extension Message {
         _ db: ObservingDatabase,
         openGroupId: String,
         message: Network.SOGS.Message,
-        associatedPendingChanges: [OpenGroupManager.PendingChange],
+        associatedPendingChanges: [CommunityManager.PendingChange],
         using dependencies: Dependencies
     ) -> [Reaction] {
         guard
@@ -480,7 +480,7 @@ public extension Message {
                 let pendingChangeSelfReaction: Bool? = {
                     // Find the newest 'PendingChange' entry with a matching emoji, if one exists, and
                     // set the "self reaction" value based on it's action
-                    let maybePendingChange: OpenGroupManager.PendingChange? = associatedPendingChanges
+                    let maybePendingChange: CommunityManager.PendingChange? = associatedPendingChanges
                         .sorted(by: { lhs, rhs -> Bool in (lhs.seqNo ?? Int64.max) >= (rhs.seqNo ?? Int64.max) })
                         .first { pendingChange in
                             if case .reaction(_, let emoji, _) = pendingChange.metadata {
@@ -492,7 +492,7 @@ public extension Message {
                     
                     // If there is no pending change for this reaction then return nil
                     guard
-                        let pendingChange: OpenGroupManager.PendingChange = maybePendingChange,
+                        let pendingChange: CommunityManager.PendingChange = maybePendingChange,
                         case .reaction(_, _, let action) = pendingChange.metadata
                     else { return nil }
 

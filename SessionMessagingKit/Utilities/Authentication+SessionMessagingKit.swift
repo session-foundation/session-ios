@@ -104,14 +104,14 @@ public extension Authentication {
     static func with(
         _ db: ObservingDatabase,
         server: String,
-        activeOnly: Bool = true,
+        activelyPollingOnly: Bool = true,
         forceBlinded: Bool = false,
         using dependencies: Dependencies
     ) throws -> AuthenticationMethod {
         guard
             // TODO: [Database Relocation] Store capability info locally in libSession so we don't need the db here
             let info: LibSession.OpenGroupCapabilityInfo = try? LibSession.OpenGroupCapabilityInfo
-                .fetchOne(db, server: server, activeOnly: activeOnly)
+                .fetchOne(db, server: server, activelyPollingOnly: activelyPollingOnly)
         else { throw CryptoError.invalidAuthentication }
         
         return Authentication.community(info: info, forceBlinded: forceBlinded)

@@ -381,7 +381,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     if
                         isSharingUrl,
                         let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft,
-                        (try? interaction.linkPreview.isEmpty(db)) == true
+                        (((try? Interaction
+                            .linkPreview(url: interaction.linkPreviewUrl, timestampMs: interaction.timestampMs)?
+                            .fetchCount(db)) ?? 0) == 0)
                     {
                         try LinkPreview(
                             url: linkPreviewDraft.urlString,

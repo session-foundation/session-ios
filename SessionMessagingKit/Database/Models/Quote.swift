@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-public struct Quote: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct Quote: Sendable, Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "quote" }
     
     public typealias Columns = CodingKeys

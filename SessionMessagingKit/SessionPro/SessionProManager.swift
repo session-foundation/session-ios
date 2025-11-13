@@ -37,6 +37,9 @@ public actor SessionProManager: SessionProManagerType {
     nonisolated private let decodedProForMessageStream: CurrentValueAsyncStream<SessionPro.DecodedProForMessage?> = CurrentValueAsyncStream(nil)
     
     nonisolated public var currentUserCurrentRotatingKeyPair: KeyPair? { syncState.rotatingKeyPair }
+    nonisolated public var currentUserCurrentBackendProStatus: Network.SessionPro.BackendUserProStatus? {
+        syncState.backendUserProStatus
+    }
     nonisolated public var currentUserIsCurrentlyPro: Bool { syncState.backendUserProStatus == .active }
     nonisolated public var currentUserCurrentProProof: Network.SessionPro.ProProof? { syncState.proProof }
     nonisolated public var currentUserCurrentDecodedProForMessage: SessionPro.DecodedProForMessage? {
@@ -162,10 +165,15 @@ public actor SessionProManager: SessionProManagerType {
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
-        guard
-            syncState.dependencies[feature: .sessionProEnabled],
-            syncState.backendUserProStatus != .active
-        else { return false }
+        guard syncState.dependencies[feature: .sessionProEnabled] else { return false }
+        
+        switch variant {
+            case .groupLimit: break /// The `groupLimit` CTA can be shown for Session Pro users as well
+            default:
+                guard syncState.backendUserProStatus != .active else { return false }
+                
+                break
+        }
         
         beforePresented?()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
@@ -276,6 +284,7 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     
     nonisolated var characterLimit: Int { get }
     nonisolated var currentUserCurrentRotatingKeyPair: KeyPair? { get }
+    nonisolated var currentUserCurrentBackendProStatus: Network.SessionPro.BackendUserProStatus? { get }
     nonisolated var currentUserCurrentProProof: Network.SessionPro.ProProof? { get }
     nonisolated var currentUserCurrentDecodedProForMessage: SessionPro.DecodedProForMessage? { get }
     

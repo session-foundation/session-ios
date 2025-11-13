@@ -153,20 +153,23 @@ public class DisplayPictureManager {
             .throttle(for: .milliseconds(250), scheduler: DispatchQueue.global(qos: .userInitiated), latest: true)
             .sink(
                 receiveValue: { [dependencies] _ in
-                    let pendingInfo: Set<Owner> = dependencies.mutate(cache: .displayPicture) { cache in
-                        let result: Set<Owner> = cache.downloadsToSchedule
+                    let pendingInfo: Set<DisplayPictureManager.TargetWithTimestamp> = dependencies.mutate(cache: .displayPicture) { cache in
+                        let result: Set<DisplayPictureManager.TargetWithTimestamp> = cache.downloadsToSchedule
                         cache.downloadsToSchedule.removeAll()
                         return result
                     }
                     
                     dependencies[singleton: .storage].writeAsync { db in
-                        pendingInfo.forEach { owner in
+                        pendingInfo.forEach { info in
                             dependencies[singleton: .jobRunner].add(
                                 db,
                                 job: Job(
                                     variant: .displayPictureDownload,
                                     shouldBeUnique: true,
-                                    details: DisplayPictureDownloadJob.Details(owner: owner)
+                                    details: DisplayPictureDownloadJob.Details(
+                                        target: info.target,
+                                        timestamp: info.timestamp
+                                    )
                                 ),
                                 canStartJob: true
                             )
@@ -176,11 +179,9 @@ public class DisplayPictureManager {
             )
     }
     
-    public func scheduleDownload(for owner: Owner) {
-        guard owner.canDownloadImage else { return }
-        
+    public func scheduleDownload(for target: DisplayPictureDownloadJob.Target, timestamp: TimeInterval? = nil) {
         dependencies.mutate(cache: .displayPicture) { cache in
-            cache.downloadsToSchedule.insert(owner)
+            cache.downloadsToSchedule.insert(TargetWithTimestamp(target: target, timestamp: timestamp))
         }
         scheduleDownloads.send(())
     }
@@ -421,29 +422,12 @@ public class DisplayPictureManager {
     }
 }
 
-// MARK: - DisplayPictureManager.Owner
+// MARK: - Convenience
 
 public extension DisplayPictureManager {
-    enum OwnerId: Hashable {
-        case user(String)
-        case group(String)
-        case community(String)
-    }
-    
-    enum Owner: Hashable {
-        case user(Profile)
-        case group(ClosedGroup)
-        case community(OpenGroup)
-        case file(String)
-        
-        var canDownloadImage: Bool {
-            switch self {
-                case .user(let profile): return (profile.displayPictureUrl?.isEmpty == false)
-                case .group(let group): return (group.displayPictureUrl?.isEmpty == false)
-                case .community(let openGroup): return (openGroup.imageId?.isEmpty == false)
-                case .file: return false
-            }
-        }
+    struct TargetWithTimestamp: Hashable {
+        let target: DisplayPictureDownloadJob.Target
+        let timestamp: TimeInterval?
     }
 }
 
@@ -451,7 +435,7 @@ public extension DisplayPictureManager {
 
 public extension DisplayPictureManager {
     class Cache: DisplayPictureCacheType {
-        public var downloadsToSchedule: Set<DisplayPictureManager.Owner> = []
+        public var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> = []
     }
 }
 
@@ -468,9 +452,9 @@ public extension Cache {
 
 /// This is a read-only version of the Cache designed to avoid unintentionally mutating the instance in a non-thread-safe way
 public protocol DisplayPictureImmutableCacheType: ImmutableCacheType {
-    var downloadsToSchedule: Set<DisplayPictureManager.Owner> { get }
+    var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> { get }
 }
 
 public protocol DisplayPictureCacheType: DisplayPictureImmutableCacheType, MutableCacheType {
-    var downloadsToSchedule: Set<DisplayPictureManager.Owner> { get set }
+    var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> { get set }
 }

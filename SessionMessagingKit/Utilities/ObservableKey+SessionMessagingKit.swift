@@ -75,6 +75,9 @@ public extension ObservableKey {
     static func attachmentDeleted(id: String, messageId: Int64?) -> ObservableKey {
         ObservableKey("attachmentDeleted-\(id)-\(messageId.map { "\($0)" } ?? "NULL")", .attachmentDeleted)
     }
+    static func reactionsChanged(messageId: Int64) -> ObservableKey {
+        ObservableKey("reactionsChanged-\(messageId)", .reactionsChanged)
+    }
     
     // MARK: - Message Requests
     
@@ -82,6 +85,18 @@ public extension ObservableKey {
     static let messageRequestDeleted: ObservableKey = "messageRequestDeleted"
     static let messageRequestMessageRead: ObservableKey = "messageRequestMessageRead"
     static let messageRequestUnreadMessageReceived: ObservableKey = "messageRequestUnreadMessageReceived"
+    
+    // MARK: - Groups
+    
+    static func groupMemberCreated(threadId: String) -> ObservableKey {
+        ObservableKey("groupMemberCreated-\(threadId)", .groupMemberCreated)
+    }
+    static func groupMemberUpdated(profileId: String, threadId: String) -> ObservableKey {
+        ObservableKey("groupMemberUpdated-\(threadId)-\(profileId)", .groupMemberUpdated)
+    }
+    static func groupMemberDeleted(profileId: String, threadId: String) -> ObservableKey {
+        ObservableKey("groupMemberDeleted-\(threadId)-\(profileId)", .groupMemberDeleted)
+    }
 }
 
 public extension GenericObservableKey {
@@ -102,6 +117,11 @@ public extension GenericObservableKey {
     static let attachmentCreated: GenericObservableKey = "attachmentCreated"
     static let attachmentUpdated: GenericObservableKey = "attachmentUpdated"
     static let attachmentDeleted: GenericObservableKey = "attachmentDeleted"
+    static let reactionsChanged: GenericObservableKey = "reactionsChanged"
+    
+    static let groupMemberCreated: GenericObservableKey = "groupMemberCreated"
+    static let groupMemberUpdated: GenericObservableKey = "groupMemberUpdated"
+    static let groupMemberDeleted: GenericObservableKey = "groupMemberDeleted"
 }
 
 // MARK: - Event Payloads - General
@@ -124,11 +144,17 @@ public struct LoadPageEvent: Hashable {
     
     public enum Target: Hashable {
         case initial
+        case initialPageAround(AnyHashable)
         case previousPage(Int)
         case nextPage(Int)
+        case jumpTo(AnyHashable, Int)
     }
     
     public static var initial: LoadPageEvent { LoadPageEvent(target: .initial) }
+    
+    public static func initialPageAround<ID: Hashable>(id: ID) -> LoadPageEvent {
+        LoadPageEvent(target: .initialPageAround(id))
+    }
     
     public static func previousPage(firstIndex: Int) -> LoadPageEvent {
         LoadPageEvent(target: .previousPage(firstIndex))
@@ -136,6 +162,10 @@ public struct LoadPageEvent: Hashable {
     
     public static func nextPage(lastIndex: Int) -> LoadPageEvent {
         LoadPageEvent(target: .nextPage(lastIndex))
+    }
+    
+    public static func jumpTo<ID: Hashable>(id: ID, padding: Int) -> LoadPageEvent {
+        LoadPageEvent(target: .jumpTo(id, padding))
     }
 }
 
@@ -156,15 +186,6 @@ public struct TypingIndicatorEvent: Hashable {
     public enum Change: Hashable {
         case started
         case stopped
-    }
-}
-
-public extension ObservingDatabase {
-    func addTypingIndicatorEvent(threadId: String, change: TypingIndicatorEvent.Change) {
-        self.addEvent(ObservedEvent(
-            key: .typingIndicator(threadId),
-            value: TypingIndicatorEvent(threadId: threadId, change: change)
-        ))
     }
 }
 
@@ -196,6 +217,7 @@ public struct ContactEvent: Hashable {
         case isApproved(Bool)
         case isBlocked(Bool)
         case didApproveMe(Bool)
+        case unblinded(blindedId: String, unblindedId: String)
     }
 }
 
@@ -229,7 +251,8 @@ public struct ConversationEvent: Hashable {
         case mutedUntilTimestamp(TimeInterval?)
         case onlyNotifyForMentions(Bool)
         case markedAsUnread(Bool)
-        case unreadCountChanged
+        case unreadCount
+        case disappearingMessageConfiguration(DisappearingMessagesConfiguration?)
     }
 }
 
@@ -256,6 +279,7 @@ public struct MessageEvent: Hashable {
         case wasRead(Bool)
         case state(Interaction.State)
         case recipientReadTimestampMs(Int64)
+        case markedAsDeleted
     }
 }
 
@@ -295,6 +319,47 @@ public extension ObservingDatabase {
             case .created: addEvent(ObservedEvent(key: .attachmentCreated(messageId: msgId), value: event))
             case .updated: addEvent(ObservedEvent(key: .attachmentUpdated(id: id, messageId: msgId), value: event))
             case .deleted: addEvent(ObservedEvent(key: .attachmentDeleted(id: id, messageId: msgId), value: event))
+        }
+    }
+}
+
+public struct ReactionEvent: Hashable {
+    public let id: Int64
+    public let messageId: Int64
+    public let change: Change
+    
+    public enum Change: Hashable {
+        case added(String)
+        case removed(String)
+    }
+}
+
+public extension ObservingDatabase {
+    func addReactionEvent(id: Int64, messageId: Int64, change: ReactionEvent.Change) {
+        let event: ReactionEvent = ReactionEvent(id: id, messageId: messageId, change: change)
+        
+        addEvent(ObservedEvent(key: .reactionsChanged(messageId: messageId), value: event))
+    }
+}
+
+public struct GroupMemberEvent: Hashable {
+    public let profileId: String
+    public let threadId: String
+    public let change: Change?
+    
+    public enum Change: Hashable {
+        case role(role: GroupMember.Role, status: GroupMember.RoleStatus)
+    }
+}
+
+public extension ObservingDatabase {
+    func addGroupMemberEvent(profileId: String, threadId: String, type: CRUDEvent<GroupMemberEvent.Change>) {
+        let event: GroupMemberEvent = GroupMemberEvent(profileId: profileId, threadId: threadId, change: type.change)
+        
+        switch type {
+            case .created: addEvent(ObservedEvent(key: .groupMemberCreated(threadId: threadId), value: event))
+            case .updated: addEvent(ObservedEvent(key: .groupMemberUpdated(profileId: profileId, threadId: threadId), value: event))
+            case .deleted: addEvent(ObservedEvent(key: .groupMemberDeleted(profileId: profileId, threadId: threadId), value: event))
         }
     }
 }

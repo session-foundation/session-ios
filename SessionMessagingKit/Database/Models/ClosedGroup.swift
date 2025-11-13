@@ -10,9 +10,6 @@ import SessionUtilitiesKit
 
 public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "closedGroup" }
-    internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
-    public static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
-    public static let members = hasMany(GroupMember.self, using: GroupMember.closedGroupForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -66,36 +63,6 @@ public struct ClosedGroup: Codable, Equatable, Hashable, Identifiable, Fetchable
     
     /// A flag indicating whether this group is in the "expired" state (ie. it's config messages no longer exist)
     public let expired: Bool?
-    
-    // MARK: - Relationships
-    
-    public var thread: QueryInterfaceRequest<SessionThread> {
-        request(for: ClosedGroup.thread)
-    }
-    
-    public var allMembers: QueryInterfaceRequest<GroupMember> {
-        request(for: ClosedGroup.members)
-    }
-    
-    public var members: QueryInterfaceRequest<GroupMember> {
-        request(for: ClosedGroup.members)
-            .filter(GroupMember.Columns.role == GroupMember.Role.standard)
-    }
-    
-    public var zombies: QueryInterfaceRequest<GroupMember> {
-        request(for: ClosedGroup.members)
-            .filter(GroupMember.Columns.role == GroupMember.Role.zombie)
-    }
-    
-    public var moderators: QueryInterfaceRequest<GroupMember> {
-        request(for: ClosedGroup.members)
-            .filter(GroupMember.Columns.role == GroupMember.Role.moderator)
-    }
-    
-    public var admins: QueryInterfaceRequest<GroupMember> {
-        request(for: ClosedGroup.members)
-            .filter(GroupMember.Columns.role == GroupMember.Role.admin)
-    }
     
     // MARK: - Initialization
     

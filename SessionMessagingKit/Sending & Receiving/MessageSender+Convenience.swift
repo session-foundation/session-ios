@@ -424,15 +424,19 @@ extension MessageSender {
 
 public extension VisibleMessage {
     static func from(_ db: ObservingDatabase, interaction: Interaction) -> VisibleMessage {
-        let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
+        let linkPreview: LinkPreview? = try? Interaction
+            .linkPreview(url: interaction.linkPreviewUrl, timestampMs: interaction.timestampMs)?
+            .fetchOne(db)
+        let attachments: [Attachment]? = try? Interaction
+            .attachments(interactionId: interaction.id)?
+            .fetchAll(db)
         
         let visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,
             sentTimestampMs: UInt64(interaction.timestampMs),
             syncTarget: nil,
             text: interaction.body,
-            attachmentIds: ((try? interaction.attachments.fetchAll(db)) ?? [])
-                .map { $0.id },
+            attachmentIds: (attachments ?? []).map { $0.id },
             quote: (try? Quote
                 .filter(Quote.Columns.interactionId == interaction.id)
                 .fetchOne(db))

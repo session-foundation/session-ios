@@ -29,8 +29,8 @@ public extension NSAttributedString.Key {
 
 // MARK: - ThemedAttributedString
 
-public class ThemedAttributedString: Equatable, Hashable {
-    internal var value: NSMutableAttributedString {
+public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hashable {
+    internal var value: NSAttributedString {
         if let image = imageAttachmentGenerator?() {
             let attachment = NSTextAttachment(image: image)
             if let font = imageAttachmentReferenceFont {
@@ -42,48 +42,67 @@ public class ThemedAttributedString: Equatable, Hashable {
                 )
             }
             
-            return NSMutableAttributedString(attachment: attachment)
+            return NSAttributedString(attachment: attachment)
         }
         return attributedString
     }
     public var string: String { value.string }
     public var length: Int { value.length }
-    internal var imageAttachmentGenerator: (() -> UIImage?)?
-    internal var imageAttachmentReferenceFont: UIFont?
-    internal var attributedString: NSMutableAttributedString
+    
+    /// `NSMutableAttributedString` is not `Sendable` so we need to manually manage access via an `NSLock` to ensure
+    /// thread safety
+    private let lock: NSLock = NSLock()
+    private let _attributedString: NSMutableAttributedString
+    
+    internal let imageAttachmentGenerator: (@Sendable () -> UIImage?)?
+    internal let imageAttachmentReferenceFont: UIFont?
+    internal var attributedString: NSAttributedString {
+        lock.lock()
+        defer { lock.unlock() }
+        return _attributedString
+    }
     
     public init() {
-        self.attributedString = NSMutableAttributedString()
+        self._attributedString = NSMutableAttributedString()
+        self.imageAttachmentGenerator = nil
+        self.imageAttachmentReferenceFont = nil
     }
     
     public init(attributedString: ThemedAttributedString) {
-        self.attributedString = attributedString.attributedString
+        self._attributedString = attributedString._attributedString
         self.imageAttachmentGenerator = attributedString.imageAttachmentGenerator
+        self.imageAttachmentReferenceFont = attributedString.imageAttachmentReferenceFont
     }
     
     public init(attributedString: NSAttributedString) {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributedString)
         #endif
-        self.attributedString = NSMutableAttributedString(attributedString: attributedString)
+        self._attributedString = NSMutableAttributedString(attributedString: attributedString)
+        self.imageAttachmentGenerator = nil
+        self.imageAttachmentReferenceFont = nil
     }
     
     public init(string: String, attributes: [NSAttributedString.Key: Any] = [:]) {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributes)
         #endif
-        self.attributedString = NSMutableAttributedString(string: string, attributes: attributes)
+        self._attributedString = NSMutableAttributedString(string: string, attributes: attributes)
+        self.imageAttachmentGenerator = nil
+        self.imageAttachmentReferenceFont = nil
     }
     
     public init(attachment: NSTextAttachment, attributes: [NSAttributedString.Key: Any] = [:]) {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributes)
         #endif
-        self.attributedString = NSMutableAttributedString(attachment: attachment)
+        self._attributedString = NSMutableAttributedString(attachment: attachment)
+        self.imageAttachmentGenerator = nil
+        self.imageAttachmentReferenceFont = nil
     }
     
-    public init(imageAttachmentGenerator: @escaping (() -> UIImage?), referenceFont: UIFont?) {
-        self.attributedString = NSMutableAttributedString()
+    public init(imageAttachmentGenerator: @escaping (@Sendable () -> UIImage?), referenceFont: UIFont?) {
+        self._attributedString = NSMutableAttributedString()
         self.imageAttachmentGenerator = imageAttachmentGenerator
         self.imageAttachmentReferenceFont = referenceFont
     }
@@ -110,7 +129,9 @@ public class ThemedAttributedString: Equatable, Hashable {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributes ?? [:])
         #endif
-        self.attributedString.append(NSAttributedString(string: string, attributes: attributes))
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.append(NSAttributedString(string: string, attributes: attributes))
         return self
     }
     
@@ -118,23 +139,31 @@ public class ThemedAttributedString: Equatable, Hashable {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributedString)
         #endif
-        self.attributedString.append(attributedString)
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.append(attributedString)
     }
     
     public func append(_ attributedString: ThemedAttributedString) {
-        self.attributedString.append(attributedString.value)
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.append(attributedString.value)
     }
     
     public func appending(_ attributedString: NSAttributedString) -> ThemedAttributedString {
         #if DEBUG
         ThemedAttributedString.validateAttributes(attributedString)
         #endif
-        self.attributedString.append(attributedString)
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.append(attributedString)
         return self
     }
     
     public func appending(_ attributedString: ThemedAttributedString) -> ThemedAttributedString {
-        self.attributedString.append(attributedString.value)
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.append(attributedString.value)
         return self
     }
     
@@ -143,7 +172,9 @@ public class ThemedAttributedString: Equatable, Hashable {
         ThemedAttributedString.validateAttributes([name: value])
         #endif
         let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
-        self.attributedString.addAttribute(name, value: attrValue, range: targetRange)
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.addAttribute(name, value: attrValue, range: targetRange)
     }
     
     public func addingAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange? = nil) -> ThemedAttributedString {
@@ -151,7 +182,9 @@ public class ThemedAttributedString: Equatable, Hashable {
         ThemedAttributedString.validateAttributes([name: value])
         #endif
         let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
-        self.attributedString.addAttribute(name, value: attrValue, range: targetRange)
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.addAttribute(name, value: attrValue, range: targetRange)
         return self
     }
 
@@ -160,7 +193,9 @@ public class ThemedAttributedString: Equatable, Hashable {
         ThemedAttributedString.validateAttributes(attrs)
         #endif
         let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
-        self.attributedString.addAttributes(attrs, range: targetRange)
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.addAttributes(attrs, range: targetRange)
     }
     
     public func addingAttributes(_ attrs: [NSAttributedString.Key: Any], range: NSRange? = nil) -> ThemedAttributedString {
@@ -168,7 +203,9 @@ public class ThemedAttributedString: Equatable, Hashable {
         ThemedAttributedString.validateAttributes(attrs)
         #endif
         let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
-        self.attributedString.addAttributes(attrs, range: targetRange)
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.addAttributes(attrs, range: targetRange)
         return self
     }
     
@@ -177,7 +214,9 @@ public class ThemedAttributedString: Equatable, Hashable {
     }
     
     public func replaceCharacters(in range: NSRange, with attributedString: NSAttributedString) {
-        self.attributedString.replaceCharacters(in: range, with: attributedString)
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.replaceCharacters(in: range, with: attributedString)
     }
     
     // MARK: - Convenience

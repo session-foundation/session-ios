@@ -233,17 +233,12 @@ internal extension LibSessionCacheType {
         let attachDeleteBeforeTimestamp: Int64 = groups_info_get_attach_delete_before(conf)
         
         if attachDeleteBeforeTimestamp > 0 {
-            let interactionInfo: [InteractionInfo] = (try? Interaction
-                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
-                .joining(
-                    required: Interaction.interactionAttachments.joining(
-                        required: InteractionAttachment.attachment
-                            .filter(Attachment.Columns.variant != Attachment.Variant.voiceMessage)
-                    )
+            let interactionInfo: [Interaction.VariantInfo] = (try? SessionThread
+                .interactionInfoWithAttachments(
+                    threadId: groupSessionId.hexString,
+                    beforeTimestampMs: Int64(floor(TimeInterval(attachDeleteBeforeTimestamp) * 1000)),
+                    attachmentVariants: [.standard]
                 )
-                .select(.id, .serverHash)
-                .asRequest(of: InteractionInfo.self)
                 .fetchAll(db))
                 .defaulting(to: [])
             let interactionIdsToRemove: Set<Int64> = Set(interactionInfo.map { $0.id })

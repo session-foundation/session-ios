@@ -10,7 +10,8 @@ struct QuoteView_SwiftUI: View {
     public enum Direction { case incoming, outgoing }
     public struct Info {
         var mode: Mode
-        var authorId: String
+        var authorName: String
+        var authorHasProBadge: Bool
         var quotedText: String?
         var threadVariant: SessionThread.Variant
         var currentUserSessionIds: Set<String>
@@ -29,7 +30,6 @@ struct QuoteView_SwiftUI: View {
     private var info: Info
     private var onCancel: (() -> ())?
     
-    private var isCurrentUser: Bool { info.currentUserSessionIds.contains(info.authorId) }
     private var quotedText: String? {
         if let quotedText = info.quotedText, !quotedText.isEmpty {
             return quotedText
@@ -40,23 +40,6 @@ struct QuoteView_SwiftUI: View {
         }
         
         return nil
-    }
-    private var author: String? {
-        guard !isCurrentUser else { return "you".localized() }
-        guard quotedText != nil else {
-            // When we can't find the quoted message we want to hide the author label
-            return Profile.displayNameNoFallback(
-                id: info.authorId,
-                threadVariant: info.threadVariant,
-                using: dependencies
-            )
-        }
-        
-        return Profile.displayName(
-            id: info.authorId,
-            threadVariant: info.threadVariant,
-            using: dependencies
-        )
     }
     
     public init(info: Info, using dependencies: Dependencies, onCancel: (() -> ())? = nil) {
@@ -143,14 +126,12 @@ struct QuoteView_SwiftUI: View {
                     }
                 }()
                 
-                if let author = self.author {
-                    Text(author)
+                if let quotedText = self.quotedText {
+                    Text(info.authorName)
                         .bold()
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: targetThemeColor)
-                }
-                
-                if let quotedText = self.quotedText {
+                    
                     AttributedText(
                         MentionUtilities.highlightMentions(
                             in: quotedText,
@@ -212,7 +193,8 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                 QuoteView_SwiftUI(
                     info: QuoteView_SwiftUI.Info(
                         mode: .draft,
-                        authorId: "",
+                        authorName: "",
+                        authorHasProBadge: false,
                         threadVariant: .contact,
                         currentUserSessionIds: [],
                         direction: .outgoing
@@ -224,7 +206,8 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                 QuoteView_SwiftUI(
                     info: QuoteView_SwiftUI.Info(
                         mode: .regular,
-                        authorId: "",
+                        authorName: "",
+                        authorHasProBadge: false,
                         threadVariant: .contact,
                         currentUserSessionIds: [],
                         direction: .incoming,

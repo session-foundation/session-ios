@@ -102,18 +102,20 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { _, _, completionHandler  in
                             // Delay the change to give the cell "unswipe" animation some time to complete
-                            DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
+                            Task.detached(priority: .userInitiated) {
+                                try await Task.sleep(for: unswipeAnimationDelay)
                                 switch isUnread {
-                                    case true: threadViewModel.markAsRead(
+                                    case true: try? await threadViewModel.markAsRead(
                                         target: .threadAndInteractions(
                                             interactionsBeforeInclusive: threadViewModel.interactionId
                                         ),
                                         using: dependencies
                                     )
                                         
-                                    case false: threadViewModel.markAsUnread(using: dependencies)
+                                    case false: try? await threadViewModel.markAsUnread(using: dependencies)
                                 }
                             }
+                            
                             completionHandler(true)
                         }
                     

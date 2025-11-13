@@ -28,7 +28,8 @@ final class QuoteView: UIView {
     
     init(
         for mode: Mode,
-        authorId: String,
+        authorName: String,
+        authorHasProBadge: Bool,
         quotedText: String?,
         threadVariant: SessionThread.Variant,
         currentUserSessionIds: Set<String>,
@@ -44,7 +45,8 @@ final class QuoteView: UIView {
         
         setUpViewHierarchy(
             mode: mode,
-            authorId: authorId,
+            authorName: authorName,
+            authorHasProBadge: authorHasProBadge,
             quotedText: quotedText,
             threadVariant: threadVariant,
             currentUserSessionIds: currentUserSessionIds,
@@ -63,7 +65,8 @@ final class QuoteView: UIView {
 
     private func setUpViewHierarchy(
         mode: Mode,
-        authorId: String,
+        authorName: String,
+        authorHasProBadge: Bool,
         quotedText: String?,
         threadVariant: SessionThread.Variant,
         currentUserSessionIds: Set<String>,
@@ -196,36 +199,18 @@ final class QuoteView: UIView {
             )
             .defaulting(to: ThemedAttributedString(string: "messageErrorOriginal".localized(), attributes: [ .themeForegroundColor: targetThemeColor ]))
         
-        // Label stack view
+        /// Label stack view
         let authorLabel = SessionLabelWithProBadge(
             proBadgeSize: .mini,
             proBadgeThemeBackgroundColor: proBadgeThemeColor
         )
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
-        authorLabel.text = {
-            guard !currentUserSessionIds.contains(authorId) else { return "you".localized() }
-            guard body != nil else {
-                // When we can't find the quoted message we want to hide the author label
-                return Profile.displayNameNoFallback(
-                    id: authorId,
-                    threadVariant: threadVariant,
-                    suppressId: true,
-                    using: dependencies
-                )
-            }
-            
-            return Profile.displayName(
-                id: authorId,
-                threadVariant: threadVariant,
-                suppressId: true,
-                using: dependencies
-            )
-        }()
+        authorLabel.text = authorName
         authorLabel.themeTextColor = targetThemeColor
         authorLabel.lineBreakMode = .byTruncatingTail
         authorLabel.numberOfLines = 1
-        authorLabel.isHidden = (authorLabel.text == nil)
-        authorLabel.isProBadgeHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: authorId) }
+        authorLabel.isHidden = (body == nil) /// When we can't find the quoted message we want to hide the author label/
+        authorLabel.isProBadgeHidden = !authorHasProBadge
         authorLabel.setCompressionResistance(.vertical, to: .required)
         
         let labelStackView = UIStackView(arrangedSubviews: [ authorLabel, bodyLabel ])

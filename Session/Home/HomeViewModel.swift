@@ -74,6 +74,7 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     deinit {
+        observationTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
     
@@ -588,8 +589,12 @@ public class HomeViewModel: NavigatableStateHolder {
                                         )
                                     }
                                 ),
-                                threadCanWrite: false,  // Irrelevant for the HomeViewModel
-                                threadCanUpload: false  // Irrelevant for the HomeViewModel
+                                threadCanWrite: conversation.determineInitialCanWriteFlag(
+                                    using: viewModel.dependencies
+                                ),
+                                threadCanUpload: conversation.determineInitialCanUploadFlag(
+                                    using: viewModel.dependencies
+                                )
                             )
                         }
                 )
@@ -800,7 +805,7 @@ public class HomeViewModel: NavigatableStateHolder {
         )
     }
     
-    @MainActor public func loadNextPage() {
+    @MainActor public func loadPageAfter() {
         dependencies.notifyAsync(
             key: .loadPage(HomeViewModel.self),
             value: LoadPageEvent.nextPage(lastIndex: state.loadedPageInfo.lastIndex)

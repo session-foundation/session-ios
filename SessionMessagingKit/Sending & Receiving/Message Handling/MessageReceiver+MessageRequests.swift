@@ -107,14 +107,19 @@ extension MessageReceiver {
                 .filter(Interaction.Columns.threadId == blindedIdLookup.blindedId)
                 .updateAll(db, Interaction.Columns.threadId.set(to: unblindedThread.id))
             
-            _ = try SessionThread
-                .deleteOrLeave(
-                    db,
-                    type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
-                    threadId: blindedIdLookup.blindedId,
-                    threadVariant: .contact,
-                    using: dependencies
-                )
+            _ = try SessionThread.deleteOrLeave(
+                db,
+                type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
+                threadId: blindedIdLookup.blindedId,
+                threadVariant: .contact,
+                using: dependencies
+            )
+            
+            // Notify about unblinding event
+            db.addContactEvent(
+                id: blindedIdLookup.blindedId,
+                change: .unblinded(blindedId: blindedIdLookup.blindedId, unblindedId: senderId)
+            )
         }
         
         // Update the `didApproveMe` state of the sender

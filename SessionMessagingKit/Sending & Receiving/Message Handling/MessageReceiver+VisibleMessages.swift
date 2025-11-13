@@ -221,8 +221,9 @@ extension MessageReceiver {
                 case DatabaseError.SQLITE_CONSTRAINT_UNIQUE:
                     guard
                         variant == .standardOutgoing,
-                        let existingInteractionId: Int64 = try? thread.interactions
+                        let existingInteractionId: Int64 = try? Interaction
                             .select(.id)
+                            .filter(Interaction.Columns.threadId == thread.id)
                             .filter(Interaction.Columns.timestampMs == decodedMessage.sentTimestampMs)
                             .filter(Interaction.Columns.variant == variant)
                             .filter(Interaction.Columns.authorId == decodedMessage.sender.hexString)
@@ -550,7 +551,7 @@ extension MessageReceiver {
                 // requiring main-thread execution
                 let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
-                _ = try Reaction(
+                try Reaction(
                     interactionId: interactionId,
                     serverHash: message.serverHash,
                     timestampMs: Int64(decodedMessage.sentTimestampMs),
@@ -558,7 +559,15 @@ extension MessageReceiver {
                     emoji: vmReaction.emoji,
                     count: 1,
                     sortId: sortId
-                ).inserted(db)
+                ).insert(db)
+                
+                // Notify of reaction event
+                db.addReactionEvent(
+                    id: db.lastInsertedRowID,
+                    messageId: interactionId,
+                    change: .added(vmReaction.emoji)
+                )
+                
                 let timestampAlreadyRead: Bool = dependencies.mutate(cache: .libSession) { cache in
                     cache.timestampAlreadyRead(
                         threadId: thread.id,
@@ -618,11 +627,27 @@ extension MessageReceiver {
                 }
                 
             case .remove:
+                let rowIds: [Int64] = try Reaction
+                    .select(Column.rowID)
+                    .filter(Reaction.Columns.interactionId == interactionId)
+                    .filter(Reaction.Columns.authorId == decodedMessage.sender.hexString)
+                    .filter(Reaction.Columns.emoji == vmReaction.emoji)
+                    .asRequest(of: Int64.self)
+                    .fetchAll(db)
                 try Reaction
                     .filter(Reaction.Columns.interactionId == interactionId)
                     .filter(Reaction.Columns.authorId == decodedMessage.sender.hexString)
                     .filter(Reaction.Columns.emoji == vmReaction.emoji)
                     .deleteAll(db)
+                
+                // Notify of reaction event
+                rowIds.forEach {
+                    db.addReactionEvent(
+                        id: $0,
+                        messageId: interactionId,
+                        change: .removed(vmReaction.emoji)
+                    )
+                }
         }
         
         return interactionId

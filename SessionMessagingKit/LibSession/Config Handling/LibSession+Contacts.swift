@@ -315,13 +315,16 @@ public extension LibSession {
                     // want the extensions to trigger this as it can clog up their networking)
                     if
                         let updatedProfile: Profile = info.profile,
+                        let newUrl: String = info.displayPictureUrl,
+                        let newKey: Data = info.displayPictureEncryptionKey,
                         dependencies[singleton: .appContext].isMainApp && (
-                            oldAvatarUrl != (info.displayPictureUrl ?? "") ||
-                            oldAvatarKey != (info.displayPictureEncryptionKey ?? Data())
+                            oldAvatarUrl != newUrl ||
+                            oldAvatarKey != newKey
                         )
                     {
                         dependencies[singleton: .displayPictureManager].scheduleDownload(
-                            for: .user(updatedProfile)
+                            for: .profile(id: updatedProfile.id, url: newUrl, encryptionKey: newKey),
+                            timestamp: updatedProfile.profileLastUpdated
                         )
                     }
                     

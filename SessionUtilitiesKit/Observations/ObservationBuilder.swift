@@ -238,7 +238,7 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
             oldListenerTask?.cancel()
         }
         
-        /// Only yielf the new result if the value has changed to prevent redundant updates
+        /// Only yield the new result if the value has changed to prevent redundant updates
         if isInitialQuery || newResult != self.lastValue {
             self.lastValue = newResult
             continuation.yield(newResult)

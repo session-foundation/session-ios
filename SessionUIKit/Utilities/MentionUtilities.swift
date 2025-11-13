@@ -4,6 +4,8 @@ import Foundation
 import UIKit
 
 public enum MentionUtilities {
+    static let pubkeyRegex: NSRegularExpression = try! NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
+    
     public enum MentionLocation {
         case incomingMessage
         case outgoingMessage
@@ -13,20 +15,24 @@ public enum MentionUtilities {
         case styleFree
     }
     
+    public static func allPubkeys(in string: String) -> Set<String> {
+        guard !string.isEmpty else { return [] }
+        
+        return Set(pubkeyRegex
+            .matches(in: string, range: NSRange(string.startIndex..., in: string))
+            .compactMap { match in Range(match.range, in: string).map { String(string[$0]) } })
+    }
+    
     public static func getMentions(
         in string: String,
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String, Bool) -> String?
     ) -> (String, [(range: NSRange, profileId: String, isCurrentUser: Bool)]) {
-        guard
-            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
-        else { return (string, []) }
-        
         var string = string
         var lastMatchEnd: Int = 0
         var mentions: [(range: NSRange, profileId: String, isCurrentUser: Bool)] = []
         
-        while let match: NSTextCheckingResult = regex.firstMatch(
+        while let match: NSTextCheckingResult = pubkeyRegex.firstMatch(
             in: string,
             options: .withoutAnchoringBounds,
             range: NSRange(location: lastMatchEnd, length: string.utf16.count - lastMatchEnd)

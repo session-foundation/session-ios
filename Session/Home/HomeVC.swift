@@ -324,7 +324,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             serviceNetwork: self.viewModel.state.serviceNetwork,
             forceOffline: self.viewModel.state.forceOffline
         )
-        setUpNavBarSessionHeading(currentUserSessionProState: viewModel.dependencies[singleton: .sessionProState])
+        setUpNavBarSessionHeading(sessionProUIManager: viewModel.dependencies[singleton: .sessionProManager])
         
         // Banner stack view
         view.addSubview(bannersStackView)
@@ -625,7 +625,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     public func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
         switch sections[section].model {
-            case .loadMore: self.viewModel.loadNextPage()
+            case .loadMore: self.viewModel.loadPageAfter()
             default: break
         }
     }
@@ -645,8 +645,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             case .threads:
                 let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
                 let viewController: ConversationVC = ConversationVC(
-                    threadId: threadViewModel.threadId,
-                    threadVariant: threadViewModel.threadVariant,
+                    threadViewModel: threadViewModel,
                     focusedInteractionInfo: nil,
                     using: viewModel.dependencies
                 )

@@ -3,7 +3,7 @@
 import Foundation
 import SessionUIKit
 
-public struct LinkPreviewDraft: Equatable, Hashable {
+public struct LinkPreviewDraft: Sendable, Equatable, Hashable {
     public var urlString: String
     public var title: String?
     public var imageSource: ImageDataManager.DataSource?

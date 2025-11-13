@@ -10,17 +10,11 @@ import SessionUIKit
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
-public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct LinkPreview: Sendable, Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "linkPreview" }
-    internal static let interactionForeignKey = ForeignKey(
-        [Columns.url],
-        to: [Interaction.Columns.linkPreviewUrl]
-    )
-    internal static let interactions = hasMany(Interaction.self, using: Interaction.linkPreviewForeignKey)
-    public static let attachment = hasOne(Attachment.self, using: Attachment.linkPreviewForeignKey)
     
     /// We want to cache url previews to the nearest 100,000 seconds (~28 hours - simpler than 86,400) to ensure the user isn't shown a preview that is too stale
-    internal static let timstampResolution: Double = 100000
+    public static let timstampResolution: Double = 100000
     internal static let maxImageDimension: CGFloat = 600
     
     public typealias Columns = CodingKeys
@@ -32,7 +26,7 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
         case attachmentId
     }
     
-    public enum Variant: Int, Codable, Hashable, DatabaseValueConvertible {
+    public enum Variant: Int, Sendable, Codable, Hashable, CaseIterable, DatabaseValueConvertible {
         case standard
         case openGroupInvitation
     }
@@ -52,12 +46,6 @@ public struct LinkPreview: Codable, Equatable, Hashable, FetchableRecord, Persis
     
     /// The id for the attachment for the link preview image
     public let attachmentId: String?
-    
-    // MARK: - Relationships
-    
-    public var attachment: QueryInterfaceRequest<Attachment> {
-        request(for: LinkPreview.attachment)
-    }
     
     // MARK: - Initialization
     

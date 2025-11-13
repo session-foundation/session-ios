@@ -5,7 +5,7 @@ import SessionUIKit
 import Combine
 
 public class BaseVC: UIViewController {
-    private var disposables: Set<AnyCancellable> = Set()
+    private var proObservationTask: Task<Void, Never>?
     public var onViewWillAppear: ((UIViewController) -> Void)?
     public var onViewWillDisappear: ((UIViewController) -> Void)?
     public var onViewDidDisappear: ((UIViewController) -> Void)?
@@ -33,6 +33,10 @@ public class BaseVC: UIViewController {
         
         return result
     }()
+    
+    deinit {
+        proObservationTask?.cancel()
+    }
 
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -83,7 +87,7 @@ public class BaseVC: UIViewController {
         navigationItem.titleView = container
     }
     
-    internal func setUpNavBarSessionHeading(currentUserSessionProState: SessionProManagerType) {
+    internal func setUpNavBarSessionHeading(sessionProUIManager: SessionProUIManagerType) {
         let headingImageView = UIImageView(
             image: UIImage(named: "SessionHeading")?
                 .withRenderingMode(.alwaysTemplate)
@@ -94,7 +98,7 @@ public class BaseVC: UIViewController {
         headingImageView.set(.height, to: Values.mediumFontSize)
         
         let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
-        sessionProBadge.isHidden = !currentUserSessionProState.isSessionProSubject.value
+        sessionProBadge.isHidden = !sessionProUIManager.currentUserIsCurrentlyPro
         
         let stackView: UIStackView = UIStackView(
             arrangedSubviews: MainAppContext.determineDeviceRTL() ? [ sessionProBadge, headingImageView ] : [ headingImageView, sessionProBadge ]
@@ -103,15 +107,14 @@ public class BaseVC: UIViewController {
         stackView.alignment = .center
         stackView.spacing = 0
         
-        currentUserSessionProState.isSessionProPublisher
-            .subscribe(on: DispatchQueue.main)
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveValue: { [weak sessionProBadge] isPro in
+        proObservationTask?.cancel()
+        proObservationTask = Task.detached(priority: .userInitiated) { [weak sessionProBadge] in
+            for await isPro in sessionProUIManager.currentUserIsPro {
+                await MainActor.run { [weak sessionProBadge] in
                     sessionProBadge?.isHidden = !isPro
                 }
-            )
-            .store(in: &disposables)
+            }
+        }
         
         navigationItem.titleView = stackView
     }

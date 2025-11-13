@@ -352,7 +352,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let profileShouldBeVisible: Bool = (
             isGroupThread &&
             cellViewModel.canHaveProfile &&
-            cellViewModel.shouldShowProfile &&
+            cellViewModel.shouldShowDisplayPicture &&
             cellViewModel.profile != nil
         )
         profilePictureView.isHidden = !cellViewModel.canHaveProfile
@@ -388,11 +388,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         bubbleView.isAccessibilityElement = true
         
         // Author label
-        authorLabel.isHidden = (cellViewModel.senderName == nil)
+        authorLabel.isHidden = !cellViewModel.shouldShowAuthorName
         authorLabel.text = cellViewModel.authorNameSuppressedId
         authorLabel.extraText = cellViewModel.authorName.replacingOccurrences(of: cellViewModel.authorNameSuppressedId, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
         authorLabel.themeTextColor = .textPrimary
-        authorLabel.isProBadgeHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: cellViewModel.authorId) }
+        authorLabel.isProBadgeHidden = !cellViewModel.proFeatures.contains(.proBadge)
         
         // Flip horizontally for RTL languages
         replyIconImageView.transform = CGAffineTransform.identity
@@ -410,7 +410,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
         
         // Reaction view
-        reactionContainerView.isHidden = (cellViewModel.reactionInfo?.isEmpty != false)
+        reactionContainerView.isHidden = cellViewModel.reactionInfo.isEmpty
         populateReaction(
             for: cellViewModel,
             maxWidth: VisibleMessageCell.getMaxWidth(
@@ -425,7 +425,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let (image, statusText, tintColor) = cellViewModel.state.statusIconInfo(
             variant: cellViewModel.variant,
             hasBeenReadByRecipient: cellViewModel.hasBeenReadByRecipient,
-            hasAttachments: (cellViewModel.attachments?.isEmpty == false)
+            hasAttachments: !cellViewModel.attachments.isEmpty
         )
         messageStatusLabel.text = statusText
         messageStatusLabel.themeTextColor = tintColor
@@ -625,10 +625,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     let hInset: CGFloat = 2
                     let quoteView: QuoteView = QuoteView(
                         for: .regular,
-                        authorId: quotedInfo.authorId,
+                        authorName: quotedInfo.authorName,
+                        authorHasProBadge: quotedInfo.proFeatures.contains(.proBadge),
                         quotedText: quotedInfo.body,
                         threadVariant: cellViewModel.threadVariant,
-                        currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+                        currentUserSessionIds: cellViewModel.currentUserSessionIds,
                         direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                         attachment: quotedInfo.attachment,
                         using: dependencies
@@ -717,10 +718,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 let hInset: CGFloat = 2
                 let quoteView: QuoteView = QuoteView(
                     for: .regular,
-                    authorId: quotedInfo.authorId,
+                    authorName: quotedInfo.authorName,
+                    authorHasProBadge: quotedInfo.proFeatures.contains(.proBadge),
                     quotedText: quotedInfo.body,
                     threadVariant: cellViewModel.threadVariant,
-                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+                    currentUserSessionIds: cellViewModel.currentUserSessionIds,
                     direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                     attachment: quotedInfo.attachment,
                     using: dependencies
@@ -796,10 +798,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             case (.some(let quotedInfo), _):
                 let quoteView: QuoteView = QuoteView(
                     for: .regular,
-                    authorId: quotedInfo.authorId,
+                    authorName: quotedInfo.authorName,
+                    authorHasProBadge: quotedInfo.proFeatures.contains(.proBadge),
                     quotedText: quotedInfo.body,
                     threadVariant: cellViewModel.threadVariant,
-                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+                    currentUserSessionIds: cellViewModel.currentUserSessionIds,
                     direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                     attachment: quotedInfo.attachment,
                     using: dependencies
@@ -831,9 +834,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     cellWidth: tableSize.width
                 )
                 let albumView = MediaAlbumView(
-                    items: (cellViewModel.attachments?
-                        .filter { $0.isVisualMedia })
-                        .defaulting(to: []),
+                    items: cellViewModel.attachments.filter { $0.isVisualMedia },
                     isOutgoing: cellViewModel.variant.isOutgoing,
                     maxMessageWidth: maxMessageWidth,
                     using: dependencies
@@ -847,7 +848,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 snContentView.addArrangedSubview(albumView)
             
             case .voiceMessage:
-                guard let attachment: Attachment = cellViewModel.attachments?.first(where: { $0.isAudio }) else {
+                guard let attachment: Attachment = cellViewModel.attachments.first(where: { $0.isAudio }) else {
                     return
                 }
                 
@@ -863,7 +864,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 addViewWrappingInBubbleIfNeeded(voiceMessageView)
                 
             case .audio, .genericAttachment:
-                guard let attachment: Attachment = cellViewModel.attachments?.first else { preconditionFailure() }
+                guard let attachment: Attachment = cellViewModel.attachments.first else { return }
                 
                 // Document view
                 let documentView = DocumentView(attachment: attachment, textColor: bodyLabelTextColor)
@@ -877,13 +878,13 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         maxWidth: CGFloat,
         showExpandedReactions: Bool
     ) {
-        let reactions: OrderedDictionary<EmojiWithSkinTones, ReactionViewModel> = (cellViewModel.reactionInfo ?? [])
+        let reactions: OrderedDictionary<EmojiWithSkinTones, ReactionViewModel> = cellViewModel.reactionInfo
             .reduce(into: OrderedDictionary()) { result, reactionInfo in
                 guard let emoji: EmojiWithSkinTones = EmojiWithSkinTones(rawValue: reactionInfo.reaction.emoji) else {
                     return
                 }
                 
-                let isSelfSend: Bool = (cellViewModel.currentUserSessionIds ?? []).contains(reactionInfo.reaction.authorId)
+                let isSelfSend: Bool = cellViewModel.currentUserSessionIds.contains(reactionInfo.reaction.authorId)
                 
                 if let value: ReactionViewModel = result.value(forKey: emoji) {
                     result.replace(
@@ -943,7 +944,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
         switch cellViewModel.cellType {
             case .voiceMessage:
-                guard let attachment: Attachment = cellViewModel.attachments?.first(where: { $0.isAudio }) else {
+                guard let attachment: Attachment = cellViewModel.attachments.first(where: { $0.isAudio }) else {
                     return
                 }
                 
@@ -1065,11 +1066,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let location = gestureRecognizer.location(in: self)
         let tappedAuthorName: Bool = (
             authorLabel.bounds.contains(authorLabel.convert(location, from: self)) &&
-            !(cellViewModel.senderName ?? "").isEmpty
+            !cellViewModel.authorName.isEmpty
         )
         let tappedProfilePicture: Bool = (
             profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)) &&
-            cellViewModel.shouldShowProfile
+            cellViewModel.shouldShowDisplayPicture
         )
         
         if tappedAuthorName || tappedProfilePicture {
@@ -1207,9 +1208,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private static func getFontSize(for cellViewModel: MessageViewModel) -> CGFloat {
         let baselineFontSize = Values.mediumFontSize
         
-        guard cellViewModel.containsOnlyEmoji == true else { return baselineFontSize }
+        guard cellViewModel.containsOnlyEmoji else { return baselineFontSize }
         
-        switch (cellViewModel.glyphCount ?? 0) {
+        switch cellViewModel.glyphCount {
             case 1: return baselineFontSize + 30
             case 2: return baselineFontSize + 24
             case 3, 4, 5: return baselineFontSize + 18
@@ -1222,10 +1223,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     }
 
     private func getSize(for cellViewModel: MessageViewModel, tableSize: CGSize) -> CGSize {
-        guard let mediaAttachments: [Attachment] = cellViewModel.attachments?.filter({ $0.isVisualMedia }) else {
-            preconditionFailure()
-        }
-        
+        let mediaAttachments: [Attachment] = cellViewModel.attachments.filter({ $0.isVisualMedia })
         let maxMessageWidth = VisibleMessageCell.getMaxWidth(
             for: cellViewModel,
             cellWidth: tableSize.width
@@ -1310,7 +1308,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let attributedText: ThemedAttributedString = MentionUtilities.highlightMentions(
             in: body,
             threadVariant: cellViewModel.threadVariant,
-            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+            currentUserSessionIds: cellViewModel.currentUserSessionIds,
             location: (isOutgoing ? .outgoingMessage : .incomingMessage),
             textColor: textColor,
             attributes: [

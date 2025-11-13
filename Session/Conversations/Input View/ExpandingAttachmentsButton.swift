@@ -181,7 +181,7 @@ final class ExpandingAttachmentsButton: UIView, InputViewButtonDelegate {
 // MARK: - Delegate
 
 protocol ExpandingAttachmentsButtonDelegate: AnyObject {
-    func handleDisabledAttachmentButtonTapped()
+    @MainActor func handleDisabledAttachmentButtonTapped()
 
     func handleGIFButtonTapped()
     func handleDocumentButtonTapped()
