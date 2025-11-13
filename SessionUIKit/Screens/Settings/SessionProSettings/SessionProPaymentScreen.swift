@@ -107,6 +107,7 @@ public struct SessionProPaymentScreen: View {
                             currentPlan: nil,
                             sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "upgrade".localized(),
+                            activationType: "proUpdatingAction".localized(),
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
                         )
@@ -128,6 +129,7 @@ public struct SessionProPaymentScreen: View {
                             currentPlan: nil,
                             sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "renew".localized(),
+                            activationType: "proRenewingAction".localized(),
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
                         )
@@ -135,7 +137,7 @@ public struct SessionProPaymentScreen: View {
                         NoBillingAccessContent(
                             isRenewingPro: true,
                             originatingPlatform: originatingPlatform,
-                            openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                            openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
                         )
                     }
                     
@@ -149,6 +151,7 @@ public struct SessionProPaymentScreen: View {
                             currentPlan: currentPlan,
                             sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
+                            activationType: "proUpdatingAction".localized(),
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
                         )
@@ -158,7 +161,7 @@ public struct SessionProPaymentScreen: View {
                             currentPlanExpiredOn: expiredOn,
                             isAutoRenewing: isAutoRenewing,
                             originatingPlatform: originatingPlatform,
-                            openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                            openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
                         )
                     }
                     
@@ -171,7 +174,7 @@ public struct SessionProPaymentScreen: View {
                         RequestRefundNonOriginatingPlatformContent(
                             originatingPlatform: originatingPlatform,
                             requestedAt: requestedAt,
-                            openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                            openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
                         )
                     }
                     
@@ -192,7 +195,7 @@ public struct SessionProPaymentScreen: View {
                     } else {
                         CancelPlanNonOriginatingPlatformContent(
                             originatingPlatform: originatingPlatform,
-                            openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                            openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
                         )
                     }
             }
@@ -298,7 +301,30 @@ public struct SessionProPaymentScreen: View {
     
     @MainActor private func onPaymentFailed() {
         isPendingPurchase = false
-        // TODO: [PRO]
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "urlOpen".localized(),
+                body: .attributedText(
+                    "paymentProError"
+                        .put(key: "action_type", value: "proUpdatingAction".localized())
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
+                    scrollMode: .automatic
+                ),
+                confirmTitle: "retry".localized(),
+                confirmStyle: .alert_text,
+                cancelTitle: "helpSupport".localized(),
+                cancelStyle: .alert_text,
+                onConfirm:  { _ in
+                    // TODO: [PRO] Retry connecting to Pro backend
+                },
+                onCancel: { _ in
+                    self.openUrl(Constants.session_pro_support_url)
+                }
+            )
+        )
+        
+        self.host.controller?.present(modal, animated: true)
     }
     
     private func openTosPrivacy() {
@@ -318,8 +344,8 @@ public struct SessionProPaymentScreen: View {
         self.host.controller?.present(modal, animated: true)
     }
     
-    private func openPlatformStoreWebsite() {
-        guard let url: URL = URL(string: Constants.google_play_store_subscriptions_url) else { return }
+    private func openUrl(_ urlString: String) {
+        guard let url: URL = URL(string: urlString) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
