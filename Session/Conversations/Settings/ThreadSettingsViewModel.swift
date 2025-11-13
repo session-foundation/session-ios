@@ -315,7 +315,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 current.conversationHasProEnabled &&
                                 !threadViewModel.threadIsNoteToSelf
                             else { return nil }
-                            return ("ProBadge", { [dependencies] in SessionProBadge(size: .medium).toImage(using: dependencies) })
+                            
+                            return ("ProBadge", { [dependencies] in
+                                SessionProBadge(size: .medium).toImage(using: dependencies)
+                            })
                         }()
                     ),
                     styling: SessionCell.StyleInfo(

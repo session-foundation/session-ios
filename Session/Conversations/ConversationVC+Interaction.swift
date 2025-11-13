@@ -803,17 +803,16 @@ extension ConversationVC:
     }
     
     private func sendMessage(optimisticData: ConversationViewModel.OptimisticMessageData) async {
-        let threadId: String = self.viewModel.state.threadId
-        let threadVariant: SessionThread.Variant = self.viewModel.state.threadVariant
+        let state: ConversationViewModel.State = self.viewModel.state
         
         // Actually send the message
         do {
             try await viewModel.dependencies[singleton: .storage].writeAsync { [weak self, dependencies = viewModel.dependencies] db in
                 // Update the thread to be visible (if it isn't already)
-                if self?.viewModel.state.threadViewModel.threadShouldBeVisible == false {
+                if state.threadViewModel.threadShouldBeVisible == false {
                     try SessionThread.updateVisibility(
                         db,
-                        threadId: threadId,
+                        threadId: state.threadId,
                         isVisible: true,
                         additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
                         using: dependencies
@@ -907,8 +906,8 @@ extension ConversationVC:
                 try MessageSender.send(
                     db,
                     interaction: insertedInteraction,
-                    threadId: threadId,
-                    threadVariant: threadVariant,
+                    threadId: state.threadId,
+                    threadVariant: state.threadVariant,
                     using: dependencies
                 )
             }

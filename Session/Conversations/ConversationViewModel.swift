@@ -1881,6 +1881,44 @@ private extension ConversationTitleViewModel {
 
 public extension ConversationViewModel {
     static func fetchThreadViewModel(
+        threadId: String,
+        variant: SessionThread.Variant,
+        using dependencies: Dependencies
+    ) async throws -> SessionThreadViewModel {
+        let (wasKickedFromGroup, groupIsDestroyed): (Bool, Bool) = {
+            guard variant == .group else { return (false, false) }
+            
+            return dependencies.mutate(cache: .libSession) { cache in
+                (
+                    cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)),
+                    cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
+                )
+            }
+        }()
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let currentUserSessionIds: Set<String> = await {
+            guard
+                variant == .community,
+                let serverInfo: CommunityManager.Server = await dependencies[singleton: .communityManager].server(threadId: threadId)
+            else { return [userSessionId.hexString] }
+            
+            return serverInfo.currentUserSessionIds
+        }()
+        
+        return try await dependencies[singleton: .storage].readAsync { [dependencies] db in
+            try ConversationViewModel.fetchThreadViewModel(
+                db,
+                threadId: threadId,
+                userSessionId: userSessionId,
+                currentUserSessionIds: currentUserSessionIds,
+                threadWasKickedFromGroup: wasKickedFromGroup,
+                threadGroupIsDestroyed: groupIsDestroyed,
+                using: dependencies
+            )
+        }
+    }
+    
+    static func fetchThreadViewModel(
         _ db: ObservingDatabase,
         threadId: String,
         userSessionId: SessionId,

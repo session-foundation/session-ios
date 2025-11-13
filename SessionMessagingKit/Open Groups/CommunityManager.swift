@@ -134,6 +134,14 @@ public actor CommunityManager: CommunityManagerType {
         return _servers[server.lowercased()]
     }
     
+    public func server(threadId: String) async -> Server? {
+        return _servers.values.first { server in
+            return server.rooms.values.contains {
+                OpenGroup.idFor(roomToken: $0.token, server: server.server) == threadId
+            }
+        }
+    }
+    
     public func updateServer(server: Server) async {
         _servers[server.server.lowercased()] = server
     }
@@ -1287,6 +1295,7 @@ public protocol CommunityManagerType {
     func loadCacheIfNeeded() async
     
     func server(_ server: String) async -> CommunityManager.Server?
+    func server(threadId: String) async -> CommunityManager.Server?
     func updateServer(server: CommunityManager.Server) async
     func updateCapabilities(
         capabilities: Set<Capability.Variant>,

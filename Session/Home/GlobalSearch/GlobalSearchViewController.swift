@@ -445,8 +445,7 @@ extension GlobalSearchViewController {
         focusedInteractionInfo: Interaction.TimestampInfo? = nil,
         animated: Bool = true
     ) async {
-        // If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the
-        // contact has been hidden)
+        /// If it's a one-to-one thread then make sure the thread exists before pushing to it (in case the contact has been hidden)
         if threadViewModel.threadVariant == .contact {
             _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
                 try SessionThread.upsert(
@@ -459,9 +458,21 @@ extension GlobalSearchViewController {
             }
         }
         
+        /// Need to fetch the "full" data for the conversation screen
+        let maybeThreadViewModel: SessionThreadViewModel? = try? await ConversationViewModel.fetchThreadViewModel(
+            threadId: threadViewModel.threadId,
+            variant: threadViewModel.threadVariant,
+            using: dependencies
+        )
+        
+        guard let finalThreadViewModel: SessionThreadViewModel = maybeThreadViewModel else {
+            Log.error("Failed to present \(threadViewModel.threadVariant) conversation \(threadViewModel.threadId) due to failure to fetch threadViewModel")
+            return
+        }
+        
         await MainActor.run {
             let viewController: ConversationVC = ConversationVC(
-                threadViewModel: threadViewModel,
+                threadViewModel: finalThreadViewModel,
                 focusedInteractionInfo: focusedInteractionInfo,
                 using: dependencies
             )

@@ -324,7 +324,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             }
         }()
         
-        var features: SectionModel = SectionModel(
+        let features: SectionModel = SectionModel(
             model: .features,
             elements: [
                 SessionCell.Info(
@@ -467,7 +467,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     """,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Purchase"),
                     onTap: { [weak viewModel] in
-                        Task { await viewModel?.purchaseSubscription() }
+                        Task { await viewModel?.purchaseSubscription(currentProduct: state.purchasedProduct) }
                     }
                 ),
                 SessionCell.Info(
@@ -638,20 +638,83 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     
     // MARK: - Pro Requests
     
-    private func purchaseSubscription() async {
+    private func purchaseSubscription(currentProduct: Product?) async {
         do {
-            let products: [Product] = try await Product.products(for: ["com.getsession.org.pro_sub"])
+            let products: [Product] = try await Product.products(for: [
+                "com.getsession.org.pro_sub",
+                "com.getsession.org.pro_sub_1_month",
+                "com.getsession.org.pro_sub_3_months",
+                "com.getsession.org.pro_sub_12_months"
+            ])
             
-            guard let product: Product = products.first else {
-                Log.error("[DevSettings] Unable to purchase subscription due to error: No products found")
-                dependencies.notifyAsync(
-                    key: .updateScreen(DeveloperSettingsProViewModel.self),
-                    value: DeveloperSettingsProEvent.purchasedProduct([], nil, "No products found", nil, nil)
+            await MainActor.run {
+                self.transitionToScreen(
+                    ConfirmationModal(
+                        info: ConfirmationModal.Info(
+                            title: "Purchase",
+                            body: .radio(
+                                explanation: ThemedAttributedString(
+                                    string: "Please select the subscription to purchaase."
+                                ),
+                                warning: nil,
+                                options: products.sorted().map { product in
+                                    ConfirmationModal.Info.Body.RadioOptionInfo(
+                                        title: "\(product.displayName), price: \(product.displayPrice)",
+                                        descriptionText: ThemedAttributedString(
+                                            stringWithHTMLTags: product.description,
+                                            font: RadioButton.descriptionFont
+                                        ),
+                                        enabled: true,
+                                        selected: currentProduct?.id == product.id
+                                    )
+                                }
+                            ),
+                            confirmTitle: "select".localized(),
+                            cancelStyle: .alert_text,
+                            onConfirm: { [weak self] modal in
+                                let selectedProduct: Product? = {
+                                    switch modal.info.body {
+                                        case .radio(_, _, let options):
+                                            return options
+                                                .enumerated()
+                                                .first(where: { _, value in value.selected })
+                                                .map { index, _ in
+                                                    guard index >= 0 && (index - 1) < products.count else {
+                                                        return nil
+                                                    }
+                                                    
+                                                    return products[index]
+                                                }
+                                            
+                                        default: return nil
+                                    }
+                                }()
+                                
+                                if let product: Product = selectedProduct {
+                                    Task(priority: .userInitiated) { [weak self] in
+                                        await self?.confirmPurchase(products: products, product: product)
+                                    }
+                                }
+                            }
+                        )
+                    ),
+                    transitionType: .present
                 )
-                return
             }
-            
+        }
+        catch {
+            Log.error("[DevSettings] Unable to purchase subscription due to error: \(error)")
+            dependencies.notifyAsync(
+                key: .updateScreen(DeveloperSettingsProViewModel.self),
+                value: DeveloperSettingsProEvent.purchasedProduct([], nil, "Failed: \(error)", nil, nil)
+            )
+        }
+    }
+    
+    private func confirmPurchase(products: [Product], product: Product) async {
+        do {
             let result = try await product.purchase()
+            
             switch result {
                 case .success(let verificationResult):
                     let transaction = try verificationResult.payloadValue
@@ -691,7 +754,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     }
     
     private func manageSubscriptions() async {
-        guard let scene: UIWindowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+        guard let scene: UIWindowScene = await UIApplication.shared.connectedScenes.first as? UIWindowScene else {
             return Log.error("[DevSettings] Unable to show manage subscriptions: Unable to get UIWindowScene")
         }
         
@@ -714,7 +777,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     
     private func requestRefund() async {
         guard let transaction: Transaction = await internalState.purchaseTransaction else { return }
-        guard let scene: UIWindowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+        guard let scene: UIWindowScene = await UIApplication.shared.connectedScenes.first as? UIWindowScene else {
             return Log.error("[DevSettings] Unable to show manage subscriptions: Unable to get UIWindowScene")
         }
         
@@ -814,5 +877,34 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 value: DeveloperSettingsProEvent.currentProStatus("Error: \(error)", true)
             )
         }
+    }
+}
+
+extension Product: @retroactive Comparable {
+    public static func < (lhs: Product, rhs: Product) -> Bool {
+        guard
+            let lhsSubscription: SubscriptionInfo = lhs.subscription,
+            let rhsSubscription: SubscriptionInfo = rhs.subscription, (
+                lhsSubscription.subscriptionPeriod.unit != rhsSubscription.subscriptionPeriod.unit ||
+                lhsSubscription.subscriptionPeriod.value != rhsSubscription.subscriptionPeriod.value
+            )
+        else { return lhs.id < rhs.id }
+        
+        func approximateDurationDays(_ subscription: SubscriptionInfo) -> Int {
+            switch subscription.subscriptionPeriod.unit {
+                case .day: return subscription.subscriptionPeriod.value
+                case .week: return subscription.subscriptionPeriod.value * 7
+                case .month: return subscription.subscriptionPeriod.value * 30
+                case .year: return subscription.subscriptionPeriod.value * 365
+                @unknown default: return subscription.subscriptionPeriod.value
+            }
+        }
+        
+        let lhsApproxDays: Int = approximateDurationDays(lhsSubscription)
+        let rhsApproxDays: Int = approximateDurationDays(rhsSubscription)
+        
+        guard lhsApproxDays != rhsApproxDays else { return lhs.id < rhs.id }
+        
+        return (lhsApproxDays < rhsApproxDays)
     }
 }

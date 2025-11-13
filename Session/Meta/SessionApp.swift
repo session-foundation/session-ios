@@ -103,28 +103,11 @@ public class SessionApp: SessionAppType {
             }
         }
         
-        let (wasKickedFromGroup, groupIsDestroyed): (Bool, Bool) = {
-            guard variant == .group else { return (false, false) }
-            
-            return dependencies.mutate(cache: .libSession) { cache in
-                (
-                    cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)),
-                    cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
-                )
-            }
-        }()
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let maybeThreadViewModel: SessionThreadViewModel? = try? await dependencies[singleton: .storage].readAsync { [dependencies] db in
-            try ConversationViewModel.fetchThreadViewModel(
-                db,
-                threadId: threadId,
-                userSessionId: userSessionId,
-                currentUserSessionIds: [userSessionId.hexString],
-                threadWasKickedFromGroup: wasKickedFromGroup,
-                threadGroupIsDestroyed: groupIsDestroyed,
-                using: dependencies
-            )
-        }
+        let maybeThreadViewModel: SessionThreadViewModel? = try? await ConversationViewModel.fetchThreadViewModel(
+            threadId: threadId,
+            variant: variant,
+            using: dependencies
+        )
         
         guard let threadViewModel: SessionThreadViewModel = maybeThreadViewModel else {
             Log.error("Failed to present \(variant) conversation \(threadId) due to failure to fetch threadViewModel")
