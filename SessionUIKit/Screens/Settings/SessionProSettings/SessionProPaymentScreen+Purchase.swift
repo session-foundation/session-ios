@@ -9,6 +9,7 @@ struct  SessionProPlanPurchaseContent: View {
     @Binding var currentSelection: Int
     @Binding var isShowingTooltip: Bool
     @Binding var suppressUntil: Date
+    @Binding var isPendingPurchase: Bool
     
     let currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo?
     let sessionProPlans: [SessionProPaymentScreenContent.SessionProPlanInfo]
@@ -27,28 +28,36 @@ struct  SessionProPlanPurchaseContent: View {
                     index: index,
                     isCurrentPlan: (sessionProPlans[index] == currentPlan)
                 )
+                .disabled(isPendingPurchase)
             }
             
             Button {
                 purchaseAction()
             } label: {
-                Text(actionButtonTitle)
-                    .font(.Body.largeRegular)
-                    .foregroundColor(themeColor: .sessionButton_primaryFilledText)
-                    .framing(
-                        maxWidth: .infinity,
-                        height: 50,
-                        alignment: .center
-                    )
-                    .background(
-                        RoundedRectangle(cornerRadius: 7)
-                            .fill(
-                                themeColor: (sessionProPlans[currentSelection] == currentPlan) ?
-                                    .disabled :
-                                    .sessionButton_primaryFilledBackground
-                            )
-                    )
-                    .padding(.vertical, Values.smallSpacing)
+                ZStack {
+                    if isPendingPurchase {
+                        ProgressView()
+                            .tint(themeColor: .sessionButton_primaryFilledText)
+                    } else {
+                        Text(actionButtonTitle)
+                            .font(.Body.largeRegular)
+                            .foregroundColor(themeColor: .sessionButton_primaryFilledText)
+                    }
+                }
+                .framing(
+                    maxWidth: .infinity,
+                    height: 50,
+                    alignment: .center
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(
+                            themeColor: (sessionProPlans[currentSelection] == currentPlan) ?
+                                .disabled :
+                                .sessionButton_primaryFilledBackground
+                        )
+                )
+                .padding(.vertical, Values.smallSpacing)
             }
             .disabled((sessionProPlans[currentSelection] == currentPlan))
             

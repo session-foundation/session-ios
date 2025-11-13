@@ -70,18 +70,21 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     }
     
     public func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) {
-        dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
-        self.sessionProStateSubject.send(
-            SessionProPlanState.active(
-                currentPlan: plan,
-                expiredOn: Calendar.current.date(byAdding: .month, value: plan.variant.duration, to: Date())!,
-                isAutoRenewing: true,
-                originatingPlatform: originatingPlatform
+        Task {
+            try await Task.sleep(for: .seconds(5))
+            dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
+            self.sessionProStateSubject.send(
+                SessionProPlanState.active(
+                    currentPlan: plan,
+                    expiredOn: Calendar.current.date(byAdding: .month, value: plan.variant.duration, to: Date())!,
+                    isAutoRenewing: true,
+                    originatingPlatform: originatingPlatform
+                )
             )
-        )
-        self.shouldAnimateImageSubject.send(true)
-        dependencies.setAsync(.isProBadgeEnabled, true)
-        completion?(true)
+            self.shouldAnimateImageSubject.send(true)
+            dependencies.setAsync(.isProBadgeEnabled, true)
+            completion?(true)
+        }
     }
     
     public func cancelPro(completion: ((_ result: Bool) -> Void)?) {

@@ -8,6 +8,7 @@ public struct SessionProPaymentScreen: View {
     @State private var isNavigationActive: Bool = false
     @State var currentSelection: Int
     @State private var isShowingTooltip: Bool = false
+    @State var isPendingPurchase: Bool = false
     
     /// There is an issue on `.onAnyInteraction` of the List and `.onTapGuesture` of the TooltipsIcon. The `.onAnyInteraction` will be called first when tapping the TooltipsIcon to dismiss a tooltip.
     /// This will result in the tooltip will show again right after it dismissed when tapping the TooltipsIcon. This `suppressUntil` is a workaround to fix this issue.
@@ -102,6 +103,7 @@ public struct SessionProPaymentScreen: View {
                             currentSelection: $currentSelection,
                             isShowingTooltip: $isShowingTooltip,
                             suppressUntil: $suppressUntil,
+                            isPendingPurchase: $isPendingPurchase,
                             currentPlan: nil,
                             sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "upgrade".localized(),
@@ -122,6 +124,7 @@ public struct SessionProPaymentScreen: View {
                             currentSelection: $currentSelection,
                             isShowingTooltip: $isShowingTooltip,
                             suppressUntil: $suppressUntil,
+                            isPendingPurchase: $isPendingPurchase,
                             currentPlan: nil,
                             sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "renew".localized(),
@@ -142,6 +145,7 @@ public struct SessionProPaymentScreen: View {
                             currentSelection: $currentSelection,
                             isShowingTooltip: $isShowingTooltip,
                             suppressUntil: $suppressUntil,
+                            isPendingPurchase: $isPendingPurchase,
                             currentPlan: currentPlan,
                             sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
@@ -196,6 +200,7 @@ public struct SessionProPaymentScreen: View {
     }
     
     private func updatePlan() {
+        isPendingPurchase = true
         let updatedPlan = viewModel.dataModel.plans[currentSelection]
         switch viewModel.dataModel.flow {
             case .update(let currentPlan, let expiredOn, let isAutoRenewing, _, _):
@@ -225,9 +230,15 @@ public struct SessionProPaymentScreen: View {
                             onConfirm: { _ in
                                 self.viewModel.purchase(
                                     planInfo: updatedPlan,
-                                    success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
+                                    success: {
+                                        Task { @MainActor in
+                                            onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
+                                        }
+                                    },
                                     failure: {
-                                        
+                                        Task { @MainActor in
+                                            onPaymentFailed()
+                                        }
                                     }
                                 )
                             }
@@ -238,16 +249,23 @@ public struct SessionProPaymentScreen: View {
             case .purchase, .renew:
                 self.viewModel.purchase(
                     planInfo: updatedPlan,
-                    success: { onPaymentSuccess(expiredOn: nil) },
+                    success: {
+                        Task { @MainActor in
+                            onPaymentSuccess(expiredOn: nil)
+                        }
+                    },
                     failure: {
-                        
+                        Task { @MainActor in
+                            onPaymentFailed()
+                        }
                     }
                 )
             default: break
         }
     }
     
-    private func onPaymentSuccess(expiredOn: Date?) {
+    @MainActor private func onPaymentSuccess(expiredOn: Date?) {
+        isPendingPurchase = false
         guard !self.viewModel.isFromBottomSheet else {
             let sessionProBottomSheet: BottomSheetHostingViewController = BottomSheetHostingViewController(
                 bottomSheet: BottomSheet(hasCloseButton: true) {
@@ -276,6 +294,11 @@ public struct SessionProPaymentScreen: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(250)) {
             self.host.controller?.navigationController?.popViewController(animated: false)
         }
+    }
+    
+    @MainActor private func onPaymentFailed() {
+        isPendingPurchase = false
+        // TODO: [PRO]
     }
     
     private func openTosPrivacy() {
