@@ -211,7 +211,6 @@
 		94B6BB072E431B6300E718BB /* AnimatedProfileCTAAnimationCropped.webp in Resources */ = {isa = PBXBuildFile; fileRef = 94B6BB052E431B6300E718BB /* AnimatedProfileCTAAnimationCropped.webp */; };
 		94C58AC92D2E037200609195 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94C58AC82D2E036E00609195 /* Permissions.swift */; };
 		94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BA2E08D9D40097754D /* SessionProBadge.swift */; };
-		94CD95BD2E09083C0097754D /* LibSession+Pro.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95BC2E0908340097754D /* LibSession+Pro.swift */; };
 		94CD95C12E0CBF430097754D /* _044_AddProMessageFlag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD95C02E0CBF1C0097754D /* _044_AddProMessageFlag.swift */; };
 		94CD962D2E1B85920097754D /* InputViewButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD962B2E1B85920097754D /* InputViewButton.swift */; };
 		94CD962E2E1B85920097754D /* InputTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CD962A2E1B85920097754D /* InputTextView.swift */; };
@@ -1644,7 +1643,6 @@
 		94B6BB052E431B6300E718BB /* AnimatedProfileCTAAnimationCropped.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = AnimatedProfileCTAAnimationCropped.webp; sourceTree = "<group>"; };
 		94C58AC82D2E036E00609195 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		94CD95BA2E08D9D40097754D /* SessionProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProBadge.swift; sourceTree = "<group>"; };
-		94CD95BC2E0908340097754D /* LibSession+Pro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibSession+Pro.swift"; sourceTree = "<group>"; };
 		94CD95C02E0CBF1C0097754D /* _044_AddProMessageFlag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _044_AddProMessageFlag.swift; sourceTree = "<group>"; };
 		94CD962A2E1B85920097754D /* InputTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTextView.swift; sourceTree = "<group>"; };
 		94CD962B2E1B85920097754D /* InputViewButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputViewButton.swift; sourceTree = "<group>"; };
@@ -5007,7 +5005,6 @@
 		FD8ECF8E29381FB200C0D1BB /* Config Handling */ = {
 			isa = PBXGroup;
 			children = (
-				94CD95BC2E0908340097754D /* LibSession+Pro.swift */,
 				FD2272F32C352D8D004D8A6C /* LibSession+Contacts.swift */,
 				FD2272F42C352D8D004D8A6C /* LibSession+ConvoInfoVolatile.swift */,
 				FD2272F92C352D8E004D8A6C /* LibSession+GroupInfo.swift */,
@@ -7050,7 +7047,6 @@
 				FD2272FF2C352D8E004D8A6C /* LibSession+UserProfile.swift in Sources */,
 				FD5C7305284F0FF30029977D /* MessageReceiver+VisibleMessages.swift in Sources */,
 				FDB5DAE82A95D96C002C8721 /* MessageReceiver+Groups.swift in Sources */,
-				94CD95BD2E09083C0097754D /* LibSession+Pro.swift in Sources */,
 				FD99A3A62EBAAA1700E59F94 /* DecodedMessage.swift in Sources */,
 				FD1D732E2A86114600E3F410 /* _029_BlockCommunityMessageRequests.swift in Sources */,
 				FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */,

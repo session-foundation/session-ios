@@ -301,8 +301,13 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                     (model.profile?.displayName() ?? model.id.truncated()),
                                     font: .title,
                                     trailingImage: {
-                                        guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateProProof(for: model.profile) }) else { return nil }
-                                        return ("ProBadge", { [dependencies = viewModel.dependencies] in SessionProBadge(size: .small).toImage(using: dependencies) })
+                                        guard model.profile?.proFeatures.contains(.proBadge) == true else {
+                                            return nil
+                                        }
+                                        
+                                        return ("ProBadge", { [dependencies = viewModel.dependencies] in
+                                            SessionProBadge(size: .small).toImage(using: dependencies)
+                                        })
                                     }()
                                 ),
                                 trailingAccessory: .radio(

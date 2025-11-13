@@ -202,8 +202,7 @@ public extension ProfilePictureView {
             case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
                 return .currentUser(dependencies[singleton: .sessionProManager])
                 
-            case .some(let profile):
-                return .contact(dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }))
+            case .some(let profile): return .contact(profile.proFeatures.contains(.animatedAvatar) == true)
         }
     }
 }

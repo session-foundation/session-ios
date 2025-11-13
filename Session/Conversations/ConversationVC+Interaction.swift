@@ -1736,14 +1736,14 @@ extension ConversationVC:
         self.hideInputAccessoryView()
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
             modal: UserProfileModal(
-                info: .init(
+                info: UserProfileModal.Info(
                     sessionId: sessionId,
                     blindedId: blindedId,
                     qrCodeImage: qrCodeImage,
                     profileInfo: profileInfo,
                     displayName: displayName,
                     contactDisplayName: contactDisplayName,
-                    isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
+                    shouldShowProBadge: cellViewModel.profile.proFeatures.contains(.proBadge),
                     isMessageRequestsEnabled: isMessasgeRequestsEnabled,
                     onStartThread: { [weak self] in
                         Task.detached(priority: .userInitiated) { [weak self] in
