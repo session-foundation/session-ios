@@ -219,10 +219,9 @@ final class InputView: UIView, InputViewButtonDelegate, InputTextViewDelegate, M
             .sink(
                 receiveValue: { [weak self] sessionProPlanState in
                     let isPro: Bool = {
-                        if case .active = sessionProPlanState {
-                            return true
-                        } else {
-                            return false
+                        switch sessionProPlanState {
+                            case .active, .refunding : return true
+                            case .none, .expired: return false
                         }
                     }()
                     self?.sessionProBadge.isHidden = isPro
