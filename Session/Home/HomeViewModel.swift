@@ -297,6 +297,19 @@ public class HomeViewModel: NavigatableStateHolder {
                 case .name(let name): userProfile = userProfile.with(name: name)
                 case .nickname(let nickname): userProfile = userProfile.with(nickname: .set(to: nickname))
                 case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: .set(to: url))
+                case .proStatus(_, let features, let proExpiryUnixTimestampMs, let proGenIndexHash):
+                    let finalFeatures: SessionPro.Features = {
+                        guard dependencies[feature: .sessionProEnabled] else { return .none }
+                        
+                        return features
+                            .union(dependencies[feature: .proBadgeEverywhere] ? .proBadge : .none)
+                    }()
+                    
+                    userProfile = userProfile.with(
+                        proFeatures: .set(to: finalFeatures),
+                        proExpiryUnixTimestampMs: .set(to: proExpiryUnixTimestampMs),
+                        proGenIndexHash: .set(to: proGenIndexHash)
+                    )
             }
             
             // TODO: [Database Relocation] All profiles should be stored in the `profileCache`

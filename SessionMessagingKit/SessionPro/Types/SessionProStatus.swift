@@ -24,7 +24,7 @@ public extension SessionPro {
             }
         }
         
-        init(_ libSessionValue: SESSION_PROTOCOL_PRO_STATUS) {
+        public init(_ libSessionValue: SESSION_PROTOCOL_PRO_STATUS) {
             switch libSessionValue {
                 case SESSION_PROTOCOL_PRO_STATUS_NIL: self = .none
                 case SESSION_PROTOCOL_PRO_STATUS_INVALID_PRO_BACKEND_SIG: self = .invalidProBackendSig

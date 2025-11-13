@@ -4,7 +4,7 @@ import Foundation
 import SessionUtil
 
 public extension SessionPro {
-    struct Features: OptionSet, Sendable, Codable, Equatable, Hashable {
+    struct Features: OptionSet, Sendable, Codable, Equatable, Hashable, CustomStringConvertible {
         public let rawValue: UInt64
         
         public static let none: Features = Features(rawValue: 0)
@@ -17,14 +17,36 @@ public extension SessionPro {
             SESSION_PROTOCOL_PRO_FEATURES(rawValue)
         }
         
+        var profileOnlyFeatures: Features {
+            self.subtracting(.largerCharacterLimit)
+        }
+        
         // MARK: - Initialization
         
         public init(rawValue: UInt64) {
             self.rawValue = rawValue
         }
         
-        init(_ libSessionValue: SESSION_PROTOCOL_PRO_FEATURES) {
+        public init(_ libSessionValue: SESSION_PROTOCOL_PRO_FEATURES) {
             self = Features(rawValue: libSessionValue)
+        }
+        
+        // MARK: - CustomStringConvertible
+        
+        public var description: String {
+            var results: [String] = []
+            
+            if self.contains(.largerCharacterLimit) {
+                results.append("largerCharacterLimit")
+            }
+            if self.contains(.proBadge) {
+                results.append("proBadge")
+            }
+            if self.contains(.animatedAvatar) {
+                results.append("animatedAvatar")
+            }
+            
+            return "[\(results.joined(separator: ", "))]"
         }
     }
 }

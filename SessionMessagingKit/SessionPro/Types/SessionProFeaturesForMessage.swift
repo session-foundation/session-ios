@@ -6,10 +6,10 @@ import SessionUtilitiesKit
 
 public extension SessionPro {
     struct FeaturesForMessage: Equatable {
-        let status: FeatureStatus
-        let error: String?
-        let features: Features
-        let codePointCount: Int
+        public let status: FeatureStatus
+        public let error: String?
+        public let features: Features
+        public let codePointCount: Int
         
         static let invalidString: FeaturesForMessage = FeaturesForMessage(status: .utfDecodingError)
         

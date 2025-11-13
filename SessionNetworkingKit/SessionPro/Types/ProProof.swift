@@ -6,11 +6,11 @@ import SessionUtilitiesKit
 
 public extension Network.SessionPro {
     struct ProProof: Sendable, Codable, Equatable {
-        let version: UInt8
-        let genIndexHash: [UInt8]
-        let rotatingPubkey: [UInt8]
-        let expiryUnixTimestampMs: UInt64
-        let signature: [UInt8]
+        public let version: UInt8
+        public let genIndexHash: [UInt8]
+        public let rotatingPubkey: [UInt8]
+        public let expiryUnixTimestampMs: UInt64
+        public let signature: [UInt8]
         
         public var libSessionValue: session_protocol_pro_proof {
             var result: session_protocol_pro_proof = session_protocol_pro_proof()

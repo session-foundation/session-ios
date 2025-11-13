@@ -28,6 +28,7 @@ public enum MessageError: Error, CustomStringConvertible {
     case communitiesDoNotSupportControlMessages
     case requiresGroupId(String)
     case requiresGroupIdentityPrivateKey
+    case messageTooLarge
     
     case selfSend
     case invalidSender
@@ -113,8 +114,9 @@ public enum MessageError: Error, CustomStringConvertible {
             case .invalidRevokedRetrievalMessageHandling: return "Invalid handling of a revoked retrieval message."
             case .invalidGroupUpdate(let reason): return "Invalid group update (\(reason))."
             case .communitiesDoNotSupportControlMessages: return "Communities do not support control messages."
-            case .requiresGroupId(let id): return "Required group id but was given: \(id)"
-            case .requiresGroupIdentityPrivateKey: return "Requires group identity private key"
+            case .requiresGroupId(let id): return "Required group id but was given: \(id)."
+            case .requiresGroupIdentityPrivateKey: return "Requires group identity private key."
+            case .messageTooLarge: return "Message is too large."
                 
             case .selfSend: return "Message addressed at self."
             case .invalidSender: return "Invalid sender."

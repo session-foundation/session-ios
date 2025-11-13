@@ -82,7 +82,9 @@ public extension Network.SessionPro {
                 cRotatingPrivateKey.count,
                 PaymentProvider.appStore.libSessionValue,
                 cTransactionId,
-                cTransactionId.count
+                cTransactionId.count,
+                [], /// The `order_id` is only needed for Google transactions
+                0
             )
         )
         
@@ -95,7 +97,8 @@ public extension Network.SessionPro {
                     rotatingPublicKey: rotatingKeyPair.publicKey,
                     paymentTransaction: UserTransaction(
                         provider: .appStore,
-                        paymentId: transactionId
+                        paymentId: transactionId,
+                        orderId: "" /// The `order_id` is only needed for Google transactions
                     ),
                     signatures: signatures
                 ),

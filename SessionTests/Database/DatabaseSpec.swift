@@ -240,7 +240,8 @@ class DatabaseSpec: QuickSpec {
                     "messagingKit.AddProMessageFlag",
                     "LastProfileUpdateTimestamp",
                     "RemoveQuoteUnusedColumnsAndForeignKeys",
-                    "DropUnneededColumnsAndTables"
+                    "DropUnneededColumnsAndTables",
+                    "SessionProChanges"
                 ]))
             }
             

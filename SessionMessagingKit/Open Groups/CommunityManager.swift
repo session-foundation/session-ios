@@ -1187,9 +1187,9 @@ public actor CommunityManager: CommunityManagerType {
         
         var result: Set<String> = Set(room.admins + room.moderators)
         
-        if includingHidden else {
-            result.insert(contentsOf: room.hiddenAdmins ?? [])
-            result.insert(contentsOf: room.hiddenModerators ?? [])
+        if includingHidden {
+            result.insert(contentsOf: Set(room.hiddenAdmins ?? []))
+            result.insert(contentsOf: Set(room.hiddenModerators ?? []))
         }
         
         return result

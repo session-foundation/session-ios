@@ -75,7 +75,6 @@ public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Dif
     public let mostRecentFailureText: String?
     public let isSenderModeratorOrAdmin: Bool
     public let canFollowDisappearingMessagesSetting: Bool
-    public let isProMessage: Bool
     
     // Display Properties
     
@@ -172,7 +171,6 @@ public extension MessageViewModel {
         self.mostRecentFailureText = nil
         self.isSenderModeratorOrAdmin = false
         self.canFollowDisappearingMessagesSetting = false
-        self.isProMessage = false
         
         self.shouldShowAuthorName = false
         self.canHaveProfile = false
@@ -245,6 +243,14 @@ public extension MessageViewModel {
             profileCache: profileCache,
             using: dependencies
         )
+        let proFeatures: SessionPro.Features = {
+            guard dependencies[feature: .sessionProEnabled] else { return .none }
+            
+            return interaction.proFeatures
+                .union(dependencies[feature: .forceMessageFeatureProBadge] ? .proBadge : .none)
+                .union(dependencies[feature: .forceMessageFeatureLongMessage] ? .largerCharacterLimit : .none)
+                .union(dependencies[feature: .forceMessageFeatureAnimatedAvatar] ? .animatedAvatar : .none)
+        }()
         
         self.cellType = MessageViewModel.cellType(
             interaction: interaction,
@@ -267,7 +273,7 @@ public extension MessageViewModel {
         self.expiresInSeconds = interaction.expiresInSeconds
         self.attachments = attachments
         self.reactionInfo = (reactionInfo ?? [])
-        self.profile = (profileCache[interaction.authorId] ?? Profile.defaultFor(interaction.authorId)) // TODO: [PRO] Do we want this???.
+        self.profile = (profileCache[interaction.authorId] ?? Profile.defaultFor(interaction.authorId))
         self.quotedInfo = quotedInteraction.map { quotedInteraction -> QuotedInfo? in
             guard let quoteInteractionId: Int64 = quotedInteraction.id else { return nil }
             
@@ -278,6 +284,14 @@ public extension MessageViewModel {
                 linkPreviewCache: linkPreviewCache,
                 attachmentCache: attachmentCache
             )
+            let quotedInteractionProFeatures: SessionPro.Features = {
+                guard dependencies[feature: .sessionProEnabled] else { return .none }
+                
+                return quotedInteraction.proFeatures
+                    .union(dependencies[feature: .forceMessageFeatureProBadge] ? .proBadge : .none)
+                    .union(dependencies[feature: .forceMessageFeatureLongMessage] ? .largerCharacterLimit : .none)
+                    .union(dependencies[feature: .forceMessageFeatureAnimatedAvatar] ? .animatedAvatar : .none)
+            }()
             
             return MessageViewModel.QuotedInfo(
                 interactionId: quoteInteractionId,
@@ -305,12 +319,12 @@ public extension MessageViewModel {
                     using: dependencies
                 ),
                 attachment: (quotedAttachments?.first ?? quotedLinkPreviewInfo?.attachment),
-                proFeatures: .none  // TODO: [PRO] Need to get this from the message
+                proFeatures: quotedInteractionProFeatures
             )
         }
         self.linkPreview = linkPreviewInfo?.preview
         self.linkPreviewAttachment = linkPreviewInfo?.attachment
-        self.proFeatures = .none  // TODO: [PRO] Need to get this from the message
+        self.proFeatures = proFeatures
         
         self.authorName = authorDisplayName
         self.authorNameSuppressedId = {
@@ -349,7 +363,6 @@ public extension MessageViewModel {
                     )
             )
         }()
-        self.isProMessage = false // TODO: [PRO] Need to replace this.
         
         let isGroupThread: Bool = (
             threadVariant == .community ||
@@ -492,7 +505,6 @@ public extension MessageViewModel {
             mostRecentFailureText: mostRecentFailureText.or(self.mostRecentFailureText),
             isSenderModeratorOrAdmin: isSenderModeratorOrAdmin,
             canFollowDisappearingMessagesSetting: canFollowDisappearingMessagesSetting,
-            isProMessage: isProMessage,
             shouldShowAuthorName: shouldShowAuthorName,
             canHaveProfile: canHaveProfile,
             shouldShowDisplayPicture: shouldShowDisplayPicture,

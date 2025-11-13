@@ -212,7 +212,7 @@ extension MessageReceiver {
                 // If we received an outgoing message then we can assume the interaction has already
                 // been sent, otherwise we should just use whatever the default state is
                 state: (variant == .standardOutgoing ? .sent : nil),
-                isProMessage: isProMessage,
+                proFeatures: SessionPro.Features(rawValue: message.proFeatures ?? 0),
                 using: dependencies
             ).inserted(db)
         }

@@ -168,14 +168,7 @@ public final class MessageSender {
             case (_, .some(var messageWithProfile)):
                 messageWithProfile.profile = dependencies
                     .mutate(cache: .libSession) { $0.profile(contactId: userSessionId.hexString) }
-                    .map { profile in
-                        VisibleMessage.VMProfile(
-                            displayName: profile.name,
-                            profileKey: profile.displayPictureEncryptionKey,
-                            profilePictureUrl: profile.displayPictureUrl,
-                            updateTimestampSeconds: profile.profileLastUpdated
-                        )
-                    }
+                    .map { profile in VisibleMessage.VMProfile(profile: profile) }
         }
         
         // Convert and prepare the data for sending
@@ -269,10 +262,7 @@ public final class MessageSender {
             }
             .map { profile, checkForCommunityMessageRequests in
                 VisibleMessage.VMProfile(
-                    displayName: profile.name,
-                    profileKey: profile.displayPictureEncryptionKey,
-                    profilePictureUrl: profile.displayPictureUrl,
-                    updateTimestampSeconds: profile.profileLastUpdated,
+                    profile: profile,
                     blocksCommunityMessageRequests: !checkForCommunityMessageRequests
                 )
             }
@@ -334,14 +324,7 @@ public final class MessageSender {
             case .some(var messageWithProfile):
                 messageWithProfile.profile = dependencies
                     .mutate(cache: .libSession) { $0.profile(contactId: userSessionId.hexString) }
-                    .map { profile in
-                        VisibleMessage.VMProfile(
-                            displayName: profile.name,
-                            profileKey: profile.displayPictureEncryptionKey,
-                            profilePictureUrl: profile.displayPictureUrl,
-                            updateTimestampSeconds: profile.profileLastUpdated
-                        )
-                    }
+                    .map { profile in VisibleMessage.VMProfile(profile: profile) }
             
             default: break
         }

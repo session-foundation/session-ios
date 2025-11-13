@@ -66,7 +66,7 @@ public struct DecodedMessage: Codable, Equatable {
         let senderSessionId: SessionId = try SessionId(from: sender)
         
         self = DecodedMessage(
-            content: content.prefix(decodedValue.content_plaintext_unpadded_size),
+            content: content,
             sender: senderSessionId,
             decodedEnvelope: {
                 guard decodedValue.has_envelope else { return nil }

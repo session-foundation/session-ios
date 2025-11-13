@@ -10,7 +10,7 @@ public extension SessionPro {
         let proProof: Network.SessionPro.ProProof
         let features: Features
         
-        public static let none: DecodedProForMessage = DecodedProForMessage(
+        public static let nonPro: DecodedProForMessage = DecodedProForMessage(
             status: .none,
             proProof: Network.SessionPro.ProProof(),
             features: .none

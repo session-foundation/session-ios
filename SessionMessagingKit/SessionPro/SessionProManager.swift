@@ -115,7 +115,7 @@ public actor SessionProManager: SessionProManagerType {
         )
     }
     
-    nonisolated public func features(for message: String, extraFeatures: SessionPro.ExtraFeatures) -> SessionPro.FeaturesForMessage {
+    nonisolated public func features(for message: String, features: SessionPro.Features) -> SessionPro.FeaturesForMessage {
         guard let cMessage: [CChar] = message.cString(using: .utf8) else {
             return SessionPro.FeaturesForMessage.invalidString
         }
@@ -124,7 +124,7 @@ public actor SessionProManager: SessionProManagerType {
             session_protocol_pro_features_for_utf8(
                 cMessage,
                 (cMessage.count - 1),  /// Need to `- 1` to avoid counting the null-termination character
-                extraFeatures.libSessionValue
+                features.libSessionValue
             )
         )
     }
@@ -296,12 +296,12 @@ public protocol SessionProManagerType: SessionProUIManagerType {
         verifyPubkey: I?,
         atTimestampMs timestampMs: UInt64
     ) -> SessionPro.ProStatus
-    nonisolated func features(for message: String, extraFeatures: SessionPro.ExtraFeatures) -> SessionPro.FeaturesForMessage
     func updateWithLatestFromUserConfig() async
+    nonisolated func features(for message: String, features: SessionPro.Features) -> SessionPro.FeaturesForMessage
 }
 
 public extension SessionProManagerType {
     nonisolated func features(for message: String) -> SessionPro.FeaturesForMessage {
-        return features(for: message, extraFeatures: .none)
+        return features(for: message, features: .none)
     }
 }

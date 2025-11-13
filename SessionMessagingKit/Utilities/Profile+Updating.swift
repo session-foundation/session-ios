@@ -241,11 +241,79 @@ public extension Profile {
                             profileChanges.append(Profile.Columns.displayPictureEncryptionKey.set(to: key))
                         }
                     }
-                    
-                // TODO: [PRO] Handle Pro Proof update
                 
                 /// Don't want profiles in messages to modify the current users profile info so ignore those cases
                 default: break
+            }
+            
+            /// Session Pro Information
+            let proInfo: SessionPro.DecodedProForMessage = (decodedPro ?? .nonPro)
+            
+            switch proInfo.status {
+                case .valid:
+                    let originalChangeCount: Int = profileChanges.count
+                    let finalFeatures: SessionPro.Features = proInfo.features.profileOnlyFeatures
+                    
+                    if profile.proFeatures != finalFeatures {
+                        updatedProfile = updatedProfile.with(proFeatures: .set(to: finalFeatures))
+                        profileChanges.append(Profile.Columns.proFeatures.set(to: finalFeatures.rawValue))
+                    }
+                    
+                    if profile.proExpiryUnixTimestampMs != proInfo.proProof.expiryUnixTimestampMs {
+                        let value: UInt64 = proInfo.proProof.expiryUnixTimestampMs
+                        updatedProfile = updatedProfile.with(proExpiryUnixTimestampMs: .set(to: value))
+                        profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs.set(to: value))
+                    }
+                    
+                    if profile.proGenIndexHash != proInfo.proProof.genIndexHash.toHexString() {
+                        let value: String = proInfo.proProof.genIndexHash.toHexString()
+                        updatedProfile = updatedProfile.with(proGenIndexHash: .set(to: value))
+                        profileChanges.append(Profile.Columns.proGenIndexHash.set(to: value))
+                    }
+                    
+                    /// If the change count no longer matches then the pro status was updated so we need to emit an event
+                    if profileChanges.count != originalChangeCount {
+                        db.addProfileEvent(
+                            id: publicKey,
+                            change: .proStatus(
+                                isPro: true,
+                                features: finalFeatures,
+                                proExpiryUnixTimestampMs: proInfo.proProof.expiryUnixTimestampMs,
+                                proGenIndexHash: proInfo.proProof.genIndexHash.toHexString()
+                            )
+                        )
+                    }
+                    
+                default:
+                    let originalChangeCount: Int = profileChanges.count
+                    
+                    if profile.proFeatures != .none {
+                        updatedProfile = updatedProfile.with(proFeatures: .set(to: .none))
+                        profileChanges.append(Profile.Columns.proFeatures.set(to: .none))
+                    }
+                    
+                    if profile.proExpiryUnixTimestampMs > 0 {
+                        updatedProfile = updatedProfile.with(proExpiryUnixTimestampMs: .set(to: 0))
+                        profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs.set(to: 0))
+                    }
+                    
+                    if profile.proGenIndexHash != nil {
+                        updatedProfile = updatedProfile.with(proGenIndexHash: .set(to: nil))
+                        profileChanges.append(Profile.Columns.proGenIndexHash.set(to: nil))
+                    }
+                    
+                    /// If the change count no longer matches then the pro status was updated so we need to emit an event
+                    if profileChanges.count != originalChangeCount {
+                        db.addProfileEvent(
+                            id: publicKey,
+                            change: .proStatus(
+                                isPro: false,
+                                features: .none,
+                                proExpiryUnixTimestampMs: 0,
+                                proGenIndexHash: nil
+                            )
+                        )
+                    }
             }
         }
         
@@ -339,6 +407,9 @@ public extension Profile {
                             
                         case .nickname(let nickname):
                             return (nickname != nil ? "nickname updated" :  "nickname removed") // stringlint:ignore
+                            
+                        case .proStatus(let isPro, let features, _, _):
+                            return "pro state - \(isPro ? "enabled: \(features)" :  "disabled")" // stringlint:ignore
                     }
                 }
                 .joined(separator: ", ")
@@ -360,6 +431,7 @@ public extension Profile {
             if !suppressUserProfileConfigUpdate, isCurrentUser {
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
+                        // TODO: [PRO] Need to update the current users pro settings?
                         try cache.updateProfile(
                             displayName: .set(to: updatedProfile.name),
                             displayPictureUrl: .set(to: updatedProfile.displayPictureUrl),

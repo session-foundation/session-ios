@@ -71,11 +71,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case enableSessionPro
         
         case proStatus
-        case allUsersSessionPro
+        case proBadgeEverywhere
 
-        case messageFeatureProBadge
-        case messageFeatureLongMessage
-        case messageFeatureAnimatedAvatar
+        case forceMessageFeatureProBadge
+        case forceMessageFeatureLongMessage
+        case forceMessageFeatureAnimatedAvatar
         
         case purchaseProSubscription
         case manageProSubscriptions
@@ -93,11 +93,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .enableSessionPro: return "enableSessionPro"
                     
                 case .proStatus: return "proStatus"
-                case .allUsersSessionPro: return "allUsersSessionPro"
+                case .proBadgeEverywhere: return "proBadgeEverywhere"
                 
-                case .messageFeatureProBadge: return "messageFeatureProBadge"
-                case .messageFeatureLongMessage: return "messageFeatureLongMessage"
-                case .messageFeatureAnimatedAvatar: return "messageFeatureAnimatedAvatar"
+                case .forceMessageFeatureProBadge: return "forceMessageFeatureProBadge"
+                case .forceMessageFeatureLongMessage: return "forceMessageFeatureLongMessage"
+                case .forceMessageFeatureAnimatedAvatar: return "forceMessageFeatureAnimatedAvatar"
                     
                 case .purchaseProSubscription: return "purchaseProSubscription"
                 case .manageProSubscriptions: return "manageProSubscriptions"
@@ -118,11 +118,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .enableSessionPro: result.append(.enableSessionPro); fallthrough
                     
                 case .proStatus: result.append(.proStatus); fallthrough
-                case .allUsersSessionPro: result.append(.allUsersSessionPro); fallthrough
+                case .proBadgeEverywhere: result.append(.proBadgeEverywhere); fallthrough
 
-                case .messageFeatureProBadge: result.append(.messageFeatureProBadge); fallthrough
-                case .messageFeatureLongMessage: result.append(.messageFeatureLongMessage); fallthrough
-                case .messageFeatureAnimatedAvatar: result.append(.messageFeatureAnimatedAvatar)
+                case .forceMessageFeatureProBadge: result.append(.forceMessageFeatureProBadge); fallthrough
+                case .forceMessageFeatureLongMessage: result.append(.forceMessageFeatureLongMessage); fallthrough
+                case .forceMessageFeatureAnimatedAvatar: result.append(.forceMessageFeatureAnimatedAvatar)
                     
                 case .purchaseProSubscription: result.append(.purchaseProSubscription); fallthrough
                 case .manageProSubscriptions: result.append(.manageProSubscriptions); fallthrough
@@ -149,11 +149,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let sessionProEnabled: Bool
         
         let mockCurrentUserSessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
-        let allUsersSessionPro: Bool
+        let proBadgeEverywhere: Bool
 
-        let messageFeatureProBadge: Bool
-        let messageFeatureLongMessage: Bool
-        let messageFeatureAnimatedAvatar: Bool
+        let forceMessageFeatureProBadge: Bool
+        let forceMessageFeatureLongMessage: Bool
+        let forceMessageFeatureAnimatedAvatar: Bool
         
         let products: [Product]
         let purchasedProduct: Product?
@@ -181,10 +181,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         public let observedKeys: Set<ObservableKey> = [
             .feature(.sessionProEnabled),
             .feature(.mockCurrentUserSessionProBackendStatus),
-            .feature(.allUsersSessionPro),
-            .feature(.messageFeatureProBadge),
-            .feature(.messageFeatureLongMessage),
-            .feature(.messageFeatureAnimatedAvatar),
+            .feature(.proBadgeEverywhere),
+            .feature(.forceMessageFeatureProBadge),
+            .feature(.forceMessageFeatureLongMessage),
+            .feature(.forceMessageFeatureAnimatedAvatar),
             .updateScreen(DeveloperSettingsProViewModel.self)
         ]
         
@@ -193,11 +193,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 sessionProEnabled: dependencies[feature: .sessionProEnabled],
                 
                 mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
-                allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
+                proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
 
-                messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
-                messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
-                messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar],
+                forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
+                forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
+                forceMessageFeatureAnimatedAvatar: dependencies[feature: .forceMessageFeatureAnimatedAvatar],
                 
                 products: [],
                 purchasedProduct: nil,
@@ -268,10 +268,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         return State(
             sessionProEnabled: dependencies[feature: .sessionProEnabled],
             mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
-            allUsersSessionPro: dependencies[feature: .allUsersSessionPro],
-            messageFeatureProBadge: dependencies[feature: .messageFeatureProBadge],
-            messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
-            messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar],
+            proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
+            forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
+            forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
+            forceMessageFeatureAnimatedAvatar: dependencies[feature: .forceMessageFeatureAnimatedAvatar],
             products: products,
             purchasedProduct: purchasedProduct,
             purchaseError: purchaseError,
@@ -341,72 +341,71 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     }
                 ),
                 SessionCell.Info(
-                    id: .allUsersSessionPro,
-                    title: "Everyone is a Pro",
+                    id: .proBadgeEverywhere,
+                    title: "Show the Pro Badge everywhere",
                     subtitle: """
-                    Treat all incoming messages as Pro messages.
-                    Treat all contacts, groups as Session Pro.
+                    Force the pro badge to show everywhere.
+                    
+                    <b>Note:</b> On the "Message Info" screen this will make the Pro Badge appear against the sender profile info, but the message feature pro badge will show based on the "Message Feature: Pro Badge" setting below.
                     """,
                     trailingAccessory: .toggle(
-                        state.allUsersSessionPro,
-                        oldValue: previousState.allUsersSessionPro
+                        state.proBadgeEverywhere,
+                        oldValue: previousState.proBadgeEverywhere
                     ),
                     onTap: { [dependencies = viewModel.dependencies] in
                         dependencies.set(
-                            feature: .allUsersSessionPro,
-                            to: !state.allUsersSessionPro
+                            feature: .proBadgeEverywhere,
+                            to: !state.proBadgeEverywhere
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .forceMessageFeatureProBadge,
+                    title: "Message Feature: Pro Badge",
+                    subtitle: "Force all messages to show the \"Pro Badge\" feature.",
+                    trailingAccessory: .toggle(
+                        state.forceMessageFeatureProBadge,
+                        oldValue: previousState.forceMessageFeatureProBadge
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .forceMessageFeatureProBadge,
+                            to: !state.forceMessageFeatureProBadge
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .forceMessageFeatureLongMessage,
+                    title: "Message Feature: Long Message",
+                    subtitle: "Force all messages to show the \"Long Message\" feature.",
+                    trailingAccessory: .toggle(
+                        state.forceMessageFeatureLongMessage,
+                        oldValue: previousState.forceMessageFeatureLongMessage
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .forceMessageFeatureLongMessage,
+                            to: !state.forceMessageFeatureLongMessage
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .forceMessageFeatureAnimatedAvatar,
+                    title: "Message Feature: Animated Avatar",
+                    subtitle: "Force all messages to show the \"Animated Avatar\" feature.",
+                    trailingAccessory: .toggle(
+                        state.forceMessageFeatureAnimatedAvatar,
+                        oldValue: previousState.forceMessageFeatureAnimatedAvatar
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .forceMessageFeatureAnimatedAvatar,
+                            to: !state.forceMessageFeatureAnimatedAvatar
                         )
                     }
                 )
             ]
         )
-        
-        if state.allUsersSessionPro {
-            features = features.appending(contentsOf: [
-                SessionCell.Info(
-                    id: .messageFeatureProBadge,
-                    title: SessionCell.TextInfo("Message Feature: Pro Badge", font: .subtitle),
-                    trailingAccessory: .toggle(
-                        state.messageFeatureProBadge,
-                        oldValue: previousState.messageFeatureProBadge
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.set(
-                            feature: .messageFeatureProBadge,
-                            to: !state.messageFeatureProBadge
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .messageFeatureLongMessage,
-                    title: SessionCell.TextInfo("Message Feature: Long Message", font: .subtitle),
-                    trailingAccessory: .toggle(
-                        state.messageFeatureLongMessage,
-                        oldValue: previousState.messageFeatureLongMessage
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.set(
-                            feature: .messageFeatureLongMessage,
-                            to: !state.messageFeatureLongMessage
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .messageFeatureAnimatedAvatar,
-                    title: SessionCell.TextInfo("Message Feature: Animated Avatar", font: .subtitle),
-                    trailingAccessory: .toggle(
-                        state.messageFeatureAnimatedAvatar,
-                        oldValue: previousState.messageFeatureAnimatedAvatar
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.set(
-                            feature: .messageFeatureAnimatedAvatar,
-                            to: !state.messageFeatureAnimatedAvatar
-                        )
-                    }
-                )
-            ])
-        }
         
         // MARK: - Actual Pro Transactions and APIs
         
@@ -549,10 +548,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public static func disableDeveloperMode(using dependencies: Dependencies) {
         let features: [FeatureConfig<Bool>] = [
             .sessionProEnabled,
-            .allUsersSessionPro,
-            .messageFeatureProBadge,
-            .messageFeatureLongMessage,
-            .messageFeatureAnimatedAvatar,
+            .proBadgeEverywhere,
+            .forceMessageFeatureProBadge,
+            .forceMessageFeatureLongMessage,
+            .forceMessageFeatureAnimatedAvatar,
         ]
         
         features.forEach { feature in
@@ -575,8 +574,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
         }
         
-        if dependencies.hasSet(feature: .allUsersSessionPro) {
-            dependencies.set(feature: .allUsersSessionPro, to: nil)
+        if dependencies.hasSet(feature: .proBadgeEverywhere) {
+            dependencies.set(feature: .proBadgeEverywhere, to: nil)
         }
     }
     

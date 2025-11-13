@@ -73,11 +73,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                         groupSessionId: SessionId(.group, hex: threadId),
                         groupName: groupName,
                         memberAuthData: details.memberAuthData,
-                        profile: VisibleMessage.VMProfile(
-                            displayName: adminProfile.name,
-                            profileKey: adminProfile.displayPictureEncryptionKey,
-                            profilePictureUrl: adminProfile.displayPictureUrl
-                        ),
+                        profile: VisibleMessage.VMProfile(profile: adminProfile),
                         sentTimestampMs: UInt64(sentTimestampMs),
                         authMethod: groupAuthMethod,
                         using: dependencies

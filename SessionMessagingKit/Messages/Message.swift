@@ -21,7 +21,7 @@ public class Message: Codable {
         case expiresInSeconds
         case expiresStartedAtMs
         
-        case proProof
+        case proFeatures
     }
     
     public var id: String?
@@ -45,7 +45,7 @@ public class Message: Codable {
     public var expiresInSeconds: TimeInterval?
     public var expiresStartedAtMs: Double?
     
-    public var proProof: String?
+    public var proFeatures: UInt64?
 
     // MARK: - Validation
     
@@ -107,7 +107,7 @@ public class Message: Codable {
         serverHash: String? = nil,
         expiresInSeconds: TimeInterval? = nil,
         expiresStartedAtMs: Double? = nil,
-        proProof: String? = nil
+        proFeatures: UInt64? = nil
     ) {
         self.id = id
         self.sentTimestampMs = sentTimestampMs
@@ -120,7 +120,7 @@ public class Message: Codable {
         self.serverHash = serverHash
         self.expiresInSeconds = expiresInSeconds
         self.expiresStartedAtMs = expiresStartedAtMs
-        self.proProof = proProof
+        self.proFeatures = proFeatures
     }
 
     // MARK: - Proto Conversion
@@ -656,11 +656,6 @@ public extension Message {
     ) -> Self {
         self.expiresInSeconds = expiresInSeconds
         self.expiresStartedAtMs = expiresStartedAtMs
-        return self
-    }
-    
-    func with(proProof: String?) -> Self {
-        self.proProof = proProof
         return self
     }
 }

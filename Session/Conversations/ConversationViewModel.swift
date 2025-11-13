@@ -648,6 +648,19 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 case .name(let name): profileData = profileData.with(name: name)
                 case .nickname(let nickname): profileData = profileData.with(nickname: .set(to: nickname))
                 case .displayPictureUrl(let url): profileData = profileData.with(displayPictureUrl: .set(to: url))
+                case .proStatus(_, let features, let proExpiryUnixTimestampMs, let proGenIndexHash):
+                    let finalFeatures: SessionPro.Features = {
+                        guard dependencies[feature: .sessionProEnabled] else { return .none }
+                        
+                        return features
+                            .union(dependencies[feature: .proBadgeEverywhere] ? .proBadge : .none)
+                    }()
+                    
+                    profileData = profileData.with(
+                        proFeatures: .set(to: finalFeatures),
+                        proExpiryUnixTimestampMs: .set(to: proExpiryUnixTimestampMs),
+                        proGenIndexHash: .set(to: proGenIndexHash)
+                    )
             }
             
             profileCache[eventValue.id] = profileData
@@ -898,7 +911,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 
                 /// Update the caches with the newly fetched values
                 quoteMap.merge(fetchedQuoteMap, uniquingKeysWith: { _, new in new })
-                fetchedProfiles.forEach { profileCache[$0.id] = $0 }
+                fetchedProfiles.forEach { profile in
+                    let finalFeatures: SessionPro.Features = {
+                        guard dependencies[feature: .sessionProEnabled] else { return .none }
+                        
+                        return profile.proFeatures
+                            .union(dependencies[feature: .proBadgeEverywhere] ? .proBadge : .none)
+                    }()
+                    
+                    profileCache[profile.id] = profile
+                }
                 fetchedLinkPreviews.forEach { linkPreviewCache[$0.url, default: []].append($0) }
                 fetchedAttachments.forEach { attachmentCache[$0.id] = $0 }
                 fetchedReactions.forEach { interactionId, reactions in
@@ -1234,10 +1256,30 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         attachments: [PendingAttachment]?,
         linkPreviewDraft: LinkPreviewDraft?,
         quoteModel: QuotedReplyModel?
-    ) async -> OptimisticMessageData {
+    ) async throws -> OptimisticMessageData {
         // Generate the optimistic data
         let optimisticMessageId: Int64 = (-Int64.max + sentTimestampMs) /// Unique but avoids collisions with messages
         let currentState: State = await self.state
+        let proFeatures: SessionPro.Features = try {
+            let userProfileFeatures: SessionPro.Features = .none // TODO: [PRO] Need to add in `proBadge` if enabled
+            let result: SessionPro.FeaturesForMessage = dependencies[singleton: .sessionProManager].features(
+                for: (text ?? ""),
+                features: userProfileFeatures
+            )
+            
+            switch result.status {
+                case .success: return result.features
+                case .utfDecodingError:
+                    Log.warn(.messageSender, "Failed to extract features for message, falling back to manual handling")
+                    guard (text ?? "").utf16.count > SessionPro.CharacterLimit else {
+                        return userProfileFeatures
+                    }
+                    
+                    return userProfileFeatures.union(.largerCharacterLimit)
+                    
+                case .exceedsCharacterLimit: throw MessageError.messageTooLarge
+            }
+        }()
         let interaction: Interaction = Interaction(
             threadId: currentState.threadId,
             threadVariant: currentState.threadVariant,
@@ -1253,7 +1295,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             ),
             expiresInSeconds: currentState.threadViewModel.disappearingMessagesConfiguration?.expiresInSeconds(),
             linkPreviewUrl: linkPreviewDraft?.urlString,
-            isProMessage: (text.defaulting(to: "").utf16.count > SessionPro.CharacterLimit),//dependencies[cache: .libSession].isSessionPro,    // TODO: [PRO] Ditch this?
+            proFeatures: proFeatures,
             using: dependencies
         )
         var optimisticAttachments: [Attachment]?

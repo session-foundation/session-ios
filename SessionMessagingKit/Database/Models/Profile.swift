@@ -10,11 +10,6 @@ import SessionUtilitiesKit
 /// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
 public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, Differentiable {
     public static var databaseTableName: String { "profile" }
-    internal static let interactionForeignKey = ForeignKey([Columns.id], to: [Interaction.Columns.authorId])
-    internal static let contactForeignKey = ForeignKey([Columns.id], to: [Contact.Columns.id])
-    internal static let groupMemberForeignKey = ForeignKey([GroupMember.Columns.profileId], to: [Columns.id])
-    public static let contact = hasOne(Contact.self, using: contactForeignKey)
-    public static let groupMembers = hasMany(GroupMember.self, using: groupMemberForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -29,6 +24,10 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         case profileLastUpdated
         
         case blocksCommunityMessageRequests
+        
+        case proFeatures
+        case proExpiryUnixTimestampMs
+        case proGenIndexHash
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -54,10 +53,14 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     /// A flag indicating whether this profile has reported that it blocks community message requests
     public let blocksCommunityMessageRequests: Bool?
     
-    /// The Pro Proof for when this profile is updated
-    // TODO: Implement these when the structure of Session Pro Proof is determined
-    public let sessionProProof: String?
-    public var showProBadge: Bool?
+    /// The Session Pro features enabled for this profile
+    public let proFeatures: SessionPro.Features
+    
+    /// The unix timestamp (in milliseconds) when Session Pro expires for this profile
+    public let proExpiryUnixTimestampMs: UInt64
+    
+    /// The timestamp when Session Pro expires for this profile
+    public let proGenIndexHash: String?
     
     // MARK: - Initialization
     
@@ -69,8 +72,9 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         displayPictureEncryptionKey: Data? = nil,
         profileLastUpdated: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
-        sessionProProof: String? = nil,
-        showProBadge: Bool? = nil
+        proFeatures: SessionPro.Features = .none,
+        proExpiryUnixTimestampMs: UInt64 = 0,
+        proGenIndexHash: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -79,8 +83,9 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         self.displayPictureEncryptionKey = displayPictureEncryptionKey
         self.profileLastUpdated = profileLastUpdated
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
-        self.sessionProProof = sessionProProof
-        self.showProBadge = showProBadge
+        self.proFeatures = proFeatures
+        self.proExpiryUnixTimestampMs = proExpiryUnixTimestampMs
+        self.proGenIndexHash = proGenIndexHash
     }
 }
 
@@ -106,7 +111,10 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             displayPictureUrl: \(displayPictureUrl.map { "\"\($0)\"" } ?? "null"),
             displayPictureEncryptionKey: \(displayPictureEncryptionKey?.toHexString() ?? "null"),
             profileLastUpdated: \(profileLastUpdated.map { "\($0)" } ?? "null"),
-            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null")
+            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
+            proFeatures: \(proFeatures),
+            proExpiryUnixTimestampMs: \(proExpiryUnixTimestampMs),
+            proGenIndexHash: \(proGenIndexHash.map { "\($0)" } ?? "null")
         )
         """
     }
@@ -223,8 +231,9 @@ public extension Profile {
             displayPictureEncryptionKey: nil,
             profileLastUpdated: nil,
             blocksCommunityMessageRequests: nil,
-            sessionProProof: nil,
-            showProBadge: nil
+            proFeatures: .none,
+            proExpiryUnixTimestampMs: 0,
+            proGenIndexHash: nil
         )
     }
     
@@ -435,7 +444,10 @@ public extension Profile {
         displayPictureUrl: Update<String?> = .useExisting,
         displayPictureEncryptionKey: Update<Data?> = .useExisting,
         profileLastUpdated: Update<TimeInterval?> = .useExisting,
-        blocksCommunityMessageRequests: Update<Bool?> = .useExisting
+        blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
+        proFeatures: Update<SessionPro.Features> = .useExisting,
+        proExpiryUnixTimestampMs: Update<UInt64> = .useExisting,
+        proGenIndexHash: Update<String?> = .useExisting
     ) -> Profile {
         return Profile(
             id: id,
@@ -445,7 +457,9 @@ public extension Profile {
             displayPictureEncryptionKey: displayPictureEncryptionKey.or(self.displayPictureEncryptionKey),
             profileLastUpdated: profileLastUpdated.or(self.profileLastUpdated),
             blocksCommunityMessageRequests: blocksCommunityMessageRequests.or(self.blocksCommunityMessageRequests),
-            sessionProProof: self.sessionProProof
+            proFeatures: proFeatures.or(self.proFeatures),
+            proExpiryUnixTimestampMs: proExpiryUnixTimestampMs.or(self.proExpiryUnixTimestampMs),
+            proGenIndexHash: proGenIndexHash.or(self.proGenIndexHash)
         )
     }
 }

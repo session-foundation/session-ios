@@ -90,20 +90,20 @@ public extension FeatureStorage {
         identifier: "sessionPro"
     )
     
-    static let allUsersSessionPro: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "allUsersSessionPro"
+    static let proBadgeEverywhere: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "proBadgeEverywhere"
     )
     
-    static let messageFeatureProBadge: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "messageFeatureProBadge"
+    static let forceMessageFeatureProBadge: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureProBadge"
     )
     
-    static let messageFeatureLongMessage: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "messageFeatureLongMessage"
+    static let forceMessageFeatureLongMessage: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureLongMessage"
     )
     
-    static let messageFeatureAnimatedAvatar: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "messageFeatureAnimatedAvatar"
+    static let forceMessageFeatureAnimatedAvatar: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureAnimatedAvatar"
     )
     
     static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(

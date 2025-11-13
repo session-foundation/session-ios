@@ -776,22 +776,29 @@ extension ConversationVC:
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self = self else { return }
             
-            let optimisticData: ConversationViewModel.OptimisticMessageData = await viewModel.optimisticallyAppendOutgoingMessage(
-                text: processedText,
-                sentTimestampMs: sentTimestampMs,
-                attachments: attachments,
-                linkPreviewDraft: linkPreviewDraft,
-                quoteModel: quoteModel
-            )
-            await approveMessageRequestIfNeeded(
-                for: self.viewModel.state.threadId,
-                threadVariant: self.viewModel.state.threadVariant,
-                displayName: self.viewModel.state.threadViewModel.displayName,
-                isDraft: (self.viewModel.state.threadViewModel.threadIsDraft == true),
-                timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
-            )
-            
-            await sendMessage(optimisticData: optimisticData)
+            do {
+                let optimisticData: ConversationViewModel.OptimisticMessageData = try await viewModel.optimisticallyAppendOutgoingMessage(
+                    text: processedText,
+                    sentTimestampMs: sentTimestampMs,
+                    attachments: attachments,
+                    linkPreviewDraft: linkPreviewDraft,
+                    quoteModel: quoteModel
+                )
+                await approveMessageRequestIfNeeded(
+                    for: self.viewModel.state.threadId,
+                    threadVariant: self.viewModel.state.threadVariant,
+                    displayName: self.viewModel.state.threadViewModel.displayName,
+                    isDraft: (self.viewModel.state.threadViewModel.threadIsDraft == true),
+                    timestampMs: (sentTimestampMs - 1)  // Set 1ms earlier as this is used for sorting
+                )
+                
+                await sendMessage(optimisticData: optimisticData)
+            }
+            catch {
+                await MainActor.run { [weak self] in
+                    self?.handleCharacterLimitLabelTapped()
+                }
+            }
         }
     }
     

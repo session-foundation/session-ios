@@ -17,7 +17,13 @@ struct MessageInfoScreen: View {
         let isMessageFailed: Bool
         let isCurrentUser: Bool
         let profileInfo: ProfilePictureView.Info?
+        
+        /// These are the features that were enabled at the time the message was received
         let proFeatures: [ProFeature]
+        
+        /// This flag is separate to the `proFeatures` because it should be based on the _current_ pro state of the user rather than
+        /// the state the user was in when the message was sent
+        let shouldShowProBadge: Bool
         
         func ctaVariant(currentUserIsPro: Bool) -> ProCTAModal.Variant {
             guard let firstFeature: ProFeature = proFeatures.first, proFeatures.count > 1 else {
@@ -102,7 +108,8 @@ struct MessageInfoScreen: View {
                 profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
                 using: dependencies
             ).info,
-            proFeatures: ProFeature.from(messageViewModel.proFeatures)
+            proFeatures: ProFeature.from(messageViewModel.proFeatures),
+            shouldShowProBadge: messageViewModel.profile.proFeatures.contains(.proBadge)
         )
     }
     
@@ -557,39 +564,6 @@ struct MessageInfoScreen: View {
         .toastView(message: $feedbackMessage)
     }
     
-    // TODO: [PRO] Need to add the mocking back
-//    private func getProFeaturesInfo() -> (proFeatures: [String], proCTAVariant: ProCTAModal.Variant) {
-//        var proFeatures: [String] = []
-//        var proCTAVariant: ProCTAModal.Variant = .generic
-//        
-//        guard dependencies[feature: .sessionProEnabled] else { return (proFeatures, proCTAVariant) }
-//        
-//        // TODO: [PRO] Add this back
-////        if (dependencies.mutate(cache: .libSession) { $0.shouldShowProBadge(for: messageViewModel.profile) }) {
-//            proFeatures.append("appProBadge".put(key: "app_pro", value: Constants.app_pro).localized())
-////        }
-//        
-//        // TODO: [PRO] Count this properly
-//        if (
-//            messageViewModel.isProMessage &&
-//            messageViewModel.body.defaulting(to: "").utf16.count > SessionPro.CharacterLimit ||
-//            dependencies[feature: .messageFeatureLongMessage]
-//        ) {
-//            proFeatures.append("proIncreasedMessageLengthFeature".localized())
-//            proCTAVariant = (proFeatures.count > 1 ? .generic : .longerMessages)
-//        }
-//        
-//        if (
-//            ImageDataManager.isAnimatedImage(profileInfo?.source) ||
-//            dependencies[feature: .messageFeatureAnimatedAvatar]
-//        ) {
-//            proFeatures.append("proAnimatedDisplayPictureFeature".localized())
-//            proCTAVariant = (proFeatures.count > 1 ? .generic : .animatedProfileImage(isSessionProActivated: false))
-//        }
-//        
-//        return (proFeatures, proCTAVariant)
-//    }
-    
     private func showSessionProCTAIfNeeded() {
         guard
             viewModel.dependencies[feature: .sessionProEnabled] &&
@@ -665,15 +639,14 @@ struct MessageInfoScreen: View {
         
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
             modal: UserProfileModal(
-                info: .init(
+                info: UserProfileModal.Info(
                     sessionId: sessionId,
                     blindedId: blindedId,
                     qrCodeImage: qrCodeImage,
                     profileInfo: profileInfo,
                     displayName: displayName,
                     contactDisplayName: contactDisplayName,
-                    // TODO: [PRO] Pretty sure this should be based on their current profile pro features (ie. if they don't have any pro features enabled then we shouldn't show their pro status)
-                    isProUser: false,//dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
+                    shouldShowProBadge: viewModel.messageViewModel.profile.proFeatures.contains(.proBadge),
                     isMessageRequestsEnabled: isMessasgeRequestsEnabled,
                     onStartThread: viewModel.onStartThread,
                     onProBadgeTapped: self.showSessionProCTAIfNeeded
@@ -929,7 +902,7 @@ struct MessageInfoView_Previews: PreviewProvider {
                 body: "Mauris sapien dui, sagittis et fringilla eget, tincidunt vel mauris. Mauris bibendum quis ipsum ac pulvinar. Integer semper elit vitae placerat efficitur. Quisque blandit scelerisque orci, a fringilla dui. In a sollicitudin tortor. Vivamus consequat sollicitudin felis, nec pretium dolor bibendum sit amet. Integer non congue risus, id imperdiet diam. Proin elementum enim at felis commodo semper. Pellentesque magna magna, laoreet nec hendrerit in, suscipit sit amet risus. Nulla et imperdiet massa. Donec commodo felis quis arcu dignissim lobortis. Praesent nec fringilla felis, ut pharetra sapien. Donec ac dignissim nisi, non lobortis justo. Nulla congue velit nec sodales bibendum. Nullam feugiat, mauris ac consequat posuere, eros sem dignissim nulla, ac convallis dolor sem rhoncus dolor. Cras ut luctus risus, quis viverra mauris.",
                 timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
                 state: .failed,
-                isProMessage: true,
+                proFeatures: .proBadge,
                 using: dependencies
             ),
             reactionInfo: nil,

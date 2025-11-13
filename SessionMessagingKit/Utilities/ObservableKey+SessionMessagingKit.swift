@@ -199,6 +199,12 @@ public struct ProfileEvent: Hashable {
         case name(String)
         case nickname(String?)
         case displayPictureUrl(String?)
+        case proStatus(
+            isPro: Bool,
+            features: SessionPro.Features,
+            proExpiryUnixTimestampMs: UInt64,
+            proGenIndexHash: String?
+        )
     }
 }
 

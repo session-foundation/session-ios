@@ -352,8 +352,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let profileShouldBeVisible: Bool = (
             isGroupThread &&
             cellViewModel.canHaveProfile &&
-            cellViewModel.shouldShowDisplayPicture &&
-            cellViewModel.profile != nil
+            cellViewModel.shouldShowDisplayPicture
         )
         profilePictureView.isHidden = !cellViewModel.canHaveProfile
         profilePictureView.alpha = (profileShouldBeVisible ? 1 : 0)

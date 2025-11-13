@@ -52,7 +52,7 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         case mostRecentFailureText
         
         // Session Pro
-        case isProMessage
+        case proFeatures
     }
     
     public enum Variant: Int, Sendable, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
@@ -203,8 +203,8 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
     /// The reason why the most recent attempt to send this message failed
     public private(set) var mostRecentFailureText: String?
     
-    /// A flag indicating if the message sender is a Session Pro user when the message is sent
-    public let isProMessage: Bool
+    /// A bitset indicating which Session Pro features were used when this message was sent
+    public let proFeatures: SessionPro.Features
     
     // MARK: - Initialization
     
@@ -230,7 +230,7 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         state: State,
         recipientReadTimestampMs: Int64?,
         mostRecentFailureText: String?,
-        isProMessage: Bool
+        proFeatures: SessionPro.Features
     ) {
         self.id = id
         self.serverHash = serverHash
@@ -253,7 +253,7 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         self.state = (variant.isLocalOnly ? .localOnly : state)
         self.recipientReadTimestampMs = recipientReadTimestampMs
         self.mostRecentFailureText = mostRecentFailureText
-        self.isProMessage = isProMessage
+        self.proFeatures = proFeatures
     }
     
     public init(
@@ -275,7 +275,7 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         openGroupWhisperMods: Bool = false,
         openGroupWhisperTo: String? = nil,
         state: Interaction.State? = nil,
-        isProMessage: Bool = false,
+        proFeatures: SessionPro.Features = .none,
         using dependencies: Dependencies
     ) {
         self.serverHash = serverHash
@@ -312,7 +312,7 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         
         self.recipientReadTimestampMs = nil
         self.mostRecentFailureText = nil
-        self.isProMessage = isProMessage
+        self.proFeatures = proFeatures
     }
     
     // MARK: - Custom Database Interaction
@@ -402,7 +402,7 @@ public extension Interaction {
             state: try container.decode(State.self, forKey: .state),
             recipientReadTimestampMs: try? container.decode(Int64?.self, forKey: .recipientReadTimestampMs),
             mostRecentFailureText: try? container.decode(String?.self, forKey: .mostRecentFailureText),
-            isProMessage: (try? container.decode(Bool.self, forKey: .isProMessage)).defaulting(to: false)
+            proFeatures: try container.decode(SessionPro.Features.self, forKey: .proFeatures)
         )
     }
 }
@@ -446,7 +446,7 @@ public extension Interaction {
             state: (state ?? self.state),
             recipientReadTimestampMs: (recipientReadTimestampMs ?? self.recipientReadTimestampMs),
             mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText),
-            isProMessage: self.isProMessage
+            proFeatures: self.proFeatures
         )
     }
     
@@ -516,7 +516,7 @@ public extension Interaction {
             JOIN \(SessionThread.self) ON (
                 \(thread[.id]) = \(interaction[.threadId]) AND
                 -- Ignore message request threads (these should be counted by the PN extension but
-                -- seeing the "Message Requests" banner is considered marking the "Unread Message
+                -- seeing the 'Message Requests' banner is considered marking the "Unread Message
                 -- Request" notification as read)
                 \(thread[.id]) NOT IN \(messageRequestThreadIds) AND (
                     -- Ignore muted threads
@@ -807,7 +807,7 @@ public extension Interaction {
                     )
                 }
                 .appending(Interaction.notificationIdentifier(
-                    for: "0",
+                    for: "0",   // stringlint:ignore
                     threadId: threadId,
                     shouldGroupMessagesForThread: true
                 ))
