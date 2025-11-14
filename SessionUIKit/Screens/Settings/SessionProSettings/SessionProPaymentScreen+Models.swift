@@ -158,8 +158,8 @@ public extension SessionProPaymentScreenContent {
         var errorString: String? { get set }
         var isFromBottomSheet: Bool { get }
         
-        func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?)
-        func cancelPro(success: (() -> Void)?, failure: (() -> Void)?)
+        func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?) async
+        func cancelPro(success: (() -> Void)?, failure: (() -> Void)?) async
     }
 }
 

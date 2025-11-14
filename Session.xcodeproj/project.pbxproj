@@ -211,6 +211,7 @@
 		9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
 		9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */; };
+		9478E84B2EC6DDBB00BFDED0 /* ProCTAModal+Type.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9478E84A2EC6DDB300BFDED0 /* ProCTAModal+Type.swift */; };
 		9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */; };
 		947D7FD62D509FC900E8E413 /* SessionNetworkAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FCF2D509FC900E8E413 /* SessionNetworkAPI.swift */; };
 		947D7FD72D509FC900E8E413 /* HTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947D7FD22D509FC900E8E413 /* HTTPClient.swift */; };
@@ -1644,6 +1645,7 @@
 		9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Models.swift"; sourceTree = "<group>"; };
 		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		9478E84A2EC6DDB300BFDED0 /* ProCTAModal+Type.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ProCTAModal+Type.swift"; sourceTree = "<group>"; };
 		9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationSettingsViewModel.swift; sourceTree = "<group>"; };
 		947AD68F2C8968FF000B2730 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		947D7FCF2D509FC900E8E413 /* SessionNetworkAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionNetworkAPI.swift; sourceTree = "<group>"; };
@@ -2961,6 +2963,7 @@
 				94AAB1502E1F752600A6FA18 /* CyclicGradientView.swift */,
 				94AAB14E2E1F6CB300A6FA18 /* SessionProBadge+SwiftUI.swift */,
 				94AAB14C2E1F39AB00A6FA18 /* ProCTAModal.swift */,
+				9478E84A2EC6DDB300BFDED0 /* ProCTAModal+Type.swift */,
 				94B6BAFD2E39F50E00E718BB /* UserProfileModal.swift */,
 				9438658E2EAB37F600DB989A /* MutipleLinksModal.swift */,
 				94AAB14A2E1E197800A6FA18 /* Modal+SwiftUI.swift */,
@@ -6495,6 +6498,7 @@
 				FDE754BA2C9B97B8002A2623 /* UIDevice+Utilities.swift in Sources */,
 				C331FFB92558FA8D00070591 /* UIView+Constraints.swift in Sources */,
 				FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */,
+				9478E84B2EC6DDBB00BFDED0 /* ProCTAModal+Type.swift in Sources */,
 				94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */,
 				FDA335F52D91157A007E0EB6 /* SessionImageView.swift in Sources */,
 				94519A972E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift in Sources */,

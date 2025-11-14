@@ -7,11 +7,11 @@ public protocol SessionProManagerType: AnyObject {
     var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never> { get }
     var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> { get }
     var sessionProPlans: [SessionProPlan] { get }
-    func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?)
-    func cancelPro(completion: ((_ result: Bool) -> Void)?)
-    func requestRefund(completion: ((_ result: Bool) -> Void)?)
-    func expirePro(completion: ((_ result: Bool) -> Void)?)
-    func recoverPro(completion: ((_ result: Bool) -> Void)?)
+    func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) async
+    func cancelPro(completion: ((_ result: Bool) -> Void)?) async
+    func requestRefund(completion: ((_ result: Bool) -> Void)?) async
+    func expirePro(completion: ((_ result: Bool) -> Void)?) async
+    func recoverPro(completion: ((_ result: Bool) -> Void)?) async
     // This function is only for QA purpose
     func updateOriginatingPlatform(_ newValue: ClientPlatform)
 }

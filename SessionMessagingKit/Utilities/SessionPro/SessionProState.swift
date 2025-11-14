@@ -69,7 +69,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         )
     }
     
-    public func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) {
+    public func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) async {
         Task {
             try await Task.sleep(for: .seconds(5))
             dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
@@ -87,7 +87,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         }
     }
     
-    public func cancelPro(completion: ((_ result: Bool) -> Void)?) {
+    public func cancelPro(completion: ((_ result: Bool) -> Void)?) async {
         guard case .active(let currentPlan, let expiredOn, _, let originatingPlatform) = self.sessionProStateSubject.value else {
             return
         }
@@ -103,7 +103,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         completion?(true)
     }
     
-    public func requestRefund(completion: ((_ result: Bool) -> Void)?) {
+    public func requestRefund(completion: ((_ result: Bool) -> Void)?) async {
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .refunding)
         self.sessionProStateSubject.send(
             SessionProPlanState.refunding(
@@ -115,7 +115,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         completion?(true)
     }
     
-    public func expirePro(completion: ((_ result: Bool) -> Void)?) {
+    public func expirePro(completion: ((_ result: Bool) -> Void)?) async {
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .expired)
         self.sessionProStateSubject.send(
             SessionProPlanState.expired(
@@ -126,12 +126,12 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         completion?(true)
     }
     
-    public func recoverPro(completion: ((_ result: Bool) -> Void)?) {
+    public func recoverPro(completion: ((_ result: Bool) -> Void)?) async {
         guard dependencies[feature: .proPlanToRecover] == true && dependencies[feature: .mockCurrentUserSessionProLoadingState] == .success else {
             completion?(false)
             return
         }
-        upgradeToPro(
+        await upgradeToPro(
             plan: SessionProPlan(variant: .threeMonths),
             originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
             completion: completion

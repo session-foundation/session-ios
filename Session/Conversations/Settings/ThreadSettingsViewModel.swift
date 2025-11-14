@@ -2042,11 +2042,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             ),
                             dataManager: dependencies[singleton: .imageDataManager],
                             onConfirm: { [dependencies] in
-                                dependencies[singleton: .sessionProState].upgradeToPro(
-                                    plan: SessionProPlan(variant: .threeMonths),
-                                    originatingPlatform: .iOS,
-                                    completion: nil
-                                )
+                                Task {
+                                    await dependencies[singleton: .sessionProState].upgradeToPro(
+                                        plan: SessionProPlan(variant: .threeMonths),
+                                        originatingPlatform: .iOS,
+                                        completion: nil
+                                    )
+                                }
                             }
                         )
                     )

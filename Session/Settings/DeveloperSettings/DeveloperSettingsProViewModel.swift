@@ -615,15 +615,21 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 dependencies[singleton: .sessionProState].sessionProStateSubject.send(.none)
                 dependencies[singleton: .sessionProState].shouldAnimateImageSubject.send(false)
             case .active:
-                dependencies[singleton: .sessionProState].upgradeToPro(
-                    plan: SessionProPlan(variant: .threeMonths),
-                    originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
-                    completion: nil
-                )
+                Task {
+                    await dependencies[singleton: .sessionProState].upgradeToPro(
+                        plan: SessionProPlan(variant: .threeMonths),
+                        originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
+                        completion: nil
+                    )
+                }
             case .expired:
-                dependencies[singleton: .sessionProState].expirePro(completion: nil)
+                Task {
+                    await dependencies[singleton: .sessionProState].expirePro(completion: nil)
+                }
             case .refunding:
-                dependencies[singleton: .sessionProState].requestRefund(completion: nil)
+                Task {
+                    await dependencies[singleton: .sessionProState].requestRefund(completion: nil)
+                }
         }
     }
     

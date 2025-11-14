@@ -864,7 +864,17 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                             )
                         ),
-                        onTap: { [weak viewModel] in viewModel?.recoverProPlan() }
+                        onTap: { [weak viewModel] in
+                            Task {
+                                await viewModel?
+                                    .dependencies[singleton: .sessionProState]
+                                    .recoverPro { [weak viewModel] result in
+                                        DispatchQueue.main.async {
+                                            viewModel?.recoverProPlanCompletionHandler(result)
+                                        }
+                                    }
+                            }
+                        }
                     ),
                 ]
             case .refunding: []
@@ -875,7 +885,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
 // MARK: - Interactions
 
 extension SessionProSettingsViewModel {
-    func openUrl(_ urlString: String) {
+    @MainActor func openUrl(_ urlString: String) {
         guard let url: URL = URL(string: urlString) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
@@ -904,7 +914,7 @@ extension SessionProSettingsViewModel {
         self.transitionToScreen(modal, transitionType: .present)
     }
     
-    func showLoadingModal(
+    @MainActor func showLoadingModal(
         from item: ListItem,
         title: String,
         description: String
@@ -923,7 +933,7 @@ extension SessionProSettingsViewModel {
         self.transitionToScreen(modal, transitionType: .present)
     }
     
-    func showErrorModal(
+    @MainActor func showErrorModal(
         from item: ListItem,
         title: String,
         description: ThemedAttributedString
@@ -969,49 +979,47 @@ extension SessionProSettingsViewModel {
         self.transitionToScreen(viewController)
     }
     
-    func recoverProPlan() {
-        dependencies[singleton: .sessionProState].recoverPro { [weak self] result in
-            let modal: ConfirmationModal = ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: (
-                        result ?
+    @MainActor func recoverProPlanCompletionHandler(_ result: Bool) {
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: (
+                    result ?
                         "proAccessRestored"
                             .put(key: "pro", value: Constants.pro)
                             .localized() :
-                            "proAccessNotFound"
-                            .put(key: "pro", value: Constants.pro)
-                            .localized()
-                    ),
-                    body: .text(
-                        (
-                            result ?
+                        "proAccessNotFound"
+                        .put(key: "pro", value: Constants.pro)
+                        .localized()
+                ),
+                body: .text(
+                    (
+                        result ?
                             "proAccessRestoredDescription"
                                 .put(key: "app_name", value: Constants.app_name)
                                 .put(key: "pro", value: Constants.pro)
                                 .localized() :
-                                "proAccessNotFoundDescription"
-                                .put(key: "app_name", value: Constants.app_name)
-                                .put(key: "pro", value: Constants.pro)
-                                .localized()
-                        ),
-                        scrollMode: .never
+                            "proAccessNotFoundDescription"
+                            .put(key: "app_name", value: Constants.app_name)
+                            .put(key: "pro", value: Constants.pro)
+                            .localized()
                     ),
-                    confirmTitle: (result ? nil : "helpSupport".localized()),
-                    cancelTitle: (result ? "okay".localized() : "close".localized()),
-                    cancelStyle: (result ? .textPrimary : .danger),
-                    dismissOnConfirm: false,
-                    onConfirm: { [weak self] modal in
-                        guard result == false else {
-                            return modal.dismiss(animated: true)
-                        }
-                        
-                        self?.openUrl(Constants.session_pro_recovery_support_url)
+                    scrollMode: .never
+                ),
+                confirmTitle: (result ? nil : "helpSupport".localized()),
+                cancelTitle: (result ? "okay".localized() : "close".localized()),
+                cancelStyle: (result ? .textPrimary : .danger),
+                dismissOnConfirm: false,
+                onConfirm: { [weak self] modal in
+                    guard result == false else {
+                        return modal.dismiss(animated: true)
                     }
-                )
+                    
+                    self?.openUrl(Constants.session_pro_recovery_support_url)
+                }
             )
-            
-            self?.transitionToScreen(modal, transitionType: .present)
-        }
+        )
+        
+        self.transitionToScreen(modal, transitionType: .present)
     }
     
     func cancelPlan() {

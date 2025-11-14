@@ -20,9 +20,9 @@ extension SessionProPaymentScreenContent {
             self.isFromBottomSheet = isFromBottomSheet
         }
         
-        public func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?) {
+        public func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?) async {
             let plan: SessionProPlan = SessionProPlan.from(planInfo)
-            dependencies[singleton: .sessionProState].upgradeToPro(
+            await dependencies[singleton: .sessionProState].upgradeToPro(
                 plan: plan,
                 originatingPlatform: .iOS
             ) { result in
@@ -34,8 +34,8 @@ extension SessionProPaymentScreenContent {
             }
         }
         
-        public func cancelPro(success: (() -> Void)?, failure: (() -> Void)?) {
-            dependencies[singleton: .sessionProState].cancelPro { result in
+        public func cancelPro(success: (() -> Void)?, failure: (() -> Void)?) async {
+            await dependencies[singleton: .sessionProState].cancelPro { result in
                 if result {
                     success?()
                 } else {

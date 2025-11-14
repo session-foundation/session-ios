@@ -182,14 +182,18 @@ public struct SessionProPaymentScreen: View {
                     if originatingPlatform == .iOS {
                         CancelPlanOriginatingPlatformContent(
                             cancelPlanAction: {
-                                viewModel.cancelPro(
-                                    success: {
-                                        host.controller?.navigationController?.popViewController(animated: true)
-                                    },
-                                    failure: {
-                                        
-                                    }
-                                )
+                                Task {
+                                    await viewModel.cancelPro(
+                                        success: {
+                                            DispatchQueue.main.async {
+                                                host.controller?.navigationController?.popViewController(animated: true)
+                                            }
+                                        },
+                                        failure: {
+                                            // TODO: [Pro] Failed to cancel plan
+                                        }
+                                    )
+                                }
                             }
                         )
                     } else {
@@ -231,38 +235,42 @@ public struct SessionProPaymentScreen: View {
                             ),
                             confirmTitle: "update".localized(),
                             onConfirm: { _ in
-                                self.viewModel.purchase(
-                                    planInfo: updatedPlan,
-                                    success: {
-                                        Task { @MainActor in
-                                            onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
+                                Task {
+                                    await viewModel.purchase(
+                                        planInfo: updatedPlan,
+                                        success: {
+                                            Task { @MainActor in
+                                                onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
+                                            }
+                                        },
+                                        failure: {
+                                            Task { @MainActor in
+                                                onPaymentFailed()
+                                            }
                                         }
-                                    },
-                                    failure: {
-                                        Task { @MainActor in
-                                            onPaymentFailed()
-                                        }
-                                    }
-                                )
+                                    )
+                                }
                             }
                         )
                     )
                     self.host.controller?.present(confirmationModal, animated: true)
                 }
             case .purchase, .renew:
-                self.viewModel.purchase(
-                    planInfo: updatedPlan,
-                    success: {
-                        Task { @MainActor in
-                            onPaymentSuccess(expiredOn: nil)
+                Task {
+                    await viewModel.purchase(
+                        planInfo: updatedPlan,
+                        success: {
+                            Task { @MainActor in
+                                onPaymentSuccess(expiredOn: nil)
+                            }
+                        },
+                        failure: {
+                            Task { @MainActor in
+                                onPaymentFailed()
+                            }
                         }
-                    },
-                    failure: {
-                        Task { @MainActor in
-                            onPaymentFailed()
-                        }
-                    }
-                )
+                    )
+                }
             default: break
         }
     }
