@@ -5,7 +5,7 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    struct AddProPaymentOrGetProProofResponse: Decodable, Equatable {
+    struct AddProPaymentOrGenerateProProofResponse: Decodable, Equatable {
         public let header: ResponseHeader
         public let proof: ProProof
         
@@ -32,12 +32,12 @@ public extension Network.SessionPro {
             }
             
             var result = jsonData.withUnsafeBytes { bytes in
-                session_pro_backend_add_pro_payment_or_get_pro_proof_response_parse(
+                session_pro_backend_add_pro_payment_or_generate_pro_proof_response_parse(
                     bytes.baseAddress?.assumingMemoryBound(to: CChar.self),
                     jsonData.count
                 )
             }
-            defer { session_pro_backend_add_pro_payment_or_get_pro_proof_response_free(&result) }
+            defer { session_pro_backend_add_pro_payment_or_generate_pro_proof_response_free(&result) }
             
             self.header = ResponseHeader(result.header)
             self.proof = ProProof(result.proof)

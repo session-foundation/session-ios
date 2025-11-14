@@ -464,7 +464,7 @@
 		FD0F856D2EA835C5004E0B98 /* Signatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F856C2EA835B6004E0B98 /* Signatures.swift */; };
 		FD0F856F2EA83664004E0B98 /* UserTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F856E2EA83661004E0B98 /* UserTransaction.swift */; };
 		FD0F85732EA83C44004E0B98 /* AnyCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85722EA83C41004E0B98 /* AnyCodable.swift */; };
-		FD0F85752EA83D5D004E0B98 /* AddProPaymentOrGetProProofResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85742EA83D49004E0B98 /* AddProPaymentOrGetProProofResponse.swift */; };
+		FD0F85752EA83D5D004E0B98 /* AddProPaymentOrGenerateProProofResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85742EA83D49004E0B98 /* AddProPaymentOrGenerateProProofResponse.swift */; };
 		FD0F85772EA83D92004E0B98 /* ProProof.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85762EA83D8F004E0B98 /* ProProof.swift */; };
 		FD0F85792EA83EAD004E0B98 /* ResponseHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F85782EA83EAA004E0B98 /* ResponseHeader.swift */; };
 		FD0F857B2EA85FAB004E0B98 /* Request+SessionProAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0F857A2EA85FA4004E0B98 /* Request+SessionProAPI.swift */; };
@@ -598,15 +598,15 @@
 		FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */; };
 		FD2C68612EA09527000B0E37 /* MessageError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2C68602EA09523000B0E37 /* MessageError.swift */; };
 		FD2DD5902C6DD13C0073D9BE /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2DD58F2C6DD13C0073D9BE /* DifferenceKit */; };
-		FD306BCC2EB02D9E00ADB003 /* GetProStatusRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCB2EB02D9B00ADB003 /* GetProStatusRequest.swift */; };
+		FD306BCC2EB02D9E00ADB003 /* GetProDetailsRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCB2EB02D9B00ADB003 /* GetProDetailsRequest.swift */; };
 		FD306BCE2EB02E3600ADB003 /* Signature.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCD2EB02E3400ADB003 /* Signature.swift */; };
-		FD306BD02EB02F3900ADB003 /* GetProStatusResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCF2EB02F3500ADB003 /* GetProStatusResponse.swift */; };
+		FD306BD02EB02F3900ADB003 /* GetProDetailsResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCF2EB02F3500ADB003 /* GetProDetailsResponse.swift */; };
 		FD306BD22EB031AE00ADB003 /* PaymentItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD12EB031AB00ADB003 /* PaymentItem.swift */; };
 		FD306BD42EB031C200ADB003 /* PaymentStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD32EB031BF00ADB003 /* PaymentStatus.swift */; };
 		FD306BD62EB0323000ADB003 /* BackendUserProStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD52EB0322E00ADB003 /* BackendUserProStatus.swift */; };
 		FD306BD82EB033CD00ADB003 /* Plan.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD72EB033CB00ADB003 /* Plan.swift */; };
 		FD306BDA2EB0359B00ADB003 /* PaymentProviderMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BD92EB0359600ADB003 /* PaymentProviderMetadata.swift */; };
-		FD306BDC2EB0436C00ADB003 /* GetProProofRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BDB2EB0436800ADB003 /* GetProProofRequest.swift */; };
+		FD306BDC2EB0436C00ADB003 /* GenerateProProofRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BDB2EB0436800ADB003 /* GenerateProProofRequest.swift */; };
 		FD336F602CAA28CF00C0B51B /* CommonSMKMockExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */; };
 		FD336F612CAA28CF00C0B51B /* MockNotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */; };
 		FD336F622CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift */; };
@@ -1899,7 +1899,7 @@
 		FD0F856C2EA835B6004E0B98 /* Signatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Signatures.swift; sourceTree = "<group>"; };
 		FD0F856E2EA83661004E0B98 /* UserTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserTransaction.swift; sourceTree = "<group>"; };
 		FD0F85722EA83C41004E0B98 /* AnyCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyCodable.swift; sourceTree = "<group>"; };
-		FD0F85742EA83D49004E0B98 /* AddProPaymentOrGetProProofResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddProPaymentOrGetProProofResponse.swift; sourceTree = "<group>"; };
+		FD0F85742EA83D49004E0B98 /* AddProPaymentOrGenerateProProofResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddProPaymentOrGenerateProProofResponse.swift; sourceTree = "<group>"; };
 		FD0F85762EA83D8F004E0B98 /* ProProof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProProof.swift; sourceTree = "<group>"; };
 		FD0F85782EA83EAA004E0B98 /* ResponseHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponseHeader.swift; sourceTree = "<group>"; };
 		FD0F857A2EA85FA4004E0B98 /* Request+SessionProAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Request+SessionProAPI.swift"; sourceTree = "<group>"; };
@@ -2001,15 +2001,15 @@
 		FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronousStorage.swift; sourceTree = "<group>"; };
 		FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryInterfaceRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FD2C68602EA09523000B0E37 /* MessageError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageError.swift; sourceTree = "<group>"; };
-		FD306BCB2EB02D9B00ADB003 /* GetProStatusRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProStatusRequest.swift; sourceTree = "<group>"; };
+		FD306BCB2EB02D9B00ADB003 /* GetProDetailsRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProDetailsRequest.swift; sourceTree = "<group>"; };
 		FD306BCD2EB02E3400ADB003 /* Signature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Signature.swift; sourceTree = "<group>"; };
-		FD306BCF2EB02F3500ADB003 /* GetProStatusResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProStatusResponse.swift; sourceTree = "<group>"; };
+		FD306BCF2EB02F3500ADB003 /* GetProDetailsResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProDetailsResponse.swift; sourceTree = "<group>"; };
 		FD306BD12EB031AB00ADB003 /* PaymentItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentItem.swift; sourceTree = "<group>"; };
 		FD306BD32EB031BF00ADB003 /* PaymentStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentStatus.swift; sourceTree = "<group>"; };
 		FD306BD52EB0322E00ADB003 /* BackendUserProStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendUserProStatus.swift; sourceTree = "<group>"; };
 		FD306BD72EB033CB00ADB003 /* Plan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Plan.swift; sourceTree = "<group>"; };
 		FD306BD92EB0359600ADB003 /* PaymentProviderMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentProviderMetadata.swift; sourceTree = "<group>"; };
-		FD306BDB2EB0436800ADB003 /* GetProProofRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProProofRequest.swift; sourceTree = "<group>"; };
+		FD306BDB2EB0436800ADB003 /* GenerateProProofRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateProProofRequest.swift; sourceTree = "<group>"; };
 		FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommonSMKMockExtensions.swift; sourceTree = "<group>"; };
 		FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CustomArgSummaryDescribable+SessionMessagingKit.swift"; sourceTree = "<group>"; };
 		FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCommunityPollerCache.swift; sourceTree = "<group>"; };
@@ -4163,10 +4163,10 @@
 			isa = PBXGroup;
 			children = (
 				FD0F856A2EA8351E004E0B98 /* AppProPaymentRequest.swift */,
-				FD0F85742EA83D49004E0B98 /* AddProPaymentOrGetProProofResponse.swift */,
-				FD306BDB2EB0436800ADB003 /* GetProProofRequest.swift */,
-				FD306BCB2EB02D9B00ADB003 /* GetProStatusRequest.swift */,
-				FD306BCF2EB02F3500ADB003 /* GetProStatusResponse.swift */,
+				FD0F85742EA83D49004E0B98 /* AddProPaymentOrGenerateProProofResponse.swift */,
+				FD306BDB2EB0436800ADB003 /* GenerateProProofRequest.swift */,
+				FD306BCB2EB02D9B00ADB003 /* GetProDetailsRequest.swift */,
+				FD306BCF2EB02F3500ADB003 /* GetProDetailsResponse.swift */,
 			);
 			path = Requests;
 			sourceTree = "<group>";
@@ -6558,13 +6558,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				FD6B92E12E77C1E1004463B5 /* PushNotification.swift in Sources */,
-				FD306BD02EB02F3900ADB003 /* GetProStatusResponse.swift in Sources */,
+				FD306BD02EB02F3900ADB003 /* GetProDetailsResponse.swift in Sources */,
 				FD2272B12C33E337004D8A6C /* ProxiedContentDownloader.swift in Sources */,
 				FDF848C329405C5A007DCAE5 /* DeleteMessagesRequest.swift in Sources */,
 				FD6B928E2E779E99004463B5 /* FileServerEndpoint.swift in Sources */,
 				FDF8489129405C13007DCAE5 /* SnodeAPINamespace.swift in Sources */,
 				FD2272AB2C33E337004D8A6C /* ValidatableResponse.swift in Sources */,
-				FD306BCC2EB02D9E00ADB003 /* GetProStatusRequest.swift in Sources */,
+				FD306BCC2EB02D9E00ADB003 /* GetProDetailsRequest.swift in Sources */,
 				FD2272B72C33E337004D8A6C /* Request.swift in Sources */,
 				FD2272B92C33E337004D8A6C /* ResponseInfo.swift in Sources */,
 				FD6B92F82E77C725004463B5 /* ProcessResult.swift in Sources */,
@@ -6632,7 +6632,7 @@
 				FD6B92F22E77C5D1004463B5 /* UnsubscribeResponse.swift in Sources */,
 				947D7FD62D509FC900E8E413 /* SessionNetworkAPI.swift in Sources */,
 				947D7FD72D509FC900E8E413 /* HTTPClient.swift in Sources */,
-				FD0F85752EA83D5D004E0B98 /* AddProPaymentOrGetProProofResponse.swift in Sources */,
+				FD0F85752EA83D5D004E0B98 /* AddProPaymentOrGenerateProProofResponse.swift in Sources */,
 				FD6B92B42E77AA11004463B5 /* PinnedMessage.swift in Sources */,
 				FD6B92B52E77AA11004463B5 /* SendDirectMessageResponse.swift in Sources */,
 				FD6B92B62E77AA11004463B5 /* UserUnbanRequest.swift in Sources */,
@@ -6647,7 +6647,7 @@
 				FD6B92BF2E77AA11004463B5 /* DeleteInboxResponse.swift in Sources */,
 				FD6B92C02E77AA11004463B5 /* SendDirectMessageRequest.swift in Sources */,
 				FD6B92C12E77AA11004463B5 /* CapabilitiesResponse.swift in Sources */,
-				FD306BDC2EB0436C00ADB003 /* GetProProofRequest.swift in Sources */,
+				FD306BDC2EB0436C00ADB003 /* GenerateProProofRequest.swift in Sources */,
 				FD6B92C22E77AA11004463B5 /* SOGSMessage.swift in Sources */,
 				947D7FD82D509FC900E8E413 /* KeyValueStore+SessionNetwork.swift in Sources */,
 				FDF848DB29405C5B007DCAE5 /* DeleteMessagesResponse.swift in Sources */,

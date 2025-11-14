@@ -843,7 +843,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         guard let masterKeyPair: KeyPair = await internalState.submittedTransactionMasterKeyPair else { return }
         
         do {
-            let request = try? Network.SessionPro.getProStatus(
+            let request = try? Network.SessionPro.getProDetails(
                 masterKeyPair: masterKeyPair,
                 using: dependencies
             )

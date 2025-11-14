@@ -42,11 +42,11 @@ public extension Network.SessionPro {
                     .values
                     .first(where: { _ in true })?.1
                 
-                let proStatusRequest = try? Network.SessionPro.getProStatus(
+                let proDetailsRequest = try? Network.SessionPro.getProDetails(
                     masterKeyPair: masterKeyPair,
                     using: dependencies
                 )
-                let proStatusResponse = try await proStatusRequest
+                let proDetailsResponse = try await proDetailsRequest
                     .send(using: dependencies)
                     .values
                     .first(where: { _ in true })?.1
@@ -54,7 +54,7 @@ public extension Network.SessionPro {
                 await MainActor.run {
                     let tmp1 = addProProofResponse
                     let tmp2 = proProofResponse
-                    let tmp3 = proStatusResponse
+                    let tmp3 = proDetailsResponse
                     print("RAWR Test Success")
                 }
             }
@@ -69,7 +69,7 @@ public extension Network.SessionPro {
         masterKeyPair: KeyPair,
         rotatingKeyPair: KeyPair,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<AddProPaymentOrGetProProofResponse> {
+    ) throws -> Network.PreparedRequest<AddProPaymentOrGenerateProProofResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
         let cRotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
         let cTransactionId: [UInt8] = Array(transactionId.utf8)
@@ -104,7 +104,7 @@ public extension Network.SessionPro {
                 ),
                 using: dependencies
             ),
-            responseType: AddProPaymentOrGetProProofResponse.self,
+            responseType: AddProPaymentOrGenerateProProofResponse.self,
             using: dependencies
         )
     }
@@ -113,12 +113,12 @@ public extension Network.SessionPro {
         masterKeyPair: KeyPair,
         rotatingKeyPair: KeyPair,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<AddProPaymentOrGetProProofResponse> {
+    ) throws -> Network.PreparedRequest<AddProPaymentOrGenerateProProofResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
         let cRotatingPrivateKey: [UInt8] = rotatingKeyPair.secretKey
         let timestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let signatures: Signatures = try Signatures(
-            session_pro_backend_get_pro_proof_request_build_sigs(
+            session_pro_backend_generate_pro_proof_request_build_sigs(
                 Network.SessionPro.apiVersion,
                 cMasterPrivateKey,
                 cMasterPrivateKey.count,
@@ -129,10 +129,10 @@ public extension Network.SessionPro {
         )
         
         return try Network.PreparedRequest(
-            request: try Request<GetProProofRequest, Endpoint>(
+            request: try Request<GenerateProProofRequest, Endpoint>(
                 method: .post,
                 endpoint: .getProProof,
-                body: GetProProofRequest(
+                body: GenerateProProofRequest(
                     masterPublicKey: masterKeyPair.publicKey,
                     rotatingPublicKey: rotatingKeyPair.publicKey,
                     timestampMs: timestampMs,
@@ -140,20 +140,20 @@ public extension Network.SessionPro {
                 ),
                 using: dependencies
             ),
-            responseType: AddProPaymentOrGetProProofResponse.self,
+            responseType: AddProPaymentOrGenerateProProofResponse.self,
             using: dependencies
         )
     }
     
-    static func getProStatus(
+    static func getProDetails(
         count: UInt32 = 1,
         masterKeyPair: KeyPair,
         using dependencies: Dependencies
-    ) throws -> Network.PreparedRequest<GetProStatusResponse> {
+    ) throws -> Network.PreparedRequest<GetProDetailsResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
         let timestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         let signature: Signature = try Signature(
-            session_pro_backend_get_pro_status_request_build_sig(
+            session_pro_backend_get_pro_details_request_build_sig(
                 Network.SessionPro.apiVersion,
                 cMasterPrivateKey,
                 cMasterPrivateKey.count,
@@ -163,10 +163,10 @@ public extension Network.SessionPro {
         )
         
         return try Network.PreparedRequest(
-            request: try Request<GetProStatusRequest, Endpoint>(
+            request: try Request<GetProDetailsRequest, Endpoint>(
                 method: .post,
                 endpoint: .getProStatus,
-                body: GetProStatusRequest(
+                body: GetProDetailsRequest(
                     masterPublicKey: masterKeyPair.publicKey,
                     timestampMs: timestampMs,
                     count: count,
@@ -174,7 +174,7 @@ public extension Network.SessionPro {
                 ),
                 using: dependencies
             ),
-            responseType: GetProStatusResponse.self,
+            responseType: GetProDetailsResponse.self,
             using: dependencies
         )
     }

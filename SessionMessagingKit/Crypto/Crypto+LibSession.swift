@@ -18,9 +18,9 @@ public extension Crypto.Generator {
             args: []
         ) { dependencies in
             let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
-            let cRotatingProPubkey: [UInt8]? = dependencies[singleton: .sessionProManager]
+            let cRotatingProSecretKey: [UInt8]? = dependencies[singleton: .sessionProManager]
                 .currentUserCurrentRotatingKeyPair?
-                .publicKey
+                .secretKey
             
             guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
             
@@ -39,8 +39,8 @@ public extension Crypto.Generator {
                         cEd25519SecretKey.count,
                         sentTimestampMs,
                         &cPubkey,
-                        cRotatingProPubkey,
-                        (cRotatingProPubkey?.count ?? 0),
+                        cRotatingProSecretKey,
+                        (cRotatingProSecretKey?.count ?? 0),
                         &error,
                         error.count
                     )
@@ -55,8 +55,8 @@ public extension Crypto.Generator {
                         cEd25519SecretKey.count,
                         sentTimestampMs,
                         &cPubkey,
-                        cRotatingProPubkey,
-                        (cRotatingProPubkey?.count ?? 0),
+                        cRotatingProSecretKey,
+                        (cRotatingProSecretKey?.count ?? 0),
                         &error,
                         error.count
                     )
@@ -78,8 +78,8 @@ public extension Crypto.Generator {
                         sentTimestampMs,
                         &cPubkey,
                         &cCurrentGroupEncPrivateKey,
-                        cRotatingProPubkey,
-                        (cRotatingProPubkey?.count ?? 0),
+                        cRotatingProSecretKey,
+                        (cRotatingProSecretKey?.count ?? 0),
                         &error,
                         error.count
                     )
@@ -88,8 +88,8 @@ public extension Crypto.Generator {
                     result = session_protocol_encode_for_community(
                         cPlaintext,
                         cPlaintext.count,
-                        cRotatingProPubkey,
-                        (cRotatingProPubkey?.count ?? 0),
+                        cRotatingProSecretKey,
+                        (cRotatingProSecretKey?.count ?? 0),
                         &error,
                         error.count
                     )
@@ -107,8 +107,8 @@ public extension Crypto.Generator {
                         sentTimestampMs,
                         &cRecipientPubkey,
                         &cServerPubkey,
-                        cRotatingProPubkey,
-                        (cRotatingProPubkey?.count ?? 0),
+                        cRotatingProSecretKey,
+                        (cRotatingProSecretKey?.count ?? 0),
                         &error,
                         error.count
                     )

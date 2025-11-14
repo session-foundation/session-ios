@@ -5,7 +5,7 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    struct GetProStatusResponse: Decodable, Equatable {
+    struct GetProDetailsResponse: Decodable, Equatable {
         public let header: ResponseHeader
         public let items: [PaymentItem]
         public let status: BackendUserProStatus
@@ -38,12 +38,12 @@ public extension Network.SessionPro {
             }
             
             var result = jsonData.withUnsafeBytes { bytes in
-                session_pro_backend_get_pro_status_response_parse(
+                session_pro_backend_get_pro_details_response_parse(
                     bytes.baseAddress?.assumingMemoryBound(to: CChar.self),
                     jsonData.count
                 )
             }
-            defer { session_pro_backend_get_pro_status_response_free(&result) }
+            defer { session_pro_backend_get_pro_details_response_free(&result) }
             
             self.header = ResponseHeader(result.header)
             self.status = BackendUserProStatus(result.status)
@@ -65,22 +65,22 @@ public extension Network.SessionPro {
     }
 }
 
-public extension Network.SessionPro.GetProStatusResponse {
+public extension Network.SessionPro.GetProDetailsResponse {
     enum ErrorReport: CaseIterable {
         case success
         case genericError
         
-        var libSessionValue: SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT {
+        var libSessionValue: SESSION_PRO_BACKEND_GET_PRO_DETAILS_ERROR_REPORT {
             switch self {
-                case .success: return SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT_SUCCESS
-                case .genericError: return SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT_GENERIC_ERROR
+                case .success: return SESSION_PRO_BACKEND_GET_PRO_DETAILS_ERROR_REPORT_SUCCESS
+                case .genericError: return SESSION_PRO_BACKEND_GET_PRO_DETAILS_ERROR_REPORT_GENERIC_ERROR
             }
         }
         
-        init(_ libSessionValue: SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT) {
+        init(_ libSessionValue: SESSION_PRO_BACKEND_GET_PRO_DETAILS_ERROR_REPORT) {
             switch libSessionValue {
-                case SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT_SUCCESS: self = .success
-                case SESSION_PRO_BACKEND_GET_PRO_STATUS_ERROR_REPORT_GENERIC_ERROR: self = .genericError
+                case SESSION_PRO_BACKEND_GET_PRO_DETAILS_ERROR_REPORT_SUCCESS: self = .success
+                case SESSION_PRO_BACKEND_GET_PRO_DETAILS_ERROR_REPORT_GENERIC_ERROR: self = .genericError
                 default: self = .genericError
             }
         }
