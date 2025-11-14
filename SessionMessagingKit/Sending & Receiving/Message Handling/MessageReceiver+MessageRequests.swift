@@ -13,6 +13,7 @@ extension MessageReceiver {
         _ db: ObservingDatabase,
         message: MessageRequestResponse,
         decodedMessage: DecodedMessage,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         let userSessionId = dependencies[cache: .general].sessionId
@@ -22,16 +23,16 @@ extension MessageReceiver {
         guard message.sender != userSessionId.hexString else { throw MessageError.ignorableMessage }
         guard let senderId: String = message.sender else { throw MessageError.missingRequiredField("sender") }
         
-        // Update profile if needed (want to do this regardless of whether the message exists or
-        // not to ensure the profile info gets sync between a users devices at every chance)
+        // Update profile if needed
         if let profile = message.profile {
             try Profile.updateIfNeeded(
                 db,
                 publicKey: senderId,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
-                decodedPro: decodedMessage.decodedPro,
+                displayPictureUpdate: .contactUpdateTo(profile, fallback: .none),
+                proUpdate: .contactUpdate(decodedMessage.decodedPro),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
+                currentUserSessionIds: currentUserSessionIds,
                 using: dependencies
             )
         }

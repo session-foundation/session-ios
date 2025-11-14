@@ -348,7 +348,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             guard state.sessionProBackendStatus == .active else { return nil }
                             
                             return (
-                                "ProBadge",
+                                SessionProBadge.identifier,
                                 { SessionProBadge(size: .medium).toImage(using: viewModel.dependencies) }
                             )
                         }()
@@ -909,7 +909,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     @MainActor fileprivate func updateProfile(
-        displayNameUpdate: Profile.DisplayNameUpdate = .none,
+        displayNameUpdate: Profile.TargetUserUpdate<String?> = .none,
         displayPictureUpdateGenerator generator: @escaping () async throws -> DisplayPictureManager.Update = { .none },
         onComplete: @escaping () -> ()
     ) {

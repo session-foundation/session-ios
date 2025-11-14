@@ -33,6 +33,7 @@ public extension SessionPro {
         
         // MARK: - CustomStringConvertible
         
+        // stringlint:ignore_contents
         public var description: String {
             var results: [String] = []
             

@@ -917,6 +917,7 @@ struct MessageInfoView_Previews: PreviewProvider {
             linkPreviewCache: [:],
             attachmentMap: [:],
             isSenderModeratorOrAdmin: false,
+            userSessionId: SessionId(.standard, hex: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a961111"),
             currentUserSessionIds: ["d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg"],
             previousInteraction: nil,
             nextInteraction: nil,

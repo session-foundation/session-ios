@@ -305,7 +305,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                             return nil
                                         }
                                         
-                                        return ("ProBadge", { [dependencies = viewModel.dependencies] in
+                                        return (SessionProBadge.identifier, { [dependencies = viewModel.dependencies] in
                                             SessionProBadge(size: .small).toImage(using: dependencies)
                                         })
                                     }()

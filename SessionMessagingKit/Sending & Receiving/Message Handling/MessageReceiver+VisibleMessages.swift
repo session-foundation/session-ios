@@ -23,21 +23,22 @@ extension MessageReceiver {
         decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
         suppressNotifications: Bool,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo {
         let isMainAppActive: Bool = dependencies[defaults: .appGroup, key: .isMainAppActive]
         
-        // Update profile if needed (want to do this regardless of whether the message exists or
-        // not to ensure the profile info gets sync between a users devices at every chance)
+        // Update profile if needed
         if let profile = message.profile {
             try Profile.updateIfNeeded(
                 db,
                 publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
+                displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
-                decodedPro: decodedMessage.decodedPro,
+                proUpdate: .contactUpdate(decodedMessage.decodedPro),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
+                currentUserSessionIds: currentUserSessionIds,
                 using: dependencies
             )
         }

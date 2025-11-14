@@ -553,8 +553,8 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                                     try dependencies[singleton: .communityManager].handlePollInfo(
                                         db,
                                         pollInfo: responseBody,
-                                        roomToken: roomToken,
                                         server: pollerDestination.target,
+                                        roomToken: roomToken,
                                         publicKey: publicKey
                                     )
                                     
@@ -564,12 +564,16 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                                         let responseBody: [Failable<Network.SOGS.Message>] = responseData.body
                                     else { return }
                                     
+                                    /// Might have been updated when handling one of the other responses so re-fetch the value
+                                    let currentUserSessionIds: Set<String> = dependencies[singleton: .communityManager]
+                                        .currentUserSessionIdsSync(pollerDestination.target.lowercased())
                                     interactionInfo.append(
                                         contentsOf: dependencies[singleton: .communityManager].handleMessages(
                                             db,
                                             messages: responseBody.compactMap { $0.value },
-                                            for: roomToken,
-                                            on: pollerDestination.target
+                                            server: pollerDestination.target,
+                                            roomToken: roomToken,
+                                            currentUserSessionIds: currentUserSessionIds
                                         )
                                     )
                                     
@@ -588,12 +592,16 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                                         }
                                     }()
                                     
+                                    /// Might have been updated when handling one of the other responses so re-fetch the value
+                                    let currentUserSessionIds: Set<String> = dependencies[singleton: .communityManager]
+                                        .currentUserSessionIdsSync(pollerDestination.target.lowercased())
                                     interactionInfo.append(
                                         contentsOf: dependencies[singleton: .communityManager].handleDirectMessages(
                                             db,
                                             messages: messages,
                                             fromOutbox: fromOutbox,
-                                            on: pollerDestination.target
+                                            server: pollerDestination.target,
+                                            currentUserSessionIds: currentUserSessionIds
                                         )
                                     )
                                     

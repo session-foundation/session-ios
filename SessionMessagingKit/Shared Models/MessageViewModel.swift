@@ -201,6 +201,7 @@ public extension MessageViewModel {
         linkPreviewCache: [String: [LinkPreview]],
         attachmentMap: [Int64: Set<InteractionAttachment>],
         isSenderModeratorOrAdmin: Bool,
+        userSessionId: SessionId,
         currentUserSessionIds: Set<String>,
         previousInteraction: Interaction?,
         nextInteraction: Interaction?,
@@ -216,16 +217,38 @@ public extension MessageViewModel {
             case (.none, .none): return nil
         }
         
+        let targetProfile: Profile = {
+            /// If the reactor is the current user then use the proper profile from the cache (instead of a random blinded one)
+            guard !currentUserSessionIds.contains(interaction.authorId) else {
+                return (profileCache[userSessionId.hexString] ?? Profile.defaultFor(userSessionId.hexString))
+            }
+            
+            return (profileCache[interaction.authorId] ?? Profile.defaultFor(interaction.authorId))
+        }()
         let authorDisplayName: String = {
             guard !currentUserSessionIds.contains(interaction.authorId) else { return "you".localized() }
             
             return Profile.displayName(
                 for: threadVariant,
                 id: interaction.authorId,
-                name: profileCache[interaction.authorId]?.name,
-                nickname: profileCache[interaction.authorId]?.nickname,
+                name: targetProfile.name,
+                nickname: targetProfile.nickname,
                 suppressId: false   // Show the id next to the author name if desired
             )
+        }()
+        let threadContactDisplayName: String? = {
+            switch threadVariant {
+                case .contact:
+                    return Profile.displayName(
+                        for: threadVariant,
+                        id: threadId,
+                        name: profileCache[threadId]?.name,
+                        nickname: profileCache[threadId]?.nickname,
+                        suppressId: false   // Show the id next to the author name if desired
+                    )
+                
+                default: return nil
+            }
         }()
         let linkPreviewInfo: (preview: LinkPreview, attachment: Attachment?)? = interaction.linkPreview(
             linkPreviewCache: linkPreviewCache,
@@ -237,10 +260,10 @@ public extension MessageViewModel {
         let body: String? = interaction.body(
             threadId: threadId,
             threadVariant: threadVariant,
+            threadContactDisplayName: threadContactDisplayName,
             authorDisplayName: authorDisplayName,
             attachments: attachments,
             linkPreview: linkPreviewInfo?.preview,
-            profileCache: profileCache,
             using: dependencies
         )
         let proFeatures: SessionPro.Features = {
@@ -273,7 +296,7 @@ public extension MessageViewModel {
         self.expiresInSeconds = interaction.expiresInSeconds
         self.attachments = attachments
         self.reactionInfo = (reactionInfo ?? [])
-        self.profile = (profileCache[interaction.authorId] ?? Profile.defaultFor(interaction.authorId))
+        self.profile = targetProfile
         self.quotedInfo = quotedInteraction.map { quotedInteraction -> QuotedInfo? in
             guard let quoteInteractionId: Int64 = quotedInteraction.id else { return nil }
             
@@ -292,30 +315,29 @@ public extension MessageViewModel {
                     .union(dependencies[feature: .forceMessageFeatureLongMessage] ? .largerCharacterLimit : .none)
                     .union(dependencies[feature: .forceMessageFeatureAnimatedAvatar] ? .animatedAvatar : .none)
             }()
+            let quotedAuthorDisplayName: String = {
+                guard !currentUserSessionIds.contains(quotedInteraction.authorId) else { return "you".localized() }
+                
+                return Profile.displayName(
+                    for: threadVariant,
+                    id: interaction.authorId,
+                    name: profileCache[quotedInteraction.authorId]?.name,
+                    nickname: profileCache[quotedInteraction.authorId]?.nickname,
+                    suppressId: false   // Show the id next to the author name if desired
+                )
+            }()
             
             return MessageViewModel.QuotedInfo(
                 interactionId: quoteInteractionId,
-                authorName: {
-                    guard !currentUserSessionIds.contains(quotedInteraction.authorId) else {
-                        return "you".localized()
-                    }
-                    
-                    return Profile.displayName(
-                        for: threadVariant,
-                        id: quotedInteraction.authorId,
-                        name: profileCache[quotedInteraction.authorId]?.name,
-                        nickname: profileCache[quotedInteraction.authorId]?.nickname,
-                        suppressId: true
-                    )
-                }(),
+                authorName: quotedAuthorDisplayName,
                 timestampMs: quotedInteraction.timestampMs,
                 body: quotedInteraction.body(
                     threadId: threadId,
                     threadVariant: threadVariant,
-                    authorDisplayName: authorDisplayName,
+                    threadContactDisplayName: threadContactDisplayName,
+                    authorDisplayName: quotedAuthorDisplayName,
                     attachments: quotedAttachments,
                     linkPreview: quotedLinkPreviewInfo?.preview,
-                    profileCache: profileCache,
                     using: dependencies
                 ),
                 attachment: (quotedAttachments?.first ?? quotedLinkPreviewInfo?.attachment),
@@ -333,8 +355,8 @@ public extension MessageViewModel {
             return Profile.displayName(
                 for: threadVariant,
                 id: interaction.authorId,
-                name: profileCache[interaction.authorId]?.name,
-                nickname: profileCache[interaction.authorId]?.nickname,
+                name: targetProfile.name,
+                nickname: targetProfile.nickname,
                 suppressId: true   // Exclude the id next to the author name
             )
         }()
@@ -753,10 +775,10 @@ private extension Interaction {
     func body(
         threadId: String,
         threadVariant: SessionThread.Variant,
+        threadContactDisplayName: String?,
         authorDisplayName: String,
         attachments: [Attachment]?,
         linkPreview: LinkPreview?,
-        profileCache: [String: Profile],
         using dependencies: Dependencies
     ) -> String? {
         guard variant.isInfoMessage else { return body }
@@ -765,13 +787,7 @@ private extension Interaction {
         return Interaction.previewText(
             variant: variant,
             body: body,
-            threadContactDisplayName: Profile.displayName(
-                for: threadVariant,
-                id: threadId,
-                name: profileCache[authorId]?.name,
-                nickname: profileCache[authorId]?.nickname,
-                suppressId: false   // Show the id next to the author name if desired
-            ),
+            threadContactDisplayName: (threadContactDisplayName ?? ""),
             authorDisplayName: authorDisplayName,
             attachmentDescriptionInfo: attachments?.first.map { firstAttachment in
                 Attachment.DescriptionInfo(

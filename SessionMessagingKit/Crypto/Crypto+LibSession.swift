@@ -139,6 +139,9 @@ public extension Crypto.Generator {
             
             switch origin {
                 case .community(_, let sender, let posted, _, _, _, _):
+                    /// **Note:** This will generate an error in the debug console because we are slowly migrating the structure of
+                    /// Community protobuf content, first we try to decode as an envelope (which logs this error when it's the legacy
+                    /// structure) then we try to decode as the legacy structure (which succeeds)
                     var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
                         cEncodedMessage,
                         cEncodedMessage.count,
@@ -167,14 +170,28 @@ public extension Crypto.Generator {
                             serverPublicKey: serverPublicKey
                         )
                     )
-                    let plaintext: Data = plaintextWithPadding.removePadding()
+                    let cPlaintext: [UInt8] = Array(plaintextWithPadding.removePadding())
                     
-                    return DecodedMessage(
-                        content: plaintext,
-                        sender: try SessionId(from: senderId),
-                        decodedEnvelope: nil,   // TODO: [PRO] If we don't set this then we won't know the pro status
-                        sentTimestampMs: UInt64(floor(posted * 1000))
+                    /// **Note:** This will generate an error in the debug console because we are slowly migrating the structure of
+                    /// Community protobuf content, first we try to decode as an envelope (which logs this error when it's the legacy
+                    /// structure) then we try to decode as the legacy structure (which succeeds)
+                    var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
+                        cPlaintext,
+                        cPlaintext.count,
+                        currentTimestampMs,
+                        cBackendPubkey,
+                        cBackendPubkey.count,
+                        &error,
+                        error.count
                     )
+                    defer { session_protocol_decode_for_community_free(&cResult) }
+                    
+                    guard cResult.success else {
+                        Log.error(.messageSender, "Failed to decode community message due to error: \(String(cString: error))")
+                        throw MessageError.decodingFailed
+                    }
+                    
+                    return try DecodedMessage(decodedValue: cResult, sender: sender, posted: posted)
                     
                 case .swarm(let publicKey, let namespace, _, _, _):
                     /// Function to provide pointers to the keys based on the namespace the message was received from

@@ -186,6 +186,7 @@ public enum MessageReceiver {
         decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
         suppressNotifications: Bool,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         /// Throw if the message is outdated and shouldn't be processed (this is based on pretty flaky logic which checks if the config
@@ -241,6 +242,7 @@ public enum MessageReceiver {
                     decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     suppressNotifications: suppressNotifications,
+                    currentUserSessionIds: currentUserSessionIds,
                     using: dependencies
                 )
                 
@@ -291,6 +293,7 @@ public enum MessageReceiver {
                     db,
                     message: message,
                     decodedMessage: decodedMessage,
+                    currentUserSessionIds: currentUserSessionIds,
                     using: dependencies
                 )
                 
@@ -303,6 +306,7 @@ public enum MessageReceiver {
                     decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     suppressNotifications: suppressNotifications,
+                    currentUserSessionIds: currentUserSessionIds,
                     using: dependencies
                 )
             

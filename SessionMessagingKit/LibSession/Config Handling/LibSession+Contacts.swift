@@ -75,8 +75,11 @@ internal extension LibSessionCacheType {
                         )
                     }(),
                     nicknameUpdate: .set(to: data.profile.nickname),
+                    proUpdate: .none, // TODO: [PRO] Need to get this somehow? (sync via config?
+//                    sessionProProof: dependencies[singleton: .sessionProManager].currentUserCurrentProProof,
                     profileUpdateTimestamp: data.profile.profileLastUpdated,
                     cacheSource: .database,
+                    currentUserSessionIds: [userSessionId.hexString],
                     using: dependencies
                 )
                 

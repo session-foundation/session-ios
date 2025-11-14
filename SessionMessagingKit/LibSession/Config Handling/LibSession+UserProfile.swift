@@ -60,9 +60,12 @@ internal extension LibSessionCacheType {
                     isReupload: false
                 )
             }(),
+            proUpdate: .none,    // TODO: [PRO] Do we need to pass this
+//            sessionProProof: dependencies[singleton: .sessionProManager].currentUserCurrentProProof,
             profileUpdateTimestamp: profileLastUpdateTimestamp,
             cacheSource: .value((oldState[.profile(userSessionId.hexString)] as? Profile), fallback: .database),
             suppressUserProfileConfigUpdate: true,
+            currentUserSessionIds: [userSessionId.hexString],
             using: dependencies
         )
         

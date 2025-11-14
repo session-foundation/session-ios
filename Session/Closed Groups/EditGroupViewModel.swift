@@ -306,7 +306,7 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                                         return nil
                                     }
                                     
-                                    return ("ProBadge", { [dependencies] in
+                                    return (SessionProBadge.identifier, { [dependencies] in
                                         SessionProBadge(size: .small).toImage(using: dependencies)
                                     })
                                 }()

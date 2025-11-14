@@ -297,6 +297,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         }
         
         /// Since the hashes are still accurate we can now process the messages
+        let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
         let allProcessedMessages: [ProcessedMessage] = sortedMessages
             .compactMap { namespace, messages, _ -> [ProcessedMessage]? in
                 let processedMessages: [ProcessedMessage] = messages.compactMap { message -> ProcessedMessage? in
@@ -386,7 +387,8 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                                 message: messageInfo.message,
                                 decodedMessage: messageInfo.decodedMessage,
                                 serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                suppressNotifications: (source == .pushNotification),   /// Have already shown
+                                suppressNotifications: (source == .pushNotification),    /// Have already shown
+                                currentUserSessionIds: [currentUserSessionId.hexString], /// Swarm poller only has one
                                 using: dependencies
                             )
                             

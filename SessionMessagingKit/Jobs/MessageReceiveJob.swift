@@ -32,91 +32,116 @@ public enum MessageReceiveJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        var updatedJob: Job = job
-        var lastError: Error?
-        var remainingMessagesToProcess: [Details.MessageInfo] = []
-        
-        dependencies[singleton: .storage].writeAsync(
-            updates: { db -> Error? in
-                for messageInfo in details.messages {
-                    do {
-                        let info: MessageReceiver.InsertedInteractionInfo? = try MessageReceiver.handle(
-                            db,
-                            threadId: threadId,
-                            threadVariant: messageInfo.threadVariant,
-                            message: messageInfo.message,
-                            decodedMessage: messageInfo.decodedMessage,
-                            serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                            suppressNotifications: false,
-                            using: dependencies
-                        )
-                        
-                        /// Notify about the received message
-                        MessageReceiver.prepareNotificationsForInsertedInteractions(
-                            db,
-                            insertedInteractionInfo: info,
-                            isMessageRequest: dependencies.mutate(cache: .libSession) { cache in
-                                cache.isMessageRequest(threadId: threadId, threadVariant: messageInfo.threadVariant)
-                            },
-                            using: dependencies
-                        )
+        Task {
+            typealias Result = (
+                updatedJob: Job,
+                lastError: Error?,
+                remainingMessagesToProcess: [Details.MessageInfo]
+            )
+            
+            do {
+                let currentUserSessionIds: Set<String> = try await {
+                    switch details.messages.first?.threadVariant {
+                        case .none: throw JobRunnerError.missingRequiredDetails
+                        case .contact, .group, .legacyGroup:
+                            return [dependencies[cache: .general].sessionId.hexString]
+                            
+                        case .community:
+                            guard let server: CommunityManager.Server = await dependencies[singleton: .communityManager].server(threadId: threadId) else {
+                                return [dependencies[cache: .general].sessionId.hexString]
+                            }
+                            
+                            return server.currentUserSessionIds
                     }
-                    catch {
-                        // If the current message is a permanent failure then override it with the
-                        // new error (we want to retry if there is a single non-permanent error)
-                        switch error {
-                                // Ignore duplicate and self-send errors (these will usually be caught during
-                                // parsing but sometimes can get past and conflict at database insertion - eg.
-                                // for open group messages) we also don't bother logging as it results in
-                                // excessive logging which isn't useful)
-                            case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
-                                DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
-                                MessageError.duplicateMessage,
-                                MessageError.selfSend:
-                                break
-                                
-                            case is MessageError:
-                                Log.error(.cat, "Permanently failed message due to error: \(error)")
-                                continue
-                                
-                            default:
-                                Log.error(.cat, "Couldn't receive message due to error: \(error)")
-                                lastError = error
-                                
-                                // We failed to process this message but it is a retryable error
-                                // so add it to the list to re-process
-                                remainingMessagesToProcess.append(messageInfo)
+                }()
+                
+                let result: Result = try await dependencies[singleton: .storage].writeAsync { db in
+                    var lastError: Error?
+                    var remainingMessagesToProcess: [Details.MessageInfo] = []
+                    
+                    for messageInfo in details.messages {
+                        do {
+                            let info: MessageReceiver.InsertedInteractionInfo? = try MessageReceiver.handle(
+                                db,
+                                threadId: threadId,
+                                threadVariant: messageInfo.threadVariant,
+                                message: messageInfo.message,
+                                decodedMessage: messageInfo.decodedMessage,
+                                serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
+                                suppressNotifications: false,
+                                currentUserSessionIds: currentUserSessionIds,
+                                using: dependencies
+                            )
+                            
+                            /// Notify about the received message
+                            MessageReceiver.prepareNotificationsForInsertedInteractions(
+                                db,
+                                insertedInteractionInfo: info,
+                                isMessageRequest: dependencies.mutate(cache: .libSession) { cache in
+                                    cache.isMessageRequest(threadId: threadId, threadVariant: messageInfo.threadVariant)
+                                },
+                                using: dependencies
+                            )
+                        }
+                        catch {
+                            // If the current message is a permanent failure then override it with the
+                            // new error (we want to retry if there is a single non-permanent error)
+                            switch error {
+                                    // Ignore duplicate and self-send errors (these will usually be caught during
+                                    // parsing but sometimes can get past and conflict at database insertion - eg.
+                                    // for open group messages) we also don't bother logging as it results in
+                                    // excessive logging which isn't useful)
+                                case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
+                                    DatabaseError.SQLITE_CONSTRAINT,    // Sometimes thrown for UNIQUE
+                                    MessageError.duplicateMessage,
+                                    MessageError.selfSend:
+                                    break
+                                    
+                                case is MessageError:
+                                    Log.error(.cat, "Permanently failed message due to error: \(error)")
+                                    continue
+                                    
+                                default:
+                                    Log.error(.cat, "Couldn't receive message due to error: \(error)")
+                                    lastError = error
+                                    
+                                    // We failed to process this message but it is a retryable error
+                                    // so add it to the list to re-process
+                                    remainingMessagesToProcess.append(messageInfo)
+                            }
                         }
                     }
+                    
+                    /// If any messages failed to process then we want to update the job to only include those failed messages
+                    guard !remainingMessagesToProcess.isEmpty else { return (job, lastError, []) }
+                    
+                    return (
+                        try job
+                            .with(details: Details(messages: remainingMessagesToProcess))
+                            .defaulting(to: job)
+                            .upserted(db),
+                        lastError,
+                        remainingMessagesToProcess
+                    )
                 }
                 
-                // If any messages failed to process then we want to update the job to only include
-                // those failed messages
-                guard !remainingMessagesToProcess.isEmpty else { return nil }
-                
-                updatedJob = try job
-                    .with(details: Details(messages: remainingMessagesToProcess))
-                    .defaulting(to: job)
-                    .upserted(db)
-                
-                return lastError
-            },
-            completion: { result in
-                // Handle the result
-                switch result {
-                    case .failure(let error): failure(updatedJob, error, false)
-                    case .success(let lastError):
-                        /// Report the result of the job
-                        switch lastError {
-                            case let error as MessageError: failure(updatedJob, error, true)
-                            case .some(let error): failure(updatedJob, error, false)
-                            case .none: success(updatedJob, false)
-                        }
-                        
-                        success(updatedJob, false)
+                return scheduler.schedule {
+                    /// Report the result of the job
+                    switch result.lastError {
+                        case let error as MessageError: failure(result.updatedJob, error, true)
+                        case .some(let error): failure(result.updatedJob, error, false)
+                        case .none: success(result.updatedJob, false)
+                    }
+                    
+                    success(result.updatedJob, false)
                 }
             }
-        )
+            catch {
+                return scheduler.schedule {
+                    failure(job, error, false)
+                }
+            }
+        }
     }
 }
 

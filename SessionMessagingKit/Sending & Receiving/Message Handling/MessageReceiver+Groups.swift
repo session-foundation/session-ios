@@ -15,6 +15,7 @@ extension MessageReceiver {
         decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
         suppressNotifications: Bool,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         switch (message, try? SessionId(from: threadId)) {
@@ -24,6 +25,7 @@ extension MessageReceiver {
                     message: message,
                     decodedMessage: decodedMessage,
                     suppressNotifications: suppressNotifications,
+                    currentUserSessionIds: currentUserSessionIds,
                     using: dependencies
                 )
                 
@@ -33,6 +35,7 @@ extension MessageReceiver {
                     message: message,
                     decodedMessage: decodedMessage,
                     suppressNotifications: suppressNotifications,
+                    currentUserSessionIds: currentUserSessionIds,
                     using: dependencies
                 )
                 
@@ -82,6 +85,7 @@ extension MessageReceiver {
                     groupSessionId: sessionId,
                     message: message,
                     decodedMessage: decodedMessage,
+                    currentUserSessionIds: currentUserSessionIds,
                     using: dependencies
                 )
                 return nil
@@ -141,6 +145,7 @@ extension MessageReceiver {
         message: GroupUpdateInviteMessage,
         decodedMessage: DecodedMessage,
         suppressNotifications: Bool,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         // Ensure the message is valid
@@ -152,10 +157,11 @@ extension MessageReceiver {
                 db,
                 publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
+                displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
-                decodedPro: decodedMessage.decodedPro,
+                proUpdate: .contactUpdate(decodedMessage.decodedPro),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
+                currentUserSessionIds: currentUserSessionIds,
                 using: dependencies
             )
         }
@@ -239,6 +245,7 @@ extension MessageReceiver {
         message: GroupUpdatePromoteMessage,
         decodedMessage: DecodedMessage,
         suppressNotifications: Bool,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         let groupIdentityKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(
@@ -252,10 +259,11 @@ extension MessageReceiver {
                 db,
                 publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
+                displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
-                decodedPro: decodedMessage.decodedPro,
+                proUpdate: .contactUpdate(decodedMessage.decodedPro),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
+                currentUserSessionIds: currentUserSessionIds,
                 using: dependencies
             )
         }
@@ -594,6 +602,7 @@ extension MessageReceiver {
         groupSessionId: SessionId,
         message: GroupUpdateInviteResponseMessage,
         decodedMessage: DecodedMessage,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws {
         // Only process the invite response if it was an approval
@@ -605,10 +614,11 @@ extension MessageReceiver {
                 db,
                 publicKey: decodedMessage.sender.hexString,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: .from(profile, fallback: .contactRemove, using: dependencies),
+                displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
-                decodedPro: decodedMessage.decodedPro,
+                proUpdate: .contactUpdate(decodedMessage.decodedPro),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
+                currentUserSessionIds: currentUserSessionIds,
                 using: dependencies
             )
         }

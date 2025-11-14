@@ -80,6 +80,13 @@ public actor CommunityManager: CommunityManagerType {
         _lastSuccessfulCommunityPollTimestamp = timestamp
     }
     
+    nonisolated public func currentUserSessionIdsSync(_ server: String) -> Set<String> {
+        return (
+            syncState.servers[server.lowercased()]?.currentUserSessionIds ??
+            [syncState.dependencies[cache: .general].sessionId.hexString]
+        )
+    }
+    
     public func fetchDefaultRoomsIfNeeded() async {
         /// If we don't have any default rooms in memory then we haven't fetched this launch so schedule
         /// the `RetrieveDefaultOpenGroupRoomsJob` if one isn't already running
@@ -435,8 +442,8 @@ public actor CommunityManager: CommunityManagerType {
                 try handlePollInfo(
                     db,
                     pollInfo: Network.SOGS.RoomPollInfo(room: response.value.room.data),
-                    roomToken: roomToken,
                     server: targetServer,
+                    roomToken: roomToken,
                     publicKey: publicKey,
                 )
             }
@@ -577,8 +584,8 @@ public actor CommunityManager: CommunityManagerType {
     nonisolated public func handlePollInfo(
         _ db: ObservingDatabase,
         pollInfo: Network.SOGS.RoomPollInfo,
-        roomToken: String,
         server: String,
+        roomToken: String,
         publicKey: String
     ) throws {
         // Create the open group model and get or create the thread
@@ -779,8 +786,9 @@ public actor CommunityManager: CommunityManagerType {
     nonisolated public func handleMessages(
         _ db: ObservingDatabase,
         messages: [Network.SOGS.Message],
-        for roomToken: String,
-        on server: String
+        server: String,
+        roomToken: String,
+        currentUserSessionIds: Set<String>
     ) -> [MessageReceiver.InsertedInteractionInfo?] {
         guard let openGroup: OpenGroup = try? OpenGroup.fetchOne(db, id: OpenGroup.idFor(roomToken: roomToken, server: server)) else {
             Log.error(.communityManager, "Couldn't handle open group messages due to missing group.")
@@ -848,6 +856,7 @@ public actor CommunityManager: CommunityManagerType {
                                     decodedMessage: messageInfo.decodedMessage,
                                     serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                                     suppressNotifications: false,
+                                    currentUserSessionIds: currentUserSessionIds,
                                     using: syncState.dependencies
                                 )
                             )
@@ -968,7 +977,8 @@ public actor CommunityManager: CommunityManagerType {
         _ db: ObservingDatabase,
         messages: [Network.SOGS.DirectMessage],
         fromOutbox: Bool,
-        on server: String
+        server: String,
+        currentUserSessionIds: Set<String>
     ) -> [MessageReceiver.InsertedInteractionInfo?] {
         // Don't need to do anything if we have no messages (it's a valid case)
         guard !messages.isEmpty else { return [] }
@@ -1104,6 +1114,7 @@ public actor CommunityManager: CommunityManagerType {
                                 decodedMessage: messageInfo.decodedMessage,
                                 serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
                                 suppressNotifications: false,
+                                currentUserSessionIds: currentUserSessionIds,
                                 using: syncState.dependencies
                             )
                         )
@@ -1291,6 +1302,9 @@ public protocol CommunityManagerType {
     func getLastSuccessfulCommunityPollTimestamp() async -> TimeInterval
     func setLastSuccessfulCommunityPollTimestamp(_ timestamp: TimeInterval) async
     
+    @available(*, deprecated, message: "use `server(_:)?.currentUserSessionIds` instead")
+    nonisolated func currentUserSessionIdsSync(_ server: String) -> Set<String>
+    
     func fetchDefaultRoomsIfNeeded() async
     func loadCacheIfNeeded() async
     
@@ -1344,21 +1358,23 @@ public protocol CommunityManagerType {
     nonisolated func handlePollInfo(
         _ db: ObservingDatabase,
         pollInfo: Network.SOGS.RoomPollInfo,
-        roomToken: String,
         server: String,
+        roomToken: String,
         publicKey: String
     ) throws
     nonisolated func handleMessages(
         _ db: ObservingDatabase,
         messages: [Network.SOGS.Message],
-        for roomToken: String,
-        on server: String
+        server: String,
+        roomToken: String,
+        currentUserSessionIds: Set<String>
     ) -> [MessageReceiver.InsertedInteractionInfo?]
     nonisolated func handleDirectMessages(
         _ db: ObservingDatabase,
         messages: [Network.SOGS.DirectMessage],
         fromOutbox: Bool,
-        on server: String
+        server: String,
+        currentUserSessionIds: Set<String>
     ) -> [MessageReceiver.InsertedInteractionInfo?]
     
     // MARK: - Convenience

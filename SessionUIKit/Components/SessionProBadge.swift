@@ -3,6 +3,8 @@
 import UIKit
 
 public class SessionProBadge: UIView {
+    public static let identifier: String = "ProBadge"   // stringlint:ignore
+    
     public enum Size {
         case mini, small, medium, large
         

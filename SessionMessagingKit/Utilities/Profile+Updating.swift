@@ -14,10 +14,10 @@ private extension Log.Category {
 // MARK: - Profile Updates
 
 public extension Profile {
-    enum DisplayNameUpdate {
+    enum TargetUserUpdate<T> {
         case none
-        case contactUpdate(String?)
-        case currentUserUpdate(String?)
+        case contactUpdate(T)
+        case currentUserUpdate(T)
     }
     
     indirect enum CacheSource {
@@ -88,8 +88,9 @@ public extension Profile {
     }
     
     static func updateLocal(
-        displayNameUpdate: DisplayNameUpdate = .none,
+        displayNameUpdate: TargetUserUpdate<String?> = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
+        proUpdate: TargetUserUpdate<SessionPro.DecodedProForMessage?> = .none,
         using dependencies: Dependencies
     ) async throws {
         /// Perform any non-database related changes for the update
@@ -131,8 +132,9 @@ public extension Profile {
                     publicKey: userSessionId.hexString,
                     displayNameUpdate: displayNameUpdate,
                     displayPictureUpdate: displayPictureUpdate,
-                    decodedPro: dependencies[singleton: .sessionProManager].currentUserCurrentDecodedProForMessage,
+                    proUpdate: proUpdate,
                     profileUpdateTimestamp: profileUpdateTimestamp,
+                    currentUserSessionIds: [userSessionId.hexString],
                     using: dependencies
                 )
             }
@@ -143,18 +145,18 @@ public extension Profile {
     static func updateIfNeeded(
         _ db: ObservingDatabase,
         publicKey: String,
-        displayNameUpdate: DisplayNameUpdate = .none,
+        displayNameUpdate: TargetUserUpdate<String?> = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
         nicknameUpdate: Update<String?> = .useExisting,
         blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
-        decodedPro: SessionPro.DecodedProForMessage?,
+        proUpdate: TargetUserUpdate<SessionPro.DecodedProForMessage?> = .none,
         profileUpdateTimestamp: TimeInterval?,
         cacheSource: CacheSource = .libSession(fallback: .database),
         suppressUserProfileConfigUpdate: Bool = false,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let isCurrentUser = (publicKey == userSessionId.hexString)
+        let isCurrentUser = currentUserSessionIds.contains(publicKey)
         let profile: Profile = cacheSource.resolve(db, publicKey: publicKey, using: dependencies)
         let updateStatus: UpdateStatus = UpdateStatus(
             updateTimestamp: profileUpdateTimestamp,
@@ -246,74 +248,81 @@ public extension Profile {
                 default: break
             }
             
-            /// Session Pro Information
-            let proInfo: SessionPro.DecodedProForMessage = (decodedPro ?? .nonPro)
-            
-            switch proInfo.status {
-                case .valid:
-                    let originalChangeCount: Int = profileChanges.count
-                    let finalFeatures: SessionPro.Features = proInfo.features.profileOnlyFeatures
+            /// Session Pro Information (if it's not the current user)
+            switch (proUpdate, isCurrentUser) {
+                case (.none, _): break
+                case (.contactUpdate(let value), false), (.currentUserUpdate(let value), true):
+                    let proInfo: SessionPro.DecodedProForMessage = (value ?? .nonPro)
                     
-                    if profile.proFeatures != finalFeatures {
-                        updatedProfile = updatedProfile.with(proFeatures: .set(to: finalFeatures))
-                        profileChanges.append(Profile.Columns.proFeatures.set(to: finalFeatures.rawValue))
+                    switch proInfo.status {
+                        case .valid:
+                            let originalChangeCount: Int = profileChanges.count
+                            let finalFeatures: SessionPro.Features = proInfo.features.profileOnlyFeatures
+                            
+                            if profile.proFeatures != finalFeatures {
+                                updatedProfile = updatedProfile.with(proFeatures: .set(to: finalFeatures))
+                                profileChanges.append(Profile.Columns.proFeatures.set(to: finalFeatures.rawValue))
+                            }
+                            
+                            if profile.proExpiryUnixTimestampMs != proInfo.proProof.expiryUnixTimestampMs {
+                                let value: UInt64 = proInfo.proProof.expiryUnixTimestampMs
+                                updatedProfile = updatedProfile.with(proExpiryUnixTimestampMs: .set(to: value))
+                                profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs.set(to: value))
+                            }
+                            
+                            if profile.proGenIndexHash != proInfo.proProof.genIndexHash.toHexString() {
+                                let value: String = proInfo.proProof.genIndexHash.toHexString()
+                                updatedProfile = updatedProfile.with(proGenIndexHash: .set(to: value))
+                                profileChanges.append(Profile.Columns.proGenIndexHash.set(to: value))
+                            }
+                            
+                            /// If the change count no longer matches then the pro status was updated so we need to emit an event
+                            if profileChanges.count != originalChangeCount {
+                                db.addProfileEvent(
+                                    id: publicKey,
+                                    change: .proStatus(
+                                        isPro: true,
+                                        features: finalFeatures,
+                                        proExpiryUnixTimestampMs: proInfo.proProof.expiryUnixTimestampMs,
+                                        proGenIndexHash: proInfo.proProof.genIndexHash.toHexString()
+                                    )
+                                )
+                            }
+                            
+                        default:
+                            let originalChangeCount: Int = profileChanges.count
+                            
+                            if profile.proFeatures != .none {
+                                updatedProfile = updatedProfile.with(proFeatures: .set(to: .none))
+                                profileChanges.append(Profile.Columns.proFeatures.set(to: .none))
+                            }
+                            
+                            if profile.proExpiryUnixTimestampMs > 0 {
+                                updatedProfile = updatedProfile.with(proExpiryUnixTimestampMs: .set(to: 0))
+                                profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs.set(to: 0))
+                            }
+                            
+                            if profile.proGenIndexHash != nil {
+                                updatedProfile = updatedProfile.with(proGenIndexHash: .set(to: nil))
+                                profileChanges.append(Profile.Columns.proGenIndexHash.set(to: nil))
+                            }
+                            
+                            /// If the change count no longer matches then the pro status was updated so we need to emit an event
+                            if profileChanges.count != originalChangeCount {
+                                db.addProfileEvent(
+                                    id: publicKey,
+                                    change: .proStatus(
+                                        isPro: false,
+                                        features: .none,
+                                        proExpiryUnixTimestampMs: 0,
+                                        proGenIndexHash: nil
+                                    )
+                                )
+                            }
                     }
                     
-                    if profile.proExpiryUnixTimestampMs != proInfo.proProof.expiryUnixTimestampMs {
-                        let value: UInt64 = proInfo.proProof.expiryUnixTimestampMs
-                        updatedProfile = updatedProfile.with(proExpiryUnixTimestampMs: .set(to: value))
-                        profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs.set(to: value))
-                    }
-                    
-                    if profile.proGenIndexHash != proInfo.proProof.genIndexHash.toHexString() {
-                        let value: String = proInfo.proProof.genIndexHash.toHexString()
-                        updatedProfile = updatedProfile.with(proGenIndexHash: .set(to: value))
-                        profileChanges.append(Profile.Columns.proGenIndexHash.set(to: value))
-                    }
-                    
-                    /// If the change count no longer matches then the pro status was updated so we need to emit an event
-                    if profileChanges.count != originalChangeCount {
-                        db.addProfileEvent(
-                            id: publicKey,
-                            change: .proStatus(
-                                isPro: true,
-                                features: finalFeatures,
-                                proExpiryUnixTimestampMs: proInfo.proProof.expiryUnixTimestampMs,
-                                proGenIndexHash: proInfo.proProof.genIndexHash.toHexString()
-                            )
-                        )
-                    }
-                    
-                default:
-                    let originalChangeCount: Int = profileChanges.count
-                    
-                    if profile.proFeatures != .none {
-                        updatedProfile = updatedProfile.with(proFeatures: .set(to: .none))
-                        profileChanges.append(Profile.Columns.proFeatures.set(to: .none))
-                    }
-                    
-                    if profile.proExpiryUnixTimestampMs > 0 {
-                        updatedProfile = updatedProfile.with(proExpiryUnixTimestampMs: .set(to: 0))
-                        profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs.set(to: 0))
-                    }
-                    
-                    if profile.proGenIndexHash != nil {
-                        updatedProfile = updatedProfile.with(proGenIndexHash: .set(to: nil))
-                        profileChanges.append(Profile.Columns.proGenIndexHash.set(to: nil))
-                    }
-                    
-                    /// If the change count no longer matches then the pro status was updated so we need to emit an event
-                    if profileChanges.count != originalChangeCount {
-                        db.addProfileEvent(
-                            id: publicKey,
-                            change: .proStatus(
-                                isPro: false,
-                                features: .none,
-                                proExpiryUnixTimestampMs: 0,
-                                proGenIndexHash: nil
-                            )
-                        )
-                    }
+                /// Don't want profiles in messages to modify the current users profile info so ignore those cases
+                default: break
             }
         }
         
@@ -429,6 +438,8 @@ public extension Profile {
             /// We don't automatically update the current users profile data when changed in the database so need to manually
             /// trigger the update
             if !suppressUserProfileConfigUpdate, isCurrentUser {
+                let userSessionId: SessionId = dependencies[cache: .general].sessionId
+                
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
                         // TODO: [PRO] Need to update the current users pro settings?

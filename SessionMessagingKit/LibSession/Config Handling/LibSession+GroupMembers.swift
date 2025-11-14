@@ -169,8 +169,10 @@ internal extension LibSessionCacheType {
                 db,
                 publicKey: profile.id,
                 displayNameUpdate: .contactUpdate(profile.name),
-                displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
+                displayPictureUpdate: .contactUpdateTo(profile, fallback: .none),
+                proUpdate: .none,    // TODO: [PRO] Need to get this somehow? (sync via config?
                 profileUpdateTimestamp: profile.profileLastUpdated,
+                currentUserSessionIds: [userSessionId.hexString],
                 using: dependencies
             )
         }

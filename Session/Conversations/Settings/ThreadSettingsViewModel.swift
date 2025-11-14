@@ -316,7 +316,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 !threadViewModel.threadIsNoteToSelf
                             else { return nil }
                             
-                            return ("ProBadge", { [dependencies] in
+                            return (SessionProBadge.identifier, { [dependencies] in
                                 SessionProBadge(size: .medium).toImage(using: dependencies)
                             })
                         }()
@@ -1591,6 +1591,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry
         /// about retrieving them in the confirmation closure
         self.updatedName = current
+        let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
+        
         return ConfirmationModal.Info(
             title: "nicknameSet".localized(),
             body: .input(
@@ -1645,7 +1647,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             db,
                             publicKey: threadId,
                             nicknameUpdate: .set(to: finalNickname),
-                            profileUpdateTimestamp: nil,
+                            profileUpdateTimestamp: nil,                              /// Not set for `nickname`
+                            currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
                             using: dependencies
                         )
                     },
@@ -1664,7 +1667,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             db,
                             publicKey: threadId,
                             nicknameUpdate: .set(to: nil),
-                            profileUpdateTimestamp: nil,
+                            profileUpdateTimestamp: nil,                              /// Not set for `nickname`
+                            currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
                             using: dependencies
                         )
                     },

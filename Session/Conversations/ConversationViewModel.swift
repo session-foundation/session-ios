@@ -919,7 +919,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                             .union(dependencies[feature: .proBadgeEverywhere] ? .proBadge : .none)
                     }()
                     
-                    profileCache[profile.id] = profile
+                    profileCache[profile.id] = profile.with(proFeatures: .set(to: finalFeatures))
                 }
                 fetchedLinkPreviews.forEach { linkPreviewCache[$0.url, default: []].append($0) }
                 fetchedAttachments.forEach { attachmentCache[$0.id] = $0 }
@@ -1088,10 +1088,17 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     optimisticMessageId = nil
                     interaction = targetInteraction
                     reactionInfo = reactionCache[id].map { reactions in
-                        reactions.map {
-                            MessageViewModel.ReactionInfo(
-                                reaction: $0,
-                                profile: profileCache[$0.authorId]
+                        reactions.map { reaction in
+                            /// If the reactor is the current user then use the proper profile from the cache (instead of a random
+                            /// blinded one)
+                            let targetId: String = (currentUserSessionIds.contains(reaction.authorId) ?
+                                previousState.userSessionId.hexString :
+                                reaction.authorId
+                            )
+                            
+                            return MessageViewModel.ReactionInfo(
+                                reaction: reaction,
+                                profile: profileCache[targetId]
                             )
                         }
                     }
@@ -1112,6 +1119,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 linkPreviewCache: linkPreviewCache,
                 attachmentMap: attachmentMap,
                 isSenderModeratorOrAdmin: modAdminCache.contains(interaction.authorId),
+                userSessionId: previousState.userSessionId,
                 currentUserSessionIds: currentUserSessionIds,
                 previousInteraction: State.interaction(
                     at: index + 1,  /// Order is inverted so `previousInteraction` is the next element

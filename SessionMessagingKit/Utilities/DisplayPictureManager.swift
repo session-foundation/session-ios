@@ -42,15 +42,15 @@ public class DisplayPictureManager {
         case groupUploadImage(source: ImageDataManager.DataSource, cropRect: CGRect?)
         case groupUpdateTo(url: String, key: Data)
         
-        static func from(_ profile: VisibleMessage.VMProfile, fallback: Update, using dependencies: Dependencies) -> Update {
-            return from(profile.profilePictureUrl, key: profile.profileKey, fallback: fallback, using: dependencies)
+        static func contactUpdateTo(_ profile: VisibleMessage.VMProfile, fallback: Update) -> Update {
+            return contactUpdateTo(profile.profilePictureUrl, key: profile.profileKey, fallback: fallback)
         }
         
-        public static func from(_ profile: Profile, fallback: Update, using dependencies: Dependencies) -> Update {
-            return from(profile.displayPictureUrl, key: profile.displayPictureEncryptionKey, fallback: fallback, using: dependencies)
+        public static func contactUpdateTo(_ profile: Profile, fallback: Update) -> Update {
+            return contactUpdateTo(profile.displayPictureUrl, key: profile.displayPictureEncryptionKey, fallback: fallback)
         }
         
-        static func from(_ url: String?, key: Data?, fallback: Update, using dependencies: Dependencies) -> Update {
+        static func contactUpdateTo(_ url: String?, key: Data?, fallback: Update) -> Update {
             guard
                 let url: String = url,
                 let key: Data = key
