@@ -36,6 +36,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        // TODO: [PRO] Get the pro state of current user
         let originatingPlatform: ClientPlatform = dependencies[feature: .proPlanOriginatingPlatform]
         switch dependencies[feature: .mockCurrentUserSessionProState] {
             case .none:
@@ -70,6 +71,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     }
     
     public func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Upgrade to Pro
         Task {
             try await Task.sleep(for: .seconds(5))
             dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
@@ -88,6 +90,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     }
     
     public func cancelPro(completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Cancel Pro: This is more like just cancel subscription
         guard case .active(let currentPlan, let expiredOn, _, let originatingPlatform) = self.sessionProStateSubject.value else {
             return
         }
@@ -104,6 +107,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     }
     
     public func requestRefund(completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Request refund
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .refunding)
         self.sessionProStateSubject.send(
             SessionProPlanState.refunding(
@@ -116,6 +120,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     }
     
     public func expirePro(completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Mannualy expire pro state, maybe just for QA as we have backend to determine if pro is expired
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .expired)
         self.sessionProStateSubject.send(
             SessionProPlanState.expired(
@@ -127,6 +132,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     }
     
     public func recoverPro(completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Recover from an existing pro plan
         guard dependencies[feature: .proPlanToRecover] == true && dependencies[feature: .mockCurrentUserSessionProLoadingState] == .success else {
             completion?(false)
             return

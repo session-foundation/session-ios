@@ -190,7 +190,7 @@ public struct SessionProPaymentScreen: View {
                                             }
                                         },
                                         failure: {
-                                            // TODO: [Pro] Failed to cancel plan
+                                            // TODO: [PRO] Failed to cancel plan
                                         }
                                     )
                                 }
