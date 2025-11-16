@@ -750,16 +750,28 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     font: .Headings.H8,
                                     color: state.loadingState == .success ? .primary : .textPrimary
                                 ),
-                                description: (
-                                    state.loadingState != .error ? nil :
-                                            .init(
+                                description: {
+                                    switch state.loadingState {
+                                        case .error:
+                                            return .init(
                                                 font: .Body.smallRegular,
                                                 attributedString: "errorCheckingProStatus"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted(Fonts.Body.smallRegular),
                                                 color: .warning
                                             )
-                                ),
+                                        case .loading:
+                                            return .init(
+                                                font: .Body.smallRegular,
+                                                attributedString: "checkingProStatusEllipsis"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted(Fonts.Body.smallRegular),
+                                                color: .textPrimary
+                                            )
+                                        case .success:
+                                            return nil
+                                    }
+                                }(),
                                 trailingAccessory: (
                                     state.loadingState == .loading ?
                                         .loadingIndicator(size: .large) :
