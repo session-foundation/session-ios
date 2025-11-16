@@ -79,6 +79,7 @@ public struct ListItemLogoWithPro: View {
                 
                 SessionProBadge_SwiftUI(size: .medium, themeBackgroundColor: info.style.themeColor)
             }
+            .environment(\.layoutDirection, .leftToRight)
             
             if case .success(let description) = info.state, let description {
                 AttributedText(description)
