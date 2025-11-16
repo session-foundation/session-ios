@@ -520,9 +520,28 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .faq,
                     variant: .cell(
                         info: .init(
-                            title: .init("proFaq".put(key: "pro", value: Constants.pro).localized(), font: .Headings.H8),
-                            description: .init("proFaqDescription".put(key: "app_pro", value: Constants.app_pro).localized(), font: .Body.smallRegular),
-                            trailingAccessory: .icon(.squareArrowUpRight, size: .large, customTint: .primary)
+                            title: .init(
+                                "proFaq"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized(),
+                                font: .Headings.H8
+                            ),
+                            description: .init(
+                                "proFaqDescription"
+                                    .put(key: "app_pro", value: Constants.app_pro)
+                                    .localized(),
+                                font: .Body.smallRegular
+                            ),
+                            trailingAccessory: .icon(
+                                .squareArrowUpRight,
+                                size: .large,
+                                customTint: {
+                                    switch state.currentProPlanState {
+                                        case .expired: return .textPrimary
+                                        default: return .sessionButton_text
+                                    }
+                                }()
+                            )
                         )
                     ),
                     onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_faq_url) }
@@ -531,9 +550,26 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .support,
                     variant: .cell(
                         info: .init(
-                            title: .init("helpSupport".localized(), font: .Headings.H8),
-                            description: .init("proSupportDescription".put(key: "pro", value: Constants.pro).localized(), font: .Body.smallRegular),
-                            trailingAccessory: .icon(.squareArrowUpRight, size: .large, customTint: .primary)
+                            title: .init(
+                                "helpSupport".localized(),
+                                font: .Headings.H8
+                            ),
+                            description: .init(
+                                "proSupportDescription"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized(),
+                                font: .Body.smallRegular
+                            ),
+                            trailingAccessory: .icon(
+                                .squareArrowUpRight,
+                                size: .large,
+                                customTint: {
+                                    switch state.currentProPlanState {
+                                        case .expired: return .textPrimary
+                                        default: return .sessionButton_text
+                                    }
+                                }()
+                            )
                         )
                     ),
                     onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_support_url) }
