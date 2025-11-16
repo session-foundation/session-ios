@@ -13,6 +13,7 @@ struct  SessionProPlanPurchaseContent: View {
     let currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo?
     let sessionProPlans: [SessionProPaymentScreenContent.SessionProPlanInfo]
     let actionButtonTitle: String
+    let activationType: String
     let purchaseAction: () -> Void
     let openTosPrivacyAction: () -> Void
     
@@ -53,18 +54,35 @@ struct  SessionProPlanPurchaseContent: View {
             .disabled((sessionProPlans[currentSelection] == currentPlan))
             
             AttributedText(
-                "proTosPrivacy"
+                "noteTosPrivacyPolicy"
+                    .put(key: "action_type", value: "proUpdatingAction".localized())
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                     .localizedFormatted(Fonts.Body.smallRegular)
             )
             .font(.Body.smallRegular)
-            .foregroundColor(themeColor: .textSecondary)
+            .foregroundColor(themeColor: .textPrimary)
             .multilineTextAlignment(.center)
             .padding(.horizontal, Values.smallSpacing)
             .fixedSize(horizontal: false, vertical: true)
             .onTapGesture { openTosPrivacyAction() }
+
+            if currentPlan == nil {
+                AttributedText(
+                    "proTosDescription"
+                        .put(key: "action_type", value: "proUpdatingAction".localized())
+                        .put(key: "activation_type", value: activationType)
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "entity", value: Constants.entity_stf)
+                        .put(key: "app_name", value: Constants.app_name)
+                        .localizedFormatted(Fonts.Body.smallRegular)
+                )
+                .font(.Body.smallRegular)
+                .foregroundColor(themeColor: .textPrimary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Values.smallSpacing)
+                .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }
-
