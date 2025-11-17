@@ -13,6 +13,7 @@ struct  SessionProPlanPurchaseContent: View {
     let currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo?
     let sessionProPlans: [SessionProPaymentScreenContent.SessionProPlanInfo]
     let actionButtonTitle: String
+    let actionType: String
     let activationType: String
     let purchaseAction: () -> Void
     let openTosPrivacyAction: () -> Void
@@ -55,7 +56,7 @@ struct  SessionProPlanPurchaseContent: View {
             
             AttributedText(
                 "noteTosPrivacyPolicy"
-                    .put(key: "action_type", value: "proUpdatingAction".localized())
+                    .put(key: "action_type", value: actionType)
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                     .localizedFormatted(Fonts.Body.smallRegular)
@@ -70,10 +71,10 @@ struct  SessionProPlanPurchaseContent: View {
             if currentPlan == nil {
                 AttributedText(
                     "proTosDescription"
-                        .put(key: "action_type", value: "proUpdatingAction".localized())
+                        .put(key: "action_type", value: actionType)
                         .put(key: "activation_type", value: activationType)
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "entity", value: Constants.entity_stf)
+                        .put(key: "entity", value: Constants.entity_rangeproof)
                         .put(key: "app_name", value: Constants.app_name)
                         .localizedFormatted(Fonts.Body.smallRegular)
                 )
