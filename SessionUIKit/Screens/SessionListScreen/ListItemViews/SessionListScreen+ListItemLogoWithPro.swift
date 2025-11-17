@@ -50,10 +50,10 @@ public struct ListItemLogoWithPro: View {
                     .fill(themeColor: info.style.growingBackgroundColor)
                     .frame(
                         width: UIScreen.main.bounds.width - 2 * Values.mediumSpacing - 20 * 2,
-                        height: 111
+                        height: 96
                     )
-                    .shadow(radius: 15)
                     .opacity(0.15)
+                    .shadow(radius: 15)
                     .blur(radius: 20)
                 
                 Image("SessionGreen64")
@@ -68,6 +68,7 @@ public struct ListItemLogoWithPro: View {
                 height: 133,
                 alignment: .center
             )
+            .padding(.top, Values.smallSpacing)
             
             HStack(spacing: Values.smallSpacing) {
                 Image("SessionHeading")
