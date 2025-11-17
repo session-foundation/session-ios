@@ -12,8 +12,9 @@ public protocol SessionProManagerType: AnyObject {
     func requestRefund(completion: ((_ result: Bool) -> Void)?)
     func expirePro(completion: ((_ result: Bool) -> Void)?)
     func recoverPro(completion: ((_ result: Bool) -> Void)?)
-    // This function is only for QA purpose
+    // These functions are only for QA purpose
     func updateOriginatingPlatform(_ newValue: ClientPlatform)
+    func updateProExpiry(_ expiryInSeconds: TimeInterval)
 }
 
 public enum SessionProPlanState: Equatable, Sendable {
@@ -107,6 +108,8 @@ public struct SessionProPlan: Equatable, Sendable {
     }
 }
 
+// TODO: [PRO] Move these strings
+
 public enum ClientPlatform: String, Sendable {
     case iOS
     case Android
@@ -145,6 +148,7 @@ public enum ClientPlatform: String, Sendable {
 public enum SessionProStateMock: String, Sendable, Codable, CaseIterable, FeatureOption {
     case none
     case active
+    case expiring
     case expired
     case refunding
     
@@ -155,12 +159,52 @@ public enum SessionProStateMock: String, Sendable, Codable, CaseIterable, Featur
         switch self {
             case .none: return "None"
             case .active: return "Active"
+            case .expiring: return "Expiring"
             case .expired: return "Expired"
             case .refunding: return "Refunding"
         }
     }
     
+    // stringlint:ignore_contents
+    public var subtitle: String? {
+        switch self {
+            case .expiring: return "Active, no auto-renewing"
+            default: return nil
+        }
+    }
+}
+
+public enum SessionProStateExpiryMock: String, Sendable, Codable, CaseIterable, FeatureOption {
+    case none
+    case twentyFourDaysPlusOneMinite
+    case twentyFourHoursPlusOneMinite
+    case twentyFourHoursMinusOneMinite
+    case tenSeconds
+    
+    public static var defaultOption: SessionProStateExpiryMock = .none
+    
+    // stringlint:ignore_contents
+    public var title: String {
+        switch self {
+            case .none: return "None"
+            case .twentyFourDaysPlusOneMinite: return "24d+1m"
+            case .twentyFourHoursPlusOneMinite: return "24h+1m"
+            case .twentyFourHoursMinusOneMinite: return "23h59m"
+            case .tenSeconds: return "10s"
+        }
+    }
+    
     public var subtitle: String? { return nil }
+    
+    public var durationInSeconds: TimeInterval {
+        switch self {
+            case .none: return 0
+            case .twentyFourDaysPlusOneMinite: return 24 * 24 * 60 * 60 + 60
+            case .twentyFourHoursPlusOneMinite: return 24 * 60 * 60 + 60
+            case .twentyFourHoursMinusOneMinite: return 24 * 60 * 60 - 60
+            case .tenSeconds: return 10
+        }
+    }
 }
 
 public enum SessionProLoadingState: String, Sendable, Codable, CaseIterable, FeatureOption {
@@ -187,4 +231,3 @@ extension ClientPlatform: FeatureOption {
     public var title: String { deviceType }
     public var subtitle: String? { return nil }
 }
-

@@ -141,8 +141,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             .setting(.proBadgesSentCounter),
             .setting(.longerMessagesSentCounter),
             .setting(.isProBadgeEnabled),
-            .feature(.mockCurrentUserSessionProState),          // TODO: real data from libSession
-            .feature(.mockCurrentUserSessionProLoadingState)    // TODO: real loading status
+            .feature(.mockCurrentUserSessionProState),          // TODO: [PRO] real data from libSession
+            .feature(.mockCurrentUserSessionProLoadingState)    // TODO: [PRO] real loading status
         ]
         
         static func initialState() -> ViewModelState {

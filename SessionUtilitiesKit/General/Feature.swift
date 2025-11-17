@@ -94,6 +94,10 @@ public extension FeatureStorage {
         identifier: "mockCurrentUserSessionProState"
     )
     
+    static let mockCurrentUserSessionProExpiry: FeatureConfig<SessionProStateExpiryMock> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProExpiry"
+    )
+    
     static let mockCurrentUserSessionProLoadingState: FeatureConfig<SessionProLoadingState> = Dependencies.create(
         identifier: "mockCurrentUserSessionProLoadingState"
     )

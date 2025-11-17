@@ -49,6 +49,15 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                             originatingPlatform: originatingPlatform
                         )
                 )
+            case .expiring:
+                self.sessionProStateSubject = CurrentValueSubject(
+                        SessionProPlanState.active(
+                            currentPlan: SessionProPlan(variant: .threeMonths),
+                            expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+                            isAutoRenewing: false,
+                            originatingPlatform: originatingPlatform
+                        )
+                )
             case .expired:
                 self.sessionProStateSubject = CurrentValueSubject(
                     SessionProPlanState.expired(
@@ -88,7 +97,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         guard case .active(let currentPlan, let expiredOn, _, let originatingPlatform) = self.sessionProStateSubject.value else {
             return
         }
-        dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
+        dependencies.set(feature: .mockCurrentUserSessionProState, to: .expiring)
         self.sessionProStateSubject.send(
             SessionProPlanState.active(
                 currentPlan: currentPlan,
@@ -97,7 +106,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                 originatingPlatform: originatingPlatform
             )
         )
-        self.shouldAnimateImageSubject.send(false)
+        self.shouldAnimateImageSubject.send(true)
         completion?(true)
     }
     
@@ -136,14 +145,6 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         )
     }
     
-    // This function is only for QA purpose
-    public func updateOriginatingPlatform(_ newValue: ClientPlatform) {
-        self.sessionProStateSubject.send(
-            self.sessionProStateSubject.value
-                .with(originatingPlatform: newValue)
-        )
-    }
-    
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
@@ -175,5 +176,33 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         presenting?(sessionProModal)
         
         return true
+    }
+    
+    // These functions are only for QA purpose
+    public func updateOriginatingPlatform(_ newValue: ClientPlatform) {
+        self.sessionProStateSubject.send(
+            self.sessionProStateSubject.value
+                .with(originatingPlatform: newValue)
+        )
+    }
+    
+    public func updateProExpiry(_ expiryInSeconds: TimeInterval) {
+        guard case .active(let currentPlan, _, let isAutoRenewing, let originatingPlatform) = self.sessionProStateSubject.value else {
+            return
+        }
+        let expiredOnDate = (
+            expiryInSeconds == 0 ?
+                Calendar.current.date(byAdding: .month, value: currentPlan.variant.duration, to: Date())! :
+                Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!
+        )
+        
+        self.sessionProStateSubject.send(
+            SessionProPlanState.active(
+                currentPlan: currentPlan,
+                expiredOn: expiredOnDate,
+                isAutoRenewing: isAutoRenewing,
+                originatingPlatform: originatingPlatform
+            )
+        )
     }
 }
