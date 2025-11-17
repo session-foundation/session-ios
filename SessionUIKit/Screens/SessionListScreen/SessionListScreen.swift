@@ -63,6 +63,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     }
                             }
                         }
+                        .listRowBackground(Color.clear)
                     }
                     
                     // MARK: List Items
