@@ -603,6 +603,14 @@
 		FD336F752CABB97800C0B51B /* RequestSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0150312CA24310005B08A1 /* RequestSpec.swift */; };
 		FD336F762CABB97800C0B51B /* BencodeResponseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD383722AFDD6D7001367F2 /* BencodeResponseSpec.swift */; };
 		FD3559462CC1FF200088F2A9 /* _034_AddMissingWhisperFlag.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3559452CC1FF140088F2A9 /* _034_AddMissingWhisperFlag.swift */; };
+		FD360E982ECAA93E0050CAF4 /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD360E972ECAA93E0050CAF4 /* CocoaLumberjackSwift */; };
+		FD360E9A2ECAA94C0050CAF4 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FD360E992ECAA94C0050CAF4 /* GRDB */; };
+		FD360E9C2ECAA9540050CAF4 /* KeychainSwift in Frameworks */ = {isa = PBXBuildFile; productRef = FD360E9B2ECAA9540050CAF4 /* KeychainSwift */; };
+		FD360E9E2ECAA9630050CAF4 /* SessionUtil in Frameworks */ = {isa = PBXBuildFile; productRef = FD360E9D2ECAA9630050CAF4 /* SessionUtil */; };
+		FD360EA02ECAA96B0050CAF4 /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = FD360E9F2ECAA96B0050CAF4 /* Punycode */; };
+		FD360EA22ECAA9780050CAF4 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EA12ECAA9780050CAF4 /* SwiftProtobuf */; };
+		FD360EA42ECAA97D0050CAF4 /* SDWebImageWebPCoder in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EA32ECAA97D0050CAF4 /* SDWebImageWebPCoder */; };
+		FD360EA62ECAA98B0050CAF4 /* NVActivityIndicatorView in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EA52ECAA98B0050CAF4 /* NVActivityIndicatorView */; };
 		FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
 		FD3765DF2AD8F03100DC1489 /* MockSnodeAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */; };
@@ -2567,12 +2575,15 @@
 				B8FF8DAE25C0D00F004D1F22 /* SessionMessagingKit.framework in Frameworks */,
 				B8FF8DAF25C0D00F004D1F22 /* SessionUtilitiesKit.framework in Frameworks */,
 				FDB6A87C2AD75B7F002D4F96 /* PhotosUI.framework in Frameworks */,
+				FD360EA22ECAA9780050CAF4 /* SwiftProtobuf in Frameworks */,
 				C37F54DC255BB84A002AEA92 /* SessionNetworkingKit.framework in Frameworks */,
 				C37F5414255BAFA7002AEA92 /* SignalUtilitiesKit.framework in Frameworks */,
+				FD360EA62ECAA98B0050CAF4 /* NVActivityIndicatorView in Frameworks */,
 				455A16DD1F1FEA0000F86704 /* Metal.framework in Frameworks */,
 				455A16DE1F1FEA0000F86704 /* MetalKit.framework in Frameworks */,
 				45847E871E4283C30080EAB3 /* Intents.framework in Frameworks */,
 				FD756BF02D06686500BD7199 /* Lucide in Frameworks */,
+				FD360EA02ECAA96B0050CAF4 /* Punycode in Frameworks */,
 				4520D8D51D417D8E00123472 /* Photos.framework in Frameworks */,
 				FD6DA9D22D0160F10092085A /* Lucide in Frameworks */,
 				B6B226971BE4B7D200860F4D /* ContactsUI.framework in Frameworks */,
@@ -2580,6 +2591,7 @@
 				B6FE7EB71ADD62FA00A6D22F /* PushKit.framework in Frameworks */,
 				FC3BD9881A30A790005B96BB /* Social.framework in Frameworks */,
 				FCB11D8C1A129A76002F93FB /* CoreMedia.framework in Frameworks */,
+				FD360E9C2ECAA9540050CAF4 /* KeychainSwift in Frameworks */,
 				70377AAB1918450100CAF501 /* MobileCoreServices.framework in Frameworks */,
 				B9EB5ABD1884C002007CBB57 /* MessageUI.framework in Frameworks */,
 				3496956021A2FC8100DCFE74 /* CloudKit.framework in Frameworks */,
@@ -2590,10 +2602,14 @@
 				FD6DA9CF2D015B440092085A /* Lucide in Frameworks */,
 				A1C32D5017A06538000A904E /* AddressBookUI.framework in Frameworks */,
 				FDE71B5F2E7A73570023F5F9 /* StoreKit.framework in Frameworks */,
+				FD360E9E2ECAA9630050CAF4 /* SessionUtil in Frameworks */,
 				D2AEACDC16C426DA00C364C0 /* CFNetwork.framework in Frameworks */,
+				FD360E982ECAA93E0050CAF4 /* CocoaLumberjackSwift in Frameworks */,
 				C331FF222558F9D300070591 /* SessionUIKit.framework in Frameworks */,
+				FD360E9A2ECAA94C0050CAF4 /* GRDB in Frameworks */,
 				D2179CFE16BB0B480006F3AB /* SystemConfiguration.framework in Frameworks */,
 				D2179CFC16BB0B3A0006F3AB /* CoreTelephony.framework in Frameworks */,
+				FD360EA42ECAA97D0050CAF4 /* SDWebImageWebPCoder in Frameworks */,
 				D221A08E169C9E5E00537ABF /* UIKit.framework in Frameworks */,
 				D221A090169C9E5E00537ABF /* Foundation.framework in Frameworks */,
 				D221A0E8169DFFC500537ABF /* AVFoundation.framework in Frameworks */,
@@ -5563,6 +5579,14 @@
 				FD6DA9CE2D015B440092085A /* Lucide */,
 				FD6DA9D12D0160F10092085A /* Lucide */,
 				FD756BEF2D06686500BD7199 /* Lucide */,
+				FD360E972ECAA93E0050CAF4 /* CocoaLumberjackSwift */,
+				FD360E992ECAA94C0050CAF4 /* GRDB */,
+				FD360E9B2ECAA9540050CAF4 /* KeychainSwift */,
+				FD360E9D2ECAA9630050CAF4 /* SessionUtil */,
+				FD360E9F2ECAA96B0050CAF4 /* Punycode */,
+				FD360EA12ECAA9780050CAF4 /* SwiftProtobuf */,
+				FD360EA32ECAA97D0050CAF4 /* SDWebImageWebPCoder */,
+				FD360EA52ECAA98B0050CAF4 /* NVActivityIndicatorView */,
 			);
 			productName = RedPhone;
 			productReference = D221A089169C9E5E00537ABF /* Session.app */;
@@ -10605,6 +10629,46 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FD6A38ED2C2A641200762359 /* XCRemoteSwiftPackageReference "DifferenceKit" */;
 			productName = DifferenceKit;
+		};
+		FD360E972ECAA93E0050CAF4 /* CocoaLumberjackSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */;
+			productName = CocoaLumberjackSwift;
+		};
+		FD360E992ECAA94C0050CAF4 /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6DA9D52D017F480092085A /* XCRemoteSwiftPackageReference "session-grdb-swift" */;
+			productName = GRDB;
+		};
+		FD360E9B2ECAA9540050CAF4 /* KeychainSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A38EA2C2A63B500762359 /* XCRemoteSwiftPackageReference "keychain-swift" */;
+			productName = KeychainSwift;
+		};
+		FD360E9D2ECAA9630050CAF4 /* SessionUtil */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */;
+			productName = SessionUtil;
+		};
+		FD360E9F2ECAA96B0050CAF4 /* Punycode */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 946F5A712D5DA3AC00A5ADCE /* XCRemoteSwiftPackageReference "PunycodeSwift" */;
+			productName = Punycode;
+		};
+		FD360EA12ECAA9780050CAF4 /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A39112C2A946A00762359 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
+		};
+		FD360EA32ECAA97D0050CAF4 /* SDWebImageWebPCoder */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FDEFDC712E8B9F3300EBCD81 /* XCRemoteSwiftPackageReference "SDWebImageWebPCoder" */;
+			productName = SDWebImageWebPCoder;
+		};
+		FD360EA52ECAA98B0050CAF4 /* NVActivityIndicatorView */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A39202C2AA91D00762359 /* XCRemoteSwiftPackageReference "NVActivityIndicatorView" */;
+			productName = NVActivityIndicatorView;
 		};
 		FD6673F52D7021E700041530 /* SessionUtil */ = {
 			isa = XCSwiftPackageProductDependency;
