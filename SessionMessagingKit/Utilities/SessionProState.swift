@@ -88,6 +88,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         guard case .active(let currentPlan, let expiredOn, _, let originatingPlatform) = self.sessionProStateSubject.value else {
             return
         }
+        dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
         self.sessionProStateSubject.send(
             SessionProPlanState.active(
                 currentPlan: currentPlan,
