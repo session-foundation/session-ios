@@ -28,6 +28,8 @@ public enum Values {
     public static let largeButtonHeight = isIPhone5OrSmaller ? CGFloat(40) : CGFloat(45)
     public static let alertButtonHeight: CGFloat = 51 // 19px tall font with 16px margins
     
+    public static let menuContainerWidth: CGFloat = isIPhone5OrSmaller ? CGFloat(180) : CGFloat(210)
+    
     public static let accentLineThickness = CGFloat(4)
     
     public static let searchBarHeight = CGFloat(36)

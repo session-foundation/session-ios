@@ -1197,6 +1197,9 @@
 		FDFE75B42ABD46B600655640 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9D127D59495005E1583 /* MockUserDefaults.swift */; };
 		FDFE75B52ABD46B700655640 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9D127D59495005E1583 /* MockUserDefaults.swift */; };
 		FDFF9FDF2A787F57005E0628 /* JSONEncoder+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */; };
+		FE2883272EA70C640097E240 /* MessageSelectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE2883262EA70C640097E240 /* MessageSelectionManager.swift */; };
+		FE28832B2EA74D440097E240 /* ManualDropdownPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE28832A2EA74D440097E240 /* ManualDropdownPresenter.swift */; };
+		FE28832D2EA74D680097E240 /* CustomMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE28832C2EA74D680097E240 /* CustomMenuView.swift */; };
 		FED288F32E4C28CF00C31171 /* AppReviewPromptDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F22E4C28CF00C31171 /* AppReviewPromptDialog.swift */; };
 		FED288F82E4C3BE100C31171 /* AppReviewPromptModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F72E4C3BE100C31171 /* AppReviewPromptModel.swift */; };
 /* End PBXBuildFile section */
@@ -2489,6 +2492,9 @@
 		FDFDE129282D056B0098B17F /* MediaZoomAnimationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaZoomAnimationController.swift; sourceTree = "<group>"; };
 		FDFE75B02ABD2D2400655640 /* _030_MakeBrokenProfileTimestampsNullable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _030_MakeBrokenProfileTimestampsNullable.swift; sourceTree = "<group>"; };
 		FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "JSONEncoder+Utilities.swift"; sourceTree = "<group>"; };
+		FE2883262EA70C640097E240 /* MessageSelectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSelectionManager.swift; sourceTree = "<group>"; };
+		FE28832A2EA74D440097E240 /* ManualDropdownPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualDropdownPresenter.swift; sourceTree = "<group>"; };
+		FE28832C2EA74D680097E240 /* CustomMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomMenuView.swift; sourceTree = "<group>"; };
 		FED288F22E4C28CF00C31171 /* AppReviewPromptDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReviewPromptDialog.swift; sourceTree = "<group>"; };
 		FED288F72E4C3BE100C31171 /* AppReviewPromptModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReviewPromptModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -3027,6 +3033,7 @@
 		B835246C25C38AA20089A44F /* Conversations */ = {
 			isa = PBXGroup;
 			children = (
+				FE2883252EA70C5D0097E240 /* Selection */,
 				B887C38125C7C79700E11DAE /* Input View */,
 				B835247725C38D190089A44F /* Message Cells */,
 				C328252E25CA54F70062D0A7 /* Context Menu */,
@@ -5332,6 +5339,16 @@
 			path = Transitions;
 			sourceTree = "<group>";
 		};
+		FE2883252EA70C5D0097E240 /* Selection */ = {
+			isa = PBXGroup;
+			children = (
+				FE28832C2EA74D680097E240 /* CustomMenuView.swift */,
+				FE28832A2EA74D440097E240 /* ManualDropdownPresenter.swift */,
+				FE2883262EA70C640097E240 /* MessageSelectionManager.swift */,
+			);
+			path = Selection;
+			sourceTree = "<group>";
+		};
 		FED288EF2E4C239800C31171 /* App Review */ = {
 			isa = PBXGroup;
 			children = (
@@ -6996,6 +7013,7 @@
 				7BA37AFD2AEF7C3D002438F8 /* VoiceMessageView_SwiftUI.swift in Sources */,
 				7B1B52E028580D51006069F2 /* EmojiSkinTonePicker.swift in Sources */,
 				B849789625D4A2F500D0D0B3 /* LinkPreviewView.swift in Sources */,
+				FE2883272EA70C640097E240 /* MessageSelectionManager.swift in Sources */,
 				FD71164428E2CB8A00B47552 /* SessionCell+Accessory.swift in Sources */,
 				7B1B52DF28580D51006069F2 /* EmojiPickerCollectionView.swift in Sources */,
 				FDE5219A2E08DBB800061B8E /* ImageLoading+Convenience.swift in Sources */,
@@ -7112,6 +7130,7 @@
 				34BECE2E1F7ABCE000D7438D /* GifPickerViewController.swift in Sources */,
 				9422568C2C23F8C800C0FDBF /* DisplayNameScreen.swift in Sources */,
 				7B9F71D72853100A006DFE7B /* Emoji+Available.swift in Sources */,
+				FE28832D2EA74D680097E240 /* CustomMenuView.swift in Sources */,
 				FD09C5E628260FF9000CE219 /* MediaGalleryViewModel.swift in Sources */,
 				7B9F71D32852EEE2006DFE7B /* Emoji.swift in Sources */,
 				C328250F25CA06020062D0A7 /* VoiceMessageView.swift in Sources */,
@@ -7122,6 +7141,7 @@
 				FD4B200E283492210034334B /* InsetLockableTableView.swift in Sources */,
 				FD12A8472AD63C3400EEBA0D /* PagedObservationSource.swift in Sources */,
 				FDC1BD682CFE6EEB002CDC71 /* DeveloperSettingsViewModel.swift in Sources */,
+				FE28832B2EA74D440097E240 /* ManualDropdownPresenter.swift in Sources */,
 				7B0EFDF0275084AA00FFAAE7 /* CallMessageCell.swift in Sources */,
 				C3AAFFF225AE99710089E6DD /* AppDelegate.swift in Sources */,
 				FD10AF0C2AF32B9A007709E5 /* SessionListViewModel.swift in Sources */,

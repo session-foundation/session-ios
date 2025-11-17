@@ -1090,6 +1090,8 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: location)
             }
         }
+        
+        delegate?.handleCellSelection(for: cellViewModel, cell: self)
     }
 
     override func handleDoubleTap() {

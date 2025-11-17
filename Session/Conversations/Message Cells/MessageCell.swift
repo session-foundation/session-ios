@@ -44,7 +44,11 @@ public class MessageCell: UITableViewCell {
         selectedBackgroundView.themeBackgroundColor = .clear
         self.selectedBackgroundView = selectedBackgroundView
     }
-
+    
+    func setSelectedState(_ selected: Bool) {
+        themeBackgroundColor = selected ? .backgroundSecondary : .clear
+    }
+    
     func setUpGestureRecognizers() {
         var tapGestureRecognizer: UITapGestureRecognizer?
         var doubleTapGestureRecognizer: UITapGestureRecognizer?
@@ -149,6 +153,7 @@ protocol MessageCellDelegate: ReactionDelegate {
     func showReactionList(_ cellViewModel: MessageViewModel, selectedReaction: EmojiWithSkinTones?)
     func needsLayout(for cellViewModel: MessageViewModel, expandingReactions: Bool)
     func handleReadMoreButtonTapped(_ cell: UITableViewCell, for cellViewModel: MessageViewModel)
+    func handleCellSelection(for cellViewModel: MessageViewModel, cell: UITableViewCell)  // Added for selection handling of tapped item and tapped cell
 }
 
 extension MessageCellDelegate {

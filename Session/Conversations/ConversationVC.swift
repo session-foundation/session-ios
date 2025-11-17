@@ -69,6 +69,14 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     // Reaction
     var currentReactionListSheet: ReactionListSheet?
     var reactionExpandedMessageIds: Set<String> = []
+    
+    // Selected messages
+    var selectedMessages: Set<MessageViewModel> = []
+    var isMultiSelectionEnabled: Bool = false {
+        didSet {
+            shouldUpdateNavigationBar()
+        }
+    }
 
     /// This flag is used to temporarily prevent the ConversationVC from becoming the first responder (primarily used with
     /// custom transitions from preventing them from being buggy
@@ -111,6 +119,15 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         behavior: .playAndRecord
     )
 
+    // Message selection
+    lazy var selectionManger = MessageSelectionManager(
+        delegate: self
+    )
+    
+    // Reference to dropdown view
+    var dropdownPresenter: ManualDropdownPresenter?
+    
+    // Search
     lazy var searchController: ConversationSearchController = {
         let result: ConversationSearchController = ConversationSearchController(
             threadId: self.viewModel.threadData.threadId
@@ -1409,8 +1426,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         if isShowingSearchUI {
             navigationItem.leftBarButtonItem = nil
             navigationItem.rightBarButtonItems = []
-        }
-        else {
+        } else if isMultiSelectionEnabled {
+            let items = selectionManger.createNavigationActions()
+            navigationItem.rightBarButtonItems = items
+        }else {
             let shouldHaveCallButton: Bool = (
                 (threadData?.threadVariant ?? initialVariant) == .contact &&
                 (threadData?.threadIsNoteToSelf ?? initialIsNoteToSelf) == false
@@ -1693,6 +1712,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             case .messages:
                 let cellViewModel: MessageViewModel = section.elements[indexPath.row]
                 let cell: MessageCell = tableView.dequeue(type: MessageCell.cellType(for: cellViewModel), for: indexPath)
+                
                 cell.update(
                     with: cellViewModel,
                     playbackInfo: viewModel.playbackInfo(for: cellViewModel) { [weak self] updatedInfo, error in
@@ -1722,6 +1742,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     tableSize: tableView.bounds.size,
                     using: viewModel.dependencies
                 )
+                cell.setSelectedState(selectedMessages.contains(cellViewModel))
                 cell.delegate = self
                 
                 return cell

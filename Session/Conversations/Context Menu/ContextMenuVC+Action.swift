@@ -163,6 +163,14 @@ extension ContextMenuVC {
                 actionType: .dismiss
             ) { _ in delegate?.contextMenuDismissed() }
         }
+        
+        static func select(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
+            return Action(
+                icon: Lucide.image(icon: .circleCheck, size: 24),
+                title: "select".localized(),
+                accessibilityLabel: "Select message"
+            ) { completion in delegate?.select(cellViewModel, completion: completion) }
+        }
     }
     
     static func viewModelCanReply(_ cellViewModel: MessageViewModel, using dependencies: Dependencies) -> Bool {
@@ -200,6 +208,18 @@ extension ContextMenuVC {
                 return [ Action.delete(cellViewModel, delegate) ]
                 
             case .standardOutgoing, .standardIncoming: break
+        }
+        
+        var canSelect: Bool {
+            guard cellViewModel.variant == .standardIncoming || (
+                cellViewModel.variant == .standardOutgoing &&
+                cellViewModel.state != .failed &&
+                cellViewModel.state != .sending
+            ) else {
+                return false
+            }
+            
+            return true && !forMessageInfoScreen
         }
         
         let canRetry: Bool = (
@@ -289,7 +309,9 @@ extension ContextMenuVC {
                 .compactMap { EmojiWithSkinTones(rawValue: $0) }
         }()
         let generatedActions: [Action] = [
+            
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
+            (canSelect ? Action.select(cellViewModel, delegate) : nil),
             (viewModelCanReply(cellViewModel, using: dependencies) ? Action.reply(cellViewModel, delegate) : nil),
             (canCopy ? Action.copy(cellViewModel, delegate) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
@@ -310,6 +332,37 @@ extension ContextMenuVC {
         
         return generatedActions.appending(forMessageInfoScreen ? nil : Action.dismiss(delegate))
     }
+    
+    
+    static func navigationActions(
+        for cellViewModel: MessageViewModel,
+        in threadViewModel: SessionThreadViewModel,
+        delegate: ContextMenuActionDelegate?,
+        using dependencies: Dependencies
+    ) -> [Action]? {
+        let canDelete: Bool = (MessageViewModel.DeletionBehaviours.deletionActions(
+            for: [cellViewModel],
+            with: threadViewModel,
+            using: dependencies
+        ) != nil)
+        
+        var showDelete: Bool {
+            cellViewModel.attachments != nil && canDelete
+        }
+        
+        var showCopy: Bool {
+            cellViewModel.cellType == .textOnlyMessage
+        }
+        
+        let generatedActions: [Action] = [
+            (showCopy ? Action.copy(cellViewModel, delegate) : nil),
+            (showDelete ? Action.delete(cellViewModel, delegate) : nil),
+            Action.info(cellViewModel, delegate)
+        ]
+        .compactMap { $0 }
+        
+        return generatedActions
+    }
 }
 
 // MARK: - Delegate
@@ -327,4 +380,5 @@ protocol ContextMenuActionDelegate {
     func react(_ cellViewModel: MessageViewModel, with emoji: EmojiWithSkinTones)
     func showFullEmojiKeyboard(_ cellViewModel: MessageViewModel)
     func contextMenuDismissed()
+    func select(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
 }

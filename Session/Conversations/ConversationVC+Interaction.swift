@@ -3,6 +3,7 @@
 import UIKit
 import AVKit
 import AVFoundation
+import Lucide
 import Combine
 import CoreServices
 import Photos
@@ -1125,6 +1126,11 @@ extension ConversationVC:
     }
 
     // MARK: MessageCellDelegate
+    func handleCellSelection(for cellViewModel: MessageViewModel, cell: UITableViewCell) {
+        guard isMultiSelectionEnabled else { return }
+        
+        shouldHandleMessageSelection(for: cellViewModel, in: cell)
+    }
     
     func handleItemLongPressed(_ cellViewModel: MessageViewModel) {
         // Show the unblock modal if needed
@@ -1196,6 +1202,8 @@ extension ConversationVC:
         cell: UITableViewCell,
         cellLocation: CGPoint
     ) {
+        guard !isMultiSelectionEnabled else { return }
+                
         // For call info messages show the "call missed" modal
         guard cellViewModel.variant != .infoCall else {
             // If the failure was due to the mic permission being denied then we want to show the permission modal,
@@ -2520,103 +2528,7 @@ extension ConversationVC:
     func delete(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         /// Retrieve the deletion actions for the selected message(s) of there are any
         let messagesToDelete: [MessageViewModel] = [cellViewModel]
-        
-        guard let deletionBehaviours: MessageViewModel.DeletionBehaviours = self.viewModel.deletionActions(for: messagesToDelete) else {
-            return
-        }
-        
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: deletionBehaviours.title,
-                body: .radio(
-                    explanation: ThemedAttributedString(string: deletionBehaviours.body),
-                    warning: deletionBehaviours.warning.map { ThemedAttributedString(string: $0) },
-                    options: deletionBehaviours.actions.map { action in
-                        ConfirmationModal.Info.Body.RadioOptionInfo(
-                            title: action.title,
-                            enabled: action.state != .disabled,
-                            selected: action.state == .enabledAndDefaultSelected,
-                            accessibility: action.accessibility
-                        )
-                    }
-                ),
-                confirmTitle: "delete".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "cancel".localized(),
-                cancelStyle: .alert_text,
-                dismissOnConfirm: false,
-                onConfirm: { [weak self, dependencies = viewModel.dependencies] modal in
-                    /// Determine the selected action index
-                    let selectedIndex: Int = {
-                        switch modal.info.body {
-                            case .radio(_, _, let options):
-                                return options
-                                    .enumerated()
-                                    .first(where: { _, value in value.selected })
-                                    .map { index, _ in index }
-                                    .defaulting(to: 0)
-                            
-                            default: return 0
-                        }
-                    }()
-                    
-                    /// Stop the messages audio if needed
-                    messagesToDelete.forEach { cellViewModel in
-                        self?.viewModel.stopAudioIfNeeded(for: cellViewModel)
-                    }
-                    
-                    /// Trigger the deletion behaviours
-                    deletionBehaviours
-                        .publisherForAction(at: selectedIndex, using: dependencies)
-                        .showingBlockingLoading(
-                            in: deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) ?
-                                self?.viewModel.navigatableState :
-                                nil
-                        )
-                        .sinkUntilComplete(
-                            receiveCompletion: { result in
-                                DispatchQueue.main.async {
-                                    switch result {
-                                        case .finished:
-                                            modal.dismiss(animated: true) {
-                                                /// Dispatch after a delay because becoming the first responder can cause
-                                                /// an odd appearance animation
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
-                                                    self?.viewModel.showToast(
-                                                        text: "deleteMessageDeleted"
-                                                            .putNumber(messagesToDelete.count)
-                                                            .localized(),
-                                                        backgroundColor: .backgroundSecondary,
-                                                        inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                                    )
-                                                }
-                                            }
-                                            
-                                        case .failure:
-                                            self?.viewModel.showToast(
-                                                text: "deleteMessageFailed"
-                                                    .putNumber(messagesToDelete.count)
-                                                    .localized(),
-                                                backgroundColor: .backgroundSecondary,
-                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
-                                            )
-                                    }
-                                    completion?()
-                                }
-                            }
-                        )
-                },
-                afterClosed: { [weak self] in
-                    self?.becomeFirstResponder()
-                }
-            )
-        )
-        
-        /// Show the modal after a small delay so it doesn't look as weird with the context menu dismissal
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
-            self?.present(modal, animated: true)
-            self?.resignFirstResponder()
-        }
+        onDeleteMessages(messagesToDelete, completion: completion)
     }
 
     func save(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
@@ -2900,6 +2812,19 @@ extension ConversationVC:
             )
         )
         self.present(modal, animated: true)
+    }
+    
+    func select(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
+        guard
+            let sectionIndex: Int = self.viewModel.interactionData
+                .firstIndex(where: { $0.model == .messages }),
+            let index = self.viewModel.interactionData[sectionIndex]
+                .elements
+                .firstIndex(of: cellViewModel),
+            let cell = tableView.cellForRow(at: IndexPath(row: index, section: sectionIndex)) as? MessageCell
+        else { return }
+        
+        shouldHandleMessageSelection(for: cellViewModel, in: cell)
     }
 
     // MARK: - VoiceMessageRecordingViewDelegate
@@ -3508,5 +3433,204 @@ extension ConversationVC: MediaPresentationContextProvider {
 
     func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
         return self.navigationController?.navigationBar.generateSnapshot(in: coordinateSpace)
+    }
+}
+
+// MARK: - Delete messages
+extension ConversationVC {
+    func onDeleteMessages(_ messagesToDelete: [MessageViewModel], completion: (() -> Void)? = nil) {
+        guard let topViewController = viewModel.dependencies[singleton: .appContext].frontMostViewController else {
+            return
+        }
+        
+        guard let deletionBehaviours: MessageViewModel.DeletionBehaviours = self.viewModel.deletionActions(for: messagesToDelete) else {
+            return
+        }
+        
+        let modal: ConfirmationModal = ConfirmationModal(
+            info: ConfirmationModal.Info(
+                title: "deleteAttachments"
+                    .putNumber(messagesToDelete.count)
+                    .localized(),
+                body: .radio(
+                    explanation: ThemedAttributedString(string: "deleteAttachmentsDescription"
+                        .putNumber(messagesToDelete.count)
+                        .localized()
+                    ),
+                    warning: deletionBehaviours.warning.map { ThemedAttributedString(string: $0) },
+                    options: deletionBehaviours.actions.map { action in
+                        ConfirmationModal.Info.Body.RadioOptionInfo(
+                            title: action.title,
+                            enabled: action.state != .disabled,
+                            selected: action.state == .enabledAndDefaultSelected,
+                            accessibility: action.accessibility
+                        )
+                    }
+                ),
+                confirmTitle: "delete".localized(),
+                confirmStyle: .danger,
+                cancelTitle: "cancel".localized(),
+                cancelStyle: .alert_text,
+                dismissOnConfirm: false,
+                onConfirm: { [weak self, dependencies = viewModel.dependencies] modal in
+                    /// Determine the selected action index
+                    let selectedIndex: Int = {
+                        switch modal.info.body {
+                            case .radio(_, _, let options):
+                                return options
+                                    .enumerated()
+                                    .first(where: { _, value in value.selected })
+                                    .map { index, _ in index }
+                                    .defaulting(to: 0)
+                                
+                            default: return 0
+                        }
+                    }()
+                    
+                    /// Stop the messages audio if needed
+                    messagesToDelete.forEach { cellViewModel in
+                        self?.viewModel.stopAudioIfNeeded(for: cellViewModel)
+                    }
+                    
+                    /// Trigger the deletion behaviours
+                    deletionBehaviours
+                        .publisherForAction(at: selectedIndex, using: dependencies)
+                        .showingBlockingLoading(
+                            in: deletionBehaviours.requiresNetworkRequestForAction(at: selectedIndex) ?
+                            self?.viewModel.navigatableState :
+                                nil
+                        )
+                        .sinkUntilComplete(
+                            receiveCompletion: { result in
+                                DispatchQueue.main.async {
+                                    switch result {
+                                        case .finished:
+                                            modal.dismiss(animated: true) {
+                                                /// Dispatch after a delay because becoming the first responder can cause
+                                                /// an odd appearance animation
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(150)) {
+                                                    self?.viewModel.showToast(
+                                                        text: "deleteMessageDeleted"
+                                                            .putNumber(messagesToDelete.count)
+                                                            .localized(),
+                                                        backgroundColor: .backgroundSecondary,
+                                                        inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                                    )
+                                                }
+                                            }
+                                            
+                                        case .failure:
+                                            self?.viewModel.showToast(
+                                                text: "deleteMessageFailed"
+                                                    .putNumber(messagesToDelete.count)
+                                                    .localized(),
+                                                backgroundColor: .backgroundSecondary,
+                                                inset: (self?.inputAccessoryView?.frame.height ?? Values.mediumSpacing) + Values.smallSpacing
+                                            )
+                                    }
+                                    completion?()
+                                }
+                            }
+                        )
+                },
+                afterClosed: { [weak self] in
+                    self?.becomeFirstResponder()
+                }
+            )
+        )
+        
+        /// Show the modal after a small delay so it doesn't look as weird with the context menu dismissal
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(Int(ContextMenuVC.dismissDurationPartOne * 1000))) { [weak self] in
+            topViewController.present(modal, animated: true)
+            self?.resignFirstResponder()
+        }
+    }
+}
+
+// MARK: - Multiple selection handling
+extension ConversationVC {
+    func shouldHandleMessageSelection(for message: MessageViewModel, in cell: UITableViewCell) {
+        guard message.variant == .standardIncoming || (
+            message.variant == .standardOutgoing &&
+            message.state != .failed &&
+            message.state != .sending
+        ) else {
+            return
+        }
+        
+        if let selectedIndex = selectedMessages.firstIndex(where: { $0 == message }) {
+            selectedMessages.remove(at: selectedIndex)
+        } else {
+            selectedMessages.insert(message)
+        }
+        
+        isMultiSelectionEnabled = !selectedMessages.isEmpty
+        
+        guard let indexPath = tableView.indexPath(for: cell) else { return }
+        tableView.reloadRows(at: [indexPath], with: .none)
+    }
+    
+    func shouldUpdateNavigationBar() {
+        navigationItem.titleView = isMultiSelectionEnabled ? nil : titleView
+        
+        // Nav bar buttons
+        updateNavBarButtons(
+            threadData: viewModel.threadData,
+            initialVariant: viewModel.initialThreadVariant,
+            initialIsNoteToSelf: viewModel.threadData.threadIsNoteToSelf,
+            initialIsBlocked: (viewModel.threadData.threadIsBlocked == true)
+        )
+    }
+    
+    func resetSelection() {
+        DispatchQueue.main.async { [weak self] in
+            self?.isMultiSelectionEnabled = false
+            self?.selectedMessages.removeAll()
+            self?.tableView.reloadData()
+        }
+    }
+}
+
+extension ConversationVC: SelectionManagerDelegate {
+    func willDeleteMessages(_ messages: [SessionMessagingKit.MessageViewModel], completion: @escaping () -> Void) {
+        onDeleteMessages(messages, completion: completion)
+    }
+
+    func shouldResetSelectionState() {
+        resetSelection()
+    }
+    
+    func shouldShowCopyToast() {
+        viewModel.showToast(
+            text: "copied".localized(),
+            backgroundColor: .toast_background,
+            inset: Values.largeSpacing + (inputAccessoryView?.frame.height ?? 0)
+        )
+    }
+    
+    func showInfo(for message: MessageViewModel, withSender sender: UIBarButtonItem) {
+        if dropdownPresenter != nil {
+            dropdownPresenter?.hide()
+            dropdownPresenter = nil
+        }
+
+        let actions = ContextMenuVC.navigationActions(
+            for: message,
+            in: viewModel.threadData,
+            delegate: self,
+            using: viewModel.dependencies
+        ) ?? []
+        
+        let presenter = ManualDropdownPresenter()
+        self.dropdownPresenter = presenter
+        
+        presenter.show(
+            actions: actions,
+            anchorView: navigationController?.navigationBar.subviews.first,
+            using: viewModel.dependencies
+        ) { [weak self] in
+            self?.dropdownPresenter = nil
+            self?.resetSelection()
+        }
     }
 }
