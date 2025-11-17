@@ -19,7 +19,7 @@ public struct ListItemLogoWithPro: View {
         
         var growingBackgroundColor: ThemeValue {
             switch self {
-                case .normal: return .settings_glowingBackground
+                case .normal: return .primary
                 case .disabled: return .disabled
             }
         }
