@@ -600,7 +600,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             {
                 switch state.currentProPlanState {
                     case .none: nil
-                    case .active(_, let expiredOn, _, _):
+                    case .active(_, let expiredOn, let isAutoRenewing, _):
                         SessionListScreenContent.ListItemInfo(
                             id: .updatePlan,
                             variant: .cell(
@@ -631,10 +631,17 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             case .success:
                                                 .init(
                                                     font: .Body.smallRegular,
-                                                    attributedString: "proAutoRenewTime"
-                                                        .put(key: "pro", value: Constants.pro)
-                                                        .put(key: "time", value: expiredOn.timeIntervalSinceNow.formatted(format: .long, minimumUnit: .day))
-                                                        .localizedFormatted(Fonts.Body.smallRegular)
+                                                    attributedString: (
+                                                        isAutoRenewing ? 
+                                                            "proAutoRenewTime"
+                                                                .put(key: "pro", value: Constants.pro)
+                                                                .put(key: "time", value: expiredOn.timeIntervalSinceNow.ceilingFormatted(format: .long, allowedUnits: [.day, .hour, .minute]))
+                                                                .localizedFormatted(Fonts.Body.smallRegular) :
+                                                            "proExpiringTime"
+                                                                .put(key: "pro", value: Constants.pro)
+                                                                .put(key: "time", value: expiredOn.timeIntervalSinceNow.ceilingFormatted(format: .long, allowedUnits: [.day, .hour, .minute]))
+                                                                .localizedFormatted(Fonts.Body.smallRegular)
+                                                    )
                                                 )
                                         }
                                     }(),
