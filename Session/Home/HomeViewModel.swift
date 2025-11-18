@@ -616,12 +616,42 @@ public class HomeViewModel: NavigatableStateHolder {
         
         // Camera reminder
         willShowCameraPermissionReminder()
+        
+        // Pro expiring/expired CTA
+        showSessionProCTAIfNeeded()
     }
 
     func scheduleAppReviewRetry() {
         /// Wait 2 weeks before trying again
         dependencies[defaults: .standard, key: .rateAppRetryDate] = dependencies.dateNow
             .addingTimeInterval(2 * 7 * 24 * 60 * 60)
+    }
+    
+    func showSessionProCTAIfNeeded() {
+        switch dependencies[singleton: .sessionProState].sessionProStateSubject.value {
+            case .none, .refunding:
+                return
+            case .active(_, let expiredOn, _ , _):
+                let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
+                guard expiryInSeconds <= 7 * 24 * 60 * 60 else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
+                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                        .expiring(timeLeft: expiryInSeconds.formatted(format: .long, allowedUnits: [ .day, .hour, .minute ])),
+                        presenting: { modal in
+                            self?.transitionToScreen(modal, transitionType: .present)
+                        }
+                    )
+                }
+            case .expired:
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
+                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                        .expiring(timeLeft: nil),
+                        presenting: { modal in
+                            self?.transitionToScreen(modal, transitionType: .present)
+                        }
+                    )
+                }
+        }
     }
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {

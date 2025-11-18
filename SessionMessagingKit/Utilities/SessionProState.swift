@@ -155,10 +155,14 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     ) -> Bool {
         let shouldShowProCTA: Bool = {
             guard dependencies[feature: .sessionProEnabled] else { return false }
-            if case .groupLimit = variant { return true }
-            switch sessionProStateSubject.value {
-                case .active, .refunding: return false
-                case .none, .expired: return true
+            switch variant {
+                case .expiring, .groupLimit:
+                    return true
+                default:
+                    switch sessionProStateSubject.value {
+                        case .active, .refunding: return false
+                        case .none, .expired: return true
+                    }
             }
         }()
         
