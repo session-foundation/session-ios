@@ -253,7 +253,7 @@ public actor SessionProManager: SessionProManagerType {
         syncState.update(backendUserProStatus: .set(to: response.status))
         await self.backendUserProStatusStream.send(response.status)
         
-        switch detailsResponse.status {
+        switch response.status {
             case .active:
                 try await refreshProProofIfNeeded(
                     accessExpiryTimestampMs: response.expiryTimestampMs,
@@ -261,8 +261,8 @@ public actor SessionProManager: SessionProManagerType {
                     status: response.status
                 )
                 
-            case .neverBeenPro: await clearProProof()
-            case .expired: await clearProProof()
+            case .neverBeenPro: try await clearProProof()
+            case .expired: try await clearProProof()
         }
         
     }
@@ -270,11 +270,11 @@ public actor SessionProManager: SessionProManagerType {
     public func refreshProProofIfNeeded(
         accessExpiryTimestampMs: UInt64,
         autoRenewing: Bool,
-        status: BackendUserProStatus
+        status: Network.SessionPro.BackendUserProStatus
     ) async throws {
         guard status == .active else { return }
         
-        let needsNewProof: Bool = {
+        let needsNewProof: Bool = await {
             guard let currentProof: Network.SessionPro.ProProof = await proProofStream.getCurrent() else {
                 return true
             }
@@ -396,7 +396,7 @@ public actor SessionProManager: SessionProManagerType {
         
     // MARK: - Internal Functions
     
-    private func clearProProof() async {
+    private func clearProProof() async throws {
         try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
@@ -409,9 +409,9 @@ public actor SessionProManager: SessionProManagerType {
     private func updateExpiryCTAs(
         accessExpiryTimestampMs: UInt64,
         autoRenewing: Bool,
-        status: BackendUserProStatus
+        status: Network.SessionPro.BackendUserProStatus
     ) async {
-        let now: UInt64 = UINt64(floor(dependencies.dateNow.timeIntervalSince1970))
+        let now: UInt64 = UInt64(floor(dependencies.dateNow.timeIntervalSince1970))
         let sevenDaysBeforeExpiry: UInt64 = (accessExpiryTimestampMs - (7 * 60 * 60))
         let thirtyDaysAfterExpiry: UInt64 = (accessExpiryTimestampMs + (30 * 60 * 60))
         
@@ -433,7 +433,7 @@ public actor SessionProManager: SessionProManagerType {
                             }
                             
                             /// Restart the observation (will fetch the correct current states)
-                            await self?.refreshProState()
+                            try? await self?.refreshProState()
                         }
                     }
                     

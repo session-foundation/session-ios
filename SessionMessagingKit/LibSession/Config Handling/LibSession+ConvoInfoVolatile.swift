@@ -774,7 +774,7 @@ public extension LibSession {
             else if convo_info_volatile_it_is_blinded_1to1(convoIterator, &blinded) {
                 result.append(
                     VolatileThreadInfo(
-                        threadId: blinded.get(\.session_id),
+                        threadId: blinded.get(\.blinded_session_id),
                         variant: .contact,
                         changes: [
                             .markedAsUnread(blinded.unread),
@@ -833,3 +833,4 @@ extension convo_info_volatile_1to1: CAccessible & CMutable {}
 extension convo_info_volatile_community: CAccessible & CMutable {}
 extension convo_info_volatile_legacy_group: CAccessible & CMutable {}
 extension convo_info_volatile_group: CAccessible & CMutable {}
+extension convo_info_volatile_blinded_1to1: CAccessible & CMutable {}

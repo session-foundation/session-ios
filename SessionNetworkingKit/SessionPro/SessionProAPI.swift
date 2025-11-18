@@ -51,10 +51,20 @@ public extension Network.SessionPro {
                     .values
                     .first(where: { _ in true })?.1
                 
+                let proRevocationsRequest = try? Network.SessionPro.getProRevocations(
+                    ticket: 0,
+                    using: dependencies
+                )
+                let proRevocationsResponse = try await proRevocationsRequest
+                    .send(using: dependencies)
+                    .values
+                    .first(where: { _ in true })?.1
+                
                 await MainActor.run {
                     let tmp1 = addProProofResponse
                     let tmp2 = proProofResponse
                     let tmp3 = proDetailsResponse
+                    let tmp4 = proRevocationsResponse
                     print("RAWR Test Success")
                 }
             }
@@ -178,6 +188,24 @@ public extension Network.SessionPro {
                 using: dependencies
             ),
             responseType: GetProDetailsResponse.self,
+            using: dependencies
+        )
+    }
+    
+    static func getProRevocations(
+        ticket: UInt32,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<GetProRevocationsResponse> {
+        return try Network.PreparedRequest(
+            request: try Request<GetProRevocationsRequest, Endpoint>(
+                method: .post,
+                endpoint: .getProRevocations,
+                body: GetProRevocationsRequest(
+                    ticket: ticket
+                ),
+                using: dependencies
+            ),
+            responseType: GetProRevocationsResponse.self,
             using: dependencies
         )
     }

@@ -83,7 +83,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case restoreProSubscription
         case requestRefund
         case submitPurchaseToProBackend
-        case refreshProStatus
+        case refreshProState
         case removeProFromUserConfig
         
         // MARK: - Conformance
@@ -107,7 +107,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .restoreProSubscription: return "restoreProSubscription"
                 case .requestRefund: return "requestRefund"
                 case .submitPurchaseToProBackend: return "submitPurchaseToProBackend"
-                case .refreshProStatus: return "refreshProStatus"
+                case .refreshProState: return "refreshProState"
                 case .removeProFromUserConfig: return "removeProFromUserConfig"
             }
         }
@@ -134,7 +134,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .restoreProSubscription: result.append(.restoreProSubscription); fallthrough
                 case .requestRefund: result.append(.requestRefund); fallthrough
                 case .submitPurchaseToProBackend: result.append(.submitPurchaseToProBackend); fallthrough
-                case .refreshProStatus: result.append(.refreshProStatus); fallthrough
+                case .refreshProState: result.append(.refreshProState); fallthrough
                 case .removeProFromUserConfig: result.append(.removeProFromUserConfig)
             }
             
@@ -544,16 +544,16 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     }
                 ),
                 SessionCell.Info(
-                    id: .refreshProStatus,
-                    title: "Refresh Pro Status",
+                    id: .refreshProState,
+                    title: "Refresh Pro State",
                     subtitle: """
-                    Refresh the pro status.
+                    Manually trigger a refresh of the users Pro state.
                     
                     <b>Status: </b>\(currentProStatus)
                     """,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Refresh"),
                     onTap: { [weak viewModel] in
-                        Task { await viewModel?.refreshProStatus() }
+                        Task { await viewModel?.refreshProState() }
                     }
                 ),
                 SessionCell.Info(
@@ -854,9 +854,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
     }
     
-    private func refreshProStatus() async {
+    private func refreshProState() async {
         do {
-            try await dependencies[singleton: .sessionProManager].refreshStatus()
+            try await dependencies[singleton: .sessionProManager].refreshProState()
             let status: Network.SessionPro.BackendUserProStatus? = dependencies[singleton: .sessionProManager].currentUserCurrentBackendProStatus
             
             dependencies.notifyAsync(
@@ -865,7 +865,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             )
         }
         catch {
-            Log.error("[DevSettings] Refresh pro status failed: \(error)")
+            Log.error("[DevSettings] Refresh pro state failed: \(error)")
             dependencies.notifyAsync(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
                 value: DeveloperSettingsProEvent.currentProStatus("Error: \(error)", true)
