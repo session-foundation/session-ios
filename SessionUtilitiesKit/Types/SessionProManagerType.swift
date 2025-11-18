@@ -14,7 +14,7 @@ public protocol SessionProManagerType: AnyObject {
     func recoverPro(completion: ((_ result: Bool) -> Void)?)
     // These functions are only for QA purpose
     func updateOriginatingPlatform(_ newValue: ClientPlatform)
-    func updateProExpiry(_ expiryInSeconds: TimeInterval)
+    func updateProExpiry(_ expiryInSeconds: TimeInterval?)
 }
 
 public enum SessionProPlanState: Equatable, Sendable {
@@ -176,8 +176,8 @@ public enum SessionProStateMock: String, Sendable, Codable, CaseIterable, Featur
 
 public enum SessionProStateExpiryMock: String, Sendable, Codable, CaseIterable, FeatureOption {
     case none
-    case twentyFourDaysPlusOneMinite
-    case twentyFourHoursPlusOneMinite
+    case twentyFourDaysPlusFiveMinite
+    case twentyFourHoursPlusFiveMinite
     case twentyFourHoursMinusOneMinite
     case tenSeconds
     
@@ -187,8 +187,8 @@ public enum SessionProStateExpiryMock: String, Sendable, Codable, CaseIterable, 
     public var title: String {
         switch self {
             case .none: return "None"
-            case .twentyFourDaysPlusOneMinite: return "24d+1m"
-            case .twentyFourHoursPlusOneMinite: return "24h+1m"
+            case .twentyFourDaysPlusFiveMinite: return "24d+5m"
+            case .twentyFourHoursPlusFiveMinite: return "24h+5m"
             case .twentyFourHoursMinusOneMinite: return "23h59m"
             case .tenSeconds: return "10s"
         }
@@ -196,11 +196,11 @@ public enum SessionProStateExpiryMock: String, Sendable, Codable, CaseIterable, 
     
     public var subtitle: String? { return nil }
     
-    public var durationInSeconds: TimeInterval {
+    public var durationInSeconds: TimeInterval? {
         switch self {
-            case .none: return 0
-            case .twentyFourDaysPlusOneMinite: return 24 * 24 * 60 * 60 + 60
-            case .twentyFourHoursPlusOneMinite: return 24 * 60 * 60 + 60
+            case .none: return nil
+            case .twentyFourDaysPlusFiveMinite: return 24 * 24 * 60 * 60 + 5 * 60
+            case .twentyFourHoursPlusFiveMinite: return 24 * 60 * 60 + 5 * 60
             case .twentyFourHoursMinusOneMinite: return 24 * 60 * 60 - 60
             case .tenSeconds: return 10
         }

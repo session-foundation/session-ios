@@ -37,6 +37,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         let originatingPlatform: ClientPlatform = dependencies[feature: .proPlanOriginatingPlatform]
+        let expiryInSeconds = dependencies[feature: .mockCurrentUserSessionProExpiry].durationInSeconds ?? 3 * 30 * 24 * 60 * 60
         switch dependencies[feature: .mockCurrentUserSessionProState] {
             case .none:
                 self.sessionProStateSubject = CurrentValueSubject(SessionProPlanState.none)
@@ -44,7 +45,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                 self.sessionProStateSubject = CurrentValueSubject(
                         SessionProPlanState.active(
                             currentPlan: SessionProPlan(variant: .threeMonths),
-                            expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+                            expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
                             isAutoRenewing: true,
                             originatingPlatform: originatingPlatform
                         )
@@ -53,7 +54,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                 self.sessionProStateSubject = CurrentValueSubject(
                         SessionProPlanState.active(
                             currentPlan: SessionProPlan(variant: .threeMonths),
-                            expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+                            expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
                             isAutoRenewing: false,
                             originatingPlatform: originatingPlatform
                         )
@@ -186,20 +187,16 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         )
     }
     
-    public func updateProExpiry(_ expiryInSeconds: TimeInterval) {
+    public func updateProExpiry(_ expiryInSeconds: TimeInterval?) {
         guard case .active(let currentPlan, _, let isAutoRenewing, let originatingPlatform) = self.sessionProStateSubject.value else {
             return
         }
-        let expiredOnDate = (
-            expiryInSeconds == 0 ?
-                Calendar.current.date(byAdding: .month, value: currentPlan.variant.duration, to: Date())! :
-                Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!
-        )
+        let expiryInSeconds = expiryInSeconds ?? TimeInterval(currentPlan.variant.duration * 30 * 24 * 60 * 60)
         
         self.sessionProStateSubject.send(
             SessionProPlanState.active(
                 currentPlan: currentPlan,
-                expiredOn: expiredOnDate,
+                expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
                 isAutoRenewing: isAutoRenewing,
                 originatingPlatform: originatingPlatform
             )
