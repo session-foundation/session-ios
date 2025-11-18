@@ -159,13 +159,13 @@ public struct ProCTAModal: View {
                             case .groupLimit(_, let isSessionProActivated, let proBadgeImage) = variant,
                             isSessionProActivated
                         {
-                            (Text(variant.subtitle) + Text(" \(Image(uiImage: proBadgeImage))"))
+                            (Text(variant.subtitle.string) + Text(" \(Image(uiImage: proBadgeImage))"))
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textSecondary)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
                         } else {
-                            Text(variant.subtitle)
+                            AttributedText(variant.subtitle)
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textSecondary)
                                 .multilineTextAlignment(.center)
@@ -181,20 +181,21 @@ public struct ProCTAModal: View {
                                 id: \.self
                             ) { index in
                                 HStack(spacing: Values.smallSpacing) {
-                                    if index < variant.benefits.count - 1 {
-                                        AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
-                                            .font(.system(size: 17))
-                                            .foregroundColor(themeColor: .primary)
-                                    } else {
+                                    if case .loadsMore = variant.benefits[index] {
                                         CyclicGradientView {
                                             AttributedText(Lucide.Icon.sparkles.attributedString(size: 17))
                                                 .font(.system(size: 17))
                                         }
+                                    } else {
+                                        AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
+                                            .font(.system(size: 17))
+                                            .foregroundColor(themeColor: .primary)
                                     }
                                     
-                                    Text(variant.benefits[index])
+                                    Text(variant.benefits[index].description)
                                         .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
                         }
@@ -340,45 +341,50 @@ public extension ProCTAModal {
             }
         }
 
-        public var subtitle: String {
+        public var subtitle: ThemedAttributedString {
             switch self {
                 case .generic:
                     return "proUserProfileModalCallToAction"
                         .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "app_name", value: Constants.app_name)
-                        .localized()
+                        .localizedFormatted()
                 case .longerMessages:
                     return "proCallToActionLongerMessages"
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .localized()
+                        .localizedFormatted()
                 case .animatedProfileImage(let isSessionProActivated):
                     return isSessionProActivated ?
-                        "proAnimatedDisplayPicture".localized() :
+                        "proAnimatedDisplayPicture"
+                            .localizedFormatted(baseFont: .systemFont(ofSize: 14)) :
                         "proAnimatedDisplayPictureCallToActionDescription"
                             .put(key: "app_pro", value: Constants.app_pro)
-                            .localized()
+                            .localizedFormatted()
                 case .morePinnedConvos(let isGrandfathered):
                     if isGrandfathered {
                         return "proCallToActionPinnedConversations"
                             .put(key: "app_pro", value: Constants.app_pro)
-                            .localized()
+                            .localizedFormatted()
                     }
                     return "proCallToActionPinnedConversationsMoreThan"
                         .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "limit", value: 5)    // TODO: [PRO] Get from SessionProUIManager
-                        .localized()
+                        .localizedFormatted()
                 
                 case .groupLimit(let isAdmin, let isSessionProActivated, _):
                     switch (isAdmin, isSessionProActivated) {
                         case (_, true):
-                            return "proGroupActivatedDescription".localized()
+                            return "proGroupActivatedDescription"
+                                .localizedFormatted(baseFont: .systemFont(ofSize: 14))
                         case (true, false):
                             return "proUserProfileModalCallToAction"
                                 .put(key: "app_pro", value: Constants.app_pro)
                                 .put(key: "app_name", value: Constants.app_name)
-                                .localized()
+                                .localizedFormatted()
                         case (false, false):
-                            return "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro" // TODO: Localised
+                            // TODO: Localised
+                            return ThemedAttributedString(
+                                string: "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro"
+                            )
                     }
                 case .expiring(let timeLeft):
                     if let timeLeft, !timeLeft.isEmpty {
@@ -386,58 +392,46 @@ public extension ProCTAModal {
                             .put(key: "pro", value: Constants.pro)
                             .put(key: "time", value: timeLeft)
                             .put(key: "app_pro", value: Constants.app_pro)
-                            .localized()
+                            .localizedFormatted()
                     } else {
                         return "proExpiredDescription"
                             .put(key: "pro", value: Constants.pro)
                             .put(key: "app_pro", value: Constants.app_pro)
-                            .localized()
+                            .localizedFormatted()
                     }
             }
         }
         
-        public var benefits: [String] {
-            switch self {
-                case .generic:
-                    return  [
-                        "proFeatureListLargerGroups".localized(),
-                        "proFeatureListLongerMessages".localized(),
-                        "proFeatureListLoadsMore".localized()
-                    ]
-                case .longerMessages:
-                    return [
-                        "proFeatureListLongerMessages".localized(),
-                        "proFeatureListLargerGroups".localized(),
-                        "proFeatureListLoadsMore".localized()
-                    ]
-                case .animatedProfileImage:
-                    return [
-                        "proFeatureListAnimatedDisplayPicture".localized(),
-                        "proFeatureListLargerGroups".localized(),
-                        "proFeatureListLoadsMore".localized()
-                    ]
-                case .morePinnedConvos:
-                    return [
-                        "proFeatureListPinnedConversations".localized(),
-                        "proFeatureListLargerGroups".localized(),
-                        "proFeatureListLoadsMore".localized()
-                    ]
+        public enum Benefits: Equatable {
+            case largerGroups
+            case longerMessages
+            case animatedProfileImage
+            case morePinnedConvos
+            case loadsMore
+            
+            var description: String {
+                return switch self {
+                    case .largerGroups: "proFeatureListLargerGroups".localized()
+                    case .longerMessages: "proFeatureListLongerMessages".localized()
+                    case .animatedProfileImage: "proFeatureListAnimatedDisplayPicture".localized()
+                    case .morePinnedConvos: "proFeatureListPinnedConversations".localized()
+                    case .loadsMore: "proFeatureListLoadsMore".localized()
+                }
+            }
+        }
+        
+        public var benefits: [Benefits] {
+            return switch self {
+                case .generic: [ .largerGroups, .longerMessages, .loadsMore ]
+                case .longerMessages: [ .longerMessages, .morePinnedConvos, .loadsMore ]
+                case .animatedProfileImage: [ .animatedProfileImage, .largerGroups, .loadsMore ]
+                case .morePinnedConvos: [ .morePinnedConvos, .largerGroups, .loadsMore ]
                 case .groupLimit(let isAdmin, let isSessionProActivated, _):
                     switch (isAdmin, isSessionProActivated) {
-                        case (true, false):
-                            return [
-                                "proFeatureListLargerGroups".localized(),
-                                "proFeatureListLongerMessages".localized(),
-                                "proFeatureListLoadsMore".localized()
-                            ]
-                        default: return []
+                        case (true, false): [ .largerGroups, .longerMessages, .loadsMore ]
+                        default: []
                     }
-                case .expiring:
-                    return [
-                        "proFeatureListLargerGroups".localized(),
-                        "proFeatureListLongerMessages".localized(),
-                        "proFeatureListPinnedConversations".localized()
-                    ]
+                case .expiring: [ .longerMessages, .morePinnedConvos, .animatedProfileImage ]
             }
         }
         

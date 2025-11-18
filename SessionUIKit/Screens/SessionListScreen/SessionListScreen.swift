@@ -128,6 +128,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                             }
                         }
                         .padding(.vertical, (scrollable ? 0 : Values.mediumSpacing))
+                        .listRowBackground(Color.clear)
                     }
                     
                     // MARK: List Items

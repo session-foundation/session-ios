@@ -85,6 +85,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case messageFeatureAnimatedAvatar
         
         case proPlanToRecover
+        case proPlanExpiry
         case mockInstalledFromIPA
         case originatingPlatform
         
@@ -113,6 +114,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .messageFeatureAnimatedAvatar: return "messageFeatureAnimatedAvatar"
                 
                 case .proPlanToRecover: return "proPlanToRecover"
+                case .proPlanExpiry: return "proPlanExpiry"
                 case .mockInstalledFromIPA: return "mockInstalledFromIPA"
                 case .originatingPlatform: return "originatingPlatform"
             }
@@ -142,6 +144,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .messageFeatureAnimatedAvatar: result.append(.messageFeatureAnimatedAvatar); fallthrough
                 
                 case .proPlanToRecover: result.append(.proPlanToRecover); fallthrough
+                case .proPlanExpiry: result.append(.proPlanExpiry); fallthrough
                 case .mockInstalledFromIPA: result.append(mockInstalledFromIPA); fallthrough
                 case .originatingPlatform: result.append(.originatingPlatform)
             }
@@ -177,6 +180,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let messageFeatureAnimatedAvatar: Bool
         
         let proPlanToRecover: Bool
+        let proPlanExpiry: SessionProStateExpiryMock
         let mockInstalledFromIPA: Bool
         let originatingPlatform: ClientPlatform
         
@@ -198,6 +202,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.messageFeatureLongMessage),
             .feature(.messageFeatureAnimatedAvatar),
             .feature(.proPlanToRecover),
+            .feature(.mockCurrentUserSessionProExpiry),
             .feature(.mockInstalledFromIPA),
             .feature(.proPlanOriginatingPlatform)
         ]
@@ -223,6 +228,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar],
                 
                 proPlanToRecover: dependencies[feature: .proPlanToRecover],
+                proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
                 mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
                 originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
             )
@@ -275,6 +281,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             messageFeatureLongMessage: dependencies[feature: .messageFeatureLongMessage],
             messageFeatureAnimatedAvatar: dependencies[feature: .messageFeatureAnimatedAvatar],
             proPlanToRecover: dependencies[feature: .proPlanToRecover],
+            proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
             mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
             originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
         )
@@ -504,8 +511,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         }
                     )
                 ]
-            )
-            .appending(
+            ).appending(
                 contentsOf: [
                     {
                         switch state.mockCurrentUserSessionPro {
@@ -524,6 +530,30 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                                         dependencies.set(
                                             feature: .proPlanToRecover,
                                             to: !state.proPlanToRecover
+                                        )
+                                    }
+                                )
+                            case .active, .expiring:
+                                SessionCell.Info(
+                                    id: .proPlanExpiry,
+                                    title: "Pro plan expiry",
+                                    subtitle: """
+                                    Mock current pro plan expiry.
+                                    """,
+                                    trailingAccessory: .dropDown { state.proPlanExpiry.title },
+                                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                                        viewModel?.transitionToScreen(
+                                            SessionTableViewController(
+                                                viewModel: SessionListViewModel<SessionProStateExpiryMock>(
+                                                    title: "Session Pro Plan Expiry",
+                                                    options: SessionProStateExpiryMock.allCases,
+                                                    behaviour: .autoDismiss(
+                                                        initialSelection: state.proPlanExpiry,
+                                                        onOptionSelected: viewModel?.updateSessionProExpiry
+                                                    ),
+                                                    using: dependencies
+                                                )
+                                            )
                                         )
                                     }
                                 )
@@ -622,6 +652,15 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         completion: nil
                     )
                 }
+            case .expiring:
+                Task {
+                    await dependencies[singleton: .sessionProState].upgradeToPro(
+                        plan: SessionProPlan(variant: .threeMonths),
+                        originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
+                        completion: nil
+                    )
+                    await dependencies[singleton: .sessionProState].cancelPro(completion: nil)
+                }
             case .expired:
                 Task {
                     await dependencies[singleton: .sessionProState].expirePro(completion: nil)
@@ -631,6 +670,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     await dependencies[singleton: .sessionProState].requestRefund(completion: nil)
                 }
         }
+    }
+    
+    private func updateSessionProExpiry(to expiry: SessionProStateExpiryMock) {
+        dependencies.set(feature: .mockCurrentUserSessionProExpiry, to: expiry)
+        dependencies[singleton: .sessionProState].updateProExpiry(expiry.durationInSeconds)
     }
     
     private func purchaseSubscription() async {

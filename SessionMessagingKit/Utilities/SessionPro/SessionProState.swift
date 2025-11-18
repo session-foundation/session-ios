@@ -38,6 +38,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         self.dependencies = dependencies
         // TODO: [PRO] Get the pro state of current user
         let originatingPlatform: ClientPlatform = dependencies[feature: .proPlanOriginatingPlatform]
+        let expiryInSeconds = dependencies[feature: .mockCurrentUserSessionProExpiry].durationInSeconds ?? 3 * 30 * 24 * 60 * 60
         switch dependencies[feature: .mockCurrentUserSessionProState] {
             case .none:
                 self.sessionProStateSubject = CurrentValueSubject(SessionProPlanState.none)
@@ -45,8 +46,17 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                 self.sessionProStateSubject = CurrentValueSubject(
                         SessionProPlanState.active(
                             currentPlan: SessionProPlan(variant: .threeMonths),
-                            expiredOn: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
+                            expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
                             isAutoRenewing: true,
+                            originatingPlatform: originatingPlatform
+                        )
+                )
+            case .expiring:
+                self.sessionProStateSubject = CurrentValueSubject(
+                        SessionProPlanState.active(
+                            currentPlan: SessionProPlan(variant: .threeMonths),
+                            expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
+                            isAutoRenewing: false,
                             originatingPlatform: originatingPlatform
                         )
                 )
@@ -94,6 +104,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         guard case .active(let currentPlan, let expiredOn, _, let originatingPlatform) = self.sessionProStateSubject.value else {
             return
         }
+        dependencies.set(feature: .mockCurrentUserSessionProState, to: .expiring)
         self.sessionProStateSubject.send(
             SessionProPlanState.active(
                 currentPlan: currentPlan,
@@ -102,7 +113,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                 originatingPlatform: originatingPlatform
             )
         )
-        self.shouldAnimateImageSubject.send(false)
+        self.shouldAnimateImageSubject.send(true)
         completion?(true)
     }
     
@@ -144,11 +155,27 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         )
     }
     
-    // This function is only for QA purpose
+    // These functions are only for QA purpose
     public func updateOriginatingPlatform(_ newValue: ClientPlatform) {
         self.sessionProStateSubject.send(
             self.sessionProStateSubject.value
                 .with(originatingPlatform: newValue)
+        )
+    }
+    
+    public func updateProExpiry(_ expiryInSeconds: TimeInterval?) {
+        guard case .active(let currentPlan, _, let isAutoRenewing, let originatingPlatform) = self.sessionProStateSubject.value else {
+            return
+        }
+        let expiryInSeconds = expiryInSeconds ?? TimeInterval(currentPlan.variant.duration * 30 * 24 * 60 * 60)
+        
+        self.sessionProStateSubject.send(
+            SessionProPlanState.active(
+                currentPlan: currentPlan,
+                expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
+                isAutoRenewing: isAutoRenewing,
+                originatingPlatform: originatingPlatform
+            )
         )
     }
 }
@@ -167,10 +194,14 @@ extension SessionProState: SessionProCTAManagerType {
     ) -> Bool {
         let shouldShowProCTA: Bool = {
             guard dependencies[feature: .sessionProEnabled] else { return false }
-            if case .groupLimit = variant { return true }
-            switch sessionProStateSubject.value {
-                case .active, .refunding: return false
-                case .none, .expired: return true
+            switch variant {
+                case .expiring, .groupLimit:
+                    return true
+                default:
+                    switch sessionProStateSubject.value {
+                        case .active, .refunding: return false
+                        case .none, .expired: return true
+                    }
             }
         }()
         

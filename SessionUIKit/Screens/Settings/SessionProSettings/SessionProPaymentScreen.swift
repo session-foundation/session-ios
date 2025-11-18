@@ -107,6 +107,7 @@ public struct SessionProPaymentScreen: View {
                             currentPlan: nil,
                             sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "upgrade".localized(),
+                            actionType: "proUpdatingAction".localized(),
                             activationType: "proUpdatingAction".localized(),
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
@@ -129,7 +130,8 @@ public struct SessionProPaymentScreen: View {
                             currentPlan: nil,
                             sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "renew".localized(),
-                            activationType: "proRenewingAction".localized(),
+                            actionType: "proRenewingAction".localized(),
+                            activationType: "proReactivatingActivation".localized(),
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
                         )
@@ -151,7 +153,8 @@ public struct SessionProPaymentScreen: View {
                             currentPlan: currentPlan,
                             sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
-                            activationType: "proUpdatingAction".localized(),
+                            actionType: "proUpdatingAction".localized(),
+                            activationType: "",
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
                         )

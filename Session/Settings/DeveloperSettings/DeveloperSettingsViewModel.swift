@@ -1917,3 +1917,6 @@ extension SessionProStateMock: Listable {}
 extension SessionProLoadingState: @retroactive ContentIdentifiable {}
 extension SessionProLoadingState: @retroactive ContentEquatable {}
 extension SessionProLoadingState: Listable {}
+extension SessionProStateExpiryMock: @retroactive ContentIdentifiable {}
+extension SessionProStateExpiryMock: @retroactive ContentEquatable {}
+extension SessionProStateExpiryMock: Listable {}

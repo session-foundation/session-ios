@@ -139,8 +139,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             .setting(.proBadgesSentCounter),
             .setting(.longerMessagesSentCounter),
             .setting(.isProBadgeEnabled),
-            .feature(.mockCurrentUserSessionProState),          // TODO: real data from libSession
-            .feature(.mockCurrentUserSessionProLoadingState)    // TODO: real loading status
+            .feature(.mockCurrentUserSessionProState),          // TODO: [PRO] real data from libSession
+            .feature(.mockCurrentUserSessionProLoadingState)    // TODO: [PRO] real loading status
         ]
         
         static func initialState() -> ViewModelState {
@@ -497,9 +497,28 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .faq,
                     variant: .cell(
                         info: .init(
-                            title: .init("proFaq".put(key: "pro", value: Constants.pro).localized(), font: .Headings.H8),
-                            description: .init("proFaqDescription".put(key: "app_pro", value: Constants.app_pro).localized(), font: .Body.smallRegular),
-                            trailingAccessory: .icon(.squareArrowUpRight, size: .large, customTint: .primary)
+                            title: .init(
+                                "proFaq"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized(),
+                                font: .Headings.H8
+                            ),
+                            description: .init(
+                                "proFaqDescription"
+                                    .put(key: "app_pro", value: Constants.app_pro)
+                                    .localized(),
+                                font: .Body.smallRegular
+                            ),
+                            trailingAccessory: .icon(
+                                .squareArrowUpRight,
+                                size: .large,
+                                customTint: {
+                                    switch state.currentProPlanState {
+                                        case .expired: return .textPrimary
+                                        default: return .sessionButton_text
+                                    }
+                                }()
+                            )
                         )
                     ),
                     onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_faq_url) }
@@ -508,9 +527,26 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     id: .support,
                     variant: .cell(
                         info: .init(
-                            title: .init("helpSupport".localized(), font: .Headings.H8),
-                            description: .init("proSupportDescription".put(key: "pro", value: Constants.pro).localized(), font: .Body.smallRegular),
-                            trailingAccessory: .icon(.squareArrowUpRight, size: .large, customTint: .primary)
+                            title: .init(
+                                "helpSupport".localized(),
+                                font: .Headings.H8
+                            ),
+                            description: .init(
+                                "proSupportDescription"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized(),
+                                font: .Body.smallRegular
+                            ),
+                            trailingAccessory: .icon(
+                                .squareArrowUpRight,
+                                size: .large,
+                                customTint: {
+                                    switch state.currentProPlanState {
+                                        case .expired: return .textPrimary
+                                        default: return .sessionButton_text
+                                    }
+                                }()
+                            )
                         )
                     ),
                     onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_support_url) }
@@ -611,7 +647,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             {
                 switch state.currentProPlanState {
                     case .none: nil
-                    case .active(_, let expiredOn, _, _):
+                    case .active(_, let expiredOn, let isAutoRenewing, _):
                         SessionListScreenContent.ListItemInfo(
                             id: .updatePlan,
                             variant: .cell(
@@ -642,10 +678,17 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             case .success:
                                                 .init(
                                                     font: .Body.smallRegular,
-                                                    attributedString: "proAutoRenewTime"
-                                                        .put(key: "pro", value: Constants.pro)
-                                                        .put(key: "time", value: expiredOn.timeIntervalSinceNow.formatted(format: .long, minimumUnit: .day))
-                                                        .localizedFormatted(Fonts.Body.smallRegular)
+                                                    attributedString: (
+                                                        isAutoRenewing ? 
+                                                            "proAutoRenewTime"
+                                                                .put(key: "pro", value: Constants.pro)
+                                                                .put(key: "time", value: expiredOn.timeIntervalSinceNow.ceilingFormatted(format: .long, allowedUnits: [.day, .hour, .minute]))
+                                                                .localizedFormatted(Fonts.Body.smallRegular) :
+                                                            "proExpiringTime"
+                                                                .put(key: "pro", value: Constants.pro)
+                                                                .put(key: "time", value: expiredOn.timeIntervalSinceNow.ceilingFormatted(format: .long, allowedUnits: [.day, .hour, .minute]))
+                                                                .localizedFormatted(Fonts.Body.smallRegular)
+                                                    )
                                                 )
                                         }
                                     }(),
@@ -797,16 +840,28 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     font: .Headings.H8,
                                     color: state.loadingState == .success ? .primary : .textPrimary
                                 ),
-                                description: (
-                                    state.loadingState != .error ? nil :
-                                            .init(
+                                description: {
+                                    switch state.loadingState {
+                                        case .error:
+                                            return .init(
                                                 font: .Body.smallRegular,
                                                 attributedString: "errorCheckingProStatus"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted(Fonts.Body.smallRegular),
                                                 color: .warning
                                             )
-                                ),
+                                        case .loading:
+                                            return .init(
+                                                font: .Body.smallRegular,
+                                                attributedString: "checkingProStatusEllipsis"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted(Fonts.Body.smallRegular),
+                                                color: .textPrimary
+                                            )
+                                        case .success:
+                                            return nil
+                                    }
+                                }(),
                                 trailingAccessory: (
                                     state.loadingState == .loading ?
                                         .loadingIndicator(size: .large) :

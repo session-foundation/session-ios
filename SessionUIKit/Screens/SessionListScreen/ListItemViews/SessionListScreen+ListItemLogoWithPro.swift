@@ -16,7 +16,7 @@ public struct ListItemLogoWithPro: View {
                 case .base:
                     return CGSize(
                         width: UIScreen.main.bounds.width - 2 * Values.mediumSpacing - 20 * 2,
-                        height: 111
+                        height: 96
                     )
                 case .large, .largeNoPaddings:
                     return CGSize(
@@ -65,9 +65,9 @@ public struct ListItemLogoWithPro: View {
             }
         }
         
-        var growingBackgroundColor: ThemeValue {
+        var glowingBackgroundColor: ThemeValue {
             switch self {
-                case .normal: return .settings_glowingBackground
+                case .normal: return .primary
                 case .disabled: return .disabled
             }
         }
@@ -101,19 +101,19 @@ public struct ListItemLogoWithPro: View {
     let info: Info
 
     public var body: some View {
-        ZStack(alignment: .top) {
-            Ellipse()
-                .fill(themeColor: info.themeStyle.growingBackgroundColor)
-                .frame(
-                    width: info.glowingBackgroundStyle.blurSize.width,
-                    height: info.glowingBackgroundStyle.blurSize.height
-                )
-                .shadow(radius: info.glowingBackgroundStyle.shadowRadius)
-                .opacity(0.17)
-                .blur(radius: info.glowingBackgroundStyle.blurRadius)
-                .padding(.top, info.glowingBackgroundStyle.blurRadius / 2)
-            
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
+            ZStack {
+                Ellipse()
+                    .fill(themeColor: info.themeStyle.glowingBackgroundColor)
+                    .frame(
+                        width: info.glowingBackgroundStyle.blurSize.width,
+                        height: info.glowingBackgroundStyle.blurSize.height
+                    )
+                    .opacity(0.17)
+                    .shadow(radius: info.glowingBackgroundStyle.shadowRadius)
+                    .blur(radius: info.glowingBackgroundStyle.blurRadius)
+                    .padding(.top, info.glowingBackgroundStyle.blurRadius / 2)
+                
                 Image("SessionGreen64")
                     .resizable()
                     .renderingMode(.template)
@@ -132,6 +132,7 @@ public struct ListItemLogoWithPro: View {
                     SessionProBadge_SwiftUI(size: .medium, themeBackgroundColor: info.themeStyle.themeColor)
                 }
                 .padding(.top, Values.mediumSpacing)
+                .environment(\.layoutDirection, .leftToRight)
                 
                 if case .error(let message) = info.state {
                     HStack(spacing: Values.verySmallSpacing) {
