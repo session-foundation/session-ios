@@ -296,6 +296,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .map { model -> SessionCell.Info<TableItem> in
                             SessionCell.Info(
                                 id: model,
+                                canReuseCell: true,
                                 leadingAccessory: .profile(id: model.id, profile: model.profile),
                                 title: (
                                     model.profile?.displayName() ??
