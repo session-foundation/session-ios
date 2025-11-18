@@ -36,7 +36,7 @@ public class DisplayPictureManager {
         case contactUpdateTo(url: String, key: Data)
         
         case currentUserRemove
-        case currentUserUpdateTo(url: String, key: Data, isReupload: Bool)
+        case currentUserUpdateTo(url: String, key: Data, type: UpdateType)
         
         case groupRemove
         case groupUploadImage(source: ImageDataManager.DataSource, cropRect: CGRect?)
@@ -58,6 +58,13 @@ public class DisplayPictureManager {
             
             return .contactUpdateTo(url: url, key: key)
         }
+    }
+    
+    public enum UpdateType {
+        case staticImage
+        case animatedImage
+        case reupload
+        case config
     }
     
     public static let maxBytes: UInt = (5 * 1000 * 1000)

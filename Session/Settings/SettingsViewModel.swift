@@ -904,7 +904,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return .currentUserUpdateTo(
             url: result.downloadUrl,
             key: result.encryptionKey,
-            isReupload: false
+            type: (pendingAttachment.utType.isAnimated ? .animatedImage : .staticImage)
         )
     }
     

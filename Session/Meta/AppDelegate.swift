@@ -81,6 +81,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 LibSession.setupLogger(using: dependencies)
                 dependencies.warm(cache: .libSessionNetwork)
                 dependencies.warm(singleton: .network)
+                dependencies.warm(singleton: .sessionProManager)
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(

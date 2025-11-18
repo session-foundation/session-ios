@@ -77,6 +77,17 @@ public extension Profile {
         }
     }
     
+    private struct ProfileProState: Equatable {
+        let features: SessionPro.Features
+        let expiryUnixTimestampMs: UInt64
+        let genIndexHashHex: String?
+        
+        var isPro: Bool {
+            expiryUnixTimestampMs > 0 &&
+            genIndexHashHex != nil
+        }
+    }
+    
     static func isTooLong(profileName: String) -> Bool {
         /// String.utf8CString will include the null terminator (Int8)0 as the end of string buffer.
         /// When the string is exactly 100 bytes String.utf8CString.count will be 101.
@@ -158,11 +169,17 @@ public extension Profile {
     ) throws {
         let isCurrentUser = currentUserSessionIds.contains(publicKey)
         let profile: Profile = cacheSource.resolve(db, publicKey: publicKey, using: dependencies)
+        let proState: ProfileProState = ProfileProState(
+            features: profile.proFeatures,
+            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
+            genIndexHashHex: profile.proGenIndexHashHex
+        )
         let updateStatus: UpdateStatus = UpdateStatus(
             updateTimestamp: profileUpdateTimestamp,
             cachedProfile: profile
         )
         var updatedProfile: Profile = profile
+        var updatedProState: ProfileProState = proState
         var profileChanges: [ConfigColumnAssignment] = []
         
         /// We should only update profile info controled by other users if `updateStatus` is `shouldUpdate`
@@ -248,6 +265,25 @@ public extension Profile {
                 default: break
             }
             
+            /// Update the pro state based on whether the updated display picture is animated or not
+            if isCurrentUser, case .currentUserUpdateTo(_, _, let type) = displayPictureUpdate {
+                switch type {
+                    case .staticImage:
+                        updatedProState = ProfileProState(
+                            features: updatedProState.features.removing(.animatedAvatar),
+                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                            genIndexHashHex: updatedProState.genIndexHashHex
+                        )
+                    case .animatedImage:
+                        updatedProState = ProfileProState(
+                            features: updatedProState.features.inserting(.animatedAvatar),
+                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                            genIndexHashHex: updatedProState.genIndexHashHex
+                        )
+                    case .reupload, .config: break  /// Don't modify the current state
+                }
+            }
+            
             /// Session Pro Information (if it's not the current user)
             switch (proUpdate, isCurrentUser) {
                 case (.none, _): break
@@ -256,73 +292,56 @@ public extension Profile {
                     
                     switch proInfo.status {
                         case .valid:
-                            let originalChangeCount: Int = profileChanges.count
-                            let finalFeatures: SessionPro.Features = proInfo.features.profileOnlyFeatures
-                            
-                            if profile.proFeatures != finalFeatures {
-                                updatedProfile = updatedProfile.with(proFeatures: .set(to: finalFeatures))
-                                profileChanges.append(Profile.Columns.proFeatures.set(to: finalFeatures.rawValue))
-                            }
-                            
-                            if profile.proExpiryUnixTimestampMs != proInfo.proProof.expiryUnixTimestampMs {
-                                let value: UInt64 = proInfo.proProof.expiryUnixTimestampMs
-                                updatedProfile = updatedProfile.with(proExpiryUnixTimestampMs: .set(to: value))
-                                profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs.set(to: value))
-                            }
-                            
-                            if profile.proGenIndexHashHex != proInfo.proProof.genIndexHash.toHexString() {
-                                let value: String = proInfo.proProof.genIndexHash.toHexString()
-                                updatedProfile = updatedProfile.with(proGenIndexHashHex: .set(to: value))
-                                profileChanges.append(Profile.Columns.proGenIndexHashHex.set(to: value))
-                            }
-                            
-                            /// If the change count no longer matches then the pro status was updated so we need to emit an event
-                            if profileChanges.count != originalChangeCount {
-                                db.addProfileEvent(
-                                    id: publicKey,
-                                    change: .proStatus(
-                                        isPro: true,
-                                        features: finalFeatures,
-                                        proExpiryUnixTimestampMs: proInfo.proProof.expiryUnixTimestampMs,
-                                        proGenIndexHashHex: proInfo.proProof.genIndexHash.toHexString()
-                                    )
-                                )
-                            }
+                            updatedProState = ProfileProState(
+                                features: proInfo.features.profileOnlyFeatures,
+                                expiryUnixTimestampMs: proInfo.proProof.expiryUnixTimestampMs,
+                                genIndexHashHex: proInfo.proProof.genIndexHash.toHexString()
+                            )
                             
                         default:
-                            let originalChangeCount: Int = profileChanges.count
-                            
-                            if profile.proFeatures != .none {
-                                updatedProfile = updatedProfile.with(proFeatures: .set(to: .none))
-                                profileChanges.append(Profile.Columns.proFeatures.set(to: .none))
-                            }
-                            
-                            if profile.proExpiryUnixTimestampMs > 0 {
-                                updatedProfile = updatedProfile.with(proExpiryUnixTimestampMs: .set(to: 0))
-                                profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs.set(to: 0))
-                            }
-                            
-                            if profile.proGenIndexHashHex != nil {
-                                updatedProfile = updatedProfile.with(proGenIndexHashHex: .set(to: nil))
-                                profileChanges.append(Profile.Columns.proGenIndexHashHex.set(to: nil))
-                            }
-                            
-                            /// If the change count no longer matches then the pro status was updated so we need to emit an event
-                            if profileChanges.count != originalChangeCount {
-                                db.addProfileEvent(
-                                    id: publicKey,
-                                    change: .proStatus(
-                                        isPro: false,
-                                        features: .none,
-                                        proExpiryUnixTimestampMs: 0,
-                                        proGenIndexHashHex: nil
-                                    )
-                                )
-                            }
+                            updatedProState = ProfileProState(
+                                features: .none,
+                                expiryUnixTimestampMs: 0,
+                                genIndexHashHex: nil
+                            )
                     }
                     
                 /// Don't want profiles in messages to modify the current users profile info so ignore those cases
                 default: break
+            }
+            
+            /// If the pro state no longer matches then we need to emit an event
+            if updatedProState != proState {
+                if updatedProState.features != proState.features {
+                    updatedProfile = updatedProfile.with(proFeatures: .set(to: updatedProState.features))
+                    profileChanges.append(Profile.Columns.proFeatures.set(to: updatedProState.features.rawValue))
+                }
+                
+                if updatedProState.expiryUnixTimestampMs != proState.expiryUnixTimestampMs {
+                    updatedProfile = updatedProfile.with(
+                        proExpiryUnixTimestampMs: .set(to: updatedProState.expiryUnixTimestampMs)
+                    )
+                    profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs
+                        .set(to: updatedProState.expiryUnixTimestampMs))
+                }
+                
+                if updatedProState.genIndexHashHex != proState.genIndexHashHex {
+                    updatedProfile = updatedProfile.with(
+                        proGenIndexHashHex: .set(to: updatedProState.genIndexHashHex)
+                    )
+                    profileChanges.append(Profile.Columns.proGenIndexHashHex
+                        .set(to: updatedProState.genIndexHashHex))
+                }
+                
+                db.addProfileEvent(
+                    id: publicKey,
+                    change: .proStatus(
+                        isPro: updatedProState.isPro,
+                        features: updatedProState.features,
+                        expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                        genIndexHashHex: updatedProState.genIndexHashHex
+                    )
+                )
             }
         }
         
@@ -446,10 +465,10 @@ public extension Profile {
                             displayName: .set(to: updatedProfile.name),
                             displayPictureUrl: .set(to: updatedProfile.displayPictureUrl),
                             displayPictureEncryptionKey: .set(to: updatedProfile.displayPictureEncryptionKey),
-                            proFeatures: .set(to: updatedProfile.proFeatures),
+                            proFeatures: .set(to: updatedProState.features),
                             isReuploadProfilePicture: {
                                 switch displayPictureUpdate {
-                                    case .currentUserUpdateTo(_, _, let isReupload): return isReupload
+                                    case .currentUserUpdateTo(_, _, let type): return (type == .reupload)
                                     default: return false
                                 }
                             }()

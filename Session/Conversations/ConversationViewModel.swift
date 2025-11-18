@@ -1268,8 +1268,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         // Generate the optimistic data
         let optimisticMessageId: Int64 = (-Int64.max + sentTimestampMs) /// Unique but avoids collisions with messages
         let currentState: State = await self.state
-        let proFeatures: SessionPro.Features = try {
-            let userProfileFeatures: SessionPro.Features = .none // TODO: [PRO] Need to add in `proBadge` if enabled
+        let proFeatures: SessionPro.Features = try await {
+            let userProfileFeatures: SessionPro.Features = await dependencies[singleton: .sessionProManager].proFeatures
             let result: SessionPro.FeaturesForMessage = dependencies[singleton: .sessionProManager].features(
                 for: (text ?? ""),
                 features: userProfileFeatures

@@ -202,8 +202,8 @@ public struct ProfileEvent: Hashable {
         case proStatus(
             isPro: Bool,
             features: SessionPro.Features,
-            proExpiryUnixTimestampMs: UInt64,
-            proGenIndexHashHex: String?
+            expiryUnixTimestampMs: UInt64,
+            genIndexHashHex: String?
         )
     }
 }

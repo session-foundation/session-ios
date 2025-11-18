@@ -650,6 +650,7 @@
 		FD360EC12ECD239B0050CAF4 /* GetProRevocationsRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC02ECD23950050CAF4 /* GetProRevocationsRequest.swift */; };
 		FD360EC32ECD23A40050CAF4 /* GetProRevocationsResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC22ECD239D0050CAF4 /* GetProRevocationsResponse.swift */; };
 		FD360EC52ECD24C30050CAF4 /* RevocationItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC42ECD24C00050CAF4 /* RevocationItem.swift */; };
+		FD360EC72ECD38750050CAF4 /* OptionSet+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC62ECD38710050CAF4 /* OptionSet+Utilities.swift */; };
 		FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
 		FD3765DF2AD8F03100DC1489 /* MockSnodeAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */; };
@@ -982,7 +983,6 @@
 		FD99A3A22EBAA6AA00E59F94 /* Envelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3A12EBAA6A500E59F94 /* Envelope.swift */; };
 		FD99A3A42EBAA6BD00E59F94 /* EnvelopeFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3A32EBAA6BA00E59F94 /* EnvelopeFlags.swift */; };
 		FD99A3A62EBAAA1700E59F94 /* DecodedMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3A52EBAAA1400E59F94 /* DecodedMessage.swift */; };
-		FD99A3AA2EBBF20100E59F94 /* ArraySection+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3A92EBBF1F400E59F94 /* ArraySection+Utilities.swift */; };
 		FD99A3AC2EBC1B6E00E59F94 /* Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3AB2EBC1B6C00E59F94 /* Server.swift */; };
 		FD99A3B02EBD4EDD00E59F94 /* FetchablePair.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3AF2EBD4EDB00E59F94 /* FetchablePair.swift */; };
 		FD99A3B22EC3E2F500E59F94 /* OWSAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD99A3B12EC3E2EF00E59F94 /* OWSAudioPlayer.swift */; };
@@ -2050,6 +2050,7 @@
 		FD360EC02ECD23950050CAF4 /* GetProRevocationsRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProRevocationsRequest.swift; sourceTree = "<group>"; };
 		FD360EC22ECD239D0050CAF4 /* GetProRevocationsResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProRevocationsResponse.swift; sourceTree = "<group>"; };
 		FD360EC42ECD24C00050CAF4 /* RevocationItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevocationItem.swift; sourceTree = "<group>"; };
+		FD360EC62ECD38710050CAF4 /* OptionSet+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OptionSet+Utilities.swift"; sourceTree = "<group>"; };
 		FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _026_AddFTSIfNeeded.swift; sourceTree = "<group>"; };
 		FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Utilities.swift"; sourceTree = "<group>"; };
 		FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSnodeAPICache.swift; sourceTree = "<group>"; };
@@ -2296,7 +2297,6 @@
 		FD99A3A12EBAA6A500E59F94 /* Envelope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Envelope.swift; sourceTree = "<group>"; };
 		FD99A3A32EBAA6BA00E59F94 /* EnvelopeFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvelopeFlags.swift; sourceTree = "<group>"; };
 		FD99A3A52EBAAA1400E59F94 /* DecodedMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecodedMessage.swift; sourceTree = "<group>"; };
-		FD99A3A92EBBF1F400E59F94 /* ArraySection+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ArraySection+Utilities.swift"; sourceTree = "<group>"; };
 		FD99A3AB2EBC1B6C00E59F94 /* Server.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Server.swift; sourceTree = "<group>"; };
 		FD99A3AF2EBD4EDB00E59F94 /* FetchablePair.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchablePair.swift; sourceTree = "<group>"; };
 		FD99A3B12EC3E2EF00E59F94 /* OWSAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OWSAudioPlayer.swift; sourceTree = "<group>"; };
@@ -4111,7 +4111,6 @@
 		FD09796527F6B0A800936362 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				FD99A3A92EBBF1F400E59F94 /* ArraySection+Utilities.swift */,
 				FDB3DA892E2482A400148F8D /* AVURLAsset+Utilities.swift */,
 				94C58AC82D2E036E00609195 /* Permissions.swift */,
 				FD97B23F2A3FEB050027DD57 /* ARC4RandomNumberGenerator.swift */,
@@ -4133,6 +4132,7 @@
 				FD09797C27FBDB2000936362 /* Notification+Utilities.swift */,
 				FDF222082818D2B0000A4995 /* NSAttributedString+Utilities.swift */,
 				FD09797127FAA2F500936362 /* Optional+Utilities.swift */,
+				FD360EC62ECD38710050CAF4 /* OptionSet+Utilities.swift */,
 				FDE519F62AB7CDC700450C53 /* Result+Utilities.swift */,
 				FD00CDCA2D5317A3006B96D3 /* Scheduler+Utilities.swift */,
 				FDB11A532DCD7A7B00BEF49F /* Task+Utilities.swift */,
@@ -6796,6 +6796,7 @@
 				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
 				FD2272D42C34ECE1004D8A6C /* BencodeEncoder.swift in Sources */,
 				FDE755052C9BB4EE002A2623 /* BencodeDecoder.swift in Sources */,
+				FD360EC72ECD38750050CAF4 /* OptionSet+Utilities.swift in Sources */,
 				FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */,
 				FDE754DC2C9BAF8A002A2623 /* CryptoError.swift in Sources */,
 				FDFF9FDF2A787F57005E0628 /* JSONEncoder+Utilities.swift in Sources */,
@@ -6850,7 +6851,6 @@
 				FD848B9328420164000E298B /* UnicodeScalar+Utilities.swift in Sources */,
 				FDB11A542DCD7A7F00BEF49F /* Task+Utilities.swift in Sources */,
 				FDE7551A2C9BC169002A2623 /* UIApplicationState+Utilities.swift in Sources */,
-				FD99A3AA2EBBF20100E59F94 /* ArraySection+Utilities.swift in Sources */,
 				94C58AC92D2E037200609195 /* Permissions.swift in Sources */,
 				FD09796B27F6C67500936362 /* Failable.swift in Sources */,
 				FDE33BBC2D5C124900E56F42 /* DispatchTimeInterval+Utilities.swift in Sources */,

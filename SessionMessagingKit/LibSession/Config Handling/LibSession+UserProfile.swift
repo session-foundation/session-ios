@@ -57,7 +57,7 @@ internal extension LibSessionCacheType {
                 return .currentUserUpdateTo(
                     url: displayPictureUrl,
                     key: displayPictureEncryptionKey,
-                    isReupload: false
+                    type: .config
                 )
             }(),
             proUpdate: {
