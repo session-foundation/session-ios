@@ -53,7 +53,7 @@ if [[ "$MODE" == "test" ]]; then
     echo "----------------------------------------------------"
     echo "Checking for test failures in xcresult bundle..."
 
-    xcresultparser --output-format cli --no-test-result --coverage ./build/artifacts/testResults.xcresult
+    xcresultparser --output-format cli --no-test-result --coverage-report-format targets --coverage ./build/artifacts/testResults.xcresult
     parser_output=$(xcresultparser --output-format cli --no-test-result ./build/artifacts/testResults.xcresult)
 
     # Strip ANSI color codes before parsing
