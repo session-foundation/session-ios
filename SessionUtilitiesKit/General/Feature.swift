@@ -94,6 +94,10 @@ public extension FeatureStorage {
         identifier: "proBadgeEverywhere"
     )
     
+    static let fakeAppleSubscriptionForDev: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "fakeAppleSubscriptionForDev"
+    )
+    
     static let forceMessageFeatureProBadge: FeatureConfig<Bool> = Dependencies.create(
         identifier: "forceMessageFeatureProBadge"
     )

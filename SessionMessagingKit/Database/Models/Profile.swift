@@ -27,7 +27,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         
         case proFeatures
         case proExpiryUnixTimestampMs
-        case proGenIndexHash
+        case proGenIndexHashHex
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -60,7 +60,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     public let proExpiryUnixTimestampMs: UInt64
     
     /// The timestamp when Session Pro expires for this profile
-    public let proGenIndexHash: String?
+    public let proGenIndexHashHex: String?
     
     // MARK: - Initialization
     
@@ -74,7 +74,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         blocksCommunityMessageRequests: Bool? = nil,
         proFeatures: SessionPro.Features = .none,
         proExpiryUnixTimestampMs: UInt64 = 0,
-        proGenIndexHash: String? = nil
+        proGenIndexHashHex: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -85,7 +85,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         self.proFeatures = proFeatures
         self.proExpiryUnixTimestampMs = proExpiryUnixTimestampMs
-        self.proGenIndexHash = proGenIndexHash
+        self.proGenIndexHashHex = proGenIndexHashHex
     }
 }
 
@@ -114,7 +114,7 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
             proFeatures: \(proFeatures),
             proExpiryUnixTimestampMs: \(proExpiryUnixTimestampMs),
-            proGenIndexHash: \(proGenIndexHash.map { "\($0)" } ?? "null")
+            proGenIndexHashHex: \(proGenIndexHashHex.map { "\($0)" } ?? "null")
         )
         """
     }
@@ -233,7 +233,7 @@ public extension Profile {
             blocksCommunityMessageRequests: nil,
             proFeatures: .none,
             proExpiryUnixTimestampMs: 0,
-            proGenIndexHash: nil
+            proGenIndexHashHex: nil
         )
     }
     
@@ -447,7 +447,7 @@ public extension Profile {
         blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
         proFeatures: Update<SessionPro.Features> = .useExisting,
         proExpiryUnixTimestampMs: Update<UInt64> = .useExisting,
-        proGenIndexHash: Update<String?> = .useExisting
+        proGenIndexHashHex: Update<String?> = .useExisting
     ) -> Profile {
         return Profile(
             id: id,
@@ -459,7 +459,7 @@ public extension Profile {
             blocksCommunityMessageRequests: blocksCommunityMessageRequests.or(self.blocksCommunityMessageRequests),
             proFeatures: proFeatures.or(self.proFeatures),
             proExpiryUnixTimestampMs: proExpiryUnixTimestampMs.or(self.proExpiryUnixTimestampMs),
-            proGenIndexHash: proGenIndexHash.or(self.proGenIndexHash)
+            proGenIndexHashHex: proGenIndexHashHex.or(self.proGenIndexHashHex)
         )
     }
 }

@@ -60,8 +60,30 @@ internal extension LibSessionCacheType {
                     isReupload: false
                 )
             }(),
-            proUpdate: .none,    // TODO: [PRO] Do we need to pass this
-//            sessionProProof: dependencies[singleton: .sessionProManager].currentUserCurrentProProof,
+            proUpdate: {
+                guard
+                    let proConfig: SessionPro.ProConfig = self.proConfig,
+                    proConfig.rotatingPrivateKey.count >= 32,
+                    let rotatingKeyPair: KeyPair = try? dependencies[singleton: .crypto].tryGenerate(
+                        .ed25519KeyPair(seed: proConfig.rotatingPrivateKey.prefix(upTo: 32))
+                    )
+                else { return .none }
+                
+                let features: SessionPro.Features = SessionPro.Features(user_profile_get_pro_features(conf))
+                let status: SessionPro.ProStatus = dependencies[singleton: .sessionProManager].proStatus(
+                    for: proConfig.proProof,
+                    verifyPubkey: rotatingKeyPair.publicKey,
+                    atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                )
+                
+                return .currentUserUpdate(
+                    SessionPro.DecodedProForMessage(
+                        status: status,
+                        proProof: proConfig.proProof,
+                        features: features
+                    )
+                )
+            }(),
             profileUpdateTimestamp: profileLastUpdateTimestamp,
             cacheSource: .value((oldState[.profile(userSessionId.hexString)] as? Profile), fallback: .database),
             suppressUserProfileConfigUpdate: true,
@@ -145,6 +167,11 @@ internal extension LibSessionCacheType {
             db.addContactEvent(id: userSessionId.hexString, change: .isApproved(true))
             db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
         }
+        
+        // Update the SessionProManager with these changes
+        db.afterCommit { [sessionProManager = dependencies[singleton: .sessionProManager]] in
+            Task { await sessionProManager.updateWithLatestFromUserConfig() }
+        }
     }
 }
 
@@ -216,10 +243,24 @@ public extension LibSession.Cache {
         return String(cString: profileNamePtr)
     }
     
+    var proConfig: SessionPro.ProConfig? {
+        var cProConfig: pro_pro_config = pro_pro_config()
+        
+        guard
+            case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId),
+            user_profile_get_pro_config(conf, &cProConfig)
+        else { return nil }
+        
+        return SessionPro.ProConfig(cProConfig)
+    }
+    
+    /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,
+    /// as a result this function doesn't emit profile change events itself (use `Profile.updateLocal` instead)
     func updateProfile(
         displayName: Update<String>,
         displayPictureUrl: Update<String?>,
         displayPictureEncryptionKey: Update<Data?>,
+        proFeatures: Update<SessionPro.Features>,
         isReuploadProfilePicture: Bool
     ) throws {
         guard let config: LibSession.Config = config(for: .userProfile, sessionId: userSessionId) else {
@@ -235,6 +276,7 @@ public extension LibSession.Cache {
         let oldDisplayPic: user_profile_pic = user_profile_get_pic(conf)
         let oldDisplayPictureUrl: String? = oldDisplayPic.get(\.url, nullIfEmpty: true)
         let oldDisplayPictureKey: Data? = oldDisplayPic.get(\.key, nullIfEmpty: true)
+        let oldProFeatures: SessionPro.Features = SessionPro.Features(user_profile_get_pro_features(conf))
         
         /// Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
         ///
@@ -253,18 +295,9 @@ public extension LibSession.Cache {
             }
             
             try LibSessionError.throwIfNeeded(conf)
-            
-            /// Add a pending observation to notify any observers of the change once it's committed
-            addEvent(
-                key: .profile(userSessionId.hexString),
-                value: ProfileEvent(
-                    id: userSessionId.hexString,
-                    change: .displayPictureUrl(displayPictureUrl.or(oldDisplayPictureUrl))
-                )
-            )
         }
         
-        /// Update the nam
+        /// Update the name
         ///
         /// **Note:** Setting the name (even if it hasn't changed) currently results in a timestamp change so only do this if it was
         /// changed (this will be fixed in `libSession v1.5.8`)
@@ -274,13 +307,29 @@ public extension LibSession.Cache {
             }()
             user_profile_set_name(conf, &cUpdatedName)
             try LibSessionError.throwIfNeeded(conf)
-            
-            /// Add a pending observation to notify any observers of the change once it's committed
-            addEvent(
-                key: .profile(userSessionId.hexString),
-                value: ProfileEvent(id: userSessionId.hexString, change: .name(displayName.or(oldNameFallback)))
-            )
         }
+        
+        /// Update the pro features
+        ///
+        /// **Note:** Setting the name (even if it hasn't changed) currently results in a timestamp change so only do this if it was
+        /// changed (this will be fixed in `libSession v1.5.8`)
+        if proFeatures.or(.none) != oldProFeatures {
+            user_profile_set_pro_badge(conf, proFeatures.or(.none).contains(.proBadge))
+            user_profile_set_animated_avatar(conf, proFeatures.or(.none).contains(.animatedAvatar))
+        }
+    }
+    
+    func updateProConfig(proConfig: SessionPro.ProConfig) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+        
+        var cProConfig: pro_pro_config = proConfig.libSessionValue
+        user_profile_set_pro_config(conf, &cProConfig)
+    }
+    
+    func removeProConfig() {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+        
+        user_profile_remove_pro_config(conf)
     }
 }
 

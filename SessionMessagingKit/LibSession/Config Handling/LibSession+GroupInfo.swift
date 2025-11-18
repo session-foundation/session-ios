@@ -51,8 +51,7 @@ internal extension LibSessionCacheType {
     func handleGroupInfoUpdate(
         _ db: ObservingDatabase,
         in config: LibSession.Config?,
-        groupSessionId: SessionId,
-        serverTimestampMs: Int64
+        groupSessionId: SessionId
     ) throws {
         guard configNeedsDump(config) else { return }
         guard case .groupInfo(let conf) = config else {
@@ -152,7 +151,7 @@ internal extension LibSessionCacheType {
                     shouldBeUnique: true,
                     details: DisplayPictureDownloadJob.Details(
                         target: .group(id: groupSessionId.hexString, url: url, encryptionKey: key),
-                        timestamp: TimeInterval(Double(serverTimestampMs) / 1000)
+                        timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     )
                 ),
                 canStartJob: true

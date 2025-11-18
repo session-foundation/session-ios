@@ -7,18 +7,18 @@ import Foundation
 public extension Network.SessionPro {
     enum Endpoint: EndpointType {
         case addProPayment
-        case getProProof
+        case generateProProof
         case getProRevocations
-        case getProStatus
+        case getProDetails
         
         public static var name: String { "SessionPro.Endpoint" }
         
         public var path: String {
             switch self {
                 case .addProPayment: return "add_pro_payment"
-                case .getProProof: return "get_pro_proof"
+                case .generateProProof: return "generate_pro_proof"
                 case .getProRevocations: return "get_pro_revocations"
-                case .getProStatus: return "get_pro_status"
+                case .getProDetails: return "get_pro_details"
             }
         }
     }

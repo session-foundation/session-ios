@@ -270,10 +270,10 @@ public extension Profile {
                                 profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs.set(to: value))
                             }
                             
-                            if profile.proGenIndexHash != proInfo.proProof.genIndexHash.toHexString() {
+                            if profile.proGenIndexHashHex != proInfo.proProof.genIndexHash.toHexString() {
                                 let value: String = proInfo.proProof.genIndexHash.toHexString()
-                                updatedProfile = updatedProfile.with(proGenIndexHash: .set(to: value))
-                                profileChanges.append(Profile.Columns.proGenIndexHash.set(to: value))
+                                updatedProfile = updatedProfile.with(proGenIndexHashHex: .set(to: value))
+                                profileChanges.append(Profile.Columns.proGenIndexHashHex.set(to: value))
                             }
                             
                             /// If the change count no longer matches then the pro status was updated so we need to emit an event
@@ -284,7 +284,7 @@ public extension Profile {
                                         isPro: true,
                                         features: finalFeatures,
                                         proExpiryUnixTimestampMs: proInfo.proProof.expiryUnixTimestampMs,
-                                        proGenIndexHash: proInfo.proProof.genIndexHash.toHexString()
+                                        proGenIndexHashHex: proInfo.proProof.genIndexHash.toHexString()
                                     )
                                 )
                             }
@@ -302,9 +302,9 @@ public extension Profile {
                                 profileChanges.append(Profile.Columns.proExpiryUnixTimestampMs.set(to: 0))
                             }
                             
-                            if profile.proGenIndexHash != nil {
-                                updatedProfile = updatedProfile.with(proGenIndexHash: .set(to: nil))
-                                profileChanges.append(Profile.Columns.proGenIndexHash.set(to: nil))
+                            if profile.proGenIndexHashHex != nil {
+                                updatedProfile = updatedProfile.with(proGenIndexHashHex: .set(to: nil))
+                                profileChanges.append(Profile.Columns.proGenIndexHashHex.set(to: nil))
                             }
                             
                             /// If the change count no longer matches then the pro status was updated so we need to emit an event
@@ -315,7 +315,7 @@ public extension Profile {
                                         isPro: false,
                                         features: .none,
                                         proExpiryUnixTimestampMs: 0,
-                                        proGenIndexHash: nil
+                                        proGenIndexHashHex: nil
                                     )
                                 )
                             }
@@ -442,11 +442,11 @@ public extension Profile {
                 
                 try dependencies.mutate(cache: .libSession) { cache in
                     try cache.performAndPushChange(db, for: .userProfile, sessionId: userSessionId) { _ in
-                        // TODO: [PRO] Need to update the current users pro settings?
                         try cache.updateProfile(
                             displayName: .set(to: updatedProfile.name),
                             displayPictureUrl: .set(to: updatedProfile.displayPictureUrl),
                             displayPictureEncryptionKey: .set(to: updatedProfile.displayPictureEncryptionKey),
+                            proFeatures: .set(to: updatedProfile.proFeatures),
                             isReuploadProfilePicture: {
                                 switch displayPictureUpdate {
                                     case .currentUserUpdateTo(_, _, let isReupload): return isReupload

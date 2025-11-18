@@ -10,6 +10,7 @@ import SessionUtilitiesKit
 public extension Crypto.Generator {
     static func encodedMessage<I: DataProtocol, R: RangeReplaceableCollection>(
         plaintext: I,
+        proFeatures: SessionPro.Features,
         destination: Message.Destination,
         sentTimestampMs: UInt64
     ) throws -> Crypto.Generator<R> where R.Element == UInt8 {
@@ -18,9 +19,14 @@ public extension Crypto.Generator {
             args: []
         ) { dependencies in
             let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
-            let cRotatingProSecretKey: [UInt8]? = dependencies[singleton: .sessionProManager]
-                .currentUserCurrentRotatingKeyPair?
-                .secretKey
+            let cRotatingProSecretKey: [UInt8]? = {
+                /// If the message doens't contain any pro features then we shouldn't include a pro signature
+                guard proFeatures != .none else { return nil }
+                
+                return dependencies[singleton: .sessionProManager]
+                    .currentUserCurrentRotatingKeyPair?
+                    .secretKey
+            }()
             
             guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
             
@@ -393,11 +399,11 @@ public extension Crypto.Verification {
 public extension Crypto.Generator {
     static func sessionProMasterKeyPair() -> Crypto.Generator<KeyPair> {
         return Crypto.Generator(
-            id: "encodedMessage",
+            id: "sessionProMasterKeyPair",
             args: []
         ) { dependencies in
             let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
-            var cMasterSecretKey: [UInt8] = [UInt8](repeating: 0, count: 256)
+            var cMasterSecretKey: [UInt8] = [UInt8](repeating: 0, count: 64)
             
             guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
             

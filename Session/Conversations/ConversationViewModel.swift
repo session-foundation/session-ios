@@ -648,7 +648,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 case .name(let name): profileData = profileData.with(name: name)
                 case .nickname(let nickname): profileData = profileData.with(nickname: .set(to: nickname))
                 case .displayPictureUrl(let url): profileData = profileData.with(displayPictureUrl: .set(to: url))
-                case .proStatus(_, let features, let proExpiryUnixTimestampMs, let proGenIndexHash):
+                case .proStatus(_, let features, let proExpiryUnixTimestampMs, let proGenIndexHashHex):
                     let finalFeatures: SessionPro.Features = {
                         guard dependencies[feature: .sessionProEnabled] else { return .none }
                         
@@ -659,7 +659,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     profileData = profileData.with(
                         proFeatures: .set(to: finalFeatures),
                         proExpiryUnixTimestampMs: .set(to: proExpiryUnixTimestampMs),
-                        proGenIndexHash: .set(to: proGenIndexHash)
+                        proGenIndexHashHex: .set(to: proGenIndexHashHex)
                     )
             }
             

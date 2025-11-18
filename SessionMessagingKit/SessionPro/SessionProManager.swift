@@ -29,8 +29,8 @@ public actor SessionProManager: SessionProManagerType {
     private let dependencies: Dependencies
     nonisolated private let syncState: SessionProManagerSyncState
     private var proStatusObservationTask: Task<Void, Never>?
-    private var masterKeyPair: KeyPair?
     public var rotatingKeyPair: KeyPair?
+    public var proFeatures: SessionPro.Features = .none
     
     nonisolated private let backendUserProStatusStream: CurrentValueAsyncStream<Network.SessionPro.BackendUserProStatus?> = CurrentValueAsyncStream(nil)
     nonisolated private let proProofStream: CurrentValueAsyncStream<Network.SessionPro.ProProof?> = CurrentValueAsyncStream(nil)
@@ -42,9 +42,6 @@ public actor SessionProManager: SessionProManagerType {
     }
     nonisolated public var currentUserIsCurrentlyPro: Bool { syncState.backendUserProStatus == .active }
     nonisolated public var currentUserCurrentProProof: Network.SessionPro.ProProof? { syncState.proProof }
-    nonisolated public var currentUserCurrentDecodedProForMessage: SessionPro.DecodedProForMessage? {
-        syncState.decodedProForMessage
-    }
     nonisolated public var currentUserIsPro: AsyncStream<Bool> {
         backendUserProStatusStream.stream
             .map { $0 == .active }
@@ -67,11 +64,13 @@ public actor SessionProManager: SessionProManagerType {
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.syncState = SessionProManagerSyncState(using: dependencies)
-        self.masterKeyPair = dependencies[singleton: .crypto].generate(.sessionProMasterKeyPair())
         
         Task {
             await updateWithLatestFromUserConfig()
             await startProStatusObservations()
+            
+            /// Kick off a refresh so we know we have the latest state
+            try? await refreshProState()
         }
     }
     
@@ -115,6 +114,17 @@ public actor SessionProManager: SessionProManagerType {
         )
     }
     
+    nonisolated public func proProofIsActive(
+        for proof: Network.SessionPro.ProProof?,
+        atTimestampMs timestampMs: UInt64
+    ) -> Bool {
+        guard let proof: Network.SessionPro.ProProof else { return false }
+        
+        var cProProof: session_protocol_pro_proof = proof.libSessionValue
+        
+        return session_protocol_pro_proof_is_active(&cProProof, timestampMs)
+    }
+    
     nonisolated public func features(for message: String, features: SessionPro.Features) -> SessionPro.FeaturesForMessage {
         guard let cMessage: [CChar] = message.cString(using: .utf8) else {
             return SessionPro.FeaturesForMessage.invalidString
@@ -129,8 +139,35 @@ public actor SessionProManager: SessionProManagerType {
         )
     }
     
+    nonisolated public func attachProInfoIfNeeded(message: Message) -> Message {
+        let featuresForMessage: SessionPro.FeaturesForMessage = features(
+            for: ((message as? VisibleMessage)?.text ?? ""),
+            features: (syncState.proFeatures ?? .none)
+        )
+        
+        /// We only want to attach the `proFeatures` and `proProof` if a pro feature is _actually_ used
+        guard
+            featuresForMessage.status == .success,
+            featuresForMessage.features != .none,
+            let proof: Network.SessionPro.ProProof = syncState.proProof
+        else {
+            if featuresForMessage.status != .success {
+                Log.error(.sessionPro, "Failed to get features for outgoing message due to error: \(featuresForMessage.error ?? "Unknown error")")
+            }
+            return message
+        }
+        
+        let updatedMessage: Message = message
+        updatedMessage.proFeatures = featuresForMessage.features
+        updatedMessage.proProof = proof
+        
+        return updatedMessage
+    }
+    
     public func updateWithLatestFromUserConfig() async {
-        let proConfig: SessionPro.ProConfig? = dependencies.mutate(cache: .libSession) { $0.proConfig }
+        let (proConfig, profile): (SessionPro.ProConfig?, Profile) = dependencies.mutate(cache: .libSession) {
+            ($0.proConfig, $0.profile)
+        }
         
         let rotatingKeyPair: KeyPair? = try? proConfig.map { config in
             guard config.rotatingPrivateKey.count >= 32 else { return nil }
@@ -144,18 +181,14 @@ public actor SessionProManager: SessionProManagerType {
         /// sync state)
         syncState.update(
             rotatingKeyPair: .set(to: rotatingKeyPair),
-            proProof: .set(to: proConfig?.proProof)
+            proProof: .set(to: proConfig?.proProof),
+            proFeatures: .set(to: profile.proFeatures)
         )
         
         /// Then update the async state and streams
         self.rotatingKeyPair = rotatingKeyPair
+        self.proFeatures = profile.proFeatures
         await self.proProofStream.send(proConfig?.proProof)
-    }
-    
-    public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) async {
-        dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: .active)
-        await backendUserProStatusStream.send(.active)
-        completion?(true)
     }
     
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
@@ -189,8 +222,201 @@ public actor SessionProManager: SessionProManagerType {
         
         return true
     }
+    
+    public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Need to actually implement this
+        dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: .active)
+        await backendUserProStatusStream.send(.active)
+        completion?(true)
+    }
+    
+    // MARK: - Pro State Management
+    
+    public func refreshProState() async throws {
+        let request = try? Network.SessionPro.getProDetails(
+            masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
+            using: dependencies
+        )
+        // FIXME: Make this async/await when the refactored networking is merged
+        let response: Network.SessionPro.GetProDetailsResponse = try await request
+            .send(using: dependencies)
+            .values
+            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+        
+        guard response.header.errors.isEmpty else {
+            let errorString: String = response.header.errors.joined(separator: ", ")
+            Log.error(.sessionPro, "Failed to retrieve pro details due to error(s): \(errorString)")
+            throw NetworkError.explicit(errorString)
+        }
+        
+        // TODO: [PRO] Need to add an observable event for the pro status
+        syncState.update(backendUserProStatus: .set(to: response.status))
+        await self.backendUserProStatusStream.send(response.status)
+        
+        switch detailsResponse.status {
+            case .active:
+                try await refreshProProofIfNeeded(
+                    accessExpiryTimestampMs: response.expiryTimestampMs,
+                    autoRenewing: response.autoRenewing,
+                    status: response.status
+                )
+                
+            case .neverBeenPro: await clearProProof()
+            case .expired: await clearProProof()
+        }
+        
+    }
+    
+    public func refreshProProofIfNeeded(
+        accessExpiryTimestampMs: UInt64,
+        autoRenewing: Bool,
+        status: BackendUserProStatus
+    ) async throws {
+        guard status == .active else { return }
+        
+        let needsNewProof: Bool = {
+            guard let currentProof: Network.SessionPro.ProProof = await proProofStream.getCurrent() else {
+                return true
+            }
+            
+            let sixtyMinutesBeforeAccessExpiry: UInt64 = (accessExpiryTimestampMs - (60 * 60))
+            let sixtyMinutesBeforeProofExpiry: UInt64 = (currentProof.expiryUnixTimestampMs - (60 * 60))
+            let now: UInt64 = UInt64(floor(dependencies.dateNow.timeIntervalSince1970))
+            
+            return (
+                sixtyMinutesBeforeProofExpiry < now &&
+                now < sixtyMinutesBeforeAccessExpiry &&
+                autoRenewing
+            )
+        }()
+        let rotatingKeyPair: KeyPair = try (
+            self.rotatingKeyPair ??
+            dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
+        )
+        
+        let request = try Network.SessionPro.generateProProof(
+            masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
+            rotatingKeyPair: rotatingKeyPair,
+            using: dependencies
+        )
+        // FIXME: Make this async/await when the refactored networking is merged
+        let response: Network.SessionPro.AddProPaymentOrGenerateProProofResponse = try await request
+            .send(using: dependencies)
+            .values
+            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+        
+        guard response.header.errors.isEmpty else {
+            let errorString: String = response.header.errors.joined(separator: ", ")
+            Log.error(.sessionPro, "Failed to generate new pro proot due to error(s): \(errorString)")
+            throw NetworkError.explicit(errorString)
+        }
+        
+        /// Update the config
+        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
+                    cache.updateProConfig(
+                        proConfig: SessionPro.ProConfig(
+                            rotatingPrivateKey: rotatingKeyPair.secretKey,
+                            proProof: response.proof
+                        )
+                    )
+                }
+            }
+        }
+        
+        /// Send the proof and status events on the streams
+        ///
+        /// **Note:** We can assume that the users status is `active` since they just successfully generated a pro proof
+        syncState.update(
+            rotatingKeyPair: .set(to: rotatingKeyPair),
+            backendUserProStatus: .set(to: .active),
+            proProof: .set(to: response.proof)
+        )
+        self.rotatingKeyPair = rotatingKeyPair
+        await self.proProofStream.send(response.proof)
+        await self.backendUserProStatusStream.send(.active)
+    }
+    
+    public func addProPayment(transactionId: String) async throws {
+        /// First we need to add the pro payment to the Pro backend
+        let rotatingKeyPair: KeyPair = try (
+            self.rotatingKeyPair ??
+            dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
+        )
+        let request = try Network.SessionPro.addProPayment(
+            transactionId: transactionId,
+            masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
+            rotatingKeyPair: rotatingKeyPair,
+            using: dependencies
+        )
+        // FIXME: Make this async/await when the refactored networking is merged
+        let response: Network.SessionPro.AddProPaymentOrGenerateProProofResponse = try await request
+            .send(using: dependencies)
+            .values
+            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+        
+        guard response.header.errors.isEmpty else {
+            let errorString: String = response.header.errors.joined(separator: ", ")
+            Log.error(.sessionPro, "Transaction submission failed due to error(s): \(errorString)")
+            throw NetworkError.explicit(errorString)
+        }
+        
+        /// Update the config
+        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
+                    cache.updateProConfig(
+                        proConfig: SessionPro.ProConfig(
+                            rotatingPrivateKey: rotatingKeyPair.secretKey,
+                            proProof: response.proof
+                        )
+                    )
+                }
+            }
+        }
+        
+        /// Send the proof and status events on the streams
+        ///
+        /// **Note:** We can assume that the users status is `active` since they just successfully added a pro payment and
+        /// received a pro proof
+        syncState.update(
+            rotatingKeyPair: .set(to: rotatingKeyPair),
+            backendUserProStatus: .set(to: .active),
+            proProof: .set(to: response.proof)
+        )
+        self.rotatingKeyPair = rotatingKeyPair
+        await self.proProofStream.send(response.proof)
+        await self.backendUserProStatusStream.send(.active)
+        
+        /// Just in case we refresh the pro state (this will avoid needless requests based on the current state but will resolve other
+        /// edge-cases since it's the main driver to the Pro state)
+        try? await refreshProState()
+    }
         
     // MARK: - Internal Functions
+    
+    private func clearProProof() async {
+        try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
+                    cache.removeProConfig()
+                }
+            }
+        }
+    }
+    
+    private func updateExpiryCTAs(
+        accessExpiryTimestampMs: UInt64,
+        autoRenewing: Bool,
+        status: BackendUserProStatus
+    ) async {
+        let now: UInt64 = UINt64(floor(dependencies.dateNow.timeIntervalSince1970))
+        let sevenDaysBeforeExpiry: UInt64 = (accessExpiryTimestampMs - (7 * 60 * 60))
+        let thirtyDaysAfterExpiry: UInt64 = (accessExpiryTimestampMs + (30 * 60 * 60))
+        
+        // TODO: [PRO] Need to add these in (likely part of pro settings)
+    }
     
     private func startProStatusObservations() {
         proStatusObservationTask?.cancel()
@@ -206,6 +432,8 @@ public actor SessionProManager: SessionProManagerType {
                                 continue
                             }
                             
+                            /// Restart the observation (will fetch the correct current states)
+                            await self?.refreshProState()
                         }
                     }
                     
@@ -218,6 +446,7 @@ public actor SessionProManager: SessionProManagerType {
                             guard let status: Network.SessionPro.BackendUserProStatus = status else {
                                 self?.syncState.update(backendUserProStatus: .set(to: nil))
                                 await self?.backendUserProStatusStream.send(nil)
+                                try? await self?.refreshProState()
                                 continue
                             }
                             
@@ -248,7 +477,7 @@ private final class SessionProManagerSyncState {
     private var _rotatingKeyPair: KeyPair? = nil
     private var _backendUserProStatus: Network.SessionPro.BackendUserProStatus? = nil
     private var _proProof: Network.SessionPro.ProProof? = nil
-    private var _decodedProForMessage: SessionPro.DecodedProForMessage? = nil
+    private var _proFeatures: SessionPro.Features = .none
     
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
     fileprivate var rotatingKeyPair: KeyPair? { lock.withLock { _rotatingKeyPair } }
@@ -256,7 +485,7 @@ private final class SessionProManagerSyncState {
         lock.withLock { _backendUserProStatus }
     }
     fileprivate var proProof: Network.SessionPro.ProProof? { lock.withLock { _proProof } }
-    fileprivate var decodedProForMessage: SessionPro.DecodedProForMessage? { lock.withLock { _decodedProForMessage } }
+    fileprivate var proFeatures: SessionPro.Features? { lock.withLock { _proFeatures } }
     
     fileprivate init(using dependencies: Dependencies) {
         self._dependencies = dependencies
@@ -266,13 +495,13 @@ private final class SessionProManagerSyncState {
         rotatingKeyPair: Update<KeyPair?> = .useExisting,
         backendUserProStatus: Update<Network.SessionPro.BackendUserProStatus?> = .useExisting,
         proProof: Update<Network.SessionPro.ProProof?> = .useExisting,
-        decodedProForMessage: Update<SessionPro.DecodedProForMessage?> = .useExisting
+        proFeatures: Update<SessionPro.Features> = .useExisting
     ) {
         lock.withLock {
             self._rotatingKeyPair = rotatingKeyPair.or(self._rotatingKeyPair)
             self._backendUserProStatus = backendUserProStatus.or(self._backendUserProStatus)
             self._proProof = proProof.or(self._proProof)
-            self._decodedProForMessage = decodedProForMessage.or(self._decodedProForMessage)
+            self._proFeatures = proFeatures.or(self._proFeatures)
         }
     }
 }
@@ -286,7 +515,6 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     nonisolated var currentUserCurrentRotatingKeyPair: KeyPair? { get }
     nonisolated var currentUserCurrentBackendProStatus: Network.SessionPro.BackendUserProStatus? { get }
     nonisolated var currentUserCurrentProProof: Network.SessionPro.ProProof? { get }
-    nonisolated var currentUserCurrentDecodedProForMessage: SessionPro.DecodedProForMessage? { get }
     
     nonisolated var backendUserProStatus: AsyncStream<Network.SessionPro.BackendUserProStatus?> { get }
     nonisolated var proProof: AsyncStream<Network.SessionPro.ProProof?> { get }
@@ -296,8 +524,16 @@ public protocol SessionProManagerType: SessionProUIManagerType {
         verifyPubkey: I?,
         atTimestampMs timestampMs: UInt64
     ) -> SessionPro.ProStatus
-    func updateWithLatestFromUserConfig() async
+    nonisolated func proProofIsActive(
+        for proof: Network.SessionPro.ProProof?,
+        atTimestampMs timestampMs: UInt64
+    ) -> Bool
     nonisolated func features(for message: String, features: SessionPro.Features) -> SessionPro.FeaturesForMessage
+    nonisolated func attachProInfoIfNeeded(message: Message) -> Message
+    func updateWithLatestFromUserConfig() async
+    
+    func refreshProState() async throws
+    func addProPayment(transactionId: String) async throws
 }
 
 public extension SessionProManagerType {

@@ -72,6 +72,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         case proStatus
         case proBadgeEverywhere
+        case fakeAppleSubscriptionForDev
 
         case forceMessageFeatureProBadge
         case forceMessageFeatureLongMessage
@@ -83,6 +84,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case requestRefund
         case submitPurchaseToProBackend
         case refreshProStatus
+        case removeProFromUserConfig
         
         // MARK: - Conformance
         
@@ -94,6 +96,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .proStatus: return "proStatus"
                 case .proBadgeEverywhere: return "proBadgeEverywhere"
+                case .fakeAppleSubscriptionForDev: return "fakeAppleSubscriptionForDev"
                 
                 case .forceMessageFeatureProBadge: return "forceMessageFeatureProBadge"
                 case .forceMessageFeatureLongMessage: return "forceMessageFeatureLongMessage"
@@ -105,6 +108,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .requestRefund: return "requestRefund"
                 case .submitPurchaseToProBackend: return "submitPurchaseToProBackend"
                 case .refreshProStatus: return "refreshProStatus"
+                case .removeProFromUserConfig: return "removeProFromUserConfig"
             }
         }
         
@@ -119,6 +123,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .proStatus: result.append(.proStatus); fallthrough
                 case .proBadgeEverywhere: result.append(.proBadgeEverywhere); fallthrough
+                case .fakeAppleSubscriptionForDev: result.append(.fakeAppleSubscriptionForDev); fallthrough
 
                 case .forceMessageFeatureProBadge: result.append(.forceMessageFeatureProBadge); fallthrough
                 case .forceMessageFeatureLongMessage: result.append(.forceMessageFeatureLongMessage); fallthrough
@@ -129,7 +134,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .restoreProSubscription: result.append(.restoreProSubscription); fallthrough
                 case .requestRefund: result.append(.requestRefund); fallthrough
                 case .submitPurchaseToProBackend: result.append(.submitPurchaseToProBackend); fallthrough
-                case .refreshProStatus: result.append(.refreshProStatus)
+                case .refreshProStatus: result.append(.refreshProStatus); fallthrough
+                case .removeProFromUserConfig: result.append(.removeProFromUserConfig)
             }
             
             return result
@@ -139,7 +145,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public enum DeveloperSettingsProEvent: Hashable {
         case purchasedProduct([Product], Product?, String?, String?, Transaction?)
         case refundTransaction(Transaction.RefundRequestStatus)
-        case submittedTranasction(KeyPair?, KeyPair?, String?, Bool)
+        case submittedTransaction(String?, Bool)
         case currentProStatus(String?, Bool)
     }
     
@@ -150,6 +156,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         let mockCurrentUserSessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
         let proBadgeEverywhere: Bool
+        let fakeAppleSubscriptionForDev: Bool
 
         let forceMessageFeatureProBadge: Bool
         let forceMessageFeatureLongMessage: Bool
@@ -162,8 +169,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let purchaseTransaction: Transaction?
         let refundRequestStatus: Transaction.RefundRequestStatus?
         
-        let submittedTransactionMasterKeyPair: KeyPair?
-        let submittedTransactionRotatingKeyPair: KeyPair?
         let submittedTransactionStatus: String?
         let submittedTransactionErrored: Bool
         
@@ -182,6 +187,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.sessionProEnabled),
             .feature(.mockCurrentUserSessionProBackendStatus),
             .feature(.proBadgeEverywhere),
+            .feature(.fakeAppleSubscriptionForDev),
             .feature(.forceMessageFeatureProBadge),
             .feature(.forceMessageFeatureLongMessage),
             .feature(.forceMessageFeatureAnimatedAvatar),
@@ -194,6 +200,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 
                 mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
                 proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
+                fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
 
                 forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
                 forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
@@ -206,8 +213,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 purchaseTransaction: nil,
                 refundRequestStatus: nil,
                 
-                submittedTransactionMasterKeyPair: nil,
-                submittedTransactionRotatingKeyPair: nil,
                 submittedTransactionStatus: nil,
                 submittedTransactionErrored: false,
                 
@@ -234,8 +239,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         var purchaseStatus: String? = previousState.purchaseStatus
         var purchaseTransaction: Transaction? = previousState.purchaseTransaction
         var refundRequestStatus: Transaction.RefundRequestStatus? = previousState.refundRequestStatus
-        var submittedTransactionMasterKeyPair: KeyPair? = previousState.submittedTransactionMasterKeyPair
-        var submittedTransactionRotatingKeyPair: KeyPair? = previousState.submittedTransactionRotatingKeyPair
         var submittedTransactionStatus: String? = previousState.submittedTransactionStatus
         var submittedTransactionErrored: Bool = previousState.submittedTransactionErrored
         
@@ -253,9 +256,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .refundTransaction(let status):
                     refundRequestStatus = status
                     
-                case .submittedTranasction(let masterKeyPair, let rotatingKeyPair, let status, let errored):
-                    submittedTransactionMasterKeyPair = masterKeyPair
-                    submittedTransactionRotatingKeyPair = rotatingKeyPair
+                case .submittedTransaction(let status, let errored):
                     submittedTransactionStatus = status
                     submittedTransactionErrored = errored
                     
@@ -269,6 +270,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             sessionProEnabled: dependencies[feature: .sessionProEnabled],
             mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
             proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
+            fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
             forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
             forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
             forceMessageFeatureAnimatedAvatar: dependencies[feature: .forceMessageFeatureAnimatedAvatar],
@@ -278,8 +280,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             purchaseStatus: purchaseStatus,
             purchaseTransaction: purchaseTransaction,
             refundRequestStatus: refundRequestStatus,
-            submittedTransactionMasterKeyPair: submittedTransactionMasterKeyPair,
-            submittedTransactionRotatingKeyPair: submittedTransactionRotatingKeyPair,
             submittedTransactionStatus: submittedTransactionStatus,
             submittedTransactionErrored: submittedTransactionErrored,
             currentProStatus: currentProStatus,
@@ -360,6 +360,25 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     }
                 ),
                 SessionCell.Info(
+                    id: .fakeAppleSubscriptionForDev,
+                    title: "Fake the Apple Subscription for Pro Purchases",
+                    subtitle: """
+                    Apple subscriptions (even with Sandbox accounts) can't be tested on the iOS Simulator, to work around this the dev pro server allows "fake" transaction identifiers for the purposes of testing.
+                    
+                    This setting will bypass the AppStore section of the purchase flow and generate a fake transaction identifier to send to the Pro backend to create the purchase.
+                    """,
+                    trailingAccessory: .toggle(
+                        state.fakeAppleSubscriptionForDev,
+                        oldValue: previousState.fakeAppleSubscriptionForDev
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .fakeAppleSubscriptionForDev,
+                            to: !state.fakeAppleSubscriptionForDev
+                        )
+                    }
+                ),
+                SessionCell.Info(
                     id: .forceMessageFeatureProBadge,
                     title: "Message Feature: Pro Badge",
                     subtitle: "Force all messages to show the \"Pro Badge\" feature.",
@@ -432,10 +451,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 @unknown default: return "<disabled>N/A</disabled>"
             }
         }()
-        let rotatingPubkey: String = (
-            (state.submittedTransactionRotatingKeyPair?.publicKey).map { "<span>\($0.toHexString())</span>" } ??
-            "<disabled>N/A</disabled>"
-        )
         let submittedTransactionStatus: String = {
             switch (state.submittedTransactionStatus, state.submittedTransactionErrored) {
                 case (.some(let error), true): return "<error>\(error)</error>"
@@ -503,7 +518,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     <b>Status: </b>\(refundStatus)
                     """,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Request"),
-                    isEnabled: (state.purchaseTransaction != nil),
+                    isEnabled: (
+                        state.purchaseTransaction != nil ||
+                        state.fakeAppleSubscriptionForDev
+                    ),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.requestRefund() }
                     }
@@ -514,11 +532,13 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     subtitle: """
                     Submit a purchase to the Session Pro Backend.
                     
-                    <b>Rotating Pubkey: </b>\(rotatingPubkey)
                     <b>Status: </b>\(submittedTransactionStatus)
                     """,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Submit"),
-                    isEnabled: (state.purchaseTransaction != nil),
+                    isEnabled: (
+                        state.purchaseTransaction != nil ||
+                        state.fakeAppleSubscriptionForDev
+                    ),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.submitTransactionToProBackend() }
                     }
@@ -532,9 +552,19 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     <b>Status: </b>\(currentProStatus)
                     """,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Refresh"),
-                    isEnabled: (state.submittedTransactionMasterKeyPair != nil),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.refreshProStatus() }
+                    }
+                ),
+                SessionCell.Info(
+                    id: .removeProFromUserConfig,
+                    title: "Remove Pro From User Config",
+                    subtitle: """
+                    Remove the cached pro state from the configs (this will mean the local device doesn't know that the user has pro on restart).
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Remove"),
+                    onTap: { [weak viewModel] in
+                        Task { await viewModel?.removeProFromUserConfig() }
                     }
                 )
             ]
@@ -794,80 +824,44 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     }
     
     private func submitTransactionToProBackend() async {
-        guard let transaction: Transaction = await internalState.purchaseTransaction else { return }
-        
         do {
-            let masterKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
-            let rotatingKeyPair: KeyPair = try dependencies[singleton: .crypto].tryGenerate(.ed25519KeyPair())
-            let request = try? Network.SessionPro.addProPaymentOrGetProProof(
-                transactionId: "\(transaction.id)",
-                masterKeyPair: masterKeyPair,
-                rotatingKeyPair: rotatingKeyPair,
-                using: dependencies
-            )
-            // FIXME: Make this async/await when the refactored networking is merged
-            let response = try await request
-                .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+            let transactionId: String = try await {
+                guard await internalState.fakeAppleSubscriptionForDev else {
+                    guard let transaction: Transaction = await internalState.purchaseTransaction else {
+                        throw NetworkError.explicit("No Transaction")
+                    }
+                    
+                    return "\(transaction.id)"
+                }
+                
+                let bytes: [UInt8] = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(8))
+                return "DEV.\(bytes.toHexString())"
+            }()
             
-            guard response.header.errors.isEmpty else {
-                Log.error("[DevSettings] Tranasction submission failed: \(response.header.errors[0])")
-                dependencies.notifyAsync(
-                    key: .updateScreen(DeveloperSettingsProViewModel.self),
-                    value: DeveloperSettingsProEvent.submittedTranasction(
-                        masterKeyPair,
-                        rotatingKeyPair,
-                        "Failed: \(response.header.errors[0])",
-                        true
-                    )
-                )
-                return
-            }
+            try await dependencies[singleton: .sessionProManager].addProPayment(transactionId: transactionId)
             
             dependencies.notifyAsync(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
-                value: DeveloperSettingsProEvent.submittedTranasction(masterKeyPair, rotatingKeyPair, "Success", false)
+                value: DeveloperSettingsProEvent.submittedTransaction("Success", false)
             )
         }
         catch {
             Log.error("[DevSettings] Tranasction submission failed: \(error)")
             dependencies.notifyAsync(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
-                value: DeveloperSettingsProEvent.submittedTranasction(nil, nil, "Failed: \(error)", true)
+                value: DeveloperSettingsProEvent.submittedTransaction("Failed: \(error)", true)
             )
         }
     }
     
     private func refreshProStatus() async {
-        guard let masterKeyPair: KeyPair = await internalState.submittedTransactionMasterKeyPair else { return }
-        
         do {
-            let request = try? Network.SessionPro.getProDetails(
-                masterKeyPair: masterKeyPair,
-                using: dependencies
-            )
-            // FIXME: Make this async/await when the refactored networking is merged
-            let response = try await request
-                .send(using: dependencies)
-                .values
-                .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
-            
-            guard response.header.errors.isEmpty else {
-                Log.error("[DevSettings] Refresh pro status failed: \(response.header.errors[0])")
-                dependencies.notifyAsync(
-                    key: .updateScreen(DeveloperSettingsProViewModel.self),
-                    value: DeveloperSettingsProEvent.currentProStatus(
-                        "Error: \(response.header.errors[0])",
-                        true
-                    )
-                )
-                return
-            }
+            try await dependencies[singleton: .sessionProManager].refreshStatus()
+            let status: Network.SessionPro.BackendUserProStatus? = dependencies[singleton: .sessionProManager].currentUserCurrentBackendProStatus
             
             dependencies.notifyAsync(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
-                value: DeveloperSettingsProEvent.currentProStatus("\(response.status)", false)
+                value: DeveloperSettingsProEvent.currentProStatus("\(status.map { "\($0)" } ?? "Unknown")", false)
             )
         }
         catch {
@@ -876,6 +870,16 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
                 value: DeveloperSettingsProEvent.currentProStatus("Error: \(error)", true)
             )
+        }
+    }
+    
+    private func removeProFromUserConfig() async {
+        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
+                    cache.removeProConfig()
+                }
+            }
         }
     }
 }

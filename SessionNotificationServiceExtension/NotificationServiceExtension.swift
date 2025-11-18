@@ -287,7 +287,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             throw MessageError.missingRequiredField("processedMessage")
         }
         try dependencies.mutate(cache: .libSession) { cache in
-            try cache.mergeConfigMessages(
+            let latestServerTimestampsMs: [ConfigDump.Variant: Int64] = try cache.mergeConfigMessages(
                 swarmPublicKey: swarmPublicKey,
                 messages: [
                     ConfigMessageReceiveJob.Details.MessageInfo(
@@ -296,18 +296,24 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                         serverTimestampMs: serverTimestampMs,
                         data: data
                     )
-                ],
-                afterMerge: { sessionId, variant, config, timestampMs, _ in
-                    try updateConfigIfNeeded(
-                        cache: cache,
-                        config: config,
-                        variant: variant,
-                        sessionId: sessionId,
-                        timestampMs: timestampMs
-                    )
-                    return nil
-                }
+                ]
             )
+            
+            try latestServerTimestampsMs.forEach { variant, timestampMs in
+                let sessionId: SessionId = SessionId(hex: swarmPublicKey, dumpVariant: variant)
+                
+                guard let config: LibSession.Config = cache.config(for: variant, sessionId: sessionId) else {
+                    return
+                }
+                
+                try updateConfigIfNeeded(
+                    cache: cache,
+                    config: config,
+                    variant: variant,
+                    sessionId: sessionId,
+                    timestampMs: timestampMs
+                )
+            }
         }
         
         /// Write the message to disk via the `extensionHelper` so the main app will have it immediately instead of having to wait

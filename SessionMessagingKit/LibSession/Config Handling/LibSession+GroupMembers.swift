@@ -170,7 +170,7 @@ internal extension LibSessionCacheType {
                 publicKey: profile.id,
                 displayNameUpdate: .contactUpdate(profile.name),
                 displayPictureUpdate: .contactUpdateTo(profile, fallback: .none),
-                proUpdate: .none,    // TODO: [PRO] Need to get this somehow? (sync via config?
+                proUpdate: .none,    /// Syncing group member pro state is not supported (changes come from contacts or messages)
                 profileUpdateTimestamp: profile.profileLastUpdated,
                 currentUserSessionIds: [userSessionId.hexString],
                 using: dependencies

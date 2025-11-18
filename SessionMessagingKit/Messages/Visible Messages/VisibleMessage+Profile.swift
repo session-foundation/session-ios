@@ -12,7 +12,6 @@ public extension VisibleMessage {
         public let profilePictureUrl: String?
         public let updateTimestampSeconds: TimeInterval?
         public let blocksCommunityMessageRequests: Bool?
-        public let proFeatures: SessionPro.Features?
         
         // MARK: - Initialization
 
@@ -21,8 +20,7 @@ public extension VisibleMessage {
             profileKey: Data? = nil,
             profilePictureUrl: String? = nil,
             updateTimestampSeconds: TimeInterval? = nil,
-            blocksCommunityMessageRequests: Bool? = nil,
-            proFeatures: SessionPro.Features? = nil
+            blocksCommunityMessageRequests: Bool? = nil
         ) {
             let hasUrlAndKey: Bool = (profileKey != nil && profilePictureUrl != nil)
             
@@ -31,7 +29,6 @@ public extension VisibleMessage {
             self.profilePictureUrl = (hasUrlAndKey ? profilePictureUrl : nil)
             self.updateTimestampSeconds = updateTimestampSeconds
             self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
-            self.proFeatures = proFeatures
         }
         
         internal init(profile: Profile, blocksCommunityMessageRequests: Bool? = nil) {
@@ -40,8 +37,7 @@ public extension VisibleMessage {
                 profileKey: profile.displayPictureEncryptionKey,
                 profilePictureUrl: profile.displayPictureUrl,
                 updateTimestampSeconds: profile.profileLastUpdated,
-                blocksCommunityMessageRequests: blocksCommunityMessageRequests,
-                proFeatures: profile.proFeatures
+                blocksCommunityMessageRequests: blocksCommunityMessageRequests
             )
         }
 
@@ -61,8 +57,7 @@ public extension VisibleMessage {
                 blocksCommunityMessageRequests: (proto.hasBlocksCommunityMessageRequests ?
                     proto.blocksCommunityMessageRequests :
                     nil
-                ),
-                proFeatures: nil // TODO: [PRO] Add these once the protobuf is updated
+                )
             )
         }
 
@@ -87,7 +82,7 @@ public extension VisibleMessage {
             }
             
             dataMessageProto.setProfile(try profileProto.build())
-            // TODO: [PRO] Add the 'proFeatures' value once the protobuf is updated
+            
             return dataMessageProto
         }
         

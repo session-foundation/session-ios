@@ -68,7 +68,66 @@ message Content {
   optional MessageRequestResponse     messageRequestResponse                 = 10;
   optional ExpirationType             expirationType                         = 12;
   optional uint32                     expirationTimer                        = 13;
+    
+  // NOTE: This timestamp was added to address the issue with 1o1 message envelope timestamps were
+  // unauthenticated because 1o1 messages encrypt the Content not the envelope. In Groups, the
+  // entire envelope is encrypted and hence can be trusted.
   optional uint64                     sigTimestamp                           = 15;
+  optional ProMessage                 proMessage                             = 16;
+    
+  // NOTE: Temporary transition field to include the pro-signature into Content for community
+  // messages to use.
+  //
+  // Community messages are currently sent and received as plaintext Content. We call this state of
+  // the network v0.
+  //
+  // We will continue to send Community messages using the Content structure, but, now enhanced with
+  // the optional `proSigForCommunityMessageOnly` field which contains the pro signature. We call
+  // this network v1. The new clients running v1 will pack the pro-signature into the payload. We
+  // maintain forwards compatibility with clients on v0 as we are still sending content
+  // on the wire, they skip the new pro data.
+  //
+  // Simultaneously in v1 the responsibility of parsing the open groups messages will go into
+  // libsession. Libsession will be setup to try and parse the open groups message as a `Content`
+  // message at first, if that fails it will try to read the community message as an `Envelope`.
+  // In summary in a v1 network:
+  //
+  //   v0 will still receive messages from v1 as they send `Content` community messages.
+  //
+  //   v1 accepts v0 (`Content`) and v1 (`Envelope`) on the wire for community messages. v1 sends
+  //   `Content` community messages so that there's compatibility with v0.
+  //
+  // After a defined transitionary period, we create a new release and update libsession to stop
+  // sending `Content` for communities and transition to sending `Envelope` for messages. We mark
+  // this as a v2 network:
+  //
+  //   v0 will still receive messages from v1 (`Content`) but not v2 (`Envelope`) community
+  //   messages.
+  //
+  //   v1 accepts v0 (`Content`) and v1 (`Envelope`) on the wire for community messages. v1 sends
+  //   `Content` community messages so that there's compatibility with v0.
+  //
+  //   v2 swaps the parsing order. it tries parsing v1 (`envelope`) then v0 (`content`) from a
+  //   community message. v2 sends `envelope` community messages so compatbility is maintained with
+  //   v1 but not v0.
+  //
+  // After a final transitionary period, v3, remove parsing content entirely from libsession for
+  // community messages and removes the pro-signature from `content`. in this final stage, v2 and v3
+  // are the final set of clients that can continue to talk to each other.
+  //
+  // +---------+----------------+-------------+------------------+-------------+-------------+
+  // | Version | Sends          | Receives v0 | Receives v1      | Receives v2 | Receives v3 |
+  // |         |                | (Content)   | (Content+ProSig) | (Envelope)  | (Envelope)  |
+  // +---------+----------------+-------------+------------------+-------------+-------------+
+  // | v0      | Content        | Yes         | Yes              | No          | No          |
+  // +---------+----------------+-------------+------------------+-------------+-------------+
+  // | v1      | Content+ProSig | Yes         | Yes              | Yes         | Yes         |
+  // +---------+----------------+-------------+------------------+-------------+-------------+
+  // | v2      | Envelope       | Yes         | Yes              | Yes         | Yes         |
+  // +---------+----------------+-------------+------------------+-------------+-------------+
+  // | v3      | Envelope       | No          | No               | Yes         | Yes         |
+  // +---------+----------------+-------------+------------------+-------------+-------------+
+  optional bytes                      proSigForCommunityMessageOnly          = 17;
 }
 
 message CallMessage {
@@ -307,4 +366,17 @@ message GroupUpdateDeleteMemberContentMessage {
   repeated string memberSessionIds   = 1;
   repeated string messageHashes      = 2;
   optional bytes  adminSignature     = 3;
+}
+
+message ProProof {
+  optional uint32 version           = 1;
+  optional bytes  genIndexHash      = 2; // Opaque identifier of this proof produced by the Session Pro backend
+  optional bytes  rotatingPublicKey = 3; // Public key whose signatures is authorised to entitle messages with Session Pro
+  optional uint64 expiryUnixTs      = 4; // Epoch timestamps in milliseconds
+  optional bytes  sig               = 5; // Signature produced by the Session Pro Backend signing over the hash of the proof
+}
+
+message ProMessage {
+  optional ProProof proof    = 1;
+  optional uint64   features = 2;
 }

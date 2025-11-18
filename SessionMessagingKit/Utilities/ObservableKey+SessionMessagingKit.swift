@@ -203,7 +203,7 @@ public struct ProfileEvent: Hashable {
             isPro: Bool,
             features: SessionPro.Features,
             proExpiryUnixTimestampMs: UInt64,
-            proGenIndexHash: String?
+            proGenIndexHashHex: String?
         )
     }
 }

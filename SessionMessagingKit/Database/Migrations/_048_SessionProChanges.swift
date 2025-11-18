@@ -18,7 +18,7 @@ enum _048_SessionProChanges: Migration {
         try db.alter(table: "profile") { t in
             t.add(column: "proFeatures", .integer).defaults(to: 0)
             t.add(column: "proExpiryUnixTimestampMs", .integer).defaults(to: 0)
-            t.add(column: "proGenIndexHash", .text)
+            t.add(column: "proGenIndexHashHex", .text)
         }
         
         MigrationExecution.updateProgress(1)

@@ -276,7 +276,7 @@ extension Onboarding {
                         userEd25519SecretKey: identity.ed25519KeyPair.secretKey,
                         groupEd25519SecretKey: nil
                     )
-                    try cache.unsafeDirectMergeConfigMessage(
+                    _ = try cache.mergeConfigMessages(
                         swarmPublicKey: userSessionId.hexString,
                         messages: [
                             ConfigMessageReceiveJob.Details.MessageInfo(

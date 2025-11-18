@@ -22,6 +22,7 @@ public class Message: Codable {
         case expiresStartedAtMs
         
         case proFeatures
+        case proProof
     }
     
     public var id: String?
@@ -45,7 +46,8 @@ public class Message: Codable {
     public var expiresInSeconds: TimeInterval?
     public var expiresStartedAtMs: Double?
     
-    public var proFeatures: UInt64?
+    public var proProof: Network.SessionPro.ProProof?
+    public var proFeatures: SessionPro.Features?
 
     // MARK: - Validation
     
@@ -107,7 +109,8 @@ public class Message: Codable {
         serverHash: String? = nil,
         expiresInSeconds: TimeInterval? = nil,
         expiresStartedAtMs: Double? = nil,
-        proFeatures: UInt64? = nil
+        proProof: Network.SessionPro.ProProof? = nil,
+        proFeatures: SessionPro.Features? = nil
     ) {
         self.id = id
         self.sentTimestampMs = sentTimestampMs
@@ -120,6 +123,7 @@ public class Message: Codable {
         self.serverHash = serverHash
         self.expiresInSeconds = expiresInSeconds
         self.expiresStartedAtMs = expiresStartedAtMs
+        self.proProof = proProof
         self.proFeatures = proFeatures
     }
 

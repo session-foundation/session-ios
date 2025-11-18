@@ -21,7 +21,7 @@ public extension Network.SessionPro {
         Task {
             // FIXME: Make this async/await when the refactored networking is merged
             do {
-                let addProProofRequest = try? Network.SessionPro.addProPaymentOrGetProProof(
+                let addProProofRequest = try? Network.SessionPro.addProPayment(
                     transactionId: "12345678",
                     masterKeyPair: masterKeyPair,
                     rotatingKeyPair: rotatingKeyPair,
@@ -32,7 +32,7 @@ public extension Network.SessionPro {
                     .values
                     .first(where: { _ in true })?.1
                 
-                let proProofRequest = try? Network.SessionPro.getProProof(
+                let proProofRequest = try? Network.SessionPro.generateProProof(
                     masterKeyPair: masterKeyPair,
                     rotatingKeyPair: rotatingKeyPair,
                     using: dependencies
@@ -64,7 +64,7 @@ public extension Network.SessionPro {
         }
     }
     
-    static func addProPaymentOrGetProProof(
+    static func addProPayment(
         transactionId: String,
         masterKeyPair: KeyPair,
         rotatingKeyPair: KeyPair,
@@ -109,7 +109,10 @@ public extension Network.SessionPro {
         )
     }
     
-    static func getProProof(
+    /// Generate a pro proof for the provided `rotatingKeyPair`
+    ///
+    /// **Note:** If the user doesn't currently have an active Session Pro subscription then this will return an error
+    static func generateProProof(
         masterKeyPair: KeyPair,
         rotatingKeyPair: KeyPair,
         using dependencies: Dependencies
@@ -131,7 +134,7 @@ public extension Network.SessionPro {
         return try Network.PreparedRequest(
             request: try Request<GenerateProProofRequest, Endpoint>(
                 method: .post,
-                endpoint: .getProProof,
+                endpoint: .generateProProof,
                 body: GenerateProProofRequest(
                     masterPublicKey: masterKeyPair.publicKey,
                     rotatingPublicKey: rotatingKeyPair.publicKey,
@@ -165,7 +168,7 @@ public extension Network.SessionPro {
         return try Network.PreparedRequest(
             request: try Request<GetProDetailsRequest, Endpoint>(
                 method: .post,
-                endpoint: .getProStatus,
+                endpoint: .getProDetails,
                 body: GetProDetailsRequest(
                     masterPublicKey: masterKeyPair.publicKey,
                     timestampMs: timestampMs,

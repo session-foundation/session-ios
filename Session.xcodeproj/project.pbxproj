@@ -646,6 +646,7 @@
 		FD360EB92ECAB1470050CAF4 /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EB82ECAB1470050CAF4 /* Punycode */; };
 		FD360EBB2ECAB1500050CAF4 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EBA2ECAB1500050CAF4 /* SwiftProtobuf */; };
 		FD360EBD2ECAB15A0050CAF4 /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EBC2ECAB15A0050CAF4 /* Lucide */; };
+		FD360EBF2ECAD5190050CAF4 /* SessionProConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EBE2ECAD5160050CAF4 /* SessionProConfig.swift */; };
 		FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
 		FD3765DF2AD8F03100DC1489 /* MockSnodeAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */; };
@@ -2042,6 +2043,7 @@
 		FD336F6B2CAA29C200C0B51B /* CommunityPollerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityPollerSpec.swift; sourceTree = "<group>"; };
 		FD336F6E2CAA37CB00C0B51B /* MockCommunityPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCommunityPoller.swift; sourceTree = "<group>"; };
 		FD3559452CC1FF140088F2A9 /* _034_AddMissingWhisperFlag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _034_AddMissingWhisperFlag.swift; sourceTree = "<group>"; };
+		FD360EBE2ECAD5160050CAF4 /* SessionProConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProConfig.swift; sourceTree = "<group>"; };
 		FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _026_AddFTSIfNeeded.swift; sourceTree = "<group>"; };
 		FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Utilities.swift"; sourceTree = "<group>"; };
 		FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSnodeAPICache.swift; sourceTree = "<group>"; };
@@ -5126,6 +5128,7 @@
 		FDAA36C42EB474B50040603E /* Types */ = {
 			isa = PBXGroup;
 			children = (
+				FD360EBE2ECAD5160050CAF4 /* SessionProConfig.swift */,
 				FDAA36CD2EB484450040603E /* SessionProDecodedProForMessage.swift */,
 				FDAA36C92EB476060040603E /* SessionProFeatures.swift */,
 				FDAA36C52EB474C40040603E /* SessionProFeaturesForMessage.swift */,
@@ -6972,6 +6975,7 @@
 				FD09B7E5288670BB00ED0B66 /* _017_EmojiReacts.swift in Sources */,
 				7B8D5FC428332600008324D9 /* VisibleMessage+Reaction.swift in Sources */,
 				FDAA36C82EB475180040603E /* SessionProFeatureStatus.swift in Sources */,
+				FD360EBF2ECAD5190050CAF4 /* SessionProConfig.swift in Sources */,
 				FD245C6B2850667400B966DD /* VisibleMessage+Profile.swift in Sources */,
 				FD2272FA2C352D8E004D8A6C /* LibSession+SharedGroup.swift in Sources */,
 				FD37EA0F28AB3330003AE748 /* _014_FixHiddenModAdminSupport.swift in Sources */,

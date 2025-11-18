@@ -378,16 +378,20 @@ public final class MessageSender {
             throw MessageError.invalidMessage("Attempted to send to namespace \(namespace) via the wrong pipeline")
         }
         
+        /// Add Session Pro data if needed
+        let finalMessage: Message = dependencies[singleton: .sessionProManager].attachProInfoIfNeeded(message: message)
+        
         /// Add attachments if needed and convert to serialised proto data
         guard
-            let plaintext: Data = try? message.toProto()?
-                .addingAttachmentsIfNeeded(message, attachments?.map { $0.attachment })?
+            let plaintext: Data = try? finalMessage.toProto()?
+                .addingAttachmentsIfNeeded(finalMessage, attachments?.map { $0.attachment })?
                 .serializedData()
         else { throw MessageError.protoConversionFailed }
         
         return try dependencies[singleton: .crypto].tryGenerate(
             .encodedMessage(
                 plaintext: Array(plaintext),
+                proFeatures: (finalMessage.proFeatures ?? .none),
                 destination: destination,
                 sentTimestampMs: sentTimestampMs
             )

@@ -3,6 +3,7 @@
 import Foundation
 import GRDB
 import SessionUtil
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Size Restrictions
@@ -46,10 +47,8 @@ internal extension LibSessionCacheType {
         
         // The current users contact data is handled separately so exclude it if it's present (as that's
         // actually a bug)
-        let targetContactData: [String: ContactData] = try LibSession.extractContacts(
-            from: conf,
-            using: dependencies
-        ).filter { $0.key != userSessionId.hexString }
+        let targetContactData: [String: ContactData] = try extractContacts(from: conf)
+            .filter { $0.key != userSessionId.hexString }
         
         // Since we don't sync 100% of the data stored against the contact and profile objects we
         // need to only update the data we do have to ensure we don't overwrite anything that doesn't
@@ -75,8 +74,24 @@ internal extension LibSessionCacheType {
                         )
                     }(),
                     nicknameUpdate: .set(to: data.profile.nickname),
-                    proUpdate: .none, // TODO: [PRO] Need to get this somehow? (sync via config?
-//                    sessionProProof: dependencies[singleton: .sessionProManager].currentUserCurrentProProof,
+                    proUpdate: {
+                        guard let proof: Network.SessionPro.ProProof = Network.SessionPro.ProProof(profile: data.profile) else {
+                            return .none
+                        }
+                        
+                        let isActive: Bool = dependencies[singleton: .sessionProManager].proProofIsActive(
+                            for: proof,
+                            atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                        )
+                        
+                        return .contactUpdate(
+                            SessionPro.DecodedProForMessage(
+                                status: (isActive ? .valid : .expired),
+                                proProof: proof,
+                                features: data.profile.proFeatures
+                            )
+                        )
+                    }(),
                     profileUpdateTimestamp: data.profile.profileLastUpdated,
                     cacheSource: .database,
                     currentUserSessionIds: [userSessionId.hexString],
@@ -809,11 +824,8 @@ internal struct ContactData {
 
 // MARK: - Convenience
 
-internal extension LibSession {
-    static func extractContacts(
-        from conf: UnsafeMutablePointer<config_object>?,
-        using dependencies: Dependencies
-    ) throws -> [String: ContactData] {
+internal extension LibSessionCacheType {
+    func extractContacts(from conf: UnsafeMutablePointer<config_object>?) throws -> [String: ContactData] {
         var infiniteLoopGuard: Int = 0
         var result: [String: ContactData] = [:]
         var contact: contacts_contact = contacts_contact()
@@ -832,13 +844,19 @@ internal extension LibSession {
                 currentUserSessionId: userSessionId
             )
             let displayPictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
+            let proProofMetadata: LibSession.ProProofMetadata? = self.proProofMetadata(
+                threadId: contactId
+            )
             let profileResult: Profile = Profile(
                 id: contactId,
                 name: contact.get(\.name),
                 nickname: contact.get(\.nickname, nullIfEmpty: true),
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-                profileLastUpdated: TimeInterval(contact.profile_updated)
+                profileLastUpdated: TimeInterval(contact.profile_updated),
+                proFeatures: SessionPro.Features(contact.pro_features),
+                proExpiryUnixTimestampMs: (proProofMetadata?.expiryUnixTimestampMs ?? 0),
+                proGenIndexHashHex: proProofMetadata?.genIndexHashHex
             )
             let configResult: DisappearingMessagesConfiguration = DisappearingMessagesConfiguration(
                 threadId: contactId,
@@ -859,6 +877,19 @@ internal extension LibSession {
         contacts_iterator_free(contactIterator) // Need to free the iterator
         
         return result
+    }
+}
+
+// MARK: - Convenience
+
+private extension Network.SessionPro.ProProof {
+    init?(profile: Profile) {
+        guard let genIndexHashHex: String = profile.proGenIndexHashHex else { return nil }
+        
+        self = Network.SessionPro.ProProof(
+            genIndexHash: Array(Data(hex: genIndexHashHex)),
+            expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs
+        )
     }
 }
 
