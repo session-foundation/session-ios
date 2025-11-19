@@ -47,7 +47,7 @@ public struct ListItemLogoWithPro: View {
         var verticalPaddings: CGFloat {
             switch self {
                 case .base, .large:
-                    return (blurSize.height - 111) / 2
+                    return (blurSize.height - 96) / 2
                 case .largeNoPaddings:
                     return 0
             }
@@ -169,6 +169,7 @@ public struct ListItemLogoWithPro: View {
             }
             .padding(.vertical, info.glowingBackgroundStyle.verticalPaddings)
         }
+        .padding(.top, Values.smallSpacing)
         .frame(maxWidth: .infinity, alignment: .top)
         .contentShape(Rectangle())
     }
