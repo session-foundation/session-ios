@@ -601,10 +601,10 @@ public class HomeViewModel: NavigatableStateHolder {
         ].flatMap { $0 }
     }
     
-    // MARK: - Handle App review
     @MainActor
     func viewDidAppear() {
         if state.pendingAppReviewPromptState != nil {
+            // Handle App review
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
                 guard let updatedState: AppReviewPromptState = self?.state.pendingAppReviewPromptState else { return }
                 
@@ -632,10 +632,16 @@ public class HomeViewModel: NavigatableStateHolder {
             case .none, .refunding:
                 return
             case .active(_, let expiredOn, _ , _):
+                guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return }
                 let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
                 guard expiryInSeconds <= 7 * 24 * 60 * 60 else { return }
+                
                 scheduleExpiringSessionProCTA(expiryInSeconds.formatted(format: .long, allowedUnits: [ .day, .hour, .minute ]))
-            case .expired:
+            case .expired(let expiredOn, _):
+                guard !dependencies[defaults: .standard, key: .hasShownProExpiredCTA] else { return }
+                let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
+                guard expiryInSeconds <= 30 * 24 * 60 * 60 else { return }
+                
                 scheduleExpiringSessionProCTA(nil)
         }
     }

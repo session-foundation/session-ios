@@ -63,6 +63,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             case .expired:
                 self.sessionProStateSubject = CurrentValueSubject(
                     SessionProPlanState.expired(
+                        expiredOn: Date(),
                         originatingPlatform: originatingPlatform
                     )
                 )
@@ -84,6 +85,8 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         // TODO: [PRO] Upgrade to Pro
         Task {
             try await Task.sleep(for: .seconds(5))
+            dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
+            dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
             dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
             self.sessionProStateSubject.send(
                 SessionProPlanState.active(
@@ -135,6 +138,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .expired)
         self.sessionProStateSubject.send(
             SessionProPlanState.expired(
+                expiredOn: Date(),
                 originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
             )
         )

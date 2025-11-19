@@ -24,7 +24,7 @@ public extension SessionProPlanState {
                     }(),
                     billingAccess: !dependencies[feature: .mockInstalledFromIPA]
                 )
-            case .expired(let originatingPlatform):
+            case .expired(_, let originatingPlatform):
                 return .renew(
                     originatingPlatform: {
                         switch originatingPlatform {
