@@ -25,6 +25,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private var databaseKeyEncryptionPassword: String = ""
     private var documentPickerResult: DocumentPickerResult?
     
+    private var updatedCustomDateTime: String?
+    
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
@@ -74,17 +76,15 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case proConfig
         case groupConfig
         
+        case customDateTime
         case fileServerConfig
+        case modalsAndBanners
         case animationsEnabled
         case showStringKeys
         case truncatePubkeysInLogs
         case copyDocumentsPath
         case copyAppGroupPath
-        case resetAppReviewPrompt
-        case simulateAppReviewLimit
         case usePngInsteadOfWebPForFallbackImageType
-        case versionDeprecationWarning
-        case versionDeprecationMinimum
         
         case defaultLogLevel
         case advancedLogging
@@ -117,18 +117,16 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                 case .proConfig: return "proConfig"
                 case .groupConfig: return "groupConfig"
-                
+                    
+                case .customDateTime: return "customDateTime"
                 case .fileServerConfig: return "fileServerConfig"
+                case .modalsAndBanners: return "modalsAndBanners"
                 case .animationsEnabled: return "animationsEnabled"
                 case .showStringKeys: return "showStringKeys"
                 case .truncatePubkeysInLogs: return "truncatePubkeysInLogs"
                 case .copyDocumentsPath: return "copyDocumentsPath"
                 case .copyAppGroupPath: return "copyAppGroupPath"
-                case .resetAppReviewPrompt: return "resetAppReviewPrompt"
-                case .simulateAppReviewLimit: return "simulateAppReviewLimit"
                 case .usePngInsteadOfWebPForFallbackImageType: return "usePngInsteadOfWebPForFallbackImageType"
-                case .versionDeprecationWarning: return "versionDeprecationWarning"
-                case .versionDeprecationMinimum: return "versionDeprecationMinimum"
                 
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
@@ -165,18 +163,16 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .proConfig: result.append(.proConfig); fallthrough
                 case .groupConfig: result.append(.groupConfig); fallthrough
                     
+                case .customDateTime: result.append(.customDateTime); fallthrough
                 case .fileServerConfig: result.append(.fileServerConfig); fallthrough
+                case .modalsAndBanners: result.append(.modalsAndBanners); fallthrough
                 case .animationsEnabled: result.append(.animationsEnabled); fallthrough
                 case .showStringKeys: result.append(.showStringKeys); fallthrough
                 case .truncatePubkeysInLogs: result.append(.truncatePubkeysInLogs); fallthrough
                 case .copyDocumentsPath: result.append(.copyDocumentsPath); fallthrough
                 case .copyAppGroupPath: result.append(.copyAppGroupPath); fallthrough
-                case .resetAppReviewPrompt: result.append(.resetAppReviewPrompt); fallthrough
-                case .simulateAppReviewLimit: result.append(.simulateAppReviewLimit); fallthrough
                 case .usePngInsteadOfWebPForFallbackImageType:
                     result.append(usePngInsteadOfWebPForFallbackImageType); fallthrough
-                case .versionDeprecationWarning: result.append(.versionDeprecationWarning); fallthrough
-                case .versionDeprecationMinimum: result.append(.versionDeprecationMinimum); fallthrough
                 
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
@@ -210,6 +206,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let developerMode: Bool
         let versionBlindedID: String?
         
+        let customDateTime: TimeInterval?
         let shortenFileTTL: Bool
         let animationsEnabled: Bool
         let showStringKeys: Bool
@@ -229,11 +226,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         let forceSlowDatabaseQueries: Bool
         
-        let updateSimulateAppReviewLimit: Bool
         let usePngInsteadOfWebPForFallbackImageType: Bool
-        
-        let versionDeprecationWarning: Bool
-        let versionDeprecationMinimum: Int
     }
     
     let title: String = "Developer Settings"
@@ -258,6 +251,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     cache.get(.developerModeEnabled)
                 },
                 versionBlindedID: versionBlindedID,
+                customDateTime: dependencies[feature: .customDateTime],
                 shortenFileTTL: dependencies[feature: .shortenFileTTL],
                 animationsEnabled: dependencies[feature: .animationsEnabled],
                 showStringKeys: dependencies[feature: .showStringKeys],
@@ -276,16 +270,20 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 communityPollLimit: dependencies[feature: .communityPollLimit],
                 
                 forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries],
-                updateSimulateAppReviewLimit: dependencies[feature: .simulateAppReviewLimit],
-                usePngInsteadOfWebPForFallbackImageType: dependencies[feature: .usePngInsteadOfWebPForFallbackImageType],
-                
-                versionDeprecationWarning: dependencies[feature: .versionDeprecationWarning],
-                versionDeprecationMinimum: dependencies[feature: .versionDeprecationMinimum]
+                usePngInsteadOfWebPForFallbackImageType: dependencies[feature: .usePngInsteadOfWebPForFallbackImageType]
             )
         }
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
     
     private func content(_ previous: State?, _ current: State) -> [SectionModel] {
+        let customDateTime: String = {
+            guard let customDateTimestamp: TimeInterval = dependencies[feature: .customDateTime] else {
+                return "<disabled>None</disabled>"
+            }
+            
+            return "<span>\(Date(timeIntervalSince1970: customDateTimestamp).formattedForBanner)</span>"
+        }()
+        
         let developerMode: SectionModel = SectionModel(
             model: .developerMode,
             elements: [
@@ -357,6 +355,22 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .general,
             elements: [
                 SessionCell.Info(
+                    id: .customDateTime,
+                    title: "Custom Date/Time",
+                    subtitle: """
+                    Specify a custom date/time that the app should use.
+                    
+                    <b>Current Value:</b> \(customDateTime)
+                    
+                    <b>Warning:</b>
+                    Service nodes require the time to be within 2 minutes of their time so modifying this value will generally result in all network requests failing.
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak self] in
+                        self?.showCustomDateTimeModal()
+                    }
+                ),
+                SessionCell.Info(
                     id: .fileServerConfig,
                     title: "File Server Configuration",
                     subtitle: """
@@ -371,6 +385,21 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         self?.transitionToScreen(
                             SessionTableViewController(
                                 viewModel: DeveloperSettingsFileServerViewModel(using: dependencies)
+                            )
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .modalsAndBanners,
+                    title: "Modal and Banner Settings",
+                    subtitle: """
+                    Configure settings related to the modals and banners.
+                    """,
+                    trailingAccessory: .icon(.chevronRight),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: DeveloperSettingsModalsAndBannersViewModel(using: dependencies)
                             )
                         )
                     }
@@ -455,34 +484,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                 ),
                 SessionCell.Info(
-                    id: .resetAppReviewPrompt,
-                    title: "Reset App Review Prompt",
-                    subtitle: """
-                    Clears user default settings for the app review prompt, enabling quicker testing of various display conditions.
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset"),
-                    onTap: { [weak self] in
-                        self?.resetAppReviewPrompt()
-                    }
-                ),
-                SessionCell.Info(
-                    id: .simulateAppReviewLimit,
-                    title: "Simulate App Review Limit",
-                    subtitle: """
-                    Controls whether the in-app rating prompt is displayed. This can will simulate a rate limit, preventing the prompt from appearing.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updateSimulateAppReviewLimit,
-                        oldValue: previous?.updateSimulateAppReviewLimit
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .simulateAppReviewLimit,
-                            to: !current.updateSimulateAppReviewLimit
-                        )
-                    }
-                ),
-                SessionCell.Info(
                     id: .usePngInsteadOfWebPForFallbackImageType,
                     title: "Use PNG instead of WebP for fallback image type",
                     subtitle: """
@@ -498,52 +499,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         self?.updateFlag(
                             for: .usePngInsteadOfWebPForFallbackImageType,
                             to: !current.usePngInsteadOfWebPForFallbackImageType
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .versionDeprecationWarning,
-                    title: "Version Deprecation Banner",
-                    subtitle: """
-                    Enable the banner that warns users when their operating system (iOS 15.x or earlier) is nearing the end of support or cannot access the latest features.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.versionDeprecationWarning,
-                        oldValue: previous?.versionDeprecationWarning
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .versionDeprecationWarning,
-                            to: !current.versionDeprecationWarning
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .versionDeprecationMinimum,
-                    title: "Version Deprecation Minimum Version",
-                    subtitle: """
-                    The minimum version allowed before showing version deprecation warning.
-                    """,
-                    trailingAccessory: .dropDown { "iOS \(current.versionDeprecationMinimum)" },
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(
-                                viewModel: SessionListViewModel<WarningVersion>(
-                                    title: "Minimum iOS Version",
-                                    options: [
-                                        WarningVersion(version: 16),
-                                        WarningVersion(version: 17),
-                                        WarningVersion(version: 18)
-                                    ],
-                                    behaviour: .autoDismiss(
-                                        initialSelection: WarningVersion(version: current.versionDeprecationMinimum),
-                                        onOptionSelected: { [weak self] selected in
-                                            dependencies.set(feature: .versionDeprecationMinimum, to: selected.version)
-                                        }
-                                    ),
-                                    using: dependencies
-                                )
-                            )
                         )
                     }
                 )
@@ -734,9 +689,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                     <b>Note:</b> An empty value, or a value of 0 will use the default value: \(dependencies.defaultValue(feature: .communityPollLimit).map { "\($0)"} ?? "N/A").
                     """,
-                    trailingAccessory: .custom(info: PollLimitInputView.Info(
-                        limit: dependencies[feature: .communityPollLimit],
-                        onChange: { [dependencies] value in
+                    trailingAccessory: .custom(info: NumberInputView.Info(
+                        value: dependencies[feature: .communityPollLimit],
+                        minValue: 0,
+                        maxValue: 256,
+                        onDone: { [dependencies] value in
                             dependencies.set(feature: .communityPollLimit, to: value)
                         }
                     )),
@@ -869,15 +826,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// then we will get a compile error if it doesn't get resetting instructions added)
         TableItem.allCases.forEach { item in
             switch item {
-                case .developerMode, .versionBlindedID, .scheduleLocalNotification, .copyDocumentsPath,
-                    .copyAppGroupPath, .resetSnodeCache, .createMockContacts, .exportDatabase,
-                    .importDatabase, .advancedLogging, .resetAppReviewPrompt:
+                case .developerMode, .versionBlindedID, .customDateTime, .scheduleLocalNotification,
+                    .copyDocumentsPath, .copyAppGroupPath, .resetSnodeCache, .createMockContacts,
+                    .exportDatabase, .importDatabase, .advancedLogging:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
                 
                 case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)
                 case .proConfig: DeveloperSettingsProViewModel.disableDeveloperMode(using: dependencies)
                 case .fileServerConfig:
                     DeveloperSettingsFileServerViewModel.disableDeveloperMode(using: dependencies)
+                case .modalsAndBanners:
+                    DeveloperSettingsModalsAndBannersViewModel.disableDeveloperMode(using: dependencies)
                     
                 case .animationsEnabled:
                     guard dependencies.hasSet(feature: .animationsEnabled) else { return }
@@ -893,11 +852,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     guard dependencies.hasSet(feature: .truncatePubkeysInLogs) else { return }
                     
                     updateFlag(for: .truncatePubkeysInLogs, to: nil)
-                    
-                case .simulateAppReviewLimit:
-                    guard dependencies.hasSet(feature: .simulateAppReviewLimit) else { return }
-                    
-                    updateFlag(for: .simulateAppReviewLimit, to: nil)
                     
                 case .usePngInsteadOfWebPForFallbackImageType:
                     guard dependencies.hasSet(feature: .usePngInsteadOfWebPForFallbackImageType) else { return }
@@ -925,16 +879,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .debugDisappearingMessageDurations:
                     guard dependencies.hasSet(feature: .debugDisappearingMessageDurations) else { return }
                     
-                    updateFlag(for: .debugDisappearingMessageDurations, to: nil)
-                
-                case .versionDeprecationWarning:
-                    guard dependencies.hasSet(feature: .versionDeprecationWarning) else { return }
-                    
-                    updateFlag(for: .versionDeprecationWarning, to: nil)
-                case .versionDeprecationMinimum:
-                    guard dependencies.hasSet(feature: .versionDeprecationMinimum) else { return }
-                    
-                    dependencies.set(feature: .versionDeprecationMinimum, to: nil)
+                    updateFlag(for: .debugDisappearingMessageDurations, to: nil)                
                     
                 case .communityPollLimit:
                     guard dependencies.hasSet(feature: .communityPollLimit) else { return }
@@ -952,6 +897,74 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Disable developer mode
         dependencies.setAsync(.developerModeEnabled, false)
         self.dismissScreen(type: .pop)
+    }
+    
+    private func showCustomDateTimeModal() {
+        let formatter: DateFormatter = DateFormatter()
+        formatter.dateFormat = "HH:mm dd/MM/yyyy"
+        
+        self.updatedCustomDateTime = nil
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Custom Date/Time",
+                    body: .input(
+                        explanation: ThemedAttributedString(
+                            string: "The custom date/time to use throughout the app."
+                        ),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter Date/Time (HH:mm dd/MM/yyyy)",
+                            initialValue: (dependencies[feature: .customDateTime]
+                                .map { formatter.string(from: Date(timeIntervalSince1970: $0)) } ?? "")
+                        ),
+                        onChange: { [weak self] value in
+                            self?.updatedCustomDateTime = value.lowercased()
+                        }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { [weak self] _ in
+                        guard
+                            let value: String = self?.updatedCustomDateTime,
+                            formatter.date(from: value) != nil
+                        else { return false }
+                        
+                        return true
+                    },
+                    cancelTitle: (dependencies.hasSet(feature: .customDateTime) ?
+                        "remove".localized() :
+                        "cancel".localized()
+                    ),
+                    cancelStyle: (dependencies.hasSet(feature: .customDateTime) ? .danger : .alert_text),
+                    hasCloseButton: dependencies.hasSet(feature: .customDateTime),
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self, dependencies] modal in
+                        guard
+                            let value: String = self?.updatedCustomDateTime,
+                            let date: Date = formatter.date(from: value)
+                        else {
+                            modal.updateContent(
+                                withError: "Value must be in the format 'HH:mm dd/MM/yyyy'."
+                            )
+                            return
+                        }
+                        
+                        modal.dismiss(animated: true)
+                        
+                        dependencies.set(feature: .customDateTime, to: date.timeIntervalSince1970)
+                        self?.forceRefresh(type: .databaseQuery)
+                    },
+                    onCancel: { [weak self, dependencies] modal in
+                        modal.dismiss(animated: true)
+                        
+                        guard dependencies.hasSet(feature: .customDateTime) else { return }
+                        
+                        dependencies.set(feature: .customDateTime, to: nil)
+                        self?.forceRefresh(type: .databaseQuery)
+                    }
+                )
+            ),
+            transitionType: .present
+        )
     }
 
     private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
@@ -1306,20 +1319,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         showToast(
             text: "copied".localized(),
-            backgroundColor: .backgroundSecondary
-        )
-    }
-    
-    private func resetAppReviewPrompt() {
-        dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
-        dependencies[defaults: .standard, key: .hasVisitedPathScreen] = false
-        dependencies[defaults: .standard, key: .hasPressedDonateButton] = false
-        dependencies[defaults: .standard, key: .hasChangedTheme] = false
-        dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
-        dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
-        
-        showToast(
-            text: "Cleared",
             backgroundColor: .backgroundSecondary
         )
     }
@@ -1802,30 +1801,50 @@ private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
     }
 }
 
-// MARK: - PollLimitInputView
+// MARK: - NumberInputView
 
-final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accessory.CustomView {
+final class NumberInputView: UIView, UITextFieldDelegate, SessionCell.Accessory.CustomView {
     struct Info: Equatable, SessionCell.Accessory.CustomViewInfo {
-        typealias View = PollLimitInputView
+        typealias View = NumberInputView
         
-        let limit: Int
-        let onChange: (Int?) -> Void
+        let value: Int
+        let minValue: Int
+        let maxValue: Int
+        let onChange: ((Int?) -> Void)?
+        let onDone: ((Int?) -> Void)?
+        
+        init(
+            value: Int,
+            minValue: Int = Int.min,
+            maxValue: Int = Int.max,
+            onChange: ((Int?) -> Void)? = nil,
+            onDone: ((Int?) -> Void)? = nil
+        ) {
+            self.value = value
+            self.minValue = minValue
+            self.maxValue = maxValue
+            self.onChange = onChange
+            self.onDone = onDone
+        }
         
         public static func ==(lhs: Info, rhs: Info) -> Bool {
-            return lhs.limit == rhs.limit
+            return lhs.value == rhs.value
         }
         
         public func hash(into hasher: inout Hasher) {
-            limit.hash(into: &hasher)
+            value.hash(into: &hasher)
         }
     }
     
-    static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> PollLimitInputView {
-        return PollLimitInputView()
+    static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> NumberInputView {
+        return NumberInputView()
     }
     
     public static let size: SessionCell.Accessory.Size = .fillWidthWrapHeight
+    private var minValue: Int = Int.min
+    private var maxValue: Int = Int.max
     private var onChange: ((Int?) -> Void)?
+    private var onDone: ((Int?) -> Void)?
 
     // MARK: - Components
 
@@ -1833,6 +1852,7 @@ final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accesso
         let result = UITextField()
         result.font = .systemFont(ofSize: Values.mediumFontSize)
         result.textAlignment = .center
+        result.returnKeyType = .done
         result.delegate = self
 
         return result
@@ -1865,8 +1885,11 @@ final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accesso
     // MARK: - Content
 
     func update(with info: Info) {
+        minValue = info.minValue
+        maxValue = info.maxValue
         onChange = info.onChange
-        textField.text = "\(info.limit)"
+        onDone = info.onDone
+        textField.text = "\(info.value)"
     }
     
     // MARK: - UITextFieldDelegate
@@ -1884,9 +1907,24 @@ final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accesso
             return true
         }
         guard let value: Int = Int(updatedText) else { return false }
-        guard value >= 0 && value < 256 else { return false }
+        guard value >= minValue && value <= maxValue else { return false }
         
         onChange?(value)
+        return true
+    }
+    
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        guard !(textField.text ?? "").isEmpty else {
+            onDone?(nil)
+            return true
+        }
+        guard
+            let value: Int = Int(textField.text ?? ""),
+            value >= minValue &&
+            value <= maxValue
+        else { return false }
+        
+        onDone?(value)
         return true
     }
 }

@@ -29,6 +29,14 @@ public extension FeatureStorage {
         }()
     )
     
+    static let customDateTime: FeatureConfig<TimeInterval?> = Dependencies.create(
+        identifier: "customDateTime"
+    )
+    
+    static let customFirstInstallDateTime: FeatureConfig<TimeInterval?> = Dependencies.create(
+        identifier: "customFirstInstallDateTime"
+    )
+    
     static let forceOffline: FeatureConfig<Bool> = Dependencies.create(
         identifier: "forceOffline"
     )
@@ -316,6 +324,31 @@ extension Int: FeatureOption {
     
     public var subtitle: String? {
         return "\(self)"
+    }
+}
+
+// MARK: - Date FeatureOption
+
+extension Optional: @retroactive RawRepresentable where Wrapped == TimeInterval {}
+extension Optional: FeatureOption where Wrapped == TimeInterval {
+    // MARK: - Initialization
+    
+    public var rawValue: TimeInterval? { return self }
+    
+    public init?(rawValue: TimeInterval?) {
+        self = rawValue
+    }
+    
+    // MARK: - Feature Option
+    
+    public static let defaultOption: Optional<TimeInterval> = nil
+    
+    public var title: String {
+        return (self.map { "\($0)" } ?? "null")
+    }
+    
+    public var subtitle: String? {
+        return (self.map { "\($0)" } ?? "null")
     }
 }
 

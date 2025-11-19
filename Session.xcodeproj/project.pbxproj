@@ -622,6 +622,9 @@
 		FD360EB92ECAB1470050CAF4 /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EB82ECAB1470050CAF4 /* Punycode */; };
 		FD360EBB2ECAB1500050CAF4 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EBA2ECAB1500050CAF4 /* SwiftProtobuf */; };
 		FD360EBD2ECAB15A0050CAF4 /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD360EBC2ECAB15A0050CAF4 /* Lucide */; };
+		FD360EC92ECD3EB20050CAF4 /* DonationCTAModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */; };
+		FD360ECB2ECD59550050CAF4 /* DonationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */; };
+		FD360ECD2ECD70590050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */; };
 		FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
 		FD3765DF2AD8F03100DC1489 /* MockSnodeAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */; };
@@ -1981,6 +1984,9 @@
 		FD336F6B2CAA29C200C0B51B /* CommunityPollerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityPollerSpec.swift; sourceTree = "<group>"; };
 		FD336F6E2CAA37CB00C0B51B /* MockCommunityPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCommunityPoller.swift; sourceTree = "<group>"; };
 		FD3559452CC1FF140088F2A9 /* _034_AddMissingWhisperFlag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _034_AddMissingWhisperFlag.swift; sourceTree = "<group>"; };
+		FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonationCTAModal.swift; sourceTree = "<group>"; };
+		FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonationsManager.swift; sourceTree = "<group>"; };
+		FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsModalsAndBannersViewModel.swift; sourceTree = "<group>"; };
 		FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _026_AddFTSIfNeeded.swift; sourceTree = "<group>"; };
 		FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Utilities.swift"; sourceTree = "<group>"; };
 		FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSnodeAPICache.swift; sourceTree = "<group>"; };
@@ -2769,6 +2775,7 @@
 		76EB03C118170B33006006FC /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */,
 				7B93D07527CF1A8900811CB6 /* MockDataGenerator.swift */,
 				4C090A1A210FD9C7001FD7F9 /* HapticFeedback.swift */,
 				FDD2506D283711D600198BDA /* DifferenceKit+Utilities.swift */,
@@ -2906,6 +2913,7 @@
 		942256932C23F8DD00C0FDBF /* SwiftUI */ = {
 			isa = PBXGroup;
 			children = (
+				FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */,
 				942BA9402E4487EE007C4595 /* LightBox.swift */,
 				94B6BB032E3B208200E718BB /* Seperator+SwiftUI.swift */,
 				94B6BAFF2E3AE83500E718BB /* QRCodeView.swift */,
@@ -5139,6 +5147,7 @@
 				FD860CBD2D6E7DA000BBE29C /* DeveloperSettingsViewModel+Testing.swift */,
 				FDE287562E94D7B200442E03 /* DeveloperSettingsFileServerViewModel.swift */,
 				FDE71B0A2E7935250023F5F9 /* DeveloperSettingsGroupsViewModel.swift */,
+				FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */,
 				FDE71B0C2E793B1F0023F5F9 /* DeveloperSettingsProViewModel.swift */,
 			);
 			path = DeveloperSettings;
@@ -6313,6 +6322,7 @@
 				FD37E9D328A1FCDB003AE748 /* Theme+OceanDark.swift in Sources */,
 				FD8A5B102DBF2F17004C689B /* NavBarSessionIcon.swift in Sources */,
 				94CD96302E1B88430097754D /* CGRect+Utilities.swift in Sources */,
+				FD360EC92ECD3EB20050CAF4 /* DonationCTAModal.swift in Sources */,
 				94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */,
 				942256972C23F8DD00C0FDBF /* SessionSearchBar.swift in Sources */,
 				FD71165928E436E800B47552 /* ConfirmationModal.swift in Sources */,
@@ -7098,6 +7108,7 @@
 				7B1581E827210ECC00848B49 /* RenderView.swift in Sources */,
 				FD87DCFA28B74DB300AF0F98 /* ConversationSettingsViewModel.swift in Sources */,
 				7BC707F227290ACB002817AD /* SessionCallManager.swift in Sources */,
+				FD360ECD2ECD70590050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift in Sources */,
 				7BAADFCE27B215FE007BCF92 /* UIView+Draggable.swift in Sources */,
 				45C0DC1B1E68FE9000E04C47 /* UIApplication+OWS.swift in Sources */,
 				FDF222072818CECF000A4995 /* ConversationViewModel.swift in Sources */,
@@ -7144,6 +7155,7 @@
 				B835249B25C3AB650089A44F /* VisibleMessageCell.swift in Sources */,
 				B894D0752339EDCF00B4D94D /* NukeDataModal.swift in Sources */,
 				7B5233C42900E90F00F8F375 /* SessionLabelCarouselView.swift in Sources */,
+				FD360ECB2ECD59550050CAF4 /* DonationsManager.swift in Sources */,
 				FD860CB42D668FD300BBE29C /* AppearanceViewModel.swift in Sources */,
 				7B93D07727CF1A8A00811CB6 /* MockDataGenerator.swift in Sources */,
 				FD860CB82D66BC9900BBE29C /* AppIconViewModel.swift in Sources */,

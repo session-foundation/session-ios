@@ -33,7 +33,11 @@ public class Dependencies {
         return cachedIsRTLRetriever.retriever()
     }
     
-    public var dateNow: Date { Date() }
+    public var dateNow: Date {
+        guard let customTimestamp: TimeInterval = self[feature: .customDateTime] else { return Date() }
+        
+        return Date(timeIntervalSince1970: customTimestamp)
+    }
     public var fixedTime: Int { 0 }
     public var forceSynchronous: Bool { false }
     
