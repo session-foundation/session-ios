@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionNetworkingKit
 import SessionUtilitiesKit
 
 // MARK: - Log.Category
@@ -101,7 +102,7 @@ public extension Profile {
     static func updateLocal(
         displayNameUpdate: TargetUserUpdate<String?> = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
-        proUpdate: TargetUserUpdate<SessionPro.DecodedProForMessage?> = .none,
+        proFeatures: SessionPro.Features? = nil,
         using dependencies: Dependencies
     ) async throws {
         /// Perform any non-database related changes for the update
@@ -136,6 +137,28 @@ public extension Profile {
         do {
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             let profileUpdateTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
+            let proUpdate: TargetUserUpdate<SessionPro.DecodedProForMessage?> = await {
+                let maybeProof: Network.SessionPro.ProProof? = await dependencies[singleton: .sessionProManager]
+                    .proProof
+                    .first(defaultValue: nil)
+                
+                guard
+                    let targetFeatures: SessionPro.Features = proFeatures,
+                    let proof: Network.SessionPro.ProProof = maybeProof,
+                    dependencies[singleton: .sessionProManager].proProofIsActive(
+                        for: proof,
+                        atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+                    )
+                else { return .none }
+                
+                return .currentUserUpdate(
+                    SessionPro.DecodedProForMessage(
+                        status: .valid,
+                        proProof: proof,
+                        features: targetFeatures
+                    )
+                )
+            }()
             
             try await dependencies[singleton: .storage].writeAsync { db in
                 try Profile.updateIfNeeded(

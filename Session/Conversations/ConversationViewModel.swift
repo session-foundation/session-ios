@@ -341,6 +341,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 itemCache: [:],
                 titleViewModel: ConversationTitleViewModel(
                     threadViewModel: threadViewModel,
+                    profileCache: [:],
                     using: dependencies
                 ),
                 threadViewModel: threadViewModel,
@@ -1181,6 +1182,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             itemCache: itemCache,
             titleViewModel: ConversationTitleViewModel(
                 threadViewModel: threadViewModel,
+                profileCache: profileCache,
                 using: dependencies
             ),
             threadViewModel: threadViewModel,
@@ -1872,12 +1874,16 @@ private extension ObservedEvent {
 }
 
 private extension ConversationTitleViewModel {
-    init(threadViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
+    init(
+        threadViewModel: SessionThreadViewModel,
+        profileCache: [String: Profile],
+        using dependencies: Dependencies
+    ) {
         self.threadVariant = threadViewModel.threadVariant
         self.displayName = threadViewModel.displayName
         self.isNoteToSelf = threadViewModel.threadIsNoteToSelf
         self.isMessageRequest = (threadViewModel.threadIsMessageRequest == true)
-        self.isSessionPro = dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
+        self.showProBadge = (profileCache[threadViewModel.threadId]?.proFeatures.contains(.proBadge) == true)
         self.isMuted = (dependencies.dateNow.timeIntervalSince1970 <= (threadViewModel.threadMutedUntilTimestamp ?? 0))
         self.onlyNotifyForMentions = (threadViewModel.threadOnlyNotifyForMentions == true)
         self.userCount = threadViewModel.userCount

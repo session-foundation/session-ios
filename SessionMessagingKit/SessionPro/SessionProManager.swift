@@ -30,7 +30,7 @@ public actor SessionProManager: SessionProManagerType {
     nonisolated private let syncState: SessionProManagerSyncState
     private var isRefreshingState: Bool = false
     private var proStatusObservationTask: Task<Void, Never>?
-    public var rotatingKeyPair: KeyPair?
+    private var rotatingKeyPair: KeyPair?
     public var proFeatures: SessionPro.Features = .none
     
     nonisolated private let backendUserProStatusStream: CurrentValueAsyncStream<Network.SessionPro.BackendUserProStatus?> = CurrentValueAsyncStream(nil)
@@ -557,7 +557,7 @@ private final class SessionProManagerSyncState {
 // MARK: - SessionProManagerType
 
 public protocol SessionProManagerType: SessionProUIManagerType {
-    var rotatingKeyPair: KeyPair? { get }
+    var proFeatures: SessionPro.Features { get }
     
     nonisolated var characterLimit: Int { get }
     nonisolated var currentUserCurrentRotatingKeyPair: KeyPair? { get }

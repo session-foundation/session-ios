@@ -12,7 +12,7 @@ struct ConversationTitleViewModel: Sendable, Equatable {
     let displayName: String
     let isNoteToSelf: Bool
     let isMessageRequest: Bool
-    let isSessionPro: Bool
+    let showProBadge: Bool
     let isMuted: Bool
     let onlyNotifyForMentions: Bool
     let userCount: Int?
@@ -126,7 +126,7 @@ final class ConversationTitleView: UIView {
         self.titleLabel.text = viewModel.displayName
         self.titleLabel.accessibilityLabel = viewModel.displayName
         self.titleLabel.font = (shouldHaveSubtitle ? Fonts.Headings.H6 : Fonts.Headings.H5)
-        self.titleLabel.isProBadgeHidden = !viewModel.isSessionPro
+        self.titleLabel.isProBadgeHidden = !viewModel.showProBadge
         self.labelCarouselView.isHidden = !shouldHaveSubtitle
         
         // Contact threads also have the call button to compensate for
