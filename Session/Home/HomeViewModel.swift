@@ -634,29 +634,35 @@ public class HomeViewModel: NavigatableStateHolder {
             case .active(_, let expiredOn, _ , _):
                 let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
                 guard expiryInSeconds <= 7 * 24 * 60 * 60 else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
-                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                        .expiring(timeLeft: expiryInSeconds.formatted(format: .long, allowedUnits: [ .day, .hour, .minute ])),
-                        onConfirm: {
-                            
-                        },
-                        presenting: { modal in
-                            self?.transitionToScreen(modal, transitionType: .present)
-                        }
-                    )
-                }
+                scheduleExpiringSessionProCTA(expiryInSeconds.formatted(format: .long, allowedUnits: [ .day, .hour, .minute ]))
             case .expired:
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
-                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                        .expiring(timeLeft: nil),
-                        onConfirm: {
-                            
-                        },
-                        presenting: { modal in
-                            self?.transitionToScreen(modal, transitionType: .present)
-                        }
+                scheduleExpiringSessionProCTA(nil)
+        }
+    }
+    
+    private func scheduleExpiringSessionProCTA(_ timeLeft: String?) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
+            dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                .expiring(timeLeft: timeLeft),
+                onConfirm: {
+                    let viewController: SessionHostingViewController = SessionHostingViewController(
+                        rootView: SessionProPaymentScreen(
+                            viewModel: SessionProPaymentScreenContent.ViewModel(
+                                dependencies: dependencies,
+                                dataModel: .init(
+                                    flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(using: dependencies),
+                                    plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                                ),
+                                isFromBottomSheet: false
+                            )
+                        )
                     )
+                    self?.transitionToScreen(viewController)
+                },
+                presenting: { modal in
+                    self?.transitionToScreen(modal, transitionType: .present)
                 }
+            )
         }
     }
     

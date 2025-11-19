@@ -101,19 +101,19 @@ public struct ListItemLogoWithPro: View {
     let info: Info
 
     public var body: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                Ellipse()
-                    .fill(themeColor: info.themeStyle.glowingBackgroundColor)
-                    .frame(
-                        width: info.glowingBackgroundStyle.blurSize.width,
-                        height: info.glowingBackgroundStyle.blurSize.height
-                    )
-                    .opacity(0.17)
-                    .shadow(radius: info.glowingBackgroundStyle.shadowRadius)
-                    .blur(radius: info.glowingBackgroundStyle.blurRadius)
-                    .padding(.top, info.glowingBackgroundStyle.blurRadius / 2)
-                
+        ZStack(alignment: .top) {
+            Ellipse()
+                .fill(themeColor: info.themeStyle.glowingBackgroundColor)
+                .frame(
+                    width: info.glowingBackgroundStyle.blurSize.width,
+                    height: info.glowingBackgroundStyle.blurSize.height
+                )
+                .opacity(0.17)
+                .shadow(radius: info.glowingBackgroundStyle.shadowRadius)
+                .blur(radius: info.glowingBackgroundStyle.blurRadius)
+                .padding(.top, info.glowingBackgroundStyle.blurRadius / 2)
+            
+            VStack(spacing: 0) {
                 Image("SessionGreen64")
                     .resizable()
                     .renderingMode(.template)
