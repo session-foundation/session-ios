@@ -26,6 +26,7 @@ public enum SessionProPlanState: Equatable, Sendable {
         originatingPlatform: ClientPlatform
     )
     case expired(
+        expiredOn: Date,
         originatingPlatform: ClientPlatform
     )
     case refunding(
@@ -36,7 +37,7 @@ public enum SessionProPlanState: Equatable, Sendable {
     public var originatingPlatform: ClientPlatform {
         return switch(self) {
             case .active(_, _, _, let originatingPlatform): originatingPlatform
-            case .expired(let originatingPlatform): originatingPlatform
+            case .expired(_, let originatingPlatform): originatingPlatform
             case .refunding(let originatingPlatform, _): originatingPlatform
             default: .iOS // FIXME: get the real originating platform
         }
@@ -56,8 +57,9 @@ public enum SessionProPlanState: Equatable, Sendable {
                     originatingPlatform: originatingPlatform,
                     requestedAt: requestedAt
                 )
-            case .expired:
+            case .expired(let expiredOn, _):
                 return .expired(
+                    expiredOn: expiredOn,
                     originatingPlatform: originatingPlatform
                 )
             default: return self

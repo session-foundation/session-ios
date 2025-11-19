@@ -62,6 +62,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             case .expired:
                 self.sessionProStateSubject = CurrentValueSubject(
                     SessionProPlanState.expired(
+                        expiredOn: Date(),
                         originatingPlatform: originatingPlatform
                     )
                 )
@@ -81,6 +82,8 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     
     public func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) {
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
+        dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
+        dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
         self.sessionProStateSubject.send(
             SessionProPlanState.active(
                 currentPlan: plan,
@@ -127,6 +130,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .expired)
         self.sessionProStateSubject.send(
             SessionProPlanState.expired(
+                expiredOn: Date(),
                 originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
             )
         )
