@@ -32,9 +32,14 @@ public extension SessionProPaymentScreenContent {
                         .localizedFormatted(Fonts.Body.baseRegular)
                 case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform):
                     switch (originatingPlatform, isAutoRenewing) {
-                        case (.Android, _):
+                        case (.Android, true):
                             "proAccessActivatedAutoShort"
                                 .put(key: "current_plan_length", value: currentPlan.durationString)
+                                .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(Fonts.Body.baseRegular)
+                        case (.Android, false):
+                            "proAccessExpireDate"
                                 .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                                 .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(Fonts.Body.baseRegular)
