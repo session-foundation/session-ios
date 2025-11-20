@@ -15,16 +15,14 @@ public enum ThemeManager {
     ///
     /// Unfortunately if we don't do this the `ThemeApplier` is immediately deallocated and we can't use it to update the theme
     private static var uiRegistry: NSMapTable<AnyObject, ThemeApplier> = NSMapTable.weakToStrongObjects()
+    fileprivate static let syncState: ThemeManagerSyncState = ThemeManagerSyncState(
+        theme: Theme.defaultTheme,
+        primaryColor: Theme.PrimaryColor.defaultPrimaryColor,
+        matchSystemNightModeSetting: false   // Default to `false`
+    )
     
-    private static var _hasLoadedTheme: Bool = false
-    private static var _theme: Theme = Theme.defaultTheme
-    private static var _primaryColor: Theme.PrimaryColor = Theme.PrimaryColor.defaultPrimaryColor
-    private static var _matchSystemNightModeSetting: Bool = false   // Default to `false`
-    
-    public static var hasLoadedTheme: Bool { _hasLoadedTheme }
-    public static var currentTheme: Theme { _theme }
-    public static var primaryColor: Theme.PrimaryColor { _primaryColor }
-    public static var matchSystemNightModeSetting: Bool { _matchSystemNightModeSetting }
+    public static var currentTheme: Theme { syncState.state.theme }
+    internal static var primaryColor: Theme.PrimaryColor { syncState.state.primaryColor }
     
     // MARK: - Styling
     
@@ -33,28 +31,31 @@ public enum ThemeManager {
         primaryColor: Theme.PrimaryColor? = nil,
         matchSystemNightModeSetting: Bool? = nil
     ) {
-        let targetTheme: Theme = (theme ?? _theme)
+        let currentState: ThemeState = syncState.state
+        let targetTheme: Theme = (theme ?? currentState.theme)
         let targetPrimaryColor: Theme.PrimaryColor = {
-            switch (primaryColor, Theme.PrimaryColor(color: color(for: .defaultPrimary, in: targetTheme, with: _primaryColor))) {
+            switch (primaryColor, Theme.PrimaryColor(color: color(for: .defaultPrimary, in: currentState.theme, with: currentState.primaryColor))) {
                 case (.some(let primaryColor), _): return primaryColor
                 case (.none, .some(let defaultPrimaryColor)): return defaultPrimaryColor
-                default: return _primaryColor
+                default: return currentState.primaryColor
             }
         }()
         let targetMatchSystemNightModeSetting: Bool = {
             switch matchSystemNightModeSetting {
                 case .some(let value): return value
-                case .none: return _matchSystemNightModeSetting
+                case .none: return currentState.matchSystemNightModeSetting
             }
         }()
-        let themeChanged: Bool = (_theme != targetTheme || _primaryColor != targetPrimaryColor)
-        let matchSystemChanged: Bool = (_matchSystemNightModeSetting != targetMatchSystemNightModeSetting)
-        _theme = targetTheme
-        _primaryColor = targetPrimaryColor
-        _hasLoadedTheme = true
+        let themeChanged: Bool = (currentState.theme != targetTheme || currentState.primaryColor != targetPrimaryColor)
+        let matchSystemChanged: Bool = (currentState.matchSystemNightModeSetting != targetMatchSystemNightModeSetting)
+        syncState.update(
+            hasLoadedTheme: true,
+            theme: targetTheme,
+            primaryColor: targetPrimaryColor
+        )
         
         if matchSystemChanged {
-            _matchSystemNightModeSetting = targetMatchSystemNightModeSetting
+            syncState.update(matchSystemNightModeSetting: targetMatchSystemNightModeSetting)
             
             // Note: We need to set this to 'unspecified' to force the UI to properly update as the
             // 'TraitObservingWindow' won't actually trigger the trait change otherwise
@@ -80,33 +81,35 @@ public enum ThemeManager {
     
     @MainActor public static func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         let currentUserInterfaceStyle: UIUserInterfaceStyle = UITraitCollection.current.userInterfaceStyle
+        let currentState: ThemeState = syncState.state
         
         // Only trigger updates if the style changed and the device is set to match the system style
         guard
-            currentUserInterfaceStyle != ThemeManager.currentTheme.interfaceStyle,
-            _matchSystemNightModeSetting
+            currentUserInterfaceStyle != currentState.theme.interfaceStyle,
+            currentState.matchSystemNightModeSetting
         else { return }
         
         // Swap to the appropriate light/dark mode
-        switch (currentUserInterfaceStyle, ThemeManager.currentTheme) {
-            case (.light, .classicDark): updateThemeState(theme: .classicLight, primaryColor: _primaryColor)
-            case (.light, .oceanDark): updateThemeState(theme: .oceanLight, primaryColor: _primaryColor)
-            case (.dark, .classicLight): updateThemeState(theme: .classicDark, primaryColor: _primaryColor)
-            case (.dark, .oceanLight): updateThemeState(theme: .oceanDark, primaryColor: _primaryColor)
+        switch (currentUserInterfaceStyle, currentState.theme) {
+            case (.light, .classicDark): updateThemeState(theme: .classicLight, primaryColor: currentState.primaryColor)
+            case (.light, .oceanDark): updateThemeState(theme: .oceanLight, primaryColor: currentState.primaryColor)
+            case (.dark, .classicLight): updateThemeState(theme: .classicDark, primaryColor: currentState.primaryColor)
+            case (.dark, .oceanLight): updateThemeState(theme: .oceanDark, primaryColor: currentState.primaryColor)
             default: break
         }
     }
     
     @MainActor public static func applyNavigationStyling() {
-        let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme, with: primaryColor) ?? .white)
-        let backgroundColor: UIColor? = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
+        let currentState: ThemeState = syncState.state
+        let textPrimary: UIColor = (color(for: .textPrimary, in: currentState.theme, with: currentState.primaryColor) ?? .white)
+        let backgroundColor: UIColor? = color(for: .backgroundPrimary, in: currentState.theme, with: currentState.primaryColor)
         
         // Set the `mainWindow.tintColor` for system screens to use the right color for text
         SNUIKit.mainWindow?.tintColor = textPrimary
         SNUIKit.mainWindow?.rootViewController?.setNeedsStatusBarAppearanceUpdate()
         
         // Update toolbars to use the right colours
-        UIToolbar.appearance().barTintColor = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
+        UIToolbar.appearance().barTintColor = color(for: .backgroundPrimary, in: currentState.theme, with: currentState.primaryColor)
         UIToolbar.appearance().isTranslucent = false
         UIToolbar.appearance().tintColor = textPrimary
         
@@ -188,11 +191,12 @@ public enum ThemeManager {
             let navigationBackground: ThemeValue = (viewController as? ThemedNavigation)?.navigationBackground
         else { return }
         
-        let navigationBackgroundColor: UIColor? = color(for: navigationBackground, in: currentTheme, with: primaryColor)
+        let currentState: ThemeState = syncState.state
+        let navigationBackgroundColor: UIColor? = color(for: navigationBackground, in: currentState.theme, with: currentState.primaryColor)
         navController.navigationBar.barTintColor = navigationBackgroundColor
         navController.navigationBar.shadowImage = navigationBackgroundColor?.toImage()
         
-        let textPrimary: UIColor = (color(for: .textPrimary, in: currentTheme, with: primaryColor) ?? .white)
+        let textPrimary: UIColor = (color(for: .textPrimary, in: currentState.theme, with: currentState.primaryColor) ?? .white)
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = navigationBackgroundColor
@@ -209,16 +213,17 @@ public enum ThemeManager {
     }
     
     @MainActor public static func applyWindowStyling() {
+        let currentState: ThemeState = syncState.state
         SNUIKit.mainWindow?.overrideUserInterfaceStyle = {
-            guard !ThemeManager.matchSystemNightModeSetting else { return .unspecified }
+            guard !currentState.matchSystemNightModeSetting else { return .unspecified }
             
-            switch ThemeManager.currentTheme.interfaceStyle {
+            switch currentState.theme.interfaceStyle {
                 case .light: return .light
                 case .dark, .unspecified: return .dark
                 @unknown default: return .dark
             }
         }()
-        SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary, in: currentTheme, with: primaryColor)
+        SNUIKit.mainWindow?.backgroundColor = color(for: .backgroundPrimary, in: currentState.theme, with: currentState.primaryColor)
     }
     
     @MainActor public static func onThemeChange(observer: AnyObject, callback: @escaping @MainActor (Theme, Theme.PrimaryColor, (ThemeValue) -> UIColor?) -> ()) {
@@ -227,8 +232,8 @@ public enum ThemeManager {
                 existingApplier: ThemeManager.get(for: observer),
                 info: []
             ) { theme in
-                callback(theme, ThemeManager.primaryColor, { value -> UIColor? in
-                    ThemeManager.color(for: value, in: theme, with: ThemeManager.primaryColor)
+                callback(theme, syncState.state.primaryColor, { value -> UIColor? in
+                    ThemeManager.color(for: value, in: theme, with: syncState.state.primaryColor)
                 })
             },
             forKey: observer
@@ -251,13 +256,13 @@ public enum ThemeManager {
             case .highlighted(let value, let alwaysDarken):
                 let color: T? = color(for: value, in: theme, with: primaryColor)!
                 
-                switch (currentTheme.interfaceStyle, alwaysDarken) {
+                switch (syncState.state.theme.interfaceStyle, alwaysDarken) {
                     case (.light, _), (_, true): return color?.brighten(-0.06) as? T
                     default: return color?.brighten(0.08) as? T
                 }
                 
             case .dynamicForInterfaceStyle(let light, let dark):
-                switch currentTheme.interfaceStyle {
+                switch syncState.state.theme.interfaceStyle {
                     case .light: return color(for: light, in: theme, with: primaryColor)
                     default: return color(for: dark, in: theme, with: primaryColor)
                 }
@@ -288,8 +293,9 @@ public enum ThemeManager {
     // MARK: -  Internal Functions
     
     @MainActor private static func updateAllUI() {
+        let currentState: ThemeState = syncState.state
         ThemeManager.uiRegistry.objectEnumerator()?.forEach { applier in
-            (applier as? ThemeApplier)?.apply(theme: currentTheme)
+            (applier as? ThemeApplier)?.apply(theme: currentState.theme)
         }
         
         applyNavigationStyling()
@@ -326,8 +332,9 @@ public enum ThemeManager {
                     return
                 }
 
+                let currentState: ThemeState = syncState.state
                 view?[keyPath: keyPath] = ThemeManager.resolvedColor(
-                    ThemeManager.color(for: value, in: currentTheme, with: primaryColor)
+                    ThemeManager.color(for: value, in: currentState.theme, with: currentState.primaryColor)
                 )
             },
             forKey: view
@@ -362,8 +369,9 @@ public enum ThemeManager {
                     return
                 }
                 
+                let currentState: ThemeState = syncState.state
                 view?[keyPath: keyPath] = ThemeManager.resolvedColor(
-                    ThemeManager.color(for: value, in: currentTheme, with: primaryColor)
+                    ThemeManager.color(for: value, in: currentState.theme, with: currentState.primaryColor)
                 )?.cgColor
             },
             forKey: view
@@ -398,6 +406,7 @@ public enum ThemeManager {
                 
                 let newAttrString: NSMutableAttributedString = NSMutableAttributedString()
                 let fullRange: NSRange = NSRange(location: 0, length: originalThemedString.value.length)
+                let currentState: ThemeState = syncState.state
                 
                 originalThemedString.value.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
                     var newAttributes: [NSAttributedString.Key: Any] = attributes
@@ -412,7 +421,7 @@ public enum ThemeManager {
                         
                         guard
                             let originalKey = key.originalKey,
-                            let color = ThemeManager.color(for: themeValue, in: currentTheme, with: primaryColor) as UIColor?
+                            let color = ThemeManager.color(for: themeValue, in: currentState.theme, with: currentState.primaryColor) as UIColor?
                         else { return }
                         
                         newAttributes[originalKey] = ThemeManager.resolvedColor(color)
@@ -448,6 +457,57 @@ public enum ThemeManager {
     }
 }
 
+// MARK: - SyncState
+
+private struct ThemeState {
+    let theme: Theme
+    let primaryColor: Theme.PrimaryColor
+    let matchSystemNightModeSetting: Bool
+}
+
+private final class ThemeManagerSyncState {
+    private let lock: NSLock = NSLock()
+    private var _hasLoadedTheme: Bool = false
+    private var _theme: Theme
+    private var _primaryColor: Theme.PrimaryColor
+    private var _matchSystemNightModeSetting: Bool
+    
+    fileprivate var hasLoadedTheme: Bool { lock.withLock { _hasLoadedTheme } }
+    fileprivate var state: ThemeState {
+        lock.withLock {
+            ThemeState(
+                theme: _theme,
+                primaryColor: _primaryColor,
+                matchSystemNightModeSetting: _matchSystemNightModeSetting
+            )
+        }
+    }
+    
+    fileprivate init(
+        theme: Theme,
+        primaryColor: Theme.PrimaryColor,
+        matchSystemNightModeSetting: Bool
+    ) {
+        self._theme = theme
+        self._primaryColor = primaryColor
+        self._matchSystemNightModeSetting = matchSystemNightModeSetting
+    }
+    
+    fileprivate func update(
+        hasLoadedTheme: Bool? = nil,
+        theme: Theme? = nil,
+        primaryColor: Theme.PrimaryColor? = nil,
+        matchSystemNightModeSetting: Bool? = nil
+    ) {
+        lock.withLock {
+            self._hasLoadedTheme = (hasLoadedTheme ?? self._hasLoadedTheme)
+            self._theme = (theme ?? self._theme)
+            self._primaryColor = (primaryColor ?? self._primaryColor)
+            self._matchSystemNightModeSetting = (matchSystemNightModeSetting ?? self._matchSystemNightModeSetting)
+        }
+    }
+}
+
 // MARK: - ThemeApplier
 
 internal class ThemeApplier {
@@ -477,8 +537,8 @@ internal class ThemeApplier {
             .filter { $0.info != info }
         
         // Automatically apply the theme immediately (if the database has been setup)
-        if SNUIKit.config?.isStorageValid == true || ThemeManager.hasLoadedTheme {
-            apply(theme: ThemeManager.currentTheme, isInitialApplication: true)
+        if SNUIKit.config?.isStorageValid == true || ThemeManager.syncState.hasLoadedTheme {
+            apply(theme: ThemeManager.syncState.state.theme, isInitialApplication: true)
         }
     }
     

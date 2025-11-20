@@ -559,7 +559,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                             
                             return source
                         }(),
-                        animationBehaviour: .generic(true), // Force the animate the avatar in modals
+                        canAnimate: true, // Force the animate the avatar in modals
                         icon: icon,
                         cropRect: style.cropRect
                     )

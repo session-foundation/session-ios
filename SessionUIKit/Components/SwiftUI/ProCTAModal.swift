@@ -460,6 +460,8 @@ public extension ProCTAModal {
 // MARK: - SessionProCTAManagerType
 
 public protocol SessionProCTAManagerType: AnyObject {
+    var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
+    
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,

@@ -55,7 +55,7 @@ struct MessageInfoScreen: View {
             profile: messageViewModel.profile,
             profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
             using: dependencies
-        ).info
+        ).front
         
         (self.proFeatures, self.proCTAVariant) = getProFeaturesInfo()
     }
@@ -361,7 +361,7 @@ struct MessageInfoScreen: View {
                                 HStack(
                                     spacing: 10
                                 ) {
-                                    let size: ProfilePictureView.Size = .list
+                                    let size: ProfilePictureView.Info.Size = .list
                                     
                                     if let info: ProfilePictureView.Info = self.profileInfo {
                                         ProfilePictureSwiftUI(
@@ -562,7 +562,7 @@ struct MessageInfoScreen: View {
         // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
         guard (try? SessionId.Prefix(from: messageViewModel.authorId)) != .blinded25 else { return }
         
-        guard let profileInfo: ProfilePictureView.Info = ProfilePictureView.getProfilePictureInfo(
+        guard let profileInfo: ProfilePictureView.Info = ProfilePictureView.Info.generateInfoFrom(
             size: .message,
             publicKey: (
                 // Prioritise the profile.id because we override it for
@@ -575,7 +575,7 @@ struct MessageInfoScreen: View {
             profile: messageViewModel.profile,
             profileIcon: .none,
             using: dependencies
-        ).info else {
+        ).front else {
             return
         }
         

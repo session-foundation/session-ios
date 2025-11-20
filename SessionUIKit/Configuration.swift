@@ -30,6 +30,7 @@ public actor SNUIKit {
     }
     
     @MainActor public static var mainWindow: UIWindow? = nil
+    public static let imageCache: NSCache<NSString, UIImage> = NSCache()
     internal static var config: ConfigType? = nil
     private static let configLock = NSLock()
     

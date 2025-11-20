@@ -2361,7 +2361,7 @@ extension ConversationVC:
             rowId: -1,
             interactionId: nil,
             authorId: cellViewModel.authorId,
-            showProBadge: self.viewModel.mutate(cache: .libSession) {
+            showProBadge: self.viewModel.dependencies.mutate(cache: .libSession) {
                 $0.validateSessionProState(for: cellViewModel.authorId)
             },
             timestampMs: cellViewModel.timestampMs,

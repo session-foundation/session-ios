@@ -3,6 +3,37 @@
 import UIKit
 
 public extension UIView {
+    enum CachedImageKey: Equatable, Hashable {
+        case key(String)
+        case themedKey(String, themeBackgroundColor: ThemeValue)
+        
+        fileprivate var value: String {
+            switch self {
+                case .key(let value): return value
+                case .themedKey(let value, let color):
+                    let cacheKeyColour: String = (color == .primary ? "\(ThemeManager.primaryColor)" : "\(color)" )
+                    
+                    return "\(value).\(cacheKeyColour)" // stringlint:ignore
+            }
+        }
+    }
+    
+    static func image(
+        for key: CachedImageKey,
+        generator: () -> UIView
+    ) -> UIImage {
+        let cacheKey: NSString = key.value as NSString // stringlint:ignore
+        
+        if let cachedImage = SNUIKit.imageCache.object(forKey: cacheKey) {
+            return cachedImage
+        }
+        
+        let generatedView: UIView = generator()
+        let renderedImage: UIImage = generatedView.toImage(isOpaque: generatedView.isOpaque, scale: UIScreen.main.scale)
+        SNUIKit.imageCache.setObject(renderedImage, forKey: cacheKey)
+        return renderedImage
+    }
+
     func toImage(isOpaque: Bool, scale: CGFloat) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale

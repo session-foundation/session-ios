@@ -178,6 +178,7 @@ public struct QuoteViewModel: Equatable, Hashable {
         self.rowId = -1
         self.interactionId = nil
         self.authorId = ""
+        self.showProBadge = false
         self.timestampMs = 0
         self.quotedInteractionId = 0
         self.quotedInteractionIsDeleted = false

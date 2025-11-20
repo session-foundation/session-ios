@@ -41,8 +41,7 @@ public extension MentionUtilities {
             displayNameRetriever: Profile.defaultDisplayNameRetriever(
                 threadVariant: threadVariant,
                 using: dependencies
-            ),
-            using: dependencies
+            )
         )
     }
 }

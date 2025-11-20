@@ -63,7 +63,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     private let displayNameRetriever: (String, Bool) -> String?
     private let onQuoteCancelled: (() -> Void)?
     private weak var delegate: InputViewDelegate?
-    private var sessionProState: SessionProManagerType?
+    private var sessionProState: SessionProCTAManagerType?
     
     public var quoteViewModel: QuoteViewModel? { didSet { handleQuoteDraftChanged() } }
     public var linkPreviewViewModel: LinkPreviewViewModel?
@@ -359,7 +359,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         displayNameRetriever: @escaping (String, Bool) -> String?,
         imageDataManager: ImageDataManagerType,
         linkPreviewManager: LinkPreviewManagerType,
-        sessionProState: SessionProManagerType?,
+        sessionProState: SessionProCTAManagerType?,
         onQuoteCancelled: (() -> Void)? = nil,
         didLoadLinkPreview: (@MainActor (LinkPreviewViewModel.LoadResult) -> Void)?
     ) {

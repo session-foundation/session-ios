@@ -17,6 +17,19 @@ public protocol SessionProManagerType: AnyObject {
     func updateProExpiry(_ expiryInSeconds: TimeInterval?)
 }
 
+public extension SessionProManagerType {
+    var isSessionProPublisher: AnyPublisher<Bool, Never> {
+        sessionProStatePublisher
+            .map {
+                switch $0 {
+                    case .active: return true
+                    default: return false
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+}
+
 public enum SessionProPlanState: Equatable, Sendable {
     case none
     case active(
