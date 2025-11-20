@@ -26,34 +26,43 @@ public extension SessionProPaymentScreenContent {
         
         var description: ThemedAttributedString {
             switch self {
-            case .purchase:
-                "proChooseAccess"
-                    .put(key: "pro", value: Constants.pro)
-                    .localizedFormatted(Fonts.Body.baseRegular)
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _):
-                isAutoRenewing ?
-                    "proAccessActivatesAuto"
-                        .put(key: "current_plan_length", value: currentPlan.durationString)
-                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                        .put(key: "pro", value: Constants.pro)
-                        .localizedFormatted(Fonts.Body.baseRegular) :
-                    "proAccessActivatedNotAuto"
-                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                case .purchase:
+                    "proChooseAccess"
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
-            case .renew:
-                "proAccessRenewStart"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .put(key: "pro", value: Constants.pro)
-                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
-            case .refund:
-                "proRefundDescription"
-                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
-            case .cancel:
-                "proCancelSorry"
-                    .put(key: "pro", value: Constants.pro)
-                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
-            }
+                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform):
+                    switch (originatingPlatform, isAutoRenewing) {
+                        case (.Android, _):
+                            "proAccessActivatedAutoShort"
+                                .put(key: "current_plan_length", value: currentPlan.durationString)
+                                .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(Fonts.Body.baseRegular)
+                        case (.iOS, true):
+                            "proAccessActivatesAuto"
+                                .put(key: "current_plan_length", value: currentPlan.durationString)
+                                .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(Fonts.Body.baseRegular)
+                        case (.iOS, false):
+                            "proAccessActivatedNotAuto"
+                                .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(Fonts.Body.baseRegular)
+                    }
+                case .renew:
+                    "proAccessRenewStart"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                case .refund:
+                    "proRefundDescription"
+                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                case .cancel:
+                    "proCancelSorry"
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                }
         }
     }
     
