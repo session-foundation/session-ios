@@ -2538,7 +2538,7 @@ class OpenGroupManagerSpec: QuickSpec {
                             )
                         }
                         
-                        expect(mockCrypto).to(call(.exactly(times: 1), matchingParameters: .all) {
+                        expect(mockCrypto).to(call(.exactly(times: 2), matchingParameters: .all) {
                             $0.generate(.ed25519KeyPair(seed: [4, 5, 6]))
                         })
                     }
