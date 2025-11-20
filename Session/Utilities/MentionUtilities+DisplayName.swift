@@ -16,14 +16,10 @@ public extension MentionUtilities {
         return MentionUtilities.highlightMentionsNoAttributes(
             in: string,
             currentUserSessionIds: currentUserSessionIds,
-            displayNameRetriever: { sessionId, _ in
-                // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
-                return Profile.displayNameNoFallback(
-                    id: sessionId,
-                    threadVariant: threadVariant,
-                    using: dependencies
-                )
-            }
+            displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                threadVariant: threadVariant,
+                using: dependencies
+            )
         )
     }
         
@@ -42,15 +38,10 @@ public extension MentionUtilities {
             location: location,
             textColor: textColor,
             attributes: attributes,
-            displayNameRetriever: { sessionId, _ in
-                // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
-                return Profile.displayNameNoFallback(
-                    id: sessionId,
-                    threadVariant: threadVariant,
-                    using: dependencies
-                )
-            },
-            using: dependencies
+            displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                threadVariant: threadVariant,
+                using: dependencies
+            )
         )
     }
 }

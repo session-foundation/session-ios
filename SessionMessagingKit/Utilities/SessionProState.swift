@@ -153,7 +153,6 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
-        beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
@@ -173,7 +172,6 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         guard shouldShowProCTA else {
             return false
         }
-        beforePresented?()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
                 variant: variant,

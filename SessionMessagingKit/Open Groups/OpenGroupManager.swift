@@ -884,7 +884,44 @@ public final class OpenGroupManager {
         return capabilities.contains(capability)
     }
     
-    /// This method specifies if the given publicKey is a moderator or an admin within a specified Open Group
+    /// This method specifies if the given publicKeys have moderator or admin permissions within a specified Open Group
+    public func membersWhere(
+        _ db: ObservingDatabase,
+        currentUserSessionIds: Set<String>,
+        _ filters: GroupMember.Filter...
+    ) throws -> [GroupMember] {
+        var query: QueryInterfaceRequest<GroupMember> = GroupMember.select(.allColumns)
+        
+        /// Apply the desired filters
+        for filter in filters {
+            switch filter {
+                case .groupIds(let ids): query = query.filter(ids.contains(GroupMember.Columns.groupId))
+                case .roles(let roles): query = query.filter(roles.contains(GroupMember.Columns.role))
+                    
+                case .publicKeys(let keys):
+                    var targetKeys: Set<String> = Set(keys)
+                    
+                    /// If `currentUserSessionIds` contains one of the `publicKeys` then we want to include `currentUserSessionIds`
+                    /// in the lookup
+                    if !currentUserSessionIds.isDisjoint(with: targetKeys) {
+                        targetKeys.insert(contentsOf: currentUserSessionIds)
+                        
+                        /// Add the users `unblinded` pubkey if we can get it, just for completeness
+                        let userEdKeyPair: KeyPair? = dependencies[singleton: .crypto].generate(
+                            .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
+                        )
+                        if let userEdPublicKey: [UInt8] = userEdKeyPair?.publicKey {
+                            targetKeys.insert(SessionId(.unblinded, publicKey: userEdPublicKey).hexString)
+                        }
+                    }
+                    
+                    query = query.filter(targetKeys.contains(GroupMember.Columns.profileId))
+            }
+        }
+        
+        return try query.fetchAll(db)
+    }
+    
     public func isUserModeratorOrAdmin(
         _ db: ObservingDatabase,
         publicKey: String,
@@ -895,28 +932,39 @@ public final class OpenGroupManager {
         guard let roomToken: String = roomToken, let server: String = server else { return false }
         
         let groupId: String = OpenGroup.idFor(roomToken: roomToken, server: server)
-        let targetRoles: [GroupMember.Role] = [.moderator, .admin]
-        var possibleKeys: Set<String> = [publicKey]
+        let members: [GroupMember]? = try? membersWhere(
+            db,
+            currentUserSessionIds: currentUserSessionIds,
+            .groupIds([groupId]),
+            .publicKeys([publicKey]),
+            .roles([.moderator, .admin])
+        )
         
-        /// If the `publicKey` is in `currentUserSessionIds` then we want to use `currentUserSessionIds` to do
-        /// the lookup
-        if currentUserSessionIds.contains(publicKey) {
-            possibleKeys = currentUserSessionIds
+        var targetKeys: Set<String> = Set([publicKey])
+        
+        /// If `currentUserSessionIds` contains one of the `publicKeys` then we want to include `currentUserSessionIds`
+        /// in the lookup
+        if !currentUserSessionIds.isDisjoint(with: targetKeys) {
+            targetKeys.insert(contentsOf: currentUserSessionIds)
             
             /// Add the users `unblinded` pubkey if we can get it, just for completeness
             let userEdKeyPair: KeyPair? = dependencies[singleton: .crypto].generate(
                 .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
             )
             if let userEdPublicKey: [UInt8] = userEdKeyPair?.publicKey {
-                possibleKeys.insert(SessionId(.unblinded, publicKey: userEdPublicKey).hexString)
+                targetKeys.insert(SessionId(.unblinded, publicKey: userEdPublicKey).hexString)
             }
         }
         
-        return GroupMember
-            .filter(GroupMember.Columns.groupId == groupId)
-            .filter(possibleKeys.contains(GroupMember.Columns.profileId))
-            .filter(targetRoles.contains(GroupMember.Columns.role))
-            .isNotEmpty(db)
+        return (Set((members ?? []).map { $0.profileId }).isDisjoint(with: targetKeys) == false)
+    }
+}
+
+public extension GroupMember {
+    enum Filter {
+        case groupIds(any Collection<String>)
+        case publicKeys(any Collection<String>)
+        case roles(any Collection<Role>)
     }
 }
 

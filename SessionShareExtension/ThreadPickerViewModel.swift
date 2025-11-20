@@ -4,6 +4,7 @@ import Foundation
 import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit
+import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -15,7 +16,7 @@ public class ThreadPickerViewModel {
     public let userMetadata: ExtensionHelper.UserMetadata?
     public let hasNonTextAttachment: Bool
     // FIXME: Clean up to follow proper MVVM
-    @MainActor public private(set) var linkPreviewDrafts: [LinkPreviewDraft] = []
+    @MainActor public private(set) var linkPreviewViewModels: [LinkPreviewViewModel] = []
     
     init(
         userMetadata: ExtensionHelper.UserMetadata?,
@@ -98,8 +99,11 @@ public class ThreadPickerViewModel {
     
     // MARK: - Functions
     
-    @MainActor public func didLoadLinkPreview(linkPreview: LinkPreviewDraft) {
-        linkPreviewDrafts.append(linkPreview)
+    @MainActor public func didLoadLinkPreview(result: LinkPreviewViewModel.LoadResult) {
+        switch result {
+            case .success(let linkPreview): linkPreviewViewModels.append(linkPreview)
+            default: break
+        }
     }
     
     public func updateData(_ updatedData: [SessionThreadViewModel]) {

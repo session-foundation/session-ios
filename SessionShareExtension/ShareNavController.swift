@@ -681,6 +681,7 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     
     var maxFileSize: UInt { Network.maxFileSize }
     var isStorageValid: Bool { dependencies[singleton: .storage].isValid }
+    var isRTL: Bool { Dependencies.isRTL }
     
     // MARK: - Initialization
     
@@ -751,5 +752,12 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     
     func mediaDecoderSource(for data: Data) -> CGImageSource? {
         return dependencies[singleton: .mediaDecoder].source(for: data)
+    }
+    
+    @MainActor func numberOfCharactersLeft(for text: String) -> Int {
+        return LibSession.numberOfCharactersLeft(
+            for: text,
+            isSessionPro: dependencies[cache: .libSession].isSessionPro
+        )
     }
 }

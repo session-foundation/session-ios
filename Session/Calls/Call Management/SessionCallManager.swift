@@ -238,9 +238,6 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                     conversationVC.viewModel.threadData.threadId == call.sessionId
                 {
                     let callVC = CallVC(for: call, using: dependencies)
-                    callVC.conversationVC = conversationVC
-                    conversationVC.resignFirstResponder()
-                    conversationVC.hideInputAccessoryView()
                     currentFrontMostViewController.present(callVC, animated: true, completion: nil)
                 }
                 else if !Preferences.isCallKitSupported {

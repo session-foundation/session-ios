@@ -17,8 +17,6 @@ public extension Cache {
 // MARK: - General.Cache
 
 public enum General {
-    public static  let imageCache: NSCache<NSString, UIImage> = NSCache()
-    
     public class Cache: GeneralCacheType {
         private let dependencies: Dependencies
         public var sessionId: SessionId = SessionId.invalid

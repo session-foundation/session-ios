@@ -154,7 +154,14 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                 font: .title,
                                 trailingImage: {
                                     guard (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: userInfo.profile) }) else { return nil }
-                                    return ("ProBadge", { [dependencies] in SessionProBadge(size: .small).toImage(cacheKey: SessionProBadge.Size.small.cacheKey, using: dependencies) })
+                                    
+                                    return (
+                                        .themedKey(
+                                            SessionProBadge.Size.small.cacheKey,
+                                            themeBackgroundColor: .primary
+                                        ),
+                                        { SessionProBadge(size: .small) }
+                                    )
                                 }()
                             ),
                             subtitle: SessionCell.TextInfo(userInfo.itemDescription(using: dependencies), font: .subtitle),

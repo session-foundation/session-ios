@@ -76,7 +76,7 @@ public extension UIViewController {
         // in a UIBarButtonItem.
         backButton.addTarget(target, action: selector, for: .touchUpInside)
         
-        let config: UIImage.Configuration = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
+        let config: UIImage.Configuration = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
         backButton.setImage(
             UIImage(systemName: "chevron.backward", withConfiguration: config)?
                 .withRenderingMode(.alwaysTemplate),
@@ -84,7 +84,7 @@ public extension UIViewController {
         )
         backButton.themeTintColor = .textPrimary
         backButton.contentHorizontalAlignment = .left
-        backButton.imageEdgeInsets = UIEdgeInsets(top: 0, leading: extraLeftPadding, bottom: 0, trailing: 0)
+        backButton.imageEdgeInsets = UIEdgeInsets(top: 4, leading: extraLeftPadding, bottom: -4, trailing: 0)
         backButton.frame = CGRect(
             x: 0,
             y: 0,

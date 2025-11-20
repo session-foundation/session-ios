@@ -9,6 +9,14 @@ import SessionUtilitiesKit
 import SessionMessagingKit
 import Network
 
+// MARK: - Log.Category
+
+private extension Log.Category {
+    static let cat: Log.Category = .create("Permissions", defaultLevel: .off)
+}
+
+// MARK: - Permissions
+
 extension Permissions {
     @MainActor @discardableResult public static func requestCameraPermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
@@ -223,7 +231,7 @@ extension Permissions {
                 let local = LocalState()
                 @Sendable func resume(with result: Result<Bool, Error>) {
                     if local.didResume {
-                        print("Already resumed, ignoring subsequent result.")
+                        Log.debug(.cat, "Already resumed, ignoring subsequent result.")
                         return
                     }
                     local.didResume = true
@@ -247,20 +255,20 @@ extension Permissions {
                 listener.stateUpdateHandler = { newState in
                     switch newState {
                         case .setup:
-                            print("Listener performing setup.")
+                            Log.debug(.cat, "Listener performing setup.")
                         case .ready:
-                            print("Listener ready to be discovered.")
+                            Log.debug(.cat, "Listener ready to be discovered.")
                         case .cancelled:
-                            print("Listener cancelled.")
+                            Log.debug(.cat, "Listener cancelled.")
                             resume(with: .failure(CancellationError()))
                         case .failed(let error):
-                            print("Listener failed, stopping. \(error)")
+                            Log.debug(.cat, "Listener failed, stopping. \(error)")
                             resume(with: .failure(error))
                         case .waiting(let error):
-                            print("Listener waiting, stopping. \(error)")
+                            Log.debug(.cat, "Listener waiting, stopping. \(error)")
                             resume(with: .failure(error))
                         @unknown default:
-                            print("Ignoring unknown listener state: \(String(describing: newState))")
+                            Log.debug(.cat, "Ignoring unknown listener state: \(String(describing: newState))")
                     }
                 }
                 listener.start(queue: queue)
@@ -268,46 +276,46 @@ extension Permissions {
                 browser.stateUpdateHandler = { newState in
                     switch newState {
                         case .setup:
-                            print("Browser performing setup.")
+                            Log.debug(.cat, "Browser performing setup.")
                             return
                         case .ready:
-                            print("Browser ready to discover listeners.")
+                            Log.debug(.cat, "Browser ready to discover listeners.")
                             return
                         case .cancelled:
-                            print("Browser cancelled.")
+                            Log.debug(.cat, "Browser cancelled.")
                             resume(with: .failure(CancellationError()))
                         case .failed(let error):
-                            print("Browser failed, stopping. \(error)")
+                            Log.debug(.cat, "Browser failed, stopping. \(error)")
                             resume(with: .failure(error))
                         case let .waiting(error):
                             switch error {
                                 case .dns(DNSServiceErrorType(kDNSServiceErr_PolicyDenied)):
-                                    print("Browser permission denied, reporting failure.")
+                                    Log.debug(.cat, "Browser permission denied, reporting failure.")
                                     resume(with: .success(false))
                                 default:
-                                    print("Browser waiting, stopping. \(error)")
+                                    Log.debug(.cat, "Browser waiting, stopping. \(error)")
                                     resume(with: .failure(error))
                                 }
                         @unknown default:
-                            print("Ignoring unknown browser state: \(String(describing: newState))")
+                            Log.debug(.cat, "Ignoring unknown browser state: \(String(describing: newState))")
                             return
                     }
                 }
 
                 browser.browseResultsChangedHandler = { results, changes in
                     if results.isEmpty {
-                        print("Got empty result set from browser, ignoring.")
+                        Log.debug(.cat, "Got empty result set from browser, ignoring.")
                         return
                     }
 
-                    print("Discovered \(results.count) listeners, reporting success.")
+                    Log.debug(.cat, "Discovered \(results.count) listeners, reporting success.")
                     resume(with: .success(true))
                 }
                 browser.start(queue: queue)
 
                 // Task cancelled while setting up listener & browser, tear down immediatly
                 if Task.isCancelled {
-                    print("Task cancelled during listener & browser start. (Some warnings might be logged by the listener or browser.)")
+                    Log.debug(.cat, "Task cancelled during listener & browser start. (Some warnings might be logged by the listener or browser.)")
                     resume(with: .failure(CancellationError()))
                     return
                 }

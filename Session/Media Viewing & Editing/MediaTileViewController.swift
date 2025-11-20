@@ -959,9 +959,9 @@ extension MediaTileViewController: MediaPresentationContextProvider {
             cornerMask: CACornerMask()
         )
     }
-
-    func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
-        return self.navigationController?.navigationBar.generateSnapshot(in: coordinateSpace)
+    
+    func lowestViewToRenderAboveContent() -> UIView? {
+        return nil
     }
 }
 

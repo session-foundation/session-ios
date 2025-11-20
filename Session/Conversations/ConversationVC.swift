@@ -12,6 +12,7 @@ import SignalUtilitiesKit
 
 final class ConversationVC: BaseVC, LibSessionRespondingViewController, ConversationSearchControllerDelegate, UITableViewDataSource, UITableViewDelegate {
     private static let loadingHeaderHeight: CGFloat = 40
+    static let expandedAttachmentButtonSpacing: CGFloat = 4
     
     internal let viewModel: ConversationViewModel
     private var dataChangeObservable: DatabaseCancellable? {
@@ -50,42 +51,23 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     var documentHandler: DocumentPickerHandler?
     
     // Mentions
-    var currentMentionStartIndex: String.Index?
-    var mentions: [MentionInfo] = []
+    @MainActor var currentMentionStartIndex: String.Index?
+    @MainActor var mentions: [MentionSelectionView.ViewModel] = []
     
     // Scrolling & paging
     var isUserScrolling = false
     var hasPerformedInitialScroll = false
     var didFinishInitialLayout = false
-    var scrollDistanceToBottomBeforeUpdate: CGFloat?
-    var baselineKeyboardHeight: CGFloat = 0
+    private var lastBottomInset: CGFloat = 0
+    private var shouldUpdateInsets: Bool = true
     
     /// These flags are true between `viewDid/Will Appear/Disappear` and is used to prevent keyboard changes
     /// from trying to animate (as the animations can cause buggy transitions)
-    var viewIsDisappearing = false
-    var viewIsAppearing = false
-    var lastPresentedViewController: UIViewController?
+    var viewIsAppearing: Bool = false
     
     // Reaction
     var currentReactionListSheet: ReactionListSheet?
     var reactionExpandedMessageIds: Set<String> = []
-
-    /// This flag is used to temporarily prevent the ConversationVC from becoming the first responder (primarily used with
-    /// custom transitions from preventing them from being buggy
-    var delayFirstResponder: Bool = false
-    override var canBecomeFirstResponder: Bool {
-        !delayFirstResponder &&
-        
-        // Need to return false during the swap between threads to prevent keyboard dismissal
-        !isReplacingThread
-    }
-    
-    override var inputAccessoryView: UIView? {
-        return (viewModel.threadData.threadCanWrite == true && isShowingSearchUI ?
-            searchController.resultsBar :
-            snInputView
-        )
-    }
 
     /// The height of the visible part of the table view, i.e. the distance from the navigation bar (where the table view's origin is)
     /// to the top of the input view (`tableView.adjustedContentInset.bottom`).
@@ -125,11 +107,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     
     var lastKnownKeyboardFrame: CGRect?
     
-    var scrollButtonBottomConstraint: NSLayoutConstraint?
-    var scrollButtonMessageRequestsBottomConstraint: NSLayoutConstraint?
-    var messageRequestsViewBotomConstraint: NSLayoutConstraint?
-    var legacyGroupsFooterViewViewTopConstraint: NSLayoutConstraint?
-    
     lazy var titleView: ConversationTitleView = {
         let result: ConversationTitleView = ConversationTitleView(using: viewModel.dependencies)
         let tapGestureRecognizer = UITapGestureRecognizer(
@@ -141,21 +118,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         return result
     }()
 
-    lazy var tableView: InsetLockableTableView = {
-        let result: InsetLockableTableView = InsetLockableTableView()
+    lazy var tableView: AfterLayoutCallbackTableView = {
+        let result: AfterLayoutCallbackTableView = AfterLayoutCallbackTableView()
         result.separatorStyle = .none
         result.themeBackgroundColor = .clear
         result.showsVerticalScrollIndicator = false
         result.keyboardDismissMode = .interactive
-        result.contentInset = UIEdgeInsets(
-            top: 0,
-            leading: 0,
-            bottom: (viewModel.threadData.threadCanWrite == true ?
-                Values.mediumSpacing :
-                (Values.mediumSpacing + (UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0))
-            ),
-            trailing: 0
-        )
         result.registerHeaderFooterView(view: UITableViewHeaderFooterView.self)
         result.register(view: DateHeaderCell.self)
         result.register(view: UnreadMarkerCell.self)
@@ -167,16 +135,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.sectionFooterHeight = 0
         result.dataSource = self
         result.delegate = self
-        result.contentInsetAdjustmentBehavior = .never  // We custom handle it to prevent bugs
+        result.contentInsetAdjustmentBehavior = .never  /// We custom handle it
 
         return result
     }()
-
-    lazy var snInputView: InputView = InputView(
-        threadVariant: self.viewModel.initialThreadVariant,
-        delegate: self,
-        using: self.viewModel.dependencies
-    )
 
     lazy var unreadCountView: UIView = {
         let result: UIView = UIView()
@@ -305,20 +267,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
 
         return result
     }()
-
-    lazy var footerControlsStackView: UIStackView = {
-        let result: UIStackView = UIStackView()
-        result.translatesAutoresizingMaskIntoConstraints = false
-        result.axis = .vertical
-        result.alignment = .trailing
-        result.distribution = .equalSpacing
-        result.spacing = 10
-        result.layoutMargins = UIEdgeInsets(top: 0, left: 20, bottom: 0, right: 20)
-        result.isLayoutMarginsRelativeArrangement = true
-
-        return result
-    }()
-
+    
     lazy var scrollButton: RoundIconButton = {
         let result: RoundIconButton = RoundIconButton(
             image: UIImage(named: "ic_chevron_down")?
@@ -332,6 +281,19 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.alpha = 0
         result.accessibilityIdentifier = "Scroll button"
         result.isAccessibilityElement = true
+        
+        return result
+    }()
+
+    lazy var footerControlsStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            legacyGroupsRecreateGroupView,
+            messageRequestFooterView,
+            snInputView
+        ])
+        result.axis = .vertical
+        result.alignment = .fill
+        result.distribution = .fill
         
         return result
     }()
@@ -354,6 +316,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.currentUserIsClosedGroupAdmin != true
         )
         
+        result.addSubview(legacyGroupsFooterButton)
+        
         return result
     }()
     
@@ -365,13 +329,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             .backgroundPrimary,
             .backgroundPrimary
         ]
-        
-        return result
-    }()
-    
-    private lazy var legacyGroupsInputBackgroundView: UIView = {
-        let result: UIView = UIView()
-        result.themeBackgroundColor = .backgroundPrimary
+        result.isHidden = legacyGroupsRecreateGroupView.isHidden
         
         return result
     }()
@@ -382,6 +340,111 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         result.setTitle("recreateGroup".localized(), for: .normal)
         result.addTarget(self, action: #selector(recreateLegacyGroupTapped), for: .touchUpInside)
         result.accessibilityIdentifier = "Legacy Groups Recreate Button"
+        
+        return result
+    }()
+    
+    lazy var snInputView: InputView = InputView(
+        delegate: self,
+        displayNameRetriever: Profile.defaultDisplayNameRetriever(
+            threadVariant: self.viewModel.initialThreadVariant,
+            using: self.viewModel.dependencies
+        ),
+        imageDataManager: self.viewModel.dependencies[singleton: .imageDataManager],
+        linkPreviewManager: self.viewModel.dependencies[singleton: .linkPreviewManager],
+        sessionProState: self.viewModel.dependencies[singleton: .sessionProState],
+        didLoadLinkPreview: nil
+    )
+    
+    lazy var inputBackgroundView: UIView = {
+        let result: UIView = UIView()
+        
+        let backgroundView: UIView = UIView()
+        backgroundView.themeBackgroundColor = .backgroundSecondary
+        backgroundView.alpha = Values.lowOpacity
+        result.addSubview(backgroundView)
+        backgroundView.pin(to: result)
+        
+        let blurView: UIVisualEffectView = UIVisualEffectView()
+        result.addSubview(blurView)
+        blurView.pin(to: result)
+        
+        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
+            blurView?.effect = UIBlurEffect(style: theme.blurStyle)
+        }
+        
+        return result
+    }()
+    
+    lazy var attachmentButtonStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            gifButton,
+            documentButton,
+            libraryButton,
+            cameraButton
+        ])
+        result.axis = .vertical
+        result.spacing = 4
+        result.alignment = .fill
+        result.distribution = .fill
+        result.alpha = 0
+        result.isHidden = true  /// Alpha for animation, hidden to avoid noisy UI hierarchy
+        
+        return result
+    }()
+    
+    lazy var gifButton: UIView = {
+        let button: InputViewButton = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_gif_black"), hasOpaqueBackground: true) { [weak self] in
+            self?.handleGIFButtonTapped()
+            self?.collapseAttachmentButtons()
+        }
+        button.accessibilityIdentifier = "GIF button"
+        button.isAccessibilityElement = true
+        
+        let result: UIView = InputViewButton.container(for: button)
+        result.isHidden = true
+        
+        return result
+    }()
+    lazy var documentButton: UIView = {
+        let button: InputViewButton = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_document_black"), hasOpaqueBackground: true) { [weak self] in
+            self?.handleDocumentButtonTapped()
+            self?.collapseAttachmentButtons()
+        }
+        button.accessibilityIdentifier = "Documents folder"
+        button.accessibilityLabel = "Files"
+        button.isAccessibilityElement = true
+        
+        let result: UIView = InputViewButton.container(for: button)
+        result.isHidden = true
+        
+        return result
+    }()
+    lazy var libraryButton: UIView = {
+        let button: InputViewButton = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_camera_roll_black"), hasOpaqueBackground: true) { [weak self] in
+            self?.handleLibraryButtonTapped()
+            self?.collapseAttachmentButtons()
+        }
+        button.accessibilityIdentifier = "Images folder"
+        button.accessibilityLabel = "Photo library"
+        button.isAccessibilityElement = true
+        
+        let result: UIView = InputViewButton.container(for: button)
+        result.isHidden = true
+        
+        return result
+    }()
+    lazy var cameraButton: UIView = {
+        let button: InputViewButton = InputViewButton(icon: #imageLiteral(resourceName: "actionsheet_camera_black"), hasOpaqueBackground: true) { [weak self] in
+            self?.handleCameraButtonTapped()
+            self?.collapseAttachmentButtons()
+        }
+        button.accessibilityIdentifier = "Select camera button"
+        button.accessibilityLabel = "Camera"
+        button.isAccessibilityElement = true
+        
+        let result: UIView = InputViewButton.container(for: button)
+        result.isHidden = true
         
         return result
     }()
@@ -470,42 +533,16 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         tableView.pin(to: view)
 
         // Message requests view & scroll to bottom
+        view.addSubview(inputBackgroundView)
+        view.addSubview(legacyGroupsFadeView)
+        view.addSubview(footerControlsStackView)
         view.addSubview(scrollButton)
         view.addSubview(stateStackView)
-        view.addSubview(messageRequestFooterView)
-        view.addSubview(legacyGroupsRecreateGroupView)
-        
-        legacyGroupsRecreateGroupView.addSubview(legacyGroupsInputBackgroundView)
-        legacyGroupsRecreateGroupView.addSubview(legacyGroupsFadeView)
-        legacyGroupsRecreateGroupView.addSubview(legacyGroupsFooterButton)
+        view.addSubview(attachmentButtonStackView)
         
         stateStackView.pin(.top, to: .top, of: view, withInset: 0)
         stateStackView.pin(.leading, to: .leading, of: view, withInset: 0)
         stateStackView.pin(.trailing, to: .trailing, of: view, withInset: 0)
-        
-        scrollButton.pin(.trailing, to: .trailing, of: view, withInset: -20)
-        messageRequestFooterView.pin(.leading, to: .leading, of: view, withInset: 16)
-        messageRequestFooterView.pin(.trailing, to: .trailing, of: view, withInset: -16)
-        self.messageRequestsViewBotomConstraint = messageRequestFooterView.pin(.bottom, to: .bottom, of: view, withInset: -16)
-        self.scrollButtonBottomConstraint = scrollButton.pin(.bottom, to: .bottom, of: view, withInset: -16)
-        self.scrollButtonBottomConstraint?.isActive = false // Note: Need to disable this to avoid a conflict with the other bottom constraint
-        self.scrollButtonMessageRequestsBottomConstraint = scrollButton.pin(.bottom, to: .top, of: messageRequestFooterView, withInset: -4)
-        
-        legacyGroupsFooterViewViewTopConstraint = legacyGroupsRecreateGroupView
-            .pin(.top, to: .bottom, of: view, withInset: -Values.footerGradientHeight(window: UIApplication.shared.keyWindow))
-        legacyGroupsRecreateGroupView.pin(.leading, to: .leading, of: view)
-        legacyGroupsRecreateGroupView.pin(.trailing, to: .trailing, of: view)
-        legacyGroupsRecreateGroupView.pin(.bottom, to: .bottom, of: view)
-        legacyGroupsFadeView.pin(.top, to: .top, of: legacyGroupsRecreateGroupView)
-        legacyGroupsFadeView.pin(.leading, to: .leading, of: legacyGroupsRecreateGroupView)
-        legacyGroupsFadeView.pin(.trailing, to: .trailing, of: legacyGroupsRecreateGroupView)
-        legacyGroupsInputBackgroundView.pin(.top, to: .bottom, of: legacyGroupsFadeView)
-        legacyGroupsInputBackgroundView.pin(.leading, to: .leading, of: legacyGroupsRecreateGroupView)
-        legacyGroupsInputBackgroundView.pin(.trailing, to: .trailing, of: legacyGroupsRecreateGroupView)
-        legacyGroupsInputBackgroundView.pin(.bottom, to: .bottom, of: legacyGroupsRecreateGroupView)
-        legacyGroupsFooterButton.pin(.top, to: .top, of: legacyGroupsFadeView, withInset: 32)
-        legacyGroupsFooterButton.pin(.leading, to: .leading, of: legacyGroupsFadeView, withInset: 16)
-        legacyGroupsFooterButton.pin(.trailing, to: .trailing, of: legacyGroupsFadeView, withInset: -16)
 
         // Unread count view
         view.addSubview(unreadCountView)
@@ -516,6 +553,35 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         unreadCountView.pin(.trailing, to: .trailing, of: unreadCountLabel, withInset: 4)
         unreadCountView.centerYAnchor.constraint(equalTo: scrollButton.topAnchor).isActive = true
         unreadCountView.center(.horizontal, in: scrollButton)
+        
+        footerControlsStackView.pin(.leading, to: .leading, of: view)
+        footerControlsStackView.pin(.trailing, to: .trailing, of: view)
+        footerControlsStackView.pin(.bottom, to: .top, of: view.keyboardLayoutGuide)
+        
+        legacyGroupsFooterButton.pin(.top, to: .top, of: legacyGroupsRecreateGroupView, withInset: 32)
+        legacyGroupsFooterButton.pin(.leading, to: .leading, of: legacyGroupsRecreateGroupView, withInset: 16)
+        legacyGroupsFooterButton.pin(.trailing, to: .trailing, of: legacyGroupsRecreateGroupView, withInset: -16)
+        legacyGroupsFooterButton.pin(.bottom, to: .bottom, of: legacyGroupsRecreateGroupView, withInset: -16)
+        
+        inputBackgroundView.pin(.top, to: .top, of: snInputView.inputContainerForBackground)
+        inputBackgroundView.pin(.leading, to: .leading, of: view)
+        inputBackgroundView.pin(.trailing, to: .trailing, of: view)
+        inputBackgroundView.pin(.bottom, to: .bottom, of: view)
+        
+        legacyGroupsFadeView.pin(.top, to: .top, of: legacyGroupsRecreateGroupView)
+        legacyGroupsFadeView.pin(.leading, to: .leading, of: legacyGroupsRecreateGroupView)
+        legacyGroupsFadeView.pin(.trailing, to: .trailing, of: legacyGroupsRecreateGroupView)
+        legacyGroupsFadeView.pin(.bottom, to: .bottom, of: view)
+        
+        scrollButton.center(.horizontal, in: snInputView.sendButton)
+        scrollButton.pin(.bottom, to: .top, of: footerControlsStackView, withInset: -12)
+        
+        attachmentButtonStackView.pin(.leading, to: .leading, of: snInputView.attachmentsButtonContainer)
+        attachmentButtonStackView.pin(.trailing, to: .trailing, of: snInputView.attachmentsButtonContainer)
+        attachmentButtonStackView.pin(.bottom, to: .top, of: snInputView.attachmentsButtonContainer, withInset: -attachmentButtonStackView.spacing)
+        
+        // Gesture
+        view.addGestureRecognizer(tableViewTapGesture)
 
         // Notifications
         NotificationCenter.default.addObserver(
@@ -529,27 +595,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             selector: #selector(applicationDidResignActive(_:)),
             name: UIApplication.didEnterBackgroundNotification, object: nil
         )
-       
-        // Observe keyboard notifications
-        let keyboardNotifications: [Notification.Name] = [
-            UIResponder.keyboardWillShowNotification,
-            UIResponder.keyboardDidShowNotification,
-            UIResponder.keyboardWillChangeFrameNotification,
-            UIResponder.keyboardDidChangeFrameNotification,
-            UIResponder.keyboardWillHideNotification,
-            UIResponder.keyboardDidHideNotification
-        ]
-        keyboardNotifications.forEach { notification in
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(handleKeyboardNotification(_:)),
-                name: notification,
-                object: nil
-            )
-        }
-        
-        // Gesture
-        view.addGestureRecognizer(tableViewTapGesture)
 
         self.viewModel.navigatableState.setupBindings(viewController: self, disposables: &self.viewModel.disposables)
         
@@ -567,61 +612,67 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         /// If the view is removed and readded to the view hierarchy then `viewWillDisappear` will be called but `viewDidDisappear`
         /// **won't**, as a result `viewIsDisappearing` would never get set to `false` - do so here to handle this case
-        viewIsDisappearing = false
         viewIsAppearing = true
+        shouldUpdateInsets = true
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
-        if delayFirstResponder || isShowingSearchUI {
-            delayFirstResponder = false
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) { [weak self] in
-                (self?.isShowingSearchUI == false ?
-                    self :
-                    self?.searchController.uiSearchController.searchBar
-                )?.becomeFirstResponder()
-            }
-        }
-        else if !self.isFirstResponder && hasLoadedInitialThreadData && lastPresentedViewController == nil {
-            // After we have loaded the initial data if the user starts and cancels the interactive pop
-            // gesture the input view will disappear (but if we are returning from a presented view controller
-            // the keyboard will automatically reappear and calling this will break the first responder state
-            // so don't do it in that case)
-            self.becomeFirstResponder()
-        }
+        // Reset to current state to avoid adjustments when returning to this VC
+        lastBottomInset = tableView.contentInset.bottom
         
-        recoverInputView { [weak self] in
-            // Flag that the initial layout has been completed (the flag blocks and unblocks a number
-            // of different behaviours)
-            self?.didFinishInitialLayout = true
-            self?.viewIsAppearing = false
-            self?.lastPresentedViewController = nil
+        // Flag that the initial layout has been completed (the flag blocks and unblocks a number
+        // of different behaviours)
+        self.didFinishInitialLayout = true
+        self.viewIsAppearing = false
 
-            // Show inputview keyboard
-            if self?.hasPendingInputKeyboardPresentationEvent == true {
-                // Added 0.1 delay to remove inputview stutter animation glitch while keyboard is animating up
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+        // Show inputview keyboard
+        if self.hasPendingInputKeyboardPresentationEvent {
+            // Added 0.1 delay to remove inputview stutter animation glitch while keyboard is animating up
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                if self?.isShowingSearchUI == false {
                     _ = self?.snInputView.becomeFirstResponder()
                 }
-                self?.hasPendingInputKeyboardPresentationEvent = false
+                else {
+                    self?.searchController.uiSearchController.searchBar.becomeFirstResponder()
+                }
             }
+            self.hasPendingInputKeyboardPresentationEvent = false
         }
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        
+        /// Don't update insets while view is transitioning/hidden
+        guard shouldUpdateInsets, footerControlsStackView.frame != .zero else { return }
+        
+        let bottomInset: CGFloat = (
+            (tableView.frame.height - footerControlsStackView.frame.minY) +
+            Values.smallSpacing
+        )
+        
+        /// Only proceed if the insert actually changed
+        guard abs(bottomInset - lastBottomInset) > 0.5 else { return }
+        
+        tableView.contentInset.bottom = bottomInset
+        tableView.verticalScrollIndicatorInsets.bottom = bottomInset
+        
+        lastBottomInset = bottomInset
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         
-        viewIsDisappearing = true
-        lastPresentedViewController = self.presentedViewController
+        shouldUpdateInsets = false
         
         // Don't set the draft or resign the first responder if we are replacing the thread (want the keyboard
         // to appear to remain focussed)
         guard !isReplacingThread else { return }
         
         stopObservingChanges()
-        viewModel.updateDraft(to: replaceMentions(in: snInputView.text))
+        viewModel.updateDraft(to: mentions.update(snInputView.text))
         inputAccessoryView?.resignFirstResponder()
     }
 
@@ -629,7 +680,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         super.viewDidDisappear(animated)
         
         hasReloadedThreadDataAfterDisappearance = false
-        viewIsDisappearing = false
         
         /// If the user just created this thread but didn't send a message or the conversation is marked as hidden then we want to delete the
         /// "shadow" thread since it's not actually in use (this is to prevent it from taking up database space or unintentionally getting synced
@@ -664,17 +714,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         /// won't have them so we need to force a re-fetch of the current data to ensure everything is up to date
         DispatchQueue.global(qos: .background).async { [weak self] in
             self?.viewModel.pagedDataObserver?.resume()
-        }
-        
-        recoverInputView()
-        
-        if !isShowingSearchUI && self.presentedViewController == nil {
-            if !self.isFirstResponder {
-                self.becomeFirstResponder()
-            }
-            else {
-                self.reloadInputViews()
-            }
         }
     }
     
@@ -838,14 +877,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
             viewModel.threadData.closedGroupAdminProfile != updatedThreadData.closedGroupAdminProfile
         {
-            if updatedThreadData.threadCanWrite == true {
-                self.showInputAccessoryView()
-            } else if updatedThreadData.threadCanWrite == false && updatedThreadData.threadVariant != .community {
-                self.hideInputAccessoryView()
-            }
-           
-            let messageRequestsViewWasVisible: Bool = (self.messageRequestFooterView.isHidden == false)
-            
             UIView.animate(withDuration: 0.3) { [weak self] in
                 self?.messageRequestFooterView.update(
                     threadVariant: updatedThreadData.threadVariant,
@@ -854,25 +885,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                     threadRequiresApproval: (updatedThreadData.threadRequiresApproval == true),
                     closedGroupAdminProfile: updatedThreadData.closedGroupAdminProfile
                 )
-                self?.scrollButtonMessageRequestsBottomConstraint?.isActive = (
-                    self?.messageRequestFooterView.isHidden == false
-                )
-                self?.scrollButtonBottomConstraint?.isActive = (
-                    self?.scrollButtonMessageRequestsBottomConstraint?.isActive == false
-                )
-                
-                // Update the table content inset and offset to account for
-                // the dissapearance of the messageRequestsView
-                if messageRequestsViewWasVisible != (self?.messageRequestFooterView.isHidden == false) {
-                    let messageRequestsOffset: CGFloat = (self?.messageRequestFooterView.bounds.height ?? 0)
-                    let oldContentInset: UIEdgeInsets = (self?.tableView.contentInset ?? UIEdgeInsets.zero)
-                    self?.tableView.contentInset = UIEdgeInsets(
-                        top: 0,
-                        leading: 0,
-                        bottom: max(oldContentInset.bottom - messageRequestsOffset, 0),
-                        trailing: 0
-                    )
-                }
             }
         }
         
@@ -919,14 +931,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             let (string, mentions) = MentionUtilities.getMentions(
                 in: draft,
                 currentUserSessionIds: (updatedThreadData.currentUserSessionIds ?? []),
-                displayNameRetriever: { [dependencies = viewModel.dependencies] sessionId, _ in
-                    // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
-                    return Profile.displayNameNoFallback(
-                        id: sessionId,
-                        threadVariant: updatedThreadData.threadVariant,
-                        using: dependencies
-                    )
-                }
+                displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                    threadVariant: updatedThreadData.threadVariant,
+                    using: viewModel.dependencies
+                )
             )
             snInputView.text = string
             snInputView.updateNumberOfCharactersLeft(draft)
@@ -934,26 +942,40 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             // Fetch the mention info asynchronously
             if !mentions.isEmpty {
                 viewModel.dependencies[singleton: .storage].readAsync(
-                    retrieve: { db in
-                        try Profile
+                    retrieve: { [openGroupManager = viewModel.dependencies[singleton: .openGroupManager]] db -> ([Profile], [GroupMember]) in
+                        let profiles: [Profile] = try Profile
                             .filter(ids: mentions.map { $0.profileId })
                             .fetchAll(db)
+                        
+                        guard
+                            let server: String = updatedThreadData.openGroupServer,
+                            let roomToken: String = updatedThreadData.openGroupRoomToken
+                        else { return (profiles, []) }
+                        
+                        let adminModMembers: [GroupMember] = try openGroupManager.membersWhere(
+                            db,
+                            currentUserSessionIds: (updatedThreadData.currentUserSessionIds ?? []),
+                            .groupIds([OpenGroup.idFor(roomToken: roomToken, server: server)]),
+                            .publicKeys(profiles.map { $0.id }),
+                            .roles([.moderator, .admin])
+                        )
+                        
+                        return (profiles, adminModMembers)
                     },
-                    completion: { [weak self] result in
+                    completion: { [weak self, dependencies = viewModel.dependencies] result in
                         guard
                             let self = self,
-                            case let .success(profiles) = result
+                            case .success((let profiles, let adminModMembers)) = result
                         else { return }
                         
                         self.mentions = self.mentions.appending(
-                            contentsOf: profiles.map {
-                                MentionInfo(
-                                    profile: $0,
-                                    threadVariant: updatedThreadData.threadVariant,
-                                    openGroupServer: updatedThreadData.openGroupServer,
-                                    openGroupRoomToken: updatedThreadData.openGroupRoomToken
-                                )
-                            }
+                            contentsOf: MentionSelectionView.ViewModel.mentions(
+                                profiles: profiles,
+                                threadVariant: updatedThreadData.threadVariant,
+                                currentUserSessionIds: (updatedThreadData.currentUserSessionIds ?? []),
+                                adminModMembers: adminModMembers,
+                                using: dependencies
+                            )
                         )
                     }
                 )
@@ -962,17 +984,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         // Now we have done all the needed diffs update the viewModel with the latest data
         self.viewModel.updateThreadData(updatedThreadData)
-        
-        /// **Note:** This needs to happen **after** we have update the viewModel's thread data (otherwise the `inputAccessoryView`
-        /// won't be generated correctly)
-        if initialLoad || viewModel.threadData.threadCanWrite != updatedThreadData.threadCanWrite {
-            if !self.isFirstResponder {
-                self.becomeFirstResponder()
-            }
-            else {
-                self.reloadInputViews()
-            }
-        }
     }
     
     private func handleInteractionUpdates(
@@ -1483,124 +1494,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             }
         }
     }
-    
-    // MARK: - Keyboard Avoidance
-
-    @objc func handleKeyboardNotification(_ notification: Notification) {
-        guard
-            !viewIsDisappearing,
-            let userInfo: [AnyHashable: Any] = notification.userInfo,
-            var keyboardEndFrame: CGRect = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
-        else { return }
-        
-        // If reduce motion+crossfade transitions is on, in iOS 14 UIKit sends out a keyboard end frame
-        // of CGRect zero. This breaks the math below.
-        //
-        // If our keyboard end frame is CGRectZero, build a fake rect that's translated off the bottom edge.
-        if keyboardEndFrame == .zero {
-            keyboardEndFrame = CGRect(
-                x: UIScreen.main.bounds.minX,
-                y: UIScreen.main.bounds.maxY,
-                width: UIScreen.main.bounds.width,
-                height: 0
-            )
-        }
-        
-        // If we explicitly can't write to the thread then the input will be hidden but they keyboard
-        // still reports that it takes up size, so just report 0 height in that case
-        if viewModel.threadData.threadCanWrite == false && viewModel.threadData.threadVariant != .community {
-            keyboardEndFrame = CGRect(
-                x: UIScreen.main.bounds.minX,
-                y: UIScreen.main.bounds.maxY,
-                width: UIScreen.main.bounds.width,
-                height: 0
-            )
-        }
-        
-        // No nothing if there was no change
-        // Note: there is a bug on iOS 15.X for iPhone 6/6s where the converted frame is not accurate.
-        // In iOS 16.1 and later, the keyboard notification object is the screen the keyboard appears on.
-        // This is a workaround to fix the issue
-        let fromCoordinateSpace: UICoordinateSpace? = {
-            if let screen = (notification.object as? UIScreen) {
-                return screen.coordinateSpace
-            } else {
-                var result: UIView? = self.view.superview
-                while result != nil && result?.frame != UIScreen.main.bounds {
-                    result = result?.superview
-                }
-                return result
-            }
-        }()
-        let keyboardEndFrameConverted: CGRect = fromCoordinateSpace?.convert(keyboardEndFrame, to: self.view) ?? keyboardEndFrame
-        guard keyboardEndFrameConverted != lastKnownKeyboardFrame else { return }
-        
-        self.lastKnownKeyboardFrame = keyboardEndFrameConverted
-        
-        // Please refer to https://github.com/mapbox/mapbox-navigation-ios/issues/1600
-        // and https://stackoverflow.com/a/25260930 to better understand what we are
-        // doing with the UIViewAnimationOptions
-        let curveValue: Int = ((userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? Int(UIView.AnimationOptions.curveEaseInOut.rawValue))
-        let options: UIView.AnimationOptions = UIView.AnimationOptions(rawValue: UInt(curveValue << 16))
-        let duration = ((userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval) ?? 0)
-        
-        guard didFinishInitialLayout && !viewIsAppearing, duration > 0, !UIAccessibility.isReduceMotionEnabled else {
-            // UIKit by default (sometimes? never?) animates all changes in response to keyboard events.
-            // We want to suppress those animations if the view isn't visible,
-            // otherwise presentation animations don't work properly.
-            UIView.performWithoutAnimation {
-                self.updateKeyboardAvoidance()
-            }
-            return
-        }
-        
-        UIView.animate(
-            withDuration: duration,
-            delay: 0,
-            options: options,
-            animations: { [weak self] in
-                self?.updateKeyboardAvoidance()
-                self?.view.layoutIfNeeded()
-            },
-            completion: nil
-        )
-    }
-    
-    private func updateKeyboardAvoidance() {
-        guard let lastKnownKeyboardFrame: CGRect = self.lastKnownKeyboardFrame else { return }
-        
-        let legacyGroupsFooterOffset: CGFloat = (legacyGroupsRecreateGroupView.isHidden ? 0 :
-            legacyGroupsFadeView.bounds.height) // Intentionally want the height of 'legacyGroupsFadeView'
-        let messageRequestsOffset: CGFloat = (messageRequestFooterView.isHidden ? 0 :
-            messageRequestFooterView.bounds.height)
-        let viewIntersection = view.bounds.intersection(lastKnownKeyboardFrame)
-        let bottomOffset: CGFloat = (viewIntersection.isEmpty ? 0 : view.bounds.maxY - viewIntersection.minY)
-        let additionalPadding: CGFloat = (viewIntersection.isEmpty || legacyGroupsRecreateGroupView.isHidden ? Values.mediumSpacing : 0)
-        let contentInsets = UIEdgeInsets(
-            top: 0,
-            left: 0,
-            bottom: bottomOffset + additionalPadding + legacyGroupsFooterOffset + messageRequestsOffset,
-            right: 0
-        )
-        let insetDifference: CGFloat = (contentInsets.bottom - tableView.contentInset.bottom)
-        scrollButtonBottomConstraint?.constant = -(bottomOffset + 12)
-        messageRequestsViewBotomConstraint?.constant = -bottomOffset
-        legacyGroupsFooterViewViewTopConstraint?.constant = -(legacyGroupsFooterOffset + bottomOffset + (viewModel.threadData.threadCanWrite == false ? 16 : 0))
-        tableView.contentInset = contentInsets
-        tableView.scrollIndicatorInsets = contentInsets
-        
-        // Only modify the contentOffset if we aren't at the bottom of the tableView, with a little
-        // buffer (if we are at the bottom then it'll automatically scroll for us and modifying the
-        // value will break things)
-        let tableViewBottom: CGFloat = (tableView.contentSize.height - tableView.bounds.height + tableView.contentInset.bottom)
-        
-        // Added `insetDifference > 0` to remove sudden table collapse and overscroll
-        if tableView.contentOffset.y < (tableViewBottom - 5) && insetDifference > 0 {
-            tableView.contentOffset.y += insetDifference
-        }
-        
-        updateScrollToBottom()
-    }
 
     // MARK: - General
     
@@ -1908,21 +1801,26 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
 
     // MARK: - Search
     
-    func popAllConversationSettingsViews(completion completionBlock: (() -> Void)? = nil) {
+    func popAllConversationSettingsViews() {
         if presentedViewController != nil {
             dismiss(animated: true) { [weak self] in
-                guard let strongSelf: UIViewController = self else { return }
+                guard let self else { return }
                 
-                self?.navigationController?.popToViewController(strongSelf, animated: true, completion: completionBlock)
+                navigationController?.popToViewController(self, animated: true, completion: nil)
             }
         }
         else {
-            navigationController?.popToViewController(self, animated: true, completion: completionBlock)
+            navigationController?.popToViewController(self, animated: true, completion: nil)
         }
     }
     
     func showSearchUI() {
         isShowingSearchUI = true
+        
+        UIView.animate(withDuration: 0.3) {
+            self.footerControlsStackView.alpha = 0
+            self.inputBackgroundView.alpha = 0
+        }
         
         // Search bar
         let searchBar = searchController.uiSearchController.searchBar
@@ -2005,8 +1903,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         )
         
         searchController.uiSearchController.stubbableSearchBar.stubbedNextResponder = nil
-        becomeFirstResponder()
-        reloadInputViews()
+        UIView.animate(withDuration: 0.3) {
+            self.footerControlsStackView.alpha = 1
+            self.inputBackgroundView.alpha = 1
+        }
     }
     
     // Manually cancel the search and clear the text to remove hightlights

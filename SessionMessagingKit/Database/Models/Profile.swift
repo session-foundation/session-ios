@@ -289,6 +289,21 @@ public extension Profile {
         semaphore.wait()
         return displayName
     }
+    
+    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
+    static func defaultDisplayNameRetriever(
+        threadVariant: SessionThread.Variant = .contact,
+        using dependencies: Dependencies
+    ) -> ((String, Bool) -> String?) {
+        // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
+        return { sessionId, _ in
+            Profile.displayNameNoFallback(
+                id: sessionId,
+                threadVariant: threadVariant,
+                using: dependencies
+            )
+        }
+    }
 }
 
 
@@ -394,7 +409,7 @@ extension WithProfile: Differentiable where T: Differentiable {}
 
 public protocol ProfileAssociated: Equatable, Hashable {
     var profileId: String { get }
-    var profileIcon: ProfilePictureView.ProfileIcon { get }
+    var profileIcon: ProfilePictureView.Info.ProfileIcon { get }
     
     func itemDescription(using dependencies: Dependencies) -> String?
     func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue
@@ -402,7 +417,7 @@ public protocol ProfileAssociated: Equatable, Hashable {
 }
 
 public extension ProfileAssociated {
-    var profileIcon: ProfilePictureView.ProfileIcon { return .none }
+    var profileIcon: ProfilePictureView.Info.ProfileIcon { return .none }
     
     func itemDescription(using dependencies: Dependencies) -> String? { return nil }
     func itemDescriptionColor(using dependencies: Dependencies) -> ThemeValue { return .textPrimary }

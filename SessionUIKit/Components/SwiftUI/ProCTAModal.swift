@@ -460,10 +460,11 @@ public extension ProCTAModal {
 // MARK: - SessionProCTAManagerType
 
 public protocol SessionProCTAManagerType: AnyObject {
+    var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
+    
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
-        beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool
@@ -474,14 +475,12 @@ public protocol SessionProCTAManagerType: AnyObject {
 public extension SessionProCTAManagerType {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
-        beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
         showSessionProCTAIfNeeded(
             variant,
             dismissType: .recursive,
-            beforePresented: beforePresented,
             afterClosed: afterClosed,
             presenting: presenting
         )
@@ -494,7 +493,6 @@ public extension SessionProCTAManagerType {
         showSessionProCTAIfNeeded(
             variant,
             dismissType: .recursive,
-            beforePresented: nil,
             afterClosed: nil,
             presenting: presenting
         )
