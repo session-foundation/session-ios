@@ -792,7 +792,7 @@ extension SessionCell {
             return ProfilePictureView(size: .list, dataManager: nil)
         }
         
-        private func layoutDisplayPictureView(_ view: UIView?, size: ProfilePictureView.Size) {
+        private func layoutDisplayPictureView(_ view: UIView?, size: ProfilePictureView.Info.Size) {
             guard let profilePictureView: ProfilePictureView = view as? ProfilePictureView else { return }
             
             profilePictureView.size = size

@@ -43,7 +43,7 @@ enum MockDataGenerator {
         let logProgress: (String, String) -> () = { title, event in
             guard printProgress else { return }
             
-            print("[MockDataGenerator] (\(Date().timeIntervalSince1970)) \(title) - \(event)")
+            Log.debug("[MockDataGenerator] (\(Date().timeIntervalSince1970)) \(title) - \(event)")
         }
         
         hasStartedGenerationThisRun = true

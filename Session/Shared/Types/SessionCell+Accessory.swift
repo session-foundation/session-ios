@@ -179,13 +179,13 @@ public extension SessionCell.Accessory {
     
     static func profile(
         id: String,
-        size: ProfilePictureView.Size = .list,
+        size: ProfilePictureView.Info.Size = .list,
         threadVariant: SessionThread.Variant = .contact,
         displayPictureUrl: String? = nil,
         profile: Profile? = nil,
-        profileIcon: ProfilePictureView.ProfileIcon = .none,
+        profileIcon: ProfilePictureView.Info.ProfileIcon = .none,
         additionalProfile: Profile? = nil,
-        additionalProfileIcon: ProfilePictureView.ProfileIcon = .none,
+        additionalProfileIcon: ProfilePictureView.Info.ProfileIcon = .none,
         accessibility: Accessibility? = nil
     ) -> SessionCell.Accessory {
         return SessionCell.AccessoryConfig.DisplayPicture(
@@ -668,23 +668,23 @@ public extension SessionCell.AccessoryConfig {
         override public var viewIdentifier: String { "displayPicture-\(size.viewSize)" }
         
         public let id: String
-        public let size: ProfilePictureView.Size
+        public let size: ProfilePictureView.Info.Size
         public let threadVariant: SessionThread.Variant
         public let displayPictureUrl: String?
         public let profile: Profile?
-        public let profileIcon: ProfilePictureView.ProfileIcon
+        public let profileIcon: ProfilePictureView.Info.ProfileIcon
         public let additionalProfile: Profile?
-        public let additionalProfileIcon: ProfilePictureView.ProfileIcon
+        public let additionalProfileIcon: ProfilePictureView.Info.ProfileIcon
         
         fileprivate init(
             id: String,
-            size: ProfilePictureView.Size,
+            size: ProfilePictureView.Info.Size,
             threadVariant: SessionThread.Variant,
             displayPictureUrl: String?,
             profile: Profile?,
-            profileIcon: ProfilePictureView.ProfileIcon,
+            profileIcon: ProfilePictureView.Info.ProfileIcon,
             additionalProfile: Profile?,
-            additionalProfileIcon: ProfilePictureView.ProfileIcon,
+            additionalProfileIcon: ProfilePictureView.Info.ProfileIcon,
             accessibility: Accessibility?
         ) {
             self.id = id

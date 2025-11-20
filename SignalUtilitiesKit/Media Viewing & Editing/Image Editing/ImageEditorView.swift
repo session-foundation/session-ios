@@ -9,7 +9,6 @@ public protocol ImageEditorViewDelegate: AnyObject {
     func imageEditor(presentFullScreenView viewController: UIViewController,
                      isTransparent: Bool)
     func imageEditorUpdateNavigationBar()
-    func imageEditorUpdateControls()
 }
 
 // MARK: -
@@ -155,10 +154,6 @@ public class ImageEditorView: UIView {
         }
 
         return buttons
-    }
-
-    private func updateControls() {
-        delegate?.imageEditorUpdateControls()
     }
 
     public var shouldHideControls: Bool {
@@ -323,7 +318,6 @@ public class ImageEditorView: UIView {
     private var movingTextItem: ImageEditorTextItem? {
         didSet {
             updateNavigationBar()
-            updateControls()
         }
     }
     private var movingTextStartUnitCenter: CGPoint?

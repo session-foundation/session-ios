@@ -212,39 +212,7 @@ public class SessionImageView: UIImageView {
     }
     
     @MainActor
-    public func setAnimationPoint(index: Int, time: TimeInterval) {
-        guard index >= 0, index < frameBuffer?.frameCount ?? 0 else { return }
-        // TODO: Won't this break the animation????
-        Task {
-//            currentFrameIndex = index
-//            self.image = await frameBuffer?.getFrame(at: index)
-//            frameBuffer?.
-            /// Stop animating if we don't have a valid animation state
-            guard
-                let durations = frameBuffer?.durations,
-                index >= 0,
-                index < durations.count,
-                time > 0,
-                time < durations.reduce(0, +)
-            else {
-                image = frameBuffer?.getFrame(at: index)
-                currentFrameIndex = 0
-                accumulatedTime = 0
-                return stopAnimationLoop()
-            }
-            
-            /// Update the values
-            accumulatedTime = time
-            currentFrameIndex = index
-            
-            /// Set the image using `super.image` as `self.image` is overwritten to stop the animation (in case it gets called
-            /// to replace the current image with something else)
-            super.image = frameBuffer?.getFrame(at: index)
-        }
-    }
-    
-    @MainActor
-    public func copyAnimationPoint(from other: SessionImageView) {
+    public func copyContentAndAnimationPoint(from other: SessionImageView) {
         self.handleLoadedImageData(other.frameBuffer)
         self.image = other.image
         self.currentFrameIndex = other.currentFrameIndex
