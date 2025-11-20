@@ -10,11 +10,6 @@ import SessionUtilitiesKit
 /// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
 public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, Differentiable {
     public static var databaseTableName: String { "profile" }
-    internal static let interactionForeignKey = ForeignKey([Columns.id], to: [Interaction.Columns.authorId])
-    internal static let contactForeignKey = ForeignKey([Columns.id], to: [Contact.Columns.id])
-    internal static let groupMemberForeignKey = ForeignKey([GroupMember.Columns.profileId], to: [Columns.id])
-    public static let contact = hasOne(Contact.self, using: contactForeignKey)
-    public static let groupMembers = hasMany(GroupMember.self, using: groupMemberForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -29,6 +24,10 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         case profileLastUpdated
         
         case blocksCommunityMessageRequests
+        
+        case proFeatures
+        case proExpiryUnixTimestampMs
+        case proGenIndexHashHex
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -54,9 +53,14 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     /// A flag indicating whether this profile has reported that it blocks community message requests
     public let blocksCommunityMessageRequests: Bool?
     
-    /// The Pro Proof for when this profile is updated
-    // TODO: Implement this when the structure of Session Pro Proof is determined
-    public let sessionProProof: String?
+    /// The Session Pro features enabled for this profile
+    public let proFeatures: SessionPro.Features
+    
+    /// The unix timestamp (in milliseconds) when Session Pro expires for this profile
+    public let proExpiryUnixTimestampMs: UInt64
+    
+    /// The timestamp when Session Pro expires for this profile
+    public let proGenIndexHashHex: String?
     
     // MARK: - Initialization
     
@@ -68,7 +72,9 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         displayPictureEncryptionKey: Data? = nil,
         profileLastUpdated: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
-        sessionProProof: String? = nil
+        proFeatures: SessionPro.Features = .none,
+        proExpiryUnixTimestampMs: UInt64 = 0,
+        proGenIndexHashHex: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -77,7 +83,9 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         self.displayPictureEncryptionKey = displayPictureEncryptionKey
         self.profileLastUpdated = profileLastUpdated
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
-        self.sessionProProof = sessionProProof
+        self.proFeatures = proFeatures
+        self.proExpiryUnixTimestampMs = proExpiryUnixTimestampMs
+        self.proGenIndexHashHex = proGenIndexHashHex
     }
 }
 
@@ -103,7 +111,10 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             displayPictureUrl: \(displayPictureUrl.map { "\"\($0)\"" } ?? "null"),
             displayPictureEncryptionKey: \(displayPictureEncryptionKey?.toHexString() ?? "null"),
             profileLastUpdated: \(profileLastUpdated.map { "\($0)" } ?? "null"),
-            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null")
+            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
+            proFeatures: \(proFeatures),
+            proExpiryUnixTimestampMs: \(proExpiryUnixTimestampMs),
+            proGenIndexHashHex: \(proGenIndexHashHex.map { "\($0)" } ?? "null")
         )
         """
     }
@@ -190,10 +201,11 @@ public extension Profile {
         _ db: ObservingDatabase,
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false,
         customFallback: String? = nil
     ) -> String {
         let existingDisplayName: String? = (try? Profile.fetchOne(db, id: id))?
-            .displayName(for: threadVariant)
+            .displayName(for: threadVariant, suppressId: suppressId)
         
         return (existingDisplayName ?? (customFallback ?? id))
     }
@@ -201,10 +213,11 @@ public extension Profile {
     static func displayNameNoFallback(
         _ db: ObservingDatabase,
         id: ID,
-        threadVariant: SessionThread.Variant = .contact
+        threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false
     ) -> String? {
         return (try? Profile.fetchOne(db, id: id))?
-            .displayName(for: threadVariant)
+            .displayName(for: threadVariant, suppressId: suppressId)
     }
     
     // MARK: - Fetch or Create
@@ -218,7 +231,9 @@ public extension Profile {
             displayPictureEncryptionKey: nil,
             profileLastUpdated: nil,
             blocksCommunityMessageRequests: nil,
-            sessionProProof: nil
+            proFeatures: .none,
+            proExpiryUnixTimestampMs: 0,
+            proGenIndexHashHex: nil
         )
     }
     
@@ -241,13 +256,14 @@ public extension Profile {
     static func displayName(
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false,
         customFallback: String? = nil,
         using dependencies: Dependencies
     ) -> String {
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         var displayName: String?
         dependencies[singleton: .storage].readAsync(
-            retrieve: { db in Profile.displayName(db, id: id, threadVariant: threadVariant) },
+            retrieve: { db in Profile.displayName(db, id: id, threadVariant: threadVariant, suppressId: suppressId) },
             completion: { result in
                 switch result {
                     case .failure: break
@@ -264,12 +280,13 @@ public extension Profile {
     static func displayNameNoFallback(
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false,
         using dependencies: Dependencies
     ) -> String? {
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         var displayName: String?
         dependencies[singleton: .storage].readAsync(
-            retrieve: { db in Profile.displayNameNoFallback(db, id: id, threadVariant: threadVariant) },
+            retrieve: { db in Profile.displayNameNoFallback(db, id: id, threadVariant: threadVariant, suppressId: suppressId) },
             completion: { result in
                 switch result {
                     case .failure: break
@@ -427,7 +444,10 @@ public extension Profile {
         displayPictureUrl: Update<String?> = .useExisting,
         displayPictureEncryptionKey: Update<Data?> = .useExisting,
         profileLastUpdated: Update<TimeInterval?> = .useExisting,
-        blocksCommunityMessageRequests: Update<Bool?> = .useExisting
+        blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
+        proFeatures: Update<SessionPro.Features> = .useExisting,
+        proExpiryUnixTimestampMs: Update<UInt64> = .useExisting,
+        proGenIndexHashHex: Update<String?> = .useExisting
     ) -> Profile {
         return Profile(
             id: id,
@@ -437,7 +457,9 @@ public extension Profile {
             displayPictureEncryptionKey: displayPictureEncryptionKey.or(self.displayPictureEncryptionKey),
             profileLastUpdated: profileLastUpdated.or(self.profileLastUpdated),
             blocksCommunityMessageRequests: blocksCommunityMessageRequests.or(self.blocksCommunityMessageRequests),
-            sessionProProof: self.sessionProProof
+            proFeatures: proFeatures.or(self.proFeatures),
+            proExpiryUnixTimestampMs: proExpiryUnixTimestampMs.or(self.proExpiryUnixTimestampMs),
+            proGenIndexHashHex: proGenIndexHashHex.or(self.proGenIndexHashHex)
         )
     }
 }

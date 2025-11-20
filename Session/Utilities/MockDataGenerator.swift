@@ -325,7 +325,7 @@ enum MockDataGenerator {
                     server: serverName,
                     roomToken: roomName,
                     publicKey: randomGroupPublicKey,
-                    isActive: true,
+                    shouldPoll: true,
                     name: roomName,
                     roomDescription: roomDescription,
                     userCount: numGroupMembers,

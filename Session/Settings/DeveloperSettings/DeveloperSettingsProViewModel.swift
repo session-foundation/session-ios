@@ -70,13 +70,21 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case enableSessionPro
         
+        case proStatus
+        case proBadgeEverywhere
+        case fakeAppleSubscriptionForDev
+
+        case forceMessageFeatureProBadge
+        case forceMessageFeatureLongMessage
+        case forceMessageFeatureAnimatedAvatar
+        
         case purchaseProSubscription
         case manageProSubscriptions
         case restoreProSubscription
         case requestRefund
-        
-        case proStatus
-        case proIncomingMessages
+        case submitPurchaseToProBackend
+        case refreshProState
+        case removeProFromUserConfig
         
         // MARK: - Conformance
         
@@ -86,13 +94,21 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             switch self {
                 case .enableSessionPro: return "enableSessionPro"
                     
+                case .proStatus: return "proStatus"
+                case .proBadgeEverywhere: return "proBadgeEverywhere"
+                case .fakeAppleSubscriptionForDev: return "fakeAppleSubscriptionForDev"
+                
+                case .forceMessageFeatureProBadge: return "forceMessageFeatureProBadge"
+                case .forceMessageFeatureLongMessage: return "forceMessageFeatureLongMessage"
+                case .forceMessageFeatureAnimatedAvatar: return "forceMessageFeatureAnimatedAvatar"
+                    
                 case .purchaseProSubscription: return "purchaseProSubscription"
                 case .manageProSubscriptions: return "manageProSubscriptions"
                 case .restoreProSubscription: return "restoreProSubscription"
                 case .requestRefund: return "requestRefund"
-                    
-                case .proStatus: return "proStatus"
-                case .proIncomingMessages: return "proIncomingMessages"
+                case .submitPurchaseToProBackend: return "submitPurchaseToProBackend"
+                case .refreshProState: return "refreshProState"
+                case .removeProFromUserConfig: return "removeProFromUserConfig"
             }
         }
         
@@ -105,13 +121,21 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             switch TableItem.enableSessionPro {
                 case .enableSessionPro: result.append(.enableSessionPro); fallthrough
                     
+                case .proStatus: result.append(.proStatus); fallthrough
+                case .proBadgeEverywhere: result.append(.proBadgeEverywhere); fallthrough
+                case .fakeAppleSubscriptionForDev: result.append(.fakeAppleSubscriptionForDev); fallthrough
+
+                case .forceMessageFeatureProBadge: result.append(.forceMessageFeatureProBadge); fallthrough
+                case .forceMessageFeatureLongMessage: result.append(.forceMessageFeatureLongMessage); fallthrough
+                case .forceMessageFeatureAnimatedAvatar: result.append(.forceMessageFeatureAnimatedAvatar)
+                    
                 case .purchaseProSubscription: result.append(.purchaseProSubscription); fallthrough
                 case .manageProSubscriptions: result.append(.manageProSubscriptions); fallthrough
                 case .restoreProSubscription: result.append(.restoreProSubscription); fallthrough
                 case .requestRefund: result.append(.requestRefund); fallthrough
-                    
-                case .proStatus: result.append(.proStatus); fallthrough
-                case .proIncomingMessages: result.append(.proIncomingMessages)
+                case .submitPurchaseToProBackend: result.append(.submitPurchaseToProBackend); fallthrough
+                case .refreshProState: result.append(.refreshProState); fallthrough
+                case .removeProFromUserConfig: result.append(.removeProFromUserConfig)
             }
             
             return result
@@ -121,12 +145,22 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public enum DeveloperSettingsProEvent: Hashable {
         case purchasedProduct([Product], Product?, String?, String?, Transaction?)
         case refundTransaction(Transaction.RefundRequestStatus)
+        case submittedTransaction(String?, Bool)
+        case currentProStatus(String?, Bool)
     }
     
     // MARK: - Content
     
     public struct State: Equatable, ObservableKeyProvider {
         let sessionProEnabled: Bool
+        
+        let mockCurrentUserSessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
+        let proBadgeEverywhere: Bool
+        let fakeAppleSubscriptionForDev: Bool
+
+        let forceMessageFeatureProBadge: Bool
+        let forceMessageFeatureLongMessage: Bool
+        let forceMessageFeatureAnimatedAvatar: Bool
         
         let products: [Product]
         let purchasedProduct: Product?
@@ -135,8 +169,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let purchaseTransaction: Transaction?
         let refundRequestStatus: Transaction.RefundRequestStatus?
         
-        let mockCurrentUserSessionPro: Bool
-        let treatAllIncomingMessagesAsProMessages: Bool
+        let submittedTransactionStatus: String?
+        let submittedTransactionErrored: Bool
+        
+        let currentProStatus: String?
+        let currentProStatusErrored: Bool
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -148,14 +185,26 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         public let observedKeys: Set<ObservableKey> = [
             .feature(.sessionProEnabled),
-            .updateScreen(DeveloperSettingsProViewModel.self),
-            .feature(.mockCurrentUserSessionPro),
-            .feature(.treatAllIncomingMessagesAsProMessages)
+            .feature(.mockCurrentUserSessionProBackendStatus),
+            .feature(.proBadgeEverywhere),
+            .feature(.fakeAppleSubscriptionForDev),
+            .feature(.forceMessageFeatureProBadge),
+            .feature(.forceMessageFeatureLongMessage),
+            .feature(.forceMessageFeatureAnimatedAvatar),
+            .updateScreen(DeveloperSettingsProViewModel.self)
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
             return State(
                 sessionProEnabled: dependencies[feature: .sessionProEnabled],
+                
+                mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
+                proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
+                fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
+
+                forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
+                forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
+                forceMessageFeatureAnimatedAvatar: dependencies[feature: .forceMessageFeatureAnimatedAvatar],
                 
                 products: [],
                 purchasedProduct: nil,
@@ -164,8 +213,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 purchaseTransaction: nil,
                 refundRequestStatus: nil,
                 
-                mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-                treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+                submittedTransactionStatus: nil,
+                submittedTransactionErrored: false,
+                
+                currentProStatus: nil,
+                currentProStatusErrored: false
             )
         }
     }
@@ -178,12 +230,17 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         isInitialQuery: Bool,
         using dependencies: Dependencies
     ) async -> State {
+        var currentProStatus: String? = previousState.currentProStatus
+        var currentProStatusErrored: Bool = previousState.currentProStatusErrored
+        
         var products: [Product] = previousState.products
         var purchasedProduct: Product? = previousState.purchasedProduct
         var purchaseError: String? = previousState.purchaseError
         var purchaseStatus: String? = previousState.purchaseStatus
         var purchaseTransaction: Transaction? = previousState.purchaseTransaction
         var refundRequestStatus: Transaction.RefundRequestStatus? = previousState.refundRequestStatus
+        var submittedTransactionStatus: String? = previousState.submittedTransactionStatus
+        var submittedTransactionErrored: Bool = previousState.submittedTransactionErrored
         
         events.forEach { event in
             guard let eventValue: DeveloperSettingsProEvent = event.value as? DeveloperSettingsProEvent else { return }
@@ -198,19 +255,35 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .refundTransaction(let status):
                     refundRequestStatus = status
+                    
+                case .submittedTransaction(let status, let errored):
+                    submittedTransactionStatus = status
+                    submittedTransactionErrored = errored
+                    
+                case .currentProStatus(let status, let errored):
+                    currentProStatus = status
+                    currentProStatusErrored = errored
             }
         }
         
         return State(
             sessionProEnabled: dependencies[feature: .sessionProEnabled],
+            mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
+            proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
+            fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
+            forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
+            forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
+            forceMessageFeatureAnimatedAvatar: dependencies[feature: .forceMessageFeatureAnimatedAvatar],
             products: products,
             purchasedProduct: purchasedProduct,
             purchaseError: purchaseError,
             purchaseStatus: purchaseStatus,
             purchaseTransaction: purchaseTransaction,
             refundRequestStatus: refundRequestStatus,
-            mockCurrentUserSessionPro: dependencies[feature: .mockCurrentUserSessionPro],
-            treatAllIncomingMessagesAsProMessages: dependencies[feature: .treatAllIncomingMessagesAsProMessages]
+            submittedTransactionStatus: submittedTransactionStatus,
+            submittedTransactionErrored: submittedTransactionErrored,
+            currentProStatus: currentProStatus,
+            currentProStatusErrored: currentProStatusErrored
         )
     }
     
@@ -242,6 +315,119 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         guard state.sessionProEnabled else { return [general] }
         
+        // MARK: - Mockable Features
+        
+        let mockedProStatus: String = {
+            switch state.mockCurrentUserSessionProBackendStatus {
+                case .some(let status): return "<span>\(status)</span>"
+                case .none: return "<disabled>None</disabled>"
+            }
+        }()
+        
+        let features: SectionModel = SectionModel(
+            model: .features,
+            elements: [
+                SessionCell.Info(
+                    id: .proStatus,
+                    title: "Mocked Pro Status",
+                    subtitle: """
+                    Force the current users Session Pro to a specific status locally.
+                    
+                    <b>Current:</b> \(mockedProStatus)
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel] in
+                        viewModel?.showMockProStatusModal(currentStatus: state.mockCurrentUserSessionProBackendStatus)
+                    }
+                ),
+                SessionCell.Info(
+                    id: .proBadgeEverywhere,
+                    title: "Show the Pro Badge everywhere",
+                    subtitle: """
+                    Force the pro badge to show everywhere.
+                    
+                    <b>Note:</b> On the "Message Info" screen this will make the Pro Badge appear against the sender profile info, but the message feature pro badge will show based on the "Message Feature: Pro Badge" setting below.
+                    """,
+                    trailingAccessory: .toggle(
+                        state.proBadgeEverywhere,
+                        oldValue: previousState.proBadgeEverywhere
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .proBadgeEverywhere,
+                            to: !state.proBadgeEverywhere
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .fakeAppleSubscriptionForDev,
+                    title: "Fake the Apple Subscription for Pro Purchases",
+                    subtitle: """
+                    Apple subscriptions (even with Sandbox accounts) can't be tested on the iOS Simulator, to work around this the dev pro server allows "fake" transaction identifiers for the purposes of testing.
+                    
+                    This setting will bypass the AppStore section of the purchase flow and generate a fake transaction identifier to send to the Pro backend to create the purchase.
+                    """,
+                    trailingAccessory: .toggle(
+                        state.fakeAppleSubscriptionForDev,
+                        oldValue: previousState.fakeAppleSubscriptionForDev
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .fakeAppleSubscriptionForDev,
+                            to: !state.fakeAppleSubscriptionForDev
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .forceMessageFeatureProBadge,
+                    title: "Message Feature: Pro Badge",
+                    subtitle: "Force all messages to show the \"Pro Badge\" feature.",
+                    trailingAccessory: .toggle(
+                        state.forceMessageFeatureProBadge,
+                        oldValue: previousState.forceMessageFeatureProBadge
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .forceMessageFeatureProBadge,
+                            to: !state.forceMessageFeatureProBadge
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .forceMessageFeatureLongMessage,
+                    title: "Message Feature: Long Message",
+                    subtitle: "Force all messages to show the \"Long Message\" feature.",
+                    trailingAccessory: .toggle(
+                        state.forceMessageFeatureLongMessage,
+                        oldValue: previousState.forceMessageFeatureLongMessage
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .forceMessageFeatureLongMessage,
+                            to: !state.forceMessageFeatureLongMessage
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .forceMessageFeatureAnimatedAvatar,
+                    title: "Message Feature: Animated Avatar",
+                    subtitle: "Force all messages to show the \"Animated Avatar\" feature.",
+                    trailingAccessory: .toggle(
+                        state.forceMessageFeatureAnimatedAvatar,
+                        oldValue: previousState.forceMessageFeatureAnimatedAvatar
+                    ),
+                    onTap: { [dependencies = viewModel.dependencies] in
+                        dependencies.set(
+                            feature: .forceMessageFeatureAnimatedAvatar,
+                            to: !state.forceMessageFeatureAnimatedAvatar
+                        )
+                    }
+                )
+            ]
+        )
+        
+        // MARK: - Actual Pro Transactions and APIs
+        
         let purchaseStatus: String = {
             switch (state.purchaseError, state.purchaseStatus) {
                 case (.some(let error), _): return "<error>\(error)</error>"
@@ -265,6 +451,20 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 @unknown default: return "<disabled>N/A</disabled>"
             }
         }()
+        let submittedTransactionStatus: String = {
+            switch (state.submittedTransactionStatus, state.submittedTransactionErrored) {
+                case (.some(let error), true): return "<error>\(error)</error>"
+                case (.some(let status), false): return "<span>\(status)</span>"
+                case (.none, _): return "<disabled>None</disabled>"
+            }
+        }()
+        let currentProStatus: String = {
+            switch (state.currentProStatus, state.currentProStatusErrored) {
+                case (.some(let error), true): return "<error>\(error)</error>"
+                case (.some(let status), false): return "<span>\(status)</span>"
+                case (.none, _): return "<disabled>Unknown</disabled>"
+            }
+        }()
         let subscriptions: SectionModel = SectionModel(
             model: .subscriptions,
             elements: [
@@ -274,13 +474,15 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     subtitle: """
                     Purchase Session Pro via the App Store.
                     
+                    <b>Note:</b> This only works on a real device (and some old iOS versions don't seem to support Sandbox accounts (eg. iOS 16).
+                    
                     <b>Status:</b> \(purchaseStatus)
                     <b>Product Name:</b> \(productName)
                     <b>TransactionId:</b> \(transactionId)
                     """,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Purchase"),
                     onTap: { [weak viewModel] in
-                        Task { await viewModel?.purchaseSubscription() }
+                        Task { await viewModel?.purchaseSubscription(currentProduct: state.purchasedProduct) }
                     }
                 ),
                 SessionCell.Info(
@@ -313,58 +515,62 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     subtitle: """
                     Request a refund for a Session Pro subscription via the App Store.
                     
-                    <b>Status:</b>\(refundStatus)
+                    <b>Status: </b>\(refundStatus)
                     """,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Request"),
-                    isEnabled: (state.purchaseTransaction != nil),
+                    isEnabled: (
+                        state.purchaseTransaction != nil ||
+                        state.fakeAppleSubscriptionForDev
+                    ),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.requestRefund() }
                     }
-                )
-            ]
-        )
-        
-        let features: SectionModel = SectionModel(
-            model: .features,
-            elements: [
+                ),
                 SessionCell.Info(
-                    id: .proStatus,
-                    title: "Pro Status",
+                    id: .submitPurchaseToProBackend,
+                    title: "Submit Purchase to Pro Backend",
                     subtitle: """
-                    Mock current user a Session Pro user locally.
+                    Submit a purchase to the Session Pro Backend.
+                    
+                    <b>Status: </b>\(submittedTransactionStatus)
                     """,
-                    trailingAccessory: .toggle(
-                        state.mockCurrentUserSessionPro,
-                        oldValue: previousState.mockCurrentUserSessionPro
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Submit"),
+                    isEnabled: (
+                        state.purchaseTransaction != nil ||
+                        state.fakeAppleSubscriptionForDev
                     ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.set(
-                            feature: .mockCurrentUserSessionPro,
-                            to: !state.mockCurrentUserSessionPro
-                        )
+                    onTap: { [weak viewModel] in
+                        Task { await viewModel?.submitTransactionToProBackend() }
                     }
                 ),
                 SessionCell.Info(
-                    id: .proIncomingMessages,
-                    title: "All Pro Incoming Messages",
+                    id: .refreshProState,
+                    title: "Refresh Pro State",
                     subtitle: """
-                    Treat all incoming messages as Pro messages.
+                    Manually trigger a refresh of the users Pro state.
+                    
+                    <b>Status: </b>\(currentProStatus)
                     """,
-                    trailingAccessory: .toggle(
-                        state.treatAllIncomingMessagesAsProMessages,
-                        oldValue: previousState.treatAllIncomingMessagesAsProMessages
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        dependencies.set(
-                            feature: .treatAllIncomingMessagesAsProMessages,
-                            to: !state.treatAllIncomingMessagesAsProMessages
-                        )
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Refresh"),
+                    onTap: { [weak viewModel] in
+                        Task { await viewModel?.refreshProState() }
+                    }
+                ),
+                SessionCell.Info(
+                    id: .removeProFromUserConfig,
+                    title: "Remove Pro From User Config",
+                    subtitle: """
+                    Remove the cached pro state from the configs (this will mean the local device doesn't know that the user has pro on restart).
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Remove"),
+                    onTap: { [weak viewModel] in
+                        Task { await viewModel?.removeProFromUserConfig() }
                     }
                 )
             ]
         )
         
-        return [general, subscriptions, features]
+        return [general, features, subscriptions]
     }
     
     // MARK: - Functions
@@ -372,8 +578,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public static func disableDeveloperMode(using dependencies: Dependencies) {
         let features: [FeatureConfig<Bool>] = [
             .sessionProEnabled,
-            .mockCurrentUserSessionPro,
-            .treatAllIncomingMessagesAsProMessages
+            .proBadgeEverywhere,
+            .forceMessageFeatureProBadge,
+            .forceMessageFeatureLongMessage,
+            .forceMessageFeatureAnimatedAvatar,
         ]
         
         features.forEach { feature in
@@ -381,34 +589,162 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             
             dependencies.set(feature: feature, to: nil)
         }
+        
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
+            dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
+        }
     }
+    
+    // MARK: - Internal Functions
     
     private func updateSessionProEnabled(current: Bool) {
         dependencies.set(feature: .sessionProEnabled, to: !current)
         
-        if dependencies.hasSet(feature: .mockCurrentUserSessionPro) {
-            dependencies.set(feature: .mockCurrentUserSessionPro, to: nil)
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
+            dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
         }
         
-        if dependencies.hasSet(feature: .treatAllIncomingMessagesAsProMessages) {
-            dependencies.set(feature: .treatAllIncomingMessagesAsProMessages, to: nil)
+        if dependencies.hasSet(feature: .proBadgeEverywhere) {
+            dependencies.set(feature: .proBadgeEverywhere, to: nil)
         }
     }
     
-    private func purchaseSubscription() async {
-        do {
-            let products: [Product] = try await Product.products(for: ["com.getsession.org.pro_sub"])
-            
-            guard let product: Product = products.first else {
-                Log.error("[DevSettings] Unable to purchase subscription due to error: No products found")
-                dependencies.notifyAsync(
-                    key: .updateScreen(DeveloperSettingsProViewModel.self),
-                    value: DeveloperSettingsProEvent.purchasedProduct([], nil, "No products found", nil, nil)
+    private func showMockProStatusModal(currentStatus: Network.SessionPro.BackendUserProStatus?) {
+        self.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: "Mocked Pro Status",
+                    body: .radio(
+                        explanation: ThemedAttributedString(
+                            string: "Force the current users Session Pro to a specific status locally."
+                        ),
+                        warning: nil,
+                        options: {
+                            return ([nil] + Network.SessionPro.BackendUserProStatus.allCases).map { status in
+                                ConfirmationModal.Info.Body.RadioOptionInfo(
+                                    title: status.title,
+                                    descriptionText: status.subtitle.map {
+                                        ThemedAttributedString(
+                                            stringWithHTMLTags: $0,
+                                            font: RadioButton.descriptionFont
+                                        )
+                                    },
+                                    enabled: true,
+                                    selected: currentStatus == status
+                                )
+                            }
+                        }()
+                    ),
+                    confirmTitle: "select".localized(),
+                    cancelStyle: .alert_text,
+                    onConfirm: { [dependencies] modal in
+                        let selectedStatus: Network.SessionPro.BackendUserProStatus? = {
+                            switch modal.info.body {
+                                case .radio(_, _, let options):
+                                    return options
+                                        .enumerated()
+                                        .first(where: { _, value in value.selected })
+                                        .map { index, _ in
+                                            let targetIndex: Int = (index - 1)
+                                            
+                                            guard targetIndex >= 0 && (targetIndex - 1) < Network.SessionPro.BackendUserProStatus.allCases.count else {
+                                                return nil
+                                            }
+                                            
+                                            return Network.SessionPro.BackendUserProStatus.allCases[targetIndex]
+                                        }
+                                
+                                default: return nil
+                            }
+                        }()
+                        
+                        dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: selectedStatus)
+                    }
                 )
-                return
-            }
+            ),
+            transitionType: .present
+        )
+    }
+    
+    // MARK: - Pro Requests
+    
+    private func purchaseSubscription(currentProduct: Product?) async {
+        do {
+            let products: [Product] = try await Product.products(for: [
+                "com.getsession.org.pro_sub",
+                "com.getsession.org.pro_sub_1_month",
+                "com.getsession.org.pro_sub_3_months",
+                "com.getsession.org.pro_sub_12_months"
+            ])
             
+            await MainActor.run {
+                self.transitionToScreen(
+                    ConfirmationModal(
+                        info: ConfirmationModal.Info(
+                            title: "Purchase",
+                            body: .radio(
+                                explanation: ThemedAttributedString(
+                                    string: "Please select the subscription to purchaase."
+                                ),
+                                warning: nil,
+                                options: products.sorted().map { product in
+                                    ConfirmationModal.Info.Body.RadioOptionInfo(
+                                        title: "\(product.displayName), price: \(product.displayPrice)",
+                                        descriptionText: ThemedAttributedString(
+                                            stringWithHTMLTags: product.description,
+                                            font: RadioButton.descriptionFont
+                                        ),
+                                        enabled: true,
+                                        selected: currentProduct?.id == product.id
+                                    )
+                                }
+                            ),
+                            confirmTitle: "select".localized(),
+                            cancelStyle: .alert_text,
+                            onConfirm: { [weak self] modal in
+                                let selectedProduct: Product? = {
+                                    switch modal.info.body {
+                                        case .radio(_, _, let options):
+                                            return options
+                                                .enumerated()
+                                                .first(where: { _, value in value.selected })
+                                                .map { index, _ in
+                                                    guard index >= 0 && (index - 1) < products.count else {
+                                                        return nil
+                                                    }
+                                                    
+                                                    return products[index]
+                                                }
+                                            
+                                        default: return nil
+                                    }
+                                }()
+                                
+                                if let product: Product = selectedProduct {
+                                    Task(priority: .userInitiated) { [weak self] in
+                                        await self?.confirmPurchase(products: products, product: product)
+                                    }
+                                }
+                            }
+                        )
+                    ),
+                    transitionType: .present
+                )
+            }
+        }
+        catch {
+            Log.error("[DevSettings] Unable to purchase subscription due to error: \(error)")
+            dependencies.notifyAsync(
+                key: .updateScreen(DeveloperSettingsProViewModel.self),
+                value: DeveloperSettingsProEvent.purchasedProduct([], nil, "Failed: \(error)", nil, nil)
+            )
+        }
+    }
+    
+    private func confirmPurchase(products: [Product], product: Product) async {
+        do {
             let result = try await product.purchase()
+            
             switch result {
                 case .success(let verificationResult):
                     let transaction = try verificationResult.payloadValue
@@ -448,7 +784,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     }
     
     private func manageSubscriptions() async {
-        guard let scene: UIWindowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+        guard let scene: UIWindowScene = await UIApplication.shared.connectedScenes.first as? UIWindowScene else {
             return Log.error("[DevSettings] Unable to show manage subscriptions: Unable to get UIWindowScene")
         }
         
@@ -471,7 +807,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     
     private func requestRefund() async {
         guard let transaction: Transaction = await internalState.purchaseTransaction else { return }
-        guard let scene: UIWindowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+        guard let scene: UIWindowScene = await UIApplication.shared.connectedScenes.first as? UIWindowScene else {
             return Log.error("[DevSettings] Unable to show manage subscriptions: Unable to get UIWindowScene")
         }
         
@@ -485,5 +821,94 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         catch {
             Log.error("[DevSettings] Unable to request refund: \(error)")
         }
+    }
+    
+    private func submitTransactionToProBackend() async {
+        do {
+            let transactionId: String = try await {
+                guard await internalState.fakeAppleSubscriptionForDev else {
+                    guard let transaction: Transaction = await internalState.purchaseTransaction else {
+                        throw NetworkError.explicit("No Transaction")
+                    }
+                    
+                    return "\(transaction.id)"
+                }
+                
+                let bytes: [UInt8] = try dependencies[singleton: .crypto].tryGenerate(.randomBytes(8))
+                return "DEV.\(bytes.toHexString())"
+            }()
+            
+            try await dependencies[singleton: .sessionProManager].addProPayment(transactionId: transactionId)
+            
+            dependencies.notifyAsync(
+                key: .updateScreen(DeveloperSettingsProViewModel.self),
+                value: DeveloperSettingsProEvent.submittedTransaction("Success", false)
+            )
+        }
+        catch {
+            Log.error("[DevSettings] Tranasction submission failed: \(error)")
+            dependencies.notifyAsync(
+                key: .updateScreen(DeveloperSettingsProViewModel.self),
+                value: DeveloperSettingsProEvent.submittedTransaction("Failed: \(error)", true)
+            )
+        }
+    }
+    
+    private func refreshProState() async {
+        do {
+            try await dependencies[singleton: .sessionProManager].refreshProState()
+            let status: Network.SessionPro.BackendUserProStatus? = dependencies[singleton: .sessionProManager].currentUserCurrentBackendProStatus
+            
+            dependencies.notifyAsync(
+                key: .updateScreen(DeveloperSettingsProViewModel.self),
+                value: DeveloperSettingsProEvent.currentProStatus("\(status.map { "\($0)" } ?? "Unknown")", false)
+            )
+        }
+        catch {
+            Log.error("[DevSettings] Refresh pro state failed: \(error)")
+            dependencies.notifyAsync(
+                key: .updateScreen(DeveloperSettingsProViewModel.self),
+                value: DeveloperSettingsProEvent.currentProStatus("Error: \(error)", true)
+            )
+        }
+    }
+    
+    private func removeProFromUserConfig() async {
+        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try dependencies.mutate(cache: .libSession) { cache in
+                try cache.performAndPushChange(db, for: .userProfile) { _ in
+                    cache.removeProConfig()
+                }
+            }
+        }
+    }
+}
+
+extension Product: @retroactive Comparable {
+    public static func < (lhs: Product, rhs: Product) -> Bool {
+        guard
+            let lhsSubscription: SubscriptionInfo = lhs.subscription,
+            let rhsSubscription: SubscriptionInfo = rhs.subscription, (
+                lhsSubscription.subscriptionPeriod.unit != rhsSubscription.subscriptionPeriod.unit ||
+                lhsSubscription.subscriptionPeriod.value != rhsSubscription.subscriptionPeriod.value
+            )
+        else { return lhs.id < rhs.id }
+        
+        func approximateDurationDays(_ subscription: SubscriptionInfo) -> Int {
+            switch subscription.subscriptionPeriod.unit {
+                case .day: return subscription.subscriptionPeriod.value
+                case .week: return subscription.subscriptionPeriod.value * 7
+                case .month: return subscription.subscriptionPeriod.value * 30
+                case .year: return subscription.subscriptionPeriod.value * 365
+                @unknown default: return subscription.subscriptionPeriod.value
+            }
+        }
+        
+        let lhsApproxDays: Int = approximateDurationDays(lhsSubscription)
+        let rhsApproxDays: Int = approximateDurationDays(rhsSubscription)
+        
+        guard lhsApproxDays != rhsApproxDays else { return lhs.id < rhs.id }
+        
+        return (lhsApproxDays < rhsApproxDays)
     }
 }

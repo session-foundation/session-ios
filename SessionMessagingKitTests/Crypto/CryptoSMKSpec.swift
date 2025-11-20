@@ -94,7 +94,7 @@ class CryptoSMKSpec: QuickSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageSenderError.noUserED25519KeyPair))
+                    .to(throwError(CryptoError.missingUserSecretKey))
                 }
             }
 
@@ -132,7 +132,7 @@ class CryptoSMKSpec: QuickSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageSenderError.noUserED25519KeyPair))
+                    .to(throwError(CryptoError.missingUserSecretKey))
                 }
 
                 // MARK: ---- throws an error if the ciphertext is too short
@@ -144,7 +144,7 @@ class CryptoSMKSpec: QuickSpec {
                             )
                         )
                     }
-                    .to(throwError(MessageReceiverError.decryptionFailed))
+                    .to(throwError(MessageError.decodingFailed))
                 }
             }
         }

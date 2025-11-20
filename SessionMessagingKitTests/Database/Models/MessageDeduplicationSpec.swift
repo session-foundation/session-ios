@@ -367,7 +367,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                 ignoreDedupeFiles: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.duplicateMessage))
+                        }.to(throwError(MessageError.duplicateMessage))
                     }
                 }
                 
@@ -403,7 +403,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                 ignoreDedupeFiles: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.duplicateMessage))
+                        }.to(throwError(MessageError.duplicateMessage))
                     }
                 }
                 
@@ -1068,7 +1068,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                             uniqueIdentifier: "testId",
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.duplicateMessage))
+                    }.to(throwError(MessageError.duplicateMessage))
                 }
                 
                 // MARK: ---- throws when the message is a legacy duplicate
@@ -1097,7 +1097,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                             legacyIdentifier: "testLegacyId",
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.duplicateMessage))
+                    }.to(throwError(MessageError.duplicateMessage))
                     expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
                         $0.dedupeRecordExists(threadId: "testThreadId", uniqueIdentifier: "testId")
                     })
@@ -1153,7 +1153,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                             ),
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.duplicatedCall))
+                    }.to(throwError(MessageError.duplicatedCall))
                 }
             }
         }

@@ -73,11 +73,7 @@ public enum GroupInviteMemberJob: JobExecutor {
                         groupSessionId: SessionId(.group, hex: threadId),
                         groupName: groupName,
                         memberAuthData: details.memberAuthData,
-                        profile: VisibleMessage.VMProfile(
-                            displayName: adminProfile.name,
-                            profileKey: adminProfile.displayPictureEncryptionKey,
-                            profilePictureUrl: adminProfile.displayPictureUrl
-                        ),
+                        profile: VisibleMessage.VMProfile(profile: adminProfile),
                         sentTimestampMs: UInt64(sentTimestampMs),
                         authMethod: groupAuthMethod,
                         using: dependencies
@@ -141,11 +137,8 @@ public enum GroupInviteMemberJob: JobExecutor {
                             
                             // Register the failure
                             switch error {
-                                case let senderError as MessageSenderError where !senderError.isRetryable:
-                                    failure(job, error, true)
-                                    
-                                case SnodeAPIError.rateLimited:
-                                    failure(job, error, true)
+                                case is MessageError: failure(job, error, true)
+                                case SnodeAPIError.rateLimited: failure(job, error, true)
                                     
                                 case SnodeAPIError.clockOutOfSync:
                                     Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
@@ -339,7 +332,7 @@ extension GroupInviteMemberJob {
             
             switch authInfo {
                 case .groupMember(_, let authData): self.memberAuthData = authData
-                default: throw MessageSenderError.invalidMessage
+                default: throw MessageError.requiredSignatureMissing
             }
         }
     }

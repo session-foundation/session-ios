@@ -2,8 +2,10 @@
 
 import UIKit
 import SessionUIKit
+import Combine
 
 public class BaseVC: UIViewController {
+    private var proObservationTask: Task<Void, Never>?
     public var onViewWillAppear: ((UIViewController) -> Void)?
     public var onViewWillDisappear: ((UIViewController) -> Void)?
     public var onViewDidDisappear: ((UIViewController) -> Void)?
@@ -31,6 +33,10 @@ public class BaseVC: UIViewController {
         
         return result
     }()
+    
+    deinit {
+        proObservationTask?.cancel()
+    }
 
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -81,16 +87,35 @@ public class BaseVC: UIViewController {
         navigationItem.titleView = container
     }
     
-    internal func setUpNavBarSessionHeading() {
+    internal func setUpNavBarSessionHeading(sessionProUIManager: SessionProUIManagerType) {
         let headingImageView = UIImageView(
             image: UIImage(named: "SessionHeading")?
                 .withRenderingMode(.alwaysTemplate)
         )
         headingImageView.themeTintColor = .textPrimary
         headingImageView.contentMode = .scaleAspectFit
-        headingImageView.set(.width, to: 150)
+        headingImageView.set(.width, to: 140)
         headingImageView.set(.height, to: Values.mediumFontSize)
         
-        navigationItem.titleView = headingImageView
+        let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
+        sessionProBadge.isHidden = !sessionProUIManager.currentUserIsCurrentlyPro
+        
+        let stackView: UIStackView = UIStackView(
+            arrangedSubviews: MainAppContext.determineDeviceRTL() ? [ sessionProBadge, headingImageView ] : [ headingImageView, sessionProBadge ]
+        )
+        stackView.axis = .horizontal
+        stackView.alignment = .center
+        stackView.spacing = 0
+        
+        proObservationTask?.cancel()
+        proObservationTask = Task.detached(priority: .userInitiated) { [weak sessionProBadge] in
+            for await isPro in sessionProUIManager.currentUserIsPro {
+                await MainActor.run { [weak sessionProBadge] in
+                    sessionProBadge?.isHidden = !isPro
+                }
+            }
+        }
+        
+        navigationItem.titleView = stackView
     }
 }

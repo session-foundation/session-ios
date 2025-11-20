@@ -71,7 +71,7 @@ internal extension LibSessionCacheType {
         
         // Add any new communities (via the OpenGroupManager)
         extractedUserGroups.communities.forEach { community in
-            let successfullyAddedGroup: Bool = dependencies[singleton: .openGroupManager].add(
+            let successfullyAddedGroup: Bool = dependencies[singleton: .communityManager].add(
                 db,
                 roomToken: community.roomToken,
                 server: community.server,
@@ -81,7 +81,7 @@ internal extension LibSessionCacheType {
             
             if successfullyAddedGroup {
                 db.afterCommit { [dependencies] in
-                    dependencies[singleton: .openGroupManager].performInitialRequestsAfterAdd(
+                    dependencies[singleton: .communityManager].performInitialRequestsAfterAdd(
                         queue: DispatchQueue.global(qos: .userInitiated),
                         successfullyAddedGroup: successfullyAddedGroup,
                         roomToken: community.roomToken,

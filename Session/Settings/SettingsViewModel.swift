@@ -8,6 +8,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
@@ -35,7 +36,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.internalState = State.initialState(userSessionId: dependencies[cache: .general].sessionId)
+        self.internalState = State.initialState(
+            userSessionId: dependencies[cache: .general].sessionId,
+            sessionProBackendStatus: dependencies[singleton: .sessionProManager].currentUserCurrentBackendProStatus
+        )
         
         bindState()
     }
@@ -44,6 +48,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     enum NavItem: Equatable {
         case close
+        case edit
         case qrCode
     }
     
@@ -51,8 +56,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case profileInfo
         case sessionId
         
-        case donationAndCommunity
-        case network
+        case sessionProAndCommunity
+        case donationAndnetwork
         case settings
         case helpAndData
         
@@ -68,7 +73,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         var style: SessionTableSectionStyle {
             switch self {
                 case .sessionId: return .titleSeparator
-                case .donationAndCommunity, .network, .settings, .helpAndData: return .padding
+                case .sessionProAndCommunity, .donationAndnetwork, .settings, .helpAndData: return .padding
                 default: return .none
             }
         }
@@ -81,9 +86,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case sessionId
         case idActions
         
-        case donate
+        case sessionPro
         case inviteAFriend
         
+        case donate
         case path
         case sessionNetwork
         
@@ -114,7 +120,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = [
         SessionNavItem(
             id: .qrCode,
-            image: UIImage(named: "QRCode")?
+            image: Lucide.image(icon: .qrCode, size: 24)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             accessibilityIdentifier: "View QR code",
@@ -125,6 +131,24 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 viewController.setNavBarTitle("qrCode".localized())
                 self?.transitionToScreen(viewController)
             }
+        ),
+        SessionNavItem(
+            id: .edit,
+            image: Lucide.image(icon: .pencil, size: 22)?
+                .withRenderingMode(.alwaysTemplate),
+            style: .plain,
+            accessibilityIdentifier: "Edit Profile Name",
+            action: { [weak self] in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    self.transitionToScreen(
+                        ConfirmationModal(
+                            info: self.updateDisplayName(current: self.internalState.profile.displayName())
+                        ),
+                        transitionType: .present
+                    )
+                }
+            }
         )
     ]
     
@@ -133,6 +157,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public struct State: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
+        let sessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let developerModeEnabled: Bool
@@ -145,17 +170,23 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         public var observedKeys: Set<ObservableKey> {
             [
                 .profile(userSessionId.hexString),
+                .feature(.mockCurrentUserSessionProBackendStatus),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
                 .setting(.developerModeEnabled),
                 .setting(.hideRecoveryPasswordPermanently)
+                // TODO: [PRO] Need to observe changes to the users pro status
             ]
         }
         
-        static func initialState(userSessionId: SessionId) -> State {
+        static func initialState(
+            userSessionId: SessionId,
+            sessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
+        ) -> State {
             return State(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
+                sessionProBackendStatus: sessionProBackendStatus,
                 serviceNetwork: .mainnet,
                 forceOffline: false,
                 developerModeEnabled: false,
@@ -189,6 +220,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     ) async -> State {
         /// Store mutable copies of the data to update
         var profile: Profile = previousState.profile
+        var sessionProBackendStatus: Network.SessionPro.BackendUserProStatus? = previousState.sessionProBackendStatus
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
         var developerModeEnabled: Bool = previousState.developerModeEnabled
@@ -203,6 +235,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 developerModeEnabled = libSession.get(.developerModeEnabled)
                 hideRecoveryPasswordPermanently = libSession.get(.hideRecoveryPasswordPermanently)
             }
+        }
+        
+        /// If the device has a mock pro status set then use that
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
+            sessionProBackendStatus = dependencies[feature: .mockCurrentUserSessionProBackendStatus]
         }
         
         /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
@@ -255,6 +292,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return State(
             userSessionId: previousState.userSessionId,
             profile: profile,
+            sessionProBackendStatus: sessionProBackendStatus,
             serviceNetwork: serviceNetwork,
             forceOffline: forceOffline,
             developerModeEnabled: developerModeEnabled,
@@ -276,7 +314,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             switch (state.serviceNetwork, state.forceOffline) {
                                 case (.testnet, false): return .letter("T", false)     // stringlint:ignore
                                 case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                default: return .none
+                                default: return (state.profile.displayPictureUrl?.isEmpty == false) ? .pencil : .rightPlus
                             }
                         }()
                     ),
@@ -294,7 +332,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         label: "Profile picture"
                     ),
                     onTap: { [weak viewModel] in
-                        viewModel?.updateProfilePicture(currentUrl: state.profile.displayPictureUrl)
+                        viewModel?.updateProfilePicture(
+                            currentUrl: state.profile.displayPictureUrl,
+                            sessionProBackendStatus: state.sessionProBackendStatus
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -302,18 +343,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     title: SessionCell.TextInfo(
                         state.profile.displayName(),
                         font: .titleLarge,
-                        alignment: .center
-                    ),
-                    trailingAccessory: .icon(
-                        .pencil,
-                        size: .small,
-                        customTint: .textSecondary
+                        alignment: .center,
+                        trailingImage: {
+                            guard state.sessionProBackendStatus == .active else { return nil }
+                            
+                            return (
+                                SessionProBadge.identifier,
+                                { SessionProBadge(size: .medium).toImage(using: viewModel.dependencies) }
+                            )
+                        }()
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
                         customPadding: SessionCell.Padding(
                             top: Values.smallSpacing,
-                            leading: IconSize.small.size,
                             bottom: Values.mediumSpacing,
                             interItem: 0
                         ),
@@ -384,20 +427,16 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 )
             ]
         )
-        let donationAndCommunity: SectionModel = SectionModel(
-            model: .donationAndCommunity,
+        let sessionProAndCommunity: SectionModel = SectionModel(
+            model: .sessionProAndCommunity,
             elements: [
                 SessionCell.Info(
-                    id: .donate,
-                    leadingAccessory: .icon(
-                        .heart,
-                        customTint: .sessionButton_border
-                    ),
-                    title: "donate".localized(),
-                    styling: SessionCell.StyleInfo(
-                        tintColor: .sessionButton_border
-                    ),
-                    onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
+                    id: .sessionPro,
+                    leadingAccessory: .proBadge(size: .small),
+                    title: Constants.app_pro,
+                    onTap: { [weak viewModel] in
+                        // TODO: [PRO] Implement
+                    }
                 ),
                 SessionCell.Info(
                     id: .inviteAFriend,
@@ -421,9 +460,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 )
             ]
         )
-        let network: SectionModel = SectionModel(
-            model: .network,
+        let donationAndNetwork: SectionModel = SectionModel(
+            model: .donationAndnetwork,
             elements: [
+                SessionCell.Info(
+                    id: .donate,
+                    leadingAccessory: .icon(
+                        .heart,
+                        customTint: .sessionButton_border
+                    ),
+                    title: "donate".localized(),
+                    onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
+                ),
                 SessionCell.Info(
                     id: .path,
                     leadingAccessory: .custom(
@@ -441,9 +489,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             .withRenderingMode(.alwaysTemplate)
                     ),
                     title: Constants.network_name,
-                    trailingAccessory: .custom(
-                        info: NewTagView.Info()
-                    ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         let viewController: SessionHostingViewController = SessionHostingViewController(
                             rootView: SessionNetworkScreen(
@@ -596,7 +641,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             elements: helpAndDataElements
         )
         
-        return [profileInfo, sessionId, donationAndCommunity, network, settings, helpAndData]
+        return [profileInfo, sessionId, sessionProAndCommunity, donationAndNetwork, settings, helpAndData]
     }
     
     public lazy var footerView: AnyPublisher<UIView?, Never> = Just(VersionFooterView(
@@ -644,6 +689,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 self?.updatedName != current
             },
             cancelStyle: .alert_text,
+            hasCloseButton: true,
             dismissOnConfirm: false,
             onConfirm: { [weak self] modal in
                 guard
@@ -666,7 +712,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         )
     }
     
-    private func updateProfilePicture(currentUrl: String?) {
+    private func updateProfilePicture(
+        currentUrl: String?,
+        sessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
+    ) {
         let iconName: String = "profile_placeholder" // stringlint:ignore
         var hasSetNewProfilePicture: Bool = false
         let currentSource: ImageDataManager.DataSource? = {
@@ -692,24 +741,30 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             icon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: {
-                guard dependencies[feature: .sessionProEnabled] else { return nil }
-                return dependencies[cache: .libSession].isSessionPro ?
-                    "proAnimatedDisplayPictureModalDescription"
-                        .localized()
-                        .addProBadge(
-                            at: .leading,
-                            font: .systemFont(ofSize: Values.smallFontSize),
-                            textColor: .textSecondary,
-                            proBadgeSize: .small
-                        ):
-                    "proAnimatedDisplayPicturesNonProModalDescription"
-                        .localized()
-                        .addProBadge(
-                            at: .trailing,
-                            font: .systemFont(ofSize: Values.smallFontSize),
-                            textColor: .textSecondary,
-                            proBadgeSize: .small
-                        )
+                switch (dependencies[feature: .sessionProEnabled], sessionProBackendStatus) {
+                    case (false, _): return nil
+                    case (true, .active):
+                        return "proAnimatedDisplayPictureModalDescription"
+                            .localized()
+                            .addProBadge(
+                                at: .leading,
+                                font: .systemFont(ofSize: Values.smallFontSize),
+                                textColor: .textSecondary,
+                                proBadgeSize: .small,
+                                using: dependencies
+                            )
+                        
+                    case (true, _):
+                        return "proAnimatedDisplayPicturesNonProModalDescription"
+                            .localized()
+                            .addProBadge(
+                                at: .trailing,
+                                font: .systemFont(ofSize: Values.smallFontSize),
+                                textColor: .textSecondary,
+                                proBadgeSize: .small,
+                                using: dependencies
+                            )
+                }
             }(),
             accessibility: Accessibility(
                 identifier: "Upload",
@@ -717,16 +772,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             ),
             dataManager: dependencies[singleton: .imageDataManager],
             onProBageTapped: { [weak self, dependencies] in
-                Task { @MainActor in
-                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                        .animatedProfileImage(
-                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro
-                        ),
-                        presenting: { modal in
-                            self?.transitionToScreen(modal, transitionType: .present)
-                        }
-                    )
-                }
+                dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                    .animatedProfileImage(isSessionProActivated: (sessionProBackendStatus == .active)),
+                    presenting: { modal in
+                        self?.transitionToScreen(modal, transitionType: .present)
+                    }
+                )
             },
             onClick: { [weak self] onDisplayPictureSelected in
                 self?.onDisplayPictureSelected = { source, cropRect in
@@ -767,24 +818,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         switch modal.info.body {
                             case .image(.some(let source), _, _, let style, _, _, _, _, _):
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
+                                var didShowCTAModal: Bool = false
                                 
-                                guard (
-                                    !isAnimatedImage ||
-                                    dependencies[cache: .libSession].isSessionPro ||
-                                    !dependencies[feature: .sessionProEnabled]
-                                ) else {
-                                    Task { @MainActor in
-                                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                                            .animatedProfileImage(
-                                                isSessionProActivated: dependencies[cache: .libSession].isSessionPro
-                                            ),
-                                            presenting: { modal in
-                                                self?.transitionToScreen(modal, transitionType: .present)
-                                            }
-                                        )
-                                    }
-                                    return
+                                if isAnimatedImage && !dependencies[feature: .sessionProEnabled] {
+                                    didShowCTAModal = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                                        .animatedProfileImage(isSessionProActivated: (sessionProBackendStatus == .active)),
+                                        presenting: { modal in
+                                            self?.transitionToScreen(modal, transitionType: .present)
+                                        }
+                                    )
                                 }
+                                
+                                /// If we showed the CTA modal then the user doesn't have Session Pro so can't use the
+                                /// selected image as their display picture
+                                guard !didShowCTAModal else { return }
                                 
                                 self?.updateProfile(
                                     displayPictureUpdateGenerator: { [weak self] in
@@ -857,13 +904,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return .currentUserUpdateTo(
             url: result.downloadUrl,
             key: result.encryptionKey,
-            sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() },
-            isReupload: false
+            type: (pendingAttachment.utType.isAnimated ? .animatedImage : .staticImage)
         )
     }
     
     @MainActor fileprivate func updateProfile(
-        displayNameUpdate: Profile.DisplayNameUpdate = .none,
+        displayNameUpdate: Profile.TargetUserUpdate<String?> = .none,
         displayPictureUpdateGenerator generator: @escaping () async throws -> DisplayPictureManager.Update = { .none },
         onComplete: @escaping () -> ()
     ) {

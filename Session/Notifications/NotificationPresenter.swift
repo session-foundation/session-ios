@@ -427,15 +427,15 @@ private extension NotificationPresenter {
         /// Check whether the current `frontMostViewController` is a `ConversationVC` for the conversation this notification
         /// would belong to then we don't want to show the notification, so retrieve the `frontMostViewController` (from the main
         /// thread) and check
-        guard
-            let frontMostViewController: UIViewController = DispatchQueue.main.sync(execute: {
-                dependencies[singleton: .appContext].frontMostViewController
-            }),
-            let conversationViewController: ConversationVC = frontMostViewController as? ConversationVC
-        else { return true }
+        let currentOpenConversationThreadId: String? = DispatchQueue.main.sync(execute: {
+            (dependencies[singleton: .appContext].frontMostViewController as? ConversationVC)?
+                .viewModel
+                .state
+                .threadId
+        })
         
         /// Show notifications for any **other** threads
-        return (conversationViewController.viewModel.threadData.threadId != threadId)
+        return (currentOpenConversationThreadId != threadId)
     }
 }
 

@@ -12,9 +12,6 @@ public struct Contact: Codable, Sendable, PagableRecord, Identifiable, Equatable
     public static var databaseTableName: String { "contact" }
     public static let idColumn: ColumnExpression = Columns.id
     
-    internal static let threadForeignKey = ForeignKey([Columns.id], to: [SessionThread.Columns.id])
-    public static let profile = hasOne(Profile.self, using: Profile.contactForeignKey)
-    
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
         case id
@@ -47,12 +44,6 @@ public struct Contact: Codable, Sendable, PagableRecord, Identifiable, Equatable
     
     /// This flag is used to determine whether this contact has ever been blocked (will be included in the config message if so)
     public let hasBeenBlocked: Bool
-    
-    // MARK: - Relationships
-    
-    public var profile: QueryInterfaceRequest<Profile> {
-        request(for: Contact.profile)
-    }
     
     // MARK: - Initialization
     
@@ -106,5 +97,26 @@ extension Contact: ProfileAssociated {
             .defaulting(to: rhs.profileId.truncated(threadVariant: .contact))
         
         return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
+    }
+    
+    public func with(
+        isTrusted: Update<Bool> = .useExisting,
+        isApproved: Update<Bool> = .useExisting,
+        isBlocked: Update<Bool> = .useExisting,
+        lastKnownClientVersion: Update<FeatureVersion?> = .useExisting,
+        didApproveMe: Update<Bool> = .useExisting,
+        hasBeenBlocked: Update<Bool> = .useExisting,
+        currentUserSessionId: SessionId
+    ) -> Contact {
+        return Contact(
+            id: id,
+            isTrusted: isTrusted.or(self.isTrusted),
+            isApproved: isApproved.or(self.isApproved),
+            isBlocked: isBlocked.or(self.isBlocked),
+            lastKnownClientVersion: lastKnownClientVersion.or(self.lastKnownClientVersion),
+            didApproveMe: didApproveMe.or(self.didApproveMe),
+            hasBeenBlocked: hasBeenBlocked.or(self.hasBeenBlocked),
+            currentUserSessionId: currentUserSessionId
+        )
     }
 }

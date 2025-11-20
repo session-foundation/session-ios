@@ -102,18 +102,20 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { _, _, completionHandler  in
                             // Delay the change to give the cell "unswipe" animation some time to complete
-                            DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
+                            Task.detached(priority: .userInitiated) {
+                                try await Task.sleep(for: unswipeAnimationDelay)
                                 switch isUnread {
-                                    case true: threadViewModel.markAsRead(
+                                    case true: try? await threadViewModel.markAsRead(
                                         target: .threadAndInteractions(
                                             interactionsBeforeInclusive: threadViewModel.interactionId
                                         ),
                                         using: dependencies
                                     )
                                         
-                                    case false: threadViewModel.markAsUnread(using: dependencies)
+                                    case false: try? await threadViewModel.markAsUnread(using: dependencies)
                                 }
                             }
+                            
                             completionHandler(true)
                         }
                     
@@ -228,21 +230,21 @@ public extension UIContextualAction {
                             tableView: tableView
                         ) { _, _, completionHandler in
                             if !isCurrentlyPinned,
-                               !dependencies[cache: .libSession].isSessionPro,
+                               !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro,
                                let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
                                    try SessionThread
                                        .filter(SessionThread.Columns.pinnedPriority > 0)
                                        .fetchCount(db)
                                }),
-                               pinnedConversationsNumber >= LibSession.PinnedConversationLimit
+                               pinnedConversationsNumber >= SessionPro.PinnedConversationLimit
                             {
                                 let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                                     modal: ProCTAModal(
-                                        delegate: dependencies[singleton: .sessionProState],
                                         variant: .morePinnedConvos(
-                                            isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
+                                            isGrandfathered: (pinnedConversationsNumber > SessionPro.PinnedConversationLimit)
                                         ),
                                         dataManager: dependencies[singleton: .imageDataManager],
+                                        sessionProUIManager: dependencies[singleton: .sessionProManager],
                                         afterClosed: { [completionHandler] in
                                             completionHandler(true)
                                         }

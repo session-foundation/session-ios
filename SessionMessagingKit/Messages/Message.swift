@@ -21,6 +21,7 @@ public class Message: Codable {
         case expiresInSeconds
         case expiresStartedAtMs
         
+        case proFeatures
         case proProof
     }
     
@@ -45,23 +46,23 @@ public class Message: Codable {
     public var expiresInSeconds: TimeInterval?
     public var expiresStartedAtMs: Double?
     
-    public var proProof: String?
+    public var proProof: Network.SessionPro.ProProof?
+    public var proFeatures: SessionPro.Features?
 
     // MARK: - Validation
     
-    public func isValid(isSending: Bool) -> Bool {
+    public func validateMessage(isSending: Bool) throws {
         guard
             let sentTimestampMs: UInt64 = sentTimestampMs,
-            sentTimestampMs > 0,
-            sender != nil
-        else { return false }
+            sentTimestampMs > 0
+        else { throw MessageError.missingRequiredField("sentTimestampMs") }
+        if sender?.isEmpty != false { throw MessageError.missingRequiredField("sender") }
         
         /// If this is an incoming message then ensure we also have a received timestamp
         if !isSending {
-            guard
-                let receivedTimestampMs: UInt64 = receivedTimestampMs,
-                receivedTimestampMs > 0
-            else { return false }
+            if (receivedTimestampMs ?? 0) == 0 {
+                throw MessageError.missingRequiredField("receivedTimestampMs")
+            }
         }
         
         /// We added a new `sigTimestampMs` which is included in the message data so can be verified as part of the signature
@@ -75,7 +76,9 @@ public class Message: Codable {
         /// at, due to this we need to allow for some variation between the values
         switch (isSending, sigTimestampMs, openGroupServerMessageId) {
             case (_, .some(let sigTimestampMs), .none), (true, .some(let sigTimestampMs), .some):
-                return (sigTimestampMs == sentTimestampMs)
+                if sigTimestampMs != sentTimestampMs {
+                    throw MessageError.invalidMessage("Signature timestamp doesn't match sent timestamp")
+                }
             
             /// Outgoing messages to a community should have matching `sigTimestampMs` and `sentTimestampMs`
             /// values as they are set locally, when we get a response from the community we update the `sentTimestampMs` to
@@ -83,10 +86,12 @@ public class Message: Codable {
             case (false, .some(let sigTimestampMs), .some):
                 let delta: TimeInterval = (TimeInterval(max(sigTimestampMs, sentTimestampMs) - min(sigTimestampMs, sentTimestampMs)) / 1000)
                 
-                return delta < Network.SOGS.validTimestampVarianceThreshold
+                if delta > Network.SOGS.validTimestampVarianceThreshold {
+                    throw MessageError.invalidMessage("Difference between signature timestamp and sent timestamp is too large")
+                }
                 
             // FIXME: We want to remove support for this case in a future release
-            case (_, .none, _): return true
+            case (_, .none, _): break
         }
     }
     
@@ -104,7 +109,8 @@ public class Message: Codable {
         serverHash: String? = nil,
         expiresInSeconds: TimeInterval? = nil,
         expiresStartedAtMs: Double? = nil,
-        proProof: String? = nil
+        proProof: Network.SessionPro.ProProof? = nil,
+        proFeatures: SessionPro.Features? = nil
     ) {
         self.id = id
         self.sentTimestampMs = sentTimestampMs
@@ -118,6 +124,7 @@ public class Message: Codable {
         self.expiresInSeconds = expiresInSeconds
         self.expiresStartedAtMs = expiresStartedAtMs
         self.proProof = proProof
+        self.proFeatures = proFeatures
     }
 
     // MARK: - Proto Conversion
@@ -168,7 +175,6 @@ public enum ProcessedMessage {
     case standard(
         threadId: String,
         threadVariant: SessionThread.Variant,
-        proto: SNProtoContent,
         messageInfo: MessageReceiveJob.Details.MessageInfo,
         uniqueIdentifier: String
     )
@@ -180,19 +186,17 @@ public enum ProcessedMessage {
         data: Data,
         uniqueIdentifier: String
     )
-    case invalid
     
     public var threadId: String {
         switch self {
-            case .standard(let threadId, _, _, _, _): return threadId
+            case .standard(let threadId, _, _, _): return threadId
             case .config(let publicKey, _, _, _, _, _): return publicKey
-            case .invalid: return ""
         }
     }
     
     var namespace: Network.SnodeAPI.Namespace {
         switch self {
-            case .standard(_, let threadVariant, _, _, _):
+            case .standard(_, let threadVariant, _, _):
                 switch threadVariant {
                     case .group: return .groupMessages
                     case .legacyGroup: return .legacyClosedGroup
@@ -200,15 +204,13 @@ public enum ProcessedMessage {
                 }
                 
             case .config(_, let namespace, _, _, _, _): return namespace
-            case .invalid: return .default
         }
     }
     
     var uniqueIdentifier: String {
         switch self {
-            case .standard(_, _, _, _, let uniqueIdentifier): return uniqueIdentifier
+            case .standard(_, _, _, let uniqueIdentifier): return uniqueIdentifier
             case .config(_, _, _, _, _, let uniqueIdentifier): return uniqueIdentifier
-            case .invalid: return ""
         }
     }
     
@@ -216,7 +218,6 @@ public enum ProcessedMessage {
         switch self {
             case .standard: return false
             case .config: return true
-            case .invalid: return false
         }
     }
 }
@@ -360,18 +361,18 @@ public extension Message {
 }
 
 public extension Message {
-    static func createMessageFrom(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) throws -> Message {
-        let decodedMessage: Message? = Variant
+    static func createMessageFrom(_ proto: SNProtoContent, decodedMessage: DecodedMessage, using dependencies: Dependencies) throws -> Message {
+        let result: Message? = Variant
             .allCases
             .sorted { lhs, rhs -> Bool in lhs.protoPriority < rhs.protoPriority }
             .filter { variant -> Bool in variant.isProtoConvetible }
             .reduce(nil) { prev, variant in
                 guard prev == nil else { return prev }
                 
-                return variant.messageType.fromProto(proto, sender: sender, using: dependencies)
+                return variant.messageType.fromProto(proto, sender: decodedMessage.sender.hexString, using: dependencies)
             }
         
-        return try decodedMessage ?? { throw MessageReceiverError.unknownMessage(proto) }()
+        return try result ?? { throw MessageError.unknownMessage(decodedMessage) }()
     }
     
     static func shouldSync(message: Message) -> Bool {
@@ -421,11 +422,11 @@ public extension Message {
                 
                 return (maybeSyncTarget ?? publicKey)
                 
-            case .closedGroup(let groupPublicKey): return groupPublicKey
-            case .openGroup(let roomToken, let server, _, _):
+            case .group(let publicKey): return publicKey
+            case .community(let roomToken, let server, _, _):
                 return OpenGroup.idFor(roomToken: roomToken, server: server)
             
-            case .openGroupInbox(_, _, let blindedPublicKey): return blindedPublicKey
+            case .communityInbox(_, _, let blindedPublicKey): return blindedPublicKey
         }
     }
     
@@ -433,7 +434,7 @@ public extension Message {
         _ db: ObservingDatabase,
         openGroupId: String,
         message: Network.SOGS.Message,
-        associatedPendingChanges: [OpenGroupManager.PendingChange],
+        associatedPendingChanges: [CommunityManager.PendingChange],
         using dependencies: Dependencies
     ) -> [Reaction] {
         guard
@@ -483,7 +484,7 @@ public extension Message {
                 let pendingChangeSelfReaction: Bool? = {
                     // Find the newest 'PendingChange' entry with a matching emoji, if one exists, and
                     // set the "self reaction" value based on it's action
-                    let maybePendingChange: OpenGroupManager.PendingChange? = associatedPendingChanges
+                    let maybePendingChange: CommunityManager.PendingChange? = associatedPendingChanges
                         .sorted(by: { lhs, rhs -> Bool in (lhs.seqNo ?? Int64.max) >= (rhs.seqNo ?? Int64.max) })
                         .first { pendingChange in
                             if case .reaction(_, let emoji, _) = pendingChange.metadata {
@@ -495,7 +496,7 @@ public extension Message {
                     
                     // If there is no pending change for this reaction then return nil
                     guard
-                        let pendingChange: OpenGroupManager.PendingChange = maybePendingChange,
+                        let pendingChange: CommunityManager.PendingChange = maybePendingChange,
                         case .reaction(_, _, let action) = pendingChange.metadata
                     else { return nil }
 
@@ -582,9 +583,9 @@ public extension Message {
             // Disappear after sent messages with exceptions
             case (_, is UnsendRequest): return message.ttl
             
-            case (.closedGroup, is GroupUpdateInviteMessage), (.closedGroup, is GroupUpdateInviteResponseMessage),
-                (.closedGroup, is GroupUpdatePromoteMessage), (.closedGroup, is GroupUpdateMemberLeftMessage),
-                (.closedGroup, is GroupUpdateDeleteMemberContentMessage):
+            case (.group, is GroupUpdateInviteMessage), (.group, is GroupUpdateInviteResponseMessage),
+                (.group, is GroupUpdatePromoteMessage), (.group, is GroupUpdateMemberLeftMessage),
+                (.group, is GroupUpdateDeleteMemberContentMessage):
                 return message.ttl
 
             default:
@@ -659,11 +660,6 @@ public extension Message {
     ) -> Self {
         self.expiresInSeconds = expiresInSeconds
         self.expiresStartedAtMs = expiresStartedAtMs
-        return self
-    }
-    
-    func with(proProof: String?) -> Self {
-        self.proProof = proProof
         return self
     }
 }

@@ -45,7 +45,6 @@ public class DeviceSleepManager: NSObject {
 
     fileprivate init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        DeviceSleepManager_objc.dependencies = dependencies
         
         super.init()
 
@@ -88,20 +87,5 @@ public class DeviceSleepManager: NSObject {
         }
         let shouldBlock = blocks.count > 0
         dependencies[singleton: .appContext].ensureSleepBlocking(shouldBlock, blockingObjects: blocks)
-    }
-}
-
-// MARK: - Objective-C Support
-
-@objc(DeviceSleepManager_objc)
-public class DeviceSleepManager_objc: NSObject {
-    fileprivate static var dependencies: Dependencies!
-
-    @objc public static func addBlock(blockObject: NSObject?) {
-        dependencies[singleton: .deviceSleepManager].addBlock(blockObject: blockObject)
-    }
-
-    @objc public static func removeBlock(blockObject: NSObject?) {
-        dependencies[singleton: .deviceSleepManager].removeBlock(blockObject: blockObject)
     }
 }

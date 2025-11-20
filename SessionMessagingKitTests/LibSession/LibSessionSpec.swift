@@ -339,7 +339,7 @@ class LibSessionSpec: QuickSpec {
                         catch { resultError = error }
                     }
                     
-                    expect(resultError).to(matchError(MessageSenderError.noKeyPair))
+                    expect(resultError).to(matchError(CryptoError.missingUserSecretKey))
                 }
                 
                 // MARK: ---- throws when it fails to generate a new identity ed25519 keyPair
@@ -363,7 +363,7 @@ class LibSessionSpec: QuickSpec {
                         catch { resultError = error }
                     }
                     
-                    expect(resultError).to(matchError(MessageSenderError.noKeyPair))
+                    expect(resultError).to(matchError(CryptoError.missingUserSecretKey))
                 }
                 
                 // MARK: ---- throws when given an invalid member id

@@ -3,7 +3,7 @@
 import Foundation
 import GRDB
 
-public enum Position: Int, Decodable, Equatable, Hashable, DatabaseValueConvertible {
+public enum Position: Int, Sendable, Decodable, Equatable, Hashable, DatabaseValueConvertible {
     case top
     case middle
     case bottom

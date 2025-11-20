@@ -648,6 +648,12 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
         if hasSigTimestamp {
             builder.setSigTimestamp(sigTimestamp)
         }
+        if let _value = proMessage {
+            builder.setProMessage(_value)
+        }
+        if let _value = proSigForCommunityMessageOnly {
+            builder.setProSigForCommunityMessageOnly(_value)
+        }
         return builder
     }
 
@@ -697,6 +703,14 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
             proto.sigTimestamp = valueParam
         }
 
+        @objc public func setProMessage(_ valueParam: SNProtoProMessage) {
+            proto.proMessage = valueParam.proto
+        }
+
+        @objc public func setProSigForCommunityMessageOnly(_ valueParam: Data) {
+            proto.proSigForCommunityMessageOnly = valueParam
+        }
+
         @objc public func build() throws -> SNProtoContent {
             return try SNProtoContent.parseProto(proto)
         }
@@ -722,6 +736,8 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
 
     @objc public let messageRequestResponse: SNProtoMessageRequestResponse?
 
+    @objc public let proMessage: SNProtoProMessage?
+
     @objc public var expirationType: SNProtoContentExpirationType {
         return SNProtoContent.SNProtoContentExpirationTypeWrap(proto.expirationType)
     }
@@ -743,6 +759,16 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
         return proto.hasSigTimestamp
     }
 
+    @objc public var proSigForCommunityMessageOnly: Data? {
+        guard proto.hasProSigForCommunityMessageOnly else {
+            return nil
+        }
+        return proto.proSigForCommunityMessageOnly
+    }
+    @objc public var hasProSigForCommunityMessageOnly: Bool {
+        return proto.hasProSigForCommunityMessageOnly
+    }
+
     private init(proto: SessionProtos_Content,
                  dataMessage: SNProtoDataMessage?,
                  callMessage: SNProtoCallMessage?,
@@ -750,7 +776,8 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
                  typingMessage: SNProtoTypingMessage?,
                  dataExtractionNotification: SNProtoDataExtractionNotification?,
                  unsendRequest: SNProtoUnsendRequest?,
-                 messageRequestResponse: SNProtoMessageRequestResponse?) {
+                 messageRequestResponse: SNProtoMessageRequestResponse?,
+                 proMessage: SNProtoProMessage?) {
         self.proto = proto
         self.dataMessage = dataMessage
         self.callMessage = callMessage
@@ -759,6 +786,7 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
         self.dataExtractionNotification = dataExtractionNotification
         self.unsendRequest = unsendRequest
         self.messageRequestResponse = messageRequestResponse
+        self.proMessage = proMessage
     }
 
     @objc
@@ -807,6 +835,11 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
             messageRequestResponse = try SNProtoMessageRequestResponse.parseProto(proto.messageRequestResponse)
         }
 
+        var proMessage: SNProtoProMessage? = nil
+        if proto.hasProMessage {
+            proMessage = try SNProtoProMessage.parseProto(proto.proMessage)
+        }
+
         // MARK: - Begin Validation Logic for SNProtoContent -
 
         // MARK: - End Validation Logic for SNProtoContent -
@@ -818,7 +851,8 @@ extension SNProtoMessageRequestResponse.SNProtoMessageRequestResponseBuilder {
                                     typingMessage: typingMessage,
                                     dataExtractionNotification: dataExtractionNotification,
                                     unsendRequest: unsendRequest,
-                                    messageRequestResponse: messageRequestResponse)
+                                    messageRequestResponse: messageRequestResponse,
+                                    proMessage: proMessage)
         return result
     }
 
@@ -4020,6 +4054,270 @@ extension SNProtoGroupUpdateDeleteMemberContentMessage {
 
 extension SNProtoGroupUpdateDeleteMemberContentMessage.SNProtoGroupUpdateDeleteMemberContentMessageBuilder {
     @objc public func buildIgnoringErrors() -> SNProtoGroupUpdateDeleteMemberContentMessage? {
+        return try! self.build()
+    }
+}
+
+#endif
+
+// MARK: - SNProtoProProof
+
+@objc public class SNProtoProProof: NSObject {
+
+    // MARK: - SNProtoProProofBuilder
+
+    @objc public class func builder() -> SNProtoProProofBuilder {
+        return SNProtoProProofBuilder()
+    }
+
+    // asBuilder() constructs a builder that reflects the proto's contents.
+    @objc public func asBuilder() -> SNProtoProProofBuilder {
+        let builder = SNProtoProProofBuilder()
+        if hasVersion {
+            builder.setVersion(version)
+        }
+        if let _value = genIndexHash {
+            builder.setGenIndexHash(_value)
+        }
+        if let _value = rotatingPublicKey {
+            builder.setRotatingPublicKey(_value)
+        }
+        if hasExpiryUnixTs {
+            builder.setExpiryUnixTs(expiryUnixTs)
+        }
+        if let _value = sig {
+            builder.setSig(_value)
+        }
+        return builder
+    }
+
+    @objc public class SNProtoProProofBuilder: NSObject {
+
+        private var proto = SessionProtos_ProProof()
+
+        @objc fileprivate override init() {}
+
+        @objc public func setVersion(_ valueParam: UInt32) {
+            proto.version = valueParam
+        }
+
+        @objc public func setGenIndexHash(_ valueParam: Data) {
+            proto.genIndexHash = valueParam
+        }
+
+        @objc public func setRotatingPublicKey(_ valueParam: Data) {
+            proto.rotatingPublicKey = valueParam
+        }
+
+        @objc public func setExpiryUnixTs(_ valueParam: UInt64) {
+            proto.expiryUnixTs = valueParam
+        }
+
+        @objc public func setSig(_ valueParam: Data) {
+            proto.sig = valueParam
+        }
+
+        @objc public func build() throws -> SNProtoProProof {
+            return try SNProtoProProof.parseProto(proto)
+        }
+
+        @objc public func buildSerializedData() throws -> Data {
+            return try SNProtoProProof.parseProto(proto).serializedData()
+        }
+    }
+
+    fileprivate let proto: SessionProtos_ProProof
+
+    @objc public var version: UInt32 {
+        return proto.version
+    }
+    @objc public var hasVersion: Bool {
+        return proto.hasVersion
+    }
+
+    @objc public var genIndexHash: Data? {
+        guard proto.hasGenIndexHash else {
+            return nil
+        }
+        return proto.genIndexHash
+    }
+    @objc public var hasGenIndexHash: Bool {
+        return proto.hasGenIndexHash
+    }
+
+    @objc public var rotatingPublicKey: Data? {
+        guard proto.hasRotatingPublicKey else {
+            return nil
+        }
+        return proto.rotatingPublicKey
+    }
+    @objc public var hasRotatingPublicKey: Bool {
+        return proto.hasRotatingPublicKey
+    }
+
+    @objc public var expiryUnixTs: UInt64 {
+        return proto.expiryUnixTs
+    }
+    @objc public var hasExpiryUnixTs: Bool {
+        return proto.hasExpiryUnixTs
+    }
+
+    @objc public var sig: Data? {
+        guard proto.hasSig else {
+            return nil
+        }
+        return proto.sig
+    }
+    @objc public var hasSig: Bool {
+        return proto.hasSig
+    }
+
+    private init(proto: SessionProtos_ProProof) {
+        self.proto = proto
+    }
+
+    @objc
+    public func serializedData() throws -> Data {
+        return try self.proto.serializedData()
+    }
+
+    @objc public class func parseData(_ serializedData: Data) throws -> SNProtoProProof {
+        let proto = try SessionProtos_ProProof(serializedData: serializedData)
+        return try parseProto(proto)
+    }
+
+    fileprivate class func parseProto(_ proto: SessionProtos_ProProof) throws -> SNProtoProProof {
+        // MARK: - Begin Validation Logic for SNProtoProProof -
+
+        // MARK: - End Validation Logic for SNProtoProProof -
+
+        let result = SNProtoProProof(proto: proto)
+        return result
+    }
+
+    @objc public override var debugDescription: String {
+        return "\(proto)"
+    }
+}
+
+#if DEBUG
+
+extension SNProtoProProof {
+    @objc public func serializedDataIgnoringErrors() -> Data? {
+        return try! self.serializedData()
+    }
+}
+
+extension SNProtoProProof.SNProtoProProofBuilder {
+    @objc public func buildIgnoringErrors() -> SNProtoProProof? {
+        return try! self.build()
+    }
+}
+
+#endif
+
+// MARK: - SNProtoProMessage
+
+@objc public class SNProtoProMessage: NSObject {
+
+    // MARK: - SNProtoProMessageBuilder
+
+    @objc public class func builder() -> SNProtoProMessageBuilder {
+        return SNProtoProMessageBuilder()
+    }
+
+    // asBuilder() constructs a builder that reflects the proto's contents.
+    @objc public func asBuilder() -> SNProtoProMessageBuilder {
+        let builder = SNProtoProMessageBuilder()
+        if let _value = proof {
+            builder.setProof(_value)
+        }
+        if hasFeatures {
+            builder.setFeatures(features)
+        }
+        return builder
+    }
+
+    @objc public class SNProtoProMessageBuilder: NSObject {
+
+        private var proto = SessionProtos_ProMessage()
+
+        @objc fileprivate override init() {}
+
+        @objc public func setProof(_ valueParam: SNProtoProProof) {
+            proto.proof = valueParam.proto
+        }
+
+        @objc public func setFeatures(_ valueParam: UInt64) {
+            proto.features = valueParam
+        }
+
+        @objc public func build() throws -> SNProtoProMessage {
+            return try SNProtoProMessage.parseProto(proto)
+        }
+
+        @objc public func buildSerializedData() throws -> Data {
+            return try SNProtoProMessage.parseProto(proto).serializedData()
+        }
+    }
+
+    fileprivate let proto: SessionProtos_ProMessage
+
+    @objc public let proof: SNProtoProProof?
+
+    @objc public var features: UInt64 {
+        return proto.features
+    }
+    @objc public var hasFeatures: Bool {
+        return proto.hasFeatures
+    }
+
+    private init(proto: SessionProtos_ProMessage,
+                 proof: SNProtoProProof?) {
+        self.proto = proto
+        self.proof = proof
+    }
+
+    @objc
+    public func serializedData() throws -> Data {
+        return try self.proto.serializedData()
+    }
+
+    @objc public class func parseData(_ serializedData: Data) throws -> SNProtoProMessage {
+        let proto = try SessionProtos_ProMessage(serializedData: serializedData)
+        return try parseProto(proto)
+    }
+
+    fileprivate class func parseProto(_ proto: SessionProtos_ProMessage) throws -> SNProtoProMessage {
+        var proof: SNProtoProProof? = nil
+        if proto.hasProof {
+            proof = try SNProtoProProof.parseProto(proto.proof)
+        }
+
+        // MARK: - Begin Validation Logic for SNProtoProMessage -
+
+        // MARK: - End Validation Logic for SNProtoProMessage -
+
+        let result = SNProtoProMessage(proto: proto,
+                                       proof: proof)
+        return result
+    }
+
+    @objc public override var debugDescription: String {
+        return "\(proto)"
+    }
+}
+
+#if DEBUG
+
+extension SNProtoProMessage {
+    @objc public func serializedDataIgnoringErrors() -> Data? {
+        return try! self.serializedData()
+    }
+}
+
+extension SNProtoProMessage.SNProtoProMessageBuilder {
+    @objc public func buildIgnoringErrors() -> SNProtoProMessage? {
         return try! self.build()
     }
 }

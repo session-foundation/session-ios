@@ -51,8 +51,7 @@ internal extension LibSessionCacheType {
     func handleGroupInfoUpdate(
         _ db: ObservingDatabase,
         in config: LibSession.Config?,
-        groupSessionId: SessionId,
-        serverTimestampMs: Int64
+        groupSessionId: SessionId
     ) throws {
         guard configNeedsDump(config) else { return }
         guard case .groupInfo(let conf) = config else {
@@ -152,7 +151,7 @@ internal extension LibSessionCacheType {
                     shouldBeUnique: true,
                     details: DisplayPictureDownloadJob.Details(
                         target: .group(id: groupSessionId.hexString, url: url, encryptionKey: key),
-                        timestamp: TimeInterval(Double(serverTimestampMs) / 1000)
+                        timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     )
                 ),
                 canStartJob: true
@@ -233,17 +232,12 @@ internal extension LibSessionCacheType {
         let attachDeleteBeforeTimestamp: Int64 = groups_info_get_attach_delete_before(conf)
         
         if attachDeleteBeforeTimestamp > 0 {
-            let interactionInfo: [InteractionInfo] = (try? Interaction
-                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
-                .joining(
-                    required: Interaction.interactionAttachments.joining(
-                        required: InteractionAttachment.attachment
-                            .filter(Attachment.Columns.variant != Attachment.Variant.voiceMessage)
-                    )
+            let interactionInfo: [Interaction.VariantInfo] = (try? SessionThread
+                .interactionInfoWithAttachments(
+                    threadId: groupSessionId.hexString,
+                    beforeTimestampMs: Int64(floor(TimeInterval(attachDeleteBeforeTimestamp) * 1000)),
+                    attachmentVariants: [.standard]
                 )
-                .select(.id, .serverHash)
-                .asRequest(of: InteractionInfo.self)
                 .fetchAll(db))
                 .defaulting(to: [])
             let interactionIdsToRemove: Set<Int64> = Set(interactionInfo.map { $0.id })

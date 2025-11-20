@@ -4,6 +4,8 @@ import Foundation
 import UIKit
 
 public enum MentionUtilities {
+    static let pubkeyRegex: NSRegularExpression = try! NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
+    
     public enum MentionLocation {
         case incomingMessage
         case outgoingMessage
@@ -13,20 +15,24 @@ public enum MentionUtilities {
         case styleFree
     }
     
+    public static func allPubkeys(in string: String) -> Set<String> {
+        guard !string.isEmpty else { return [] }
+        
+        return Set(pubkeyRegex
+            .matches(in: string, range: NSRange(string.startIndex..., in: string))
+            .compactMap { match in Range(match.range, in: string).map { String(string[$0]) } })
+    }
+    
     public static func getMentions(
         in string: String,
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String, Bool) -> String?
     ) -> (String, [(range: NSRange, profileId: String, isCurrentUser: Bool)]) {
-        guard
-            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
-        else { return (string, []) }
-        
         var string = string
         var lastMatchEnd: Int = 0
         var mentions: [(range: NSRange, profileId: String, isCurrentUser: Bool)] = []
         
-        while let match: NSTextCheckingResult = regex.firstMatch(
+        while let match: NSTextCheckingResult = pubkeyRegex.firstMatch(
             in: string,
             options: .withoutAnchoringBounds,
             range: NSRange(location: lastMatchEnd, length: string.utf16.count - lastMatchEnd)
@@ -66,82 +72,13 @@ public enum MentionUtilities {
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String, Bool) -> String?
     ) -> String {
-        /// **Note:** We are returning the string here so the 'textColor' and 'primaryColor' values are irrelevant
-        return highlightMentions(
-            in: string,
-            currentUserSessionIds: currentUserSessionIds,
-            location: .styleFree,
-            textColor: .black,
-            attributes: [:],
-            displayNameRetriever: displayNameRetriever
-        )
-        .string
-        .deformatted()
-    }
-
-    public static func highlightMentions(
-        in string: String,
-        currentUserSessionIds: Set<String>,
-        location: MentionLocation,
-        textColor: ThemeValue,
-        attributes: [NSAttributedString.Key: Any],
-        displayNameRetriever: (String, Bool) -> String?
-    ) -> ThemedAttributedString {
-        let (string, mentions) = getMentions(
+        let (string, _) = getMentions(
             in: string,
             currentUserSessionIds: currentUserSessionIds,
             displayNameRetriever: displayNameRetriever
         )
         
-        let sizeDiff: CGFloat = (Values.smallFontSize / Values.mediumFontSize)
-        let result: ThemedAttributedString = ThemedAttributedString(string: string, attributes: attributes)
-        mentions.forEach { mention in
-            result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.smallFontSize), range: mention.range)
-            
-            if mention.isCurrentUser && location == .incomingMessage {
-                // Note: The designs don't match with the dynamic sizing so these values need to be calculated
-                // to maintain a "rounded rect" effect rather than a "pill" effect
-                result.addAttribute(.currentUserMentionBackgroundCornerRadius, value: (8 * sizeDiff), range: mention.range)
-                result.addAttribute(.currentUserMentionBackgroundPadding, value: (3 * sizeDiff), range: mention.range)
-                result.addAttribute(.currentUserMentionBackgroundColor, value: ThemeValue.primary, range: mention.range)
-                
-                // Only add the additional kern if the mention isn't at the end of the string (otherwise this
-                // would crash due to an index out of bounds exception)
-                if mention.range.upperBound < result.length {
-                    result.addAttribute(.kern, value: (3 * sizeDiff), range: NSRange(location: mention.range.upperBound, length: 1))
-                }
-            }
-            
-            var targetColor: ThemeValue = textColor
-            
-            switch (location, mention.isCurrentUser) {
-                // 1 - Incoming messages where the mention is for the current user
-                case (.incomingMessage, true):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                
-                // 2 - Incoming messages where the mention is for another user
-                case (.incomingMessage, false):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .primary)
-                    
-                // 3 - Outgoing messages
-                case (.outgoingMessage, _):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                
-                // 4 - Mentions in quotes
-                case (.outgoingQuote, _):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                case (.incomingQuote, _):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .primary)
-                    
-                // 5 - Mentions in quote drafts
-                case (.quoteDraft, _), (.styleFree, _):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: textColor)
-            }
-            
-            result.addAttribute(.themeForegroundColor, value: targetColor, range: mention.range)
-        }
-        
-        return result
+        return string
     }
 }
 

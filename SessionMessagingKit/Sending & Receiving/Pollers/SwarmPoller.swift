@@ -297,6 +297,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         }
         
         /// Since the hashes are still accurate we can now process the messages
+        let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
         let allProcessedMessages: [ProcessedMessage] = sortedMessages
             .compactMap { namespace, messages, _ -> [ProcessedMessage]? in
                 let processedMessages: [ProcessedMessage] = messages.compactMap { message -> ProcessedMessage? in
@@ -326,7 +327,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                     }
                     catch {
                         /// For some error cases we want to update the last hash so do so
-                        if (error as? MessageReceiverError)?.shouldUpdateLastHash == true {
+                        if (error as? MessageError)?.shouldUpdateLastHash == true {
                             hadValidHashUpdate = (message.info?.storeUpdatedLastHash(db) == true)
                         }
                         
@@ -335,8 +336,8 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                             /// will be a lot since we each service node duplicates messages)
                             case DatabaseError.SQLITE_CONSTRAINT_UNIQUE,
                                 DatabaseError.SQLITE_CONSTRAINT,    /// Sometimes thrown for UNIQUE
-                                MessageReceiverError.duplicateMessage,
-                                MessageReceiverError.selfSend:
+                                MessageError.duplicateMessage,
+                                MessageError.selfSend:
                                 break
                             
                             case DatabaseError.SQLITE_ABORT:
@@ -374,7 +375,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 else {
                     /// Individually process non-config messages
                     processedMessages.forEach { processedMessage in
-                        guard case .standard(let threadId, let threadVariant, let proto, let messageInfo, _) = processedMessage else {
+                        guard case .standard(let threadId, let threadVariant, let messageInfo, _) = processedMessage else {
                             return
                         }
                         
@@ -384,9 +385,10 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                                 threadId: threadId,
                                 threadVariant: threadVariant,
                                 message: messageInfo.message,
+                                decodedMessage: messageInfo.decodedMessage,
                                 serverExpirationTimestamp: messageInfo.serverExpirationTimestamp,
-                                associatedWithProto: proto,
-                                suppressNotifications: (source == .pushNotification),   /// Have already shown
+                                suppressNotifications: (source == .pushNotification),    /// Have already shown
+                                currentUserSessionIds: [currentUserSessionId.hexString], /// Swarm poller only has one
                                 using: dependencies
                             )
                             

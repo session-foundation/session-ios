@@ -1275,7 +1275,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                         behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                         threadId: groupId.hexString,
                                         details: MessageSendJob.Details(
-                                            destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                            destination: .group(publicKey: groupId.hexString),
                                             message: try GroupUpdateMemberChangeMessage(
                                                 changeType: .added,
                                                 memberSessionIds: [
@@ -1477,7 +1477,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                     threadId: groupId.hexString,
                                     details: MessageSendJob.Details(
-                                        destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                        destination: .group(publicKey: groupId.hexString),
                                         message: try GroupUpdateMemberChangeMessage(
                                             changeType: .added,
                                             memberSessionIds: [
@@ -1522,7 +1522,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                     threadId: groupId.hexString,
                                     details: MessageSendJob.Details(
-                                        destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                        destination: .group(publicKey: groupId.hexString),
                                         message: try GroupUpdateMemberChangeMessage(
                                             changeType: .added,
                                             memberSessionIds: [

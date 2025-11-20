@@ -42,7 +42,7 @@ public extension ProfilePictureView {
         additionalProfile: Profile? = nil,
         additionalProfileIcon: ProfileIcon = .none,
         using dependencies: Dependencies
-    ) -> (Info?, Info?) {
+    ) -> (info: Info?, additionalInfo: Info?) {
         let explicitPath: String? = try? dependencies[singleton: .displayPictureManager].path(
             for: displayPictureUrl
         )
@@ -77,7 +77,7 @@ public extension ProfilePictureView {
                             switch size {
                                 case .navigation, .message: return .image("SessionWhite16", #imageLiteral(resourceName: "SessionWhite16"))
                                 case .list: return .image("SessionWhite24", #imageLiteral(resourceName: "SessionWhite24"))
-                                case .hero, .modal: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
+                                case .hero, .modal, .expanded: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
                             }
                         }(),
                         animationBehaviour: .generic(true),
@@ -200,10 +200,9 @@ public extension ProfilePictureView {
             case .none: return .generic(false)
             
             case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
-                return .currentUser(dependencies[singleton: .sessionProState])
+                return .currentUser(dependencies[singleton: .sessionProManager])
                 
-            case .some(let profile):
-                return .contact(dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }))
+            case .some(let profile): return .contact(profile.proFeatures.contains(.animatedAvatar) == true)
         }
     }
 }

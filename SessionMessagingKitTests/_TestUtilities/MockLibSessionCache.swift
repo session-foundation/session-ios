@@ -118,26 +118,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     func mergeConfigMessages(
         swarmPublicKey: String,
-        messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [ObservableKey: Any]) throws -> ConfigDump?
-    ) throws -> [LibSession.MergeResult] {
-        try mockThrowingNoReturn(args: [swarmPublicKey, messages])
-        
-        /// **Note:** Since `afterMerge` is non-escaping (and we don't want to change it to be so for the purposes of mocking
-        /// in unit test) we just call it directly instead of storing in `untrackedArgs`
-        let expectation: MockFunction = getExpectation(args: [swarmPublicKey, messages])
-        
-        guard
-            expectation.closureCallArgs.count == 4,
-            let sessionId: SessionId = expectation.closureCallArgs[0] as? SessionId,
-            let variant: ConfigDump.Variant = expectation.closureCallArgs[1] as? ConfigDump.Variant,
-            let timestamp: Int64 = expectation.closureCallArgs[3] as? Int64,
-            let oldState: [ObservableKey: Any] = expectation.closureCallArgs[4] as? [ObservableKey: Any]
-        else {
-            return try mockThrowing(args: [swarmPublicKey, messages])
-        }
-        
-        _ = try afterMerge(sessionId, variant, expectation.closureCallArgs[2] as? LibSession.Config, timestamp, oldState)
+        messages: [ConfigMessageReceiveJob.Details.MessageInfo]
+    ) throws -> [ConfigDump.Variant: Int64] {
         return try mockThrowing(args: [swarmPublicKey, messages])
     }
     
@@ -147,13 +129,6 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws {
         try mockThrowingNoReturn(args: [swarmPublicKey, messages], untrackedArgs: [db])
-    }
-    
-    func unsafeDirectMergeConfigMessage(
-        swarmPublicKey: String,
-        messages: [ConfigMessageReceiveJob.Details.MessageInfo]
-    ) throws {
-        try mockThrowingNoReturn(args: [swarmPublicKey, messages])
     }
     
     // MARK: - State Access
@@ -227,6 +202,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int64? {
         return mock(args: [threadId, threadVariant, openGroupUrlInfo])
+    }
+    
+    func proProofMetadata(threadId: String) -> (genIndexHash: String, expiryUnixTimestampMs: Int64)? {
+        return mock(args: [threadId])
     }
     
     func isMessageRequest(

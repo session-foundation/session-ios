@@ -73,7 +73,7 @@ public struct UserProfileModal: View {
                                 )
                                 .scaleEffect(scale, anchor: .topLeading)
                                 .onTapGesture {
-                                    withAnimation {
+                                    withAnimation(.easeInOut(duration: 0.1)) {
                                         self.isProfileImageExpanding.toggle()
                                     }
                                 }
@@ -85,7 +85,7 @@ public struct UserProfileModal: View {
                             )
                             
                             if info.sessionId != nil {
-                                let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (20, 12)
+                                let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (24, 14)
                                 ZStack {
                                     Circle()
                                         .foregroundColor(themeColor: .primary)
@@ -162,7 +162,7 @@ public struct UserProfileModal: View {
                                     .foregroundColor(themeColor: .textPrimary)
                                     .multilineTextAlignment(.center)
                                 
-                                if info.isProUser {
+                                if info.shouldShowProBadge {
                                     SessionProBadge_SwiftUI(size: .large)
                                         .onTapGesture {
                                             info.onProBadgeTapped?()
@@ -171,7 +171,7 @@ public struct UserProfileModal: View {
                             }
                             
                             if let contactDisplayName: String = info.contactDisplayName, contactDisplayName != displayName {
-                                Text("(\(contactDisplayName))") // stringlint:ignroe
+                                Text("(\(contactDisplayName))") // stringlint:ignore
                                     .font(.Body.smallRegular)
                                     .foregroundColor(themeColor: .textSecondary)
                                     .multilineTextAlignment(.center)
@@ -366,9 +366,8 @@ public struct UserProfileModal: View {
         let viewController = SessionHostingViewController(
             rootView: LightBox(
                 itemsToShare: [
-                    QRCode.qrCodeImageWithTintAndBackground(
+                    QRCode.qrCodeImageWithBackground(
                         image: qrCodeImage,
-                        themeStyle: ThemeManager.currentTheme.interfaceStyle,
                         size: CGSize(width: 400, height: 400),
                         insets: UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
                     )
@@ -406,7 +405,7 @@ public extension UserProfileModal {
         let profileInfo: ProfilePictureView.Info
         let displayName: String?
         let contactDisplayName: String?
-        let isProUser: Bool
+        let shouldShowProBadge: Bool
         let isMessageRequestsEnabled: Bool
         let onStartThread: (() -> Void)?
         let onProBadgeTapped: (() -> Void)?
@@ -418,7 +417,7 @@ public extension UserProfileModal {
             profileInfo: ProfilePictureView.Info,
             displayName: String?,
             contactDisplayName: String?,
-            isProUser: Bool,
+            shouldShowProBadge: Bool,
             isMessageRequestsEnabled: Bool,
             onStartThread: (() -> Void)?,
             onProBadgeTapped: (() -> Void)?
@@ -429,7 +428,7 @@ public extension UserProfileModal {
             self.profileInfo = profileInfo
             self.displayName = displayName
             self.contactDisplayName = contactDisplayName
-            self.isProUser = isProUser
+            self.shouldShowProBadge = shouldShowProBadge
             self.isMessageRequestsEnabled = isMessageRequestsEnabled
             self.onStartThread = onStartThread
             self.onProBadgeTapped = onProBadgeTapped

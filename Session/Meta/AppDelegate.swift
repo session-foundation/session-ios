@@ -57,7 +57,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         dependencies.set(singleton: .appContext, to: MainAppContext(using: dependencies))
         verifyDBKeysAvailableBeforeBackgroundLaunch()
 
-        dependencies.warmCache(cache: .appVersion)
+        dependencies.warm(cache: .appVersion)
         dependencies[singleton: .pushRegistrationManager].createVoipRegistryIfNecessary()
 
         // Prevent the device from sleeping during database view async registration
@@ -79,7 +79,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 
                 // Setup LibSession
                 LibSession.setupLogger(using: dependencies)
-                dependencies.warmCache(cache: .libSessionNetwork)
+                dependencies.warm(cache: .libSessionNetwork)
+                dependencies.warm(singleton: .network)
+                dependencies.warm(singleton: .sessionProManager)
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(
@@ -466,9 +468,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         Log.info(.cat, "Migrations completed, performing setup and ensuring rootViewController")
         dependencies[singleton: .jobRunner].setExecutor(SyncPushTokensJob.self, for: .syncPushTokens)
         
-        /// We need to do a clean up for disappear after send messages that are received by push notifications before
-        /// the app set up the main screen and load initial data to prevent a case when the PagedDatabaseObserver
-        /// hasn't been setup yet then the conversation screen can show stale (ie. deleted) interactions incorrectly
+        /// We need to do a clean up for disappear after send messages that are received by push notifications before the app sets up
+        /// the main screen and loads initial data to prevent a case where the the conversation screen can show stale (ie. deleted)
+        /// interactions incorrectly
         DisappearingMessagesJob.cleanExpiredMessagesOnResume(using: dependencies)
         
         /// Now that the database is setup we can load in any messages which were processed by the extensions (flag that we will load
@@ -539,7 +541,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         // May as well run these on the background thread
-        SessionEnvironment.shared?.audioSession.setup()
+        dependencies[singleton: .audioSession].setup()
     }
     
     private func showFailedStartupAlert(
@@ -805,7 +807,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         // Navigate to the approriate screen depending on the onboarding state
-        dependencies.warmCache(cache: .onboarding)
+        dependencies.warm(cache: .onboarding)
         
         switch dependencies[cache: .onboarding].state {
             case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
@@ -1068,7 +1070,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         if
             let conversationVC: ConversationVC = (presentingVC as? TopBannerController)?.wrappedViewController() as? ConversationVC,
-            conversationVC.viewModel.threadData.threadId == call.sessionId
+            conversationVC.viewModel.state.threadId == call.sessionId
         {
             callVC.conversationVC = conversationVC
             conversationVC.resignFirstResponder()

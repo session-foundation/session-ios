@@ -66,7 +66,7 @@ extension ContextMenuVC {
 
         static func retry(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: UIImage(systemName: "arrow.triangle.2.circlepath"),
+                icon: Lucide.image(icon: .repeat2, size: 24),
                 title: (cellViewModel.state == .failedToSync ?
                     "resync".localized() :
                     "resend".localized()
@@ -77,17 +77,17 @@ extension ContextMenuVC {
 
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: UIImage(named: "ic_reply"),
+                icon: Lucide.image(icon: .reply, size: 24),
                 title: "reply".localized(),
                 shouldDismissInfoScreen: true,
                 accessibilityLabel: "Reply to message"
             ) { completion in delegate?.reply(cellViewModel, completion: completion) }
         }
 
-        static func copy(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
+        static func copy(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?, forMessageInfoScreen: Bool) -> Action {
             return Action(
-                icon: UIImage(named: "ic_copy"),
-                title: "copy".localized(),
+                icon: Lucide.image(icon: .copy, size: 24),
+                title: forMessageInfoScreen ? "messageCopy".localized() : "copy".localized(),
                 feedback: "copied".localized(),
                 accessibilityLabel: "Copy text"
             ) { completion in delegate?.copy(cellViewModel, completion: completion) }
@@ -95,7 +95,7 @@ extension ContextMenuVC {
 
         static func copySessionID(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: UIImage(named: "ic_copy"),
+                icon: Lucide.image(icon: .copy, size: 24),
                 title: "accountIDCopy".localized(),
                 feedback: "copied".localized(),
                 accessibilityLabel: "Copy Session ID"
@@ -118,7 +118,7 @@ extension ContextMenuVC {
 
         static func save(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: UIImage(named: "ic_download"),
+                icon: Lucide.image(icon: .arrowDownToLine, size: 24),
                 title: "save".localized(),
                 feedback: "saved".localized(),
                 accessibilityLabel: "Save attachment"
@@ -184,6 +184,8 @@ extension ContextMenuVC {
     static func actions(
         for cellViewModel: MessageViewModel,
         in threadViewModel: SessionThreadViewModel,
+        reactionsSupported: Bool,
+        isUserModeratorOrAdmin: Bool,
         forMessageInfoScreen: Bool,
         delegate: ContextMenuActionDelegate?,
         using dependencies: Dependencies
@@ -217,18 +219,18 @@ extension ContextMenuVC {
                     cellViewModel.cellType == .genericAttachment ||
                     cellViewModel.cellType == .mediaMessage
                 ) &&
-                (cellViewModel.attachments ?? []).count == 1 &&
-                (cellViewModel.attachments ?? []).first?.isVisualMedia == true &&
-                (cellViewModel.attachments ?? []).first?.isValid == true && (
-                    (cellViewModel.attachments ?? []).first?.state == .downloaded ||
-                    (cellViewModel.attachments ?? []).first?.state == .uploaded
+                cellViewModel.attachments.count == 1 &&
+                cellViewModel.attachments.first?.isVisualMedia == true &&
+                cellViewModel.attachments.first?.isValid == true && (
+                    cellViewModel.attachments.first?.state == .downloaded ||
+                    cellViewModel.attachments.first?.state == .uploaded
                 )
             )
         )
         let canSave: Bool = {
             switch cellViewModel.cellType {
                 case .mediaMessage:
-                    return (cellViewModel.attachments ?? [])
+                    return cellViewModel.attachments
                         .filter { attachment in
                             attachment.isValid &&
                             attachment.isVisualMedia && (
@@ -238,7 +240,7 @@ extension ContextMenuVC {
                         }.isEmpty == false
                     
                 case .audio, .genericAttachment:
-                    return (cellViewModel.attachments ?? [])
+                    return cellViewModel.attachments
                         .filter { attachment in
                             attachment.isValid && (
                                 attachment.state == .downloaded ||
@@ -255,35 +257,17 @@ extension ContextMenuVC {
         )
         let canDelete: Bool = (MessageViewModel.DeletionBehaviours.deletionActions(
             for: [cellViewModel],
-            with: threadViewModel,
+            threadData: threadViewModel,
+            isUserModeratorOrAdmin: isUserModeratorOrAdmin,
             using: dependencies
         ) != nil)
         let canBan: Bool = (
             cellViewModel.threadVariant == .community &&
-            dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
-                publicKey: threadViewModel.currentUserSessionId,
-                for: threadViewModel.openGroupRoomToken,
-                on: threadViewModel.openGroupServer,
-                currentUserSessionIds: (threadViewModel.currentUserSessionIds ?? [])
-            )
+            isUserModeratorOrAdmin
         )
-        let shouldShowEmojiActions: Bool = {
-            guard cellViewModel.threadVariant != .legacyGroup else { return false }
-            
-            if cellViewModel.threadVariant == .community {
-                return (
-                    !forMessageInfoScreen &&
-                    dependencies[singleton: .openGroupManager].doesOpenGroupSupport(
-                        capability: .reactions,
-                        on: cellViewModel.threadOpenGroupServer
-                    )
-                )
-            }
-            return (threadViewModel.threadIsMessageRequest != true && !forMessageInfoScreen)
-        }()
         
         let recentEmojis: [EmojiWithSkinTones] = {
-            guard shouldShowEmojiActions else { return [] }
+            guard reactionsSupported else { return [] }
             
             return (threadViewModel.recentReactionEmoji ?? [])
                 .compactMap { EmojiWithSkinTones(rawValue: $0) }
@@ -291,7 +275,7 @@ extension ContextMenuVC {
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
             (viewModelCanReply(cellViewModel, using: dependencies) ? Action.reply(cellViewModel, delegate) : nil),
-            (canCopy ? Action.copy(cellViewModel, delegate) : nil),
+            (canCopy ? Action.copy(cellViewModel, delegate, forMessageInfoScreen: forMessageInfoScreen) : nil),
             (canSave ? Action.save(cellViewModel, delegate) : nil),
             (canCopySessionId ? Action.copySessionID(cellViewModel, delegate) : nil),
             (canDelete ? Action.delete(cellViewModel, delegate) : nil),
@@ -300,7 +284,7 @@ extension ContextMenuVC {
             (forMessageInfoScreen ? nil : Action.info(cellViewModel, delegate)),
         ]
         .appending(
-            contentsOf: (shouldShowEmojiActions ? recentEmojis : [])
+            contentsOf: (reactionsSupported ? recentEmojis : [])
                 .map { Action.react(cellViewModel, $0, delegate) }
         )
         .appending(forMessageInfoScreen ? nil : Action.emojiPlusButton(cellViewModel, delegate))

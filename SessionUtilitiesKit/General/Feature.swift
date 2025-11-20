@@ -90,12 +90,24 @@ public extension FeatureStorage {
         identifier: "sessionPro"
     )
     
-    static let mockCurrentUserSessionPro: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "mockCurrentUserSessionPro"
+    static let proBadgeEverywhere: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "proBadgeEverywhere"
     )
     
-    static let treatAllIncomingMessagesAsProMessages: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "treatAllIncomingMessagesAsProMessages"
+    static let fakeAppleSubscriptionForDev: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "fakeAppleSubscriptionForDev"
+    )
+    
+    static let forceMessageFeatureProBadge: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureProBadge"
+    )
+    
+    static let forceMessageFeatureLongMessage: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureLongMessage"
+    )
+    
+    static let forceMessageFeatureAnimatedAvatar: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "forceMessageFeatureAnimatedAvatar"
     )
     
     static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(

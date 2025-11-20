@@ -235,7 +235,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 
                 if
                     let conversationVC: ConversationVC = currentFrontMostViewController as? ConversationVC,
-                    conversationVC.viewModel.threadData.threadId == call.sessionId
+                    conversationVC.viewModel.state.threadId == call.sessionId
                 {
                     let callVC = CallVC(for: call, using: dependencies)
                     callVC.conversationVC = conversationVC

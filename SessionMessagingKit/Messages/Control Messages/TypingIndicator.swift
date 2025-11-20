@@ -42,9 +42,10 @@ public final class TypingIndicator: ControlMessage {
 
     // MARK: - Validation
     
-    public override func isValid(isSending: Bool) -> Bool {
-        guard super.isValid(isSending: isSending) else { return false }
-        return kind != nil
+    public override func validateMessage(isSending: Bool) throws {
+        try super.validateMessage(isSending: isSending)
+        
+        if kind == nil { throw MessageError.missingRequiredField("kind") }
     }
 
     // MARK: - Initialization

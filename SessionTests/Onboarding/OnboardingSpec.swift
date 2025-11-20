@@ -852,6 +852,7 @@ class OnboardingSpec: AsyncSpec {
                     displayName: .set(to: "TestPolledName"),
                     displayPictureUrl: .set(to: "http://filev2.getsession.org/file/1234"),
                     displayPictureEncryptionKey: .set(to: Data([1, 2, 3])),
+                    proFeatures: .set(to: .none),
                     isReuploadProfilePicture: false
                 )
                 testCacheProfile = cache.profile

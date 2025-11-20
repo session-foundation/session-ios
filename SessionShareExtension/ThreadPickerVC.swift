@@ -335,7 +335,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 
                 let shareData: ShareDatabaseData = try await dependencies[singleton: .storage].writeAsync { db in
                     guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                        throw MessageSenderError.noThread
+                        throw MessageError.messageRequiresThreadToExistButThreadDoesNotExist
                     }
                     
                     /// Update the thread to be visible (if it isn't already)
@@ -381,7 +381,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     if
                         isSharingUrl,
                         let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft,
-                        (try? interaction.linkPreview.isEmpty(db)) == true
+                        (((try? Interaction
+                            .linkPreview(url: interaction.linkPreviewUrl, timestampMs: interaction.timestampMs)?
+                            .fetchCount(db)) ?? 0) == 0)
                     {
                         try LinkPreview(
                             url: linkPreviewDraft.urlString,

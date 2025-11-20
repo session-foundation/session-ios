@@ -330,23 +330,13 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
             using: dependencies
         )
         
-        // Process audio attachments
-        if pendingAttachment.utType.isAudio {
-            return (pendingAttachment.duration > 0, pendingAttachment.duration)
+        // Process audio and video attachments
+        if pendingAttachment.utType.isAudio || pendingAttachment.utType.isVideo {
+            return (pendingAttachment.isValid, pendingAttachment.duration)
         }
         
-        // Process image attachments
-        if pendingAttachment.utType.isImage || pendingAttachment.utType.isAnimated {
-            return (pendingAttachment.isValidVisualMedia, nil)
-        }
-        
-        // Process video attachments
-        if pendingAttachment.utType.isVideo {
-            return (pendingAttachment.isValidVisualMedia, pendingAttachment.duration)
-        }
-        
-        // Any other attachment types are valid and have no duration
-        return (true, nil)
+        // No other attachments should have duration information
+        return (pendingAttachment.isValid, nil)
     }
 }
 
@@ -1297,7 +1287,7 @@ public extension PendingAttachment {
             height: imageSize.map { UInt(floor($0.height)) },
             duration: duration,
             isVisualMedia: utType.isVisualMedia,
-            isValid: isValidVisualMedia,
+            isValid: isValid,
             encryptionKey: encryptionKey,
             digest: digest
         )
@@ -1317,6 +1307,21 @@ public extension PendingAttachment {
         else { return utType.sessionFileExtension(sourceFilename: sourceFilename) }
         
         return fileExtension.filteredFilename
+    }
+    
+    var isValid: Bool {
+        // Process audio attachments
+        if utType.isAudio {
+            return (duration > 0)
+        }
+        
+        // Process image and video attachments
+        if utType.isImage || utType.isAnimated || utType.isVideo {
+            return isValidVisualMedia
+        }
+        
+        // Any other attachment types are valid and have no duration
+        return true
     }
     
     var isValidVisualMedia: Bool {

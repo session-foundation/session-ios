@@ -9,19 +9,6 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
     public static var databaseTableName: String { "thread" }
     public static let idColumn: ColumnExpression = Columns.id
     
-    public static let contact = hasOne(Contact.self, using: Contact.threadForeignKey)
-    public static let closedGroup = hasOne(ClosedGroup.self, using: ClosedGroup.threadForeignKey)
-    public static let openGroup = hasOne(OpenGroup.self, using: OpenGroup.threadForeignKey)
-    public static let disappearingMessagesConfiguration = hasOne(
-        DisappearingMessagesConfiguration.self,
-        using: DisappearingMessagesConfiguration.threadForeignKey
-    )
-    public static let interactions = hasMany(Interaction.self, using: Interaction.threadForeignKey)
-    public static let typingIndicator = hasOne(
-        ThreadTypingIndicator.self,
-        using: ThreadTypingIndicator.threadForeignKey
-    )
-    
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
         case id
@@ -83,32 +70,6 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
     
     /// A value indicating whether this conversation is a draft conversation (ie. hasn't sent a message yet and should auto-delete)
     public let isDraft: Bool?
-    
-    // MARK: - Relationships
-    
-    public var contact: QueryInterfaceRequest<Contact> {
-        request(for: SessionThread.contact)
-    }
-    
-    public var closedGroup: QueryInterfaceRequest<ClosedGroup> {
-        request(for: SessionThread.closedGroup)
-    }
-    
-    public var openGroup: QueryInterfaceRequest<OpenGroup> {
-        request(for: SessionThread.openGroup)
-    }
-    
-    public var disappearingMessagesConfiguration: QueryInterfaceRequest<DisappearingMessagesConfiguration> {
-        request(for: SessionThread.disappearingMessagesConfiguration)
-    }
-    
-    public var interactions: QueryInterfaceRequest<Interaction> {
-        request(for: SessionThread.interactions)
-    }
-    
-    public var typingIndicator: QueryInterfaceRequest<ThreadTypingIndicator> {
-        request(for: SessionThread.typingIndicator)
-    }
     
     // MARK: - Initialization
     
@@ -392,6 +353,12 @@ public extension SessionThread {
                         threadVariant: variant,
                         using: dependencies
                     )
+                
+                /// Notify of update
+                db.addConversationEvent(
+                    id: id,
+                    type: .updated(.disappearingMessageConfiguration(config))
+                )
             
             case (_, .useExistingOrSetTo(let config)):          // Update if we don't have an existing entry
                 guard (try? DisappearingMessagesConfiguration.exists(db, id: id)) == false else { break }
@@ -403,6 +370,12 @@ public extension SessionThread {
                         threadVariant: variant,
                         using: dependencies
                     )
+                
+                /// Notify of update
+                db.addConversationEvent(
+                    id: id,
+                    type: .updated(.disappearingMessageConfiguration(config))
+                )
             
             case (_, .useLibSession): break                     // Shouldn't happen
         }
@@ -529,6 +502,35 @@ public extension SessionThread {
                 WHERE \(pinnedPriority[.id]) = \(thread[.id])
             )
         """)
+    }
+    
+    // stringlint:ignore_contents
+    static func interactionInfoWithAttachments(
+        threadId: String,
+        beforeTimestampMs: Int64? = nil,
+        attachmentVariants: [Attachment.Variant] = Attachment.Variant.allCases
+    ) throws -> SQLRequest<Interaction.VariantInfo> {
+        let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
+        let attachment: TypedTableAlias<Attachment> = TypedTableAlias()
+        let interactionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias()
+        
+        return """
+            SELECT
+                \(interaction[.id]),
+                \(interaction[.variant]),
+                \(interaction[.serverHash])
+            FROM \(interaction)
+            JOIN \(interactionAttachment) ON \(interactionAttachment[.interactionId]) = \(interaction[.id])
+            JOIN \(attachment) ON (
+                \(attachment[.id]) = \(interactionAttachment[.attachmentId]) AND
+                \(attachment[.variant]) IN \(attachmentVariants)
+            )
+            WHERE (
+                \(interaction[.threadId]) = \(threadId) AND
+                \(interaction[.timestampMs]) < \(beforeTimestampMs ?? Int64.max)
+            )
+            GROUP BY \(interaction[.id])
+        """
     }
 }
 
@@ -700,7 +702,7 @@ public extension SessionThread {
             
             case .deleteCommunityAndContent:
                 try threadIds.forEach { threadId in
-                    try dependencies[singleton: .openGroupManager].delete(
+                    try dependencies[singleton: .communityManager].delete(
                         db,
                         openGroupId: threadId,
                         skipLibSessionUpdate: false

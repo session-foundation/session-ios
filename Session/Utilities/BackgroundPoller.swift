@@ -32,22 +32,15 @@ public final class BackgroundPoller {
                 (
                     try ClosedGroup
                         .select(.threadId)
-                        .joining(
-                            required: ClosedGroup.members
-                                .filter(GroupMember.Columns.profileId == dependencies[cache: .general].sessionId.hexString)
-                        )
+                        .filter(ClosedGroup.Columns.shouldPoll)
                         .asRequest(of: String.self)
                         .fetchSet(db),
-                    /// The default room promise creates an OpenGroup with an empty `roomToken` value, we
-                    /// don't want to start a poller for this as the user hasn't actually joined a room
-                    ///
-                    /// We also want to exclude any rooms which have failed to poll too many times in a row from
+                    /// We want to exclude any rooms which have failed to poll too many times in a row from
                     /// the background poll as they are likely to fail again
                     try OpenGroup
                         .select(.server)
                         .filter(
-                            OpenGroup.Columns.roomToken != "" &&
-                            OpenGroup.Columns.isActive &&
+                            OpenGroup.Columns.shouldPoll == true &&
                             OpenGroup.Columns.pollFailureCount < CommunityPoller.maxRoomFailureCountForBackgroundPoll
                         )
                         .distinct()
@@ -56,8 +49,7 @@ public final class BackgroundPoller {
                     try OpenGroup
                         .select(.roomToken)
                         .filter(
-                            OpenGroup.Columns.roomToken != "" &&
-                            OpenGroup.Columns.isActive &&
+                            OpenGroup.Columns.shouldPoll == true &&
                             OpenGroup.Columns.pollFailureCount < CommunityPoller.maxRoomFailureCountForBackgroundPoll
                         )
                         .distinct()

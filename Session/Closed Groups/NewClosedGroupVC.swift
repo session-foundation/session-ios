@@ -439,15 +439,13 @@ final class NewClosedGroupVC: BaseVC, UITableViewDataSource, UITableViewDelegate
                 /// When this is triggered via the "Recreate Group" action for Legacy Groups the screen will have been
                 /// pushed instead of presented and, as a result, we need to dismiss the `activityIndicatorViewController`
                 /// and want the transition to be animated in order to behave nicely
-                await MainActor.run { [weak self, dependencies] in
-                    dependencies[singleton: .app].presentConversationCreatingIfNeeded(
-                        for: thread.id,
-                        variant: thread.variant,
-                        action: .none,
-                        dismissing: (self?.presentingViewController ?? indicator),
-                        animated: (self?.presentingViewController == nil)
-                    )
-                }
+                await dependencies[singleton: .app].presentConversationCreatingIfNeeded(
+                    for: thread.id,
+                    variant: thread.variant,
+                    action: .none,
+                    dismissing: (self.presentingViewController ?? indicator),
+                    animated: (self.presentingViewController == nil)
+                )
             }
             catch {
                 await MainActor.run { [weak self] in

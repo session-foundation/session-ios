@@ -9,6 +9,12 @@ public struct LightBox<Content: View>: View {
     public var itemsToShare: [UIImage] = []
     public var content: () -> Content
     
+    public init(title: String? = nil, itemsToShare: [UIImage], content: @escaping () -> Content) {
+        self.title = title
+        self.itemsToShare = itemsToShare
+        self.content = content
+    }
+    
     public var body: some View {
         NavigationView {
             content()

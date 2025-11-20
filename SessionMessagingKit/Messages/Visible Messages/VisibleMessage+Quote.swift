@@ -6,10 +6,13 @@ import SessionUtilitiesKit
 public extension VisibleMessage {
 
     struct VMQuote: Codable {
-        public let timestamp: UInt64?
-        public let authorId: String?
+        public let timestamp: UInt64
+        public let authorId: String
 
-        public func isValid(isSending: Bool) -> Bool { timestamp != nil && authorId != nil }
+        public func validateMessage(isSending: Bool) throws {
+            if timestamp == 0 { throw MessageError.invalidMessage("timestamp") }
+            if !authorId.isEmpty { throw MessageError.invalidMessage("authorId") }
+        }
         
         // MARK: - Initialization
 
@@ -21,6 +24,8 @@ public extension VisibleMessage {
         // MARK: - Proto Conversion
 
         public static func fromProto(_ proto: SNProtoDataMessageQuote) -> VMQuote? {
+            guard proto.id != 0 && !proto.author.isEmpty else { return nil }
+            
             return VMQuote(
                 timestamp: proto.id,
                 authorId: proto.author
@@ -28,10 +33,6 @@ public extension VisibleMessage {
         }
 
         public func toProto() -> SNProtoDataMessageQuote? {
-            guard let timestamp = timestamp, let authorId = authorId else {
-                Log.warn(.messageSender, "Couldn't construct quote proto from: \(self).")
-                return nil
-            }
             let quoteProto = SNProtoDataMessageQuote.builder(id: timestamp, author: authorId)
             do {
                 return try quoteProto.build()
@@ -46,8 +47,8 @@ public extension VisibleMessage {
         public var description: String {
             """
             Quote(
-                timestamp: \(timestamp?.description ?? "null"),
-                authorId: \(authorId ?? "null")
+                timestamp: \(timestamp),
+                authorId: \(authorId)
             )
             """
         }

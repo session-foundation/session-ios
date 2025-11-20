@@ -23,7 +23,6 @@ public struct QRCodeView: View {
     }
     
     static private var cornerRadius: CGFloat = 10
-    static private var logoSize: CGFloat = 66
     
     public init(
         qrCodeImage: UIImage?,

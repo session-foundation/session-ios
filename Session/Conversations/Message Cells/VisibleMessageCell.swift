@@ -125,9 +125,10 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return result
     }()
     
-    private lazy var authorLabel: UILabel = {
-        let result: UILabel = UILabel()
+    private lazy var authorLabel: SessionLabelWithProBadge = {
+        let result = SessionLabelWithProBadge(proBadgeSize: .mini)
         result.font = .boldSystemFont(ofSize: Values.smallFontSize)
+        result.isProBadgeHidden = true
         result.setContentHugging(.vertical, to: .required)
         result.setCompressionResistance(.vertical, to: .required)
         
@@ -341,11 +342,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
         contentHStackTopConstraint.constant = (shouldAddTopInset ? Values.mediumSpacing : 0)
         
-        // Author label
-        authorLabel.isHidden = (cellViewModel.senderName == nil)
-        authorLabel.text = cellViewModel.senderName
-        authorLabel.themeTextColor = .textPrimary
-        
         let isGroupThread: Bool = (
             cellViewModel.threadVariant == .community ||
             cellViewModel.threadVariant == .legacyGroup ||
@@ -356,8 +352,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let profileShouldBeVisible: Bool = (
             isGroupThread &&
             cellViewModel.canHaveProfile &&
-            cellViewModel.shouldShowProfile &&
-            cellViewModel.profile != nil
+            cellViewModel.shouldShowDisplayPicture
         )
         profilePictureView.isHidden = !cellViewModel.canHaveProfile
         profilePictureView.alpha = (profileShouldBeVisible ? 1 : 0)
@@ -391,6 +386,13 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         bubbleView.accessibilityLabel = bodyTappableLabel?.attributedText?.string
         bubbleView.isAccessibilityElement = true
         
+        // Author label
+        authorLabel.isHidden = !cellViewModel.shouldShowAuthorName
+        authorLabel.text = cellViewModel.authorNameSuppressedId
+        authorLabel.extraText = cellViewModel.authorName.replacingOccurrences(of: cellViewModel.authorNameSuppressedId, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        authorLabel.themeTextColor = .textPrimary
+        authorLabel.isProBadgeHidden = !cellViewModel.proFeatures.contains(.proBadge)
+        
         // Flip horizontally for RTL languages
         replyIconImageView.transform = CGAffineTransform.identity
             .scaledBy(
@@ -407,7 +409,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
         
         // Reaction view
-        reactionContainerView.isHidden = (cellViewModel.reactionInfo?.isEmpty != false)
+        reactionContainerView.isHidden = cellViewModel.reactionInfo.isEmpty
         populateReaction(
             for: cellViewModel,
             maxWidth: VisibleMessageCell.getMaxWidth(
@@ -422,7 +424,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let (image, statusText, tintColor) = cellViewModel.state.statusIconInfo(
             variant: cellViewModel.variant,
             hasBeenReadByRecipient: cellViewModel.hasBeenReadByRecipient,
-            hasAttachments: (cellViewModel.attachments?.isEmpty == false)
+            hasAttachments: !cellViewModel.attachments.isEmpty
         )
         messageStatusLabel.text = statusText
         messageStatusLabel.themeTextColor = tintColor
@@ -545,10 +547,16 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     for: cellViewModel,
                     cellWidth: tableSize.width
                 ) - 2 * inset)
+            let lineHeight: CGFloat = UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight
             
             if let linkPreview: LinkPreview = cellViewModel.linkPreview {
                 switch linkPreview.variant {
                     case .standard:
+                        // Stack view
+                        let stackView = UIStackView(arrangedSubviews: [])
+                        stackView.axis = .vertical
+                        stackView.spacing = 2
+                    
                         let linkPreviewView: LinkPreviewView = LinkPreviewView(
                             maxWidth: maxWidth,
                             using: dependencies
@@ -567,10 +575,26 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             using: dependencies
                         )
                         self.linkPreviewView = linkPreviewView
-                        bubbleView.addSubview(linkPreviewView)
-                        linkPreviewView.pin(to: bubbleView, withInset: 0)
+                        stackView.addArrangedSubview(linkPreviewView)
+                        readMoreButton.themeTextColor = bodyLabelTextColor
+                        let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
+                        self.bodayTappableLabelHeightConstraint = linkPreviewView.bodyTappableLabel?.set(
+                            .height,
+                            to: (shouldExpanded ? linkPreviewView.bodyTappableLabelHeight : min(linkPreviewView.bodyTappableLabelHeight, maxHeight))
+                        )
+                        if ((linkPreviewView.bodyTappableLabelHeight - maxHeight >= lineHeight) && !shouldExpanded) {
+                            stackView.addArrangedSubview(readMoreButton)
+                            readMoreButton.isHidden = false
+                            readMoreButton.transform = CGAffineTransform(translationX: inset, y: 0)
+                        }
+                    
+                        bubbleView.addSubview(stackView)
+                        stackView.pin([UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top], to: bubbleView)
+                        stackView.pin(.bottom, to: .bottom, of: bubbleView, withInset: -inset)
                         snContentView.addArrangedSubview(bubbleBackgroundView)
                         self.bodyTappableLabel = linkPreviewView.bodyTappableLabel
+                        self.bodyTappableLabelHeight = linkPreviewView.bodyTappableLabelHeight
+                        
                         
                     case .openGroupInvitation:
                         let openGroupInvitationView: OpenGroupInvitationView = OpenGroupInvitationView(
@@ -600,10 +624,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     let hInset: CGFloat = 2
                     let quoteView: QuoteView = QuoteView(
                         for: .regular,
-                        authorId: quotedInfo.authorId,
+                        authorName: quotedInfo.authorName,
+                        authorHasProBadge: quotedInfo.proFeatures.contains(.proBadge),
                         quotedText: quotedInfo.body,
                         threadVariant: cellViewModel.threadVariant,
-                        currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+                        currentUserSessionIds: cellViewModel.currentUserSessionIds,
                         direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                         attachment: quotedInfo.attachment,
                         using: dependencies
@@ -629,7 +654,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
                 bodyTappableLabel.numberOfLines = shouldExpanded ? 0 : VisibleMessageCell.maxNumberOfLinesAfterTruncation
                 
-                if (height > maxHeight && !shouldExpanded) {
+                if ((height - maxHeight >= lineHeight) && !shouldExpanded) {
                     stackView.addArrangedSubview(readMoreButton)
                     readMoreButton.isHidden = false
                 }
@@ -678,6 +703,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 cellWidth: tableSize.width
             ) - 2 * inset
         )
+        let lineHeight: CGFloat = UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight
         
         switch (cellViewModel.quotedInfo, cellViewModel.body) {
             /// Both quote and body
@@ -691,10 +717,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 let hInset: CGFloat = 2
                 let quoteView: QuoteView = QuoteView(
                     for: .regular,
-                    authorId: quotedInfo.authorId,
+                    authorName: quotedInfo.authorName,
+                    authorHasProBadge: quotedInfo.proFeatures.contains(.proBadge),
                     quotedText: quotedInfo.body,
                     threadVariant: cellViewModel.threadVariant,
-                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+                    currentUserSessionIds: cellViewModel.currentUserSessionIds,
                     direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                     attachment: quotedInfo.attachment,
                     using: dependencies
@@ -719,7 +746,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
                 bodyTappableLabel.numberOfLines = shouldExpanded ? 0 : VisibleMessageCell.maxNumberOfLinesAfterTruncation
                 
-                if (height > maxHeight && !shouldExpanded) {
+                if ((height - maxHeight >= lineHeight) && !shouldExpanded) {
                     stackView.addArrangedSubview(readMoreButton)
                     readMoreButton.isHidden = false
                 }
@@ -754,7 +781,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
                 bodyTappableLabel.numberOfLines = shouldExpanded ? 0 : VisibleMessageCell.maxNumberOfLinesAfterTruncation
                 
-                if (height > maxHeight && !shouldExpanded) {
+                if ((height - maxHeight > UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight) && !shouldExpanded) {
                     stackView.addArrangedSubview(readMoreButton)
                     readMoreButton.isHidden = false
                 }
@@ -770,10 +797,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             case (.some(let quotedInfo), _):
                 let quoteView: QuoteView = QuoteView(
                     for: .regular,
-                    authorId: quotedInfo.authorId,
+                    authorName: quotedInfo.authorName,
+                    authorHasProBadge: quotedInfo.proFeatures.contains(.proBadge),
                     quotedText: quotedInfo.body,
                     threadVariant: cellViewModel.threadVariant,
-                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+                    currentUserSessionIds: cellViewModel.currentUserSessionIds,
                     direction: (cellViewModel.variant.isOutgoing ? .outgoing : .incoming),
                     attachment: quotedInfo.attachment,
                     using: dependencies
@@ -805,9 +833,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     cellWidth: tableSize.width
                 )
                 let albumView = MediaAlbumView(
-                    items: (cellViewModel.attachments?
-                        .filter { $0.isVisualMedia })
-                        .defaulting(to: []),
+                    items: cellViewModel.attachments.filter { $0.isVisualMedia },
                     isOutgoing: cellViewModel.variant.isOutgoing,
                     maxMessageWidth: maxMessageWidth,
                     using: dependencies
@@ -821,7 +847,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 snContentView.addArrangedSubview(albumView)
             
             case .voiceMessage:
-                guard let attachment: Attachment = cellViewModel.attachments?.first(where: { $0.isAudio }) else {
+                guard let attachment: Attachment = cellViewModel.attachments.first(where: { $0.isAudio }) else {
                     return
                 }
                 
@@ -837,7 +863,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 addViewWrappingInBubbleIfNeeded(voiceMessageView)
                 
             case .audio, .genericAttachment:
-                guard let attachment: Attachment = cellViewModel.attachments?.first else { preconditionFailure() }
+                guard let attachment: Attachment = cellViewModel.attachments.first else { return }
                 
                 // Document view
                 let documentView = DocumentView(attachment: attachment, textColor: bodyLabelTextColor)
@@ -851,13 +877,13 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         maxWidth: CGFloat,
         showExpandedReactions: Bool
     ) {
-        let reactions: OrderedDictionary<EmojiWithSkinTones, ReactionViewModel> = (cellViewModel.reactionInfo ?? [])
+        let reactions: OrderedDictionary<EmojiWithSkinTones, ReactionViewModel> = cellViewModel.reactionInfo
             .reduce(into: OrderedDictionary()) { result, reactionInfo in
                 guard let emoji: EmojiWithSkinTones = EmojiWithSkinTones(rawValue: reactionInfo.reaction.emoji) else {
                     return
                 }
                 
-                let isSelfSend: Bool = (cellViewModel.currentUserSessionIds ?? []).contains(reactionInfo.reaction.authorId)
+                let isSelfSend: Bool = cellViewModel.currentUserSessionIds.contains(reactionInfo.reaction.authorId)
                 
                 if let value: ReactionViewModel = result.value(forKey: emoji) {
                     result.replace(
@@ -917,7 +943,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
 
         switch cellViewModel.cellType {
             case .voiceMessage:
-                guard let attachment: Attachment = cellViewModel.attachments?.first(where: { $0.isAudio }) else {
+                guard let attachment: Attachment = cellViewModel.attachments.first(where: { $0.isAudio }) else {
                     return
                 }
                 
@@ -1039,11 +1065,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let location = gestureRecognizer.location(in: self)
         let tappedAuthorName: Bool = (
             authorLabel.bounds.contains(authorLabel.convert(location, from: self)) &&
-            !(cellViewModel.senderName ?? "").isEmpty
+            !cellViewModel.authorName.isEmpty
         )
         let tappedProfilePicture: Bool = (
             profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)) &&
-            cellViewModel.shouldShowProfile
+            cellViewModel.shouldShowDisplayPicture
         )
         
         if tappedAuthorName || tappedProfilePicture {
@@ -1181,9 +1207,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     private static func getFontSize(for cellViewModel: MessageViewModel) -> CGFloat {
         let baselineFontSize = Values.mediumFontSize
         
-        guard cellViewModel.containsOnlyEmoji == true else { return baselineFontSize }
+        guard cellViewModel.containsOnlyEmoji else { return baselineFontSize }
         
-        switch (cellViewModel.glyphCount ?? 0) {
+        switch cellViewModel.glyphCount {
             case 1: return baselineFontSize + 30
             case 2: return baselineFontSize + 24
             case 3, 4, 5: return baselineFontSize + 18
@@ -1191,15 +1217,12 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
     }
     
-    private static func getMaxHeightAfterTruncation(for cellViewModel: MessageViewModel) -> CGFloat {
+    public static func getMaxHeightAfterTruncation(for cellViewModel: MessageViewModel) -> CGFloat {
         return CGFloat(maxNumberOfLinesAfterTruncation) * UIFont.systemFont(ofSize: getFontSize(for: cellViewModel)).lineHeight
     }
 
     private func getSize(for cellViewModel: MessageViewModel, tableSize: CGSize) -> CGSize {
-        guard let mediaAttachments: [Attachment] = cellViewModel.attachments?.filter({ $0.isVisualMedia }) else {
-            preconditionFailure()
-        }
-        
+        let mediaAttachments: [Attachment] = cellViewModel.attachments.filter({ $0.isVisualMedia })
         let maxMessageWidth = VisibleMessageCell.getMaxWidth(
             for: cellViewModel,
             cellWidth: tableSize.width
@@ -1284,7 +1307,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let attributedText: ThemedAttributedString = MentionUtilities.highlightMentions(
             in: body,
             threadVariant: cellViewModel.threadVariant,
-            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+            currentUserSessionIds: cellViewModel.currentUserSessionIds,
             location: (isOutgoing ? .outgoingMessage : .incomingMessage),
             textColor: textColor,
             attributes: [
@@ -1395,7 +1418,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return attributedText
     }
     
-    static func getBodyTappableLabel(
+    public static func getBodyTappableLabel(
         for cellViewModel: MessageViewModel,
         with availableWidth: CGFloat,
         textColor: ThemeValue,

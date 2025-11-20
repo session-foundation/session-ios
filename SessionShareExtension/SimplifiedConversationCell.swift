@@ -49,11 +49,15 @@ final class SimplifiedConversationCell: UITableViewCell {
         return view
     }()
     
-    private lazy var displayNameLabel: UILabel = {
-        let result = UILabel()
+    private lazy var displayNameLabel: SessionLabelWithProBadge = {
+        let result = SessionLabelWithProBadge(
+            proBadgeSize: .mini,
+            withStretchingSpacer: false
+        )
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
+        result.isProBadgeHidden = true
         
         return result
     }()
@@ -100,6 +104,7 @@ final class SimplifiedConversationCell: UITableViewCell {
             using: dependencies
         )
         displayNameLabel.text = cellViewModel.displayName
+        displayNameLabel.isProBadgeHidden = !cellViewModel.isSessionPro(using: dependencies)
         
         self.isAccessibilityElement = true
         self.accessibilityIdentifier = "Contact"
