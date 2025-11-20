@@ -66,13 +66,17 @@ public struct ProCTAModal: View {
                             .put(key: "app_pro", value: Constants.app_pro)
                             .localized()
                 case .morePinnedConvos(let isGrandfathered):
-                    return isGrandfathered ?
-                        "proCallToActionPinnedConversations"
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localized() :
-                        "proCallToActionPinnedConversationsMoreThan"
+                    if isGrandfathered {
+                        return "proCallToActionPinnedConversations"
                             .put(key: "app_pro", value: Constants.app_pro)
                             .localized()
+                    }
+                    
+                    return "proCallToActionPinnedConversationsMoreThan"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "limit", value: 5)    // TODO: [PRO] Get from SessionProUIManager
+                        .localized()
+                
                 case .groupLimit:
                     return "proUserProfileModalCallToAction"
                         .put(key: "app_pro", value: Constants.app_pro)
