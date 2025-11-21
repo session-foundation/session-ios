@@ -637,7 +637,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
                     dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                        .expiring(timeLeft: expiryInSeconds.formatted(format: .long, allowedUnits: [ .day, .hour, .minute ])),
+                        .expiring(timeLeft: expiryInSeconds.ceilingFormatted(format: .long, allowedUnits: [ .day, .hour, .minute ])),
                         presenting: { modal in
                             dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
                             self?.transitionToScreen(modal, transitionType: .present)
