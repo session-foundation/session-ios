@@ -39,46 +39,19 @@ public extension Network.SessionPro {
     }
 }
 
-// MARK: - FeatureStorage
+// MARK: - MockableFeature
 
 public extension FeatureStorage {
-    static let mockCurrentUserSessionProBackendStatus: FeatureConfig<Network.SessionPro.BackendUserProStatus?> = Dependencies.create(
+    static let mockCurrentUserSessionProBackendStatus: FeatureConfig<MockableFeature<Network.SessionPro.BackendUserProStatus>> = Dependencies.create(
         identifier: "mockCurrentUserSessionProBackendStatus"
     )
 }
 
-// MARK: - Router
-
-extension Optional: @retroactive RawRepresentable, @retroactive FeatureOption where Wrapped == Network.SessionPro.BackendUserProStatus {
-    public typealias RawValue = Int
+extension Network.SessionPro.BackendUserProStatus: MockableFeatureValue {
+    public var title: String { "\(self)" }
     
-    public var rawValue: Int {
+    public var subtitle: String {
         switch self {
-            case .none: return -1
-            case .neverBeenPro: return 1
-            case .active: return 2
-            case .expired: return 3
-        }
-    }
-    
-    public init?(rawValue: Int) {
-        switch rawValue {
-            case 1: self = .neverBeenPro
-            case 2: self = .active
-            case 3: self = .expired
-            default: self = nil
-        }
-    }
-    
-    // MARK: - Feature Option
-    
-    public static var defaultOption: Network.SessionPro.BackendUserProStatus? = nil
-    
-    public var title: String { (self.map { "\($0)" } ?? "None") }
-    
-    public var subtitle: String? {
-        switch self {
-            case .none: return "Use the current users <i>actual</i> status."
             case .neverBeenPro: return "The user has never had Session Pro before."
             case .active: return "The user has an active Session Pro subscription."
             case .expired: return "The user's Session Pro subscription has expired."

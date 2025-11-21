@@ -17,4 +17,6 @@ public enum Constants {
     public static let app_pro: String = "Session Pro"
     public static let session_foundation: String = "Session Foundation"
     public static let pro: String = "Pro"
+    public static let entity_rangeproof: String = "Rangeproof PTY LTD"
+    public static let entity_stf: String = "The Session Technology Foundation"
 }

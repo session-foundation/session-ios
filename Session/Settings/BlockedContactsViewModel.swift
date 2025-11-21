@@ -305,9 +305,13 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                             return nil
                                         }
                                         
-                                        return (SessionProBadge.identifier, { [dependencies = viewModel.dependencies] in
-                                            SessionProBadge(size: .small).toImage(using: dependencies)
-                                        })
+                                        return (
+                                            .themedKey(
+                                                SessionProBadge.Size.small.cacheKey,
+                                                themeBackgroundColor: .primary
+                                            ),
+                                            { SessionProBadge(size: .small) }
+                                        )
                                     }()
                                 ),
                                 trailingAccessory: .radio(

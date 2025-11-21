@@ -21,11 +21,11 @@ public extension FeatureStorage {
     static let truncatePubkeysInLogs: FeatureConfig<Bool> = Dependencies.create(
         identifier: "truncatePubkeysInLogs",
         defaultOption: {
-        #if DEBUG
+#if DEBUG
             return false
-        #else
+#else
             return true
-        #endif
+#endif
         }()
     )
     
@@ -109,6 +109,15 @@ public extension FeatureStorage {
     static let forceMessageFeatureAnimatedAvatar: FeatureConfig<Bool> = Dependencies.create(
         identifier: "forceMessageFeatureAnimatedAvatar"
     )
+// TODO: [PRO] Are these actually used?
+//    static let mockInstalledFromIPA: FeatureConfig<Bool> = Dependencies.create(
+//        identifier: "mockInstalledFromIPA",
+//        defaultOption: false
+//    )
+//
+//    static let proPlanToRecover: FeatureConfig<Bool> = Dependencies.create(
+//        identifier: "proPlanToRecover"
+//    )
     
     static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(
         identifier: "shortenFileTTL"
@@ -257,6 +266,80 @@ public struct Feature<T: FeatureOption>: FeatureType {
     
     internal func setValue(to updatedValue: T?, using dependencies: Dependencies) {
         dependencies[defaults: .appGroup].set(updatedValue?.rawValue, forKey: identifier)
+    }
+}
+
+// MARK: - MockableFeature
+
+public protocol MockableFeatureValue: RawRepresentable, Sendable, Hashable, Equatable, CaseIterable where RawValue == Int {
+    var title: String { get }
+    var subtitle: String { get }
+}
+
+extension MockableFeatureValue {
+    public var rawValue: Int {
+        let all: [Self] = Array(Self.allCases)
+        
+        guard let index: Array<Self>.Index = all.firstIndex(of: self) else { return 0 }
+        
+        /// The `rawValue` is 1-indexed whereas the array is 0-indexed
+        return index + 1
+    }
+
+    public init?(rawValue: Int) {
+        /// The `rawValue` is 1-indexed whereas the array is 0-indexed
+        let index: Int = (rawValue - 1)
+        let all: [Self] = Array(Self.allCases)
+
+        guard all.indices.contains(index) else { return nil }
+                
+        self = all[index]
+    }
+}
+
+public enum MockableFeature<T: MockableFeatureValue>: Sendable, FeatureOption, CaseIterable {
+    public static var allCases: [MockableFeature<T>] { [.useActual] + T.allCases.map { .simulate($0) } }
+    
+    case useActual
+    case simulate(T)
+    
+    public typealias RawValue = Int
+    
+    public var rawValue: Int {
+        switch self {
+            case .useActual: return -1
+            case .simulate(let value): return value.rawValue
+        }
+    }
+
+    
+    public init?(rawValue: Int) {
+        guard rawValue != -1 else {
+            self = .useActual
+            return
+        }
+        
+        guard let val: T = T(rawValue: rawValue) else {
+            return nil
+        }
+        
+        self = .simulate(val)
+    }
+    
+    public static var defaultOption: MockableFeature<T> { .useActual }
+
+    public var title: String {
+        switch self {
+            case .useActual: return "None"
+            case .simulate(let value): return value.title
+        }
+    }
+
+    public var subtitle: String? {
+        switch self {
+            case .useActual: return "Use the <i>actual</i> calculated state."
+            case .simulate(let value): return value.subtitle
+        }
     }
 }
 

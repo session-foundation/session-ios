@@ -315,8 +315,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let sessionProStatus: String = (dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")
         let mockedProStatus: String = {
             switch (dependencies[feature: .sessionProEnabled], dependencies[feature: .mockCurrentUserSessionProBackendStatus]) {
-                case (true, .some(let status)): return "<span>\(status)</span>"
-                case (false, _), (_, .none): return "<disabled>None</disabled>"
+                case (true, .simulate(let status)): return "<span>\(status)</span>"
+                case (false, _), (_, .useActual): return "<disabled>None</disabled>"
             }
         }()
         let sessionPro: SectionModel = SectionModel(
@@ -821,6 +821,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        
         let sessionNetwork: SectionModel = SectionModel(
             model: .sessionNetwork,
             elements: [
@@ -1786,6 +1787,75 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
 }
 
+// MARK: - Convenience
+
+extension DeveloperSettingsViewModel {
+    static func showModalForMockableState<M>(
+        title: String,
+        explanation: String,
+        feature: FeatureConfig<MockableFeature<M>>,
+        currentValue: MockableFeature<M>,
+        navigatableStateHolder: NavigatableStateHolder?,
+        using dependencies: Dependencies?
+    ) {
+        let allCases: [MockableFeature<M>] = MockableFeature<M>.allCases
+        
+        navigatableStateHolder?.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: title,
+                    body: .radio(
+                        explanation: ThemedAttributedString(string: explanation),
+                        warning: nil,
+                        options: {
+                            return allCases.enumerated().map { index, feature in
+                                ConfirmationModal.Info.Body.RadioOptionInfo(
+                                    title: feature.title,
+                                    descriptionText: feature.subtitle.map {
+                                        ThemedAttributedString(
+                                            stringWithHTMLTags: $0,
+                                            font: RadioButton.descriptionFont
+                                        )
+                                    },
+                                    enabled: true,
+                                    selected: currentValue == feature
+                                )
+                            }
+                        }()
+                    ),
+                    confirmTitle: "select".localized(),
+                    cancelStyle: .alert_text,
+                    onConfirm: { [dependencies] modal in
+                        let selectedValue: MockableFeature<M>? = {
+                            switch modal.info.body {
+                                case .radio(_, _, let options):
+                                    return options
+                                        .enumerated()
+                                        .first(where: { _, value in value.selected })
+                                        .map { index, _ in
+                                            guard index >= 0 && index < allCases.count else {
+                                                return nil
+                                            }
+                                            
+                                            return allCases[index]
+                                        }
+                                
+                                default: return nil
+                            }
+                        }()
+                        
+                        switch selectedValue {
+                            case .none, .useActual: dependencies?.set(feature: feature, to: nil)
+                            case .simulate: dependencies?.set(feature: feature, to: selectedValue)
+                        }
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+}
+
 // MARK: - DocumentPickerResult
 
 private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
@@ -1919,3 +1989,13 @@ extension Network.PushNotification.Service: Listable {}
 extension Log.Level: @retroactive ContentIdentifiable {}
 extension Log.Level: @retroactive ContentEquatable {}
 extension Log.Level: Listable {}
+// TODO: [PRO] Need to sort these out
+//extension SessionProStateMock: @retroactive ContentIdentifiable {}
+//extension SessionProStateMock: @retroactive ContentEquatable {}
+//extension SessionProStateMock: Listable {}
+//extension SessionProLoadingState: @retroactive ContentIdentifiable {}
+//extension SessionProLoadingState: @retroactive ContentEquatable {}
+//extension SessionProLoadingState: Listable {}
+//extension SessionProStateExpiryMock: @retroactive ContentIdentifiable {}
+//extension SessionProStateExpiryMock: @retroactive ContentEquatable {}
+//extension SessionProStateExpiryMock: Listable {}

@@ -96,29 +96,6 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         case isContactApproved
     }
     
-    public struct MessageInputState: Equatable {
-        public let allowedInputTypes: MessageInputTypes
-        public let message: String?
-        public let accessibility: Accessibility?
-        public let messageAccessibility: Accessibility?
-        
-        public static var all: MessageInputState = MessageInputState(allowedInputTypes: .all)
-        
-        // MARK: - Initialization
-        
-        public init(
-            allowedInputTypes: MessageInputTypes,
-            message: String? = nil,
-            accessibility: Accessibility? = nil,
-            messageAccessibility: Accessibility? = nil
-        ) {
-            self.allowedInputTypes = allowedInputTypes
-            self.message = message
-            self.accessibility = accessibility
-            self.messageAccessibility = messageAccessibility
-        }
-    }
-    
     public var differenceIdentifier: String { threadId }
     public var id: String { threadId }
     
@@ -265,6 +242,38 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         }
                         
         return Date(timeIntervalSince1970: TimeInterval(Double(interactionTimestampMs) / 1000))
+    }
+    
+    public var messageInputState: InputView.InputState {
+        guard !threadIsNoteToSelf else { return InputView.InputState(inputs: .all) }
+        guard threadIsBlocked != true else {
+            return InputView.InputState(
+                inputs: .disabled,
+                message: "blockBlockedDescription".localized(),
+                messageAccessibility: Accessibility(
+                    identifier: "Blocked banner"
+                )
+            )
+        }
+        
+        if threadVariant == .community && threadCanWrite == false {
+            return InputView.InputState(
+                inputs: .disabled,
+                message: "permissionsWriteCommunity".localized()
+            )
+        }
+        
+        /// Attachments shouldn't be allowed for message requests or if uploads are disabled
+        let finalInputs: InputView.Input
+        
+        switch (threadRequiresApproval, threadIsMessageRequest, threadCanUpload) {
+            case (false, false, true): finalInputs = .all
+            default: finalInputs = [.text, .attachmentsDisabled, .voiceMessagesDisabled]
+        }
+        
+        return InputView.InputState(
+            inputs: finalInputs
+        )
     }
     
     public var userCount: Int? {

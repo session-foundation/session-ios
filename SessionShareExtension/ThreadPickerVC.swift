@@ -215,26 +215,32 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             
             guard
                 !attachments.isEmpty,
-                let self = self,
-                let approvalVC: UINavigationController = AttachmentApprovalViewController.wrappedInNavController(
-                    threadId: self.viewModel.viewData[indexPath.row].threadId,
-                    threadVariant: self.viewModel.viewData[indexPath.row].threadVariant,
-                    attachments: attachments,
-                    approvalDelegate: self,
-                    disableLinkPreviewImageDownload: (
-                        self.viewModel.viewData[indexPath.row].threadCanUpload != true
-                    ),
-                    didLoadLinkPreview: { [weak self] linkPreview in
-                        self?.viewModel.didLoadLinkPreview(linkPreview: linkPreview)
-                    },
-                    using: self.viewModel.dependencies
-                )
+                let self = self
             else {
                 self?.shareNavController?.shareViewFailed(error: AttachmentError.invalidData)
                 return
             }
             
-            navigationController?.present(approvalVC, animated: true, completion: nil)
+            let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
+                mode: .modal,
+                delegate: self,
+                threadId: viewModel.viewData[indexPath.row].threadId,
+                threadVariant: viewModel.viewData[indexPath.row].threadVariant,
+                attachments: attachments,
+                messageText: nil,
+                quoteViewModel: nil,
+                disableLinkPreviewImageDownload: (viewModel.viewData[indexPath.row].threadCanUpload != true),
+                didLoadLinkPreview: { [weak self] result in
+                    self?.viewModel.didLoadLinkPreview(result: result)
+                },
+                onQuoteCancelled: nil,
+                using: viewModel.dependencies
+            )
+            
+            let navController = StyledNavigationController(rootViewController: viewController)
+            navController.modalPresentationStyle = .fullScreen
+            
+            navigationController?.present(navController, animated: true, completion: nil)
         }
     }
     
@@ -243,7 +249,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?
     ) {
         // Sharing a URL or plain text will populate the 'messageText' field so in those
         // cases we should ignore the attachments
@@ -267,8 +274,8 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 "\(attachmentText ?? "")\n\n\(messageText ?? "")" // stringlint:ignore
             )
         }()
-        let linkPreviewDraft: LinkPreviewDraft? = (isSharingUrl ?
-            viewModel.linkPreviewDrafts.first(where: { $0.urlString == body }) :
+        let linkPreviewViewModel: LinkPreviewViewModel? = (isSharingUrl ?
+            viewModel.linkPreviewViewModels.first(where: { $0.urlString == body }) :
             nil
         )
         let userSessionId: SessionId = viewModel.dependencies[cache: .general].sessionId
@@ -308,13 +315,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 }()
                 try Task.checkCancellation()
                 
-                /// If there is a `LinkPreviewDraft` then we may need to add it, so generate it's attachment if possible
+                /// If there is a `LinkPreviewViewModel` then we may need to add it, so generate it's attachment if possible
                 var linkPreviewPreparedAttachment: PreparedAttachment?
                     
-                if let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft {
+                if let linkPreviewViewModel: LinkPreviewViewModel = linkPreviewViewModel {
                     linkPreviewPreparedAttachment = try? await LinkPreview.prepareAttachmentIfPossible(
-                        urlString: linkPreviewDraft.urlString,
-                        imageSource: linkPreviewDraft.imageSource,
+                        urlString: linkPreviewViewModel.urlString,
+                        imageSource: linkPreviewViewModel.imageSource,
                         using: dependencies
                     )
                 }
@@ -367,7 +374,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         expiresStartedAtMs: destinationDisappearingMessagesConfiguration?.initialExpiresStartedAtMs(
                             sentTimestampMs: Double(sentTimestampMs)
                         ),
-                        linkPreviewUrl: linkPreviewDraft?.urlString,
+                        linkPreviewUrl: linkPreviewViewModel?.urlString,
                         using: dependencies
                     ).inserted(db)
                     sharedInteractionId = interaction.id
@@ -380,14 +387,14 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     // one then add it now
                     if
                         isSharingUrl,
-                        let linkPreviewDraft: LinkPreviewDraft = linkPreviewDraft,
+                        let linkPreviewViewModel: LinkPreviewViewModel = linkPreviewViewModel,
                         (((try? Interaction
                             .linkPreview(url: interaction.linkPreviewUrl, timestampMs: interaction.timestampMs)?
                             .fetchCount(db)) ?? 0) == 0)
                     {
                         try LinkPreview(
-                            url: linkPreviewDraft.urlString,
-                            title: linkPreviewDraft.title,
+                            url: linkPreviewViewModel.urlString,
+                            title: linkPreviewViewModel.title,
                             attachmentId: linkPreviewPreparedAttachment?
                                 .attachment
                                 .inserted(db)

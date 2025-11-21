@@ -4,8 +4,8 @@ import UIKit
 
 public extension UILabel {
     /// Appends a rendered snapshot of `view` as an inline image attachment.
-    func attachTrailing(_ imageGenerator: (() -> UIImage?)?, spacing: String = " ") {
-        guard let imageGenerator else { return }
+    func attachTrailing(cacheKey: CachedImageKey?, viewGenerator: (() -> UIView)?, spacing: String = " ") {
+        guard let cacheKey, let viewGenerator else { return }
 
         let base = ThemedAttributedString()
         if let existing = attributedText, existing.length > 0 {
@@ -15,7 +15,10 @@ public extension UILabel {
         }
 
         base.append(NSAttributedString(string: spacing))
-        base.append(ThemedAttributedString(imageAttachmentGenerator: imageGenerator, referenceFont: font))
+        base.append(ThemedAttributedString(
+            imageAttachmentGenerator: { UIView.image(for: cacheKey, generator: viewGenerator) },
+            referenceFont: font
+        ))
 
         themeAttributedText = base
         numberOfLines = 0

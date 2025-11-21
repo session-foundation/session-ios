@@ -60,9 +60,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let temporaryId: Int64
         let interaction: Interaction
         let attachmentData: [Attachment]?
-        let linkPreviewDraft: LinkPreviewDraft?
+        let linkPreviewViewModel: LinkPreviewViewModel?
         let linkPreviewPreparedAttachment: PreparedAttachment?
-        let quoteModel: QuotedReplyModel?
+        let quoteViewModel: QuoteViewModel?
     }
     
     // MARK: - Variables
@@ -1264,8 +1264,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         text: String?,
         sentTimestampMs: Int64,
         attachments: [PendingAttachment]?,
-        linkPreviewDraft: LinkPreviewDraft?,
-        quoteModel: QuotedReplyModel?
+        linkPreviewViewModel: LinkPreviewViewModel?,
+        quoteViewModel: QuoteViewModel?
     ) async throws -> OptimisticMessageData {
         // Generate the optimistic data
         let optimisticMessageId: Int64 = (-Int64.max + sentTimestampMs) /// Unique but avoids collisions with messages
@@ -1304,7 +1304,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 body: text
             ),
             expiresInSeconds: currentState.threadViewModel.disappearingMessagesConfiguration?.expiresInSeconds(),
-            linkPreviewUrl: linkPreviewDraft?.urlString,
+            linkPreviewUrl: linkPreviewViewModel?.urlString,
             proFeatures: proFeatures,
             using: dependencies
         )
@@ -1318,7 +1318,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             )
         }
         
-        if let draft: LinkPreviewDraft = linkPreviewDraft {
+        if let draft: LinkPreviewViewModel = linkPreviewViewModel {
             linkPreviewPreparedAttachment = try? await LinkPreview.prepareAttachmentIfPossible(
                 urlString: draft.urlString,
                 imageSource: draft.imageSource,
@@ -1330,9 +1330,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             temporaryId: optimisticMessageId,
             interaction: interaction,
             attachmentData: optimisticAttachments,
-            linkPreviewDraft: linkPreviewDraft,
+            linkPreviewViewModel: linkPreviewViewModel,
             linkPreviewPreparedAttachment: linkPreviewPreparedAttachment,
-            quoteModel: quoteModel
+            quoteViewModel: quoteViewModel
         )
         
         await dependencies.notify(
@@ -1365,40 +1365,20 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     
     // MARK: - Mentions
     
-    public func mentions(for query: String = "") async -> [MentionInfo] {
+    public func mentions(for query: String = "") async throws -> [MentionSelectionView.ViewModel] {
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let threadData: SessionThreadViewModel = await self.state.threadViewModel
+        let state: State = await self.state
         
-        return ((try? await dependencies[singleton: .storage].readAsync { db -> [MentionInfo] in
-            let pattern: FTS5Pattern? = try? SessionThreadViewModel.pattern(db, searchTerm: query, forTable: Profile.self)
-            let capabilities: Set<Capability.Variant> = (threadData.threadVariant != .community ?
-                nil :
-                try? Capability
-                    .select(.variant)
-                    .filter(Capability.Columns.openGroupServer == threadData.openGroupServer)
-                    .asRequest(of: Capability.Variant.self)
-                    .fetchSet(db)
-            )
-            .defaulting(to: [])
-            let targetPrefixes: [SessionId.Prefix] = (capabilities.contains(.blind) ?
-                [.blinded15, .blinded25] :
-                [.standard]
-            )
-            
-            return (try? MentionInfo
-                .query(
-                    threadId: threadData.threadId,
-                    threadVariant: threadData.threadVariant,
-                    targetPrefixes: targetPrefixes,
-                    currentUserSessionIds: (
-                        threadData.currentUserSessionIds ??
-                        [userSessionId.hexString]
-                    ),
-                    pattern: pattern
-                )?
-                .fetchAll(db))
-                .defaulting(to: [])
-        }) ?? [])
+        return try await MentionSelectionView.ViewModel.mentions(
+            for: query,
+            threadId: state.threadId,
+            threadVariant: state.threadVariant,
+            currentUserSessionIds: state.currentUserSessionIds,
+            communityInfo: state.threadViewModel.openGroupServer.map { server in
+                state.threadViewModel.openGroupRoomToken.map { (server: server, roomToken: $0) }
+            },
+            using: dependencies
+        )
     }
 
     // MARK: - Functions

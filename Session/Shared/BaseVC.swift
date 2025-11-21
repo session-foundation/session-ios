@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import Combine
+import SessionUtilitiesKit
 
 public class BaseVC: UIViewController {
     private var proObservationTask: Task<Void, Never>?

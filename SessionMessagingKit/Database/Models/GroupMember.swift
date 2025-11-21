@@ -17,7 +17,7 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
         case isHidden
     }
     
-    public enum Role: Int, Codable, Comparable, DatabaseValueConvertible {
+    public enum Role: Int, Codable, Comparable, CaseIterable, DatabaseValueConvertible {
         case standard
         case zombie
         case moderator
@@ -109,7 +109,7 @@ public extension GroupMember {
 }
 
 extension GroupMember: ProfileAssociated {
-    public var profileIcon: ProfilePictureView.ProfileIcon {
+    public var profileIcon: ProfilePictureView.Info.ProfileIcon {
         switch role {
             case .moderator, .admin: return .crown
             default: return .none

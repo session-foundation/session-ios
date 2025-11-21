@@ -3,6 +3,7 @@
 import UIKit
 
 public protocol SessionProUIManagerType: Actor {
+    nonisolated var pinnedConversationLimit: Int { get }
     nonisolated var currentUserIsCurrentlyPro: Bool { get }
     nonisolated var currentUserIsPro: AsyncStream<Bool> { get }
     

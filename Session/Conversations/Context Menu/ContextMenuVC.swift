@@ -143,7 +143,7 @@ final class ContextMenuVC: UIViewController {
         emojiBarBackgroundView.pin(to: emojiBar)
         
         emojiBar.addSubview(emojiPlusButton)
-        emojiPlusButton.pin(.right, to: .right, of: emojiBar, withInset: -Values.smallSpacing)
+        emojiPlusButton.pin(.trailing, to: .trailing, of: emojiBar, withInset: -Values.smallSpacing)
         emojiPlusButton.center(.vertical, in: emojiBar)
         
         let emojiBarStackView = UIStackView(
@@ -156,8 +156,8 @@ final class ContextMenuVC: UIViewController {
         emojiBarStackView.layoutMargins = UIEdgeInsets(top: 0, left: Values.smallSpacing, bottom: 0, right: Values.smallSpacing)
         emojiBarStackView.isLayoutMarginsRelativeArrangement = true
         emojiBar.addSubview(emojiBarStackView)
-        emojiBarStackView.pin([ UIView.HorizontalEdge.left, UIView.VerticalEdge.top, UIView.VerticalEdge.bottom ], to: emojiBar)
-        emojiBarStackView.pin(.right, to: .left, of: emojiPlusButton)
+        emojiBarStackView.pin([ UIView.HorizontalEdge.leading, UIView.VerticalEdge.top, UIView.VerticalEdge.bottom ], to: emojiBar)
+        emojiBarStackView.pin(.trailing, to: .leading, of: emojiPlusButton)
         
         // Hide the emoji bar if we have no emoji actions
         emojiBar.isHidden = emojiBarStackView.arrangedSubviews.isEmpty
@@ -188,10 +188,10 @@ final class ContextMenuVC: UIViewController {
         timestampLabel.center(.vertical, in: snapshot)
         
         if cellViewModel.variant == .standardOutgoing {
-            timestampLabel.pin(.right, to: .left, of: snapshot, withInset: -Values.smallSpacing)
+            timestampLabel.pin(.trailing, to: .leading, of: snapshot, withInset: -Values.smallSpacing)
         }
         else {
-            timestampLabel.pin(.left, to: .right, of: snapshot, withInset: Values.smallSpacing)
+            timestampLabel.pin(.leading, to: .trailing, of: snapshot, withInset: Values.smallSpacing)
         }
         
         view.addSubview(fallbackTimestampLabel)
@@ -199,14 +199,14 @@ final class ContextMenuVC: UIViewController {
         fallbackTimestampLabel.set(.height, to: ContextMenuVC.actionViewHeight)
         
         if cellViewModel.variant == .standardOutgoing {
-            fallbackTimestampLabel.textAlignment = .right
-            fallbackTimestampLabel.pin(.right, to: .left, of: menuView, withInset: -Values.mediumSpacing)
-            fallbackTimestampLabel.pin(.left, to: .left, of: view, withInset: Values.mediumSpacing)
+            fallbackTimestampLabel.textAlignment = Dependencies.isRTL ? .left : .right
+            fallbackTimestampLabel.pin(.trailing, to: .leading, of: menuView, withInset: -Values.mediumSpacing)
+            fallbackTimestampLabel.pin(.leading, to: .leading, of: view, withInset: Values.mediumSpacing)
         }
         else {
-            fallbackTimestampLabel.textAlignment = .left
-            fallbackTimestampLabel.pin(.left, to: .right, of: menuView, withInset: Values.mediumSpacing)
-            fallbackTimestampLabel.pin(.right, to: .right, of: view, withInset: -Values.mediumSpacing)
+            fallbackTimestampLabel.textAlignment = Dependencies.isRTL ? .right : .left
+            fallbackTimestampLabel.pin(.leading, to: .trailing, of: menuView, withInset: Values.mediumSpacing)
+            fallbackTimestampLabel.pin(.trailing, to: .trailing, of: view, withInset: -Values.mediumSpacing)
         }
         
         // Constrains
@@ -219,9 +219,15 @@ final class ContextMenuVC: UIViewController {
         self.timestampLabel.isHidden = {
             switch cellViewModel.variant {
                 case .standardOutgoing:
+                    if Dependencies.isRTL {
+                        return ((self.targetFrame.maxX + timestampSize.width + Values.mediumSpacing) > UIScreen.main.bounds.width)
+                    }
                     return ((self.targetFrame.minX - timestampSize.width - Values.mediumSpacing) < 0)
                     
                 default:
+                    if Dependencies.isRTL {
+                        return ((self.targetFrame.minX - timestampSize.width - Values.mediumSpacing) < 0)
+                    }
                     return ((self.targetFrame.maxX + timestampSize.width + Values.mediumSpacing) > UIScreen.main.bounds.width)
             }
         }()
@@ -234,15 +240,18 @@ final class ContextMenuVC: UIViewController {
         
         switch cellViewModel.variant {
             case .standardOutgoing, .standardOutgoingDeleted, .standardOutgoingDeletedLocally:
-                menuView.pin(.right, to: .right, of: view, withInset: -(UIScreen.main.bounds.width - targetFrame.maxX))
-                emojiBar.pin(.right, to: .right, of: view, withInset: -(UIScreen.main.bounds.width - targetFrame.maxX))
+                let inset: CGFloat = Dependencies.isRTL ? -targetFrame.minX : -(UIScreen.main.bounds.width - targetFrame.maxX)
+                menuView.pin(.trailing, to: .trailing, of: view, withInset: inset)
+                emojiBar.pin(.trailing, to: .trailing, of: view, withInset: inset)
             
             case .standardIncoming, .standardIncomingDeleted, .standardIncomingDeletedLocally:
-                menuView.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
-                emojiBar.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
+                let inset: CGFloat = Dependencies.isRTL ? (UIScreen.main.bounds.width - targetFrame.maxX) : targetFrame.minX
+                menuView.pin(.leading, to: .leading, of: view, withInset: inset)
+                emojiBar.pin(.leading, to: .leading, of: view, withInset: inset)
                 
             default:    // Should generally only be the 'delete' action
-                menuView.pin(.left, to: .left, of: view, withInset: targetFrame.minX)
+                let inset: CGFloat = Dependencies.isRTL ? (UIScreen.main.bounds.width - targetFrame.maxX) : targetFrame.minX
+                menuView.pin(.leading, to: .leading, of: view, withInset: inset)
         }
         
         // Tap gesture
@@ -281,10 +290,7 @@ final class ContextMenuVC: UIViewController {
             initialSpringVelocity: 0.6,
             options: .curveEaseInOut,
             animations: { [weak self] in
-                self?.snapshot.pin(.left, to: .left, of: view, withInset: targetFrame.origin.x)
-                self?.snapshot.pin(.top, to: .top, of: view, withInset: targetFrame.origin.y)
-                self?.snapshot.set(.width, to: targetFrame.width)
-                self?.snapshot.set(.height, to: targetFrame.height)
+                self?.snapshot.frame = targetFrame
                 self?.snapshot.superview?.setNeedsLayout()
                 self?.snapshot.superview?.layoutIfNeeded()
             },

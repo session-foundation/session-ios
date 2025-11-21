@@ -20,6 +20,12 @@ extension EnvironmentValues {
     }
 }
 
+extension State: @retroactive Equatable where Value: Equatable {
+    public static func == (lhs: State<Value>, rhs: State<Value>) -> Bool {
+        lhs.wrappedValue == rhs.wrappedValue
+    }
+}
+
 public struct UIView_SwiftUI: UIViewRepresentable {
     public typealias UIViewType = UIView
     
@@ -180,8 +186,8 @@ extension View {
     }
     
     @ViewBuilder
-    public func accessibility(_ accessibility: Accessibility) -> some View {
-        if #available(iOSApplicationExtension 14.0, *) {
+    public func accessibility(_ accessibility: Accessibility?) -> some View {
+        if let accessibility: Accessibility = accessibility {
             switch (accessibility.identifier, accessibility.label) {
                 case (.none, _): self
                 case (.some(let identifier), .none):
@@ -212,6 +218,8 @@ extension View {
             alignment: alignment
         )
     }
+    
+    public func eraseToAnyView() -> AnyView { AnyView(self) }
 }
 
 extension Binding {
@@ -279,6 +287,26 @@ public extension View {
                 .simultaneousGesture(
                     TapGesture().onEnded { action() }
                 )
+        }
+    }
+}
+
+// MARK: - Hide Scroll Indicators for List
+// FIXME: Remove this when we only support iOS 16+
+
+struct HideScrollIndicators: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content
+                .scrollIndicators(.hidden)
+        } else {
+            content
+                .onAppear {
+                    UITableView.appearance().showsVerticalScrollIndicator = false
+                }
+                .onDisappear {
+                    UITableView.appearance().showsVerticalScrollIndicator = true
+                }
         }
     }
 }

@@ -561,7 +561,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                             
                             return source
                         }(),
-                        animationBehaviour: .generic(true), // Force the animate the avatar in modals
+                        canAnimate: true, // Force the animate the avatar in modals
                         icon: icon,
                         cropRect: style.cropRect
                     )
@@ -800,7 +800,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
 public extension ConfirmationModal {
     enum ValueUpdate {
         case input(String)
-        case image(source: ImageDataManager.DataSource, cropRect: CGRect?, replacementIcon: ProfilePictureView.ProfileIcon?, replacementCancelTitle: String?)
+        case image(source: ImageDataManager.DataSource, cropRect: CGRect?, replacementIcon: ProfilePictureView.Info.ProfileIcon?, replacementCancelTitle: String?)
     }
     
     struct Info: Equatable, Hashable {
@@ -1084,7 +1084,7 @@ public extension ConfirmationModal.Info {
         case image(
             source: ImageDataManager.DataSource?,
             placeholder: ImageDataManager.DataSource?,
-            icon: ProfilePictureView.ProfileIcon = .none,
+            icon: ProfilePictureView.Info.ProfileIcon = .none,
             style: ImageStyle,
             description: ThemedAttributedString?,
             accessibility: Accessibility?,

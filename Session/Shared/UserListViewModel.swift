@@ -157,9 +157,13 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                         return nil
                                     }
                                     
-                                    return (SessionProBadge.identifier, { [dependencies] in
-                                        SessionProBadge(size: .small).toImage(using: dependencies)
-                                    })
+                                    return (
+                                        .themedKey(
+                                            SessionProBadge.Size.small.cacheKey,
+                                            themeBackgroundColor: .primary
+                                        ),
+                                        { SessionProBadge(size: .small) }
+                                    )
                                 }()
                             ),
                             subtitle: SessionCell.TextInfo(userInfo.itemDescription(using: dependencies), font: .subtitle),

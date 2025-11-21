@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -603,7 +604,7 @@ public extension MessageViewModel {
 }
 
 // MARK: - QuotedInfo
-
+// TODO: [PRO] Replace this with `QuoteViewModel`???
 public extension MessageViewModel {
     struct QuotedInfo: Sendable, Equatable, Hashable {
         public let interactionId: Int64

@@ -230,6 +230,13 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             serviceNetwork = dependencies[feature: .serviceNetwork]
             forceOffline = dependencies[feature: .forceOffline]
             
+            if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
+                switch dependencies[feature: .mockCurrentUserSessionProBackendStatus] {
+                    case .useActual: break
+                    case .simulate(let value): sessionProBackendStatus = value
+                }
+            }
+            
             dependencies.mutate(cache: .libSession) { libSession in
                 profile = libSession.profile
                 developerModeEnabled = libSession.get(.developerModeEnabled)
@@ -239,7 +246,11 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         
         /// If the device has a mock pro status set then use that
         if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
-            sessionProBackendStatus = dependencies[feature: .mockCurrentUserSessionProBackendStatus]
+            // TODO: [PRO] When observing actual status change events we will need to check if this has been mocked or not and set the appropriate value (might actually be best to handle this as the feature change event instead)
+            switch dependencies[feature: .mockCurrentUserSessionProBackendStatus] {
+                case .useActual: break
+                case .simulate(let value): sessionProBackendStatus = value
+            }
         }
         
         /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
@@ -345,12 +356,26 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         font: .titleLarge,
                         alignment: .center,
                         trailingImage: {
-                            guard state.sessionProBackendStatus == .active else { return nil }
-                            
-                            return (
-                                SessionProBadge.identifier,
-                                { SessionProBadge(size: .medium).toImage(using: viewModel.dependencies) }
-                            )
+                            switch state.sessionProBackendStatus {
+                                case .none, .neverBeenPro: return nil
+                                case .active, .refunding:
+                                    return (
+                                        .themedKey(
+                                            SessionProBadge.Size.medium.cacheKey,
+                                            themeBackgroundColor: .primary
+                                        ),
+                                        { SessionProBadge(size: .medium) }
+                                    )
+                                
+                                case .expired:
+                                    return (
+                                        .themedKey(
+                                            SessionProBadge.Size.medium.cacheKey,
+                                            themeBackgroundColor: .disabled
+                                        ),
+                                        { SessionProBadge(size: .medium, themeBackgroundColor: .disabled) }
+                                    )
+                            }
                         }()
                     ),
                     styling: SessionCell.StyleInfo(
@@ -433,9 +458,34 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 SessionCell.Info(
                     id: .sessionPro,
                     leadingAccessory: .proBadge(size: .small),
-                    title: Constants.app_pro,
-                    onTap: { [weak viewModel] in
-                        // TODO: [PRO] Implement
+                    title: {
+                        switch state.sessionProBackendStatus {
+                            case .none, .neverBeenPro:
+                                return "upgradeSession"
+                                    .put(key: "app_name", value: Constants.app_name)
+                                    .localized()
+                            
+                            case .active, .refunding:
+                                return "sessionProBeta"
+                                    .put(key: "app_pro", value: Constants.app_pro)
+                                    .localized()
+                            
+                            case .expired:
+                                return "proRenewBeta"
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localized()
+                        }
+                    }(),
+                    styling: SessionCell.StyleInfo(
+                        tintColor: .primary
+                    ),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        viewModel?.transitionToScreen(
+                            SessionListHostingViewController(
+                                viewModel: SessionProSettingsViewModel(using: dependencies),
+                                customizedNavigationBackground: .clear
+                            )
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -1026,7 +1076,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
-                    
                     modal.dismiss(animated: true)
                 }
             )
@@ -1062,7 +1111,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
-                    
                     modal.dismiss(animated: true)
                 }
             )

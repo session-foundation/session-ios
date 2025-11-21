@@ -167,7 +167,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     private struct State: Equatable {
         let threadViewModel: SessionThreadViewModel?
         let disappearingMessagesConfig: DisappearingMessagesConfiguration
-        let conversationHasProEnabled: Bool
+        let isProConversation: Bool
+        let shouldShowProBadge: Bool
     }
     
     var title: String {
@@ -192,7 +193,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             return State(
                 threadViewModel: threadViewModel,
                 disappearingMessagesConfig: disappearingMessagesConfig,
-                conversationHasProEnabled: false    // TODO: [PRO] Need to source this
+                isProConversation: false,    // TODO: [PRO] Need to source this
+                shouldShowProBadge: false    // TODO: [PRO] Need to source this
             )
         }
         .compactMap { [weak self] current -> [SectionModel]? in
@@ -312,13 +314,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         alignment: .center,
                         trailingImage: {
                             guard
-                                current.conversationHasProEnabled &&
+                                current.shouldShowProBadge &&
                                 !threadViewModel.threadIsNoteToSelf
                             else { return nil }
                             
-                            return (SessionProBadge.identifier, { [dependencies] in
-                                SessionProBadge(size: .medium).toImage(using: dependencies)
-                            })
+                            return (
+                                .themedKey(
+                                    SessionProBadge.Size.medium.cacheKey,
+                                    themeBackgroundColor: .primary
+                                ),
+                                { SessionProBadge(size: .medium) }
+                            )
                         }()
                     ),
                     styling: SessionCell.StyleInfo(
@@ -360,8 +366,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 case .group:
                                     return .groupLimit(
                                         isAdmin: currentUserIsClosedGroupAdmin,
-                                        isSessionProActivated: current.conversationHasProEnabled,
-                                        proBadgeImage: SessionProBadge(size: .mini).toImage(using: dependencies)
+                                        isSessionProActivated: current.isProConversation,
+                                        proBadgeImage: UIView.image(
+                                            for: .themedKey(
+                                                SessionProBadge.Size.mini.cacheKey,
+                                                themeBackgroundColor: .primary
+                                            ),
+                                            generator: { SessionProBadge(size: .mini) }
+                                        )
                                     )
                                 default: return .generic
                             }
@@ -2077,6 +2089,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             ),
                             dataManager: dependencies[singleton: .imageDataManager],
                             sessionProUIManager: dependencies[singleton: .sessionProManager]
+                            onConfirm: { [dependencies] in
+                                // TODO: [PRO] Need to sort this out
+                                dependencies[singleton: .sessionProState].upgradeToPro(
+                                    plan: SessionProPlan(variant: .threeMonths),
+                                    originatingPlatform: .iOS,
+                                    completion: nil
+                                )
+                            }
                         )
                     )
                     self?.transitionToScreen(sessionProModal, transitionType: .present)

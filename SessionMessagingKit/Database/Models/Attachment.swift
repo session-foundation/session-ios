@@ -571,19 +571,9 @@ extension Attachment {
     
     public var documentFileName: String {
         if let sourceFilename: String = sourceFilename { return sourceFilename }
-        return shortDescription
-    }
-    
-    public var shortDescription: String {
-        if isImage { return "image".localized() }
-        if isAudio {
-            switch variant {
-                case .voiceMessage:  return "messageVoice".localized()
-                case .standard:  return "audio".localized()
-            }
-        }
-        if isVideo { return "video".localized() }
-        return "document".localized()
+        
+        return (UTType(sessionMimeType: contentType) ?? .invalid)
+            .shortDescription(isVoiceMessage: (variant == .voiceMessage))
     }
     
     public var documentFileInfo: String {

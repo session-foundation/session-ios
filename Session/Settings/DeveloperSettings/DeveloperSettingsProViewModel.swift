@@ -70,13 +70,19 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case enableSessionPro
         
-        case proStatus
+        case mockCurrentUserSessionProBackendStatus
+        case mockCurrentUserSessionProLoadingState
         case proBadgeEverywhere
         case fakeAppleSubscriptionForDev
 
         case forceMessageFeatureProBadge
         case forceMessageFeatureLongMessage
         case forceMessageFeatureAnimatedAvatar
+        
+        case proPlanToRecover
+        case proPlanExpiry
+        case mockInstalledFromIPA
+        case originatingPlatform
         
         case purchaseProSubscription
         case manageProSubscriptions
@@ -94,13 +100,19 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             switch self {
                 case .enableSessionPro: return "enableSessionPro"
                     
-                case .proStatus: return "proStatus"
+                case .mockCurrentUserSessionProBackendStatus: return "mockCurrentUserSessionProBackendStatus"
+                case .mockCurrentUserSessionProLoadingState: return "mockCurrentUserSessionProLoadingState"
                 case .proBadgeEverywhere: return "proBadgeEverywhere"
                 case .fakeAppleSubscriptionForDev: return "fakeAppleSubscriptionForDev"
                 
                 case .forceMessageFeatureProBadge: return "forceMessageFeatureProBadge"
                 case .forceMessageFeatureLongMessage: return "forceMessageFeatureLongMessage"
                 case .forceMessageFeatureAnimatedAvatar: return "forceMessageFeatureAnimatedAvatar"
+                    
+                case .proPlanToRecover: return "proPlanToRecover"
+                case .proPlanExpiry: return "proPlanExpiry"
+                case .mockInstalledFromIPA: return "mockInstalledFromIPA"
+                case .originatingPlatform: return "originatingPlatform"
                     
                 case .purchaseProSubscription: return "purchaseProSubscription"
                 case .manageProSubscriptions: return "manageProSubscriptions"
@@ -121,13 +133,19 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             switch TableItem.enableSessionPro {
                 case .enableSessionPro: result.append(.enableSessionPro); fallthrough
                     
-                case .proStatus: result.append(.proStatus); fallthrough
+                case .mockCurrentUserSessionProBackendStatus: result.append(.mockCurrentUserSessionProBackendStatus); fallthrough
+                case .mockCurrentUserSessionProLoadingState: result.append(.mockCurrentUserSessionProLoadingState); fallthrough
                 case .proBadgeEverywhere: result.append(.proBadgeEverywhere); fallthrough
                 case .fakeAppleSubscriptionForDev: result.append(.fakeAppleSubscriptionForDev); fallthrough
 
                 case .forceMessageFeatureProBadge: result.append(.forceMessageFeatureProBadge); fallthrough
                 case .forceMessageFeatureLongMessage: result.append(.forceMessageFeatureLongMessage); fallthrough
-                case .forceMessageFeatureAnimatedAvatar: result.append(.forceMessageFeatureAnimatedAvatar)
+                case .forceMessageFeatureAnimatedAvatar: result.append(.forceMessageFeatureAnimatedAvatar); fallthrough
+                
+                case .proPlanToRecover: result.append(.proPlanToRecover); fallthrough
+                case .proPlanExpiry: result.append(.proPlanExpiry); fallthrough
+                case .mockInstalledFromIPA: result.append(mockInstalledFromIPA); fallthrough
+                case .originatingPlatform: result.append(.originatingPlatform); fallthrough
                     
                 case .purchaseProSubscription: result.append(.purchaseProSubscription); fallthrough
                 case .manageProSubscriptions: result.append(.manageProSubscriptions); fallthrough
@@ -154,13 +172,19 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public struct State: Equatable, ObservableKeyProvider {
         let sessionProEnabled: Bool
         
-        let mockCurrentUserSessionProBackendStatus: Network.SessionPro.BackendUserProStatus?
+        let mockCurrentUserSessionProBackendStatus: MockableFeature<Network.SessionPro.BackendUserProStatus>
+        let mockCurrentUserSessionProLoadingState: MockableFeature<SessionPro.LoadingState>
         let proBadgeEverywhere: Bool
         let fakeAppleSubscriptionForDev: Bool
 
         let forceMessageFeatureProBadge: Bool
         let forceMessageFeatureLongMessage: Bool
         let forceMessageFeatureAnimatedAvatar: Bool
+        // TODO: [PRO] Add these back
+//        let proPlanToRecover: Bool
+//        let proPlanExpiry: SessionProStateExpiryMock
+//        let mockInstalledFromIPA: Bool
+//        let originatingPlatform: ClientPlatform
         
         let products: [Product]
         let purchasedProduct: Product?
@@ -186,8 +210,13 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         public let observedKeys: Set<ObservableKey> = [
             .feature(.sessionProEnabled),
             .feature(.mockCurrentUserSessionProBackendStatus),
+            .feature(.mockCurrentUserSessionProLoadingState),
             .feature(.proBadgeEverywhere),
             .feature(.fakeAppleSubscriptionForDev),
+            //            .feature(.proPlanToRecover),
+            //            .feature(.mockCurrentUserSessionProExpiry),
+            //            .feature(.mockInstalledFromIPA),
+            //            .feature(.proPlanOriginatingPlatform),
             .feature(.forceMessageFeatureProBadge),
             .feature(.forceMessageFeatureLongMessage),
             .feature(.forceMessageFeatureAnimatedAvatar),
@@ -199,8 +228,14 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 sessionProEnabled: dependencies[feature: .sessionProEnabled],
                 
                 mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
+                mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
                 proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
                 fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
+                
+//                proPlanToRecover: dependencies[feature: .proPlanToRecover],
+//                proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
+//                mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
+//                originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
 
                 forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
                 forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
@@ -269,8 +304,13 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         return State(
             sessionProEnabled: dependencies[feature: .sessionProEnabled],
             mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
+            mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
             proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
             fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
+//            proPlanToRecover: dependencies[feature: .proPlanToRecover],
+//            proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
+//            mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
+//            originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
             forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
             forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
             forceMessageFeatureAnimatedAvatar: dependencies[feature: .forceMessageFeatureAnimatedAvatar],
@@ -319,8 +359,14 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         let mockedProStatus: String = {
             switch state.mockCurrentUserSessionProBackendStatus {
-                case .some(let status): return "<span>\(status)</span>"
-                case .none: return "<disabled>None</disabled>"
+                case .simulate(let status): return "<span>\(status)</span>"
+                case .useActual: return "<disabled>None</disabled>"
+            }
+        }()
+        let mockedLoadingState: String = {
+            switch state.mockCurrentUserSessionProLoadingState {
+                case .simulate(let state): return "<span>\(state)</span>"
+                case .useActual: return "<disabled>None</disabled>"
             }
         }()
         
@@ -328,7 +374,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             model: .features,
             elements: [
                 SessionCell.Info(
-                    id: .proStatus,
+                    id: .mockCurrentUserSessionProBackendStatus,
                     title: "Mocked Pro Status",
                     subtitle: """
                     Force the current users Session Pro to a specific status locally.
@@ -337,9 +383,43 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     """,
                     trailingAccessory: .icon(.squarePen),
                     onTap: { [weak viewModel] in
-                        viewModel?.showMockProStatusModal(currentStatus: state.mockCurrentUserSessionProBackendStatus)
+                        DeveloperSettingsViewModel.showModalForMockableState(
+                            title: "Mocked Pro Status",
+                            explanation: "Force the current users Session Pro to a specific status locally.",
+                            feature: .mockCurrentUserSessionProBackendStatus,
+                            currentValue: state.mockCurrentUserSessionProBackendStatus,
+                            navigatableStateHolder: viewModel,
+                            using: viewModel?.dependencies
+                        )
                     }
                 ),
+                SessionCell.Info(
+                    id: .mockCurrentUserSessionProLoadingState,
+                    title: "Mocked Loading State",
+                    subtitle: """
+                    Force the Session Pro UI into a specific loading state.
+                    
+                    <b>Current:</b> \(mockedLoadingState)
+                    
+                    Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    isEnabled: (
+                        state.mockCurrentUserSessionProLoadingState != nil ||
+                        state.mockCurrentUserSessionProBackendStatus != nil ||
+                        state.currentProStatus != nil
+                    ),
+                    onTap: { [weak viewModel] in
+                        DeveloperSettingsViewModel.showModalForMockableState(
+                            title: "Mocked Loading State",
+                            explanation: "Force the Session Pro UI into a specific loading state.",
+                            feature: .mockCurrentUserSessionProLoadingState,
+                            currentValue: state.mockCurrentUserSessionProLoadingState,
+                            navigatableStateHolder: viewModel,
+                            using: viewModel?.dependencies
+                        )
+                    }
+                )
                 SessionCell.Info(
                     id: .proBadgeEverywhere,
                     title: "Show the Pro Badge everywhere",
@@ -570,6 +650,188 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             ]
         )
         
+//        let features: SectionModel = SectionModel(
+//            model: .features,
+//            elements: [
+//                SessionCell.Info(
+//                    id: .proStatus,
+//                    title: "Pro Status",
+//                    subtitle: """
+//                    Mock current user a Session Pro user locally.
+//                    """,
+//                    trailingAccessory: .dropDown { state.mockCurrentUserSessionPro.title },
+//                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+//                        viewModel?.transitionToScreen(
+//                            SessionTableViewController(
+//                                viewModel: SessionListViewModel<SessionProStateMock>(
+//                                    title: "Session Pro State",
+//                                    options: SessionProStateMock.allCases,
+//                                    behaviour: .autoDismiss(
+//                                        initialSelection: state.mockCurrentUserSessionPro,
+//                                        onOptionSelected: viewModel?.updateSessionProState
+//                                    ),
+//                                    using: dependencies
+//                                )
+//                            )
+//                        )
+//                    }
+//                ),
+//                SessionCell.Info(
+//                    id: .allUsersSessionPro,
+//                    title: "Everyone is a Pro",
+//                    subtitle: """
+//                    Treat all incoming messages as Pro messages.
+//                    Treat all contacts, groups as Session Pro.
+//                    """,
+//                    trailingAccessory: .toggle(
+//                        state.allUsersSessionPro,
+//                        oldValue: previousState.allUsersSessionPro
+//                    ),
+//                    onTap: { [dependencies = viewModel.dependencies] in
+//                        dependencies.set(
+//                            feature: .allUsersSessionPro,
+//                            to: !state.allUsersSessionPro
+//                        )
+//                    }
+//                )
+//            ].appending(
+//                contentsOf: !state.allUsersSessionPro ? [] : [
+//                    SessionCell.Info(
+//                        id: .messageFeatureProBadge,
+//                        title: .init("Message Feature: Pro Badge", font: .subtitle),
+//                        trailingAccessory: .toggle(
+//                            state.messageFeatureProBadge,
+//                            oldValue: previousState.messageFeatureProBadge
+//                        ),
+//                        onTap: { [dependencies = viewModel.dependencies] in
+//                            dependencies.set(
+//                                feature: .messageFeatureProBadge,
+//                                to: !state.messageFeatureProBadge
+//                            )
+//                        }
+//                    ),
+//                    SessionCell.Info(
+//                        id: .messageFeatureLongMessage,
+//                        title: .init("Message Feature: Long Message", font: .subtitle),
+//                        trailingAccessory: .toggle(
+//                            state.messageFeatureLongMessage,
+//                            oldValue: previousState.messageFeatureLongMessage
+//                        ),
+//                        onTap: { [dependencies = viewModel.dependencies] in
+//                            dependencies.set(
+//                                feature: .messageFeatureLongMessage,
+//                                to: !state.messageFeatureLongMessage
+//                            )
+//                        }
+//                    ),
+//                    SessionCell.Info(
+//                        id: .messageFeatureAnimatedAvatar,
+//                        title: .init("Message Feature: Animated Avatar", font: .subtitle),
+//                        trailingAccessory: .toggle(
+//                            state.messageFeatureAnimatedAvatar,
+//                            oldValue: previousState.messageFeatureAnimatedAvatar
+//                        ),
+//                        onTap: { [dependencies = viewModel.dependencies] in
+//                            dependencies.set(
+//                                feature: .messageFeatureAnimatedAvatar,
+//                                to: !state.messageFeatureAnimatedAvatar
+//                            )
+//                        }
+//                    )
+//                ]
+//            ).appending(
+//                contentsOf: [
+//                    {
+//                        switch state.mockCurrentUserSessionPro {
+//                            case .none, .expired:
+//                                SessionCell.Info(
+//                                    id: .proPlanToRecover,
+//                                    title: "Pro plan to recover",
+//                                    subtitle: """
+//                                    Mock a pro plan to recover for pro state `None` and `Expired`.
+//                                    """,
+//                                    trailingAccessory: .toggle(
+//                                        state.proPlanToRecover,
+//                                        oldValue: previousState.proPlanToRecover
+//                                    ),
+//                                    onTap: { [dependencies = viewModel.dependencies] in
+//                                        dependencies.set(
+//                                            feature: .proPlanToRecover,
+//                                            to: !state.proPlanToRecover
+//                                        )
+//                                    }
+//                                )
+//                            case .active, .expiring:
+//                                SessionCell.Info(
+//                                    id: .proPlanExpiry,
+//                                    title: "Pro plan expiry",
+//                                    subtitle: """
+//                                    Mock current pro plan expiry.
+//                                    """,
+//                                    trailingAccessory: .dropDown { state.proPlanExpiry.title },
+//                                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+//                                        viewModel?.transitionToScreen(
+//                                            SessionTableViewController(
+//                                                viewModel: SessionListViewModel<SessionProStateExpiryMock>(
+//                                                    title: "Session Pro Plan Expiry",
+//                                                    options: SessionProStateExpiryMock.allCases,
+//                                                    behaviour: .autoDismiss(
+//                                                        initialSelection: state.proPlanExpiry,
+//                                                        onOptionSelected: viewModel?.updateSessionProExpiry
+//                                                    ),
+//                                                    using: dependencies
+//                                                )
+//                                            )
+//                                        )
+//                                    }
+//                                )
+//                            default: nil
+//                        }
+//                    }(),
+//                    (
+//                        state.mockCurrentUserSessionPro == .none ? nil :
+//                            SessionCell.Info(
+//                                id: .originatingPlatform,
+//                                title: "Originating Platform",
+//                                trailingAccessory: .dropDown { state.originatingPlatform.title },
+//                                onTap: { [dependencies = viewModel.dependencies] in
+//                                    let newValue: ClientPlatform = {
+//                                        switch state.originatingPlatform {
+//                                            case .Android: return .iOS
+//                                            case .iOS: return .Android
+//                                        }
+//                                    }()
+//                                    
+//                                    dependencies.set(
+//                                        feature: .proPlanOriginatingPlatform,
+//                                        to: newValue
+//                                    )
+//                                    dependencies[singleton: .sessionProState].updateOriginatingPlatform(newValue)
+//                                }
+//                            )
+//                    ),
+//                    SessionCell.Info(
+//                        id: .mockInstalledFromIPA,
+//                        title: "Mock installed from IPA",
+//                        subtitle: """
+//                        Mock current app is installed from IPA,
+//                        which means NO billing access.
+//                        """,
+//                        trailingAccessory: .toggle(
+//                            state.mockInstalledFromIPA,
+//                            oldValue: previousState.mockInstalledFromIPA
+//                        ),
+//                        onTap: { [dependencies = viewModel.dependencies] in
+//                            dependencies.set(
+//                                feature: .mockInstalledFromIPA,
+//                                to: !state.mockInstalledFromIPA
+//                            )
+//                        }
+//                    )
+//                ]
+//            )
+//            .compactMap { $0 }
+        
         return [general, features, subscriptions]
     }
     
@@ -579,6 +841,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let features: [FeatureConfig<Bool>] = [
             .sessionProEnabled,
             .proBadgeEverywhere,
+            .fakeAppleSubscriptionForDev,
             .forceMessageFeatureProBadge,
             .forceMessageFeatureLongMessage,
             .forceMessageFeatureAnimatedAvatar,
@@ -593,6 +856,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
             dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
         }
+        
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProLoadingState) {
+            dependencies.set(feature: .mockCurrentUserSessionProLoadingState, to: nil)
+        }
     }
     
     // MARK: - Internal Functions
@@ -600,71 +867,162 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     private func updateSessionProEnabled(current: Bool) {
         dependencies.set(feature: .sessionProEnabled, to: !current)
         
+        if dependencies.hasSet(feature: .proBadgeEverywhere) {
+            dependencies.set(feature: .proBadgeEverywhere, to: nil)
+        }
+        
         if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
             dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
         }
         
-        if dependencies.hasSet(feature: .proBadgeEverywhere) {
-            dependencies.set(feature: .proBadgeEverywhere, to: nil)
+        if dependencies.hasSet(feature: .mockCurrentUserSessionProLoadingState) {
+            dependencies.set(feature: .mockCurrentUserSessionProLoadingState, to: nil)
         }
     }
     
-    private func showMockProStatusModal(currentStatus: Network.SessionPro.BackendUserProStatus?) {
-        self.transitionToScreen(
-            ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "Mocked Pro Status",
-                    body: .radio(
-                        explanation: ThemedAttributedString(
-                            string: "Force the current users Session Pro to a specific status locally."
-                        ),
-                        warning: nil,
-                        options: {
-                            return ([nil] + Network.SessionPro.BackendUserProStatus.allCases).map { status in
-                                ConfirmationModal.Info.Body.RadioOptionInfo(
-                                    title: status.title,
-                                    descriptionText: status.subtitle.map {
-                                        ThemedAttributedString(
-                                            stringWithHTMLTags: $0,
-                                            font: RadioButton.descriptionFont
-                                        )
-                                    },
-                                    enabled: true,
-                                    selected: currentStatus == status
-                                )
-                            }
-                        }()
-                    ),
-                    confirmTitle: "select".localized(),
-                    cancelStyle: .alert_text,
-                    onConfirm: { [dependencies] modal in
-                        let selectedStatus: Network.SessionPro.BackendUserProStatus? = {
-                            switch modal.info.body {
-                                case .radio(_, _, let options):
-                                    return options
-                                        .enumerated()
-                                        .first(where: { _, value in value.selected })
-                                        .map { index, _ in
-                                            let targetIndex: Int = (index - 1)
-                                            
-                                            guard targetIndex >= 0 && (targetIndex - 1) < Network.SessionPro.BackendUserProStatus.allCases.count else {
-                                                return nil
-                                            }
-                                            
-                                            return Network.SessionPro.BackendUserProStatus.allCases[targetIndex]
-                                        }
-                                
-                                default: return nil
-                            }
-                        }()
-                        
-                        dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: selectedStatus)
-                    }
-                )
-            ),
-            transitionType: .present
-        )
-    }
+//    private func showMockProStatusModal(currentStatus: Network.SessionPro.BackendUserProStatus?) {
+//        self.transitionToScreen(
+//            ConfirmationModal(
+//                info: ConfirmationModal.Info(
+//                    title: "Mocked Pro Status",
+//                    body: .radio(
+//                        explanation: ThemedAttributedString(
+//                            string: "Force the current users Session Pro to a specific status locally."
+//                        ),
+//                        warning: nil,
+//                        options: {
+//                            return ([nil] + Network.SessionPro.BackendUserProStatus.allCases).map { status in
+//                                ConfirmationModal.Info.Body.RadioOptionInfo(
+//                                    title: status.title,
+//                                    descriptionText: status.subtitle.map {
+//                                        ThemedAttributedString(
+//                                            stringWithHTMLTags: $0,
+//                                            font: RadioButton.descriptionFont
+//                                        )
+//                                    },
+//                                    enabled: true,
+//                                    selected: currentStatus == status
+//                                )
+//                            }
+//                        }()
+//                    ),
+//                    confirmTitle: "select".localized(),
+//                    cancelStyle: .alert_text,
+//                    onConfirm: { [dependencies] modal in
+//                        let selectedStatus: Network.SessionPro.BackendUserProStatus? = {
+//                            switch modal.info.body {
+//                                case .radio(_, _, let options):
+//                                    return options
+//                                        .enumerated()
+//                                        .first(where: { _, value in value.selected })
+//                                        .map { index, _ in
+//                                            let targetIndex: Int = (index - 1)
+//                                            
+//                                            guard targetIndex >= 0 && (targetIndex - 1) < Network.SessionPro.BackendUserProStatus.allCases.count else {
+//                                                return nil
+//                                            }
+//                                            
+//                                            return Network.SessionPro.BackendUserProStatus.allCases[targetIndex]
+//                                        }
+//                                
+//                                default: return nil
+//                            }
+//                        }()
+//                        
+//                        dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: selectedStatus)
+//                    }
+//                )
+//            ),
+//            transitionType: .present
+//        )
+//    }
+//    
+//    private func showMockLoadingStateModal(currentState: SessionProLoadingState?) {
+//        self.transitionToScreen(
+//            ConfirmationModal(
+//                info: ConfirmationModal.Info(
+//                    title: "Mocked Loading State",
+//                    body: .radio(
+//                        explanation: ThemedAttributedString(
+//                            string: "Force the Session Pro UI into a specific loading state."
+//                        ),
+//                        warning: nil,
+//                        options: {
+//                            return ([nil] + SessionProLoadingState.allCases).map { status in
+//                                ConfirmationModal.Info.Body.RadioOptionInfo(
+//                                    title: status.title,
+//                                    descriptionText: status.subtitle.map {
+//                                        ThemedAttributedString(
+//                                            stringWithHTMLTags: $0,
+//                                            font: RadioButton.descriptionFont
+//                                        )
+//                                    },
+//                                    enabled: true,
+//                                    selected: currentStatus == status
+//                                )
+//                            }
+//                        }()
+//                    ),
+//                    confirmTitle: "select".localized(),
+//                    cancelStyle: .alert_text,
+//                    onConfirm: { [dependencies] modal in
+//                        let selectedState: SessionProLoadingState? = {
+//                            switch modal.info.body {
+//                                case .radio(_, _, let options):
+//                                    return options
+//                                        .enumerated()
+//                                        .first(where: { _, value in value.selected })
+//                                        .map { index, _ in
+//                                            let targetIndex: Int = (index - 1)
+//                                            
+//                                            guard targetIndex >= 0 && (targetIndex - 1) < SessionProLoadingState.allCases.count else {
+//                                                return nil
+//                                            }
+//                                            
+//                                            return SessionProLoadingState.allCases[targetIndex]
+//                                        }
+//                                
+//                                default: return nil
+//                            }
+//                        }()
+//                        
+//                        dependencies.set(feature: .mockCurrentUserSessionProLoadingState, to: selectedState)
+//                    }
+//                )
+//            ),
+//            transitionType: .present
+//        )
+//    }
+//
+//    private func updateSessionProState(to state: SessionProStateMock) {
+//        dependencies.set(feature: .mockCurrentUserSessionProState, to: state)
+//        switch state {
+//            case .none:
+//                dependencies[singleton: .sessionProState].cancelPro(completion: nil)
+//            case .active:
+//                dependencies[singleton: .sessionProState].upgradeToPro(
+//                    plan: SessionProPlan(variant: .threeMonths),
+//                    originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
+//                    completion: nil
+//                )
+//            case .expiring:
+//                dependencies[singleton: .sessionProState].upgradeToPro(
+//                    plan: SessionProPlan(variant: .threeMonths),
+//                    originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
+//                    completion: nil
+//                )
+//                dependencies[singleton: .sessionProState].cancelPro(completion: nil)
+//            case .expired:
+//                dependencies[singleton: .sessionProState].expirePro(completion: nil)
+//            case .refunding:
+//                dependencies[singleton: .sessionProState].requestRefund(completion: nil)
+//        }
+//    }
+//    
+//    private func updateSessionProExpiry(to expiry: SessionProStateExpiryMock) {
+//        dependencies.set(feature: .mockCurrentUserSessionProExpiry, to: expiry)
+//        dependencies[singleton: .sessionProState].updateProExpiry(expiry.durationInSeconds)
+//    }
     
     // MARK: - Pro Requests
     

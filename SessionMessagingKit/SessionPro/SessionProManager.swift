@@ -40,6 +40,7 @@ public actor SessionProManager: SessionProManagerType {
     nonisolated public var currentUserCurrentBackendProStatus: Network.SessionPro.BackendUserProStatus? {
         syncState.backendUserProStatus
     }
+    nonisolated public var pinnedConversationLimit: Int { SessionPro.PinnedConversationLimit }
     nonisolated public var currentUserIsCurrentlyPro: Bool { syncState.backendUserProStatus == .active }
     nonisolated public var currentUserCurrentProProof: Network.SessionPro.ProProof? { syncState.proProof }
     nonisolated public var currentUserIsPro: AsyncStream<Bool> {

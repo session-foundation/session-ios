@@ -306,9 +306,13 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                                         return nil
                                     }
                                     
-                                    return (SessionProBadge.identifier, { [dependencies] in
-                                        SessionProBadge(size: .small).toImage(using: dependencies)
-                                    })
+                                    return (
+                                        .themedKey(
+                                            SessionProBadge.Size.small.cacheKey,
+                                            themeBackgroundColor: .primary
+                                        ),
+                                        { SessionProBadge(size: .small) }
+                                    )
                                 }()
                             ),
                             subtitle: (!isUpdatedGroup ? nil : SessionCell.TextInfo(

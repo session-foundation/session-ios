@@ -587,7 +587,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
     
     // MARK: - Functions
     
-    fileprivate func load(_ target: PagedData.InternalTarget) {
+    fileprivate func load(_ target: PagedData.InternalTarget, onComplete: (() -> ())?) {
         // Only allow a single page load at a time
         guard !self.isLoadingMoreData else { return }
 
@@ -788,7 +788,10 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                                 (targetIndex > (cacheCurrentEndIndex + currentPageInfo.pageSize))
                             else {
                                 let callback: () -> () = {
-                                    self?.load(.untilInclusive(id: targetId, padding: paddingForInclusive))
+                                    self?.load(
+                                        .untilInclusive(id: targetId, padding: paddingForInclusive),
+                                        onComplete: onComplete
+                                    )
                                 }
                                 return (nil, callback)
                             }
@@ -799,7 +802,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                                 self?.dataCache = DataCache()
                                 self?.associatedRecords.forEach { $0.clearCache() }
                                 self?.pageInfo = PagedData.PageInfo(pageSize: currentPageInfo.pageSize)
-                                self?.load(.initialPageAround(id: targetId))
+                                self?.load(.initialPageAround(id: targetId), onComplete: onComplete)
                             }
                             
                             return (nil, callback)
@@ -952,6 +955,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                 /// via the `PagedData.processAndTriggerUpdates` function)
                 self.onChangeUnsorted(self.dataCache.values, loadedPage.pageInfo)
                 self.isLoadingMoreData = false
+                onComplete?()
             }
         )
     }
@@ -962,7 +966,7 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
 
     public func resume() {
         self.isSuspended = false
-        self.load(.reloadCurrent)
+        self.load(.reloadCurrent, onComplete: nil)
     }
 }
 
@@ -1009,12 +1013,12 @@ private extension PagedData.Target {
 }
 
 public extension PagedDatabaseObserver {
-    func load(_ target: PagedData.Target<ObservedTable.ID>) where ObservedTable.ID: SQLExpressible {
-        self.load(target.internalTarget)
+    func load(_ target: PagedData.Target<ObservedTable.ID>, onComplete: (() -> ())? = nil) where ObservedTable.ID: SQLExpressible {
+        self.load(target.internalTarget, onComplete: onComplete)
     }
     
-    func load<ID>(_ target: PagedData.Target<ID>) where ObservedTable.ID == Optional<ID>, ID: SQLExpressible {
-        self.load(target.internalTarget)
+    func load<ID>(_ target: PagedData.Target<ID>, onComplete: (() -> ())? = nil) where ObservedTable.ID == Optional<ID>, ID: SQLExpressible {
+        self.load(target.internalTarget, onComplete: onComplete)
     }
 }
 

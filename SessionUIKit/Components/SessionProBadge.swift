@@ -62,10 +62,11 @@ public class SessionProBadge: UIView {
     
     // MARK: -  Initialization
     
-    public init(size: Size) {
+    public init(size: Size, themeBackgroundColor: ThemeValue = .primary) {
         self.size = size
         super.init(frame: CGRect(x: 0, y: 0, width: size.width, height: size.height))
         setUpViewHierarchy()
+        self.themeBackgroundColor = themeBackgroundColor
     }
     
     public override init(frame: CGRect) {
@@ -96,7 +97,6 @@ public class SessionProBadge: UIView {
         proImageWidthConstraint = proImageView.set(.width, to: self.size.proFontWidth)
         proImageView.center(in: self)
         
-        self.themeBackgroundColor = .primary
         self.clipsToBounds = true
         self.layer.cornerRadius = self.size.cornerRadius
         widthConstraint = self.set(.width, to: self.size.width)

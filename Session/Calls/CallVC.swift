@@ -19,7 +19,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     var latestKnownAudioOutputDeviceName: String?
     var durationTimer: Timer?
     var shouldRestartCamera = true
-    weak var conversationVC: ConversationVC? = nil
     
     lazy var cameraManager: CameraManager = {
         let result = CameraManager()
@@ -702,8 +701,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
     
     @objc private func minimize() {
         self.shouldRestartCamera = false
-        self.conversationVC?.becomeFirstResponder()
-        self.conversationVC?.showInputAccessoryView()
         
         let miniCallView = MiniCallView(from: self, using: dependencies)
         miniCallView.show()
@@ -936,9 +933,6 @@ final class CallVC: UIViewController, VideoPreviewDelegate, AVRoutePickerViewDel
             guard self?.presentingViewController != nil else { return }
             
             self?.dismiss(animated: true, completion: {
-                self?.conversationVC?.becomeFirstResponder()
-                self?.conversationVC?.showInputAccessoryView()
-
                 if presentCameraRequestDialog {
                     Permissions.showEnableCameraAccessInstructions(using: dependencies)
                 } else {

@@ -2,7 +2,7 @@
 
 import Foundation
 
-public struct HTMLMetadata: Equatable {
+public struct HTMLMetadata: Codable, Equatable {
     /// Parsed from <title>
     var titleTag: String?
     /// Parsed from <link rel="icon"...>

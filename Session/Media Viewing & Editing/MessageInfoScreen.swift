@@ -99,7 +99,7 @@ struct MessageInfoScreen: View {
             onStartThread: onStartThread,
             isMessageFailed: [.failed, .failedToSync].contains(messageViewModel.state),
             isCurrentUser: messageViewModel.currentUserSessionIds.contains(messageViewModel.authorId),
-            profileInfo: ProfilePictureView.getProfilePictureInfo(
+            profileInfo: ProfilePictureView.Info.generateInfoFrom(
                 size: .message,
                 publicKey: messageViewModel.profile.id,
                 threadVariant: .contact,    // Always show the display picture in 'contact' mode
@@ -107,7 +107,7 @@ struct MessageInfoScreen: View {
                 profile: messageViewModel.profile,
                 profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
                 using: dependencies
-            ).info,
+            ).front,
             proFeatures: ProFeature.from(messageViewModel.proFeatures),
             shouldShowProBadge: messageViewModel.profile.proFeatures.contains(.proBadge)
         )
@@ -417,7 +417,8 @@ struct MessageInfoScreen: View {
                                 HStack(
                                     spacing: 10
                                 ) {
-                                    let size: ProfilePictureView.Size = .list
+                                    let size: ProfilePictureView.Info.Size = .list
+                                    
                                     if let info: ProfilePictureView.Info = viewModel.profileInfo {
                                         ProfilePictureSwiftUI(
                                             size: size,
@@ -524,6 +525,7 @@ struct MessageInfoScreen: View {
                                                     Image(uiImage: icon)
                                                         .resizable()
                                                         .scaledToFit()
+                                                        .scaleEffect(x: (viewModel.actions[index].flipIconForRTL ? -1 : 1), y: 1)
                                                         .foregroundColor(themeColor: tintColor)
                                                         .frame(width: 26, height: 26)
                                                 }
@@ -576,7 +578,15 @@ struct MessageInfoScreen: View {
                     currentUserIsPro: viewModel.dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
                 ),
                 dataManager: viewModel.dependencies[singleton: .imageDataManager],
-                sessionProUIManager: viewModel.dependencies[singleton: .sessionProManager]
+                sessionProUIManager: viewModel.dependencies[singleton: .sessionProManager],
+                onConfirm: { [dependencies] in
+                    // TODO: [PRO] Need to sort this out
+                    dependencies[singleton: .sessionProState].upgradeToPro(
+                        plan: SessionProPlan(variant: .threeMonths),
+                        originatingPlatform: .iOS,
+                        completion: nil
+                    )
+                }
             )
         )
         self.host.controller?.present(sessionProModal, animated: true)
@@ -587,7 +597,7 @@ struct MessageInfoScreen: View {
         // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
         guard (try? SessionId.Prefix(from: viewModel.messageViewModel.authorId)) != .blinded25 else { return }
         
-        guard let profileInfo: ProfilePictureView.Info = ProfilePictureView.getProfilePictureInfo(
+        guard let profileInfo: ProfilePictureView.Info = ProfilePictureView.Info.generateInfoFrom(
             size: .message,
             publicKey: viewModel.messageViewModel.profile.id,
             threadVariant: .contact,    // Always show the display picture in 'contact' mode
@@ -595,18 +605,30 @@ struct MessageInfoScreen: View {
             profile: viewModel.messageViewModel.profile,
             profileIcon: .none,
             using: viewModel.dependencies
-        ).info else {
+        ).front else {
             return
         }
         
+        // TODO: [PRO] Would be good to source this from the view model if we can
         let (sessionId, blindedId): (String?, String?) = {
-            guard (try? SessionId.Prefix(from: viewModel.messageViewModel.authorId)) == .blinded15 else {
-                return (viewModel.messageViewModel.authorId, nil)
+            guard
+                (try? SessionId.Prefix(from: viewModel.messageViewModel.authorId)) == .blinded15,
+                let openGroupServer: String = viewModel.messageViewModel.threadOpenGroupServer,
+                let openGroupPublicKey: String = viewModel.messageViewModel.threadOpenGroupPublicKey
+            else { return (viewModel.messageViewModel.authorId, nil) }
+            
+            let lookup: BlindedIdLookup? = viewModel.dependencies[singleton: .storage].write { db in
+                try BlindedIdLookup.fetchOrCreate(
+                    db,
+                    blindedId: viewModel.messageViewModel.authorId,
+                    openGroupServer: openGroupServer,
+                    openGroupPublicKey: openGroupPublicKey,
+                    isCheckingForOutbox: false,
+                    using: viewModel.dependencies
+                )
             }
-            let lookup: BlindedIdLookup? = viewModel.dependencies[singleton: .storage].read { db in
-                try? BlindedIdLookup.fetchOne(db, id: viewModel.messageViewModel.authorId)
-            }
-            return (lookup?.sessionId, viewModel.messageViewModel.authorId)
+            
+            return (lookup?.sessionId, viewModel.messageViewModel.authorId.truncated(prefix: 10, suffix: 10))
         }()
         
         let qrCodeImage: UIImage? = {
@@ -723,8 +745,7 @@ struct MessageBubble: View {
                         switch linkPreview.variant {
                             case .standard:
                                 LinkPreviewView_SwiftUI(
-                                    state: LinkPreview.SentState(
-                                        linkPreview: linkPreview,
+                                    viewModel: linkPreview.sentState(
                                         imageAttachment: messageViewModel.linkPreviewAttachment,
                                         using: dependencies
                                     ),
@@ -745,19 +766,20 @@ struct MessageBubble: View {
                         }
                     }
                     else {
-                        if let quotedInfo: MessageViewModel.QuotedInfo = messageViewModel.quotedInfo {
+                        if let quoteViewModel: QuoteViewModel = messageViewModel.quoteViewModel {
                             QuoteView_SwiftUI(
-                                info: .init(
-                                    mode: .regular,
-                                    authorName: quotedInfo.authorName,
-                                    authorHasProBadge: quotedInfo.proFeatures.contains(.proBadge),
-                                    quotedText: quotedInfo.body,
-                                    threadVariant: messageViewModel.threadVariant,
-                                    currentUserSessionIds: messageViewModel.currentUserSessionIds,
-                                    direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
-                                    attachment: quotedInfo.attachment
+                                viewModel: quoteViewModel.with(
+                                    thumbnailSource: .thumbnailFrom(
+                                        quoteViewModel: quoteViewModel,
+                                        using: dependencies
+                                    ),
+                                    // TODO: [PRO] Can we source this from the 'MessageViewModel'? Provide the 'profileCache'?
+                                    displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                                        threadVariant: messageViewModel.threadVariant,
+                                        using: dependencies
+                                    )
                                 ),
-                                using: dependencies
+                                dataManager: dependencies[singleton: .imageDataManager]
                             )
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, Self.inset)
