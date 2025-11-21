@@ -632,31 +632,42 @@ public class HomeViewModel: NavigatableStateHolder {
             case .none, .refunding:
                 return
             case .active(_, let expiredOn, _ , _):
+                guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return }
                 let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
                 guard expiryInSeconds <= 7 * 24 * 60 * 60 else { return }
-                guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
-                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                        .expiring(timeLeft: expiryInSeconds.ceilingFormatted(format: .long, allowedUnits: [ .day, .hour, .minute ])),
-                        presenting: { modal in
-                            dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
-                            self?.transitionToScreen(modal, transitionType: .present)
-                        }
-                    )
-                }
+
+                scheduleExpiringSessionProCTA(expiryInSeconds.ceilingFormatted(format: .long, allowedUnits: [ .day, .hour, .minute ]))
             case .expired(let expiredOn, _):
+                guard !dependencies[defaults: .standard, key: .hasShownProExpiredCTA] else { return }
                 let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
                 guard expiryInSeconds <= 30 * 24 * 60 * 60 else { return }
-                guard !dependencies[defaults: .standard, key: .hasShownProExpiredCTA] else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
-                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                        .expiring(timeLeft: nil),
-                        presenting: { modal in
-                            dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = true
-                            self?.transitionToScreen(modal, transitionType: .present)
-                        }
+
+                scheduleExpiringSessionProCTA(nil)
+        }
+    }
+
+    private func scheduleExpiringSessionProCTA(_ timeLeft: String?) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
+            dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                .expiring(timeLeft: timeLeft),
+                onConfirm: {
+                    let viewController: SessionHostingViewController = SessionHostingViewController(
+                        rootView: SessionProPaymentScreen(
+                            viewModel: SessionProPaymentScreenContent.ViewModel(
+                                dependencies: dependencies,
+                                dataModel: .init(
+                                    flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(),
+                                    plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                                )
+                            )
+                        )
                     )
+                    self?.transitionToScreen(viewController)
+                },
+                presenting: { modal in
+                    self?.transitionToScreen(modal, transitionType: .present)
                 }
+            )
         }
     }
     

@@ -153,6 +153,9 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
+        beforePresented: (() -> Void)?,
+        onConfirm: (() -> Void)?,
+        onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
@@ -177,7 +180,8 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                 variant: variant,
                 dataManager: dependencies[singleton: .imageDataManager],
                 dismissType: dismissType,
-                afterClosed: afterClosed
+                afterClosed: afterClosed,
+                onConfirm: onConfirm
             )
         )
         presenting?(sessionProModal)

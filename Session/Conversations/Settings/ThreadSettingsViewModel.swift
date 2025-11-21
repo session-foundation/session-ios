@@ -372,6 +372,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         
                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                             proCTAModalVariant,
+                            onConfirm: {},
                             presenting: { modal in
                                 self?.transitionToScreen(modal, transitionType: .present)
                             }

@@ -800,6 +800,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         .animatedProfileImage(
                             isSessionProActivated: dependencies[cache: .libSession].isSessionPro
                         ),
+                        onConfirm: {},
                         presenting: { modal in
                             self?.transitionToScreen(modal, transitionType: .present)
                         }
@@ -855,6 +856,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                             .animatedProfileImage(
                                                 isSessionProActivated: dependencies[cache: .libSession].isSessionPro
                                             ),
+                                            onConfirm: {},
                                             presenting: { modal in
                                                 self?.transitionToScreen(modal, transitionType: .present)
                                             }
