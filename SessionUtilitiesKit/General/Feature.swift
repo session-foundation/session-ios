@@ -106,6 +106,11 @@ public extension FeatureStorage {
         identifier: "proPlanOriginatingPlatform"
     )
     
+    static let mockExpiredOverThirtyDays: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "mockExpiredOverThirtyDays",
+        defaultOption: false
+    )
+    
     static let mockInstalledFromIPA: FeatureConfig<Bool> = Dependencies.create(
         identifier: "mockInstalledFromIPA",
         defaultOption: false
