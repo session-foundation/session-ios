@@ -18,6 +18,7 @@ public extension SessionProPaymentScreenContent {
         )
         case refund(
             originatingPlatform: ClientPlatform,
+            isNonOriginatingAccount: Bool?,
             requestedAt: Date?
         )
         case cancel(
@@ -98,7 +99,7 @@ public extension SessionProPaymentScreenContent {
         
         public var name: String {
             switch self {
-                case .iOS: return Constants.platform_name
+                case .iOS: return Constants.platform
                 case .Android: return Constants.android_platform_name
             }
         }
@@ -161,6 +162,7 @@ public extension SessionProPaymentScreenContent {
         
         func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?)
         func cancelPro(success: (() -> Void)?, failure: (() -> Void)?)
+        func requestRefund(success: (() -> Void)?, failure: (() -> Void)?)
         func openURL(_ url: URL)
     }
 }

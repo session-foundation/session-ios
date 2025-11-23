@@ -89,6 +89,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case proPlanExpiredOverThirtyDays
         case mockInstalledFromIPA
         case originatingPlatform
+        case nonOriginatingAccount
         
         
         
@@ -119,6 +120,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .proPlanExpiredOverThirtyDays: return "proPlanExpiredOverThirtyDays"
                 case .mockInstalledFromIPA: return "mockInstalledFromIPA"
                 case .originatingPlatform: return "originatingPlatform"
+                case .nonOriginatingAccount: return "nonOriginatingAccount"
             }
         }
         
@@ -148,8 +150,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .proPlanToRecover: result.append(.proPlanToRecover); fallthrough
                 case .proPlanExpiry: result.append(.proPlanExpiry); fallthrough
                 case .proPlanExpiredOverThirtyDays: result.append(.proPlanExpiredOverThirtyDays); fallthrough
-                case .mockInstalledFromIPA: result.append(mockInstalledFromIPA); fallthrough
-                case .originatingPlatform: result.append(.originatingPlatform)
+                case .mockInstalledFromIPA: result.append(.mockInstalledFromIPA); fallthrough
+                case .originatingPlatform: result.append(.originatingPlatform); fallthrough
+                case .nonOriginatingAccount: result.append(.nonOriginatingAccount)
             }
             
             return result
@@ -187,6 +190,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let proPlanExpiredOverThirtyDays: Bool
         let mockInstalledFromIPA: Bool
         let originatingPlatform: ClientPlatform
+        let nonOriginatingAccount: Bool
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -209,7 +213,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.mockCurrentUserSessionProExpiry),
             .feature(.mockExpiredOverThirtyDays),
             .feature(.mockInstalledFromIPA),
-            .feature(.proPlanOriginatingPlatform)
+            .feature(.proPlanOriginatingPlatform),
+            .feature(.mockNonOriginatingAccount)
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
@@ -236,7 +241,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
                 proPlanExpiredOverThirtyDays: dependencies[feature: .mockExpiredOverThirtyDays],
                 mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
-                originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
+                originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
+                nonOriginatingAccount: dependencies[feature: .mockNonOriginatingAccount]
             )
         }
     }
@@ -290,7 +296,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
             proPlanExpiredOverThirtyDays: dependencies[feature: .mockExpiredOverThirtyDays],
             mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
-            originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform]
+            originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
+            nonOriginatingAccount: dependencies[feature: .mockNonOriginatingAccount]
         )
     }
     
@@ -607,6 +614,23 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                                         to: newValue
                                     )
                                     dependencies[singleton: .sessionProState].updateOriginatingPlatform(newValue)
+                                }
+                            )
+                    ),
+                    (
+                        state.originatingPlatform != .iOS ? nil :
+                            SessionCell.Info(
+                                id: .nonOriginatingAccount,
+                                title: "Non-Originating Apple ID",
+                                trailingAccessory: .toggle(
+                                    state.nonOriginatingAccount,
+                                    oldValue: previousState.nonOriginatingAccount
+                                ),
+                                onTap: { [dependencies = viewModel.dependencies] in
+                                    dependencies.set(
+                                        feature: .mockNonOriginatingAccount,
+                                        to: !state.nonOriginatingAccount
+                                    )
                                 }
                             )
                     ),

@@ -982,7 +982,7 @@ extension SessionProSettingsViewModel {
                 viewModel: SessionProPaymentScreenContent.ViewModel(
                     dependencies: dependencies,
                     dataModel: .init(
-                        flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(),
+                        flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(using: dependencies),
                         plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
                     )
                 )
@@ -1071,6 +1071,7 @@ extension SessionProSettingsViewModel {
                                     case .Android: return .Android
                                 }
                             }(),
+                            isNonOriginatingAccount: dependencies[feature: .mockNonOriginatingAccount], // TODO: [PRO] Get the real state if not originator
                             requestedAt: nil
                         ),
                         plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
@@ -1220,7 +1221,7 @@ extension SessionProPlan {
 }
 
 extension SessionProPlanState {
-    func toPaymentFlow() -> SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
+    func toPaymentFlow(using dependencies: Dependencies) -> SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         switch self {
             case .none:
                 return .purchase
@@ -1253,6 +1254,7 @@ extension SessionProPlanState {
                             case .Android: return .Android
                         }
                     }(),
+                    isNonOriginatingAccount: dependencies[feature: .mockNonOriginatingAccount], // TODO: [PRO] Get the real state if not originator,
                     requestedAt: requestedAt
                 )
         }
