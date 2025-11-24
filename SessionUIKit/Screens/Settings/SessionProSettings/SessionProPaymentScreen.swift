@@ -308,6 +308,7 @@ public struct SessionProPaymentScreen: View {
                         expiredOn: expiredOn,
                         isFromBottomSheet: true
                     )
+                    .backgroundColor(themeColor: .backgroundPrimary)
                 }
             )
             self.host.controller?.dismiss(animated: false)

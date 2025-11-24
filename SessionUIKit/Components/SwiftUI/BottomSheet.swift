@@ -28,6 +28,7 @@ public struct BottomSheet<Content>: View where Content: View {
     @State private var show: Bool = false
     @State private var topPadding: CGFloat = 80
     @State private var contentSize: CGSize = .zero
+    @State private var dragOffset: CGFloat = 0
     
     public init(
         hasCloseButton: Bool,
@@ -44,8 +45,12 @@ public struct BottomSheet<Content>: View where Content: View {
             // Background
             Rectangle()
                 .fill(.ultraThinMaterial)
+                .opacity(backgroundOpacity)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
+                .onTapGesture {
+                    close()
+                }
             
             if show {
                 VStack(spacing: Values.verySmallSpacing) {
@@ -56,17 +61,23 @@ public struct BottomSheet<Content>: View where Content: View {
                     // Bottom Sheet
                     ZStack(alignment: .topTrailing) {
                         NavigationView {
-                            // Important: no top-level GeometryReader here that would expand.
-                            content()
-                                .navigationTitle("")
-                                .padding(.top, 44)
-                                .background(
-                                    GeometryReader { proxy in
-                                        Color.clear
-                                            .preference(key: SizePreferenceKey.self, value: proxy.size)
-                                    }
-                                    .backgroundColor(themeColor: .backgroundPrimary)
-                                )
+                            ZStack {
+                                Rectangle()
+                                    .fill(themeColor: .backgroundPrimary)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .ignoresSafeArea()
+                                // Important: no top-level GeometryReader here that would expand.
+                                content()
+                                    .navigationTitle("")
+                                    .padding(.top, 44)
+                                    .background(
+                                        GeometryReader { proxy in
+                                            Color.clear
+                                                .preference(key: SizePreferenceKey.self, value: proxy.size)
+                                        }
+                                    )
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                         .navigationViewStyle(.stack)
                         
@@ -82,13 +93,14 @@ public struct BottomSheet<Content>: View where Content: View {
                             .padding(Values.smallSpacing)
                         }
                     }
-                    .backgroundColor(themeColor: .backgroundPrimary)
                     .cornerRadius(cornerRadius, corners: [.topLeft, .topRight])
                     .frame(
                         maxWidth: .infinity,
                         alignment: .topTrailing
                     )
                 }
+                // Move the visible sheet with the finger while dragging
+                .offset(y: max(0, dragOffset))
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .onPreferenceChange(SizePreferenceKey.self) { size in
                     contentSize = size
@@ -112,13 +124,36 @@ public struct BottomSheet<Content>: View where Content: View {
             alignment: .bottom
         )
         .gesture(
-            DragGesture(minimumDistance: 20, coordinateSpace: .global)
+            DragGesture(minimumDistance: 10, coordinateSpace: .global)
+                .onChanged { value in
+                    // Only allow downward movement; clamp upward drags to 0
+                    let translation = value.translation.height
+                    withAnimation {
+                        dragOffset = max(0, translation)
+                    }
+                }
                 .onEnded { value in
-                    if value.translation.height > 40 {
+                    let translation = max(0, value.translation.height)
+                    let velocity = value.velocity.height
+                    let threshold: CGFloat = max(120, contentSize.height * 0.25)
+                    let shouldDismiss = (translation > threshold) || (velocity > 1200)
+                    
+                    if shouldDismiss {
                         close()
+                    } else {
+                        withAnimation {
+                            dragOffset = 0
+                        }
                     }
                 }
         )
+    }
+    
+    // Dim background less as user drags down
+    private var backgroundOpacity: Double {
+        // 1.0 when not dragging, fades as you pull down (cap at 0.2 minimum)
+        let fade = min(1.0, Double(dragOffset / 300))
+        return max(0.2, 1.0 - fade * 0.8)
     }
 
     // MARK: - Dismiss Logic
@@ -175,3 +210,13 @@ open class BottomSheetHostingViewController<Content>: UIHostingController<Modifi
     }
 }
 
+private extension DragGesture.Value {
+    // Convenience to approximate velocity in points/sec in vertical axis
+    var velocity: CGSize {
+        // SwiftUI doesn't expose velocity directly; approximate from predictedEndLocation
+        let dt: CGFloat = 0.016 // assume 60fps frame delta for a rough estimate
+        let dx = (predictedEndLocation.x - location.x) / dt
+        let dy = (predictedEndLocation.y - location.y) / dt
+        return CGSize(width: dx, height: dy)
+    }
+}
