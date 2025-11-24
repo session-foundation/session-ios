@@ -65,6 +65,7 @@ public struct BottomSheet<Content>: View where Content: View {
                                         Color.clear
                                             .preference(key: SizePreferenceKey.self, value: proxy.size)
                                     }
+                                    .backgroundColor(themeColor: .backgroundPrimary)
                                 )
                         }
                         .navigationViewStyle(.stack)

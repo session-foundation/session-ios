@@ -249,7 +249,7 @@ extension SessionProState: SessionProCTAManagerType {
                 hasCloseButton: true,
                 afterClosed: afterClosed
             ) {
-                SessionListScreen(viewModel: viewModel, scrollable: false)
+                SessionListScreen(viewModel: viewModel)
             }
         )
         beforePresented?()

@@ -19,14 +19,11 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     
     private let coordinateSpaceName: String = "SessionListScreen" // stringlint:ignore
     
-    private let scrollable: Bool
-    
     // MARK: - init
     
-    public init(viewModel: ViewModel, scrollable: Bool = true) {
+    public init(viewModel: ViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
         _state = ObservedObject(wrappedValue: viewModel.state)
-        self.scrollable = scrollable
         
         if let navigatableStateHolder = viewModel as? any SessionListScreenContent.NavigatableStateHolder {
             navigatableState = navigatableStateHolder.navigatableState
@@ -48,7 +45,9 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     @ViewBuilder
     private var destinationView: some View {
         if let destination = navigationDestination {
-            destination.view
+            destination
+                .view
+                .backgroundColor(themeColor: .backgroundPrimary)
         } else {
             EmptyView()
         }
@@ -88,7 +87,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     }
     
     private var listContent: some View {
-        ScrollableList(scrollable: self.scrollable) {
+        List {
             ForEach(state.listItemData, id: \.model) { section in
                 Section {
                     // MARK: - Header
@@ -127,7 +126,6 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     }
                             }
                         }
-                        .padding(.vertical, (scrollable ? 0 : Values.mediumSpacing))
                         .listRowBackground(Color.clear)
                     }
                     
