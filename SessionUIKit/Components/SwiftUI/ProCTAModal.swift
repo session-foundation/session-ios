@@ -327,7 +327,7 @@ public extension ProCTAModal {
         /// of the modal.
         public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
             switch self {
-                case .generic: return (1293, 743)
+                case .generic: return (1303, 743)
                 case .animatedProfileImage: return (680, 363)
                 default: return (0, 0)
             }
@@ -335,7 +335,7 @@ public extension ProCTAModal {
         
         public var animatedAvatarImageSize: CGFloat {
             switch self {
-                case .generic: return 135
+                case .generic: return 115
                 case .animatedProfileImage: return 200
                 default: return 0
             }
