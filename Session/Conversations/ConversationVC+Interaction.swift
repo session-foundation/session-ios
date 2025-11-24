@@ -97,13 +97,9 @@ extension ConversationVC:
                 threadVariant: self.viewModel.threadData.threadVariant,
                 didTriggerSearch: { [weak self] in
                     DispatchQueue.main.async {
+                        self?.hasPendingInputKeyboardPresentationEvent = true
                         self?.showSearchUI()
-                        self?.popAllConversationSettingsViews {
-                            // Note: Without this delay the search bar doesn't show
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                self?.searchController.uiSearchController.searchBar.becomeFirstResponder()
-                            }
-                        }
+                        self?.popAllConversationSettingsViews()
                     }
                 },
                 using: self.viewModel.dependencies
@@ -211,10 +207,6 @@ extension ConversationVC:
             using: viewModel.dependencies
         )
         let callVC = CallVC(for: call, using: viewModel.dependencies)
-        callVC.conversationVC = self
-        hideInputAccessoryView()
-        resignFirstResponder()
-        
         present(callVC, animated: true, completion: nil)
     }
 
@@ -267,19 +259,17 @@ extension ConversationVC:
         didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments)
+        sendMessage(
+            text: (messageText ?? ""),
+            attachments: attachments,
+            quoteViewModel: quoteViewModel
+        )
         resetMentions()
         
-        dismiss(animated: true) { [weak self] in
-            if self?.isFirstResponder == false {
-                self?.becomeFirstResponder()
-            }
-            else {
-                self?.reloadInputViews()
-            }
-        }
+        dismiss(animated: true)
     }
 
     func sendMediaNavInitialMessageText(_ sendMediaNavigationController: SendMediaNavigationController) -> String? {
@@ -297,19 +287,13 @@ extension ConversationVC:
         didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?
     ) {
-        sendMessage(text: (messageText ?? ""), attachments: attachments)
+        sendMessage(text: (messageText ?? ""), attachments: attachments, quoteViewModel: quoteViewModel)
         resetMentions()
         
-        dismiss(animated: true) { [weak self] in
-            if self?.isFirstResponder == false {
-                self?.becomeFirstResponder()
-            }
-            else {
-                self?.reloadInputViews()
-            }
-        }
+        dismiss(animated: true)
     }
 
     func attachmentApprovalDidCancel(_ attachmentApproval: AttachmentApprovalViewController) {
@@ -326,7 +310,7 @@ extension ConversationVC:
     func attachmentApprovalDidTapAddMore(_ attachmentApproval: AttachmentApprovalViewController) {
     }
 
-    // MARK: - ExpandingAttachmentsButtonDelegate
+    // MARK: - Attachment Buttons
 
     func handleGIFButtonTapped() {
         guard viewModel.dependencies.mutate(cache: .libSession, { $0.get(.isGiphyEnabled) }) else {
@@ -367,8 +351,6 @@ extension ConversationVC:
         self.documentHandler = DocumentPickerHandler(
             didPickDocumentsAt: { [weak self, dependencies = viewModel.dependencies] _, urls in
                 defer {
-                    self?.showInputAccessoryView()
-                    self?.becomeFirstResponder()
                     self?.documentHandler = nil
                 }
                 
@@ -480,8 +462,6 @@ extension ConversationVC:
                 self?.showAttachmentApprovalDialog(for: [ pendingAttachment ])
             },
             wasCancelled: { [weak self] _ in
-                self?.showInputAccessoryView()
-                self?.becomeFirstResponder()
                 self?.documentHandler = nil
             }
         )
@@ -493,12 +473,17 @@ extension ConversationVC:
     func handleLibraryButtonTapped() {
         let threadId: String = self.viewModel.threadData.threadId
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
+        let quoteViewModel: QuoteViewModel? = self.snInputView.quoteViewModel
         
         Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] in
             DispatchQueue.main.async {
                 let sendMediaNavController = SendMediaNavigationController.showingMediaLibraryFirst(
                     threadId: threadId,
                     threadVariant: threadVariant,
+                    quoteViewModel: quoteViewModel,
+                    onQuoteCancelled: { [weak self] in
+                        self?.snInputView.quoteViewModel = nil
+                    },
                     using: dependencies
                 )
                 sendMediaNavController.sendMediaNavDelegate = self
@@ -520,6 +505,10 @@ extension ConversationVC:
         let sendMediaNavController = SendMediaNavigationController.showingCameraFirst(
             threadId: self.viewModel.threadData.threadId,
             threadVariant: self.viewModel.threadData.threadVariant,
+            quoteViewModel: self.snInputView.quoteViewModel,
+            onQuoteCancelled: { [weak self] in
+                self?.snInputView.quoteViewModel = nil
+            },
             using: self.viewModel.dependencies
         )
         sendMediaNavController.sendMediaNavDelegate = self
@@ -535,15 +524,23 @@ extension ConversationVC:
     }
     
     func showAttachmentApprovalDialog(for attachments: [PendingAttachment]) {
-        guard let navController = AttachmentApprovalViewController.wrappedInNavController(
-            threadId: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
+        let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
+            mode: .modal,
+            delegate: self,
+            threadId: viewModel.threadData.threadId,
+            threadVariant: viewModel.threadData.threadVariant,
             attachments: attachments,
-            approvalDelegate: self,
-            disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
+            messageText: snInputView.text,
+            quoteViewModel: snInputView.quoteViewModel,
+            disableLinkPreviewImageDownload: (viewModel.threadData.threadCanUpload != true),
             didLoadLinkPreview: nil,
-            using: self.viewModel.dependencies
-        ) else { return }
+            onQuoteCancelled: { [weak self] in
+                self?.snInputView.quoteViewModel = nil
+            },
+            using: viewModel.dependencies
+        )
+        
+        let navController = StyledNavigationController(rootViewController: viewController)
         navController.modalPresentationStyle = .fullScreen
         
         present(navController, animated: true, completion: nil)
@@ -560,16 +557,10 @@ extension ConversationVC:
     @MainActor func handleCharacterLimitLabelTapped() {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
-            beforePresented: { [weak self] in
-                self?.hideInputAccessoryView()
-            },
             onConfirm: { [weak self, dependencies = viewModel.dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                    beforePresented: { [weak self] in
-                        self?.hideInputAccessoryView()
-                    },
+                    beforePresented: {},
                     afterClosed: { [weak self] in
-                        self?.showInputAccessoryView()
                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                     },
                     presenting: { bottomSheet in
@@ -578,7 +569,6 @@ extension ConversationVC:
                 )
             },
             onCancel: { [weak self] in
-                self?.showInputAccessoryView()
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
             presenting: { [weak self] modal in
@@ -588,7 +578,6 @@ extension ConversationVC:
             return
         }
         
-        self.hideInputAccessoryView()
         let numberOfCharactersLeft: Int = LibSession.numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
             isSessionPro: viewModel.isCurrentUserSessionPro
@@ -616,13 +605,47 @@ extension ConversationVC:
                     scrollMode: .never
                 ),
                 cancelTitle: "okay".localized(),
-                cancelStyle: .alert_text,
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                }
+                cancelStyle: .alert_text
             )
         )
         present(confirmationModal, animated: true, completion: nil)
+    }
+    
+    @MainActor func handleAttachmentButtonTapped() {
+        if attachmentButtonStackView.isHidden {
+            expandAttachmentButtons()
+        } else {
+            collapseAttachmentButtons()
+        }
+    }
+    
+    @MainActor func expandAttachmentButtons() {
+        guard attachmentButtonStackView.isHidden else { return }
+        
+        snInputView.attachmentsButton.accessibilityLabel = "Collapse attachment options"
+        attachmentButtonStackView.isHidden = false
+        
+        UIView.animate(withDuration: 0.25) {
+            self.attachmentButtonStackView.arrangedSubviews.forEach { $0.isHidden = false }
+            self.attachmentButtonStackView.alpha = 1
+        }
+    }
+    
+    @MainActor func collapseAttachmentButtons() {
+        guard !attachmentButtonStackView.isHidden else { return }
+        
+        snInputView.attachmentsButton.accessibilityLabel = "Add attachment"
+        
+        UIView.animate(
+            withDuration: 0.25,
+            animations: {
+                self.attachmentButtonStackView.arrangedSubviews.forEach { $0.isHidden = true }
+                self.attachmentButtonStackView.alpha = 0
+            },
+            completion: { [weak self] _ in
+                self?.attachmentButtonStackView.isHidden = true
+            }
+        )
     }
     
     @MainActor func handleDisabledAttachmentButtonTapped() {
@@ -672,24 +695,18 @@ extension ConversationVC:
         
         sendMessage(
             text: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-            linkPreviewDraft: snInputView.linkPreviewInfo?.draft,
-            quoteModel: snInputView.quoteDraftInfo?.model
+            linkPreviewViewModel: snInputView.linkPreviewViewModel,
+            quoteViewModel: snInputView.quoteViewModel
         )
     }
     
     @MainActor func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
-            beforePresented: { [weak self] in
-                self?.hideInputAccessoryView()
-            },
             onConfirm: { [weak self, dependencies = viewModel.dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                    beforePresented: { [weak self] in
-                        self?.hideInputAccessoryView()
-                    },
+                    beforePresented: {},
                     afterClosed: { [weak self] in
-                        self?.showInputAccessoryView()
                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                     },
                     presenting: { bottomSheet in
@@ -698,7 +715,6 @@ extension ConversationVC:
                 )
             },
             onCancel: { [weak self] in
-                self?.showInputAccessoryView()
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
             presenting: { [weak self] modal in
@@ -708,7 +724,6 @@ extension ConversationVC:
             return
         }
         
-        self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modalMessageCharacterTooLongTitle".localized(),
@@ -719,10 +734,7 @@ extension ConversationVC:
                     scrollMode: .never
                 ),
                 cancelTitle: "okay".localized(),
-                cancelStyle: .alert_text,
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                }
+                cancelStyle: .alert_text
             )
         )
         present(confirmationModal, animated: true, completion: nil)
@@ -731,8 +743,8 @@ extension ConversationVC:
     @MainActor func sendMessage(
         text: String,
         attachments: [PendingAttachment] = [],
-        linkPreviewDraft: LinkPreviewDraft? = nil,
-        quoteModel: QuotedReplyModel? = nil,
+        linkPreviewViewModel: LinkPreviewViewModel? = nil,
+        quoteViewModel: QuoteViewModel? = nil,
         hasPermissionToSendSeed: Bool = false
     ) {
         guard !showBlockedModalIfNeeded() else { return }
@@ -749,7 +761,7 @@ extension ConversationVC:
         }
         catch { return showErrorAlert(for: error) }
         
-        let processedText: String = replaceMentions(in: text.trimmingCharacters(in: .whitespacesAndNewlines))
+        let processedText: String = mentions.update(text.trimmingCharacters(in: .whitespacesAndNewlines))
         
         // If we have no content then do nothing
         guard !processedText.isEmpty || !attachments.isEmpty else { return }
@@ -767,8 +779,8 @@ extension ConversationVC:
                         self?.sendMessage(
                             text: text,
                             attachments: attachments,
-                            linkPreviewDraft: linkPreviewDraft,
-                            quoteModel: quoteModel,
+                            linkPreviewViewModel: linkPreviewViewModel,
+                            quoteViewModel: quoteViewModel,
                             hasPermissionToSendSeed: true
                         )
                     }
@@ -780,7 +792,7 @@ extension ConversationVC:
         
         // Clearing this out immediately to make this appear more snappy
         snInputView.text = ""
-        snInputView.quoteDraftInfo = nil
+        snInputView.quoteViewModel = nil
 
         resetMentions()
         scrollToBottom(isAnimated: false)
@@ -796,8 +808,8 @@ extension ConversationVC:
                 text: processedText,
                 sentTimestampMs: sentTimestampMs,
                 attachments: attachments,
-                linkPreviewDraft: linkPreviewDraft,
-                quoteModel: quoteModel
+                linkPreviewViewModel: linkPreviewViewModel,
+                quoteViewModel: quoteViewModel
             )
             await approveMessageRequestIfNeeded(
                 for: self.viewModel.threadData.threadId,
@@ -836,7 +848,7 @@ extension ConversationVC:
                 
                 // If there is a LinkPreview draft then check the state of any existing link previews and
                 // insert a new one if needed
-                if let linkPreviewDraft: LinkPreviewDraft = optimisticData.linkPreviewDraft {
+                if let linkPreviewViewModel: LinkPreviewViewModel = optimisticData.linkPreviewViewModel {
                     let invalidLinkPreviewAttachmentStates: [Attachment.State] = [
                         .failedDownload, .pendingDownload, .downloading, .failedUpload, .invalid
                     ]
@@ -857,8 +869,8 @@ extension ConversationVC:
                     // If we don't have a "valid" existing link preview then upsert a new one
                     if invalidLinkPreviewAttachmentStates.contains(linkPreviewAttachmentState) {
                         try LinkPreview(
-                            url: linkPreviewDraft.urlString,
-                            title: linkPreviewDraft.title,
+                            url: linkPreviewViewModel.urlString,
+                            title: linkPreviewViewModel.title,
                             attachmentId: try optimisticData.linkPreviewPreparedAttachment?
                                 .attachment
                                 .inserted(db)
@@ -869,11 +881,11 @@ extension ConversationVC:
                 }
                 
                 // If there is a Quote the insert it now
-                if let interactionId: Int64 = insertedInteraction.id, let quoteModel: QuotedReplyModel = optimisticData.quoteModel {
+                if let interactionId: Int64 = insertedInteraction.id, let quoteViewModel: QuoteViewModel = optimisticData.quoteViewModel {
                     try Quote(
                         interactionId: interactionId,
-                        authorId: quoteModel.authorId,
-                        timestampMs: quoteModel.timestampMs
+                        authorId: quoteViewModel.authorId,
+                        timestampMs: quoteViewModel.timestampMs
                     ).insert(db)
                 }
                 
@@ -940,9 +952,6 @@ extension ConversationVC:
     }
 
     @MainActor func showLinkPreviewSuggestionModal() {
-        // Hides accessory view while link preview confirmation is presented
-        hideInputAccessoryView()
-        
         let linkPreviewModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "linkPreviewsEnable".localized(),
@@ -956,12 +965,10 @@ extension ConversationVC:
                 cancelStyle: .alert_text,
                 onConfirm: { [weak self, dependencies = viewModel.dependencies] _ in
                     dependencies.setAsync(.areLinkPreviewsEnabled, true) {
-                        self?.snInputView.autoGenerateLinkPreview()
+                        Task {
+                            await self?.snInputView.autoGenerateLinkPreview()
+                        }
                     }
-                },
-                afterClosed: { [weak self] in
-                    // Bring back accessory view after confirmation action
-                    self?.showInputAccessoryView()
                 }
             )
         )
@@ -975,6 +982,7 @@ extension ConversationVC:
         guard !viewIsAppearing else { return }
         
         let newText: String = (inputTextView.text ?? "")
+        let currentUserSessionIds: Set<String> = (viewModel.threadData.currentUserSessionIds ?? [])
         
         if !newText.isEmpty {
             Task { [threadData = viewModel.threadData, dependencies = viewModel.dependencies] in
@@ -987,10 +995,13 @@ extension ConversationVC:
             }
         }
         
-        updateMentions(for: newText)
+        Task.detached(priority: .userInitiated) { [weak self] in
+            await self?.updateMentions(for: newText, currentUserSessionIds: currentUserSessionIds)
+        }
+        
         // Note: When calculating the number of characters left, we need to use the original mention
         // text which contains the session id rather than display name.
-        snInputView.updateNumberOfCharactersLeft(replaceMentions(in: newText))
+        snInputView.updateNumberOfCharactersLeft(mentions.update(newText))
     }
     
     // MARK: --Attachments
@@ -1002,154 +1013,91 @@ extension ConversationVC:
             using: viewModel.dependencies
         )
         
-        guard let approvalVC = AttachmentApprovalViewController.wrappedInNavController(
-            threadId: self.viewModel.threadData.threadId,
-            threadVariant: self.viewModel.threadData.threadVariant,
-            attachments: [ pendingAttachment ],
-            approvalDelegate: self,
-            disableLinkPreviewImageDownload: (self.viewModel.threadData.threadCanUpload != true),
-            didLoadLinkPreview: nil,
-            using: self.viewModel.dependencies
-        ) else { return }
-        approvalVC.modalPresentationStyle = .fullScreen
-        
-        self.present(approvalVC, animated: true, completion: nil)
+        showAttachmentApprovalDialog(for: [pendingAttachment])
     }
 
     // MARK: --Mentions
     
-    @MainActor func handleMentionSelected(_ mentionInfo: MentionInfo, from view: MentionSelectionView) {
+    @MainActor func handleMentionSelected(_ viewModel: MentionSelectionView.ViewModel, from view: MentionSelectionView) {
         guard let currentMentionStartIndex = currentMentionStartIndex else { return }
         
-        mentions.append(mentionInfo)
-        
-        let displayNameForMention: String = mentionInfo.profile.displayNameForMention(
-            for: self.viewModel.threadData.threadVariant,
-            currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
-        )
+        mentions.append(viewModel)
         
         let newText: String = snInputView.text.replacingCharacters(
             in: currentMentionStartIndex...,
-            with: "@\(displayNameForMention) " // stringlint:ignore
+            with: "@\(viewModel.displayName) " // stringlint:ignore
         )
         
         snInputView.text = newText
         self.currentMentionStartIndex = nil
         snInputView.hideMentionsUI()
         
-        mentions = mentions.filter { mentionInfo -> Bool in
-            newText.contains(
-                mentionInfo.profile.displayNameForMention(
-                    for: self.viewModel.threadData.threadVariant,
-                    currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
-                )
-            )
-        }
+        mentions = mentions.filter { newText.contains($0.displayName) }
     }
     
-    func updateMentions(for newText: String) {
+    func updateMentions(for newText: String, currentUserSessionIds: Set<String>) async {
+        let currentStartIndex: String.Index? = await MainActor.run { currentMentionStartIndex }
+        
         guard !newText.isEmpty else {
-            if currentMentionStartIndex != nil {
+            await MainActor.run {
+                if currentStartIndex != nil {
+                    snInputView.hideMentionsUI()
+                }
+                
+                resetMentions()
+            }
+            return
+        }
+        
+        let lastCharacterIndex: String.Index = newText.index(before: newText.endIndex)
+        let lastCharacter: String = String(newText[lastCharacterIndex])
+        
+        /// Check the surrounds of the last character to ensure the user is after a mention
+        let lastCharacterIsMentionChar: Bool = (lastCharacter == MentionSelectionView.ViewModel.mentionChar)
+        let whitespaceOrNewLineBeforeMentionChar: Bool = {
+            guard newText.count > 1 else { return true } /// Start of line
+            
+            return newText[newText.index(before: lastCharacterIndex)].isWhitespace
+        }()
+        let doubleMentionChar: Bool = {
+            guard newText.count > 1 else { return false } /// Only a single char
+            guard currentStartIndex != nil || lastCharacterIsMentionChar else { return false } /// No mention char
+            
+            let mentionCharIndex: String.Index = (
+                currentStartIndex ??
+                newText.index(before: lastCharacterIndex)
+            )
+            return (String(newText[mentionCharIndex]) == MentionSelectionView.ViewModel.mentionChar)
+        }()
+        let isValidMention: Bool = (
+            lastCharacterIsMentionChar &&
+            whitespaceOrNewLineBeforeMentionChar &&
+            !doubleMentionChar
+        )
+        
+        /// If it's not a valid mention then we need to reset the state and hide the mentions UI (if visible)
+        guard isValidMention else {
+            await MainActor.run {
+                currentMentionStartIndex = nil
                 snInputView.hideMentionsUI()
             }
-            
-            resetMentions()
             return
         }
         
-        let lastCharacterIndex = newText.index(before: newText.endIndex)
-        let lastCharacter = newText[lastCharacterIndex]
+        let query: String = (lastCharacterIsMentionChar ?
+            "" :
+            String(newText[newText.index(after: currentStartIndex ?? newText.startIndex)...]) /// + 1 to get rid of the @
+        )
+        let mentions: [MentionSelectionView.ViewModel] = ((try? await self.viewModel.mentions(for: query)) ?? [])
         
-        // Check if there is whitespace before the '@' or the '@' is the first character
-        let isCharacterBeforeLastWhiteSpaceOrStartOfLine: Bool
-        if newText.count == 1 {
-            isCharacterBeforeLastWhiteSpaceOrStartOfLine = true // Start of line
+        await MainActor.run {
+            snInputView.showMentionsUI(for: mentions)
         }
-        else {
-            let characterBeforeLast = newText[newText.index(before: lastCharacterIndex)]
-            isCharacterBeforeLastWhiteSpaceOrStartOfLine = characterBeforeLast.isWhitespace
-        }
-        
-        // stringlint:ignore_start
-        if lastCharacter == "@" && isCharacterBeforeLastWhiteSpaceOrStartOfLine {
-            currentMentionStartIndex = lastCharacterIndex
-            snInputView.showMentionsUI(
-                for: self.viewModel.mentions(),
-                currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
-            )
-        }
-        else if lastCharacter.isWhitespace || lastCharacter == "@" { // the lastCharacter == "@" is to check for @@
-            currentMentionStartIndex = nil
-            snInputView.hideMentionsUI()
-        }
-        else {
-            if let currentMentionStartIndex = currentMentionStartIndex {
-                let query = String(newText[newText.index(after: currentMentionStartIndex)...]) // + 1 to get rid of the @
-                snInputView.showMentionsUI(
-                    for: self.viewModel.mentions(for: query),
-                    currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
-                )
-            }
-        }
-        // stringlint:ignore_stop
     }
 
-    func resetMentions() {
+    @MainActor func resetMentions() {
         currentMentionStartIndex = nil
         mentions = []
-    }
-
-    // stringlint:ignore_contents
-    func replaceMentions(in text: String) -> String {
-        var result = text
-        
-        for mention in mentions {
-            let displayNameForMention: String = mention.profile.displayNameForMention(
-                for: mention.threadVariant,
-                currentUserSessionIds: (self.viewModel.threadData.currentUserSessionIds ?? [])
-            )
-            guard let range = result.range(of: "@\(displayNameForMention)") else { continue }
-            result = result.replacingCharacters(in: range, with: "@\(mention.profile.id)")
-        }
-        
-        return result
-    }
-    
-    func hideInputAccessoryView() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.hideInputAccessoryView()
-            }
-            return
-        }
-        self.isKeyboardVisible = self.snInputView.isInputFirstResponder
-        self.inputAccessoryView?.resignFirstResponder()
-        self.inputAccessoryView?.isHidden = true
-        self.inputAccessoryView?.alpha = 0
-    }
-    
-    func showInputAccessoryView() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.showInputAccessoryView()
-            }
-            return
-        }
-        
-        if !self.isFirstResponder {
-            // Force this object to become the First Responder. This is necessary
-            // to trigger the display of its associated inputAccessoryView
-            // and/or inputView.
-            self.becomeFirstResponder()
-        }
-        
-        UIView.animate(withDuration: 0.25, animations: {
-            self.inputAccessoryView?.isHidden = false
-            self.inputAccessoryView?.alpha = 1
-            if self.isKeyboardVisible {
-                self.inputAccessoryView?.becomeFirstResponder()
-            }
-        })
     }
 
     // MARK: MessageCellDelegate
@@ -1182,9 +1130,6 @@ extension ConversationVC:
             )
         else { return }
         
-        /// Lock the contentOffset of the tableView so the transition doesn't look buggy
-        self.tableView.lockContentOffset = true
-        
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
         self.contextMenuWindow = ContextMenuWindow()
         self.contextMenuVC = ContextMenuVC(
@@ -1199,20 +1144,12 @@ extension ConversationVC:
             self?.contextMenuWindow = nil
             self?.scrollButton.alpha = 0
             
-            UIView.animate(
-                withDuration: 0.25,
-                animations: { self?.updateScrollToBottom() },
-                completion: { _ in
-                    guard let contentOffset: CGPoint = self?.tableView.contentOffset else { return }
-                    
-                    // Unlock the contentOffset so everything will be in the right
-                    // place when we return
-                    self?.tableView.lockContentOffset = false
-                    self?.tableView.setContentOffset(contentOffset, animated: false)
-                }
-            )
+            UIView.animate(withDuration: 0.25) {
+                self?.updateScrollToBottom()
+            }
         }
         
+        self.hideSearchUI()
         self.contextMenuWindow?.themeBackgroundColor = .clear
         self.contextMenuWindow?.rootViewController = self.contextMenuVC
         self.contextMenuWindow?.overrideUserInterfaceStyle = ThemeManager.currentTheme.interfaceStyle
@@ -1224,6 +1161,8 @@ extension ConversationVC:
         cell: UITableViewCell,
         cellLocation: CGPoint
     ) {
+        self.hideSearchUI()
+        
         // For call info messages show the "call missed" modal
         guard cellViewModel.variant != .infoCall else {
             // If the failure was due to the mic permission being denied then we want to show the permission modal,
@@ -1436,24 +1375,7 @@ extension ConversationVC:
                         )
                         
                         if let viewController: UIViewController = viewController {
-                            /// Delay becoming the first responder to make the return transition a little nicer (allows
-                            /// for the footer on the detail view to slide out rather than instantly vanish)
-                            self.delayFirstResponder = true
-                            
-                            /// Dismiss the input before starting the presentation to make everything look smoother
-                            self.resignFirstResponder()
-                            
-                            /// Delay the actual presentation to give the 'resignFirstResponder' call the chance to complete
-                            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(250)) { [weak self] in
-                                /// Lock the contentOffset of the tableView so the transition doesn't look buggy
-                                self?.tableView.lockContentOffset = true
-                                
-                                self?.present(viewController, animated: true) { [weak self] in
-                                    // Unlock the contentOffset so everything will be in the right
-                                    // place when we return
-                                    self?.tableView.lockContentOffset = false
-                                }
-                            }
+                            present(viewController, animated: true)
                         }
                 }
                 
@@ -1546,13 +1468,13 @@ extension ConversationVC:
                 let quoteViewContainsTouch: Bool = (visibleCell.quoteView?.bounds.contains(quotePoint) == true)
                 let linkPreviewViewContainsTouch: Bool = (visibleCell.linkPreviewView?.previewView.bounds.contains(linkPreviewPoint) == true)
                 
-                switch (containsLinks, quoteViewContainsTouch, linkPreviewViewContainsTouch, cellViewModel.quotedInfo, cellViewModel.linkPreview) {
+                switch (containsLinks, quoteViewContainsTouch, linkPreviewViewContainsTouch, cellViewModel.quoteViewModel, cellViewModel.linkPreview) {
                     // If the message contains both links and a quote, and the user tapped on the quote; OR the
                     // message only contained a quote, then scroll to the quote
-                    case (true, true, _, .some(let quotedInfo), _), (false, _, _, .some(let quotedInfo), _):
+                    case (true, true, _, .some(let quoteViewModel), _), (false, _, _, .some(let quoteViewModel), _):
                         let maybeTimestampMs: Int64? = viewModel.dependencies[singleton: .storage].read { db in
                             try Interaction
-                                .filter(id: quotedInfo.quotedInteractionId)
+                                .filter(id: quoteViewModel.quotedInteractionId)
                                 .select(.timestampMs)
                                 .asRequest(of: Int64.self)
                                 .fetchOne(db)
@@ -1564,7 +1486,7 @@ extension ConversationVC:
                         
                         self.scrollToInteractionIfNeeded(
                             with: Interaction.TimestampInfo(
-                                id: quotedInfo.quotedInteractionId,
+                                id: quoteViewModel.quotedInteractionId,
                                 timestampMs: timestampMs
                             ),
                             focusBehaviour: .highlight,
@@ -1623,23 +1545,15 @@ extension ConversationVC:
                 hasCloseButton: true,
                 onConfirm:  { [weak self] modal in
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                    self?.showInputAccessoryView()
-                    
                     modal.dismiss(animated: true)
                 },
                 onCancel: { [weak self] modal in
                     UIPasteboard.general.string = url.absoluteString
-                    
-                    modal.dismiss(animated: true) {
-                        self?.showInputAccessoryView()
-                    }
                 }
             )
         )
         
-        self.present(modal, animated: true) { [weak self] in
-            self?.hideInputAccessoryView()
-        }
+        self.present(modal, animated: true)
     }
     
     func handleReplyButtonTapped(for cellViewModel: MessageViewModel) {
@@ -1653,7 +1567,7 @@ extension ConversationVC:
         
         let dependencies: Dependencies = viewModel.dependencies
         
-        let (info, _) = ProfilePictureView.getProfilePictureInfo(
+        let (info, _) = ProfilePictureView.Info.generateInfoFrom(
             size: .hero,
             publicKey: cellViewModel.authorId,
             threadVariant: .contact,    // Always show the display picture in 'contact' mode
@@ -1716,7 +1630,6 @@ extension ConversationVC:
             return cellViewModel.profile?.blocksCommunityMessageRequests != true
         }()
         
-        self.hideInputAccessoryView()
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
             modal: UserProfileModal(
                 info: .init(
@@ -1739,16 +1652,11 @@ extension ConversationVC:
                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                             .generic,
                             dismissType: .single,
-                            beforePresented: { [weak self] in
-                                self?.hideInputAccessoryView()
-                            },
+                            beforePresented: {},
                             onConfirm: {
                                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                                    beforePresented: { [weak self] in
-                                        self?.hideInputAccessoryView()
-                                    },
+                                    beforePresented: {},
                                     afterClosed: { [weak self] in
-                                        self?.showInputAccessoryView()
                                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                                     },
                                     presenting: { bottomSheet in
@@ -1757,7 +1665,6 @@ extension ConversationVC:
                                 )
                             },
                             onCancel: { [weak self] in
-                                self?.showInputAccessoryView()
                                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                             },
                             afterClosed: nil,
@@ -1767,10 +1674,7 @@ extension ConversationVC:
                         )
                     }
                 ),
-                dataManager: dependencies[singleton: .imageDataManager],
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                }
+                dataManager: dependencies[singleton: .imageDataManager]
             )
         )
         present(userProfileModal, animated: true, completion: nil)
@@ -2268,16 +2172,11 @@ extension ConversationVC:
     }
     
     func showFullEmojiKeyboard(_ cellViewModel: MessageViewModel) {
-        hideInputAccessoryView()
-        
         let emojiPicker = EmojiPickerSheet(
             completionHandler: { [weak self] emoji in
                 guard let emoji: EmojiWithSkinTones = emoji else { return }
                 
                 self?.react(cellViewModel, with: emoji)
-            },
-            dismissHandler: { [weak self] in
-                self?.showInputAccessoryView()
             },
             using: self.viewModel.dependencies
         )
@@ -2476,22 +2375,39 @@ extension ConversationVC:
     }
 
     func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
-        let maybeQuoteDraft: QuotedReplyModel? = QuotedReplyModel.quotedReplyForSending(
-            threadId: self.viewModel.threadData.threadId,
-            authorId: cellViewModel.authorId,
-            variant: cellViewModel.variant,
-            body: cellViewModel.body,
-            timestampMs: cellViewModel.timestampMs,
-            attachments: cellViewModel.attachments,
-            linkPreviewAttachment: cellViewModel.linkPreviewAttachment,
-            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? [])
+        guard
+            cellViewModel.variant == .standardOutgoing ||
+            cellViewModel.variant == .standardIncoming
+        else { return }
+        guard
+            (cellViewModel.body ?? "")?.isEmpty == false ||
+            cellViewModel.attachments?.isEmpty == false
+        else { return }
+        
+        let targetAttachment: Attachment? = (
+            cellViewModel.attachments?.first ??
+            cellViewModel.linkPreviewAttachment
         )
         
-        guard let quoteDraft: QuotedReplyModel = maybeQuoteDraft else { return }
-        
-        snInputView.quoteDraftInfo = (
-            model: quoteDraft,
-            isOutgoing: (cellViewModel.variant == .standardOutgoing)
+        snInputView.quoteViewModel = QuoteViewModel(
+            mode: .draft,
+            direction: (cellViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
+            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+            rowId: -1,
+            interactionId: nil,
+            authorId: cellViewModel.authorId,
+            showProBadge: self.viewModel.dependencies.mutate(cache: .libSession) {
+                $0.validateSessionProState(for: cellViewModel.authorId)
+            },
+            timestampMs: cellViewModel.timestampMs,
+            quotedInteractionId: cellViewModel.id,
+            quotedInteractionIsDeleted: cellViewModel.variant.isDeletedMessage,
+            quotedText: cellViewModel.body,
+            quotedAttachmentInfo: targetAttachment?.quoteAttachmentInfo(using: self.viewModel.dependencies),
+            displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                threadVariant: self.viewModel.threadData.threadVariant,
+                using: self.viewModel.dependencies
+            )
         )
         
         // If the `MessageInfoViewController` is visible then we want to show the keyboard after
@@ -2661,9 +2577,6 @@ extension ConversationVC:
                                 }
                             }
                         )
-                },
-                afterClosed: { [weak self] in
-                    self?.becomeFirstResponder()
                 }
             )
         )
@@ -2735,13 +2648,9 @@ extension ConversationVC:
                             self?.sendDataExtraction(kind: .mediaSaved(timestamp: UInt64(cellViewModel.timestampMs)))
                         }
                         
-                        self?.showInputAccessoryView()
-                        self?.becomeFirstResponder()
                         self?.documentHandler = nil
                     },
                     wasCancelled: { [weak self] _ in
-                        self?.showInputAccessoryView()
-                        self?.becomeFirstResponder()
                         self?.documentHandler = nil
                     }
                 )
@@ -2869,12 +2778,9 @@ extension ConversationVC:
                             }
                         }
                     )
-                    
-                    self?.becomeFirstResponder()
                 },
                 afterClosed: { [weak self] in
                     completion?()
-                    self?.becomeFirstResponder()
                 }
             )
         )
@@ -2947,11 +2853,6 @@ extension ConversationVC:
                             }
                         }
                     )
-                    
-                    self?.becomeFirstResponder()
-                },
-                afterClosed: { [weak self] in
-                    self?.becomeFirstResponder()
                 }
             )
         )
@@ -3500,72 +3401,19 @@ extension ConversationVC: MediaPresentationContextProvider {
             .first(where: { $0.attachment.id == mediaId })
         
         guard
-            let messageCell: VisibleMessageCell = maybeMessageCell,
             let targetView: MediaView = maybeTargetView,
             let mediaSuperview: UIView = targetView.superview
         else { return nil }
 
-        let cornerRadius: CGFloat
-        let cornerMask: CACornerMask
-        let presentationFrame: CGRect = coordinateSpace.convert(targetView.frame, from: mediaSuperview)
-        let frameInBubble: CGRect = messageCell.bubbleView.convert(targetView.frame, from: mediaSuperview)
-
-        if messageCell.bubbleView.bounds == targetView.bounds {
-            cornerRadius = messageCell.bubbleView.layer.cornerRadius
-            cornerMask = messageCell.bubbleView.layer.maskedCorners
-        }
-        else {
-            // If the frames don't match then assume it's either multiple images or there is a caption
-            // and determine which corners need to be rounded
-            cornerRadius = messageCell.bubbleView.layer.cornerRadius
-
-            var newCornerMask = CACornerMask()
-            let cellMaskedCorners: CACornerMask = messageCell.bubbleView.layer.maskedCorners
-
-            if
-                cellMaskedCorners.contains(.layerMinXMinYCorner) &&
-                    frameInBubble.minX < CGFloat.leastNonzeroMagnitude &&
-                    frameInBubble.minY < CGFloat.leastNonzeroMagnitude
-            {
-                newCornerMask.insert(.layerMinXMinYCorner)
-            }
-
-            if
-                cellMaskedCorners.contains(.layerMaxXMinYCorner) &&
-                abs(frameInBubble.maxX - messageCell.bubbleView.bounds.width) < CGFloat.leastNonzeroMagnitude &&
-                    frameInBubble.minY < CGFloat.leastNonzeroMagnitude
-            {
-                newCornerMask.insert(.layerMaxXMinYCorner)
-            }
-
-            if
-                cellMaskedCorners.contains(.layerMinXMaxYCorner) &&
-                    frameInBubble.minX < CGFloat.leastNonzeroMagnitude &&
-                abs(frameInBubble.maxY - messageCell.bubbleView.bounds.height) < CGFloat.leastNonzeroMagnitude
-            {
-                newCornerMask.insert(.layerMinXMaxYCorner)
-            }
-
-            if
-                cellMaskedCorners.contains(.layerMaxXMaxYCorner) &&
-                abs(frameInBubble.maxX - messageCell.bubbleView.bounds.width) < CGFloat.leastNonzeroMagnitude &&
-                abs(frameInBubble.maxY - messageCell.bubbleView.bounds.height) < CGFloat.leastNonzeroMagnitude
-            {
-                newCornerMask.insert(.layerMaxXMaxYCorner)
-            }
-
-            cornerMask = newCornerMask
-        }
-        
         return MediaPresentationContext(
             mediaView: targetView.imageView,
-            presentationFrame: presentationFrame,
-            cornerRadius: cornerRadius,
-            cornerMask: cornerMask
+            presentationFrame: coordinateSpace.convert(targetView.frame, from: mediaSuperview),
+            cornerRadius: targetView.layer.cornerRadius,
+            cornerMask: targetView.layer.maskedCorners
         )
     }
-
-    func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
-        return self.navigationController?.navigationBar.generateSnapshot(in: coordinateSpace)
+    
+    func lowestViewToRenderAboveContent() -> UIView? {
+        return inputBackgroundView
     }
 }

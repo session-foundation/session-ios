@@ -6,6 +6,7 @@ import Combine
 public protocol SessionProManagerType: AnyObject {
     var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never> { get }
     var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> { get }
+    var isSessionProActivePublisher: AnyPublisher<Bool, Never> { get }
     var sessionProPlans: [SessionProPlan] { get }
     func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) async
     func cancelPro(completion: ((_ result: Bool) -> Void)?) async

@@ -23,6 +23,16 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             .compactMap { $0 }
             .eraseToAnyPublisher()
     }
+    public var isSessionProActivePublisher: AnyPublisher<Bool, Never> {
+        sessionProStateSubject
+            .compactMap {
+                switch $0 {
+                    case .active, .refunding: return true
+                    case .none, .expired: return false
+                }
+            }
+            .eraseToAnyPublisher()
+    }
     public var sessionProPlans: [SessionProPlan] {
         dependencies[feature: .mockInstalledFromIPA] ? [] : SessionProPlan.Variant.allCases.map { SessionProPlan(variant: $0) }
     }

@@ -78,8 +78,8 @@ public struct UserProfileModal: View {
                                 }
                             }
                             .frame(
-                                width: ProfilePictureView.Size.modal.viewSize * scale,
-                                height: ProfilePictureView.Size.modal.viewSize * scale,
+                                width: ProfilePictureView.Info.Size.modal.viewSize * scale,
+                                height: ProfilePictureView.Info.Size.modal.viewSize * scale,
                                 alignment: .center
                             )
                             

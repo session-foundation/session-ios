@@ -1487,3 +1487,15 @@ func isDebuggerAttached() -> Bool {
     return false
 #endif
 }
+
+private extension String.StringInterpolation {
+    mutating func appendInterpolation(_ value: Double, format: String, omitZeroDecimal: Bool = false) {
+        guard !omitZeroDecimal || Int(exactly: value) == nil else {
+            appendLiteral("\(Int(exactly: value)!)")
+            return
+        }
+        
+        let result: String = String(format: "%\(format)f", value)
+        appendLiteral(result)
+    }
+}

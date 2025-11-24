@@ -42,7 +42,7 @@ struct MessageInfoScreen: View {
         
         self.isMessageFailed = [.failed, .failedToSync].contains(messageViewModel.state)
         self.isCurrentUser = (messageViewModel.currentUserSessionIds ?? []).contains(messageViewModel.authorId)
-        self.profileInfo = ProfilePictureView.getProfilePictureInfo(
+        self.profileInfo = ProfilePictureView.Info.generateInfoFrom(
             size: .message,
             publicKey: (
                 // Prioritise the profile.id because we override it for
@@ -55,7 +55,7 @@ struct MessageInfoScreen: View {
             profile: messageViewModel.profile,
             profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
             using: dependencies
-        ).info
+        ).front
         
         (self.proFeatures, self.proCTAVariant) = getProFeaturesInfo()
     }
@@ -373,7 +373,8 @@ struct MessageInfoScreen: View {
                                 HStack(
                                     spacing: 10
                                 ) {
-                                    let size: ProfilePictureView.Size = .list
+                                    let size: ProfilePictureView.Info.Size = .list
+                                    
                                     if let info: ProfilePictureView.Info = self.profileInfo {
                                         ProfilePictureSwiftUI(
                                             size: size,
@@ -565,7 +566,7 @@ struct MessageInfoScreen: View {
         // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
         guard (try? SessionId.Prefix(from: messageViewModel.authorId)) != .blinded25 else { return }
         
-        guard let profileInfo: ProfilePictureView.Info = ProfilePictureView.getProfilePictureInfo(
+        guard let profileInfo: ProfilePictureView.Info = ProfilePictureView.Info.generateInfoFrom(
             size: .message,
             publicKey: (
                 // Prioritise the profile.id because we override it for
@@ -578,7 +579,7 @@ struct MessageInfoScreen: View {
             profile: messageViewModel.profile,
             profileIcon: .none,
             using: dependencies
-        ).info else {
+        ).front else {
             return
         }
         
@@ -734,8 +735,7 @@ struct MessageBubble: View {
                         switch linkPreview.variant {
                             case .standard:
                                 LinkPreviewView_SwiftUI(
-                                    state: LinkPreview.SentState(
-                                        linkPreview: linkPreview,
+                                    viewModel: linkPreview.sentState(
                                         imageAttachment: messageViewModel.linkPreviewAttachment,
                                         using: dependencies
                                     ),
@@ -756,18 +756,19 @@ struct MessageBubble: View {
                         }
                     }
                     else {
-                        if let quotedInfo: MessageViewModel.QuotedInfo = messageViewModel.quotedInfo {
+                        if let quoteViewModel: QuoteViewModel = messageViewModel.quoteViewModel {
                             QuoteView_SwiftUI(
-                                info: .init(
-                                    mode: .regular,
-                                    authorId: quotedInfo.authorId,
-                                    quotedText: quotedInfo.body,
-                                    threadVariant: messageViewModel.threadVariant,
-                                    currentUserSessionIds: (messageViewModel.currentUserSessionIds ?? []),
-                                    direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
-                                    attachment: quotedInfo.attachment
+                                viewModel: quoteViewModel.with(
+                                    thumbnailSource: .thumbnailFrom(
+                                        quoteViewModel: quoteViewModel,
+                                        using: dependencies
+                                    ),
+                                    displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                                        threadVariant: messageViewModel.threadVariant,
+                                        using: dependencies
+                                    )
                                 ),
-                                using: dependencies
+                                dataManager: dependencies[singleton: .imageDataManager]
                             )
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, Self.inset)
@@ -921,7 +922,7 @@ struct MessageInfoView_Previews: PreviewProvider {
                 id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
                 name: "TestUser"
             ),
-            quotedInfo: nil,
+            quoteViewModel: nil,
             linkPreview: nil,
             linkPreviewAttachment: nil,
             attachments: nil

@@ -43,5 +43,15 @@ extension SessionProPaymentScreenContent {
                 }
             }
         }
+        
+        public func requestRefund(success: (() -> Void)?, failure: (() -> Void)?) async {
+            await dependencies[singleton: .sessionProState].requestRefund { result in
+                if result {
+                    success?()
+                } else {
+                    failure?()
+                }
+            }
+        }
     }
 }

@@ -149,11 +149,34 @@ struct RequestRefundSuccessContent: View {
 
 // MARK: - Request Refund Non Originating Platform Content
 
-struct RequestRefundNonOriginatingPlatformContent: View {
+struct RequestRefundNonOriginatorContent: View {
     let originatingPlatform: SessionProPaymentScreenContent.ClientPlatform
+    let isNonOriginatingAccount: Bool?
     let requestedAt: Date?
     var isLessThan48Hours: Bool { (requestedAt?.timeIntervalSinceNow ?? 0) <= 48 * 60 * 60 }
     let openPlatformStoreWebsiteAction: () -> Void
+    var description: ThemedAttributedString {
+        switch (isNonOriginatingAccount, isLessThan48Hours) {
+            case (true, _):
+                return "refundNonOriginatorApple"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "pro", value: Constants.pro)
+                    .put(key: "platform_account", value: originatingPlatform.account)
+                    .localizedFormatted(Fonts.Body.baseRegular)
+            case (_, true):
+                return "proPlanPlatformRefund"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "platform_store", value: originatingPlatform.store)
+                    .put(key: "platform_account", value: originatingPlatform.account)
+                    .localizedFormatted(Fonts.Body.baseRegular)
+            case (_, false):
+                return "proPlanPlatformRefundLong"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "platform_store", value: originatingPlatform.store)
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localizedFormatted(Fonts.Body.baseRegular)
+        }
+    }
     
     var body: some View {
         VStack(spacing: Values.mediumSpacing) {
@@ -173,25 +196,13 @@ struct RequestRefundNonOriginatingPlatformContent: View {
                     .font(.Headings.H7)
                     .foregroundColor(themeColor: .textPrimary)
                     
-                    AttributedText(
-                        isLessThan48Hours ?
-                            "proPlanPlatformRefund"
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .put(key: "platform_store", value: originatingPlatform.store)
-                                .put(key: "platform_account", value: originatingPlatform.account)
-                                .localizedFormatted(Fonts.Body.baseRegular) :
-                            "proPlanPlatformRefundLong"
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .put(key: "platform_store", value: originatingPlatform.store)
-                                .put(key: "app_name", value: Constants.app_name)
-                                .localizedFormatted(Fonts.Body.baseRegular)
-                    )
-                    .font(.Body.baseRegular)
-                    .foregroundColor(themeColor: .textPrimary)
-                    .multilineTextAlignment(.leading)
+                    AttributedText(description)
+                        .font(.Body.baseRegular)
+                        .foregroundColor(themeColor: .textPrimary)
+                        .multilineTextAlignment(.leading)
                 }
                 
-                if isLessThan48Hours {
+                if isLessThan48Hours || isNonOriginatingAccount == true {
                     Text("refundRequestOptions".localized())
                         .font(.Body.baseRegular)
                         .foregroundColor(themeColor: .textSecondary)
@@ -214,7 +225,7 @@ struct RequestRefundNonOriginatingPlatformContent: View {
                     
                     ApproachCell(
                         info: .init(
-                            title: "viaStoreWebsite"
+                            title: "onPlatformWebsite"
                                 .put(key: "platform", value: originatingPlatform.name)
                                 .localized(),
                             description: "viaStoreWebsiteDescription"

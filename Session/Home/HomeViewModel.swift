@@ -635,17 +635,19 @@ public class HomeViewModel: NavigatableStateHolder {
                 guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return }
                 let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
                 guard expiryInSeconds <= 7 * 24 * 60 * 60 else { return }
-                
-                scheduleExpiringSessionProCTA(expiryInSeconds.formatted(format: .long, allowedUnits: [ .day, .hour, .minute ]))
+
+                scheduleExpiringSessionProCTA(expiryInSeconds.ceilingFormatted(format: .long, allowedUnits: [ .day, .hour, .minute ]))
+                dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
             case .expired(let expiredOn, _):
                 guard !dependencies[defaults: .standard, key: .hasShownProExpiredCTA] else { return }
                 let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
-                guard expiryInSeconds <= 30 * 24 * 60 * 60 else { return }
-                
+                guard expiryInSeconds <= 30 * 24 * 60 * 60 && !dependencies[feature: .mockExpiredOverThirtyDays] else { return }
+
                 scheduleExpiringSessionProCTA(nil)
+                dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = true
         }
     }
-    
+
     private func scheduleExpiringSessionProCTA(_ timeLeft: String?) {
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
             dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(

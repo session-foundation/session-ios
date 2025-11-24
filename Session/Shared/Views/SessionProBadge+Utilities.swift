@@ -35,11 +35,10 @@ public extension String {
                 base.append(
                     ThemedAttributedString(
                         imageAttachmentGenerator: {
-                            SessionProBadge(size: proBadgeSize)
-                                .toImage(
-                                    cacheKey: proBadgeSize.cacheKey,
-                                    using: dependencies
-                                )
+                            UIView.image(
+                                for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
+                                generator: { SessionProBadge(size: proBadgeSize) }
+                            )
                         },
                         referenceFont: font
                     )
@@ -52,11 +51,10 @@ public extension String {
                 base.append(
                     ThemedAttributedString(
                         imageAttachmentGenerator: {
-                            SessionProBadge(size: proBadgeSize)
-                                .toImage(
-                                    cacheKey: proBadgeSize.cacheKey,
-                                    using: dependencies
-                                )
+                            UIView.image(
+                                for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
+                                generator: { SessionProBadge(size: proBadgeSize) }
+                            )
                         },
                         referenceFont: font
                     )

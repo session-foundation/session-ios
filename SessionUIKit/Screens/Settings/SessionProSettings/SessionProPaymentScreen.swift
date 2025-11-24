@@ -168,16 +168,36 @@ public struct SessionProPaymentScreen: View {
                         )
                     }
                     
-                case .refund(let originatingPlatform, let requestedAt):
-                    if originatingPlatform == .iOS {
+                case .refund(let originatingPlatform, let isNonOriginatingAccount, let requestedAt):
+                    if originatingPlatform == .iOS && isNonOriginatingAccount != true {
                         RequestRefundOriginatingPlatformContent(
-                            requestRefundAction: {}
+                            requestRefundAction: {
+                                Task {
+                                    await viewModel.requestRefund(
+                                        success: {
+                                            DispatchQueue.main.async {
+                                                host.controller?.navigationController?.popViewController(animated: true)
+                                            }
+                                        },
+                                        failure: {
+                                            // TODO: [PRO] Request refund failure behaviour
+                                        }
+                                     )
+                                }
+                            }
                         )
                     } else {
-                        RequestRefundNonOriginatingPlatformContent(
+                        RequestRefundNonOriginatorContent(
                             originatingPlatform: originatingPlatform,
+                            isNonOriginatingAccount: isNonOriginatingAccount,
                             requestedAt: requestedAt,
-                            openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
+                            openPlatformStoreWebsiteAction: {
+                                openUrl(
+                                    isNonOriginatingAccount == true ?
+                                        Constants.app_store_refund_support :
+                                        Constants.google_play_store_subscriptions_url
+                                )
+                            }
                         )
                     }
                     

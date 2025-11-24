@@ -42,6 +42,7 @@ public extension SessionProPlanState {
                             case .Android: return .Android
                         }
                     }(),
+                    isNonOriginatingAccount: dependencies[feature: .mockNonOriginatingAccount],
                     requestedAt: requestedAt
                 )
         }

@@ -1,10 +1,8 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUIKit
-import SessionUtilitiesKit
 
-final class VoiceMessageRecordingView: UIView {
+public final class VoiceMessageRecordingView: UIView {
     private let voiceMessageButtonFrame: CGRect
     private weak var delegate: VoiceMessageRecordingViewDelegate?
     private lazy var slideToCancelStackViewTrailingConstraint = slideToCancelStackView.pin(.trailing, to: .trailing, of: self)
@@ -61,7 +59,7 @@ final class VoiceMessageRecordingView: UIView {
 
     private lazy var chevronImageView: UIImageView = {
         let result: UIImageView = UIImageView(
-            image: (Dependencies.isRTL ?
+            image: (SNUIKit.isRTL ?
                     UIImage(named: "small_chevron_left")?.withHorizontallyFlippedOrientation() :
                     UIImage(named: "small_chevron_left")
                 )?
@@ -140,7 +138,7 @@ final class VoiceMessageRecordingView: UIView {
 
     // MARK: - Lifecycle
     
-    init(voiceMessageButtonFrame: CGRect, delegate: VoiceMessageRecordingViewDelegate?) {
+    public init(voiceMessageButtonFrame: CGRect, delegate: VoiceMessageRecordingViewDelegate?) {
         self.voiceMessageButtonFrame = voiceMessageButtonFrame
         self.delegate = delegate
         
@@ -171,9 +169,8 @@ final class VoiceMessageRecordingView: UIView {
         
         // Note: We intentionally pin to '.left' here as the frame calculations don't take
         // LRT/RTL language direction into account
-        let voiceMessageButtonCenter = voiceMessageButtonFrame.center
-        iconImageView.pin(.left, to: .left, of: self, withInset: (voiceMessageButtonCenter.x - (iconSize / 2)))
-        iconImageView.pin(.top, to: .top, of: self, withInset: (voiceMessageButtonCenter.y - (iconSize / 2)))
+        iconImageView.pin(.left, to: .left, of: self, withInset: (voiceMessageButtonFrame.midX - (iconSize / 2)))
+        iconImageView.pin(.top, to: .top, of: self, withInset: (voiceMessageButtonFrame.midY - (iconSize / 2)))
         
         // Circle
         insertSubview(circleView, at: 0)
@@ -218,7 +215,7 @@ final class VoiceMessageRecordingView: UIView {
 
     // MARK: - Animation
     
-    func animate() {
+    public func animate() {
         layoutIfNeeded()
         
         slideToCancelStackViewTrailingConstraint.isActive = false
@@ -275,10 +272,10 @@ final class VoiceMessageRecordingView: UIView {
 
     // MARK: - Interaction
     
-    func handleLongPressMoved(to location: CGPoint) {
-        if ((!Dependencies.isRTL && location.x < bounds.center.x) || (Dependencies.isRTL && location.x > bounds.center.x)) {
-            let translationX = location.x - bounds.center.x
-            let sign: CGFloat = (Dependencies.isRTL ? 1 : -1)
+    public func handleLongPressMoved(to location: CGPoint) {
+        if ((!SNUIKit.isRTL && location.x < bounds.midX) || (SNUIKit.isRTL && location.x > bounds.midX)) {
+            let translationX = location.x - bounds.midX
+            let sign: CGFloat = (SNUIKit.isRTL ? 1 : -1)
             let chevronDamping: CGFloat = 4
             let labelDamping: CGFloat = 3
             let chevronX = (chevronDamping * (sqrt(abs(translationX)) / sqrt(chevronDamping))) * sign
@@ -310,7 +307,7 @@ final class VoiceMessageRecordingView: UIView {
         }
     }
 
-    func handleLongPressEnded(at location: CGPoint) {
+    public func handleLongPressEnded(at location: CGPoint) {
         if pulseView.frame.contains(location) {
             delegate?.endVoiceMessageRecording()
         }
@@ -470,8 +467,8 @@ extension VoiceMessageRecordingView {
 
 // MARK: - Delegate
 
-protocol VoiceMessageRecordingViewDelegate: AnyObject {
-    func startVoiceMessageRecording()
-    func endVoiceMessageRecording()
-    func cancelVoiceMessageRecording()
+public protocol VoiceMessageRecordingViewDelegate: AnyObject {
+    @MainActor func startVoiceMessageRecording()
+    @MainActor func endVoiceMessageRecording()
+    @MainActor func cancelVoiceMessageRecording()
 }

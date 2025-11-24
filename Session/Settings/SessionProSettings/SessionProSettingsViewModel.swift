@@ -1019,6 +1019,21 @@ extension SessionProSettingsViewModel {
     }
     
     func updateProPlan() {
+        guard !dependencies[feature: .mockInstalledFromIPA] else {
+            DispatchQueue.main.async {
+                let viewController = ModalActivityIndicatorViewController() { [weak self] modalActivityIndicator in
+                    Task {
+                        sleep(5)
+                        modalActivityIndicator.dismiss(animated: true) {
+                            self?.showToast(text: "errorGeneric".localized())
+                        }
+                    }
+                }
+                self.transitionToScreen(viewController, transitionType: .present)
+            }
+            return
+        }
+        
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPaymentScreen(
                 viewModel: SessionProPaymentScreenContent.ViewModel(
@@ -1113,6 +1128,7 @@ extension SessionProSettingsViewModel {
                                 case .Android: return .Android
                                 }
                             }(),
+                            isNonOriginatingAccount: dependencies[feature: .mockNonOriginatingAccount], // TODO: [PRO] Get the real state if not originator
                             requestedAt: nil
                         ),
                         plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }

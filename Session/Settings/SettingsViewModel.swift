@@ -340,30 +340,24 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         alignment: .center,
                         trailingImage: {
                             switch state.sessionProPlanState {
-                            case .none:
-                                return nil
-                            case .active, .refunding:
-                                return (
-                                    "ProBadge",
-                                    {
-                                        SessionProBadge(size: .medium)
-                                            .toImage(
-                                                cacheKey: SessionProBadge.Size.medium.cacheKey,
-                                                using: viewModel.dependencies
-                                            )
-                                    }
-                                )
-                            case .expired:
-                                return (
-                                    "ProBadge",
-                                    {
-                                        SessionProBadge(size: .medium, themeBackgroundColor: .disabled)
-                                            .toImage(
-                                                cacheKey: SessionProBadge.Size.medium.cacheKey,
-                                                using: viewModel.dependencies
-                                            )
-                                    }
-                                )
+                                case .none: return nil
+                                case .active, .refunding:
+                                    return (
+                                        .themedKey(
+                                            SessionProBadge.Size.medium.cacheKey,
+                                            themeBackgroundColor: .primary
+                                        ),
+                                        { SessionProBadge(size: .medium) }
+                                    )
+                                
+                                case .expired:
+                                    return (
+                                        .themedKey(
+                                            SessionProBadge.Size.medium.cacheKey,
+                                            themeBackgroundColor: .disabled
+                                        ),
+                                        { SessionProBadge(size: .medium, themeBackgroundColor: .disabled) }
+                                    )
                             }
                         }()
                     ),
