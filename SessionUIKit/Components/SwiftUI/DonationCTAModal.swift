@@ -38,7 +38,7 @@ public struct DonationCTAModal: View {
                 ZStack {
                     Image(uiImage: UIImage(named: DonationCTAModal.backgroundImageName) ?? UIImage())
                         .resizable()
-                        .aspectRatio((1522.0/1258.0), contentMode: .fit)
+                        .aspectRatio(contentMode: .fit)
                         .frame(maxWidth: .infinity)
                 }
                 .backgroundColor(themeColor: .primary)
@@ -69,6 +69,7 @@ public struct DonationCTAModal: View {
                                 .localized())
                             .font(.Headings.H4)
                             .foregroundColor(themeColor: .textPrimary)
+                            .multilineTextAlignment(.center)
                         
                         Text(
                             "donateSessionDescription"

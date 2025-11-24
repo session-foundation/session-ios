@@ -25,8 +25,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     private var databaseKeyEncryptionPassword: String = ""
     private var documentPickerResult: DocumentPickerResult?
     
-    private var updatedCustomDateTime: String?
-    
     // MARK: - Initialization
     
     init(using dependencies: Dependencies) {
@@ -360,14 +358,21 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     subtitle: """
                     Specify a custom date/time that the app should use.
                     
-                    <b>Current Value:</b> \(customDateTime)
+                    <b>Current Value:</b> \(devValue: dependencies[feature: .customDateTime])
                     
                     <b>Warning:</b>
                     Service nodes require the time to be within 2 minutes of their time so modifying this value will generally result in all network requests failing.
                     """,
                     trailingAccessory: .icon(.squarePen),
-                    onTap: { [weak self] in
-                        self?.showCustomDateTimeModal()
+                    onTap: { [weak self, dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableDate(
+                            title: "Custom Date/Time",
+                            explanation: "The custom date/time to use throughout the app.",
+                            feature: .customDateTime,
+                            navigatableStateHolder: self,
+                            onValueChanged: { _ in self?.forceRefresh(type: .databaseQuery) },
+                            using: dependencies
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -687,21 +692,22 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     subtitle: """
                     The number of messages to try to retrieve when polling a community (up to a maximum of 256).
                     
+                    <b>Current Value:</b> \(devValue: dependencies[feature: .communityPollLimit])
+                    
                     <b>Note:</b> An empty value, or a value of 0 will use the default value: \(dependencies.defaultValue(feature: .communityPollLimit).map { "\($0)"} ?? "N/A").
                     """,
-                    trailingAccessory: .custom(info: NumberInputView.Info(
-                        value: dependencies[feature: .communityPollLimit],
-                        minValue: 0,
-                        maxValue: 256,
-                        onDone: { [dependencies] value in
-                            dependencies.set(feature: .communityPollLimit, to: value)
-                        }
-                    )),
-                    onTapView: { view in
-                        view?.subviews
-                            .flatMap { $0.subviews }
-                            .first(where: { $0 is UITextField })?
-                            .becomeFirstResponder()
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak self, dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableNumber(
+                            title: "Comunity Poll Limit",
+                            explanation: "The number of messages to try to retrieve when polling a community (up to a maximum of 256).",
+                            feature: .communityPollLimit,
+                            minValue: 0,
+                            maxValue: 256,
+                            navigatableStateHolder: self,
+                            onValueChanged: { _ in self?.forceRefresh(type: .databaseQuery) },
+                            using: dependencies
+                        )
                     }
                 )
             ]
@@ -897,74 +903,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// Disable developer mode
         dependencies.setAsync(.developerModeEnabled, false)
         self.dismissScreen(type: .pop)
-    }
-    
-    private func showCustomDateTimeModal() {
-        let formatter: DateFormatter = DateFormatter()
-        formatter.dateFormat = "HH:mm dd/MM/yyyy"
-        
-        self.updatedCustomDateTime = nil
-        self.transitionToScreen(
-            ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "Custom Date/Time",
-                    body: .input(
-                        explanation: ThemedAttributedString(
-                            string: "The custom date/time to use throughout the app."
-                        ),
-                        info: ConfirmationModal.Info.Body.InputInfo(
-                            placeholder: "Enter Date/Time (HH:mm dd/MM/yyyy)",
-                            initialValue: (dependencies[feature: .customDateTime]
-                                .map { formatter.string(from: Date(timeIntervalSince1970: $0)) } ?? "")
-                        ),
-                        onChange: { [weak self] value in
-                            self?.updatedCustomDateTime = value.lowercased()
-                        }
-                    ),
-                    confirmTitle: "save".localized(),
-                    confirmEnabled: .afterChange { [weak self] _ in
-                        guard
-                            let value: String = self?.updatedCustomDateTime,
-                            formatter.date(from: value) != nil
-                        else { return false }
-                        
-                        return true
-                    },
-                    cancelTitle: (dependencies.hasSet(feature: .customDateTime) ?
-                        "remove".localized() :
-                        "cancel".localized()
-                    ),
-                    cancelStyle: (dependencies.hasSet(feature: .customDateTime) ? .danger : .alert_text),
-                    hasCloseButton: dependencies.hasSet(feature: .customDateTime),
-                    dismissOnConfirm: false,
-                    onConfirm: { [weak self, dependencies] modal in
-                        guard
-                            let value: String = self?.updatedCustomDateTime,
-                            let date: Date = formatter.date(from: value)
-                        else {
-                            modal.updateContent(
-                                withError: "Value must be in the format 'HH:mm dd/MM/yyyy'."
-                            )
-                            return
-                        }
-                        
-                        modal.dismiss(animated: true)
-                        
-                        dependencies.set(feature: .customDateTime, to: date.timeIntervalSince1970)
-                        self?.forceRefresh(type: .databaseQuery)
-                    },
-                    onCancel: { [weak self, dependencies] modal in
-                        modal.dismiss(animated: true)
-                        
-                        guard dependencies.hasSet(feature: .customDateTime) else { return }
-                        
-                        dependencies.set(feature: .customDateTime, to: nil)
-                        self?.forceRefresh(type: .databaseQuery)
-                    }
-                )
-            ),
-            transitionType: .present
-        )
     }
 
     private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
@@ -1776,6 +1714,286 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
 }
 
+// MARK: - Convenience
+
+extension DeveloperSettingsViewModel {
+    static func showModalForMockableNumber(
+        title: String,
+        explanation: String,
+        feature: FeatureConfig<Int>,
+        minValue: Int = Int.min,
+        maxValue: Int = Int.max,
+        defaultValue: Int? = nil,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: ((Int?) -> Void)? = nil,
+        using dependencies: Dependencies?
+    ) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        showModalForMockableNumber(
+            title: title,
+            explanation: explanation,
+            minValue: minValue,
+            maxValue: maxValue,
+            initialValue: dependencies[feature: feature],
+            defaultValue: defaultValue,
+            hasSet: dependencies.hasSet(feature: feature),
+            navigatableStateHolder: navigatableStateHolder,
+            onValueChanged: { newValue in
+                dependencies.set(feature: feature, to: newValue)
+                onValueChanged?(newValue)
+            }
+        )
+    }
+    
+    static func showModalForMockableNumber(
+        title: String,
+        explanation: String,
+        defaults: UserDefaultsConfig,
+        key: UserDefaults.IntKey,
+        minValue: Int = Int.min,
+        maxValue: Int = Int.max,
+        defaultValue: Int? = nil,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: ((Int?) -> Void)? = nil,
+        using dependencies: Dependencies?
+    ) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        showModalForMockableNumber(
+            title: title,
+            explanation: explanation,
+            minValue: minValue,
+            maxValue: maxValue,
+            initialValue: dependencies[defaults: defaults, key: key],
+            defaultValue: defaultValue,
+            hasSet: (dependencies[defaults: defaults].object(forKey: key.rawValue) != nil),
+            navigatableStateHolder: navigatableStateHolder,
+            onValueChanged: { newValue in
+                if let value: Int = newValue {
+                    dependencies[defaults: defaults, key: key] = value
+                }
+                else {
+                    dependencies[defaults: defaults].removeObject(forKey: key.rawValue)
+                }
+                
+                onValueChanged?(newValue)
+            }
+        )
+    }
+    
+    static func showModalForMockableDate(
+        title: String,
+        explanation: String,
+        feature: FeatureConfig<TimeInterval?>,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: ((TimeInterval?) -> Void)? = nil,
+        using dependencies: Dependencies?
+    ) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        showModalForMockableDate(
+            title: title,
+            explanation: explanation,
+            initialValue: dependencies[feature: feature],
+            hasSet: dependencies.hasSet(feature: feature),
+            navigatableStateHolder: navigatableStateHolder,
+            onValueChanged: { newValue in
+                dependencies.set(feature: feature, to: newValue)
+                onValueChanged?(newValue)
+            }
+        )
+    }
+    
+    static func showModalForMockableDate(
+        title: String,
+        explanation: String,
+        defaults: UserDefaultsConfig,
+        key: UserDefaults.DoubleKey,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: ((TimeInterval?) -> Void)? = nil,
+        using dependencies: Dependencies?
+    ) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        showModalForMockableDate(
+            title: title,
+            explanation: explanation,
+            initialValue: dependencies[defaults: defaults, key: key],
+            hasSet: (dependencies[defaults: defaults].object(forKey: key.rawValue) != nil),
+            navigatableStateHolder: navigatableStateHolder,
+            onValueChanged: { newValue in
+                if let value: TimeInterval = newValue {
+                    dependencies[defaults: defaults, key: key] = value
+                }
+                else {
+                    dependencies[defaults: defaults].removeObject(forKey: key.rawValue)
+                }
+                
+                onValueChanged?(newValue)
+            }
+        )
+    }
+    
+    // MARK: - Actual modals
+    
+    private static func showModalForMockableNumber(
+        title: String,
+        explanation: String,
+        minValue: Int,
+        maxValue: Int,
+        initialValue: Int?,
+        defaultValue: Int?,
+        hasSet: Bool,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: @escaping ((Int?) -> Void)
+    ) {
+        var updatedValue: String? = nil
+        let range: String? = {
+            switch (minValue, maxValue) {
+                case (Int.min, Int.max): return nil
+                case (0, Int.max): return "0 or higher"
+                default: return "\(minValue) - \(maxValue)"
+            }
+        }()
+        
+        navigatableStateHolder?.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: title,
+                    body: .input(
+                        explanation: ThemedAttributedString(string: explanation),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: (
+                                range.map { "Enter Value (\($0))" } ??
+                                "Enter Value"
+                            ),
+                            initialValue: (initialValue.map { "\($0)" } ?? ""),
+                            keyboardType: .numberPad
+                        ),
+                        onChange: { value in updatedValue = value }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { _ in
+                        guard
+                            let stringValue: String = updatedValue,
+                            let value: Int = Int(stringValue),
+                            value >= minValue &&
+                            value <= maxValue
+                        else { return false }
+                        
+                        return true
+                    },
+                    cancelTitle: (defaultValue != nil && hasSet ?
+                        "remove".localized() :
+                        "cancel".localized()
+                    ),
+                    cancelStyle: (defaultValue != nil && hasSet ? .danger : .alert_text),
+                    hasCloseButton: hasSet,
+                    dismissOnConfirm: false,
+                    onConfirm: { modal in
+                        guard
+                            let stringValue: String = updatedValue,
+                            let value: Int = Int(stringValue),
+                            value >= minValue &&
+                            value <= maxValue
+                        else {
+                            modal.updateContent(
+                                withError: (
+                                    range.map { "Value must be a number in the range \($0)" } ??
+                                    "Value must be a number"
+                                )
+                            )
+                            return
+                        }
+                        
+                        modal.dismiss(animated: true)
+                        onValueChanged(value)
+                    },
+                    onCancel: { modal in
+                        modal.dismiss(animated: true)
+                        
+                        guard defaultValue != nil && hasSet else { return }
+                        
+                        onValueChanged(defaultValue)
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    private static func showModalForMockableDate(
+        title: String,
+        explanation: String,
+        initialValue: TimeInterval?,
+        hasSet: Bool,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: ((TimeInterval?) -> Void)? = nil
+    ) {
+        let dateFormat: String = "HH:mm dd/MM/yyyy"
+        let formatter: DateFormatter = DateFormatter()
+        formatter.dateFormat = dateFormat
+        var updatedValue: String? = nil
+        
+        navigatableStateHolder?.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: title,
+                    body: .input(
+                        explanation: ThemedAttributedString(string: explanation),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter Date/Time (\(dateFormat))",
+                            initialValue: (initialValue
+                                .map { formatter.string(from: Date(timeIntervalSince1970: $0)) } ?? "")
+                        ),
+                        onChange: { value in updatedValue = value }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { _ in
+                        guard
+                            let value: String = updatedValue,
+                            formatter.date(from: value) != nil
+                        else { return false }
+                        
+                        return true
+                    },
+                    cancelTitle: (hasSet ?
+                        "remove".localized() :
+                        "cancel".localized()
+                    ),
+                    cancelStyle: (hasSet ? .danger : .alert_text),
+                    hasCloseButton: hasSet,
+                    dismissOnConfirm: false,
+                    onConfirm: { modal in
+                        guard
+                            let value: String = updatedValue,
+                            let date: Date = formatter.date(from: value)
+                        else {
+                            modal.updateContent(
+                                withError: "Value must be in the format '\(dateFormat)'."
+                            )
+                            return
+                        }
+                        
+                        modal.dismiss(animated: true)
+                        onValueChanged?(date.timeIntervalSince1970)
+                    },
+                    onCancel: { modal in
+                        modal.dismiss(animated: true)
+                        
+                        guard hasSet else { return }
+                        
+                        onValueChanged?(nil)
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+}
+
+
 // MARK: - DocumentPickerResult
 
 private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
@@ -1801,135 +2019,24 @@ private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
     }
 }
 
-// MARK: - NumberInputView
+// MARK: - Format Convenience
 
-final class NumberInputView: UIView, UITextFieldDelegate, SessionCell.Accessory.CustomView {
-    struct Info: Equatable, SessionCell.Accessory.CustomViewInfo {
-        typealias View = NumberInputView
+internal extension String.StringInterpolation {
+    mutating func appendInterpolation(devValue: TimeInterval?) {
+        guard let value: TimeInterval = devValue else { return appendLiteral("<disabled>None</disabled>") }
         
-        let value: Int
-        let minValue: Int
-        let maxValue: Int
-        let onChange: ((Int?) -> Void)?
-        let onDone: ((Int?) -> Void)?
-        
-        init(
-            value: Int,
-            minValue: Int = Int.min,
-            maxValue: Int = Int.max,
-            onChange: ((Int?) -> Void)? = nil,
-            onDone: ((Int?) -> Void)? = nil
-        ) {
-            self.value = value
-            self.minValue = minValue
-            self.maxValue = maxValue
-            self.onChange = onChange
-            self.onDone = onDone
-        }
-        
-        public static func ==(lhs: Info, rhs: Info) -> Bool {
-            return lhs.value == rhs.value
-        }
-        
-        public func hash(into hasher: inout Hasher) {
-            value.hash(into: &hasher)
-        }
+        appendLiteral("<span>\(Date(timeIntervalSince1970: value).formattedForBanner)</span>")
     }
     
-    static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> NumberInputView {
-        return NumberInputView()
-    }
-    
-    public static let size: SessionCell.Accessory.Size = .fillWidthWrapHeight
-    private var minValue: Int = Int.min
-    private var maxValue: Int = Int.max
-    private var onChange: ((Int?) -> Void)?
-    private var onDone: ((Int?) -> Void)?
-
-    // MARK: - Components
-
-    private lazy var textField: UITextField = {
-        let result = UITextField()
-        result.font = .systemFont(ofSize: Values.mediumFontSize)
-        result.textAlignment = .center
-        result.returnKeyType = .done
-        result.delegate = self
-
-        return result
-    }()
-
-    // MARK: - Initializtion
-
-    init() {
-        super.init(frame: .zero)
-
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("Use init(color:) instead")
-    }
-
-    // MARK: - Layout
-
-    private func setupUI() {
-        layer.borderWidth = 1
-        layer.cornerRadius = 8
-        themeBackgroundColor = .backgroundPrimary
-        themeBorderColor = .borderSeparator
+    mutating func appendInterpolation(devValue: Int?) {
+        guard let value: Int = devValue else { return appendLiteral("<disabled>None</disabled>") }
         
-        addSubview(textField)
-        textField.pin(to: self, withInset: Values.verySmallSpacing)
-    }
-
-    // MARK: - Content
-
-    func update(with info: Info) {
-        minValue = info.minValue
-        maxValue = info.maxValue
-        onChange = info.onChange
-        onDone = info.onDone
-        textField.text = "\(info.value)"
-    }
-    
-    // MARK: - UITextFieldDelegate
-    
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        let currentText: String = (textField.text ?? "")
-        
-        guard let textRange: Range = Range(range, in: currentText) else { return false }
-        
-        let updatedText: String = currentText.replacingCharacters(in: textRange, with: string)
-        
-        // Allow an empty string (revert to the default in this case)
-        guard !updatedText.isEmpty else {
-            onChange?(nil)
-            return true
-        }
-        guard let value: Int = Int(updatedText) else { return false }
-        guard value >= minValue && value <= maxValue else { return false }
-        
-        onChange?(value)
-        return true
-    }
-    
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        guard !(textField.text ?? "").isEmpty else {
-            onDone?(nil)
-            return true
-        }
-        guard
-            let value: Int = Int(textField.text ?? ""),
-            value >= minValue &&
-            value <= maxValue
-        else { return false }
-        
-        onDone?(value)
-        return true
+        appendLiteral("<span>\(value)</span>")
     }
 }
 
 // MARK: - WarningVersion
+
 struct WarningVersion: Listable {
     var version: Int
     

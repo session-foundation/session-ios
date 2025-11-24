@@ -17,8 +17,6 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
     public let state: TableDataState<Section, TableItem> = TableDataState()
     public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
     
-    private var updatedCustomDateTime: String?
-    
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: State
     private var observationTask: Task<Void, Never>?
@@ -72,6 +70,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case showDonationsCTAModal
         case donationsCTAModalAppearanceCount
+        case donationsCTAModalLastAppearanceTimestamp
         case customFirstInstallDateTime
         case donationsUrlOpenCount
         case donationsUrlCopyCount
@@ -90,6 +89,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
             switch self {
                 case .showDonationsCTAModal: return "showDonationsCTAModal"
                 case .donationsCTAModalAppearanceCount: return "donationsCTAModalAppearanceCount"
+                case .donationsCTAModalLastAppearanceTimestamp: return "donationsCTAModalLastAppearanceTimestamp"
                 case .customFirstInstallDateTime: return "customFirstInstallDateTime"
                 case .donationsUrlOpenCount: return "donationsUrlOpenCount"
                 case .donationsUrlCopyCount: return "donationsUrlCopyCount"
@@ -109,6 +109,7 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
             switch TableItem.showDonationsCTAModal {
                 case .showDonationsCTAModal: result.append(.showDonationsCTAModal); fallthrough
                 case .donationsCTAModalAppearanceCount: result.append(.donationsCTAModalAppearanceCount); fallthrough
+                case .donationsCTAModalLastAppearanceTimestamp: result.append(.donationsCTAModalLastAppearanceTimestamp); fallthrough
                 case .customFirstInstallDateTime: result.append(.customFirstInstallDateTime); fallthrough
                 case .donationsUrlOpenCount: result.append(.donationsUrlOpenCount); fallthrough
                 case .donationsUrlCopyCount: result.append(.donationsUrlCopyCount); fallthrough
@@ -195,23 +196,6 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
         previousState: State,
         viewModel: DeveloperSettingsModalsAndBannersViewModel
     ) -> [SectionModel] {
-        let customFirstInstallDateTime: String = {
-            guard let customFirstInstallDateTimestamp: TimeInterval = viewModel.dependencies[feature: .customFirstInstallDateTime] else {
-                return "<disabled>None</disabled>"
-            }
-            
-            return "<span>\(Date(timeIntervalSince1970: customFirstInstallDateTimestamp).formattedForBanner)</span>"
-        }()
-        let donationsCTAModalLastAppearanceTime: String = {
-            let donationsCTAModalLastAppearanceTimestamp: TimeInterval = viewModel.dependencies[defaults: .standard, key: .donationsCTAModalLastAppearanceTimestamp]
-            
-            guard donationsCTAModalLastAppearanceTimestamp > 0 else {
-                return "<disabled>None</disabled>"
-            }
-            
-            return "<span>\(Date(timeIntervalSince1970: donationsCTAModalLastAppearanceTimestamp).formattedForBanner)</span>"
-        }()
-        
         let donations: SectionModel = SectionModel(
             model: .donations,
             elements: [
@@ -236,28 +220,50 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                     id: .donationsCTAModalAppearanceCount,
                     title: "Donations CTA Modal Appearance Count",
                     subtitle: """
-                    The number of times the user has copied the donations URL.
+                    The number of times the donations CTA modal has appeared.
                     
-                    <b>Last Appeared Timestamp:</b> \(donationsCTAModalLastAppearanceTime)
+                    <b>Current Value:</b> \(devValue: state.donationsCTAModalAppearanceCount)
                     
-                    <b>Note:</b> An empty value will reset the count and "Last Appeared Timestamp" to 0.
+                    <b>Note:</b> An value of 0 will reset the "Last Appeared Timestamp".
                     """,
-                    trailingAccessory: .custom(info: NumberInputView.Info(
-                        value: state.donationsCTAModalAppearanceCount,
-                        minValue: 0,
-                        onDone: { [dependencies = viewModel.dependencies] newValue in
-                            dependencies[defaults: .standard, key: .donationsCTAModalAppearanceCount] = (newValue ?? 0)
-                            
-                            if newValue == nil {
-                                viewModel.dependencies[defaults: .standard, key: .donationsCTAModalLastAppearanceTimestamp] = 0
-                            }
-                        }
-                    )),
-                    onTapView: { view in
-                        view?.subviews
-                            .flatMap { $0.subviews }
-                            .first(where: { $0 is UITextField })?
-                            .becomeFirstResponder()
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableNumber(
+                            title: "Donations CTA Modal Appearance Count",
+                            explanation: "The number of times the donations CTA modal has appeared.",
+                            defaults: .standard,
+                            key: .donationsCTAModalAppearanceCount,
+                            minValue: 0,
+                            navigatableStateHolder: viewModel,
+                            onValueChanged: { newValue in
+                                guard (newValue ?? 0) == 0 else { return }
+                                
+                                dependencies[defaults: .standard].removeObject(
+                                    forKey: UserDefaults.DoubleKey.donationsCTAModalLastAppearanceTimestamp.rawValue
+                                )
+                            },
+                            using: dependencies
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .donationsCTAModalLastAppearanceTimestamp,
+                    title: "Donations CTA Last Appeared Timestamp",
+                    subtitle: """
+                    The last time the donations CTA modal has appeared.
+                    
+                    <b>Current Value:</b> \(devValue: state.donationsCTAModalLastAppearanceTimestamp)
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableDate(
+                            title: "Donations CTA Modal Last Appearance Date/Time",
+                            explanation: "The date/time the donations CTA modal last appeared.",
+                            defaults: .standard,
+                            key: .donationsCTAModalLastAppearanceTimestamp,
+                            navigatableStateHolder: viewModel,
+                            using: dependencies
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -266,11 +272,17 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                     subtitle: """
                     Specify a custom date/time that the app was first installed.
                     
-                    <b>Current Value:</b> \(customFirstInstallDateTime)
+                    <b>Current Value:</b> \(devValue: viewModel.dependencies[feature: .customFirstInstallDateTime])
                     """,
                     trailingAccessory: .icon(.squarePen),
-                    onTap: { [weak viewModel] in
-                        viewModel?.showCustomDateTimeModal()
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableDate(
+                            title: "Custom First Install Date/Time",
+                            explanation: "The custom date/time the app was first installed.",
+                            feature: .customFirstInstallDateTime,
+                            navigatableStateHolder: viewModel,
+                            using: dependencies
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -279,20 +291,19 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                     subtitle: """
                     The number of times the user has opened the donations URL.
                     
-                    <b>Note:</b> An empty value will be considered 0.
+                    <b>Current Value:</b> \(devValue: state.donationsUrlOpenCount)
                     """,
-                    trailingAccessory: .custom(info: NumberInputView.Info(
-                        value: state.donationsUrlOpenCount,
-                        minValue: 0,
-                        onDone: { [dependencies = viewModel.dependencies] newValue in
-                            dependencies[defaults: .standard, key: .donationsUrlOpenCount] = (newValue ?? 0)
-                        }
-                    )),
-                    onTapView: { view in
-                        view?.subviews
-                            .flatMap { $0.subviews }
-                            .first(where: { $0 is UITextField })?
-                            .becomeFirstResponder()
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableNumber(
+                            title: "Donations URL Open Count",
+                            explanation: "The number of times the user has opened the donations URL.",
+                            defaults: .standard,
+                            key: .donationsUrlOpenCount,
+                            minValue: 0,
+                            navigatableStateHolder: viewModel,
+                            using: dependencies
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -301,20 +312,19 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                     subtitle: """
                     The number of times the user has copied the donations URL.
                     
-                    <b>Note:</b> An empty value will be considered 0.
+                    <b>Current Value:</b> \(devValue: state.donationsUrlCopyCount)
                     """,
-                    trailingAccessory: .custom(info: NumberInputView.Info(
-                        value: state.donationsUrlCopyCount,
-                        minValue: 0,
-                        onDone: { [dependencies = viewModel.dependencies] newValue in
-                            dependencies[defaults: .standard, key: .donationsUrlCopyCount] = (newValue ?? 0)
-                        }
-                    )),
-                    onTapView: { view in
-                        view?.subviews
-                            .flatMap { $0.subviews }
-                            .first(where: { $0 is UITextField })?
-                            .becomeFirstResponder()
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableNumber(
+                            title: "Donations URL Copy Count",
+                            explanation: "The number of times the user has copied the donations URL.",
+                            defaults: .standard,
+                            key: .donationsUrlCopyCount,
+                            minValue: 0,
+                            navigatableStateHolder: viewModel,
+                            using: dependencies
+                        )
                     }
                 )
             ]
@@ -415,7 +425,8 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                 case .showDonationsCTAModal, .resetAppReviewPrompt:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
                     
-                case .donationsUrlOpenCount, .donationsUrlCopyCount, .donationsCTAModalAppearanceCount:
+                case .donationsUrlOpenCount, .donationsUrlCopyCount, .donationsCTAModalAppearanceCount,
+                    .donationsCTAModalLastAppearanceTimestamp:
                     break   /// These are _actual_ values so we shouldn't reset them - the changes just apply permanently
                     
                 case .customFirstInstallDateTime:
@@ -439,72 +450,6 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                     dependencies.set(feature: .versionDeprecationMinimum, to: nil)
             }
         }
-    }
-    
-    private func showCustomDateTimeModal() {
-        let formatter: DateFormatter = DateFormatter()
-        formatter.dateFormat = "HH:mm dd/MM/yyyy"
-        
-        self.updatedCustomDateTime = nil
-        self.transitionToScreen(
-            ConfirmationModal(
-                info: ConfirmationModal.Info(
-                    title: "Custom First Install Date/Time",
-                    body: .input(
-                        explanation: ThemedAttributedString(
-                            string: "The custom date/time the app was first installed."
-                        ),
-                        info: ConfirmationModal.Info.Body.InputInfo(
-                            placeholder: "Enter Date/Time (HH:mm dd/MM/yyyy)",
-                            initialValue: (dependencies[feature: .customFirstInstallDateTime]
-                                .map { formatter.string(from: Date(timeIntervalSince1970: $0)) } ?? "")
-                        ),
-                        onChange: { [weak self] value in
-                            self?.updatedCustomDateTime = value.lowercased()
-                        }
-                    ),
-                    confirmTitle: "save".localized(),
-                    confirmEnabled: .afterChange { [weak self] _ in
-                        guard
-                            let value: String = self?.updatedCustomDateTime,
-                            formatter.date(from: value) != nil
-                        else { return false }
-                        
-                        return true
-                    },
-                    cancelTitle: (dependencies.hasSet(feature: .customFirstInstallDateTime) ?
-                        "remove".localized() :
-                        "cancel".localized()
-                    ),
-                    cancelStyle: (dependencies.hasSet(feature: .customFirstInstallDateTime) ? .danger : .alert_text),
-                    hasCloseButton: dependencies.hasSet(feature: .customFirstInstallDateTime),
-                    dismissOnConfirm: false,
-                    onConfirm: { [weak self, dependencies] modal in
-                        guard
-                            let value: String = self?.updatedCustomDateTime,
-                            let date: Date = formatter.date(from: value)
-                        else {
-                            modal.updateContent(
-                                withError: "Value must be in the format 'HH:mm dd/MM/yyyy'."
-                            )
-                            return
-                        }
-                        
-                        modal.dismiss(animated: true)
-                        
-                        dependencies.set(feature: .customFirstInstallDateTime, to: date.timeIntervalSince1970)
-                    },
-                    onCancel: { [dependencies] modal in
-                        modal.dismiss(animated: true)
-                        
-                        guard !dependencies.hasSet(feature: .customFirstInstallDateTime) else { return }
-                        
-                        dependencies.set(feature: .customFirstInstallDateTime, to: nil)
-                    }
-                )
-            ),
-            transitionType: .present
-        )
     }
     
     private func resetAppReviewPrompt() {
