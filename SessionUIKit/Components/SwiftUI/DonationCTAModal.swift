@@ -5,7 +5,7 @@ import Lucide
 import Combine
 
 public struct DonationCTAModal: View {
-    private static let backgroundImageName: String = "GenericCTA.webp"
+    private static let backgroundImageName: String = "DonationsCTA.webp"
     
     @EnvironmentObject var host: HostWrapper
     
@@ -63,11 +63,17 @@ public struct DonationCTAModal: View {
                 // Content
                 VStack(spacing: Values.largeSpacing) {
                     VStack(spacing: 0) {
-                        Text("Session Needs Your Help")  // TODO: [Donations] Localize
+                        Text(
+                            "donateSessionHelp"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localized())
                             .font(.Headings.H4)
                             .foregroundColor(themeColor: .textPrimary)
                         
-                        Text("Session is fighting powerful forces trying to weaken privacy, but we can’t continue this fight alone.\n\nDonating keeps Session secure, independent, and online.")  // TODO: [Donations] Localize
+                        Text(
+                            "donateSessionDescription"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localized())
                             .font(.Body.largeRegular)
                             .foregroundColor(themeColor: .textSecondary)
                             .multilineTextAlignment(.center)
@@ -99,7 +105,7 @@ public struct DonationCTAModal: View {
                         Button(
                             action: { close(nil) },
                             label: {
-                                Text("Skip")      // TODO: [Donations] Localize
+                                Text("maybeLater".localized())
                                     .font(.Body.baseRegular)
                                     .foregroundColor(themeColor: .textPrimary)
                                     .framing(

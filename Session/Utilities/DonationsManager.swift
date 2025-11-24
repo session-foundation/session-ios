@@ -53,7 +53,8 @@ public class DonationsManager {
             dependencies[defaults: .standard, key: .donationsUrlCopyCount] == 0
         else { return }
         
-        /// Don't show the modal if the app has been installed for less than 7 days
+        /// Don't show the modal if the app has been installed for less than 7 days (unless the user gave the app a great rating, in which
+        /// case we _do_ want to show it)
         let appInstallationDate: Date = {
             let attributes: [FileAttributeKey: Any]? = try? dependencies[singleton: .fileManager]
                 .attributesOfItem(atPath: dependencies[singleton: .fileManager].documentsDirectoryPath)
@@ -61,9 +62,12 @@ public class DonationsManager {
             return (attributes?[.creationDate] as? Date ?? Date.distantPast)
         }()
         
-        guard dependencies.dateNow.timeIntervalSince(appInstallationDate) > DonationsManager.appInstallAppearanceDelay else {
-            return
-        }
+        guard
+            dependencies.dateNow.timeIntervalSince(appInstallationDate) > DonationsManager.appInstallAppearanceDelay || (
+                !forceShowWasToggledThisSession &&
+                dependencies[defaults: .standard, key: .donationsCTAModalShouldForceShow]
+            )
+        else { return }
         
         /// Ensure there are still automatic appearances remaining
         let appearanceCount: Int = dependencies[defaults: .standard, key: .donationsCTAModalAppearanceCount]
@@ -153,6 +157,38 @@ public class DonationsManager {
         /// Increment the appearance counter and set the last appearance timestamp
         dependencies[defaults: .standard, key: .donationsCTAModalAppearanceCount] += 1
         dependencies[defaults: .standard, key: .donationsCTAModalLastAppearanceTimestamp] = dependencies.dateNow.timeIntervalSince1970
+    }
+    
+    public func cachedState() -> [String: Any] {
+        return [
+            UserDefaults.BoolKey.donationsCTAModalShouldForceShow.rawValue: dependencies[defaults: .standard, key: .donationsCTAModalShouldForceShow],
+            UserDefaults.DoubleKey.donationsCTAModalLastAppearanceTimestamp.rawValue: dependencies[defaults: .standard, key: .donationsCTAModalLastAppearanceTimestamp],
+            UserDefaults.IntKey.donationsUrlOpenCount.rawValue: dependencies[defaults: .standard, key: .donationsUrlOpenCount],
+            UserDefaults.IntKey.donationsUrlCopyCount.rawValue: dependencies[defaults: .standard, key: .donationsUrlCopyCount],
+            UserDefaults.IntKey.donationsCTAModalAppearanceCount.rawValue: dependencies[defaults: .standard, key: .donationsCTAModalAppearanceCount]
+        ]
+    }
+    
+    public func restoreState(_ state: [String: Any]) {
+        if let value: Bool = state[UserDefaults.BoolKey.donationsCTAModalShouldForceShow.rawValue] as? Bool {
+            dependencies[defaults: .standard, key: .donationsCTAModalShouldForceShow] = value
+        }
+        
+        if let value: Double = state[UserDefaults.DoubleKey.donationsCTAModalLastAppearanceTimestamp.rawValue] as? Double {
+            dependencies[defaults: .standard, key: .donationsCTAModalLastAppearanceTimestamp] = value
+        }
+        
+        if let value: Int = state[UserDefaults.IntKey.donationsUrlOpenCount.rawValue] as? Int {
+            dependencies[defaults: .standard, key: .donationsUrlOpenCount] = value
+        }
+        
+        if let value: Int = state[UserDefaults.IntKey.donationsUrlCopyCount.rawValue] as? Int {
+            dependencies[defaults: .standard, key: .donationsUrlCopyCount] = value
+        }
+        
+        if let value: Int = state[UserDefaults.IntKey.donationsCTAModalAppearanceCount.rawValue] as? Int {
+            dependencies[defaults: .standard, key: .donationsCTAModalAppearanceCount] = value
+        }
     }
     
     // MARK: - Internal Functions

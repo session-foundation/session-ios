@@ -625,6 +625,8 @@
 		FD360EC92ECD3EB20050CAF4 /* DonationCTAModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */; };
 		FD360ECB2ECD59550050CAF4 /* DonationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */; };
 		FD360ECD2ECD70590050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */; };
+		FD360EDA2ED3E8BC0050CAF4 /* DonationsCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */; };
+		FD360EDB2ED3E8BC0050CAF4 /* DonationsCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */; };
 		FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */; };
 		FD368A6A29DE9E30000DBF1E /* UIContextualAction+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */; };
 		FD3765DF2AD8F03100DC1489 /* MockSnodeAPICache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */; };
@@ -1987,6 +1989,7 @@
 		FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonationCTAModal.swift; sourceTree = "<group>"; };
 		FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonationsManager.swift; sourceTree = "<group>"; };
 		FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsModalsAndBannersViewModel.swift; sourceTree = "<group>"; };
+		FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = DonationsCTA.webp; sourceTree = "<group>"; };
 		FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _026_AddFTSIfNeeded.swift; sourceTree = "<group>"; };
 		FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Utilities.swift"; sourceTree = "<group>"; };
 		FD3765DE2AD8F03100DC1489 /* MockSnodeAPICache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSnodeAPICache.swift; sourceTree = "<group>"; };
@@ -2978,6 +2981,7 @@
 			children = (
 				94B6BB052E431B6300E718BB /* AnimatedProfileCTAAnimationCropped.webp */,
 				94AAB15B2E24C97400A6FA18 /* AnimatedProfileCTA.webp */,
+				FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */,
 				94AAB1562E24BD3700A6FA18 /* PinnedConversationsCTA.webp */,
 				94CD963C2E1BABE90097754D /* GenericCTA.webp */,
 				94CD963E2E1BABE90097754D /* HigherCharLimitCTA.webp */,
@@ -5890,6 +5894,7 @@
 				4535186E1FC635DD00210559 /* MainInterface.storyboard in Resources */,
 				B8D07406265C683A00F77E07 /* ElegantIcons.ttf in Resources */,
 				FD86FDA42BC51C5400EC251B /* PrivacyInfo.xcprivacy in Resources */,
+				FD360EDB2ED3E8BC0050CAF4 /* DonationsCTA.webp in Resources */,
 				3478504C1FD7496D007B8332 /* Images.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -5994,6 +5999,7 @@
 				C3CA3AC8255CDB2900F4C6D4 /* spanish.txt in Resources */,
 				94CD96402E1BABE90097754D /* GenericCTA.webp in Resources */,
 				94CD96412E1BABE90097754D /* HigherCharLimitCTA.webp in Resources */,
+				FD360EDA2ED3E8BC0050CAF4 /* DonationsCTA.webp in Resources */,
 				45B74A802044AAB600CD42F8 /* pulse-quiet.aifc in Resources */,
 				45B74A8B2044AAB600CD42F8 /* synth.aifc in Resources */,
 				45B74A752044AAB600CD42F8 /* synth-quiet.aifc in Resources */,
@@ -8432,7 +8438,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = "";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 658;
+				CURRENT_PROJECT_VERSION = 659;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -8472,7 +8478,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.6;
+				MARKETING_VERSION = 2.14.7;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-Werror=protocol";
 				OTHER_SWIFT_FLAGS = "-D DEBUG -Xfrontend -warn-long-expression-type-checking=100";
@@ -8513,7 +8519,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = "";
-				CURRENT_PROJECT_VERSION = 658;
+				CURRENT_PROJECT_VERSION = 659;
 				ENABLE_BITCODE = NO;
 				ENABLE_MODULE_VERIFIER = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -8548,7 +8554,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.6;
+				MARKETING_VERSION = 2.14.7;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
@@ -8999,7 +9005,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COMPILE_LIB_SESSION = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 658;
+				CURRENT_PROJECT_VERSION = 659;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -9038,7 +9044,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.6;
+				MARKETING_VERSION = 2.14.7;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fobjc-arc-exceptions",
@@ -9589,7 +9595,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				COMPILE_LIB_SESSION = YES;
-				CURRENT_PROJECT_VERSION = 658;
+				CURRENT_PROJECT_VERSION = 659;
 				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -9622,7 +9628,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
 				LIB_SESSION_SOURCE_DIR = "${SRCROOT}/../LibSession-Util";
 				LOCALIZED_STRING_SWIFTUI_SUPPORT = NO;
-				MARKETING_VERSION = 2.14.6;
+				MARKETING_VERSION = 2.14.7;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = (
 					"-DNS_BLOCK_ASSERTIONS=1",
