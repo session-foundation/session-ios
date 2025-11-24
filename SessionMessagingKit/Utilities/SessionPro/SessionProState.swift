@@ -200,7 +200,6 @@ extension SessionProState: SessionProCTAManagerType {
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
-        beforePresented: (() -> Void)?,
         onConfirm: (() -> Void)?,
         onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
@@ -222,7 +221,6 @@ extension SessionProState: SessionProCTAManagerType {
         guard shouldShowProCTA else {
             return false
         }
-        beforePresented?()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
                 variant: variant,
@@ -239,7 +237,6 @@ extension SessionProState: SessionProCTAManagerType {
     }
     
     @MainActor public func showSessionProBottomSheetIfNeeded(
-        beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) {
@@ -252,7 +249,6 @@ extension SessionProState: SessionProCTAManagerType {
                 SessionListScreen(viewModel: viewModel)
             }
         )
-        beforePresented?()
         presenting?(sessionProBottomSheet)
     }
 }

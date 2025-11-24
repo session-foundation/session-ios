@@ -703,10 +703,8 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
         guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
-            beforePresented: {},
             onConfirm: { [weak self, dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                    beforePresented: {},
                     afterClosed: {
                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                     },
@@ -761,7 +759,6 @@ extension AttachmentApprovalViewController: InputViewDelegate {
             .longerMessages,
             onConfirm: { [weak self, dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                    beforePresented: {},
                     afterClosed: {
                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                     },

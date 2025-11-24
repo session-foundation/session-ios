@@ -559,7 +559,6 @@ extension ConversationVC:
             .longerMessages,
             onConfirm: { [weak self, dependencies = viewModel.dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                    beforePresented: {},
                     afterClosed: { [weak self] in
                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                     },
@@ -705,7 +704,6 @@ extension ConversationVC:
             .longerMessages,
             onConfirm: { [weak self, dependencies = viewModel.dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                    beforePresented: {},
                     afterClosed: { [weak self] in
                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                     },
@@ -1652,10 +1650,8 @@ extension ConversationVC:
                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                             .generic,
                             dismissType: .single,
-                            beforePresented: {},
                             onConfirm: {
                                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                                    beforePresented: {},
                                     afterClosed: { [weak self] in
                                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                                     },
