@@ -84,10 +84,11 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
         dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
         dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
+        let expiryInSeconds = dependencies[feature: .mockCurrentUserSessionProExpiry].durationInSeconds ?? TimeInterval(plan.variant.duration) * 30 * 24 * 60 * 60
         self.sessionProStateSubject.send(
             SessionProPlanState.active(
                 currentPlan: plan,
-                expiredOn: Calendar.current.date(byAdding: .month, value: plan.variant.duration, to: Date())!,
+                expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
                 isAutoRenewing: true,
                 originatingPlatform: originatingPlatform
             )
