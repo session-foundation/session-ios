@@ -156,7 +156,7 @@ public extension MentionSelectionView.ViewModel {
         switch threadVariant {
             case .contact:
                 return SQLRequest("""
-                    SELECT \(Profile.self).*,
+                    SELECT \(Profile.self).*
                     \(targetJoin)
                     \(targetWhere) AND (
                         \(SQL("\(profile[.id]) = \(threadId)")) OR
@@ -167,7 +167,7 @@ public extension MentionSelectionView.ViewModel {
                 
             case .legacyGroup, .group:
                 return SQLRequest("""
-                    SELECT \(Profile.self).*,
+                    SELECT \(Profile.self).*
                     \(targetJoin)
                     JOIN \(GroupMember.self) ON (
                         \(SQL("\(groupMember[.groupId]) = \(threadId)")) AND
