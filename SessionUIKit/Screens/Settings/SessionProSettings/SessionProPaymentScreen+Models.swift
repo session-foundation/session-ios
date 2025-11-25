@@ -104,7 +104,7 @@ public extension SessionProPaymentScreenContent {
         
         public var deviceType: String {
             switch self {
-                case .iOS: return Constants.platform
+                case .iOS: return Constants.platform_name
                 case .Android: return Constants.android_platform
             }
         }

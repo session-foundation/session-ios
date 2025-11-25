@@ -25,11 +25,19 @@ public extension TimeInterval {
             (.second, 1)
         ]
         
-        for (unit, unitSeconds) in unitOrder {
-            if allowedUnits.contains(unit) && seconds >= unitSeconds {
-                let ceiledSeconds = ceil(seconds / unitSeconds) * unitSeconds
-                return String.formattedDuration(ceiledSeconds, format: format, allowedUnits: allowedUnits)
+        var targetUnit: (unit: NSCalendar.Unit, seconds: TimeInterval)?
+        for (unit, unitSeconds) in unitOrder.reversed() {
+            if allowedUnits.contains(unit) {
+                targetUnit = (unit, unitSeconds)
+                if seconds <= unitSeconds {
+                    break
+                }
             }
+        }
+        
+        if let target = targetUnit {
+            let ceiledSeconds = ceil(seconds / target.seconds) * target.seconds
+            return String.formattedDuration(ceiledSeconds, format: format, allowedUnits: allowedUnits)
         }
         
         return String.formattedDuration(seconds, format: format, allowedUnits: allowedUnits)

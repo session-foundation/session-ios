@@ -34,7 +34,12 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             .eraseToAnyPublisher()
     }
     public var sessionProPlans: [SessionProPlan] {
-        dependencies[feature: .mockInstalledFromIPA] ? [] : SessionProPlan.Variant.allCases.map { SessionProPlan(variant: $0) }
+        (
+            dependencies[feature: .mockInstalledFromIPA] ||
+            dependencies[feature: .mockNonOriginatingAccount]
+        ) ?
+        [] :
+        SessionProPlan.Variant.allCases.map { SessionProPlan(variant: $0) }
     }
     
     public var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never>
@@ -98,10 +103,11 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
             dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
             dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
+            let expiryInSeconds = dependencies[feature: .mockCurrentUserSessionProExpiry].durationInSeconds ?? TimeInterval(plan.variant.duration) * 30 * 24 * 60 * 60
             self.sessionProStateSubject.send(
                 SessionProPlanState.active(
                     currentPlan: plan,
-                    expiredOn: Calendar.current.date(byAdding: .month, value: plan.variant.duration, to: Date())!,
+                    expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
                     isAutoRenewing: true,
                     originatingPlatform: originatingPlatform
                 )
