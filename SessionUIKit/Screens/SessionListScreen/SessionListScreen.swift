@@ -5,6 +5,7 @@ import Combine
 
 public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelType>: View {
     @EnvironmentObject var host: HostWrapper
+    @EnvironmentObject var toolbarManager: ToolbarManager
     @StateObject private var viewModel: ViewModel
     @ObservedObject private var state: SessionListScreenContent.ListItemDataState<ViewModel.Section, ViewModel.ListItem>
     @State var isShowingTooltip: Bool = false
@@ -48,6 +49,8 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
             destination
                 .view
                 .backgroundColor(themeColor: .backgroundPrimary)
+                .persistentCloseToolbar()
+                .environmentObject(toolbarManager)
         } else {
             EmptyView()
         }

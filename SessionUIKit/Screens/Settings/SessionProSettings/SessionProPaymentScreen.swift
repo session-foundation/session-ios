@@ -5,6 +5,7 @@ import Lucide
 
 public struct SessionProPaymentScreen: View {
     @EnvironmentObject var host: HostWrapper
+    @EnvironmentObject var toolbarManager: ToolbarManager
     @State private var isNavigationActive: Bool = false
     @State var currentSelection: Int
     @State private var isShowingTooltip: Bool = false

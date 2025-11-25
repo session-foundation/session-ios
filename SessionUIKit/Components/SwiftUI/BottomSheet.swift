@@ -8,7 +8,6 @@ private struct SizePreferenceKey: PreferenceKey {
     static var defaultValue: CGSize = .zero
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
         let next = nextValue()
-        // Use the last non-zero size reported
         if next != .zero { value = next }
     }
 }
@@ -16,6 +15,7 @@ private struct SizePreferenceKey: PreferenceKey {
 public struct BottomSheet<Content>: View where Content: View {
     @EnvironmentObject var host: HostWrapper
     @State private var disposables: Set<AnyCancellable> = Set()
+    @StateObject private var toolbarManager: ToolbarManager
     
     let hasCloseButton: Bool
     let afterClosed: (() -> Void)?
@@ -36,6 +36,7 @@ public struct BottomSheet<Content>: View where Content: View {
         content: @escaping () -> Content)
     {
         self.hasCloseButton = hasCloseButton
+        _toolbarManager = StateObject(wrappedValue: ToolbarManager(hasCloseButton: hasCloseButton))
         self.afterClosed = afterClosed
         self.content = content
     }
@@ -58,7 +59,6 @@ public struct BottomSheet<Content>: View where Content: View {
                         .fill(themeColor: .value(.textPrimary, alpha: 0.8))
                         .frame(width: 35, height: 3)
                     
-                    // Bottom Sheet
                     ZStack(alignment: .topTrailing) {
                         NavigationView {
                             ZStack {
@@ -66,54 +66,40 @@ public struct BottomSheet<Content>: View where Content: View {
                                     .fill(themeColor: .backgroundPrimary)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                                     .ignoresSafeArea()
-                                // Important: no top-level GeometryReader here that would expand.
+
                                 content()
                                     .navigationTitle("")
-                                    .padding(.top, 44)
-                                    .background(
-                                        GeometryReader { proxy in
-                                            Color.clear
-                                                .preference(key: SizePreferenceKey.self, value: proxy.size)
-                                        }
-                                    )
+                                    .persistentCloseToolbar()
+                                    .environmentObject(toolbarManager)
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                         .navigationViewStyle(.stack)
-                        
-                        if hasCloseButton {
-                            Button {
-                                close()
-                            } label: {
-                                AttributedText(Lucide.Icon.x.attributedString(size: 28))
-                                    .font(.system(size: 28, weight: .bold))
-                                    .foregroundColor(themeColor: .textPrimary)
-                            }
-                            .frame(width: 28, height: 28)
-                            .padding(Values.smallSpacing)
-                        }
                     }
                     .cornerRadius(cornerRadius, corners: [.topLeft, .topRight])
-                    .frame(
-                        maxWidth: .infinity,
-                        alignment: .topTrailing
-                    )
+                    .frame(maxWidth: .infinity, alignment: .topTrailing)
                 }
-                // Move the visible sheet with the finger while dragging
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear
+                            .preference(key: SizePreferenceKey.self, value: proxy.size)
+                    }
+                )
                 .offset(y: max(0, dragOffset))
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .onPreferenceChange(SizePreferenceKey.self) { size in
                     contentSize = size
                     recomputeTopPadding()
                 }
-                .onAppear {
-                    recomputeTopPadding()
-                }
+                .onAppear { recomputeTopPadding() }
                 .padding(.top, topPadding)
             }
         }
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
+            toolbarManager.setCloseAction {
+                close()
+            }
             withAnimation {
                 show.toggle()
             }
@@ -136,9 +122,7 @@ public struct BottomSheet<Content>: View where Content: View {
                     let translation = max(0, value.translation.height)
                     let velocity = value.velocity.height
                     let threshold: CGFloat = max(120, contentSize.height * 0.25)
-                    let shouldDismiss = (translation > threshold) || (velocity > 1200)
-                    
-                    if shouldDismiss {
+                    if translation > threshold || velocity > 1200 {
                         close()
                     } else {
                         withAnimation {
@@ -149,9 +133,7 @@ public struct BottomSheet<Content>: View where Content: View {
         )
     }
     
-    // Dim background less as user drags down
     private var backgroundOpacity: Double {
-        // 1.0 when not dragging, fades as you pull down (cap at 0.2 minimum)
         let fade = min(1.0, Double(dragOffset / 300))
         return max(0.2, 1.0 - fade * 0.8)
     }
@@ -174,8 +156,7 @@ public struct BottomSheet<Content>: View where Content: View {
         
         let handleHeight: CGFloat = 3
         let handleSpacing: CGFloat = Values.verySmallSpacing
-        let headerHeight: CGFloat = handleHeight + handleSpacing + 44
-        
+        let headerHeight: CGFloat = handleHeight + handleSpacing
         let totalSheetHeight = headerHeight + contentSize.height + Values.veryLargeSpacing
         
         let computed = screenHeight - bottomSafeInset - totalSheetHeight
@@ -211,10 +192,8 @@ open class BottomSheetHostingViewController<Content>: UIHostingController<Modifi
 }
 
 private extension DragGesture.Value {
-    // Convenience to approximate velocity in points/sec in vertical axis
     var velocity: CGSize {
-        // SwiftUI doesn't expose velocity directly; approximate from predictedEndLocation
-        let dt: CGFloat = 0.016 // assume 60fps frame delta for a rough estimate
+        let dt: CGFloat = 0.016
         let dx = (predictedEndLocation.x - location.x) / dt
         let dy = (predictedEndLocation.y - location.y) / dt
         return CGSize(width: dx, height: dy)
