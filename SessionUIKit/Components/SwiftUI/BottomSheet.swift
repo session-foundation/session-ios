@@ -19,6 +19,7 @@ public struct BottomSheet<Content>: View where Content: View {
     
     let hasCloseButton: Bool
     let afterClosed: (() -> Void)?
+    let contentPrefferedHeight: CGFloat
     let content: () -> Content
 
     let cornerRadius: CGFloat = 11
@@ -33,12 +34,14 @@ public struct BottomSheet<Content>: View where Content: View {
     public init(
         hasCloseButton: Bool,
         afterClosed: (() -> Void)? = nil,
+        contentPrefferedHeight: CGFloat? = nil,
         content: @escaping () -> Content)
     {
         self.hasCloseButton = hasCloseButton
         _toolbarManager = StateObject(wrappedValue: ToolbarManager(hasCloseButton: hasCloseButton))
         self.afterClosed = afterClosed
         self.content = content
+        self.contentPrefferedHeight = contentPrefferedHeight ?? .infinity
     }
 
     public var body: some View {
@@ -75,6 +78,7 @@ public struct BottomSheet<Content>: View where Content: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                         .navigationViewStyle(.stack)
+                        .frame(maxHeight: contentPrefferedHeight)
                     }
                     .cornerRadius(cornerRadius, corners: [.topLeft, .topRight])
                     .frame(maxWidth: .infinity, alignment: .topTrailing)

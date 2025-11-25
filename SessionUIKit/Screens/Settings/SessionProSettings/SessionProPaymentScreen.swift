@@ -303,7 +303,10 @@ public struct SessionProPaymentScreen: View {
         isPendingPurchase = false
         guard !self.viewModel.isFromBottomSheet else {
             let sessionProBottomSheet: BottomSheetHostingViewController = BottomSheetHostingViewController(
-                bottomSheet: BottomSheet(hasCloseButton: true) {
+                bottomSheet: BottomSheet(
+                    hasCloseButton: true,
+                    contentPrefferedHeight: 380
+                ) {
                     SessionProPlanUpdatedScreen(
                         flow: self.viewModel.dataModel.flow,
                         expiredOn: expiredOn,
