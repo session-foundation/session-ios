@@ -131,6 +131,7 @@ final class CallMessageCell: MessageCell {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
+        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         guard

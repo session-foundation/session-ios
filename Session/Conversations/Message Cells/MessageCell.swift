@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
@@ -90,6 +91,7 @@ public class MessageCell: UITableViewCell {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
+        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         preconditionFailure("Must be overridden by subclasses.")

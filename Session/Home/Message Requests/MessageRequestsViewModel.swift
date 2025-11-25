@@ -173,6 +173,8 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
             .grouped(by: \.requiresDatabaseQueryForMessageRequestsViewModel)
         
         /// Handle database events first
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        
         if let databaseEvents: Set<ObservedEvent> = splitEvents[true].map({ Set($0) }) {
             do {
                 var fetchedConversations: [SessionThreadViewModel] = []
@@ -222,7 +224,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                     fetchedConversations.append(
                         contentsOf: try SessionThreadViewModel
                             .query(
-                                userSessionId: dependencies[cache: .general].sessionId,
+                                userSessionId: userSessionId,
                                 groupSQL: SessionThreadViewModel.groupSQL,
                                 orderSQL: SessionThreadViewModel.messageRequestsOrderSQL,
                                 ids: Array(idsNeedingRequery) + loadResult.newIds
@@ -232,7 +234,29 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                 }
                 
                 /// Update the `itemCache` with the newly fetched values
-                fetchedConversations.forEach { itemCache[$0.threadId] = $0 }
+                fetchedConversations.forEach { thread in
+                    let result: (wasKickedFromGroup: Bool, groupIsDestroyed: Bool) = {
+                        guard thread.threadVariant == .group else { return (false, false) }
+                        
+                        let sessionId: SessionId = SessionId(.group, hex: thread.threadId)
+                        return dependencies.mutate(cache: .libSession) { cache in
+                            (
+                                cache.wasKickedFromGroup(groupSessionId: sessionId),
+                                cache.groupIsDestroyed(groupSessionId: sessionId)
+                            )
+                        }
+                    }()
+                    
+                    itemCache[thread.threadId] = thread.populatingPostQueryData(
+                        recentReactionEmoji: nil,
+                        openGroupCapabilities: nil,
+                        currentUserSessionIds: [userSessionId.hexString],
+                        wasKickedFromGroup: result.wasKickedFromGroup,
+                        groupIsDestroyed: result.groupIsDestroyed,
+                        threadCanWrite: thread.determineInitialCanWriteFlag(using: dependencies),
+                        threadCanUpload: thread.determineInitialCanUploadFlag(using: dependencies)
+                    )
+                }
                 
                 /// Remove any deleted values
                 deletedIds.forEach { id in itemCache.removeValue(forKey: id) }
@@ -298,34 +322,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                         .compactMap { state.itemCache[$0] }
                         .map { conversation -> SessionCell.Info<SessionThreadViewModel> in
                             return SessionCell.Info(
-                                id: conversation.populatingPostQueryData(
-                                    recentReactionEmoji: nil,
-                                    openGroupCapabilities: nil,
-                                    // TODO: [Database Relocation] Do we need all of these????
-                                    currentUserSessionIds: [viewModel.dependencies[cache: .general].sessionId.hexString],
-                                    wasKickedFromGroup: (
-                                        conversation.threadVariant == .group &&
-                                        viewModel.dependencies.mutate(cache: .libSession) { cache in
-                                            cache.wasKickedFromGroup(
-                                                groupSessionId: SessionId(.group, hex: conversation.threadId)
-                                            )
-                                        }
-                                    ),
-                                    groupIsDestroyed: (
-                                        conversation.threadVariant == .group &&
-                                        viewModel.dependencies.mutate(cache: .libSession) { cache in
-                                            cache.groupIsDestroyed(
-                                                groupSessionId: SessionId(.group, hex: conversation.threadId)
-                                            )
-                                        }
-                                    ),
-                                    threadCanWrite: conversation.determineInitialCanWriteFlag(
-                                        using: viewModel.dependencies
-                                    ),
-                                    threadCanUpload: conversation.determineInitialCanUploadFlag(
-                                        using: viewModel.dependencies
-                                    )
-                                ),
+                                id: conversation,
                                 accessibility: Accessibility(
                                     identifier: "Message request"
                                 ),

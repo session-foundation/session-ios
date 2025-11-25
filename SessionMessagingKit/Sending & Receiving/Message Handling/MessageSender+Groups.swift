@@ -79,7 +79,7 @@ extension MessageSender {
                     .addedUsers(
                         hasCurrentUser: false,
                         names: sortedOtherMembers.map { id, profile in
-                            profile?.displayName(for: .group) ??
+                            profile?.displayName() ??
                             id.truncated()
                         },
                         historyShared: false
@@ -684,7 +684,7 @@ extension MessageSender {
                         .addedUsers(
                             hasCurrentUser: members.contains { id, _ in id == userSessionId.hexString },
                             names: sortedMembers.map { id, profile in
-                                profile?.displayName(for: .group) ??
+                                profile?.displayName() ??
                                 id.truncated()
                             },
                             historyShared: allowAccessToHistoricMessages
@@ -1020,7 +1020,7 @@ extension MessageSender {
                             .removedUsers(
                                 hasCurrentUser: memberIds.contains(userSessionId.hexString),
                                 names: sortedMemberIds.map { id in
-                                    removedMemberProfiles[id]?.displayName(for: .group) ??
+                                    removedMemberProfiles[id]?.displayName() ??
                                     id.truncated()
                                 }
                             )
@@ -1163,7 +1163,7 @@ extension MessageSender {
                                     .map { id, _ in id }
                                     .contains(userSessionId.hexString),
                                 names: sortedMembersReceivingPromotions.map { id, profile in
-                                    profile?.displayName(for: .group) ??
+                                    profile?.displayName() ??
                                     id.truncated()
                                 }
                             )

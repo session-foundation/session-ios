@@ -84,9 +84,9 @@ final public class LocalizationHelper: CustomStringConvertible {
         // Replace html tag "<br/>" with "\n"
         localizedString = localizedString.replacingOccurrences(of: "<br/>", with: "\n")
 
-        // Add RTL mark for RTL-dominant strings to try to ensure proper rendering when starting/ending
-        // with English variables
-        if localizedString.isMostlyRTL {
+        // Add RTL mark for strings containing RTL characters\ to try to ensure proper rendering when
+        // starting/ending with English variables
+        if localizedString.containsRTL {
             localizedString = "\u{200F}" + localizedString + "\u{200F}"
         }
 
@@ -154,21 +154,32 @@ public extension String {
 }
 
 private extension String {
-    /// Determines if the string's dominant language is Right-to-Left (RTL).
+    /// Determines if a string contains Right-to-Left (RTL) characters.
     ///
-    /// This uses `NLLanguageRecognizer` to find the string's dominant language
-    /// and then checks that language's character direction using `Locale`.
+    /// Rather than using `NLLanguageRecognizer` to find the string's dominant language (and then that languages direction using
+    /// `Locale`) this logic makes the assumption that if a string contains _any_ RTL charcters then the entire string should probably
+    /// be RTL (as it's unlikely we wouldn't want that).
     ///
-    /// - Returns: `true` if the dominant language is RTL (e.g., Arabic, Hebrew);
-    ///   otherwise, `false`.
-    var isMostlyRTL: Bool {
-        let recognizer: NLLanguageRecognizer = NLLanguageRecognizer()
-        recognizer.processString(self)
-        
-        guard let language: NLLanguage = recognizer.dominantLanguage else {
-            return false // If no dominant language is recognized, assume not RTL.
+    /// **Note:** While using `NLLanguageRecognizer` might be "more correct", it performs I/O so when this runs on the main
+    /// thread it could result in lag
+    var containsRTL: Bool {
+        return unicodeScalars.contains { scalar in
+            switch scalar.value {
+                case 0x0590...0x05FF: return true   // Hebrew
+                    
+                // Arabic (also covers Persian, Urdu, Pashto, Sorani Kurdish)
+                case 0x0600...0x06FF,   // Arabic + Persian/Urdu/Pashto extensions
+                     0x0750...0x077F,   // Arabic Supplement
+                     0x08A0...0x08FF:   // Arabic Extended-A
+                    return true
+                    
+                // Presentation forms (used by all Arabic-script languages)
+                case 0xFB1D...0xFDFF,   // Hebrew + Arabic presentation forms
+                     0xFE70...0xFEFF:   // Arabic Presentation Forms-B
+                    return true
+                
+                default: return false
+            }
         }
-        // Check the character direction for the determined dominant language.
-        return (Locale.characterDirection(forLanguage: language.rawValue) == .rightToLeft)
     }
 }

@@ -449,7 +449,7 @@ extension MessageReceiver {
         let names: [String] = message.memberSessionIds
             .sortedById(userSessionId: userSessionId)
             .map { id in
-                profiles[id]?.displayName(for: .group) ??
+                profiles[id]?.displayName() ??
                 id.truncated()
             }
         
@@ -581,7 +581,7 @@ extension MessageReceiver {
                 .memberLeft(
                     wasCurrentUser: (sender == dependencies[cache: .general].sessionId.hexString),
                     name: (
-                        (try? Profile.fetchOne(db, id: sender)?.displayName(for: .group)) ??
+                        (try? Profile.fetchOne(db, id: sender)?.displayName()) ??
                         sender.truncated()
                     )
                 )
@@ -970,8 +970,8 @@ extension MessageReceiver {
                     case .none:
                         return ClosedGroup.MessageInfo
                             .invited(
-                                (try? Profile.fetchOne(db, id: sender)?.displayName(for: .group))
-                                    .defaulting(to: sender.truncated(threadVariant: .group)),
+                                (try? Profile.fetchOne(db, id: sender)?.displayName())
+                                    .defaulting(to: sender.truncated()),
                                 groupName
                             )
                             .infoString(using: dependencies)
@@ -979,8 +979,8 @@ extension MessageReceiver {
                     case .some:
                         return ClosedGroup.MessageInfo
                             .invitedAdmin(
-                                (try? Profile.fetchOne(db, id: sender)?.displayName(for: .group))
-                                    .defaulting(to: sender.truncated(threadVariant: .group)),
+                                (try? Profile.fetchOne(db, id: sender)?.displayName())
+                                    .defaulting(to: sender.truncated()),
                                 groupName
                             )
                             .infoString(using: dependencies)

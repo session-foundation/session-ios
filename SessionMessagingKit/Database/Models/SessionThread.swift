@@ -819,7 +819,7 @@ public extension SessionThread {
         closedGroupName: String?,
         openGroupName: String?,
         isNoteToSelf: Bool,
-        ignoringNickname: Bool,
+        ignoreNickname: Bool,
         profile: Profile?
     ) -> String {
         switch variant {
@@ -829,7 +829,7 @@ public extension SessionThread {
                 guard !isNoteToSelf else { return "noteToSelf".localized() }
                 guard let profile: Profile = profile else { return threadId.truncated() }
                 
-                return profile.displayName(ignoringNickname: ignoringNickname)
+                return profile.displayName(ignoreNickname: ignoreNickname)
         }
     }
     
@@ -874,14 +874,5 @@ public extension SessionThread {
 
             default: return nil
         }
-    }
-}
-
-// MARK: - Truncation
-
-public extension String {
-    /// A standardised mechanism for truncating a user id for a given thread
-    func truncated(threadVariant: SessionThread.Variant) -> String {
-        return truncated(prefix: 4, suffix: 4)
     }
 }

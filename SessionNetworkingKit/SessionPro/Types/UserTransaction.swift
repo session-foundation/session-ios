@@ -6,13 +6,13 @@ import SessionUtilitiesKit
 
 public extension Network.SessionPro {
     struct UserTransaction: Equatable {
-        public let provider: PaymentProvider
+        public let provider: PaymentProvider?
         public let paymentId: String
         public let orderId: String
         
         // MARK: - Initialization
         
-        init (provider: PaymentProvider, paymentId: String, orderId: String) {
+        init(provider: PaymentProvider?, paymentId: String, orderId: String) {
             self.provider = provider
             self.paymentId = paymentId
             self.orderId = orderId
@@ -28,7 +28,7 @@ public extension Network.SessionPro {
         
         func toLibSession() -> session_pro_backend_add_pro_payment_user_transaction {
             var result: session_pro_backend_add_pro_payment_user_transaction = session_pro_backend_add_pro_payment_user_transaction()
-            result.provider = provider.libSessionValue
+            result.provider = (provider?.libSessionValue ?? SESSION_PRO_BACKEND_PAYMENT_PROVIDER_NIL)
             result.set(\.payment_id, to: paymentId)
             result.payment_id_count = paymentId.count
             result.set(\.order_id, to: orderId)

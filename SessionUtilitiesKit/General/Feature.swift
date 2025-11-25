@@ -278,12 +278,15 @@ public protocol MockableFeatureValue: RawRepresentable, Sendable, Hashable, Equa
 
 extension MockableFeatureValue {
     public var rawValue: Int {
-        let all: [Self] = Array(Self.allCases)
+        let targetId: String = String(reflecting: self)
         
-        guard let index: Array<Self>.Index = all.firstIndex(of: self) else { return 0 }
+        for (index, element) in Self.allCases.enumerated() {
+            if String(reflecting: element) == targetId {
+                return index + 1 /// The `rawValue` is 1-indexed whereas the array is 0-indexed
+            }
+        }
         
-        /// The `rawValue` is 1-indexed whereas the array is 0-indexed
-        return index + 1
+        return 0 /// Should theoretically never happen if self is in `allCases`
     }
 
     public init?(rawValue: Int) {

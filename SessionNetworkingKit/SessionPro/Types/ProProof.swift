@@ -5,7 +5,7 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    struct ProProof: Sendable, Codable, Equatable {
+    struct ProProof: Sendable, Codable, Equatable, Hashable {
         public let version: UInt8
         public let genIndexHash: [UInt8]
         public let rotatingPubkey: [UInt8]

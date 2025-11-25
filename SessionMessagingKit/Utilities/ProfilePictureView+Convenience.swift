@@ -106,8 +106,7 @@ public extension ProfilePictureView.Info {
                     else {
                         return .placeholderIcon(
                             seed: (profile?.id ?? publicKey),
-                            text: (profile?.displayName(for: threadVariant))
-                                .defaulting(to: publicKey),
+                            text: (profile?.displayName() ?? publicKey),
                             size: (additionalProfile != nil ?
                                 size.multiImageSize :
                                 size.viewSize
@@ -134,7 +133,7 @@ public extension ProfilePictureView.Info {
                                 else {
                                     return .placeholderIcon(
                                         seed: other.id,
-                                        text: other.displayName(for: threadVariant),
+                                        text: other.displayName(),
                                         size: size.multiImageSize
                                     )
                                 }
@@ -174,8 +173,7 @@ public extension ProfilePictureView.Info {
                     else {
                         return .placeholderIcon(
                             seed: publicKey,
-                            text: (profile?.displayName(for: threadVariant))
-                                .defaulting(to: publicKey),
+                            text: (profile?.displayName() ?? publicKey),
                             size: size.viewSize
                         )
                     }

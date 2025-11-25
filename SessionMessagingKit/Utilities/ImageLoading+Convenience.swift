@@ -4,7 +4,6 @@ import UIKit
 import SwiftUI
 import UniformTypeIdentifiers
 import SessionUIKit
-import SessionMessagingKit
 import SessionUtilitiesKit
 
 // MARK: - ImageDataManager.DataSource Convenience
@@ -47,25 +46,6 @@ public extension ImageDataManager.DataSource {
             path: path,
             sourceFilename: attachment.sourceFilename,
             size: size,
-            using: dependencies
-        )
-    }
-    
-    static func thumbnailFrom(
-        quoteViewModel: QuoteViewModel,
-        using dependencies: Dependencies
-    ) -> ImageDataManager.DataSource? {
-        guard
-            let info: QuoteViewModel.AttachmentInfo = quoteViewModel.quotedAttachmentInfo,
-            let path: String = try? dependencies[singleton: .attachmentManager]
-                .path(for: info.downloadUrl)
-        else { return nil }
-        
-        return .thumbnailFrom(
-            utType: info.utType,
-            path: path,
-            sourceFilename: info.sourceFilename,
-            size: .small,
             using: dependencies
         )
     }

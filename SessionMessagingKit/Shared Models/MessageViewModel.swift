@@ -51,6 +51,9 @@ public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Dif
     public let serverHash: String?
     public let openGroupServerMessageId: Int64?
     public let authorId: String
+    
+    /// The value will be populated if the sender has a blinded id and we have resolved it to an unblinded id
+    public let authorUnblindedId: String?
     public let body: String?
     public let rawBody: String?
     public let timestampMs: Int64
@@ -60,16 +63,10 @@ public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Dif
     public let attachments: [Attachment]
     public let reactionInfo: [ReactionInfo]
     public let profile: Profile
-    public let quotedInfo: QuotedInfo?
+    public let quoteViewModel: QuoteViewModel?
     public let linkPreview: LinkPreview?
     public let linkPreviewAttachment: Attachment?
     public let proFeatures: SessionPro.Features
-    
-    /// This value includes the author name information
-    public let authorName: String
-    
-    /// This value includes the author name information with the `id` suppressed (if it was present)
-    public let authorNameSuppressedId: String
     
     public let state: Interaction.State
     public let hasBeenReadByRecipient: Bool
@@ -130,7 +127,7 @@ public extension MessageViewModel {
         timestampMs: Int64,
         variant: Interaction.Variant = .standardOutgoing,
         body: String? = nil,
-        quotedInfo: MessageViewModel.QuotedInfo? = nil,
+        quoteViewModel: QuoteViewModel? = nil,
         isLast: Bool = true
     ) {
         self.id = {
@@ -144,7 +141,7 @@ public extension MessageViewModel {
         self.timestampMs = timestampMs
         self.variant = variant
         self.body = body
-        self.quotedInfo = quotedInfo
+        self.quoteViewModel = quoteViewModel
         
         /// These values shouldn't be used for the custom types
         self.optimisticMessageId = nil
@@ -154,6 +151,7 @@ public extension MessageViewModel {
         self.serverHash = ""
         self.openGroupServerMessageId = nil
         self.authorId = ""
+        self.authorUnblindedId = nil
         self.rawBody = nil
         self.receivedAtTimestampMs = 0
         self.expiresStartedAtMs = nil
@@ -165,8 +163,6 @@ public extension MessageViewModel {
         self.linkPreviewAttachment = nil
         self.proFeatures = .none
         
-        self.authorName = ""
-        self.authorNameSuppressedId = ""
         self.state = .localOnly
         self.hasBeenReadByRecipient = false
         self.mostRecentFailureText = nil
@@ -196,11 +192,12 @@ public extension MessageViewModel {
         threadDisappearingConfiguration: DisappearingMessagesConfiguration?,
         interaction: Interaction,
         reactionInfo: [ReactionInfo]?,
-        quotedInteraction: Interaction?,
+        maybeUnresolvedQuotedInfo: MaybeUnresolvedQuotedInfo?,
         profileCache: [String: Profile],
         attachmentCache: [String: Attachment],
         linkPreviewCache: [String: [LinkPreview]],
         attachmentMap: [Int64: Set<InteractionAttachment>],
+        unblindedIdMap: [String: String],
         isSenderModeratorOrAdmin: Bool,
         userSessionId: SessionId,
         currentUserSessionIds: Set<String>,
@@ -219,33 +216,24 @@ public extension MessageViewModel {
         }
         
         let targetProfile: Profile = {
-            /// If the reactor is the current user then use the proper profile from the cache (instead of a random blinded one)
+            /// If the sender is the current user then use the proper profile from the cache (instead of a random blinded one)
             guard !currentUserSessionIds.contains(interaction.authorId) else {
                 return (profileCache[userSessionId.hexString] ?? Profile.defaultFor(userSessionId.hexString))
             }
             
-            return (profileCache[interaction.authorId] ?? Profile.defaultFor(interaction.authorId))
-        }()
-        let authorDisplayName: String = {
-            guard !currentUserSessionIds.contains(interaction.authorId) else { return "you".localized() }
-            
-            return Profile.displayName(
-                for: threadVariant,
-                id: interaction.authorId,
-                name: targetProfile.name,
-                nickname: targetProfile.nickname,
-                suppressId: false   // Show the id next to the author name if desired
-            )
+            switch (profileCache[unblindedIdMap[interaction.authorId]], profileCache[interaction.authorId]) {
+                case (.some(let profile), _): return profile
+                case (_, .some(let profile)): return profile
+                case (.none, .none): return Profile.defaultFor(interaction.authorId)
+            }
         }()
         let threadContactDisplayName: String? = {
             switch threadVariant {
                 case .contact:
                     return Profile.displayName(
-                        for: threadVariant,
                         id: threadId,
                         name: profileCache[threadId]?.name,
-                        nickname: profileCache[threadId]?.nickname,
-                        suppressId: false   // Show the id next to the author name if desired
+                        nickname: profileCache[threadId]?.nickname
                     )
                 
                 default: return nil
@@ -262,7 +250,12 @@ public extension MessageViewModel {
             threadId: threadId,
             threadVariant: threadVariant,
             threadContactDisplayName: threadContactDisplayName,
-            authorDisplayName: authorDisplayName,
+            authorDisplayName: (currentUserSessionIds.contains(targetProfile.id) ?
+                "you".localized() :
+                targetProfile.displayName(
+                    includeSessionIdSuffix: (threadVariant == .community)
+                )
+            ),
             attachments: attachments,
             linkPreview: linkPreviewInfo?.preview,
             using: dependencies
@@ -289,6 +282,7 @@ public extension MessageViewModel {
         self.serverHash = interaction.serverHash
         self.openGroupServerMessageId = interaction.openGroupServerMessageId
         self.authorId = interaction.authorId
+        self.authorUnblindedId = unblindedIdMap[authorId]
         self.body = body
         self.rawBody = interaction.body
         self.timestampMs = interaction.timestampMs
@@ -298,16 +292,52 @@ public extension MessageViewModel {
         self.attachments = attachments
         self.reactionInfo = (reactionInfo ?? [])
         self.profile = targetProfile
-        self.quotedInfo = quotedInteraction.map { quotedInteraction -> QuotedInfo? in
-            guard let quoteInteractionId: Int64 = quotedInteraction.id else { return nil }
+        self.quoteViewModel = maybeUnresolvedQuotedInfo.map { info -> QuoteViewModel? in
+            /// Should be `interaction` not `quotedInteraction`
+            let targetDirection: QuoteViewModel.Direction = (interaction.variant.isOutgoing ?
+                .outgoing :
+                .incoming
+            )
             
-            let quotedAttachments: [Attachment]? = (attachmentMap[quotedInteraction.id]?
+            /// If the message contains a `Quote` but we couldn't resolve the original message then we still want to return a
+            /// `QuoteViewModel` so that it's rendered correctly (it'll just render that it couldn't resolve)
+            guard
+                let quotedInteractionId: Int64 = info.foundQuotedInteractionId,
+                let quotedInteraction: Interaction = info.resolvedQuotedInteraction
+            else {
+                return QuoteViewModel(
+                    mode: .regular,
+                    direction: targetDirection,
+                    quotedInfo: nil,
+                    showProBadge: false,
+                    currentUserSessionIds: currentUserSessionIds,
+                    displayNameRetriever: { _, _ in nil }
+                )
+            }
+            
+            let quotedAuthorProfile: Profile = {
+                /// If the sender is the current user then use the proper profile from the cache (instead of a random blinded one)
+                guard !currentUserSessionIds.contains(quotedInteraction.authorId) else {
+                    return (profileCache[userSessionId.hexString] ?? Profile.defaultFor(userSessionId.hexString))
+                }
+                
+                switch (profileCache[unblindedIdMap[quotedInteraction.authorId]], profileCache[quotedInteraction.authorId]) {
+                    case (.some(let profile), _): return profile
+                    case (_, .some(let profile)): return profile
+                    case (.none, .none): return Profile.defaultFor(quotedInteraction.authorId)
+                }
+            }()
+            let quotedAuthorDisplayName: String = quotedAuthorProfile.displayName(
+                includeSessionIdSuffix: (threadVariant == .community)
+            )
+            let quotedAttachments: [Attachment]? = (attachmentMap[quotedInteractionId]?
                 .sorted { $0.albumIndex < $1.albumIndex }
                 .compactMap { attachmentCache[$0.attachmentId] } ?? [])
             let quotedLinkPreviewInfo: (preview: LinkPreview, attachment: Attachment?)? = quotedInteraction.linkPreview(
                 linkPreviewCache: linkPreviewCache,
                 attachmentCache: attachmentCache
             )
+            let targetQuotedAttachment: Attachment? = (quotedAttachments?.first ?? quotedLinkPreviewInfo?.attachment)
             let quotedInteractionProFeatures: SessionPro.Features = {
                 guard dependencies[feature: .sessionProEnabled] else { return .none }
                 
@@ -316,51 +346,64 @@ public extension MessageViewModel {
                     .union(dependencies[feature: .forceMessageFeatureLongMessage] ? .largerCharacterLimit : .none)
                     .union(dependencies[feature: .forceMessageFeatureAnimatedAvatar] ? .animatedAvatar : .none)
             }()
-            let quotedAuthorDisplayName: String = {
-                guard !currentUserSessionIds.contains(quotedInteraction.authorId) else { return "you".localized() }
-                
-                return Profile.displayName(
-                    for: threadVariant,
-                    id: interaction.authorId,
-                    name: profileCache[quotedInteraction.authorId]?.name,
-                    nickname: profileCache[quotedInteraction.authorId]?.nickname,
-                    suppressId: false   // Show the id next to the author name if desired
-                )
-            }()
             
-            return MessageViewModel.QuotedInfo(
-                interactionId: quoteInteractionId,
-                authorName: quotedAuthorDisplayName,
-                timestampMs: quotedInteraction.timestampMs,
-                body: quotedInteraction.body(
-                    threadId: threadId,
-                    threadVariant: threadVariant,
-                    threadContactDisplayName: threadContactDisplayName,
-                    authorDisplayName: quotedAuthorDisplayName,
-                    attachments: quotedAttachments,
-                    linkPreview: quotedLinkPreviewInfo?.preview,
-                    using: dependencies
+            return QuoteViewModel(
+                mode: .regular,
+                direction: targetDirection,
+                quotedInfo: QuoteViewModel.QuotedInfo(
+                    interactionId: quotedInteractionId,
+                    authorId: quotedInteraction.authorId,
+                    authorName: quotedAuthorDisplayName,
+                    timestampMs: quotedInteraction.timestampMs,
+                    body: quotedInteraction.body(
+                        threadId: threadId,
+                        threadVariant: threadVariant,
+                        threadContactDisplayName: threadContactDisplayName,
+                        authorDisplayName: quotedAuthorDisplayName,
+                        attachments: quotedAttachments,
+                        linkPreview: quotedLinkPreviewInfo?.preview,
+                        using: dependencies
+                    ),
+                    attachmentInfo: targetQuotedAttachment.map { quotedAttachment in
+                        let utType: UTType = (UTType(sessionMimeType: quotedAttachment.contentType) ?? .invalid)
+                        
+                        return QuoteViewModel.AttachmentInfo(
+                            id: quotedAttachment.id,
+                            utType: utType,
+                            isVoiceMessage: (quotedAttachment.variant == .voiceMessage),
+                            downloadUrl: quotedAttachment.downloadUrl,
+                            sourceFilename: quotedAttachment.sourceFilename,
+                            thumbnailSource: quotedAttachment.downloadUrl.map { downloadUrl -> ImageDataManager.DataSource? in
+                                guard
+                                    let path: String = try? dependencies[singleton: .attachmentManager]
+                                        .path(for: downloadUrl)
+                                else { return nil }
+                                
+                                return .thumbnailFrom(
+                                    utType: utType,
+                                    path: path,
+                                    sourceFilename: quotedAttachment.sourceFilename,
+                                    size: .small,
+                                    using: dependencies
+                                )
+                            }
+                        )
+                    }
                 ),
-                attachment: (quotedAttachments?.first ?? quotedLinkPreviewInfo?.attachment),
-                proFeatures: quotedInteractionProFeatures
+                showProBadge: quotedInteractionProFeatures.contains(.proBadge),
+                currentUserSessionIds: currentUserSessionIds,
+                displayNameRetriever: { sessionId, _ in
+                    guard !currentUserSessionIds.contains(targetProfile.id) else { return "you".localized() }
+                    
+                    return profileCache[sessionId]?.displayName(
+                        includeSessionIdSuffix: (threadVariant == .community)
+                    )
+                }
             )
         }
         self.linkPreview = linkPreviewInfo?.preview
         self.linkPreviewAttachment = linkPreviewInfo?.attachment
         self.proFeatures = proFeatures
-        
-        self.authorName = authorDisplayName
-        self.authorNameSuppressedId = {
-            guard !currentUserSessionIds.contains(interaction.authorId) else { return "you".localized() }
-            
-            return Profile.displayName(
-                for: threadVariant,
-                id: interaction.authorId,
-                name: targetProfile.name,
-                nickname: targetProfile.nickname,
-                suppressId: true   // Exclude the id next to the author name
-            )
-        }()
         
         self.state = interaction.state
         self.hasBeenReadByRecipient = (interaction.recipientReadTimestampMs != nil)
@@ -508,6 +551,7 @@ public extension MessageViewModel {
             serverHash: serverHash,
             openGroupServerMessageId: openGroupServerMessageId,
             authorId: authorId,
+            authorUnblindedId: authorUnblindedId,
             body: body,
             rawBody: rawBody,
             timestampMs: timestampMs,
@@ -517,12 +561,10 @@ public extension MessageViewModel {
             attachments: attachments,
             reactionInfo: reactionInfo,
             profile: profile,
-            quotedInfo: quotedInfo,
+            quoteViewModel: quoteViewModel,
             linkPreview: linkPreview,
             linkPreviewAttachment: linkPreviewAttachment,
             proFeatures: proFeatures,
-            authorName: authorName,
-            authorNameSuppressedId: authorNameSuppressedId,
             state: state.or(self.state),
             hasBeenReadByRecipient: hasBeenReadByRecipient,
             mostRecentFailureText: mostRecentFailureText.or(self.mostRecentFailureText),
@@ -539,6 +581,16 @@ public extension MessageViewModel {
             isOnlyMessageInCluster: isOnlyMessageInCluster,
             isLast: isLast,
             isLastOutgoing: isLastOutgoing,
+            currentUserSessionIds: currentUserSessionIds
+        )
+    }
+    
+    func authorName(
+        ignoreNickname: Bool = false
+    ) -> String {
+        return profile.displayName(
+            ignoreNickname: ignoreNickname,
+            showYouForCurrentUser: true,
             currentUserSessionIds: currentUserSessionIds
         )
     }
@@ -603,57 +655,21 @@ public extension MessageViewModel {
     }
 }
 
-// MARK: - QuotedInfo
-// TODO: [PRO] Replace this with `QuoteViewModel`???
+// MARK: - MaybeUnresolvedQuotedInfo
+
 public extension MessageViewModel {
-    struct QuotedInfo: Sendable, Equatable, Hashable {
-        public let interactionId: Int64
-        public let authorName: String
-        public let timestampMs: Int64
-        public let body: String?
-        public let attachment: Attachment?
-        public let proFeatures: SessionPro.Features
-        
-        // MARK: - Initialization
+    /// If the message contains a `Quote` but we couldn't resolve the original message then we should display the "original message
+    /// not found" UI (ie. show that there _was_ a quote there, even if we can't resolve it) - this type makes that possible
+    struct MaybeUnresolvedQuotedInfo: Sendable, Equatable, Hashable {
+        public let foundQuotedInteractionId: Int64?
+        public let resolvedQuotedInteraction: Interaction?
         
         public init(
-            interactionId: Int64,
-            authorName: String,
-            timestampMs: Int64,
-            body: String?,
-            attachment: Attachment?,
-            proFeatures: SessionPro.Features
+            foundQuotedInteractionId: Int64?,
+            resolvedQuotedInteraction: Interaction? = nil
         ) {
-            self.interactionId = interactionId
-            self.authorName = authorName
-            self.timestampMs = timestampMs
-            self.body = body
-            self.attachment = attachment
-            self.proFeatures = proFeatures
-        }
-        
-        public init(previewBody: String) {
-            self.body = previewBody
-            
-            /// This is a preview version so none of these values matter
-            self.interactionId = -1
-            self.authorName = ""
-            self.timestampMs = 0
-            self.attachment = nil
-            self.proFeatures = .none
-        }
-        
-        public init?(replyModel: QuotedReplyModel?, authorName: String?) {
-            guard let model: QuotedReplyModel = replyModel else { return nil }
-            
-            self.authorName = (authorName ?? model.authorId.truncated())
-            self.timestampMs = model.timestampMs
-            self.body = model.body
-            self.attachment = model.attachment
-            self.proFeatures = model.proFeatures
-            
-            /// This is an optimistic version so none of these values exist yet
-            self.interactionId = -1
+            self.foundQuotedInteractionId = foundQuotedInteractionId
+            self.resolvedQuotedInteraction = resolvedQuotedInteraction
         }
     }
 }
@@ -712,18 +728,18 @@ public extension MessageViewModel {
     static func quotedInteractionIds(
         for originalInteractionIds: [Int64],
         currentUserSessionIds: Set<String>
-    ) -> SQLRequest<FetchablePair<Int64, Int64>> {
+    ) -> SQLRequest<FetchablePair<Int64, Int64?>> {
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let quote: TypedTableAlias<Quote> = TypedTableAlias()
         let quoteInteraction: TypedTableAlias<Interaction> = TypedTableAlias(name: "quoteInteraction")
         
         return """
             SELECT
-                \(interaction[.id]) AS \(FetchablePair<Int64, Int64>.Columns.first),
-                \(quoteInteraction[.id]) AS \(FetchablePair<Int64, Int64>.Columns.second)
+                \(interaction[.id]) AS \(FetchablePair<Int64, Int64?>.Columns.first),
+                \(quoteInteraction[.id]) AS \(FetchablePair<Int64, Int64?>.Columns.second)
             FROM \(Interaction.self)
             JOIN \(Quote.self) ON \(quote[.interactionId]) = \(interaction[.id])
-            JOIN \(quoteInteraction) ON (
+            LEFT JOIN \(quoteInteraction) ON (
                 \(quoteInteraction[.timestampMs]) = \(quote[.timestampMs]) AND (
                     \(quoteInteraction[.authorId]) = \(quote[.authorId]) OR (
                         -- A users outgoing message is stored in some cases using their standard id
@@ -735,6 +751,72 @@ public extension MessageViewModel {
             )
             WHERE \(interaction[.id]) IN \(originalInteractionIds)
         """
+    }
+}
+
+extension MessageViewModel {
+    public func createUserProfileModalInfo(
+        onStartThread: (@MainActor () -> Void)?,
+        onProBadgeTapped: (@MainActor () -> Void)?,
+        using dependencies: Dependencies
+    ) -> UserProfileModal.Info? {
+        let (info, _) = ProfilePictureView.Info.generateInfoFrom(
+            size: .hero,
+            publicKey: authorId,
+            threadVariant: .contact,    /// Always show the display picture in 'contact' mode
+            displayPictureUrl: nil,
+            profile: profile,
+            using: dependencies
+        )
+        
+        guard let profileInfo: ProfilePictureView.Info = info else { return nil }
+        
+        let qrCodeImage: UIImage? = {
+            let targetId: String = (authorUnblindedId ?? authorId)
+            
+            switch try? SessionId.Prefix(from: targetId) {
+                case .none, .blinded15, .blinded25, .versionBlinded07, .group, .unblinded: return nil
+                case .standard:
+                    return QRCode.generate(
+                        for: targetId,
+                        hasBackground: false,
+                        iconName: "SessionWhite40" // stringlint:ignore
+                    )
+            }
+        }()
+        let sessionId: String? = {
+            if let unblindedId: String = authorUnblindedId {
+                return unblindedId
+            }
+            
+            switch try? SessionId.Prefix(from: authorId) {
+                case .none, .blinded15, .blinded25, .versionBlinded07, .group, .unblinded: return nil
+                case .standard: return authorId
+            }
+        }()
+        let blindedId: String? = {
+            switch try? SessionId.Prefix(from: authorId) {
+                case .none, .standard, .versionBlinded07, .group, .unblinded: return nil
+                case .blinded15, .blinded25: return authorId
+            }
+        }()
+        
+        return UserProfileModal.Info(
+            sessionId: sessionId,
+            blindedId: blindedId,
+            qrCodeImage: qrCodeImage,
+            profileInfo: profileInfo,
+            displayName: authorName(),
+            contactDisplayName: authorName(ignoreNickname: true),
+            shouldShowProBadge: profile.proFeatures.contains(.proBadge),
+            areMessageRequestsEnabled: {
+                guard threadVariant == .community else { return true }
+                
+                return (profile.blocksCommunityMessageRequests != true)
+            }(),
+            onStartThread: onStartThread,
+            onProBadgeTapped: onProBadgeTapped
+        )
     }
 }
 

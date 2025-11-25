@@ -91,10 +91,8 @@ extension Contact: ProfileAssociated {
     public var profileId: String { id }
     
     public static func compare(lhs: WithProfile<Contact>, rhs: WithProfile<Contact>) -> Bool {
-        let lhsDisplayName: String = (lhs.profile?.displayName(for: .contact))
-            .defaulting(to: lhs.profileId.truncated(threadVariant: .contact))
-        let rhsDisplayName: String = (rhs.profile?.displayName(for: .contact))
-            .defaulting(to: rhs.profileId.truncated(threadVariant: .contact))
+        let lhsDisplayName: String = (lhs.profile?.displayName() ?? lhs.profileId.truncated())
+        let rhsDisplayName: String = (rhs.profile?.displayName() ?? rhs.profileId.truncated())
         
         return (lhsDisplayName.lowercased() < rhsDisplayName.lowercased())
     }

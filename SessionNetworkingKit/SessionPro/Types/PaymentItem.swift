@@ -5,13 +5,13 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    struct PaymentItem: Equatable {
-        let status: PaymentStatus
-        let plan: Plan
-        let paymentProvider: PaymentProvider
-        let paymentProviderMetadata: PaymentProviderMetadata?
+    struct PaymentItem: Sendable, Equatable, Hashable {
+        public let status: PaymentStatus
+        public let plan: Plan
+        public let paymentProvider: PaymentProvider?
+        public let paymentProviderMetadata: PaymentProviderMetadata?
         
-        let autoRenewing: Bool
+        public let autoRenewing: Bool
         let unredeemedTimestampMs: UInt64
         let redeemedTimestampMs: UInt64
         let expiryTimestampMs: UInt64

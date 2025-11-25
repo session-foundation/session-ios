@@ -5,7 +5,7 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    struct PaymentProviderMetadata: Equatable {
+    struct PaymentProviderMetadata: Sendable, Equatable, Hashable {
         let device: String
         let store: String
         let platform: String

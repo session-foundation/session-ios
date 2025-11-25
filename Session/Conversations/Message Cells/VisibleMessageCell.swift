@@ -326,6 +326,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
+        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
@@ -379,6 +380,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             shouldExpanded: shouldExpanded,
             lastSearchText: lastSearchText,
             tableSize: tableSize,
+            displayNameRetriever: displayNameRetriever,
             using: dependencies
         )
         
@@ -388,8 +390,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         
         // Author label
         authorLabel.isHidden = !cellViewModel.shouldShowAuthorName
-        authorLabel.text = cellViewModel.authorNameSuppressedId
-        authorLabel.extraText = cellViewModel.authorName.replacingOccurrences(of: cellViewModel.authorNameSuppressedId, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        authorLabel.text = cellViewModel.authorName()
+        authorLabel.extraText = (cellViewModel.threadVariant == .community ?
+            "(\(cellViewModel.authorId.truncated()))" : /// Show a truncated authorId in Community conversations // stringlint:ignore
+            nil
+        )
         authorLabel.themeTextColor = .textPrimary
         authorLabel.isProBadgeHidden = !cellViewModel.proFeatures.contains(.proBadge)
         
@@ -490,6 +495,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
+        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         let bodyLabelTextColor: ThemeValue = (cellViewModel.variant.isOutgoing ?
@@ -582,7 +588,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                             textColor: bodyLabelTextColor,
                             searchText: lastSearchText,
                             delegate: self,
-                            using: dependencies
+                            displayNameRetriever: displayNameRetriever
                         )
                         
                         bodyTappableLabelContainer.addSubview(bodyTappableInfo.label)
@@ -634,16 +640,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 if let quoteViewModel: QuoteViewModel = cellViewModel.quoteViewModel {
                     let hInset: CGFloat = 2
                     let quoteView: QuoteView = QuoteView(
-                        viewModel: quoteViewModel.with(
-                            thumbnailSource: .thumbnailFrom(
-                                quoteViewModel: quoteViewModel,
-                                using: dependencies
-                            ),
-                            displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                                threadVariant: cellViewModel.threadVariant,
-                                using: dependencies
-                            )
-                        ),
+                        viewModel: quoteViewModel,
                         dataManager: dependencies[singleton: .imageDataManager]
                     )
                     self.quoteView = quoteView
@@ -658,7 +655,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     textColor: bodyLabelTextColor,
                     searchText: lastSearchText,
                     delegate: self,
-                    using: dependencies
+                    displayNameRetriever: displayNameRetriever
                 )
                 self.bodyTappableLabel = bodyTappableLabel
                 self.bodyTappableLabelHeight = height
@@ -729,16 +726,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 // Quote view
                 let hInset: CGFloat = 2
                 let quoteView: QuoteView = QuoteView(
-                    viewModel: quoteViewModel.with(
-                        thumbnailSource: .thumbnailFrom(
-                            quoteViewModel: quoteViewModel,
-                            using: dependencies
-                        ),
-                        displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                            threadVariant: cellViewModel.threadVariant,
-                            using: dependencies
-                        )
-                    ),
+                    viewModel: quoteViewModel,
                     dataManager: dependencies[singleton: .imageDataManager]
                 )
                 self.quoteView = quoteView
@@ -752,7 +740,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     textColor: bodyLabelTextColor,
                     searchText: lastSearchText,
                     delegate: self,
-                    using: dependencies
+                    displayNameRetriever: displayNameRetriever
                 )
                 self.bodyTappableLabel = bodyTappableLabel
                 self.bodyTappableLabelHeight = height
@@ -786,7 +774,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     textColor: bodyLabelTextColor,
                     searchText: lastSearchText,
                     delegate: self,
-                    using: dependencies
+                    displayNameRetriever: displayNameRetriever
                 )
 
                 self.bodyTappableLabel = bodyTappableLabel
@@ -811,16 +799,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             /// Just quote
             case (.some(let quoteViewModel), _):
                 let quoteView: QuoteView = QuoteView(
-                    viewModel: quoteViewModel.with(
-                        thumbnailSource: .thumbnailFrom(
-                            quoteViewModel: quoteViewModel,
-                            using: dependencies
-                        ),
-                        displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                            threadVariant: cellViewModel.threadVariant,
-                            using: dependencies
-                        )
-                    ),
+                    viewModel: quoteViewModel,
                     dataManager: dependencies[singleton: .imageDataManager]
                 )
                 self.quoteView = quoteView
@@ -1082,7 +1061,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let location = gestureRecognizer.location(in: self)
         let tappedAuthorName: Bool = (
             authorLabel.bounds.contains(authorLabel.convert(location, from: self)) &&
-            !cellViewModel.authorName.isEmpty
+            !cellViewModel.authorName().isEmpty
         )
         let tappedProfilePicture: Bool = (
             profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)) &&
@@ -1313,7 +1292,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         for cellViewModel: MessageViewModel,
         textColor: ThemeValue,
         searchText: String?,
-        using dependencies: Dependencies
+        displayNameRetriever: DisplayNameRetriever
     ) -> ThemedAttributedString? {
         guard
             let body: String = cellViewModel.body,
@@ -1323,7 +1302,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         let isOutgoing: Bool = (cellViewModel.variant == .standardOutgoing)
         let attributedText: ThemedAttributedString = MentionUtilities.highlightMentions(
             in: body,
-            threadVariant: cellViewModel.threadVariant,
             currentUserSessionIds: cellViewModel.currentUserSessionIds,
             location: (isOutgoing ? .outgoingMessage : .incomingMessage),
             textColor: textColor,
@@ -1331,7 +1309,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 .themeForegroundColor: textColor,
                 .font: UIFont.systemFont(ofSize: getFontSize(for: cellViewModel))
             ],
-            using: dependencies
+            displayNameRetriever: displayNameRetriever
         )
         
         // Custom handle links
@@ -1441,7 +1419,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         textColor: ThemeValue,
         searchText: String?,
         delegate: TappableLabelDelegate?,
-        using dependencies: Dependencies
+        displayNameRetriever: DisplayNameRetriever
     ) -> (label: TappableLabel, height: CGFloat) {
         let result: TappableLabel = TappableLabel()
         result.setContentHugging(.vertical, to: .required)
@@ -1450,7 +1428,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             for: cellViewModel,
             textColor: textColor,
             searchText: searchText,
-            using: dependencies
+            displayNameRetriever: displayNameRetriever
         )
         result.themeBackgroundColor = .clear
         result.isOpaque = false

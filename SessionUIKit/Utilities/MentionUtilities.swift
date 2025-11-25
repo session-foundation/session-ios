@@ -3,6 +3,8 @@
 import Foundation
 import UIKit
 
+public typealias DisplayNameRetriever = (_ sessionId: String, _ inMessageBody: Bool) -> String?
+
 public enum MentionUtilities {
     private static let currentUserCacheKey: String = "Mention.CurrentUser" // stringlint:ignore
     private static let pubkeyRegex: NSRegularExpression = try! NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
@@ -27,7 +29,7 @@ public enum MentionUtilities {
     public static func getMentions(
         in string: String,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?
+        displayNameRetriever: DisplayNameRetriever
     ) -> (String, [(range: NSRange, profileId: String, isCurrentUser: Bool)]) {
         var string = string
         var lastMatchEnd: Int = 0
@@ -71,7 +73,7 @@ public enum MentionUtilities {
     public static func highlightMentionsNoAttributes(
         in string: String,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?
+        displayNameRetriever: DisplayNameRetriever
     ) -> String {
         let (string, _) = getMentions(
             in: string,
@@ -88,7 +90,7 @@ public enum MentionUtilities {
         location: MentionLocation,
         textColor: ThemeValue,
         attributes: [NSAttributedString.Key: Any],
-        displayNameRetriever: (String, Bool) -> String?
+        displayNameRetriever: DisplayNameRetriever
     ) -> ThemedAttributedString {
         let (string, mentions) = getMentions(
             in: string,
@@ -168,7 +170,7 @@ public enum MentionUtilities {
 public extension String {
     func replacingMentions(
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?
+        displayNameRetriever: DisplayNameRetriever
     ) -> String {
         return MentionUtilities.highlightMentionsNoAttributes(
             in: self,

@@ -144,8 +144,8 @@ final class NukeDataModal: Modal {
                 title: "clearDataAll".localized(),
                 body: .attributedText(
                     {
-                        switch dependencies[singleton: .sessionProState].sessionProStateSubject.value {
-                            case .active, .refunding:
+                        switch dependencies[singleton: .sessionProManager].currentUserCurrentBackendProStatus {
+                            case .active:
                                 "proClearAllDataNetwork"
                                     .put(key: "app_pro", value: Constants.app_pro)
                                     .put(key: "pro", value: Constants.pro)
@@ -169,8 +169,8 @@ final class NukeDataModal: Modal {
     }
     
     private func clearDeviceOnly() {
-        switch dependencies[singleton: .sessionProState].sessionProStateSubject.value {
-            case .active, .refunding:
+        switch dependencies[singleton: .sessionProManager].currentUserCurrentBackendProStatus {
+            case .active:
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: "clearDataAll".localized(),

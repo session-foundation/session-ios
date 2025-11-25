@@ -3,6 +3,7 @@
 import UIKit
 
 public protocol SessionProUIManagerType: Actor {
+    nonisolated var characterLimit: Int { get }
     nonisolated var pinnedConversationLimit: Int { get }
     nonisolated var currentUserIsCurrentlyPro: Bool { get }
     nonisolated var currentUserIsPro: AsyncStream<Bool> { get }
@@ -13,7 +14,6 @@ public protocol SessionProUIManagerType: Actor {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
-        beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool
@@ -24,14 +24,12 @@ public protocol SessionProUIManagerType: Actor {
 public extension SessionProUIManagerType {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
-        beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
         showSessionProCTAIfNeeded(
             variant,
             dismissType: .recursive,
-            beforePresented: beforePresented,
             afterClosed: afterClosed,
             presenting: presenting
         )
@@ -44,7 +42,6 @@ public extension SessionProUIManagerType {
         showSessionProCTAIfNeeded(
             variant,
             dismissType: .recursive,
-            beforePresented: nil,
             afterClosed: nil,
             presenting: presenting
         )
@@ -55,13 +52,21 @@ public extension SessionProUIManagerType {
 
 internal actor NoopSessionProUIManager: SessionProUIManagerType {
     private let isPro: Bool
+    nonisolated public let characterLimit: Int
+    nonisolated public let pinnedConversationLimit: Int
     nonisolated public let currentUserIsCurrentlyPro: Bool
     nonisolated public var currentUserIsPro: AsyncStream<Bool> {
         AsyncStream(unfolding: { return self.isPro })
     }
     
-    init(isPro: Bool) {
+    init(
+        isPro: Bool = false,
+        characterLimit: Int = 2000,
+        pinnedConversationLimit: Int = 5
+    ) {
         self.isPro = isPro
+        self.characterLimit = characterLimit
+        self.pinnedConversationLimit = pinnedConversationLimit
         self.currentUserIsCurrentlyPro = isPro
     }
     
@@ -74,7 +79,6 @@ internal actor NoopSessionProUIManager: SessionProUIManagerType {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
-        beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {

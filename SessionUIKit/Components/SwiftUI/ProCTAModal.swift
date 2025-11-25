@@ -495,7 +495,7 @@ struct ProCTAModal_Previews: PreviewProvider {
                 ProCTAModal(
                     variant: .generic,
                     dataManager: ImageDataManager(),
-                    sessionProUIManager: NoopSessionProUIManager(isPro: false),
+                    sessionProUIManager: NoopSessionProUIManager(),
                     dismissType: .single,
                     afterClosed: nil
                 )
@@ -507,7 +507,7 @@ struct ProCTAModal_Previews: PreviewProvider {
                 ProCTAModal(
                     variant: .generic,
                     dataManager: ImageDataManager(),
-                    sessionProUIManager: NoopSessionProUIManager(isPro: false),
+                    sessionProUIManager: NoopSessionProUIManager(),
                     dismissType: .single,
                     afterClosed: nil
                 )
@@ -519,7 +519,7 @@ struct ProCTAModal_Previews: PreviewProvider {
                 ProCTAModal(
                     variant: .generic,
                     dataManager: ImageDataManager(),
-                    sessionProUIManager: NoopSessionProUIManager(isPro: false),
+                    sessionProUIManager: NoopSessionProUIManager(),
                     dismissType: .single,
                     afterClosed: nil
                 )
@@ -531,7 +531,7 @@ struct ProCTAModal_Previews: PreviewProvider {
                 ProCTAModal(
                     variant: .generic,
                     dataManager: ImageDataManager(),
-                    sessionProUIManager: NoopSessionProUIManager(isPro: false),
+                    sessionProUIManager: NoopSessionProUIManager(),
                     dismissType: .single,
                     afterClosed: nil
                 )

@@ -382,13 +382,18 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     <b>Current:</b> \(mockedProStatus)
                     """,
                     trailingAccessory: .icon(.squarePen),
-                    onTap: { [weak viewModel] in
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableState(
                             title: "Mocked Pro Status",
                             explanation: "Force the current users Session Pro to a specific status locally.",
                             feature: .mockCurrentUserSessionProBackendStatus,
                             currentValue: state.mockCurrentUserSessionProBackendStatus,
                             navigatableStateHolder: viewModel,
+                            onMockingRemoved: { [dependencies] in
+                                Task.detached(priority: .userInitiated) { [dependencies] in
+                                    try? await dependencies[singleton: .sessionProManager].refreshProState()
+                                }
+                            },
                             using: viewModel?.dependencies
                         )
                     }
@@ -404,22 +409,28 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
                     """,
                     trailingAccessory: .icon(.squarePen),
-                    isEnabled: (
-                        state.mockCurrentUserSessionProLoadingState != nil ||
-                        state.mockCurrentUserSessionProBackendStatus != nil ||
-                        state.currentProStatus != nil
-                    ),
-                    onTap: { [weak viewModel] in
+                    isEnabled: {
+                        switch (state.mockCurrentUserSessionProLoadingState, state.mockCurrentUserSessionProBackendStatus, state.currentProStatus) {
+                            case (.simulate, _, _), (_, .simulate, _), (_, _, .some): return true
+                            default: return false
+                        }
+                    }(),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         DeveloperSettingsViewModel.showModalForMockableState(
                             title: "Mocked Loading State",
                             explanation: "Force the Session Pro UI into a specific loading state.",
                             feature: .mockCurrentUserSessionProLoadingState,
                             currentValue: state.mockCurrentUserSessionProLoadingState,
                             navigatableStateHolder: viewModel,
+                            onMockingRemoved: { [dependencies] in
+                                Task.detached(priority: .userInitiated) { [dependencies] in
+                                    try? await dependencies[singleton: .sessionProManager].refreshProState()
+                                }
+                            },
                             using: viewModel?.dependencies
                         )
                     }
-                )
+                ),
                 SessionCell.Info(
                     id: .proBadgeEverywhere,
                     title: "Show the Pro Badge everywhere",
@@ -873,10 +884,16 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
             dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                try? await dependencies[singleton: .sessionProManager].refreshProState()
+            }
         }
         
         if dependencies.hasSet(feature: .mockCurrentUserSessionProLoadingState) {
             dependencies.set(feature: .mockCurrentUserSessionProLoadingState, to: nil)
+            Task.detached(priority: .userInitiated) { [dependencies] in
+                try? await dependencies[singleton: .sessionProManager].refreshProState()
+            }
         }
     }
     
@@ -1239,34 +1256,5 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 }
             }
         }
-    }
-}
-
-extension Product: @retroactive Comparable {
-    public static func < (lhs: Product, rhs: Product) -> Bool {
-        guard
-            let lhsSubscription: SubscriptionInfo = lhs.subscription,
-            let rhsSubscription: SubscriptionInfo = rhs.subscription, (
-                lhsSubscription.subscriptionPeriod.unit != rhsSubscription.subscriptionPeriod.unit ||
-                lhsSubscription.subscriptionPeriod.value != rhsSubscription.subscriptionPeriod.value
-            )
-        else { return lhs.id < rhs.id }
-        
-        func approximateDurationDays(_ subscription: SubscriptionInfo) -> Int {
-            switch subscription.subscriptionPeriod.unit {
-                case .day: return subscription.subscriptionPeriod.value
-                case .week: return subscription.subscriptionPeriod.value * 7
-                case .month: return subscription.subscriptionPeriod.value * 30
-                case .year: return subscription.subscriptionPeriod.value * 365
-                @unknown default: return subscription.subscriptionPeriod.value
-            }
-        }
-        
-        let lhsApproxDays: Int = approximateDurationDays(lhsSubscription)
-        let rhsApproxDays: Int = approximateDurationDays(rhsSubscription)
-        
-        guard lhsApproxDays != rhsApproxDays else { return lhs.id < rhs.id }
-        
-        return (lhsApproxDays < rhsApproxDays)
     }
 }

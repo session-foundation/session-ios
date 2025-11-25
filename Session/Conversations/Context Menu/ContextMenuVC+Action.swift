@@ -306,7 +306,7 @@ extension ContextMenuVC {
 protocol ContextMenuActionDelegate {
     func info(_ cellViewModel: MessageViewModel)
     @MainActor func retry(_ cellViewModel: MessageViewModel, completion: (@MainActor () -> Void)?)
-    func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
+    @MainActor func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func copySessionID(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func delete(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)

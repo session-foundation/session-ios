@@ -167,15 +167,21 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             SettingsViewModel.sections(state: self, viewModel: viewModel)
         }
         
-        public var observedKeys: Set<ObservableKey> {
-            [
+        /// We need `dependencies` to generate the keys in this case so set the variable `observedKeys` to an empty array to
+        /// suppress the conformance warning
+        public let observedKeys: Set<ObservableKey> = []
+        public func observedKeys(using dependencies: Dependencies) -> Set<ObservableKey> {
+            let sessionProManager: SessionProManagerType = dependencies[singleton: .sessionProManager]
+            
+            return [
                 .profile(userSessionId.hexString),
                 .feature(.mockCurrentUserSessionProBackendStatus),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
                 .setting(.developerModeEnabled),
-                .setting(.hideRecoveryPasswordPermanently)
-                // TODO: [PRO] Need to observe changes to the users pro status
+                .setting(.hideRecoveryPasswordPermanently),
+                .currentUserProLoadingState(sessionProManager),
+                .currentUserProStatus(sessionProManager),
             ]
         }
         
@@ -229,13 +235,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         if isInitialFetch {
             serviceNetwork = dependencies[feature: .serviceNetwork]
             forceOffline = dependencies[feature: .forceOffline]
-            
-            if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
-                switch dependencies[feature: .mockCurrentUserSessionProBackendStatus] {
-                    case .useActual: break
-                    case .simulate(let value): sessionProBackendStatus = value
-                }
-            }
+            sessionProBackendStatus = await dependencies[singleton: .sessionProManager].backendUserProStatus
+                .first(defaultValue: nil)
             
             dependencies.mutate(cache: .libSession) { libSession in
                 profile = libSession.profile
@@ -244,13 +245,14 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             }
         }
         
+        /// Split the events
+        let changes: EventChangeset = events.split()
+        
         /// If the device has a mock pro status set then use that
-        if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
-            // TODO: [PRO] When observing actual status change events we will need to check if this has been mocked or not and set the appropriate value (might actually be best to handle this as the feature change event instead)
-            switch dependencies[feature: .mockCurrentUserSessionProBackendStatus] {
-                case .useActual: break
-                case .simulate(let value): sessionProBackendStatus = value
-            }
+        switch (dependencies[feature: .mockCurrentUserSessionProBackendStatus], changes.latest(.currentUserProStatus, as: Network.SessionPro.BackendUserProStatus.self)) {
+            case (.simulate(let mockedState), _): sessionProBackendStatus = mockedState
+            case (.useActual, .some(let updatedValue)): sessionProBackendStatus = updatedValue
+            default: break
         }
         
         /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
@@ -358,7 +360,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         trailingImage: {
                             switch state.sessionProBackendStatus {
                                 case .none, .neverBeenPro: return nil
-                                case .active, .refunding:
+                                case .active:
                                     return (
                                         .themedKey(
                                             SessionProBadge.Size.medium.cacheKey,

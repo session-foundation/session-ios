@@ -25,6 +25,8 @@ struct MessageInfoScreen: View {
         /// the state the user was in when the message was sent
         let shouldShowProBadge: Bool
         
+        let displayNameRetriever: DisplayNameRetriever
+        
         func ctaVariant(currentUserIsPro: Bool) -> ProCTAModal.Variant {
             guard let firstFeature: ProFeature = proFeatures.first, proFeatures.count > 1 else {
                 return .generic
@@ -89,6 +91,7 @@ struct MessageInfoScreen: View {
         messageViewModel: MessageViewModel,
         threadCanWrite: Bool,
         onStartThread: (@MainActor () -> Void)?,
+        displayNameRetriever: @escaping DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         self.viewModel = ViewModel(
@@ -109,7 +112,8 @@ struct MessageInfoScreen: View {
                 using: dependencies
             ).front,
             proFeatures: ProFeature.from(messageViewModel.proFeatures),
-            shouldShowProBadge: messageViewModel.profile.proFeatures.contains(.proBadge)
+            shouldShowProBadge: messageViewModel.profile.proFeatures.contains(.proBadge),
+            displayNameRetriever: displayNameRetriever
         )
     }
     
@@ -128,6 +132,7 @@ struct MessageInfoScreen: View {
                         MessageBubble(
                             messageViewModel: viewModel.messageViewModel,
                             attachmentOnly: false,
+                            displayNameRetriever: viewModel.displayNameRetriever,
                             dependencies: viewModel.dependencies
                         )
                         .clipShape(
@@ -240,6 +245,7 @@ struct MessageInfoScreen: View {
                                     MessageBubble(
                                         messageViewModel: viewModel.messageViewModel,
                                         attachmentOnly: true,
+                                        displayNameRetriever: viewModel.displayNameRetriever,
                                         dependencies: viewModel.dependencies
                                     )
                                     .clipShape(
@@ -443,8 +449,8 @@ struct MessageInfoScreen: View {
                                                     .font(.Body.extraLargeBold)
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
-                                            else if !viewModel.messageViewModel.authorNameSuppressedId.isEmpty {
-                                                Text(viewModel.messageViewModel.authorNameSuppressedId)
+                                            else if !viewModel.messageViewModel.authorName().isEmpty {
+                                                Text(viewModel.messageViewModel.authorName())
                                                     .font(.Body.extraLargeBold)
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
@@ -593,86 +599,18 @@ struct MessageInfoScreen: View {
     }
     
     func showUserProfileModal() {
-        guard viewModel.threadCanWrite else { return }
-        // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
-        guard (try? SessionId.Prefix(from: viewModel.messageViewModel.authorId)) != .blinded25 else { return }
-        
-        guard let profileInfo: ProfilePictureView.Info = ProfilePictureView.Info.generateInfoFrom(
-            size: .message,
-            publicKey: viewModel.messageViewModel.profile.id,
-            threadVariant: .contact,    // Always show the display picture in 'contact' mode
-            displayPictureUrl: nil,
-            profile: viewModel.messageViewModel.profile,
-            profileIcon: .none,
-            using: viewModel.dependencies
-        ).front else {
-            return
-        }
-        
-        // TODO: [PRO] Would be good to source this from the view model if we can
-        let (sessionId, blindedId): (String?, String?) = {
-            guard
-                (try? SessionId.Prefix(from: viewModel.messageViewModel.authorId)) == .blinded15,
-                let openGroupServer: String = viewModel.messageViewModel.threadOpenGroupServer,
-                let openGroupPublicKey: String = viewModel.messageViewModel.threadOpenGroupPublicKey
-            else { return (viewModel.messageViewModel.authorId, nil) }
-            
-            let lookup: BlindedIdLookup? = viewModel.dependencies[singleton: .storage].write { db in
-                try BlindedIdLookup.fetchOrCreate(
-                    db,
-                    blindedId: viewModel.messageViewModel.authorId,
-                    openGroupServer: openGroupServer,
-                    openGroupPublicKey: openGroupPublicKey,
-                    isCheckingForOutbox: false,
-                    using: viewModel.dependencies
-                )
-            }
-            
-            return (lookup?.sessionId, viewModel.messageViewModel.authorId.truncated(prefix: 10, suffix: 10))
-        }()
-        
-        let qrCodeImage: UIImage? = {
-            guard let sessionId: String = sessionId else { return nil }
-            return QRCode.generate(for: sessionId, hasBackground: false, iconName: "SessionWhite40") // stringlint:ignore
-        }()
-        
-        let isMessasgeRequestsEnabled: Bool = {
-            guard viewModel.messageViewModel.threadVariant == .community else { return true }
-            return viewModel.messageViewModel.profile.blocksCommunityMessageRequests != true
-        }()
-        
-        let (displayName, contactDisplayName): (String?, String?) = {
-            guard let sessionId: String = sessionId else {
-                return (viewModel.messageViewModel.authorNameSuppressedId, nil)
-            }
-            
-            guard !viewModel.messageViewModel.currentUserSessionIds.contains(sessionId) else {
-                return ("you".localized(), "you".localized())
-            }
-            
-            return (
-                viewModel.messageViewModel.authorName,
-                viewModel.messageViewModel.profile.displayName(
-                    for: viewModel.messageViewModel.threadVariant,
-                    ignoringNickname: true
-                )
+        guard
+            viewModel.threadCanWrite,
+            let info: UserProfileModal.Info = viewModel.messageViewModel.createUserProfileModalInfo(
+                onStartThread: viewModel.onStartThread,
+                onProBadgeTapped: self.showSessionProCTAIfNeeded,
+                using: viewModel.dependencies
             )
-        }()
+        else { return }
         
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
             modal: UserProfileModal(
-                info: UserProfileModal.Info(
-                    sessionId: sessionId,
-                    blindedId: blindedId,
-                    qrCodeImage: qrCodeImage,
-                    profileInfo: profileInfo,
-                    displayName: displayName,
-                    contactDisplayName: contactDisplayName,
-                    shouldShowProBadge: viewModel.messageViewModel.profile.proFeatures.contains(.proBadge),
-                    isMessageRequestsEnabled: isMessasgeRequestsEnabled,
-                    onStartThread: viewModel.onStartThread,
-                    onProBadgeTapped: self.showSessionProCTAIfNeeded
-                ),
+                info: info,
                 dataManager: viewModel.dependencies[singleton: .imageDataManager]
             )
         )
@@ -709,6 +647,7 @@ struct MessageBubble: View {
     
     let messageViewModel: MessageViewModel
     let attachmentOnly: Bool
+    let displayNameRetriever: DisplayNameRetriever
     let dependencies: Dependencies
     
     var bodyLabelTextColor: ThemeValue {
@@ -732,7 +671,7 @@ struct MessageBubble: View {
                 textColor: bodyLabelTextColor,
                 searchText: nil,
                 delegate: nil,
-                using: dependencies
+                displayNameRetriever: displayNameRetriever
             ).height
             
             VStack(
@@ -768,17 +707,7 @@ struct MessageBubble: View {
                     else {
                         if let quoteViewModel: QuoteViewModel = messageViewModel.quoteViewModel {
                             QuoteView_SwiftUI(
-                                viewModel: quoteViewModel.with(
-                                    thumbnailSource: .thumbnailFrom(
-                                        quoteViewModel: quoteViewModel,
-                                        using: dependencies
-                                    ),
-                                    // TODO: [PRO] Can we source this from the 'MessageViewModel'? Provide the 'profileCache'?
-                                    displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                                        threadVariant: messageViewModel.threadVariant,
-                                        using: dependencies
-                                    )
-                                ),
+                                viewModel: quoteViewModel,
                                 dataManager: dependencies[singleton: .imageDataManager]
                             )
                             .fixedSize(horizontal: false, vertical: true)
@@ -795,7 +724,7 @@ struct MessageBubble: View {
                         for: messageViewModel,
                         textColor: bodyLabelTextColor,
                         searchText: nil,
-                        using: dependencies
+                        displayNameRetriever: displayNameRetriever
                     ) {
                         AttributedLabel(bodyText, maxWidth: maxWidth)
                             .padding(.horizontal, Self.inset)
@@ -880,6 +809,7 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
         messageViewModel: MessageViewModel,
         threadCanWrite: Bool,
         onStartThread: (() -> Void)?,
+        displayNameRetriever: @escaping DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         let messageInfoView = MessageInfoScreen(
@@ -887,6 +817,7 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
             messageViewModel: messageViewModel,
             threadCanWrite: threadCanWrite,
             onStartThread: onStartThread,
+            displayNameRetriever: displayNameRetriever,
             using: dependencies
         )
         
@@ -928,7 +859,7 @@ struct MessageInfoView_Previews: PreviewProvider {
                 using: dependencies
             ),
             reactionInfo: nil,
-            quotedInteraction: nil,
+            maybeUnresolvedQuotedInfo: nil,
             profileCache: [
                 "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg": Profile(
                     id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
@@ -938,6 +869,7 @@ struct MessageInfoView_Previews: PreviewProvider {
             attachmentCache: [:],
             linkPreviewCache: [:],
             attachmentMap: [:],
+            unblindedIdMap: [:],
             isSenderModeratorOrAdmin: false,
             userSessionId: SessionId(.standard, hex: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a961111"),
             currentUserSessionIds: ["d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg"],
@@ -965,6 +897,7 @@ struct MessageInfoView_Previews: PreviewProvider {
             messageViewModel: messageViewModel,
             threadCanWrite: true,
             onStartThread: nil,
+            displayNameRetriever: { _, _ in nil },
             using: Dependencies.createEmpty()
         )
     }

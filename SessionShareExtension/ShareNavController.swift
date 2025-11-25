@@ -756,9 +756,6 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     }
     
     @MainActor func numberOfCharactersLeft(for text: String) -> Int {
-        return LibSession.numberOfCharactersLeft(
-            for: text,
-            isSessionPro: dependencies[cache: .libSession].isSessionPro
-        )
+        return dependencies[singleton: .sessionProManager].numberOfCharactersLeft(for: text)
     }
 }

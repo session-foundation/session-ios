@@ -33,7 +33,7 @@ public extension VisibleMessage {
         public static func fromProto(_ proto: SNProtoDataMessagePreview) -> VMLinkPreview? {
             guard
                 !proto.url.isEmpty,
-                LinkPreview.isValidLinkUrl(proto.url)
+                LinkPreviewManager.isValidLinkUrl(proto.url)
             else { return nil }
             
             return VMLinkPreview(

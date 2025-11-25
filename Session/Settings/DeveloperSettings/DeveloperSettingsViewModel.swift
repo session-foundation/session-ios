@@ -1796,6 +1796,7 @@ extension DeveloperSettingsViewModel {
         feature: FeatureConfig<MockableFeature<M>>,
         currentValue: MockableFeature<M>,
         navigatableStateHolder: NavigatableStateHolder?,
+        onMockingRemoved: (() -> Void)? = nil,
         using dependencies: Dependencies?
     ) {
         let allCases: [MockableFeature<M>] = MockableFeature<M>.allCases
@@ -1845,7 +1846,10 @@ extension DeveloperSettingsViewModel {
                         }()
                         
                         switch selectedValue {
-                            case .none, .useActual: dependencies?.set(feature: feature, to: nil)
+                            case .none, .useActual:
+                                dependencies?.set(feature: feature, to: nil)
+                                onMockingRemoved?()
+                                
                             case .simulate: dependencies?.set(feature: feature, to: selectedValue)
                         }
                     }

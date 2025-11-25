@@ -113,7 +113,7 @@ public protocol ThemedNavigation {
 
 // MARK: - ThemeValue
 
-public indirect enum ThemeValue: Hashable, Equatable {
+public indirect enum ThemeValue: Sendable, Hashable, Equatable {
     case value(ThemeValue, alpha: CGFloat)
     case explicitPrimary(Theme.PrimaryColor)
     case dynamicForInterfaceStyle(light: ThemeValue, dark: ThemeValue)

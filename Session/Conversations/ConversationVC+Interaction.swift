@@ -581,29 +581,25 @@ extension ConversationVC:
         
         guard !didShowCTAModal else { return }
         
-        self.hideInputAccessoryView()
         let numberOfCharactersLeft: Int = viewModel.dependencies[singleton: .sessionProManager].numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines)
         )
-        let limit: Int = (viewModel.isCurrentUserSessionPro ? SessionPro.ProCharacterLimit : SessionPro.CharacterLimit)
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
-                title: (
-                    (numberOfCharactersLeft >= 0) ?
-                        "modalMessageCharacterDisplayTitle".localized() :
-                        "modalMessageCharacterTooLongTitle".localized()
+                title: (numberOfCharactersLeft >= 0 ?
+                    "modalMessageCharacterDisplayTitle".localized() :
+                    "modalMessageCharacterTooLongTitle".localized()
                 ),
                 body: .text(
-                    (
-                        (numberOfCharactersLeft >= 0) ?
-                            "modalMessageCharacterDisplayDescription"
-                                .putNumber(numberOfCharactersLeft)
-                                .put(key: "limit", value: limit)
-                                .localized() :
-                            "modalMessageCharacterTooLongDescription"
-                                .put(key: "limit", value: limit)
-                                .localized()
+                    (numberOfCharactersLeft >= 0 ?
+                        "modalMessageCharacterDisplayDescription"
+                            .putNumber(numberOfCharactersLeft)
+                            .put(key: "limit", value: viewModel.dependencies[singleton: .sessionProManager].characterLimit)
+                            .localized() :
+                        "modalMessageCharacterTooLongDescription"
+                            .put(key: "limit", value: viewModel.dependencies[singleton: .sessionProManager].characterLimit)
+                            .localized()
                     ),
                     scrollMode: .never
                 ),
@@ -691,8 +687,7 @@ extension ConversationVC:
         guard viewModel.dependencies[singleton: .sessionProManager].numberOfCharactersLeft(
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines)
         ) >= 0 else {
-            showModalForMessagesExceedingCharacterLimit(viewModel.isCurrentUserSessionPro)
-            return
+            return showModalForMessagesExceedingCharacterLimit()
         }
         
         sendMessage(
@@ -702,7 +697,7 @@ extension ConversationVC:
         )
     }
     
-    @MainActor func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
+    @MainActor func showModalForMessagesExceedingCharacterLimit() {
         let didShowCTAModal: Bool = viewModel.dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
             .longerMessages,
             afterClosed: { [weak self] in
@@ -885,11 +880,16 @@ extension ConversationVC:
                 }
                 
                 // If there is a Quote the insert it now
-                if let interactionId: Int64 = insertedInteraction.id, let quoteViewModel: QuoteViewModel = optimisticData.quoteViewModel {
+                if
+                    let interactionId: Int64 = insertedInteraction.id,
+                    let quoteViewModel: QuoteViewModel = optimisticData.quoteViewModel,
+                    let quotedAuthorId: String = quoteViewModel.quotedInfo?.authorId,
+                    let quotedTimestampMs: Int64 = quoteViewModel.quotedInfo?.timestampMs
+                {
                     try Quote(
                         interactionId: interactionId,
-                        authorId: quoteViewModel.authorId,
-                        timestampMs: quoteViewModel.timestampMs
+                        authorId: quotedAuthorId,
+                        timestampMs: quotedTimestampMs
                     ).insert(db)
                 }
                 
@@ -964,7 +964,6 @@ extension ConversationVC:
         guard !viewIsAppearing else { return }
         
         let newText: String = (inputTextView.text ?? "")
-        let currentUserSessionIds: Set<String> = (viewModel.threadData.currentUserSessionIds ?? [])
         
         if !newText.isEmpty {
             Task { [state = viewModel.state, dependencies = viewModel.dependencies] in
@@ -1045,10 +1044,14 @@ extension ConversationVC:
             guard newText.count > 1 else { return false } /// Only a single char
             guard currentStartIndex != nil || lastCharacterIsMentionChar else { return false } /// No mention char
             
-            let mentionCharIndex: String.Index = (
-                currentStartIndex ??
-                newText.index(before: lastCharacterIndex)
-            )
+            let mentionCharIndex: String.Index = {
+                guard
+                    let currentStartIndex: String.Index = currentStartIndex,
+                    lastCharacterIndex >= currentStartIndex
+                else { return newText.index(before: lastCharacterIndex) }
+                
+                return currentStartIndex
+            }()
             return (String(newText[mentionCharIndex]) == MentionSelectionView.ViewModel.mentionChar)
         }()
         let isValidMention: Bool = (
@@ -1073,6 +1076,10 @@ extension ConversationVC:
         let mentions: [MentionSelectionView.ViewModel] = ((try? await self.viewModel.mentions(for: query)) ?? [])
         
         await MainActor.run {
+            if lastCharacterIsMentionChar {
+                currentMentionStartIndex = lastCharacterIndex
+            }
+            
             snInputView.showMentionsUI(for: mentions)
         }
     }
@@ -1160,7 +1167,7 @@ extension ConversationVC:
                 messageInfo.state == .permissionDeniedMicrophone
             else {
                 let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
-                    caller: cellViewModel.authorName,
+                    caller: cellViewModel.authorName(),
                     presentingViewController: self,
                     using: viewModel.dependencies
                 )
@@ -1251,7 +1258,7 @@ extension ConversationVC:
         // If it's an incoming media message and the thread isn't trusted then show the placeholder view
         if cellViewModel.cellType != .textOnlyMessage && cellViewModel.variant == .standardIncoming && !cellViewModel.threadIsTrusted {
             let message: ThemedAttributedString = "attachmentsAutoDownloadModalDescription"
-                .put(key: "conversation_name", value: cellViewModel.authorName)
+                .put(key: "conversation_name", value: cellViewModel.authorName())
                 .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -1462,22 +1469,15 @@ extension ConversationVC:
                     // If the message contains both links and a quote, and the user tapped on the quote; OR the
                     // message only contained a quote, then scroll to the quote
                     case (true, true, _, .some(let quoteViewModel), _), (false, _, _, .some(let quoteViewModel), _):
-                        let maybeTimestampMs: Int64? = viewModel.dependencies[singleton: .storage].read { db in
-                            try Interaction
-                                .filter(id: quoteViewModel.quotedInteractionId)
-                                .select(.timestampMs)
-                                .asRequest(of: Int64.self)
-                                .fetchOne(db)
-                        }
-                        
-                        guard let timestampMs: Int64 = maybeTimestampMs else {
-                            return
-                        }
+                        guard
+                            let quotedInteractionId: Int64 = quoteViewModel.quotedInfo?.interactionId,
+                            let quotedInteractionTimestampMs: Int64 = quoteViewModel.quotedInfo?.timestampMs
+                        else { return }
                         
                         self.scrollToInteractionIfNeeded(
                             with: Interaction.TimestampInfo(
-                                id: quoteViewModel.quotedInteractionId,
-                                timestampMs: timestampMs
+                                id: quotedInteractionId,
+                                timestampMs: quotedInteractionTimestampMs
                             ),
                             focusBehaviour: .highlight,
                             originalIndexPath: self.tableView.indexPath(for: cell)
@@ -1551,105 +1551,38 @@ extension ConversationVC:
     }
     
     func showUserProfileModal(for cellViewModel: MessageViewModel) {
-        guard viewModel.state.threadViewModel.threadCanWrite == true else { return }
-        // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
-        guard (try? SessionId.Prefix(from: cellViewModel.authorId)) != .blinded25 else { return }
-        
-        let dependencies: Dependencies = viewModel.dependencies
-        
-        let (info, _) = ProfilePictureView.Info.generateInfoFrom(
-            size: .hero,
-            publicKey: cellViewModel.authorId,
-            threadVariant: .contact,    // Always show the display picture in 'contact' mode
-            displayPictureUrl: nil,
-            profile: cellViewModel.profile,
-            using: dependencies
-        )
-        
-        guard let profileInfo: ProfilePictureView.Info = info else { return }
-        
-        let (sessionId, blindedId): (String?, String?) = {
-            guard
-                (try? SessionId.Prefix(from: cellViewModel.authorId)) == .blinded15,
-                let openGroupServer: String = viewModel.state.threadViewModel.openGroupServer,
-                let openGroupPublicKey: String = viewModel.state.threadViewModel.openGroupPublicKey
-            else {
-                return (cellViewModel.authorId, nil)
-            }
-            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].write { db in
-                try BlindedIdLookup.fetchOrCreate(
-                    db,
-                    blindedId: cellViewModel.authorId,
-                    openGroupServer: openGroupServer,
-                    openGroupPublicKey: openGroupPublicKey,
-                    isCheckingForOutbox: false,
-                    using: dependencies
-                )
-            }
-            return (lookup?.sessionId, cellViewModel.authorId.truncated(prefix: 10, suffix: 10))
-        }()
-        let (displayName, contactDisplayName): (String?, String?) = {
-            guard let sessionId: String = sessionId else {
-                return (cellViewModel.authorNameSuppressedId, nil)
-            }
-            guard !viewModel.state.currentUserSessionIds.contains(sessionId) else {
-                return ("you".localized(), "you".localized())
-            }
-            
-            return (
-                (
-                    viewModel.state.profileCache[sessionId]?.displayName(for: .contact) ??
-                    cellViewModel.authorNameSuppressedId
-                ),
-                viewModel.state.profileCache[sessionId]?.displayName(for: .contact, ignoringNickname: true)
+        guard
+            viewModel.state.threadViewModel.threadCanWrite == true,
+            let info: UserProfileModal.Info = cellViewModel.createUserProfileModalInfo(
+                onStartThread: {
+                    Task.detached(priority: .userInitiated) { [weak self] in
+                        await self?.startThread(
+                            with: cellViewModel.authorId,
+                            openGroupServer: self?.viewModel.state.threadViewModel.openGroupServer,
+                            openGroupPublicKey: self?.viewModel.state.threadViewModel.openGroupPublicKey
+                        )
+                    }
+                },
+                onProBadgeTapped: { [weak self, dependencies = viewModel.dependencies] in
+                    dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                        .generic,
+                        dismissType: .single,
+                        afterClosed: { [weak self] in
+                            self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                        },
+                        presenting: { modal in
+                            dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
+                        }
+                    )
+                },
+                using: viewModel.dependencies
             )
-        }()
-        
-        let qrCodeImage: UIImage? = {
-            guard let sessionId: String = sessionId else { return nil }
-            return QRCode.generate(for: sessionId, hasBackground: false, iconName: "SessionWhite40") // stringlint:ignore
-        }()
-        
-        let isMessasgeRequestsEnabled: Bool = {
-            guard cellViewModel.threadVariant == .community else { return true }
-            
-            return cellViewModel.profile.blocksCommunityMessageRequests != true
-        }()
+        else { return }
         
         let userProfileModal: ModalHostingViewController = ModalHostingViewController(
             modal: UserProfileModal(
-                info: UserProfileModal.Info(
-                    sessionId: sessionId,
-                    blindedId: blindedId,
-                    qrCodeImage: qrCodeImage,
-                    profileInfo: profileInfo,
-                    displayName: displayName,
-                    contactDisplayName: contactDisplayName,
-                    shouldShowProBadge: cellViewModel.profile.proFeatures.contains(.proBadge),
-                    isMessageRequestsEnabled: isMessasgeRequestsEnabled,
-                    onStartThread: { [weak self] in
-                        Task.detached(priority: .userInitiated) { [weak self] in
-                            await self?.startThread(
-                                with: cellViewModel.authorId,
-                                openGroupServer: self?.viewModel.state.threadViewModel.openGroupServer,
-                                openGroupPublicKey: self?.viewModel.state.threadViewModel.openGroupPublicKey
-                            )
-                        }
-                    },
-                    onProBadgeTapped: { [weak self, dependencies] in
-                        dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-                            .generic,
-                            dismissType: .single,
-                            afterClosed: { [weak self] in
-                                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
-                            },
-                            presenting: { modal in
-                                dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
-                            }
-                        )
-                    }
-                ),
-                dataManager: dependencies[singleton: .imageDataManager]
+                info: info,
+                dataManager: viewModel.dependencies[singleton: .imageDataManager]
             )
         )
         present(userProfileModal, animated: true, completion: nil)
@@ -2314,6 +2247,9 @@ extension ConversationVC:
                     )
                 }
             },
+            displayNameRetriever: { [weak self] sessionId, inMessageBody in
+                self?.viewModel.displayName(for: sessionId, inMessageBody: inMessageBody)
+            },
             using: viewModel.dependencies
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
@@ -2379,41 +2315,17 @@ extension ConversationVC:
         completion?()
     }
 
-    func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
+    @MainActor func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         guard
             cellViewModel.variant == .standardOutgoing ||
             cellViewModel.variant == .standardIncoming
         else { return }
         guard
             (cellViewModel.body ?? "")?.isEmpty == false ||
-            cellViewModel.attachments?.isEmpty == false
+            !cellViewModel.attachments.isEmpty
         else { return }
         
-        let targetAttachment: Attachment? = (
-            cellViewModel.attachments?.first ??
-            cellViewModel.linkPreviewAttachment
-        )
-        
-        snInputView.quoteViewModel = QuoteViewModel(
-            mode: .draft,
-            direction: (cellViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
-            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-            rowId: -1,
-            interactionId: nil,
-            authorId: cellViewModel.authorId,
-            showProBadge: self.viewModel.dependencies.mutate(cache: .libSession) {
-                $0.validateSessionProState(for: cellViewModel.authorId)
-            },
-            timestampMs: cellViewModel.timestampMs,
-            quotedInteractionId: cellViewModel.id,
-            quotedInteractionIsDeleted: cellViewModel.variant.isDeletedMessage,
-            quotedText: cellViewModel.body,
-            quotedAttachmentInfo: targetAttachment?.quoteAttachmentInfo(using: self.viewModel.dependencies),
-            displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                threadVariant: self.viewModel.threadData.threadVariant,
-                using: self.viewModel.dependencies
-            )
-        )
+        snInputView.quoteViewModel = viewModel.draftQuote(for: cellViewModel)
         
         // If the `MessageInfoViewController` is visible then we want to show the keyboard after
         // the pop transition completes (and don't want to delay triggering the completion closure)

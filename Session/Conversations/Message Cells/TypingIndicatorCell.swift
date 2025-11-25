@@ -47,6 +47,7 @@ final class TypingIndicatorCell: MessageCell {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
+        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         guard cellViewModel.cellType == .typingIndicator else { return }

@@ -42,12 +42,18 @@ public extension ObservableKey {
         ObservableKey("contact-\(id)", .contact)
     }
     
-    static let anyContactBlockedStatusChanged: ObservableKey = "anyContactBlockedStatusChanged"
+    static let anyContactBlockedStatusChanged: ObservableKey = {
+        ObservableKey("anyContactBlockedStatusChanged", .anyContactBlockedStatusChanged)
+    }()
+    static let anyContactUnblinded: ObservableKey = ObservableKey("anyContactUnblinded", .anyContactUnblinded)
     
     // MARK: - Conversations
     
-    static let conversationCreated: ObservableKey = "conversationCreated"
-    static let anyConversationPinnedPriorityChanged: ObservableKey = "anyConversationPinnedPriorityChanged"
+    static let conversationCreated: ObservableKey = ObservableKey("conversationCreated", .conversationCreated)
+    static let anyConversationPinnedPriorityChanged: ObservableKey = {
+        ObservableKey("anyConversationPinnedPriorityChanged", .anyConversationPinnedPriorityChanged)
+    }()
+    
     static func conversationUpdated(_ id: String) -> ObservableKey {
         ObservableKey("conversationUpdated-\(id)", .conversationUpdated)
     }
@@ -111,7 +117,11 @@ public extension GenericObservableKey {
     static let typingIndicator: GenericObservableKey = "typingIndicator"
     static let profile: GenericObservableKey = "profile"
     static let contact: GenericObservableKey = "contact"
+    static let anyContactBlockedStatusChanged: GenericObservableKey = "anyContactBlockedStatusChanged"
+    static let anyContactUnblinded: GenericObservableKey = "anyContactUnblinded"
     
+    static let conversationCreated: GenericObservableKey = "conversationCreated"
+    static let anyConversationPinnedPriorityChanged: GenericObservableKey = "anyConversationPinnedPriorityChanged"
     static let conversationUpdated: GenericObservableKey = "conversationUpdated"
     static let conversationDeleted: GenericObservableKey = "conversationDeleted"
     static let messageCreated: GenericObservableKey = "messageCreated"
@@ -238,6 +248,7 @@ public extension ObservingDatabase {
         /// window includes the record, so we need to emit generic "any" events for these cases
         switch change {
             case .isBlocked: addEvent(ObservedEvent(key: .anyContactBlockedStatusChanged, value: event))
+            case .unblinded: addEvent(ObservedEvent(key: .anyContactUnblinded, value: event))
             default: break
         }
         
@@ -262,6 +273,7 @@ public struct ConversationEvent: Hashable {
         case markedAsUnread(Bool)
         case unreadCount
         case disappearingMessageConfiguration(DisappearingMessagesConfiguration?)
+        case draft(String?)
     }
 }
 

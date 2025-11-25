@@ -86,9 +86,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     @MainActor @Published private(set) var state: State
     private var observationTask: Task<Void, Never>?
     
-    // TODO: [PRO] Remove this value (access via `state`)
-    public var isCurrentUserSessionPro: Bool { dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro }
-    
     // MARK: - Initialization
     
     @MainActor init(
@@ -155,8 +152,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let interactionCache: [Int64: Interaction]
         let attachmentCache: [String: Attachment]
         let reactionCache: [Int64: [Reaction]]
-        let quoteMap: [Int64: Int64]
+        let quoteMap: [Int64: MessageViewModel.MaybeUnresolvedQuotedInfo]
         let attachmentMap: [Int64: Set<InteractionAttachment>]
+        let unblindedIdMap: [String: String]
         let modAdminCache: Set<String>
         let itemCache: [Int64: MessageViewModel]
         
@@ -223,13 +221,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 .appending(string: " ")     // In case it's a RTL font
         }
         
-        var messageInputState: SessionThreadViewModel.MessageInputState {
-            guard !threadViewModel.threadIsNoteToSelf else {
-                return SessionThreadViewModel.MessageInputState(allowedInputTypes: .all)
-            }
+        public var messageInputState: InputView.InputState {
+            guard !threadViewModel.threadIsNoteToSelf else { return InputView.InputState(inputs: .all) }
             guard threadViewModel.threadIsBlocked != true else {
-                return SessionThreadViewModel.MessageInputState(
-                    allowedInputTypes: .none,
+                return InputView.InputState(
+                    inputs: .disabled,
                     message: "blockBlockedDescription".localized(),
                     messageAccessibility: Accessibility(
                         identifier: "Blocked banner"
@@ -238,17 +234,22 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             }
             
             if threadViewModel.threadVariant == .community && threadViewModel.threadCanWrite == false {
-                return SessionThreadViewModel.MessageInputState(
-                    allowedInputTypes: .none,
+                return InputView.InputState(
+                    inputs: .disabled,
                     message: "permissionsWriteCommunity".localized()
                 )
             }
             
-            return SessionThreadViewModel.MessageInputState(
-                allowedInputTypes: (threadViewModel.threadRequiresApproval == false && threadViewModel.threadIsMessageRequest == false ?
-                    .all :
-                    .textOnly
-                )
+            /// Attachments shouldn't be allowed for message requests or if uploads are disabled
+            let finalInputs: InputView.Input
+            
+            switch (threadViewModel.threadRequiresApproval, threadViewModel.threadIsMessageRequest, threadViewModel.threadCanUpload) {
+                case (false, false, true): finalInputs = .all
+                default: finalInputs = [.text, .attachmentsDisabled, .voiceMessagesDisabled]
+            }
+            
+            return InputView.InputState(
+                inputs: finalInputs
             )
         }
         
@@ -285,10 +286,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     
                 case .community:
                     result.insert(.communityUpdated(threadId))
+                    result.insert(.anyContactUnblinded)
                     
                 default: break
             }
             
+            /// Observe changes to messages
             interactionCache.keys.forEach { messageId in
                 result.insert(.messageUpdated(id: messageId, threadId: threadId))
                 result.insert(.messageDeleted(id: messageId, threadId: threadId))
@@ -299,6 +302,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     result.insert(.attachmentUpdated(id: interactionAttachment.attachmentId, messageId: messageId))
                     result.insert(.attachmentDeleted(id: interactionAttachment.attachmentId, messageId: messageId))
                 }
+            }
+            
+            /// Observe changes to profile data
+            profileCache.forEach { profileId, _ in
+                result.insert(.profile(profileId))
             }
             
             return result
@@ -337,6 +345,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 reactionCache: [:],
                 quoteMap: [:],
                 attachmentMap: [:],
+                unblindedIdMap: [:],
                 modAdminCache: [],
                 itemCache: [:],
                 titleViewModel: ConversationTitleViewModel(
@@ -436,8 +445,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         var interactionCache: [Int64: Interaction] = previousState.interactionCache
         var attachmentCache: [String: Attachment] = previousState.attachmentCache
         var reactionCache: [Int64: [Reaction]] = previousState.reactionCache
-        var quoteMap: [Int64: Int64] = previousState.quoteMap
+        var quoteMap: [Int64: MessageViewModel.MaybeUnresolvedQuotedInfo] = previousState.quoteMap
         var attachmentMap: [Int64: Set<InteractionAttachment>] = previousState.attachmentMap
+        var unblindedIdMap: [String: String] = previousState.unblindedIdMap
         var modAdminCache: Set<String> = previousState.modAdminCache
         var itemCache: [Int64: MessageViewModel] = previousState.itemCache
         var threadViewModel: SessionThreadViewModel = previousState.threadViewModel
@@ -516,24 +526,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         guard !eventsToProcess.isEmpty else { return previousState }
         
         /// Split the events between those that need database access and those that don't
-        let splitEvents: [EventDataRequirement: Set<ObservedEvent>] = eventsToProcess
-            .reduce(into: [:]) { result, next in
-                switch next.dataRequirement {
-                    case .databaseQuery: result[.databaseQuery, default: []].insert(next)
-                    case .other: result[.other, default: []].insert(next)
-                    case .bothDatabaseQueryAndOther:
-                        result[.databaseQuery, default: []].insert(next)
-                        result[.other, default: []].insert(next)
-                }
-            }
-        var databaseEvents: Set<ObservedEvent> = (splitEvents[.databaseQuery] ?? [])
-        let groupedOtherEvents: [GenericObservableKey: Set<ObservedEvent>]? = splitEvents[.other]?
-            .reduce(into: [:]) { result, event in
-                result[event.key.generic, default: []].insert(event)
-            }
-        var loadPageEvent: LoadPageEvent? = splitEvents[.databaseQuery]?
-            .first(where: { $0.key.generic == .loadPage })?
-            .value as? LoadPageEvent
+        let changes: EventChangeset = eventsToProcess.split(by: { $0.dataRequirement })
+        var databaseEvents: Set<ObservedEvent> = changes.databaseEvents
+        var loadPageEvent: LoadPageEvent? = changes.latest(.loadPage, as: LoadPageEvent.self)
         
         // FIXME: We should be able to make this far more efficient by splitting this query up and only fetching diffs
         var threadNeedsRefresh: Bool = (
@@ -548,10 +543,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         /// Handle thread specific changes first (as this could include a conversation being unblinded)
         switch threadVariant {
             case .contact:
-                groupedOtherEvents?[.contact]?.forEach { event in
-                    guard let eventValue: ContactEvent = event.value as? ContactEvent else { return }
-                    
-                    switch eventValue.change {
+                changes.forEach(.contact, as: ContactEvent.self) { event in
+                    switch event.change {
                         case .isTrusted(let value):
                             threadContact = threadContact?.with(
                                 isTrusted: .set(to: value),
@@ -598,13 +591,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 }
                 
             case .legacyGroup, .group:
-                groupedOtherEvents?[.groupMemberUpdated]?.forEach { event in
-                    guard let eventValue: GroupMemberEvent = event.value as? GroupMemberEvent else { return }
-                    
-                    switch eventValue.change {
+                changes.forEach(.groupMemberUpdated, as: GroupMemberEvent.self) { event in
+                    switch event.change {
                         case .none: break
                         case .role(let role, _):
-                            guard eventValue.profileId == previousState.userSessionId.hexString else { return }
+                            guard event.profileId == previousState.userSessionId.hexString else { return }
                             
                             isUserModeratorOrAdmin = (role == .admin)
                     }
@@ -612,10 +603,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             
             case .community:
                 /// Handle community changes (users could change to mods which would need all of their interaction data updated)
-                groupedOtherEvents?[.communityUpdated]?.forEach { event in
-                    guard let eventValue: CommunityEvent = event.value as? CommunityEvent else { return }
-                    
-                    switch eventValue.change {
+                changes.forEach(.communityUpdated, as: CommunityEvent.self) { event in
+                    switch event.change {
                         case .receivedInitialMessages:
                             /// If we already have a `loadPageEvent` then that takes prescedence, otherwise we should load
                             /// the initial page once we've received the initial messages for a community
@@ -637,15 +626,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         
         /// Profile events
-        groupedOtherEvents?[.profile]?.forEach { event in
-            guard let eventValue: ProfileEvent = event.value as? ProfileEvent else { return }
-            guard var profileData: Profile = profileCache[eventValue.id] else {
+        changes.forEach(.profile, as: ProfileEvent.self) { event in
+            guard var profileData: Profile = profileCache[event.id] else {
                 /// This profile (somehow) isn't in the cache, so we need to fetch it
-                profileIdsNeedingFetch.insert(eventValue.id)
+                profileIdsNeedingFetch.insert(event.id)
                 return
             }
             
-            switch eventValue.change {
+            switch event.change {
                 case .name(let name): profileData = profileData.with(name: name)
                 case .nickname(let nickname): profileData = profileData.with(nickname: .set(to: nickname))
                 case .displayPictureUrl(let url): profileData = profileData.with(displayPictureUrl: .set(to: url))
@@ -664,7 +652,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     )
             }
             
-            profileCache[eventValue.id] = profileData
+            profileCache[event.id] = profileData
+        }
+        
+        /// General unblinding handling
+        changes.forEach(.anyContactUnblinded, as: ContactEvent.self) { event in
+            switch event.change {
+                case .unblinded(let blindedId, let unblindedId): unblindedIdMap[blindedId] = unblindedId
+                default: break
+            }
         }
         
         /// Pull data from libSession
@@ -693,7 +689,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 var fetchedAttachments: [Attachment] = []
                 var fetchedInteractionAttachments: [InteractionAttachment] = []
                 var fetchedReactions: [Int64: [Reaction]] = [:]
-                var fetchedQuoteMap: [Int64: Int64] = [:]
+                var fetchedQuoteMap: [Int64: MessageViewModel.MaybeUnresolvedQuotedInfo] = [:]
+                var fetchedBlindedIdLookups: [BlindedIdLookup] = []
                 
                 /// Identify any inserted/deleted records
                 var insertedInteractionIds: Set<Int64> = []
@@ -822,16 +819,21 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     }
                     
                     /// Get the ids of any quoted interactions
-                    let quoteInteractionIdResults: Set<FetchablePair<Int64, Int64>> = try MessageViewModel
+                    ///
+                    /// **Note:** We may not be able to find the quoted interaction (hence the `Int64?` but would still want to render
+                    /// the message as a quote)
+                    let quoteInteractionIdResults: Set<FetchablePair<Int64, Int64?>> = try MessageViewModel
                         .quotedInteractionIds(
                             for: interactionIdsNeedingFetch,
                             currentUserSessionIds: currentUserSessionIds
                         )
                         .fetchSet(db)
                     quoteInteractionIdResults.forEach { pair in
-                        fetchedQuoteMap[pair.first] = pair.second
+                        fetchedQuoteMap[pair.first] = MessageViewModel.MaybeUnresolvedQuotedInfo(
+                            foundQuotedInteractionId: pair.second
+                        )
                     }
-                    interactionIdsNeedingFetch += Array(fetchedQuoteMap.values)
+                    interactionIdsNeedingFetch += Array(fetchedQuoteMap.values.compactMap { $0.foundQuotedInteractionId })
                     
                     /// Fetch any records needed
                     fetchedInteractions = try Interaction.fetchAll(db, ids: interactionIdsNeedingFetch)
@@ -847,6 +849,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     if !missingProfileIds.isEmpty {
                         fetchedProfiles = try Profile.fetchAll(db, ids: Array(missingProfileIds))
                     }
+                    
+                    fetchedBlindedIdLookups = try BlindedIdLookup
+                        .filter(ids: Set(fetchedProfiles.map { $0.id }))
+                        .filter(BlindedIdLookup.Columns.sessionId != nil)
+                        .fetchAll(db)
                     
                     /// Fetch any link previews needed
                     let linkPreviewLookupInfo: [(url: String, timestamp: Int64)] = fetchedInteractions.compactMap {
@@ -932,6 +939,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     
                     reactionCache[interactionId, default: []] = reactions
                 }
+                fetchedBlindedIdLookups.forEach { unblindedIdMap[$0.blindedId] = $0.sessionId }
                 let groupedInteractionAttachments: [Int64: Set<InteractionAttachment>] = fetchedInteractionAttachments
                     .grouped(by: \.interactionId)
                     .mapValues { Set($0) }
@@ -986,19 +994,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         
         /// Update the typing indicator state if needed
-        groupedOtherEvents?[.typingIndicator]?.forEach { event in
-            guard let eventValue: TypingIndicatorEvent = event.value as? TypingIndicatorEvent else { return }
-            
-            shouldShowTypingIndicator = (eventValue.change == .started)
+        changes.forEach(.typingIndicator, as: TypingIndicatorEvent.self) { event in
+            shouldShowTypingIndicator = (event.change == .started)
         }
         
         /// Handle optimistic messages
-        groupedOtherEvents?[.updateScreen]?.forEach { event in
-            guard let eventValue: ConversationViewModelEvent = event.value as? ConversationViewModelEvent else {
-                return
-            }
-            
-            switch eventValue {
+        changes.forEach(.updateScreen, as: ConversationViewModelEvent.self) { event in
+            switch event {
                 case .sendMessage(let data):
                     optimisticallyInsertedMessages[data.temporaryId] = data
                     
@@ -1013,11 +1015,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         })
                     }
                     
-                    if let draft: LinkPreviewDraft = data.linkPreviewDraft {
-                        linkPreviewCache[draft.urlString, default: []].append(
+                    if let viewModel: LinkPreviewViewModel = data.linkPreviewViewModel {
+                        linkPreviewCache[viewModel.urlString, default: []].append(
                             LinkPreview(
-                                url: draft.urlString,
-                                title: draft.title,
+                                url: viewModel.urlString,
+                                title: viewModel.title,
                                 attachmentId: nil,    /// Can't save to db optimistically
                                 using: dependencies
                             )
@@ -1036,9 +1038,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                             mostRecentFailureText: "shareExtensionDatabaseError".localized()
                         ),
                         attachmentData: data.attachmentData,
-                        linkPreviewDraft: data.linkPreviewDraft,
+                        linkPreviewViewModel: data.linkPreviewViewModel,
                         linkPreviewPreparedAttachment: data.linkPreviewPreparedAttachment,
-                        quoteModel: data.quoteModel
+                        quoteViewModel: data.quoteViewModel
                     )
                 
                 case .resolveOptimisticMessage(let temporaryId, let databaseId):
@@ -1067,7 +1069,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             let optimisticMessageId: Int64?
             let interaction: Interaction
             let reactionInfo: [MessageViewModel.ReactionInfo]?
-            let quotedInteraction: Interaction?
+            let maybeUnresolvedQuotedInfo: MessageViewModel.MaybeUnresolvedQuotedInfo?
             
             /// Source the interaction data from the appropriate location
             switch id {
@@ -1077,10 +1079,13 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     optimisticMessageId = data.temporaryId
                     interaction = data.interaction
                     reactionInfo = nil  /// Can't react to an optimistic message
-                    quotedInteraction = data.quoteModel.map { model -> Interaction? in
-                        guard let interactionId: Int64 = model.quotedInteractionId else { return nil }
+                    maybeUnresolvedQuotedInfo = data.quoteViewModel.map { model -> MessageViewModel.MaybeUnresolvedQuotedInfo? in
+                        guard let interactionId: Int64 = model.quotedInfo?.interactionId else { return nil }
                         
-                        return quoteMap[interactionId].map { interactionCache[$0] }
+                        return MessageViewModel.MaybeUnresolvedQuotedInfo(
+                            foundQuotedInteractionId: interactionId,
+                            resolvedQuotedInteraction: interactionCache[interactionId]
+                        )
                     }
                     
                 default:
@@ -1103,7 +1108,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                             )
                         }
                     }
-                    quotedInteraction = quoteMap[id].map { interactionCache[$0] }
+                    maybeUnresolvedQuotedInfo = quoteMap[id].map { info in
+                        MessageViewModel.MaybeUnresolvedQuotedInfo(
+                            foundQuotedInteractionId: info.foundQuotedInteractionId,
+                            resolvedQuotedInteraction: info.foundQuotedInteractionId.map { interactionCache[$0] }
+                        )
+                    }
             }
             
             itemCache[id] = MessageViewModel(
@@ -1114,11 +1124,12 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 threadDisappearingConfiguration: threadViewModel.disappearingMessagesConfiguration,
                 interaction: interaction,
                 reactionInfo: reactionInfo,
-                quotedInteraction: quotedInteraction,
+                maybeUnresolvedQuotedInfo: maybeUnresolvedQuotedInfo,
                 profileCache: profileCache,
                 attachmentCache: attachmentCache,
                 linkPreviewCache: linkPreviewCache,
                 attachmentMap: attachmentMap,
+                unblindedIdMap: unblindedIdMap,
                 isSenderModeratorOrAdmin: modAdminCache.contains(interaction.authorId),
                 userSessionId: previousState.userSessionId,
                 currentUserSessionIds: currentUserSessionIds,
@@ -1178,6 +1189,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             reactionCache: reactionCache,
             quoteMap: quoteMap,
             attachmentMap: attachmentMap,
+            unblindedIdMap: unblindedIdMap,
             modAdminCache: modAdminCache,
             itemCache: itemCache,
             titleViewModel: ConversationTitleViewModel(
@@ -1363,10 +1375,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         )
     }
     
-    // MARK: - Mentions
+    // MARK: - Profiles
+    
+    @MainActor public func displayName(for sessionId: String, inMessageBody: Bool) -> String? {
+        return state.profileCache[sessionId]?.displayName(
+            includeSessionIdSuffix: (state.threadVariant == .community && inMessageBody)
+        )
+    }
     
     public func mentions(for query: String = "") async throws -> [MentionSelectionView.ViewModel] {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         let state: State = await self.state
         
         return try await MentionSelectionView.ViewModel.mentions(
@@ -1378,6 +1395,33 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 state.threadViewModel.openGroupRoomToken.map { (server: server, roomToken: $0) }
             },
             using: dependencies
+        )
+    }
+    
+    @MainActor public func draftQuote(for viewModel: MessageViewModel) -> QuoteViewModel {
+        let targetAttachment: Attachment? = (
+            viewModel.attachments.first ??
+            viewModel.linkPreviewAttachment
+        )
+        
+        return QuoteViewModel(
+            mode: .draft,
+            direction: (viewModel.variant == .standardOutgoing ? .outgoing : .incoming),
+            quotedInfo: QuoteViewModel.QuotedInfo(
+                interactionId: viewModel.id,
+                authorId: viewModel.authorId,
+                authorName: viewModel.authorName(),
+                timestampMs: viewModel.timestampMs,
+                body: viewModel.body,
+                attachmentInfo: targetAttachment?.quoteAttachmentInfo(using: dependencies)
+            ),
+            showProBadge: viewModel.profile.proFeatures.contains(.proBadge), /// Quote pro badge is profile data
+            currentUserSessionIds: viewModel.currentUserSessionIds,
+            displayNameRetriever: { [profileCache = state.profileCache] sessionId, inMessageBody in
+                profileCache[sessionId]?.displayName(
+                    includeSessionIdSuffix: (viewModel.threadVariant == .community && inMessageBody)
+                )
+            }
         )
     }
 
@@ -1411,22 +1455,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     @MainActor public func updateDraft(to draft: String) {
         /// Kick off an async process to save the `draft` message to the conversation (don't want to block the UI while doing this,
         /// worst case the `draft` just won't be saved)
-        Task.detached(priority: .userInitiated) { [threadId = state.threadId, dependencies] in
-            let existingDraft: String? = try? await dependencies[singleton: .storage].readAsync { db in
-                try SessionThread
-                    .select(.messageDraft)
-                    .filter(id: threadId)
-                    .asRequest(of: String.self)
-                    .fetchOne(db)
-            }
-            
-            guard draft != existingDraft else { return }
-            
-            _ = try? await dependencies[singleton: .storage].writeAsync { db in
-                try SessionThread
-                    .filter(id: threadId)
-                    .updateAll(db, SessionThread.Columns.messageDraft.set(to: draft))
-            }
+        Task.detached(priority: .userInitiated) { [threadViewModel = state.threadViewModel, dependencies] in
+            do { try await threadViewModel.updateDraft(draft, using: dependencies) }
+            catch { Log.error(.conversation, "Failed to update draft due to error: \(error)") }
         }
     }
     
@@ -1827,12 +1858,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
 
 // MARK: - Convenience
 
-private enum EventDataRequirement {
-    case databaseQuery
-    case other
-    case bothDatabaseQueryAndOther
-}
-
 private extension ObservedEvent {
     var dataRequirement: EventDataRequirement {
         // FIXME: Should be able to optimise this further
@@ -1840,6 +1865,7 @@ private extension ObservedEvent {
             case (_, .loadPage): return .databaseQuery
             case (.anyMessageCreatedInAnyConversation, _): return .databaseQuery
             case (.anyContactBlockedStatusChanged, _): return .databaseQuery
+            case (.anyContactUnblinded, _): return .bothDatabaseQueryAndOther
             case (_, .typingIndicator): return .databaseQuery
             case (_, .conversationUpdated), (_, .conversationDeleted): return .databaseQuery
             case (_, .messageCreated), (_, .messageUpdated), (_, .messageDeleted): return .databaseQuery

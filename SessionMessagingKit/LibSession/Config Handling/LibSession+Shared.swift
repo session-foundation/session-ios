@@ -512,7 +512,7 @@ public extension LibSession.Cache {
             closedGroupName: finalClosedGroupName,
             openGroupName: finalOpenGroupName,
             isNoteToSelf: (threadId == userSessionId.hexString),
-            ignoringNickname: false,
+            ignoreNickname: false,
             profile: finalProfile
         )
     }

@@ -350,13 +350,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     
     lazy var snInputView: InputView = InputView(
         delegate: self,
-        displayNameRetriever: Profile.defaultDisplayNameRetriever(
-            threadVariant: self.viewModel.state.threadVariant,
-            using: self.viewModel.dependencies
-        ),
         imageDataManager: self.viewModel.dependencies[singleton: .imageDataManager],
         linkPreviewManager: self.viewModel.dependencies[singleton: .linkPreviewManager],
-        sessionProState: self.viewModel.dependencies[singleton: .sessionProState],
+        sessionProManager: self.viewModel.dependencies[singleton: .sessionProManager],
         didLoadLinkPreview: nil
     )
     
@@ -497,10 +493,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         preconditionFailure("Use init(thread:) instead.")
     }
     
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-    
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
@@ -574,13 +566,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         // Gesture
         view.addGestureRecognizer(tableViewTapGesture)
-
-        // Notifications
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(applicationDidResignActive(_:)),
-            name: UIApplication.didEnterBackgroundNotification, object: nil
-        )
 
         self.viewModel.navigatableState.setupBindings(viewController: self, disposables: &self.viewModel.disposables)
         
@@ -733,58 +718,27 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         updateUnreadCountView(unreadCount: state.threadViewModel.threadUnreadCount)
         snInputView.setMessageInputState(state.messageInputState)
 
-//        if
-//            initialLoad ||
-//            viewModel.threadData.threadCanWrite != updatedThreadData.threadCanWrite ||
-//            viewModel.threadData.threadVariant != updatedThreadData.threadVariant ||
-//            viewModel.threadData.threadIsMessageRequest != updatedThreadData.threadIsMessageRequest ||
-//            viewModel.threadData.threadRequiresApproval != updatedThreadData.threadRequiresApproval ||
-//            viewModel.threadData.closedGroupAdminProfile != updatedThreadData.closedGroupAdminProfile
-//        {
-//            UIView.animate(withDuration: 0.3) { [weak self] in
-//                self?.messageRequestFooterView.update(
-//                    threadVariant: updatedThreadData.threadVariant,
-//                    canWrite: (updatedThreadData.threadCanWrite == true),
-//                    threadIsMessageRequest: (updatedThreadData.threadIsMessageRequest == true),
-//                    threadRequiresApproval: (updatedThreadData.threadRequiresApproval == true),
-//                    closedGroupAdminProfile: updatedThreadData.closedGroupAdminProfile
-//                )
-//            }
-//        }
+        messageRequestFooterView.update(
+            threadVariant: state.threadVariant,
+            canWrite: (state.threadViewModel.threadCanWrite == true),
+            threadIsMessageRequest: (state.threadViewModel.threadIsMessageRequest == true),
+            threadRequiresApproval: (state.threadViewModel.threadRequiresApproval == true),
+            closedGroupAdminProfile: state.threadViewModel.closedGroupAdminProfile
+        )
         
         // Only set the draft content on the initial load (once we have data)
         if !initialLoadComplete, let draft: String = state.threadViewModel.threadMessageDraft, !draft.isEmpty {
-            let (string, mentions) = MentionUtilities.getMentions(
+            let (string, _) = MentionUtilities.getMentions(
                 in: draft,
                 currentUserSessionIds: state.currentUserSessionIds,
-                displayNameRetriever: { sessionId, _ in
+                displayNameRetriever: { [weak self] sessionId, inMessageBody in
                     // TODO: [PRO] Replicate this behaviour everywhere
-                    state.profileCache[sessionId]?.displayName(for: state.threadVariant)
+                    self?.viewModel.displayName(for: sessionId, inMessageBody: inMessageBody)
                 }
             )
+            
             snInputView.text = string
             snInputView.updateNumberOfCharactersLeft(draft)
-            
-            // Fetch the mention info asynchronously
-            if !mentions.isEmpty {
-                // TODO: [PRO] Should source these and return them as part of the viewModel
-//                let adminModMembers: [GroupMember] = try openGroupManager.membersWhere(
-//                    db,
-//                    currentUserSessionIds: (updatedThreadData.currentUserSessionIds ?? []),
-//                    .groupIds([OpenGroup.idFor(roomToken: roomToken, server: server)]),
-//                    .publicKeys(profiles.map { $0.id }),
-//                    .roles([.moderator, .admin])
-//                )
-                self.mentions = MentionSelectionView.ViewModel.mentions(
-                    profiles: mentions.map { _, profileId, _ in
-                        state.profileCache[profileId] ?? Profile.defaultFor(profileId)
-                    },
-                    threadVariant: state.threadVariant,
-                    currentUserSessionIds: state.currentUserSessionIds,
-                    adminModMembers: [],
-                    using: viewModel.dependencies
-                )
-            }
         }
         
         // Update the table content
@@ -1324,13 +1278,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             return
         }
         
-        let profileDisplayName: String = (viewModel.state.profileCache[outdatedMemberId] ?? Profile.defaultFor(outdatedMemberId)).displayName(
-            for: self.viewModel.state.threadVariant,
-            suppressId: true
-        )
         self.outdatedClientBanner.update(
             message: "disappearingMessagesLegacy"
-                .put(key: "name", value: profileDisplayName)
+                .put(key: "name", value: (viewModel.displayName(for: outdatedMemberId, inMessageBody: true) ?? outdatedMemberId.truncated()))
                 .localizedFormatted(baseFont: self.outdatedClientBanner.font),
             onTap: { [weak self] in self?.removeOutdatedClientBanner() }
         )
@@ -1405,6 +1355,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                         .contains(cellViewModel.id),
                     lastSearchText: viewModel.lastSearchedText,
                     tableSize: tableView.bounds.size,
+                    displayNameRetriever: { [weak self] sessionId, inMessageBody in
+                        self?.viewModel.displayName(for: sessionId, inMessageBody: inMessageBody)
+                    },
                     using: viewModel.dependencies
                 )
                 cell.delegate = self

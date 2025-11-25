@@ -153,7 +153,7 @@ public enum GroupInviteMemberJob: JobExecutor {
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {
         let memberZeroName: String = memberIds.first
-            .map { profileInfo[$0]?.displayName(for: .group) ?? $0.truncated() }
+            .map { profileInfo[$0]?.displayName() ?? $0.truncated() }
             .defaulting(to: "anonymous".localized())
         
         switch memberIds.count {
@@ -165,7 +165,7 @@ public enum GroupInviteMemberJob: JobExecutor {
 
             case 2:
                 let memberOneName: String = (
-                    profileInfo[memberIds[1]]?.displayName(for: .group) ??
+                    profileInfo[memberIds[1]]?.displayName() ??
                     memberIds[1].truncated()
                 )
                 
@@ -259,7 +259,7 @@ public extension GroupInviteMemberJob {
                     }
                     let sortedFailedMemberIds: [String] = failedMemberIds.sorted { lhs, rhs in
                         // Sort by name, followed by id if names aren't present
-                        switch (profileMap[lhs]?.displayName(for: .group), profileMap[rhs]?.displayName(for: .group)) {
+                        switch (profileMap[lhs]?.displayName(), profileMap[rhs]?.displayName()) {
                             case (.some(let lhsName), .some(let rhsName)): return lhsName < rhsName
                             case (.some, .none): return true
                             case (.none, .some): return false

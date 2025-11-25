@@ -24,6 +24,7 @@ public struct AnimatedToggle: View {
         Toggle("", isOn: $uiValue)
             .labelsHidden()
             .accessibility(accessibility)
+            .tint(themeColor: .primary)
             .task {
                 guard (oldValue ?? value) != value else { return }
                 try? await Task.sleep(nanoseconds: 10_000_000) // ~10ms

@@ -406,11 +406,9 @@ public extension UIContextualAction {
                                 switch threadViewModel.threadVariant {
                                     case .group:
                                         return Profile.displayName(
-                                            for: .contact,
                                             id: profileInfo.id,
                                             name: profileInfo.profile?.name,
-                                            nickname: profileInfo.profile?.nickname,
-                                            suppressId: false
+                                            nickname: profileInfo.profile?.nickname
                                         )
                                         
                                     default: return threadViewModel.displayName

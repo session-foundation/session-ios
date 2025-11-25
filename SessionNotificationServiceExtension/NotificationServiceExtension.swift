@@ -394,7 +394,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         let currentUserSessionIds: Set<String> = [userSessionId.hexString]
         
         /// Define the `displayNameRetriever` so it can be reused
-        let displayNameRetriever: (String, Bool) -> String? = { [dependencies] sessionId, isInMessageBody in
+        let displayNameRetriever: DisplayNameRetriever = { [dependencies] sessionId, inMessageBody in
             (dependencies
                 .mutate(cache: .libSession) { cache in
                     cache.profile(
@@ -405,8 +405,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     )
                 }?
                 .displayName(
-                    for: threadVariant,
-                    suppressId: !isInMessageBody  /// Don't want to show the id in a PN unless it's part of the body
+                    /// Don't want to show the id in a PN unless it's part of the body
+                    includeSessionIdSuffix: (threadVariant == .community && inMessageBody)
                 ))
                 .defaulting(to: sessionId.truncated())
         }
@@ -680,7 +680,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         groupIdentitySeed: Data?,
         messageInfo: MessageReceiveJob.Details.MessageInfo,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?
+        displayNameRetriever: DisplayNameRetriever
     ) throws {
         typealias GroupInfo = (
             wasMessageRequest: Bool,
@@ -927,7 +927,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         threadVariant: SessionThread.Variant,
         messageInfo: MessageReceiveJob.Details.MessageInfo,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?
+        displayNameRetriever: DisplayNameRetriever
     ) throws {
         /// Since we are going to save the message and generate deduplication files we need to determine whether we would want
         /// to show the message in case it is a message request (this is done by checking if there are already any dedupe records
@@ -1130,7 +1130,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         callMessage: CallMessage,
         sender: String,
         sentTimestampMs: UInt64,
-        displayNameRetriever: @escaping (String, Bool) -> String?
+        displayNameRetriever: @escaping DisplayNameRetriever
     ) {
         guard Preferences.isCallKitSupported else {
             return handleFailureForVoIP(
@@ -1145,8 +1145,10 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             VoipPayloadKey.uuid.rawValue: callMessage.uuid,
             VoipPayloadKey.caller.rawValue: sender,
             VoipPayloadKey.timestamp.rawValue: sentTimestampMs,
-            VoipPayloadKey.contactName.rawValue: displayNameRetriever(sender, false)
-                .defaulting(to: sender.truncated(threadVariant: threadVariant))
+            VoipPayloadKey.contactName.rawValue: (
+                displayNameRetriever(sender, false) ??
+                sender.truncated()
+            )
         ]
         
         CXProvider.reportNewIncomingVoIPPushPayload(payload) { [weak self, dependencies] error in
@@ -1170,7 +1172,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         _ notification: ProcessedNotification,
         threadVariant: SessionThread.Variant,
         callMessage: CallMessage,
-        displayNameRetriever: (String, Bool) -> String?
+        displayNameRetriever: DisplayNameRetriever
     ) {
         let content: UNMutableNotificationContent = UNMutableNotificationContent()
         content.userInfo = [ NotificationUserInfoKey.isFromRemote: true ]

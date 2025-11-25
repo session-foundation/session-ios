@@ -4,7 +4,7 @@ import Foundation
 import SessionUtil
 
 public extension Network.SessionPro {
-    enum PaymentStatus: CaseIterable {
+    enum PaymentStatus: Sendable, Equatable, Hashable, CaseIterable {
         case none
         case unredeemed
         case redeemed

@@ -200,12 +200,9 @@ public extension Profile {
     static func displayName(
         _ db: ObservingDatabase,
         id: ID,
-        threadVariant: SessionThread.Variant = .contact,
-        suppressId: Bool = false,
         customFallback: String? = nil
     ) -> String {
-        let existingDisplayName: String? = (try? Profile.fetchOne(db, id: id))?
-            .displayName(for: threadVariant, suppressId: suppressId)
+        let existingDisplayName: String? = (try? Profile.fetchOne(db, id: id))?.displayName()
         
         return (existingDisplayName ?? (customFallback ?? id))
     }
@@ -216,8 +213,7 @@ public extension Profile {
         threadVariant: SessionThread.Variant = .contact,
         suppressId: Bool = false
     ) -> String? {
-        return (try? Profile.fetchOne(db, id: id))?
-            .displayName(for: threadVariant, suppressId: suppressId)
+        return (try? Profile.fetchOne(db, id: id))?.displayName()
     }
     
     // MARK: - Fetch or Create
@@ -255,15 +251,13 @@ public extension Profile {
     @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
     static func displayName(
         id: ID,
-        threadVariant: SessionThread.Variant = .contact,
-        suppressId: Bool = false,
         customFallback: String? = nil,
         using dependencies: Dependencies
     ) -> String {
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         var displayName: String?
         dependencies[singleton: .storage].readAsync(
-            retrieve: { db in Profile.displayName(db, id: id, threadVariant: threadVariant, suppressId: suppressId) },
+            retrieve: { db in Profile.displayName(db, id: id) },
             completion: { result in
                 switch result {
                     case .failure: break
@@ -303,7 +297,7 @@ public extension Profile {
     static func defaultDisplayNameRetriever(
         threadVariant: SessionThread.Variant = .contact,
         using dependencies: Dependencies
-    ) -> ((String, Bool) -> String?) {
+    ) -> (DisplayNameRetriever) {
         // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
         return { sessionId, _ in
             Profile.displayNameNoFallback(
@@ -334,54 +328,53 @@ public extension Profile {
 // MARK: - Convenience
 
 public extension Profile {
-    func displayNameForMention(
-        for threadVariant: SessionThread.Variant = .contact,
-        ignoringNickname: Bool = false,
-        currentUserSessionIds: Set<String> = []
-    ) -> String {
-        guard !currentUserSessionIds.contains(id) else {
-            return "you".localized()
-        }
-        return displayName(for: threadVariant, ignoringNickname: ignoringNickname)
-    }
-    
     /// The name to display in the UI for a given thread variant
     func displayName(
-        for threadVariant: SessionThread.Variant = .contact,
         messageProfile: VisibleMessage.VMProfile? = nil,
-        ignoringNickname: Bool = false,
-        suppressId: Bool = false
+        ignoreNickname: Bool = false,
+        showYouForCurrentUser: Bool = true,
+        currentUserSessionIds: Set<String> = [],
+        includeSessionIdSuffix: Bool = false
     ) -> String {
         return Profile.displayName(
-            for: threadVariant,
             id: id,
             name: (messageProfile?.displayName?.nullIfEmpty ?? name),
-            nickname: (ignoringNickname ? nil : nickname),
-            suppressId: suppressId
+            nickname: (ignoreNickname ? nil : nickname),
+            showYouForCurrentUser: showYouForCurrentUser,
+            currentUserSessionIds: currentUserSessionIds,
+            includeSessionIdSuffix: includeSessionIdSuffix
         )
     }
     
     static func displayName(
-        for threadVariant: SessionThread.Variant,
         id: String,
         name: String?,
         nickname: String?,
-        suppressId: Bool,
+        showYouForCurrentUser: Bool = true,
+        currentUserSessionIds: Set<String> = [],
+        includeSessionIdSuffix: Bool = false,
         customFallback: String? = nil
     ) -> String {
-        if let nickname: String = nickname, !nickname.isEmpty { return nickname }
-        
-        guard let name: String = name, name != id, !name.isEmpty else {
-            return (customFallback ?? id.truncated(threadVariant: threadVariant))
+        if showYouForCurrentUser && currentUserSessionIds.contains(id) {
+            return "you".localized()
         }
         
-        switch (threadVariant, suppressId) {
-            case (.contact, _), (.legacyGroup, _), (.group, _), (.community, true): return name
+        // stringlint:ignore_contents
+        switch (nickname, name, customFallback, includeSessionIdSuffix) {
+            case (.some(let value), _, _, false) where !value.isEmpty,
+                (_, .some(let value), _, false) where !value.isEmpty,
+                (_, _, .some(let value), false) where !value.isEmpty:
+                return value
                 
-            case (.community, false):
-                // In open groups, where it's more likely that multiple users have the same name,
-                // we display a bit of the Session ID after a user's display name for added context
-                return "\(name) (\(id.truncated()))"
+            case (.some(let value), _, _, true) where !value.isEmpty,
+                (_, .some(let value), _, true) where !value.isEmpty,
+                (_, _, .some(let value), true) where !value.isEmpty:
+                return (Dependencies.isRTL ?
+                    "(\(id.truncated(prefix: 4, suffix: 4))) \(value)" :
+                    "​\(value) (\(id.truncated(prefix: 4, suffix: 4)))"
+                )
+            
+            default: return id.truncated(prefix: 4, suffix: 4)
         }
     }
 }

@@ -2159,7 +2159,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     displayName: (
                         /// **Note:** We want to use the `profile` directly rather than `threadViewModel.displayName`
                         /// as the latter would use the `nickname` here which is incorrect
-                        threadViewModel.profile?.displayName(ignoringNickname: true) ??
+                        threadViewModel.profile?.displayName(ignoreNickname: true) ??
                         threadViewModel.threadId.truncated()
                     )
                 )

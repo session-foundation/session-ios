@@ -188,7 +188,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
             closedGroupName: closedGroupName,
             openGroupName: openGroupName,
             isNoteToSelf: threadIsNoteToSelf,
-            ignoringNickname: false,
+            ignoreNickname: false,
             profile: profile
         )
     }
@@ -200,7 +200,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
             closedGroupName: closedGroupName,
             openGroupName: openGroupName,
             isNoteToSelf: threadIsNoteToSelf,
-            ignoringNickname: true,
+            ignoreNickname: true,
             profile: profile
         )
     }
@@ -244,38 +244,6 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         return Date(timeIntervalSince1970: TimeInterval(Double(interactionTimestampMs) / 1000))
     }
     
-    public var messageInputState: InputView.InputState {
-        guard !threadIsNoteToSelf else { return InputView.InputState(inputs: .all) }
-        guard threadIsBlocked != true else {
-            return InputView.InputState(
-                inputs: .disabled,
-                message: "blockBlockedDescription".localized(),
-                messageAccessibility: Accessibility(
-                    identifier: "Blocked banner"
-                )
-            )
-        }
-        
-        if threadVariant == .community && threadCanWrite == false {
-            return InputView.InputState(
-                inputs: .disabled,
-                message: "permissionsWriteCommunity".localized()
-            )
-        }
-        
-        /// Attachments shouldn't be allowed for message requests or if uploads are disabled
-        let finalInputs: InputView.Input
-        
-        switch (threadRequiresApproval, threadIsMessageRequest, threadCanUpload) {
-            case (false, false, true): finalInputs = .all
-            default: finalInputs = [.text, .attachmentsDisabled, .voiceMessagesDisabled]
-        }
-        
-        return InputView.InputState(
-            inputs: finalInputs
-        )
-    }
-    
     public var userCount: Int? {
         switch threadVariant {
             case .contact: return nil
@@ -291,12 +259,10 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     /// parameter
     public func threadContactName() -> String {
         return Profile.displayName(
-            for: .contact,
             id: threadId,
             name: threadContactNameInternal,
             nickname: nil,      // Folded into 'threadContactNameInternal' within the Query
-            suppressId: true,   // Don't include the account id in the name in the conversation list
-            customFallback: "Anonymous"
+            customFallback: "anonymous".localized()
         )
     }
     
@@ -307,13 +273,11 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     /// parameter
     public func authorName(for threadVariant: SessionThread.Variant) -> String {
         return Profile.displayName(
-            for: threadVariant,
             id: (authorId ?? threadId),
             name: authorNameInternal,
             nickname: nil,      // Folded into 'authorName' within the Query
-            suppressId: true,   // Don't include the account id in the name in the conversation list
             customFallback: (threadVariant == .contact ?
-                "Anonymous" :
+                "anonymous".localized() :
                 nil
             )
         )
@@ -422,6 +386,28 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
                     using: dependencies
                 )
             db.addConversationEvent(id: threadId, type: .updated(.markedAsUnread(true)))
+        }
+    }
+    
+    // MARK: - Draft
+    
+    public func updateDraft(_ draft: String, using dependencies: Dependencies) async throws {
+        let threadId: String = self.threadId
+        let existingDraft: String = (try await dependencies[singleton: .storage].readAsync { db in
+            try SessionThread
+                .select(.messageDraft)
+                .filter(id: threadId)
+                .asRequest(of: String.self)
+                .fetchOne(db)
+        } ?? "")
+        
+        guard draft != existingDraft else { return }
+        
+        try await dependencies[singleton: .storage].writeAsync { db in
+            try SessionThread
+                .filter(id: threadId)
+                .updateAll(db, SessionThread.Columns.messageDraft.set(to: draft))
+            db.addConversationEvent(id: threadId, type: .updated(.draft(draft)))
         }
     }
     

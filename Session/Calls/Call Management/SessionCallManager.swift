@@ -209,11 +209,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             let call: SessionCall = dependencies[singleton: .storage].read({ [dependencies] db in
                 SessionCall(
                     for: caller,
-                    contactName: Profile.displayName(
-                        db,
-                        id: caller,
-                        threadVariant: .contact
-                    ),
+                    contactName: Profile.displayName(db, id: caller),
                     uuid: uuid,
                     mode: mode,
                     using: dependencies

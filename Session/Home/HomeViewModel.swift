@@ -619,8 +619,7 @@ public class HomeViewModel: NavigatableStateHolder {
         ].flatMap { $0 }
     }
     
-    @MainActor
-    func viewDidAppear() {
+    @MainActor func viewDidAppear() {
         if state.pendingAppReviewPromptState != nil {
             // Handle App review
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
@@ -636,7 +635,7 @@ public class HomeViewModel: NavigatableStateHolder {
         willShowCameraPermissionReminder()
         
         // Pro expiring/expired CTA
-        showSessionProCTAIfNeeded()
+        Task { await showSessionProCTAIfNeeded() }
     }
 
     func scheduleAppReviewRetry() {
@@ -645,36 +644,49 @@ public class HomeViewModel: NavigatableStateHolder {
             .addingTimeInterval(2 * 7 * 24 * 60 * 60)
     }
     
-    func showSessionProCTAIfNeeded() {
-        switch dependencies[singleton: .sessionProState].sessionProStateSubject.value {
-            case .none, .refunding:
+    @MainActor func showSessionProCTAIfNeeded() async {
+        switch dependencies[singleton: .sessionProManager].currentUserCurrentBackendProStatus {
+            case .none, .neverBeenPro:
                 return
-            case .active(_, let expiredOn, _ , _):
-                let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
+            
+            case .active:
+                let expiryInSeconds: TimeInterval = (await dependencies[singleton: .sessionProManager]
+                    .accessExpiryTimestampMs
+                    .first()
+                    .map { value in value.map { Date(timeIntervalSince1970: (Double($0) / 1000)) } }
+                    .map { $0.timeIntervalSince(dependencies.dateNow) } ?? 0)
                 guard expiryInSeconds <= 7 * 24 * 60 * 60 else { return }
                 guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
-                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                        .expiring(timeLeft: expiryInSeconds.formatted(format: .long, allowedUnits: [ .day, .hour, .minute ])),
-                        presenting: { modal in
-                            dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
-                            self?.transitionToScreen(modal, transitionType: .present)
-                        }
-                    )
-                }
-            case .expired(let expiredOn, _):
-                let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
+                
+                try? await Task.sleep(for: .seconds(1)) /// Cooperative suspension, so safe to call on main thread
+                
+                dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                    .expiring(timeLeft: expiryInSeconds.formatted(format: .long, allowedUnits: [ .day, .hour, .minute ])),
+                    presenting: { [weak self, dependencies] modal in
+                        dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
+                        self?.transitionToScreen(modal, transitionType: .present)
+                    }
+                )
+                
+            case .expired:
+                let expiryInSeconds: TimeInterval = (await dependencies[singleton: .sessionProManager]
+                    .accessExpiryTimestampMs
+                    .first()
+                    .map { value in value.map { Date(timeIntervalSince1970: (Double($0) / 1000)) } }
+                    .map { $0.timeIntervalSince(dependencies.dateNow) } ?? 0)
+                
                 guard expiryInSeconds <= 30 * 24 * 60 * 60 else { return }
                 guard !dependencies[defaults: .standard, key: .hasShownProExpiredCTA] else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
-                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                        .expiring(timeLeft: nil),
-                        presenting: { modal in
-                            dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = true
-                            self?.transitionToScreen(modal, transitionType: .present)
-                        }
-                    )
-                }
+                
+                try? await Task.sleep(for: .seconds(1)) /// Cooperative suspension, so safe to call on main thread
+                
+                dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                    .expiring(timeLeft: nil),
+                    presenting: { [weak self, dependencies] modal in
+                        dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = true
+                        self?.transitionToScreen(modal, transitionType: .present)
+                    }
+                )
         }
     }
     

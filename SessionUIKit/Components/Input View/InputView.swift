@@ -56,17 +56,16 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     private static let linkPreviewViewInset: CGFloat = 6
     private static let thresholdForCharacterLimit: Int = 200
 
-    private var disposables: Set<AnyCancellable> = Set()
     private let imageDataManager: ImageDataManagerType
     private let linkPreviewManager: LinkPreviewManagerType
     private let didLoadLinkPreview: (@MainActor (LinkPreviewViewModel.LoadResult) -> Void)?
-    private let displayNameRetriever: (String, Bool) -> String?
     private let onQuoteCancelled: (() -> Void)?
     private weak var delegate: InputViewDelegate?
-    private var sessionProState: SessionProCTAManagerType?
+    private var sessionProManager: SessionProUIManagerType?
     
     public var quoteViewModel: QuoteViewModel? { didSet { handleQuoteDraftChanged() } }
     public var linkPreviewViewModel: LinkPreviewViewModel?
+    private var proStatusObservationTask: Task<Void, Never>?
     private var linkPreviewLoadTask: Task<Void, Never>?
     private var voiceMessageRecordingView: VoiceMessageRecordingView?
     private lazy var mentionsViewHeightConstraint = mentionsView.set(.height, to: 0)
@@ -236,21 +235,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     }()
     
     private lazy var quoteView: QuoteView = QuoteView(
-        viewModel: QuoteViewModel(
-            mode: .draft,
-            direction: .outgoing,
-            currentUserSessionIds: [],
-            rowId: 0,
-            interactionId: nil,
-            authorId: "",
-            showProBadge: false,
-            timestampMs: 0,
-            quotedInteractionId: 0,
-            quotedInteractionIsDeleted: false,
-            quotedText: nil,
-            quotedAttachmentInfo: nil,
-            displayNameRetriever: displayNameRetriever
-        ),
+        viewModel: .emptyDraft,
         dataManager: imageDataManager,
         onCancel: { [weak self] in
             self?.quoteViewModel = nil
@@ -356,18 +341,16 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     
     public init(
         delegate: InputViewDelegate,
-        displayNameRetriever: @escaping (String, Bool) -> String?,
         imageDataManager: ImageDataManagerType,
         linkPreviewManager: LinkPreviewManagerType,
-        sessionProState: SessionProCTAManagerType?,
+        sessionProManager: SessionProUIManagerType?,
         onQuoteCancelled: (() -> Void)? = nil,
         didLoadLinkPreview: (@MainActor (LinkPreviewViewModel.LoadResult) -> Void)?
     ) {
         self.imageDataManager = imageDataManager
         self.linkPreviewManager = linkPreviewManager
         self.delegate = delegate
-        self.displayNameRetriever = displayNameRetriever
-        self.sessionProState = sessionProState
+        self.sessionProManager = sessionProManager
         self.didLoadLinkPreview = didLoadLinkPreview
         self.onQuoteCancelled = onQuoteCancelled
         
@@ -375,16 +358,17 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         
         setUpViewHierarchy()
         
-        self.sessionProState?.isSessionProPublisher
-            .subscribe(on: DispatchQueue.main)
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveValue: { [weak self] isPro in
+        self.proStatusObservationTask = Task(priority: .userInitiated) { [weak self] in
+            guard let sessionProManager else { return }
+            
+            for await isPro in sessionProManager.currentUserIsPro {
+                await MainActor.run { [weak self] in
+                    /// The pro badge is a button to prompt a pro upgrade so hide it when already pro
                     self?.sessionProBadge.isHidden = isPro
                     self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
                 }
-            )
-            .store(in: &disposables)
+            }
+        }
     }
 
     override init(frame: CGRect) {
@@ -397,6 +381,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     
     deinit {
         linkPreviewLoadTask?.cancel()
+        proStatusObservationTask?.cancel()
     }
 
     private func setUpViewHierarchy() {
@@ -628,8 +613,14 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         disabledInputLabel.accessibilityLabel = updatedInputState.messageAccessibility?.label
         
         disabledInputTapGestureRecognizer.isEnabled = (updatedInputState.inputs.isEmpty)
-        attachmentsButtonContainer.isHidden = !updatedInputState.inputs.contains(.attachments)
-        voiceMessageButtonContainer.isHidden = !updatedInputState.inputs.contains(.voiceMessages)
+        attachmentsButtonContainer.isHidden = (
+            !updatedInputState.inputs.contains(.attachments) &&
+            !updatedInputState.inputs.contains(.attachmentsDisabled)
+        )
+        voiceMessageButtonContainer.isHidden = (
+            !updatedInputState.inputs.contains(.voiceMessages) &&
+            !updatedInputState.inputs.contains(.voiceMessagesDisabled)
+        )
         attachmentsButton.isSoftDisabled = updatedInputState.inputs.contains(.attachmentsDisabled)
         voiceMessageButton.isSoftDisabled = updatedInputState.inputs.contains(.voiceMessagesDisabled)
 

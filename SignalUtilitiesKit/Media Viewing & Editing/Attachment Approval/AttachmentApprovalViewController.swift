@@ -224,13 +224,9 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private lazy var snInputView: InputView = {
         let result: InputView = InputView(
             delegate: self,
-            displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                threadVariant: threadVariant,
-                using: dependencies
-            ),
             imageDataManager: dependencies[singleton: .imageDataManager],
             linkPreviewManager: dependencies[singleton: .linkPreviewManager],
-            sessionProState: dependencies[singleton: .sessionProState],
+            sessionProManager: dependencies[singleton: .sessionProManager],
             onQuoteCancelled: onQuoteCancelled,
             didLoadLinkPreview: { [weak self] result in
                 self?.didLoadLinkPreview?(result)

@@ -455,7 +455,7 @@ extension ReactionListSheet: UITableViewDelegate, UITableViewDataSource {
                 leadingAccessory: .profile(id: authorId, profile: cellViewModel.profile),
                 title: (
                     cellViewModel.profile?.displayName() ??
-                    authorId.truncated(threadVariant: self.messageViewModel?.threadVariant ?? .contact)
+                    authorId.truncated()
                 ),
                 trailingAccessory: (!canRemoveEmoji ? nil :
                         .icon(

@@ -26,94 +26,111 @@ public extension SessionProPaymentScreenContent {
         
         var description: ThemedAttributedString {
             switch self {
-            case .purchase:
-                "proChooseAccess"
-                    .put(key: "pro", value: Constants.pro)
-                    .localizedFormatted(Fonts.Body.baseRegular)
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _):
-                isAutoRenewing ?
-                    "proAccessActivatesAuto"
+                case .purchase:
+                    return "proChooseAccess"
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(Fonts.Body.baseRegular)
+                
+                case .update(let currentPlan, let expiredOn, let isAutoRenewing, _):
+                    guard isAutoRenewing else {
+                        return "proAccessActivatedNotAuto"
+                            .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(Fonts.Body.baseRegular)
+                    }
+                    
+                    return "proAccessActivatesAuto"
                         .put(key: "current_plan_length", value: currentPlan.durationString)
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
-                        .localizedFormatted(Fonts.Body.baseRegular) :
-                    "proAccessActivatedNotAuto"
-                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                        .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
-            case .renew:
-                "proAccessRenewStart"
-                    .put(key: "app_pro", value: Constants.app_pro)
-                    .put(key: "pro", value: Constants.pro)
-                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
-            case .refund:
-                "proRefundDescription"
-                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
-            case .cancel:
-                "proCancelSorry"
-                    .put(key: "pro", value: Constants.pro)
-                    .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                
+                case .renew:
+                    return "proAccessRenewStart"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                
+                case .refund:
+                    return "proRefundDescription"
+                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                
+                case .cancel:
+                    return "proCancelSorry"
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
             }
         }
     }
     
     enum ClientPlatform: Equatable {
         case iOS
-        case Android
+        case android
         
         public var store: String {
             switch self {
                 case .iOS: return Constants.platform_store
-                case .Android: return Constants.android_platform_store
+                case .android: return Constants.android_platform_store
             }
         }
         
         public var account: String {
             switch self {
                 case .iOS: return Constants.platform_account
-                case .Android: return Constants.android_platform_account
+                case .android: return Constants.android_platform_account
             }
         }
         
         public var deviceType: String {
             switch self {
                 case .iOS: return Constants.platform
-                case .Android: return Constants.android_platform
+                case .android: return Constants.android_platform
             }
         }
         
         public var name: String {
             switch self {
                 case .iOS: return Constants.platform_name
-                case .Android: return Constants.android_platform_name
+                case .android: return Constants.android_platform_name
             }
         }
     }
     
     struct SessionProPlanInfo: Equatable {
         public let duration: Int
-        var durationString: String {
-            let formatter = DateComponentsFormatter()
-            formatter.unitsStyle = .full
-            formatter.allowedUnits = [.month]
-            let components = DateComponents(month: self.duration)
-            return (formatter.string(from: components) ?? "\(self.duration) Months")
-        }
-        var durationStringSingular: String {
-            let formatter = DateComponentsFormatter()
-            formatter.unitsStyle = .full
-            formatter.allowedUnits = [.month]
-            formatter.maximumUnitCount = 1
-            let components = DateComponents(month: self.duration)
-            return (formatter.string(from: components) ?? "\(self.duration) Month")
-        }
         let totalPrice: Double
         let pricePerMonth: Double
         let discountPercent: Int?
         let titleWithPrice: String
         let subtitleWithPrice: String
         
-        public init(duration: Int, totalPrice: Double, pricePerMonth: Double, discountPercent: Int?, titleWithPrice: String, subtitleWithPrice: String) {
+        var durationString: String {
+            let components = DateComponents(month: self.duration)
+            let formatter = DateComponentsFormatter()
+            formatter.unitsStyle = .full
+            formatter.allowedUnits = [.month]
+            
+            return (formatter.string(from: components) ?? "\(self.duration) Months")
+        }
+        
+        var durationStringSingular: String {
+            let components = DateComponents(month: self.duration)
+            let formatter = DateComponentsFormatter()
+            formatter.unitsStyle = .full
+            formatter.allowedUnits = [.month]
+            formatter.maximumUnitCount = 1
+            
+            return (formatter.string(from: components) ?? "\(self.duration) Month")
+        }
+        
+        public init(
+            duration: Int,
+            totalPrice: Double,
+            pricePerMonth: Double,
+            discountPercent: Int?,
+            titleWithPrice: String,
+            subtitleWithPrice: String
+        ) {
             self.duration = duration
             self.totalPrice = totalPrice
             self.pricePerMonth = pricePerMonth

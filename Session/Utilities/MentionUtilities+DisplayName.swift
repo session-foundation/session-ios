@@ -22,26 +22,4 @@ public extension MentionUtilities {
             )
         )
     }
-        
-    static func highlightMentions(
-        in string: String,
-        threadVariant: SessionThread.Variant,
-        currentUserSessionIds: Set<String>,
-        location: MentionLocation,
-        textColor: ThemeValue,
-        attributes: [NSAttributedString.Key: Any],
-        using dependencies: Dependencies
-    ) -> ThemedAttributedString {
-        return MentionUtilities.highlightMentions(
-            in: string,
-            currentUserSessionIds: currentUserSessionIds,
-            location: location,
-            textColor: textColor,
-            attributes: attributes,
-            displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                threadVariant: threadVariant,
-                using: dependencies
-            )
-        )
-    }
 }

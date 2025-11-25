@@ -67,6 +67,7 @@ final class UnreadMarkerCell: MessageCell {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
+        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         guard cellViewModel.cellType == .unreadMarker else { return }

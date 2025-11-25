@@ -94,6 +94,7 @@ final class InfoMessageCell: MessageCell {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
+        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         guard cellViewModel.variant.isInfoMessage else { return }

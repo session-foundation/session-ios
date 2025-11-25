@@ -27,6 +27,7 @@ final class ThemeMessagePreviewView: UIView {
             shouldExpanded: false,
             lastSearchText: nil,
             tableSize: UIScreen.main.bounds.size,
+            displayNameRetriever: { _, _ in nil },
             using: dependencies
         )
         cell.contentHStack.removeFromSuperview()
@@ -49,6 +50,7 @@ final class ThemeMessagePreviewView: UIView {
             shouldExpanded: false,
             lastSearchText: nil,
             tableSize: UIScreen.main.bounds.size,
+            displayNameRetriever: { _, _ in nil },
             using: dependencies
         )
         cell.contentHStack.removeFromSuperview()

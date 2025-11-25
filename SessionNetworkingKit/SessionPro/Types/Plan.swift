@@ -4,7 +4,7 @@ import Foundation
 import SessionUtil
 
 public extension Network.SessionPro {
-    enum Plan: CaseIterable {
+    enum Plan: Sendable, Equatable, Hashable, CaseIterable {
         case none
         case oneMonth
         case threeMonths

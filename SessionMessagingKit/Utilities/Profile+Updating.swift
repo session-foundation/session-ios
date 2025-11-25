@@ -288,25 +288,6 @@ public extension Profile {
                 default: break
             }
             
-            /// Update the pro state based on whether the updated display picture is animated or not
-            if isCurrentUser, case .currentUserUpdateTo(_, _, let type) = displayPictureUpdate {
-                switch type {
-                    case .staticImage:
-                        updatedProState = ProfileProState(
-                            features: updatedProState.features.removing(.animatedAvatar),
-                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
-                            genIndexHashHex: updatedProState.genIndexHashHex
-                        )
-                    case .animatedImage:
-                        updatedProState = ProfileProState(
-                            features: updatedProState.features.inserting(.animatedAvatar),
-                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
-                            genIndexHashHex: updatedProState.genIndexHashHex
-                        )
-                    case .reupload, .config: break  /// Don't modify the current state
-                }
-            }
-            
             /// Session Pro Information (if it's not the current user)
             switch (proUpdate, isCurrentUser) {
                 case (.none, _): break
@@ -331,6 +312,25 @@ public extension Profile {
                     
                 /// Don't want profiles in messages to modify the current users profile info so ignore those cases
                 default: break
+            }
+            
+            /// Update the pro state based on whether the updated display picture is animated or not
+            if isCurrentUser, case .currentUserUpdateTo(_, _, let type) = displayPictureUpdate {
+                switch type {
+                    case .staticImage:
+                        updatedProState = ProfileProState(
+                            features: updatedProState.features.removing(.animatedAvatar),
+                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                            genIndexHashHex: updatedProState.genIndexHashHex
+                        )
+                    case .animatedImage:
+                        updatedProState = ProfileProState(
+                            features: updatedProState.features.inserting(.animatedAvatar),
+                            expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
+                            genIndexHashHex: updatedProState.genIndexHashHex
+                        )
+                    case .reupload, .config: break  /// Don't modify the current state
+                }
             }
             
             /// If the pro state no longer matches then we need to emit an event

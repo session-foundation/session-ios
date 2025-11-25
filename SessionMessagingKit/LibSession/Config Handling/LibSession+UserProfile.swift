@@ -70,7 +70,7 @@ internal extension LibSessionCacheType {
                 else { return .none }
                 
                 let features: SessionPro.Features = SessionPro.Features(user_profile_get_pro_features(conf))
-                let status: SessionPro.ProStatus = dependencies[singleton: .sessionProManager].proStatus(
+                let status: SessionPro.DecodedStatus = dependencies[singleton: .sessionProManager].proStatus(
                     for: proConfig.proProof,
                     verifyPubkey: rotatingKeyPair.publicKey,
                     atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
@@ -252,6 +252,12 @@ public extension LibSession.Cache {
         else { return nil }
         
         return SessionPro.ProConfig(cProConfig)
+    }
+    
+    var proAccessExpiryTimestampMs: UInt64 {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return 0 }
+        
+        return user_profile_get_pro_access_expiry_ms(conf)
     }
     
     /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,

@@ -169,7 +169,7 @@ public extension NotificationsManagerType {
         threadVariant: SessionThread.Variant,
         isMessageRequest: Bool,
         notificationSettings: Preferences.NotificationSettings,
-        displayNameRetriever: (String, Bool) -> String?,
+        displayNameRetriever: DisplayNameRetriever,
         groupNameRetriever: (String, SessionThread.Variant) -> String?,
         using dependencies: Dependencies
     ) throws -> String {
@@ -188,12 +188,12 @@ public extension NotificationsManagerType {
                 
             case (.nameNoPreview, .some(let sender), _, .contact), (.nameAndPreview, .some(let sender), _, .contact):
                 return displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                    .defaulting(to: sender.truncated())
                 
             case (.nameNoPreview, .some(let sender), _, .group), (.nameAndPreview, .some(let sender), _, .group),
                 (.nameNoPreview, .some(let sender), _, .community), (.nameAndPreview, .some(let sender), _, .community):
                 let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                    .defaulting(to: sender.truncated())
                 let groupName: String = groupNameRetriever(threadId, threadVariant)
                     .defaulting(to: "groupUnknown".localized())
                 
@@ -215,7 +215,7 @@ public extension NotificationsManagerType {
         interactionVariant: Interaction.Variant?,
         attachmentDescriptionInfo: [Attachment.DescriptionInfo]?,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?,
+        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) -> String {
         /// If it's a message request  then use something generic
@@ -245,7 +245,7 @@ public extension NotificationsManagerType {
                             variant: variant,
                             body: visibleMessage.text,
                             authorDisplayName: displayNameRetriever(sender, true)
-                                .defaulting(to: sender.truncated(threadVariant: threadVariant)),
+                                .defaulting(to: sender.truncated()),
                             attachmentDescriptionInfo: attachmentDescriptionInfo?.first,
                             attachmentCount: (attachmentDescriptionInfo?.count ?? 0),
                             isOpenGroupInvitation: (visibleMessage.openGroupInvitation != nil),
@@ -269,24 +269,21 @@ public extension NotificationsManagerType {
                 }
                 
             case let callMessage as CallMessage where callMessage.state == .permissionDenied:
-                let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                let senderName: String = (displayNameRetriever(sender, false) ?? sender.truncated())
                 
                 return "callsYouMissedCallPermissions"
                     .put(key: "name", value: senderName)
                     .localizedDeformatted()
             
             case is CallMessage:
-                let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                let senderName: String = (displayNameRetriever(sender, false) ?? sender.truncated())
                 
                 return "callsMissedCallFrom"
                     .put(key: "name", value: senderName)
                     .localizedDeformatted()
                 
             case let inviteMessage as GroupUpdateInviteMessage:
-                let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                let senderName: String = (displayNameRetriever(sender, false) ?? sender.truncated())
                 let bodyText: String? = ClosedGroup.MessageInfo
                     .invited(senderName, inviteMessage.groupName)
                     .previewText
@@ -302,8 +299,7 @@ public extension NotificationsManagerType {
                 }
                 
             case let promotionMessage as GroupUpdatePromoteMessage:
-                let senderName: String = displayNameRetriever(sender, false)
-                    .defaulting(to: sender.truncated(threadVariant: threadVariant))
+                let senderName: String = (displayNameRetriever(sender, false) ?? sender.truncated())
                 let bodyText: String? = ClosedGroup.MessageInfo
                     .invitedAdmin(senderName, promotionMessage.groupName)
                     .previewText
@@ -339,7 +335,7 @@ public extension NotificationsManagerType {
         applicationState: UIApplication.State,
         extensionBaseUnreadCount: Int?,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: (String, Bool) -> String?,
+        displayNameRetriever: DisplayNameRetriever,
         groupNameRetriever: (String, SessionThread.Variant) -> String?,
         shouldShowForMessageRequest: () -> Bool
     ) throws {

@@ -124,10 +124,8 @@ extension GroupMember: ProfileAssociated {
         rhs: WithProfile<GroupMember>
     ) -> Bool {
         let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: lhs.value.groupId)) ?? .group) == .group)
-        let lhsDisplayName: String = (lhs.profile?.displayName(for: .contact))
-            .defaulting(to: lhs.profileId.truncated(threadVariant: .contact))
-        let rhsDisplayName: String = (rhs.profile?.displayName(for: .contact))
-            .defaulting(to: rhs.profileId.truncated(threadVariant: .contact))
+        let lhsDisplayName: String = (lhs.profile?.displayName() ?? lhs.profileId.truncated())
+        let rhsDisplayName: String = (rhs.profile?.displayName() ?? rhs.profileId.truncated())
         
         // Legacy groups have a different sorting behaviour
         guard isUpdatedGroup else {
@@ -207,10 +205,8 @@ extension GroupMember: ProfileAssociated {
         rhs: WithProfile<GroupMember>
     ) -> Bool {
         let isUpdatedGroup: Bool = (((try? SessionId.Prefix(from: lhs.value.groupId)) ?? .group) == .group)
-        let lhsDisplayName: String = (lhs.profile?.displayName(for: .contact))
-            .defaulting(to: lhs.profileId.truncated(threadVariant: .contact))
-        let rhsDisplayName: String = (rhs.profile?.displayName(for: .contact))
-            .defaulting(to: rhs.profileId.truncated(threadVariant: .contact))
+        let lhsDisplayName: String = (lhs.profile?.displayName() ?? lhs.profileId.truncated())
+        let rhsDisplayName: String = (rhs.profile?.displayName() ?? rhs.profileId.truncated())
         
         // Legacy groups have a different sorting behaviour
         guard isUpdatedGroup else {
