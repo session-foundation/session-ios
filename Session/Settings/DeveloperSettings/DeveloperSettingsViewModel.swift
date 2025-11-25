@@ -1931,10 +1931,17 @@ extension DeveloperSettingsViewModel {
         navigatableStateHolder: NavigatableStateHolder?,
         onValueChanged: ((TimeInterval?) -> Void)? = nil
     ) {
+        var updatedValue: String? = nil
         let dateFormat: String = "HH:mm dd/MM/yyyy"
         let formatter: DateFormatter = DateFormatter()
         formatter.dateFormat = dateFormat
-        var updatedValue: String? = nil
+        let targetInitialValue: String = {
+            let value: TimeInterval = (initialValue ?? 0)
+            
+            guard value > 0 else { return "" }
+            
+            return formatter.string(from: Date(timeIntervalSince1970: value))
+        }()
         
         navigatableStateHolder?.transitionToScreen(
             ConfirmationModal(
@@ -1944,8 +1951,7 @@ extension DeveloperSettingsViewModel {
                         explanation: ThemedAttributedString(string: explanation),
                         info: ConfirmationModal.Info.Body.InputInfo(
                             placeholder: "Enter Date/Time (\(dateFormat))",
-                            initialValue: (initialValue
-                                .map { formatter.string(from: Date(timeIntervalSince1970: $0)) } ?? "")
+                            initialValue: targetInitialValue
                         ),
                         onChange: { value in updatedValue = value }
                     ),
@@ -2023,7 +2029,7 @@ private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
 
 internal extension String.StringInterpolation {
     mutating func appendInterpolation(devValue: TimeInterval?) {
-        guard let value: TimeInterval = devValue else { return appendLiteral("<disabled>None</disabled>") }
+        guard let value: TimeInterval = devValue, value > 0 else { return appendLiteral("<disabled>None</disabled>") }
         
         appendLiteral("<span>\(Date(timeIntervalSince1970: value).formattedForBanner)</span>")
     }

@@ -56,6 +56,10 @@ public class DonationsManager {
         /// Don't show the modal if the app has been installed for less than 7 days (unless the user gave the app a great rating, in which
         /// case we _do_ want to show it)
         let appInstallationDate: Date = {
+            guard !dependencies.hasSet(feature: .customFirstInstallDateTime) else {
+                return Date(timeIntervalSince1970: dependencies[feature: .customFirstInstallDateTime] ?? 0)
+            }
+            
             let attributes: [FileAttributeKey: Any]? = try? dependencies[singleton: .fileManager]
                 .attributesOfItem(atPath: dependencies[singleton: .fileManager].documentsDirectoryPath)
             
