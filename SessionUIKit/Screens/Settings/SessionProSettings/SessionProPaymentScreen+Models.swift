@@ -14,6 +14,7 @@ public extension SessionProPaymentScreenContent {
             expiredOn: Date,
             isAutoRenewing: Bool,
             originatingPlatform: ClientPlatform,
+            isNonOriginatingAccount: Bool?,
             billingAccess: Bool
         )
         case renew(
@@ -39,7 +40,7 @@ public extension SessionProPaymentScreenContent {
                         "proUpgradeAccess"
                             .put(key: "app_pro", value: Constants.app_pro)
                             .localizedFormatted(Fonts.Body.baseRegular)
-                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform, _):
+                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform, _, _):
                     switch (originatingPlatform, isAutoRenewing) {
                         case (.Android, true):
                             "proAccessActivatedAutoShort"

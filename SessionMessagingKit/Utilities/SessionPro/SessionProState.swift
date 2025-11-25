@@ -34,12 +34,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             .eraseToAnyPublisher()
     }
     public var sessionProPlans: [SessionProPlan] {
-        (
-            dependencies[feature: .mockInstalledFromIPA] ||
-            dependencies[feature: .mockNonOriginatingAccount]
-        ) ?
-        [] :
-        SessionProPlan.Variant.allCases.map { SessionProPlan(variant: $0) }
+        dependencies[feature: .mockInstalledFromIPA] ? [] : SessionProPlan.Variant.allCases.map { SessionProPlan(variant: $0) }
     }
     
     public var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never>

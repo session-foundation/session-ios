@@ -22,6 +22,7 @@ public extension SessionProPlanState {
                             case .Android: return .Android
                         }
                     }(),
+                    isNonOriginatingAccount: dependencies[feature: .mockNonOriginatingAccount],
                     billingAccess: !dependencies[feature: .mockInstalledFromIPA]
                 )
             case .expired(_, let originatingPlatform):

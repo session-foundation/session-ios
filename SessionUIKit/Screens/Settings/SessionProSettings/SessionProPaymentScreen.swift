@@ -23,7 +23,7 @@ public struct SessionProPaymentScreen: View {
     public init(viewModel: SessionProPaymentScreenContent.ViewModelType) {
         self.viewModel = viewModel
         if
-            case .update(let currentPlan, _, _, _, _) = viewModel.dataModel.flow,
+            case .update(let currentPlan, _, _, _, _, _) = viewModel.dataModel.flow,
             let indexOfCurrentPlan = viewModel.dataModel.plans.firstIndex(of: currentPlan)
         {
             self.currentSelection = indexOfCurrentPlan
@@ -55,7 +55,7 @@ public struct SessionProPaymentScreen: View {
             .popoverView(
                 content: {
                     ZStack {
-                        if case .update(let currentPlan, _, _, _, _) = viewModel.dataModel.flow, let discountPercent = currentPlan.discountPercent {
+                        if case .update(let currentPlan, _, _, _, _, _) = viewModel.dataModel.flow, let discountPercent = currentPlan.discountPercent {
                             Text(
                                 "proDiscountTooltip"
                                     .put(key: "percent", value: discountPercent)
@@ -144,8 +144,16 @@ public struct SessionProPaymentScreen: View {
                         )
                     }
                     
-                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform, _):
-                    if originatingPlatform == .iOS {
+                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform, let isNonOriginatingAccount, _):
+                    if originatingPlatform != .iOS || isNonOriginatingAccount == true {
+                        UpdatePlanNonOriginatingPlatformContent(
+                            currentPlan: currentPlan,
+                            currentPlanExpiredOn: expiredOn,
+                            isAutoRenewing: isAutoRenewing,
+                            originatingPlatform: originatingPlatform,
+                            openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
+                        )
+                    } else {
                         SessionProPlanPurchaseContent(
                             currentSelection: $currentSelection,
                             isShowingTooltip: $isShowingTooltip,
@@ -158,14 +166,6 @@ public struct SessionProPaymentScreen: View {
                             activationType: "",
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
-                        )
-                    } else {
-                        UpdatePlanNonOriginatingPlatformContent(
-                            currentPlan: currentPlan,
-                            currentPlanExpiredOn: expiredOn,
-                            isAutoRenewing: isAutoRenewing,
-                            originatingPlatform: originatingPlatform,
-                            openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
                         )
                     }
                     
@@ -234,7 +234,7 @@ public struct SessionProPaymentScreen: View {
         isPendingPurchase = true
         let updatedPlan = viewModel.dataModel.plans[currentSelection]
         switch viewModel.dataModel.flow {
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _, _):
+            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _, _, _):
                 if let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: expiredOn) {
                     let confirmationModal = ConfirmationModal(
                         info: .init(
@@ -305,7 +305,7 @@ public struct SessionProPaymentScreen: View {
             let sessionProBottomSheet: BottomSheetHostingViewController = BottomSheetHostingViewController(
                 bottomSheet: BottomSheet(
                     hasCloseButton: true,
-                    contentPrefferedHeight: 380
+                    contentPrefferedHeight: 480
                 ) {
                     SessionProPlanUpdatedScreen(
                         flow: self.viewModel.dataModel.flow,
