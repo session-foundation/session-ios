@@ -13,11 +13,14 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
-class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, NavigatableStateHolder, ObservableTableSource {
+class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemSource, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
-    public let state: TableDataState<Section, TableItem> = TableDataState()
-    public let observableState: ObservableTableSourceState<Section, TableItem> = ObservableTableSourceState()
+    public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    
+    /// This value is the current state of the view
+    @MainActor @Published private(set) var internalState: ViewModelState
+    private var observationTask: Task<Void, Never>?
     
     private let threadId: String
     private let threadVariant: SessionThread.Variant
@@ -32,13 +35,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         },
         using: dependencies
     )
-    private var profileImageStatus: (previous: ProfileImageStatus?, current: ProfileImageStatus?)
-    // TODO: Refactor this with SessionThreadViewModel
-    private var threadViewModelSubject: CurrentValueSubject<SessionThreadViewModel?, Never>
     
     // MARK: - Initialization
     
-    init(
+    @MainActor init(
         threadId: String,
         threadVariant: SessionThread.Variant,
         didTriggerSearch: @escaping () -> (),
@@ -48,11 +48,23 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         self.threadId = threadId
         self.threadVariant = threadVariant
         self.didTriggerSearch = didTriggerSearch
-        self.threadViewModelSubject = CurrentValueSubject(nil)
-        self.profileImageStatus = (previous: nil, current: .normal)
+        self.internalState = ViewModelState.initialState(threadId: threadId)
+        
+        self.observationTask = ObservationBuilder
+            .initialValue(self.internalState)
+            .debounce(for: .never)
+            .using(dependencies: dependencies)
+            .query(ThreadSettingsViewModel.queryState)
+            .assign { [weak self] updatedState in
+                guard let self = self else { return }
+                
+                self.state.updateTableData(updatedState.sections(viewModel: self, previousState: self.internalState))
+                self.internalState = updatedState
+            }
     }
     
     // MARK: - Config
+    
     enum ProfileImageStatus: Equatable {
         case normal
         case expanded
@@ -63,7 +75,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         case edit
     }
     
-    public enum Section: SessionTableSection {
+    public enum Section: SessionListScreenContent.ListSection {
         case conversationInfo
         case sessionId
         case sessionIdNoteToSelf
@@ -80,7 +92,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             }
         }
         
-        public var style: SessionTableSectionStyle {
+        public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
                 case .sessionId, .sessionIdNoteToSelf: return .titleSeparator
                 case .destructiveActions: return .padding
@@ -88,9 +100,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 default: return .none
             }
         }
+        
+        public var divider: Bool { return true }
+        
+        public var footer: String? { return nil }
     }
     
-    public enum TableItem: Differentiable {
+    public enum ListItem: Differentiable {
         case avatar
         case qrCode
         case displayName
@@ -121,9 +137,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         case debugDeleteAttachmentsBeforeNow
     }
     
-    lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = threadViewModelSubject
-        .map { [weak self] threadViewModel -> [SessionNavItem<NavItem>] in
-            guard let threadViewModel: SessionThreadViewModel = threadViewModel else { return [] }
+    lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = $internalState
+        .map { [weak self] state -> [SessionNavItem<NavItem>] in
+            guard let threadViewModel: SessionThreadViewModel = state.threadViewModel else { return [] }
            
             let currentUserIsClosedGroupAdmin: Bool = (
                 [.legacyGroup, .group].contains(threadViewModel.threadVariant) &&
@@ -164,9 +180,36 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
     // MARK: - Content
     
-    private struct State: Equatable {
+    public struct ViewModelState: ObservableKeyProvider {
+        let threadId: String
         let threadViewModel: SessionThreadViewModel?
         let disappearingMessagesConfig: DisappearingMessagesConfiguration
+        
+        @MainActor public func sections(viewModel: ThreadSettingsViewModel, previousState: ViewModelState) -> [SectionModel] {
+            ThreadSettingsViewModel.sections(
+                current: self,
+                viewModel: viewModel
+            )
+        }
+        
+        public var observedKeys: Set<ObservableKey> {
+            var result: Set<ObservableKey> = [
+                .updateScreen(ThreadSettingsViewModel.self),
+                .profile(threadId),
+                .contact(threadId),
+                .conversationUpdated(threadId)
+            ]
+            
+            return result
+        }
+        
+        static func initialState(threadId: String) -> ViewModelState {
+            return ViewModelState(
+                threadId: threadId,
+                threadViewModel: nil,
+                disappearingMessagesConfig: DisappearingMessagesConfiguration.defaultWith(threadId)
+            )
+        }
     }
     
     var title: String {
@@ -176,35 +219,53 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         }
     }
     
-    lazy var observation: TargetObservation = ObservationBuilderOld
-        .databaseObservation(self) { [ weak self, dependencies, threadId = self.threadId] db -> State in
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
-            var threadViewModel: SessionThreadViewModel? = try SessionThreadViewModel
-                .conversationSettingsQuery(threadId: threadId, userSessionId: userSessionId)
-                .fetchOne(db)
-            let disappearingMessagesConfig: DisappearingMessagesConfiguration = try DisappearingMessagesConfiguration
-                .fetchOne(db, id: threadId)
-                .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
-            
-            self?.threadViewModelSubject.send(threadViewModel)
-            
-            return State(
-                threadViewModel: threadViewModel,
-                disappearingMessagesConfig: disappearingMessagesConfig
-            )
+    @Sendable private static func queryState(
+        previousState: ViewModelState,
+        events: [ObservedEvent],
+        isInitialQuery: Bool,
+        using dependencies: Dependencies
+    ) async -> ViewModelState {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let threadId: String = previousState.threadId
+        var threadViewModel: SessionThreadViewModel? = previousState.threadViewModel
+        var disappearingMessagesConfig: DisappearingMessagesConfiguration = previousState.disappearingMessagesConfig
+        
+        /// If we have no previous state then we need to fetch the initial state
+        if isInitialQuery {
+            dependencies[singleton: .storage].read { db in
+                threadViewModel = try SessionThreadViewModel
+                    .conversationSettingsQuery(threadId: threadId, userSessionId: userSessionId)
+                    .fetchOne(db)
+                disappearingMessagesConfig = try DisappearingMessagesConfiguration
+                    .fetchOne(db, id: threadId)
+                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
+            }
         }
-        .compactMap { [weak self] current -> [SectionModel]? in
-            self?.content(
-                current,
-                profileImageStatus: self?.profileImageStatus
-            )
+        
+        /// Process any event changes
+        events.forEach { event in
+            switch event.key {
+                
+                default: break
+            }
         }
+        
+        
+        return ViewModelState(
+            threadId: threadId,
+            threadViewModel: threadViewModel,
+            disappearingMessagesConfig: disappearingMessagesConfig
+        )
+    }
     
-    private func content(_ current: State, profileImageStatus: (previous: ProfileImageStatus?, current: ProfileImageStatus?)?) -> [SectionModel] {
+    private static func sections(
+        current: ViewModelState,
+        viewModel: ThreadSettingsViewModel
+    ) -> [SectionModel] {
         // If we don't get a `SessionThreadViewModel` then it means the thread was probably deleted
         // so dismiss the screen
         guard let threadViewModel: SessionThreadViewModel = current.threadViewModel else {
-            self.dismissScreen(type: .popToRoot)
+            viewModel.dismissScreen(type: .popToRoot)
             return []
         }
         
@@ -233,7 +294,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         let showThreadPubkey: Bool = (
             threadViewModel.threadVariant == .contact || (
                 threadViewModel.threadVariant == .group &&
-                dependencies[feature: .groupsShowPubkeyInConversationSettings]
+                viewModel.dependencies[feature: .groupsShowPubkeyInConversationSettings]
             )
         )
         // MARK: - Conversation Info

@@ -15,22 +15,31 @@ public extension SessionListScreenContent {
         case none
         case titleWithTooltips(info: TooltipInfo)
         case titleNoBackgroundContent
+        case titleSeparator
+        case padding
+        case titleRoundedContent
         
         var height: CGFloat {
             switch self {
                 case .none:
                     return 0
-                case .titleWithTooltips, .titleNoBackgroundContent:
+                case .titleWithTooltips, .titleNoBackgroundContent, .titleRoundedContent:
                     return 44
+                case .titleSeparator:
+                    return Separator.height
+                case .padding:
+                    return Values.smallSpacing
             }
         }
         
         var edgePadding: CGFloat {
             switch self {
-                case .none:
+                case .none, .padding:
                     return 0
-                case .titleWithTooltips, .titleNoBackgroundContent:
+            case .titleWithTooltips, .titleNoBackgroundContent, .titleRoundedContent:
                     return (Values.largeSpacing + Values.mediumSpacing)
+                case .titleSeparator:
+                    return Values.largeSpacing
             }
         }
     }
