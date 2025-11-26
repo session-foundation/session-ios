@@ -142,7 +142,7 @@ struct NoBillingAccessContent: View {
             
             if isRenewingPro {
                 Button {
-                    openPlatformStoreWebsiteAction()
+                    openPlatformStoreWebsiteAction?()
                 } label: {
                     Text("openPlatformStoreWebsite".put(key: "platform_store", value: originatingPlatform.store).localized())
                         .font(.Body.largeRegular)
