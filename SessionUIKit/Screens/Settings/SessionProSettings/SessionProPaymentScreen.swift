@@ -116,8 +116,7 @@ public struct SessionProPaymentScreen: View {
                     } else {
                         NoBillingAccessContent(
                             isRenewingPro: false,
-                            originatingPlatform: .iOS,
-                            openPlatformStoreWebsiteAction: {}
+                            originatingPlatform: .iOS
                         )
                     }
                     

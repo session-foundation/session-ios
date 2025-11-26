@@ -8,7 +8,17 @@ import Lucide
 struct NoBillingAccessContent: View {
     let isRenewingPro: Bool
     let originatingPlatform: SessionProPaymentScreenContent.ClientPlatform
-    let openPlatformStoreWebsiteAction: () -> Void
+    let openPlatformStoreWebsiteAction: (() -> Void)?
+    
+    public init(
+        isRenewingPro: Bool,
+        originatingPlatform: SessionProPaymentScreenContent.ClientPlatform,
+        openPlatformStoreWebsiteAction: (() -> Void)? = nil
+    ) {
+        self.isRenewingPro = isRenewingPro
+        self.originatingPlatform = originatingPlatform
+        self.openPlatformStoreWebsiteAction = openPlatformStoreWebsiteAction
+    }
     
     var approaches: [ApproachCell.Info] {
         isRenewingPro ?

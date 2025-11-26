@@ -6,7 +6,6 @@ import UniformTypeIdentifiers
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
-import SessionUIKit
 
 class ImagePickerHandler: PHPickerViewControllerDelegate {
     private let dependencies: Dependencies
