@@ -29,11 +29,11 @@ public extension FeatureStorage {
         }()
     )
     
-    static let customDateTime: FeatureConfig<TimeInterval?> = Dependencies.create(
+    static let customDateTime: FeatureConfig<TimeInterval> = Dependencies.create(
         identifier: "customDateTime"
     )
     
-    static let customFirstInstallDateTime: FeatureConfig<TimeInterval?> = Dependencies.create(
+    static let customFirstInstallDateTime: FeatureConfig<TimeInterval> = Dependencies.create(
         identifier: "customFirstInstallDateTime"
     )
     
@@ -251,8 +251,12 @@ public struct Feature<T: FeatureOption>: FeatureType {
         return selectedOption
     }
     
-    internal func setValue(to updatedValue: T?, using dependencies: Dependencies) {
-        dependencies[defaults: .appGroup].set(updatedValue?.rawValue, forKey: identifier)
+    internal func setValue(to updatedValue: T, using dependencies: Dependencies) {
+        dependencies[defaults: .appGroup].set(updatedValue.rawValue, forKey: identifier)
+    }
+    
+    internal func removeValue(using dependencies: Dependencies) {
+        dependencies[defaults: .appGroup].removeObject(forKey: identifier)
     }
 }
 
@@ -327,28 +331,28 @@ extension Int: FeatureOption {
     }
 }
 
-// MARK: - Date FeatureOption
+// MARK: - TimeInterval FeatureOption
 
-extension Optional: @retroactive RawRepresentable where Wrapped == TimeInterval {}
-extension Optional: FeatureOption where Wrapped == TimeInterval {
+extension TimeInterval: @retroactive RawRepresentable {}
+extension TimeInterval: FeatureOption {
     // MARK: - Initialization
     
-    public var rawValue: TimeInterval? { return self }
+    public var rawValue: TimeInterval { return self }
     
-    public init?(rawValue: TimeInterval?) {
+    public init?(rawValue: TimeInterval) {
         self = rawValue
     }
     
     // MARK: - Feature Option
     
-    public static let defaultOption: Optional<TimeInterval> = nil
+    public static var defaultOption: TimeInterval = 0
     
     public var title: String {
-        return (self.map { "\($0)" } ?? "null")
+        return "\(self)"
     }
     
     public var subtitle: String? {
-        return (self.map { "\($0)" } ?? "null")
+        return "\(self)"
     }
 }
 

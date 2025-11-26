@@ -432,22 +432,22 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
                 case .customFirstInstallDateTime:
                     guard dependencies.hasSet(feature: .customFirstInstallDateTime) else { return }
                     
-                    dependencies.set(feature: .customFirstInstallDateTime, to: nil)
+                    dependencies.reset(feature: .customFirstInstallDateTime)
                     
                 case .simulateAppReviewLimit:
                     guard dependencies.hasSet(feature: .simulateAppReviewLimit) else { return }
                     
-                    dependencies.set(feature: .simulateAppReviewLimit, to: nil)
+                    dependencies.reset(feature: .simulateAppReviewLimit)
                     
                 case .versionDeprecationWarning:
                     guard dependencies.hasSet(feature: .versionDeprecationWarning) else { return }
                     
-                    dependencies.set(feature: .versionDeprecationWarning, to: nil)
+                    dependencies.reset(feature: .versionDeprecationWarning)
                     
                 case .versionDeprecationMinimum:
                     guard dependencies.hasSet(feature: .versionDeprecationMinimum) else { return }
                     
-                    dependencies.set(feature: .versionDeprecationMinimum, to: nil)
+                    dependencies.reset(feature: .versionDeprecationMinimum)
             }
         }
     }

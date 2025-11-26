@@ -275,11 +275,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     private func content(_ previous: State?, _ current: State) -> [SectionModel] {
         let customDateTime: String = {
-            guard let customDateTimestamp: TimeInterval = dependencies[feature: .customDateTime] else {
-                return "<disabled>None</disabled>"
-            }
+            let customDateTimestamp: TimeInterval = dependencies[feature: .customDateTime]
             
-            return "<span>\(Date(timeIntervalSince1970: customDateTimestamp).formattedForBanner)</span>"
+            return (customDateTimestamp > 0 ?
+                "<span>\(Date(timeIntervalSince1970: customDateTimestamp).formattedForBanner)</span>" :
+                "<disabled>None</disabled>"
+            )
         }()
         
         let developerMode: SectionModel = SectionModel(
@@ -890,7 +891,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .communityPollLimit:
                     guard dependencies.hasSet(feature: .communityPollLimit) else { return }
                     
-                    dependencies.set(feature: .communityPollLimit, to: nil)
+                    dependencies.reset(feature: .communityPollLimit)
                     forceRefresh(type: .databaseQuery)
                     
                 case .forceSlowDatabaseQueries:
@@ -906,7 +907,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
 
     private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
-        dependencies.set(feature: .logLevel(cat: .default), to: updatedDefaultLogLevel)
+        switch updatedDefaultLogLevel {
+            case .some(let value): dependencies.set(feature: .logLevel(cat: .default), to: value)
+            case .none: dependencies.reset(feature: .logLevel(cat: .default))
+        }
         forceRefresh(type: .databaseQuery)
     }
     
@@ -951,7 +955,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             .run(uploadOnlyIfStale: false, using: dependencies)
             .handleEvents(
                 receiveOutput: { [weak self, dependencies] _ in
-                    dependencies.set(feature: .pushNotificationService, to: updatedService)
+                    switch updatedService {
+                        case .some(let value): dependencies.set(feature: .pushNotificationService, to: value)
+                        case .none: dependencies.reset(feature: .pushNotificationService)
+                    }
+                    
                     dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
                     
                     self?.forceRefresh(type: .databaseQuery)
@@ -1063,7 +1071,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         Log.info("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
         
         /// Update to the new `ServiceNetwork`
-        dependencies.set(feature: .serviceNetwork, to: updatedNetwork)
+        switch updatedNetwork {
+            case .some(let value): dependencies.set(feature: .serviceNetwork, to: value)
+            case .none: dependencies.reset(feature: .serviceNetwork)
+        }
         
         /// Start the new network cache and clear out the old one
         dependencies.warmCache(cache: .libSessionNetwork)
@@ -1097,7 +1108,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     private func updateFlag(for feature: FeatureConfig<Bool>, to updatedFlag: Bool?) {
         /// Update to the new flag
-        dependencies.set(feature: feature, to: updatedFlag)
+        switch updatedFlag {
+            case .some(let value): dependencies.set(feature: feature, to: value)
+            case .none: dependencies.reset(feature: feature)
+        }
+        
         forceRefresh(type: .databaseQuery)
     }
     
@@ -1740,7 +1755,11 @@ extension DeveloperSettingsViewModel {
             hasSet: dependencies.hasSet(feature: feature),
             navigatableStateHolder: navigatableStateHolder,
             onValueChanged: { newValue in
-                dependencies.set(feature: feature, to: newValue)
+                switch newValue {
+                    case .some(let value): dependencies.set(feature: feature, to: value)
+                    case .none: dependencies.reset(feature: feature)
+                }
+                
                 onValueChanged?(newValue)
             }
         )
@@ -1785,7 +1804,7 @@ extension DeveloperSettingsViewModel {
     static func showModalForMockableDate(
         title: String,
         explanation: String,
-        feature: FeatureConfig<TimeInterval?>,
+        feature: FeatureConfig<TimeInterval>,
         navigatableStateHolder: NavigatableStateHolder?,
         onValueChanged: ((TimeInterval?) -> Void)? = nil,
         using dependencies: Dependencies?
@@ -1799,7 +1818,11 @@ extension DeveloperSettingsViewModel {
             hasSet: dependencies.hasSet(feature: feature),
             navigatableStateHolder: navigatableStateHolder,
             onValueChanged: { newValue in
-                dependencies.set(feature: feature, to: newValue)
+                switch newValue {
+                    case .some(let value): dependencies.set(feature: feature, to: value)
+                    case .none: dependencies.reset(feature: feature)
+                }
+                
                 onValueChanged?(newValue)
             }
         )
