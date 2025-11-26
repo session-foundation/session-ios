@@ -2,6 +2,7 @@
 
 import Foundation
 import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 struct AppReviewPromptModel {
@@ -103,7 +104,7 @@ enum AppReviewPromptState {
                         .localized(),
                     message: "rateSessionModalDescription"
                         .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "storevariant", value: Constants.platform_store)
+                        .put(key: "storevariant", value: SessionPro.Metadata.appStore.store)
                         .localized(),
                     primaryButtonTitle: "rateSessionApp".localized(),
                     primaryButtonAccessibilityIdentifier: "rate-app-button",

@@ -10,12 +10,6 @@ public extension SessionPro {
         let proProof: Network.SessionPro.ProProof
         let features: Features
         
-        public static let nonPro: DecodedProForMessage = DecodedProForMessage(
-            status: .none,
-            proProof: Network.SessionPro.ProProof(),
-            features: .none
-        )
-        
         // MARK: - Initialization
         
         init(status: SessionPro.DecodedStatus, proProof: Network.SessionPro.ProProof, features: Features) {

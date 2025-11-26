@@ -218,6 +218,10 @@ public enum ScreenLock {
                     Log.error(.screenLock, "Context not interactive.")
                     return .unexpectedFailure(error: defaultErrorDescription)
                 
+                case .companionNotAvailable:
+                    Log.error(.screenLock, "Companion not available.")
+                    return .unexpectedFailure(error: defaultErrorDescription)
+                    
                 @unknown default:
                     return .failure(error: defaultErrorDescription)
             }

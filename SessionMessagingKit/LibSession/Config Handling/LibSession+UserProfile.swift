@@ -70,17 +70,12 @@ internal extension LibSessionCacheType {
                 else { return .none }
                 
                 let features: SessionPro.Features = SessionPro.Features(user_profile_get_pro_features(conf))
-                let status: SessionPro.DecodedStatus = dependencies[singleton: .sessionProManager].proStatus(
-                    for: proConfig.proProof,
-                    verifyPubkey: rotatingKeyPair.publicKey,
-                    atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                )
                 
                 return .currentUserUpdate(
-                    SessionPro.DecodedProForMessage(
-                        status: status,
-                        proProof: proConfig.proProof,
-                        features: features
+                    Profile.ProState(
+                        features: features,
+                        expiryUnixTimestampMs: proConfig.proProof.expiryUnixTimestampMs,
+                        genIndexHashHex: proConfig.proProof.genIndexHash.toHexString()
                     )
                 )
             }(),

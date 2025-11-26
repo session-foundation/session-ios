@@ -38,23 +38,3 @@ public extension Network.SessionPro {
         }
     }
 }
-
-// MARK: - MockableFeature
-
-public extension FeatureStorage {
-    static let mockCurrentUserSessionProBackendStatus: FeatureConfig<MockableFeature<Network.SessionPro.BackendUserProStatus>> = Dependencies.create(
-        identifier: "mockCurrentUserSessionProBackendStatus"
-    )
-}
-
-extension Network.SessionPro.BackendUserProStatus: MockableFeatureValue {
-    public var title: String { "\(self)" }
-    
-    public var subtitle: String {
-        switch self {
-            case .neverBeenPro: return "The user has never had Session Pro before."
-            case .active: return "The user has an active Session Pro subscription."
-            case .expired: return "The user's Session Pro subscription has expired."
-        }
-    }
-}

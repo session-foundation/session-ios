@@ -8,6 +8,7 @@ import SessionUtilitiesKit
 
 public extension SessionPro {
     struct Plan: Equatable, Sendable {
+        // stringlint:ignore_contents
         private static let productIds: [String] = [
             "com.getsession.org.pro_sub_1_month",
             "com.getsession.org.pro_sub_3_months",
@@ -31,7 +32,7 @@ public extension SessionPro {
 #if targetEnvironment(simulator)
             return [
                 Plan(
-                    id: "SimId3",
+                    id: "SimId3",   // stringlint:ignore
                     variant: .twelveMonths,
                     durationMonths: 12,
                     price: 111,
@@ -39,7 +40,7 @@ public extension SessionPro {
                     discountPercent: 75
                 ),
                 Plan(
-                    id: "SimId2",
+                    id: "SimId2",   // stringlint:ignore
                     variant: .threeMonths,
                     durationMonths: 3,
                     price: 222,
@@ -47,7 +48,7 @@ public extension SessionPro {
                     discountPercent: 50
                 ),
                 Plan(
-                    id: "SimId1",
+                    id: "SimId1",   // stringlint:ignore
                     variant: .oneMonth,
                     durationMonths: 1,
                     price: 444,

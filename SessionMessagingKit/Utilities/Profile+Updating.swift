@@ -78,7 +78,13 @@ public extension Profile {
         }
     }
     
-    private struct ProfileProState: Equatable {
+    struct ProState: Equatable {
+        public static let nonPro: ProState = ProState(
+            features: .none,
+            expiryUnixTimestampMs: 0,
+            genIndexHashHex: nil
+        )
+        
         let features: SessionPro.Features
         let expiryUnixTimestampMs: UInt64
         let genIndexHashHex: String?
@@ -86,6 +92,26 @@ public extension Profile {
         var isPro: Bool {
             expiryUnixTimestampMs > 0 &&
             genIndexHashHex != nil
+        }
+        
+        init(
+            features: SessionPro.Features,
+            expiryUnixTimestampMs: UInt64,
+            genIndexHashHex: String?
+        ) {
+            self.features = features
+            self.expiryUnixTimestampMs = expiryUnixTimestampMs
+            self.genIndexHashHex = genIndexHashHex
+        }
+        
+        init?(_ decodedPro: SessionPro.DecodedProForMessage?) {
+            guard let decodedPro: SessionPro.DecodedProForMessage = decodedPro else {
+                return nil
+            }
+            
+            self.features = decodedPro.features
+            self.expiryUnixTimestampMs = decodedPro.proProof.expiryUnixTimestampMs
+            self.genIndexHashHex = decodedPro.proProof.genIndexHash.toHexString()
         }
     }
     
@@ -137,25 +163,17 @@ public extension Profile {
         do {
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
             let profileUpdateTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
-            let proUpdate: TargetUserUpdate<SessionPro.DecodedProForMessage?> = await {
-                let maybeProof: Network.SessionPro.ProProof? = await dependencies[singleton: .sessionProManager]
-                    .proProof
-                    .first(defaultValue: nil)
-                
+            let proUpdate: TargetUserUpdate<ProState?> = {
                 guard
                     let targetFeatures: SessionPro.Features = proFeatures,
-                    let proof: Network.SessionPro.ProProof = maybeProof,
-                    dependencies[singleton: .sessionProManager].proProofIsActive(
-                        for: proof,
-                        atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                    )
+                    let proof: Network.SessionPro.ProProof = dependencies[singleton: .sessionProManager].currentUserCurrentProProof
                 else { return .none }
                 
                 return .currentUserUpdate(
-                    SessionPro.DecodedProForMessage(
-                        status: .valid,
-                        proProof: proof,
-                        features: targetFeatures
+                    ProState(
+                        features: targetFeatures,
+                        expiryUnixTimestampMs: proof.expiryUnixTimestampMs,
+                        genIndexHashHex: proof.genIndexHash.toHexString()
                     )
                 )
             }()
@@ -183,7 +201,7 @@ public extension Profile {
         displayPictureUpdate: DisplayPictureManager.Update = .none,
         nicknameUpdate: Update<String?> = .useExisting,
         blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
-        proUpdate: TargetUserUpdate<SessionPro.DecodedProForMessage?> = .none,
+        proUpdate: TargetUserUpdate<Profile.ProState?> = .none,
         profileUpdateTimestamp: TimeInterval?,
         cacheSource: CacheSource = .libSession(fallback: .database),
         suppressUserProfileConfigUpdate: Bool = false,
@@ -192,7 +210,7 @@ public extension Profile {
     ) throws {
         let isCurrentUser = currentUserSessionIds.contains(publicKey)
         let profile: Profile = cacheSource.resolve(db, publicKey: publicKey, using: dependencies)
-        let proState: ProfileProState = ProfileProState(
+        let proState: ProState = ProState(
             features: profile.proFeatures,
             expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
             genIndexHashHex: profile.proGenIndexHashHex
@@ -202,7 +220,7 @@ public extension Profile {
             cachedProfile: profile
         )
         var updatedProfile: Profile = profile
-        var updatedProState: ProfileProState = proState
+        var updatedProState: ProState = proState
         var profileChanges: [ConfigColumnAssignment] = []
         
         /// We should only update profile info controled by other users if `updateStatus` is `shouldUpdate`
@@ -292,23 +310,7 @@ public extension Profile {
             switch (proUpdate, isCurrentUser) {
                 case (.none, _): break
                 case (.contactUpdate(let value), false), (.currentUserUpdate(let value), true):
-                    let proInfo: SessionPro.DecodedProForMessage = (value ?? .nonPro)
-                    
-                    switch proInfo.status {
-                        case .valid:
-                            updatedProState = ProfileProState(
-                                features: proInfo.features.profileOnlyFeatures,
-                                expiryUnixTimestampMs: proInfo.proProof.expiryUnixTimestampMs,
-                                genIndexHashHex: proInfo.proProof.genIndexHash.toHexString()
-                            )
-                            
-                        default:
-                            updatedProState = ProfileProState(
-                                features: .none,
-                                expiryUnixTimestampMs: 0,
-                                genIndexHashHex: nil
-                            )
-                    }
+                    updatedProState = (value ?? .nonPro)
                     
                 /// Don't want profiles in messages to modify the current users profile info so ignore those cases
                 default: break
@@ -317,19 +319,20 @@ public extension Profile {
             /// Update the pro state based on whether the updated display picture is animated or not
             if isCurrentUser, case .currentUserUpdateTo(_, _, let type) = displayPictureUpdate {
                 switch type {
+                    case .reupload, .config: break  /// Don't modify the current state
                     case .staticImage:
-                        updatedProState = ProfileProState(
+                        updatedProState = ProState(
                             features: updatedProState.features.removing(.animatedAvatar),
                             expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
                             genIndexHashHex: updatedProState.genIndexHashHex
                         )
+                    
                     case .animatedImage:
-                        updatedProState = ProfileProState(
+                        updatedProState = ProState(
                             features: updatedProState.features.inserting(.animatedAvatar),
                             expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
                             genIndexHashHex: updatedProState.genIndexHashHex
                         )
-                    case .reupload, .config: break  /// Don't modify the current state
                 }
             }
             

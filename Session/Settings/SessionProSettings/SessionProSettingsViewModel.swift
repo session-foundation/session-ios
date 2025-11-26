@@ -139,6 +139,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         let proAutoRenewing: Bool?
         let proAccessExpiryTimestampMs: UInt64?
         let proLatestPaymentItem: Network.SessionPro.PaymentItem?
+        let proLastPaymentOriginatingPlatform: SessionProUI.ClientPlatform
+        let proIsRefunding: SessionPro.IsRefunding
         
         @MainActor public func sections(viewModel: SessionProSettingsViewModel, previousState: State) -> [SectionModel] {
             SessionProSettingsViewModel.sections(
@@ -162,10 +164,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 .currentUserProAutoRenewing(sessionProManager),
                 .currentUserProAccessExpiryTimestampMs(sessionProManager),
                 .currentUserProLatestPaymentItem(sessionProManager),
+                .currentUserLatestPaymentOriginatingPlatform(sessionProManager),
+                .currentUserProIsRefunding(sessionProManager),
                 .setting(.groupsUpgradedCounter),
                 .setting(.proBadgesSentCounter),
-                .setting(.longerMessagesSentCounter),
-                .feature(.mockCurrentUserSessionProLoadingState)
+                .setting(.longerMessagesSentCounter)
             ]
         }
         
@@ -181,7 +184,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 proStatus: nil,
                 proAutoRenewing: nil,
                 proAccessExpiryTimestampMs: nil,
-                proLatestPaymentItem: nil
+                proLatestPaymentItem: nil,
+                proLastPaymentOriginatingPlatform: .iOS,
+                proIsRefunding: false
             )
         }
     }
@@ -203,6 +208,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         var proAutoRenewing: Bool? = previousState.proAutoRenewing
         var proAccessExpiryTimestampMs: UInt64? = previousState.proAccessExpiryTimestampMs
         var proLatestPaymentItem: Network.SessionPro.PaymentItem? = previousState.proLatestPaymentItem
+        var proLastPaymentOriginatingPlatform: SessionProUI.ClientPlatform = previousState.proLastPaymentOriginatingPlatform
+        var proIsRefunding: SessionPro.IsRefunding = previousState.proIsRefunding
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         let eventsToProcess: [ObservedEvent] = events
@@ -212,7 +219,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             do {
                 loadingState = await dependencies[singleton: .sessionProManager].loadingState
                     .first(defaultValue: .loading)
-                proStatus = await dependencies[singleton: .sessionProManager].backendUserProStatus
+                proStatus = await dependencies[singleton: .sessionProManager].proStatus
                     .first(defaultValue: nil)
                 proAutoRenewing = await dependencies[singleton: .sessionProManager].autoRenewing
                     .first(defaultValue: nil)
@@ -220,6 +227,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     .first(defaultValue: nil)
                 proLatestPaymentItem = await dependencies[singleton: .sessionProManager].latestPaymentItem
                     .first(defaultValue: nil)
+                proLastPaymentOriginatingPlatform = await dependencies[singleton: .sessionProManager].latestPaymentOriginatingPlatform
+                    .first(defaultValue: .iOS)
+                proIsRefunding = await dependencies[singleton: .sessionProManager].isRefunding
+                    .first(defaultValue: false)
                 
                 try await dependencies[singleton: .storage].readAsync { db in
                     numberOfGroupsUpgraded = (db[.groupsUpgradedCounter] ?? 0)
@@ -246,16 +257,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         let changes: EventChangeset = eventsToProcess.split(by: { $0.dataRequirement })
         
         /// Process any general event changes
-        switch (dependencies[feature: .mockCurrentUserSessionProLoadingState], changes.latest(.currentUserProLoadingState, as: SessionPro.LoadingState.self)) {
-            case (.simulate(let mockedState), _): loadingState = mockedState
-            case (.useActual, .some(let updatedValue)): loadingState = updatedValue
-            default: break
+        if let value = changes.latest(.currentUserProLoadingState, as: SessionPro.LoadingState.self) {
+            loadingState = value
         }
         
-        switch (dependencies[feature: .mockCurrentUserSessionProBackendStatus], changes.latest(.currentUserProStatus, as: Network.SessionPro.BackendUserProStatus.self)) {
-            case (.simulate(let mockedState), _): proStatus = mockedState
-            case (.useActual, .some(let updatedValue)): proStatus = updatedValue
-            default: break
+        if let value = changes.latest(.currentUserProStatus, as: Network.SessionPro.BackendUserProStatus.self) {
+            proStatus = value
         }
         
         if let value = changes.latest(.currentUserProAutoRenewing, as: Bool.self) {
@@ -268,6 +275,14 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         if let value = changes.latest(.currentUserProLatestPaymentItem, as: Network.SessionPro.PaymentItem.self) {
             proLatestPaymentItem = value
+        }
+        
+        if let value = changes.latest(.currentUserLatestPaymentOriginatingPlatform, as: SessionProUI.ClientPlatform.self) {
+            proLastPaymentOriginatingPlatform = value
+        }
+        
+        if let value = changes.latest(.currentUserProIsRefunding, as: SessionPro.IsRefunding.self) {
+            proIsRefunding = value
         }
         
         changes.forEach(.profile, as: ProfileEvent.self) { event in
@@ -326,7 +341,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             proStatus: proStatus,
             proAutoRenewing: proAutoRenewing,
             proAccessExpiryTimestampMs: proAccessExpiryTimestampMs,
-            proLatestPaymentItem: proLatestPaymentItem
+            proLatestPaymentItem: proLatestPaymentItem,
+            proLastPaymentOriginatingPlatform: proLastPaymentOriginatingPlatform,
+            proIsRefunding: proIsRefunding
         )
     }
     
@@ -405,7 +422,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     from: .logoWithPro,
                                     title: {
                                         switch state.proStatus {
-                                            case .active, .neverBeenPro, .none://.refunding, .none:    // TODO: [PRO] Add in "refunding" status
+                                            case .active, .neverBeenPro, .none:
                                                 "proStatusLoading"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -418,7 +435,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     }(),
                                     description: {
                                         switch state.proStatus {
-                                            case .active, .neverBeenPro, .none://.refunding, .none:    // TODO: [PRO] Add in "refunding" status
+                                            case .active, .neverBeenPro, .none:
                                                 "proStatusLoadingDescription"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -608,7 +625,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_roadmap) }
+                    onTap: { [weak viewModel] in viewModel?.openUrl(SessionPro.Metadata.urls.roadmap) }
                 )
             )
         )
@@ -677,15 +694,16 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_support_url) }
+                    onTap: { [weak viewModel] in viewModel?.openUrl(SessionPro.Metadata.urls.support) }
                 )
             ]
         )
         
-        return switch state.proStatus {
-            case .none, .neverBeenPro: [ logo, proFeatures, help ]
-            case .active: [ logo, proStats, proSettings, proFeatures, proManagement, help ]
-            case .expired: [ logo, proManagement, proFeatures, help ]
+        return switch (state.proStatus, state.proIsRefunding) {
+            case (.none, _), (.neverBeenPro, _): [ logo, proFeatures, help ]
+            case (.active, .notRefunding): [ logo, proStats, proSettings, proFeatures, proManagement, help ]
+            case (.expired, _): [ logo, proManagement, proFeatures, help ]
+            case (.active, .refunding): [ logo, proStats, proSettings, proFeatures, help ]
         }
     }
     
@@ -696,100 +714,152 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         previousState: State,
         viewModel: SessionProSettingsViewModel
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
-        return [
-            {
-                switch state.proStatus {
-                    case .none, .neverBeenPro, .expired: nil
-                    case .active:
-                        SessionListScreenContent.ListItemInfo(
-                            id: .updatePlan,
-                            variant: .cell(
-                                info: ListItemCell.Info(
-                                    title: SessionListScreenContent.TextInfo(
-                                        "updateAccess"
+        let initialProSettingsElements: [SessionListScreenContent.ListItemInfo<ListItem>]
+        
+        switch (state.proStatus, state.proIsRefunding) {
+            case (.none, _), (.neverBeenPro, _), (.expired, _): initialProSettingsElements = []
+            case (.active, .notRefunding):
+                initialProSettingsElements = [
+                    SessionListScreenContent.ListItemInfo(
+                        id: .updatePlan,
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                title: SessionListScreenContent.TextInfo(
+                                    "updateAccess"
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localized(),
+                                    font: .Headings.H8
+                                ),
+                                description: {
+                                    switch state.loadingState {
+                                        case .loading:
+                                            return SessionListScreenContent.TextInfo(
+                                                font: .Body.smallRegular,
+                                                attributedString: "proAccessLoadingEllipsis"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted(Fonts.Body.smallRegular)
+                                            )
+                                        
+                                        case .error:
+                                            return SessionListScreenContent.TextInfo(
+                                                font: .Body.smallRegular,
+                                                attributedString: "errorLoadingProAccess"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted(Fonts.Body.smallRegular),
+                                                color: .warning
+                                            )
+                                        
+                                        case .success:
+                                            let expirationDate: Date = Date(
+                                                timeIntervalSince1970: floor(Double(state.proAccessExpiryTimestampMs ?? 0) / 1000)
+                                            )
+                                            let expirationString: String = expirationDate
+                                                .timeIntervalSince(viewModel.dependencies.dateNow)
+                                                .ceilingFormatted(
+                                                    format: .long,
+                                                    allowedUnits: [.day, .hour, .minute]
+                                                )
+                                            
+                                            return SessionListScreenContent.TextInfo(
+                                                font: .Body.smallRegular,
+                                                attributedString: (
+                                                    state.proAutoRenewing == true ?
+                                                        "proAutoRenewTime"
+                                                            .put(key: "pro", value: Constants.pro)
+                                                            .put(key: "time", value: expirationString)
+                                                            .localizedFormatted(Fonts.Body.smallRegular) :
+                                                        "proExpiringTime"
+                                                            .put(key: "pro", value: Constants.pro)
+                                                            .put(key: "time", value: expirationString)
+                                                            .localizedFormatted(Fonts.Body.smallRegular)
+                                                )
+                                            )
+                                    }
+                                }(),
+                                trailingAccessory: state.loadingState == .loading ? .loadingIndicator(size: .large) : .icon(.chevronRight, size: .large)
+                            )
+                        ),
+                        onTap: { [weak viewModel] in
+                            switch state.loadingState {
+                                case .success: viewModel?.updateProPlan(state: state)
+                                case .loading:
+                                    viewModel?.showLoadingModal(
+                                        from: .updatePlan,
+                                        title: "proAccessLoading"
                                             .put(key: "pro", value: Constants.pro)
                                             .localized(),
-                                        font: .Headings.H8
-                                    ),
-                                    description: {
-                                        switch state.loadingState {
-                                            case .loading:
-                                                return SessionListScreenContent.TextInfo(
-                                                    font: .Body.smallRegular,
-                                                    attributedString: "proAccessLoadingEllipsis"
-                                                        .put(key: "pro", value: Constants.pro)
-                                                        .localizedFormatted(Fonts.Body.smallRegular)
-                                                )
-                                            
-                                            case .error:
-                                                return SessionListScreenContent.TextInfo(
-                                                    font: .Body.smallRegular,
-                                                    attributedString: "errorLoadingProAccess"
-                                                        .put(key: "pro", value: Constants.pro)
-                                                        .localizedFormatted(Fonts.Body.smallRegular),
-                                                    color: .warning
-                                                )
-                                            
-                                            case .success:
-                                                let expirationDate: Date = Date(
-                                                    timeIntervalSince1970: floor(Double(state.proAccessExpiryTimestampMs ?? 0) / 1000)
-                                                )
-                                                let expirationString: String = expirationDate
-                                                    .timeIntervalSince(viewModel.dependencies.dateNow)
-                                                    .ceilingFormatted(
-                                                        format: .long,
-                                                        allowedUnits: [.day, .hour, .minute]
-                                                    )
-                                                
-                                                return SessionListScreenContent.TextInfo(
-                                                    font: .Body.smallRegular,
-                                                    attributedString: (
-                                                        state.proAutoRenewing == true ?
-                                                            "proAutoRenewTime"
-                                                                .put(key: "pro", value: Constants.pro)
-                                                                .put(key: "time", value: expirationString)
-                                                                .localizedFormatted(Fonts.Body.smallRegular) :
-                                                            "proExpiringTime"
-                                                                .put(key: "pro", value: Constants.pro)
-                                                                .put(key: "time", value: expirationString)
-                                                                .localizedFormatted(Fonts.Body.smallRegular)
-                                                    )
-                                                )
-                                        }
-                                    }(),
-                                    trailingAccessory: state.loadingState == .loading ? .loadingIndicator(size: .large) : .icon(.chevronRight, size: .large)
-                                )
-                            ),
-                            onTap: { [weak viewModel] in
-                                switch state.loadingState {
-                                    case .success: viewModel?.updateProPlan(state: state)
-                                    case .loading:
-                                        viewModel?.showLoadingModal(
-                                            from: .updatePlan,
-                                            title: "proAccessLoading"
-                                                .put(key: "pro", value: Constants.pro)
-                                                .localized(),
-                                            description: "proAccessLoadingDescription"
-                                                .put(key: "pro", value: Constants.pro)
-                                                .localized()
-                                        )
-                                    
-                                    case .error:
-                                        viewModel?.showErrorModal(
-                                            from: .updatePlan,
-                                            title: "proAccessError"
-                                                .put(key: "pro", value: Constants.pro)
-                                                .localized(),
-                                            description: "proAccessNetworkLoadError"
-                                                .put(key: "pro", value: Constants.pro)
-                                                .put(key: "app_name", value: Constants.app_name)
-                                                .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                                        )
-                                }
+                                        description: "proAccessLoadingDescription"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized()
+                                    )
+                                
+                                case .error:
+                                    viewModel?.showErrorModal(
+                                        from: .updatePlan,
+                                        title: "proAccessError"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized(),
+                                        description: "proAccessNetworkLoadError"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                    )
                             }
-                        )
-                }
-            }(),
+                        }
+                    )
+                ]
+            
+            case (.active, .refunding):
+                initialProSettingsElements = [
+                    SessionListScreenContent.ListItemInfo(
+                        id: .refundRequested,
+                        variant: .cell(
+                            info: ListItemCell.Info(
+                                title: SessionListScreenContent.TextInfo(
+                                    "proRequestedRefund".localized(),
+                                    font: .Headings.H8
+                                ),
+                                description: SessionListScreenContent.TextInfo(
+                                    font: .Body.smallRegular,
+                                    attributedString: "processingRefundRequest"
+                                        .put(key: "platform", value: state.proLastPaymentOriginatingPlatform.platform)
+                                        .localizedFormatted(Fonts.Body.smallRegular)
+                                ),
+                                trailingAccessory: .icon(.circleAlert, size: .large)
+                            )
+                        ),
+                        onTap: { [weak viewModel] in
+                            switch state.loadingState {
+                                case .success: viewModel?.updateProPlan(state: state)
+                                case .loading:
+                                    viewModel?.showLoadingModal(
+                                        from: .updatePlan,
+                                        title: "proAccessLoading"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized(),
+                                        description: "proAccessLoadingDescription"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized()
+                                    )
+                                
+                                case .error:
+                                    viewModel?.showErrorModal(
+                                        from: .updatePlan,
+                                        title: "proAccessError"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized(),
+                                        description: "proAccessNetworkLoadError"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
+                                    )
+                            }
+                        }
+                    )
+                ]
+        }
+        
+        return initialProSettingsElements + [
             SessionListScreenContent.ListItemInfo(
                 id: .proBadge,
                 variant: .cell(
@@ -824,7 +894,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     }
                 }
             )
-        ].compactMap { $0 }
+        ]
     }
     
     // MARK: - Pro Management Elements
@@ -833,11 +903,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         state: State,
         viewModel: SessionProSettingsViewModel
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
-        return switch state.proStatus {
-            case .none, .neverBeenPro: []
-            case .active:
-                [
-                    state.proAutoRenewing != true ? nil :
+        switch (state.proStatus, state.proIsRefunding) {
+            case (.none, _), (.neverBeenPro, _), (.active, .refunding): return []
+            case (.active, .notRefunding):
+                var renewingItems: [SessionListScreenContent.ListItemInfo<ListItem>] = []
+                
+                if state.proAutoRenewing == true {
+                    renewingItems.append(
                         SessionListScreenContent.ListItemInfo(
                             id: .cancelPlan,
                             variant: .cell(
@@ -853,7 +925,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                             ),
                             onTap: { [weak viewModel] in viewModel?.cancelPlan(state: state) }
-                        ),
+                        )
+                    )
+                }
+                
+                return renewingItems + [
                     SessionListScreenContent.ListItemInfo(
                         id: .requestRefund,
                         variant: .cell(
@@ -868,10 +944,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         ),
                         onTap: { [weak viewModel] in viewModel?.requestRefund(state: state) }
                     )
-                ].compactMap { $0 }
+                ]
             
-            case .expired:
-                [
+            case (.expired, _):
+                return [
                     SessionListScreenContent.ListItemInfo(
                         id: .renewPlan,
                         variant: .cell(
@@ -1040,9 +1116,7 @@ extension SessionProSettingsViewModel {
                         try? await dependencies[singleton: .sessionProManager].refreshProState()
                     }
                 },
-                onCancel: { [weak self] _ in
-                    self?.openUrl(Constants.session_pro_support_url)
-                }
+                onCancel: { [weak self] _ in self?.openUrl(SessionPro.Metadata.urls.support) }
             )
         )
         
@@ -1060,7 +1134,9 @@ extension SessionProSettingsViewModel {
                             proStatus: state.proStatus,
                             autoRenewing: state.proAutoRenewing,
                             accessExpiryTimestampMs: state.proAccessExpiryTimestampMs,
-                            latestPaymentItem: state.proLatestPaymentItem
+                            latestPaymentItem: state.proLatestPaymentItem,
+                            lastPaymentOriginatingPlatform: state.proLastPaymentOriginatingPlatform,
+                            isRefunding: state.proIsRefunding
                         ),
                         plans: state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     )
@@ -1071,6 +1147,66 @@ extension SessionProSettingsViewModel {
     }
     
     @MainActor func recoverProPlan() {
+        Task.detached(priority: .userInitiated) { [weak self, manager = dependencies[singleton: .sessionProManager]] in
+            try? await manager.refreshProState()
+            
+            let status: Network.SessionPro.BackendUserProStatus = (await manager.proStatus
+                .first(defaultValue: nil) ?? .neverBeenPro)
+            
+            await MainActor.run { [weak self] in
+                let modal: ConfirmationModal = ConfirmationModal(
+                    info: ConfirmationModal.Info(
+                        title: {
+                            switch status {
+                                case .active:
+                                    return "proAccessRestored"
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localized()
+                                    
+                                case .neverBeenPro, .expired:
+                                    return "proAccessNotFound"
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localized()
+                            }
+                        }(),
+                        body: {
+                            switch status {
+                                case .active:
+                                    return .text(
+                                        "proAccessRestoredDescription"
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized(),
+                                        scrollMode: .never
+                                    )
+                                    
+                                case .neverBeenPro, .expired:
+                                    return .text(
+                                        "proAccessNotFoundDescription"
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .put(key: "pro", value: Constants.pro)
+                                            .localized(),
+                                        scrollMode: .never
+                                    )
+                            }
+                        }(),
+                        confirmTitle: (status == .active ? nil : "helpSupport".localized()),
+                        cancelTitle: (status == .active ? "okay".localized() : "close".localized()),
+                        cancelStyle: (status == .active ? .textPrimary : .danger),
+                        dismissOnConfirm: false,
+                        onConfirm: { [weak self] modal in
+                            guard status != .active else {
+                                return modal.dismiss(animated: true)
+                            }
+                            
+                            self?.openUrl(SessionPro.Metadata.urls.proAccessNotFound)
+                        }
+                    )
+                )
+                    
+                self?.transitionToScreen(modal, transitionType: .present)
+            }
+        }
     }
     
     func cancelPlan(state: State) {
@@ -1079,15 +1215,7 @@ extension SessionProSettingsViewModel {
                 viewModel: SessionProPaymentScreenContent.ViewModel(
                     dependencies: dependencies,
                     dataModel: SessionProPaymentScreenContent.DataModel(
-                        flow: .cancel(
-                            originatingPlatform: {
-                                switch state.proLatestPaymentItem?.paymentProvider {
-                                    case .none: return .iOS     /// Should default to iOS on iOS devices
-                                    case .appStore: return .iOS
-                                    case .playStore: return .android
-                                }
-                            }()
-                        ),
+                        flow: .cancel(originatingPlatform: state.proLastPaymentOriginatingPlatform),
                         plans: state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     )
                 )
@@ -1103,13 +1231,7 @@ extension SessionProSettingsViewModel {
                     dependencies: dependencies,
                     dataModel: SessionProPaymentScreenContent.DataModel(
                         flow: .refund(
-                            originatingPlatform: {
-                                switch state.proLatestPaymentItem?.paymentProvider {
-                                    case .none: return .iOS     /// Should default to iOS on iOS devices
-                                    case .appStore: return .iOS
-                                    case .playStore: return .android
-                                }
-                            }(),
+                            originatingPlatform: state.proLastPaymentOriginatingPlatform,
                             requestedAt: nil
                         ),
                         plans: state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
@@ -1206,36 +1328,30 @@ extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         proStatus: Network.SessionPro.BackendUserProStatus?,
         autoRenewing: Bool?,
         accessExpiryTimestampMs: UInt64?,
-        latestPaymentItem: Network.SessionPro.PaymentItem?
+        latestPaymentItem: Network.SessionPro.PaymentItem?,
+        lastPaymentOriginatingPlatform: SessionProUI.ClientPlatform,
+        isRefunding: SessionPro.IsRefunding
     ) {
         let latestPlan: SessionPro.Plan? = plans.first { $0.variant == latestPaymentItem?.plan }
         let expiryDate: Date? = accessExpiryTimestampMs.map { Date(timeIntervalSince1970: floor(Double($0) / 1000)) }
         
-        switch (proStatus, latestPlan) {
-            case (.none, _), (.neverBeenPro, _), (.active, .none): self = .purchase
-            case (.active, .some(let plan)):
+        switch (proStatus, latestPlan, isRefunding) {
+            case (.none, _, _), (.neverBeenPro, _, _), (.active, .none, _): self = .purchase
+            case (.active, .some(let plan), .notRefunding):
                 self = .update(
                     currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo(plan: plan),
                     expiredOn: (expiryDate ?? Date.distantPast),
                     isAutoRenewing: (autoRenewing == true),
-                    originatingPlatform: {
-                        switch latestPaymentItem?.paymentProvider {
-                            case .none: return .iOS     /// Should default to iOS on iOS devices
-                            case .appStore: return .iOS
-                            case .playStore: return .android
-                        }
-                    }()
+                    originatingPlatform: lastPaymentOriginatingPlatform
                 )
                 
-            case (.expired, _):
-                self = .renew(
-                    originatingPlatform: {
-                        switch latestPaymentItem?.paymentProvider {
-                            case .none: return .iOS     /// Should default to iOS on iOS devices
-                            case .appStore: return .iOS
-                            case .playStore: return .android
-                        }
-                    }()
+            case (.expired, _, _): self = .renew(originatingPlatform: lastPaymentOriginatingPlatform)
+            case (.active, .some, .refunding):
+                self = .refund(
+                    originatingPlatform: lastPaymentOriginatingPlatform,
+                    requestedAt: (latestPaymentItem?.refundRequestedTimestampMs).map {
+                        Date(timeIntervalSince1970: (Double($0) / 1000))
+                    }
                 )
         }
     }

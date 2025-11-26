@@ -585,7 +585,7 @@ struct MessageInfoScreen: View {
                 ),
                 dataManager: viewModel.dependencies[singleton: .imageDataManager],
                 sessionProUIManager: viewModel.dependencies[singleton: .sessionProManager],
-                onConfirm: { [dependencies] in
+                onConfirm: { [dependencies = viewModel.dependencies] in
                     // TODO: [PRO] Need to sort this out
                     dependencies[singleton: .sessionProState].upgradeToPro(
                         plan: SessionProPlan(variant: .threeMonths),

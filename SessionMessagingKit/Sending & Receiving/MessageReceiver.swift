@@ -82,11 +82,16 @@ public enum MessageReceiver {
         message.sigTimestampMs = (proto.hasSigTimestamp ? proto.sigTimestamp : nil)
         message.receivedTimestampMs = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
         
-        /// If the `decodedPro` content on the message is not valid then we should remove any pro content from the message itself
-        /// as it's invalid
-        if decodedMessage.decodedPro?.status != .valid {
-            message.proFeatures = nil
-            message.proProof = nil
+        /// If the `decodedPro` content on the message is not `valid` or `expired` then we should remove any pro content from
+        /// the message itself as it's invalid
+        ///
+        /// **Note:** We sync the `expired` case because it's possible another device received and synced it while the data was
+        /// `valid` and we don't want to incorrectly remove pro state (or cause a config ping-pong due to inconsistent behaviours)
+        switch decodedMessage.decodedPro?.status {
+            case .valid, .expired: break
+            case .none, .invalidProBackendSig, .invalidUserSig:
+                message.proFeatures = nil
+                message.proProof = nil
         }
         
         /// Perform validation and assign additional message values based on the origin

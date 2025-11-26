@@ -159,7 +159,7 @@ extension MessageReceiver {
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
-                proUpdate: .contactUpdate(decodedMessage.decodedPro),
+                proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 currentUserSessionIds: currentUserSessionIds,
                 using: dependencies
@@ -261,7 +261,7 @@ extension MessageReceiver {
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
-                proUpdate: .contactUpdate(decodedMessage.decodedPro),
+                proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 currentUserSessionIds: currentUserSessionIds,
                 using: dependencies
@@ -616,7 +616,7 @@ extension MessageReceiver {
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .contactUpdateTo(profile, fallback: .contactRemove),
                 blocksCommunityMessageRequests: .set(to: profile.blocksCommunityMessageRequests),
-                proUpdate: .contactUpdate(decodedMessage.decodedPro),
+                proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 currentUserSessionIds: currentUserSessionIds,
                 using: dependencies

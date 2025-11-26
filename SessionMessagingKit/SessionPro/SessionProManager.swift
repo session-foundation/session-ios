@@ -1,6 +1,7 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import StoreKit
 import SessionUtil
 import SessionUIKit
 import SessionNetworkingKit
@@ -29,42 +30,45 @@ public actor SessionProManager: SessionProManagerType {
     private let dependencies: Dependencies
     nonisolated private let syncState: SessionProManagerSyncState
     private var isRefreshingState: Bool = false
-    private var proStatusObservationTask: Task<Void, Never>?
+    private var proMockingObservationTask: Task<Void, Never>?
     private var rotatingKeyPair: KeyPair?
     public var plans: [SessionPro.Plan] = []
-    public var proFeatures: SessionPro.Features = .none
     
     nonisolated private let loadingStateStream: CurrentValueAsyncStream<SessionPro.LoadingState> = CurrentValueAsyncStream(.loading)
-    nonisolated private let backendUserProStatusStream: CurrentValueAsyncStream<Network.SessionPro.BackendUserProStatus?> = CurrentValueAsyncStream(nil)
-    nonisolated private let proProofStream: CurrentValueAsyncStream<Network.SessionPro.ProProof?> = CurrentValueAsyncStream(nil)
+    nonisolated private let proStatusStream: CurrentValueAsyncStream<Network.SessionPro.BackendUserProStatus?> = CurrentValueAsyncStream(nil)
     nonisolated private let autoRenewingStream: CurrentValueAsyncStream<Bool?> = CurrentValueAsyncStream(nil)
     nonisolated private let accessExpiryTimestampMsStream: CurrentValueAsyncStream<UInt64?> = CurrentValueAsyncStream(nil)
     nonisolated private let latestPaymentItemStream: CurrentValueAsyncStream<Network.SessionPro.PaymentItem?> = CurrentValueAsyncStream(nil)
+    nonisolated private let latestPaymentOriginatingPlatformStream: CurrentValueAsyncStream<SessionProUI.ClientPlatform> = CurrentValueAsyncStream(.iOS)
+    nonisolated private let isRefundingStream: CurrentValueAsyncStream<SessionPro.IsRefunding> = CurrentValueAsyncStream(false)
     
     nonisolated public var currentUserCurrentRotatingKeyPair: KeyPair? { syncState.rotatingKeyPair }
-    nonisolated public var currentUserCurrentBackendProStatus: Network.SessionPro.BackendUserProStatus? {
-        syncState.backendUserProStatus
+    nonisolated public var currentUserCurrentProStatus: Network.SessionPro.BackendUserProStatus? {
+        syncState.proStatus
     }
-    nonisolated public var pinnedConversationLimit: Int { SessionPro.PinnedConversationLimit }
-    nonisolated public var currentUserIsCurrentlyPro: Bool { syncState.backendUserProStatus == .active }
     nonisolated public var currentUserCurrentProProof: Network.SessionPro.ProProof? { syncState.proProof }
-    nonisolated public var currentUserIsPro: AsyncStream<Bool> {
-        backendUserProStatusStream.stream
-            .map { $0 == .active }
-            .asAsyncStream()
-    }
+    nonisolated public var currentUserCurrentProFeatures: SessionPro.Features? { syncState.proFeatures }
+    nonisolated public var currentUserIsCurrentlyPro: Bool { syncState.proStatus == .active }
+    
+    nonisolated public var pinnedConversationLimit: Int { SessionPro.PinnedConversationLimit }
     nonisolated public var characterLimit: Int {
         (currentUserIsCurrentlyPro ? SessionPro.ProCharacterLimit : SessionPro.CharacterLimit)
     }
+    nonisolated public var currentUserIsPro: AsyncStream<Bool> {
+        proStatusStream.stream
+            .map { $0 == .active }
+            .asAsyncStream()
+    }
     
     nonisolated public var loadingState: AsyncStream<SessionPro.LoadingState> { loadingStateStream.stream }
-    nonisolated public var backendUserProStatus: AsyncStream<Network.SessionPro.BackendUserProStatus?> {
-        backendUserProStatusStream.stream
-    }
-    nonisolated public var proProof: AsyncStream<Network.SessionPro.ProProof?> { proProofStream.stream }
+    nonisolated public var proStatus: AsyncStream<Network.SessionPro.BackendUserProStatus?> { proStatusStream.stream }
     nonisolated public var autoRenewing: AsyncStream<Bool?> { autoRenewingStream.stream }
     nonisolated public var accessExpiryTimestampMs: AsyncStream<UInt64?> { accessExpiryTimestampMsStream.stream }
     nonisolated public var latestPaymentItem: AsyncStream<Network.SessionPro.PaymentItem?> { latestPaymentItemStream.stream }
+    nonisolated public var latestPaymentOriginatingPlatform: AsyncStream<SessionProUI.ClientPlatform> {
+        latestPaymentOriginatingPlatformStream.stream
+    }
+    nonisolated public var isRefunding: AsyncStream<SessionPro.IsRefunding> { isRefundingStream.stream }
     
     // MARK: - Initialization
     
@@ -84,7 +88,7 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     deinit {
-        proStatusObservationTask?.cancel()
+        proMockingObservationTask?.cancel()
     }
     
     // MARK: - Functions
@@ -223,16 +227,23 @@ public actor SessionProManager: SessionProManagerType {
         }()
         syncState.update(
             rotatingKeyPair: .set(to: rotatingKeyPair),
-            backendUserProStatus: .set(to: proStatus),
+            proStatus: .set(to: mockedIfNeeded(proStatus)),
             proProof: .set(to: proState.proConfig?.proProof),
             proFeatures: .set(to: proState.profile.proFeatures)
         )
         
         /// Then update the async state and streams
+        let oldAccessExpiryTimestampMs: UInt64? = await self.accessExpiryTimestampMsStream.getCurrent()
         self.rotatingKeyPair = rotatingKeyPair
-        self.proFeatures = proState.profile.proFeatures
-        await self.proProofStream.send(proState.proConfig?.proProof)
-        await self.backendUserProStatusStream.send(proStatus)
+        await self.proStatusStream.send(mockedIfNeeded(proStatus))
+        await self.accessExpiryTimestampMsStream.send(proState.accessExpiryTimestampMs)
+        await self.sendUpdatedIsRefundingState()
+        
+        /// If the `accessExpiryTimestampMs` value changed then we should trigger a refresh because it generally means that
+        /// other device did something that should refresh the pro state
+        if proState.accessExpiryTimestampMs != oldAccessExpiryTimestampMs {
+            try? await refreshProState()
+        }
     }
     
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
@@ -246,7 +257,7 @@ public actor SessionProManager: SessionProManagerType {
         switch variant {
             case .groupLimit: break /// The `groupLimit` CTA can be shown for Session Pro users as well
             default:
-                guard syncState.backendUserProStatus != .active else { return false }
+                guard syncState.proStatus != .active else { return false }
                 
                 break
         }
@@ -268,7 +279,8 @@ public actor SessionProManager: SessionProManagerType {
     public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) async {
         // TODO: [PRO] Need to actually implement this
         dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: .simulate(.active))
-        await backendUserProStatusStream.send(.active)
+        await proStatusStream.send(.active)
+        await sendUpdatedIsRefundingState()
         completion?(true)
     }
     
@@ -283,7 +295,7 @@ public actor SessionProManager: SessionProManagerType {
         
         /// Only reset the `loadingState` if it's currently in an error state
         if await loadingStateStream.getCurrent() == .error {
-            await loadingStateStream.send(.loading)
+            await loadingStateStream.send(mockedIfNeeded(.loading))
         }
         
         /// Get the product list from the AppStore first (need this to populate the UI)
@@ -305,15 +317,19 @@ public actor SessionProManager: SessionProManagerType {
         guard response.header.errors.isEmpty else {
             let errorString: String = response.header.errors.joined(separator: ", ")
             Log.error(.sessionPro, "Failed to retrieve pro details due to error(s): \(errorString)")
-            await loadingStateStream.send(.error)
+            await loadingStateStream.send(mockedIfNeeded(.error))
             throw NetworkError.explicit(errorString)
         }
         
-        syncState.update(backendUserProStatus: .set(to: response.status))
-        await self.backendUserProStatusStream.send(response.status)
+        syncState.update(proStatus: .set(to: mockedIfNeeded(response.status)))
+        await self.proStatusStream.send(mockedIfNeeded(response.status))
         await self.autoRenewingStream.send(response.autoRenewing)
         await self.accessExpiryTimestampMsStream.send(response.expiryTimestampMs)
         await self.latestPaymentItemStream.send(response.items.first)
+        await self.latestPaymentOriginatingPlatformStream.send(mockedIfNeeded(
+            SessionProUI.ClientPlatform(response.items.first?.paymentProvider)
+        ))
+        await self.sendUpdatedIsRefundingState()
         
         switch response.status {
             case .active:
@@ -327,7 +343,7 @@ public actor SessionProManager: SessionProManagerType {
             case .expired: try await clearProProof()
         }
         
-        await loadingStateStream.send(.success)
+        await loadingStateStream.send(mockedIfNeeded(.success))
     }
     
     public func refreshProProofIfNeeded(
@@ -337,8 +353,8 @@ public actor SessionProManager: SessionProManagerType {
     ) async throws {
         guard status == .active else { return }
         
-        let needsNewProof: Bool = await {
-            guard let currentProof: Network.SessionPro.ProProof = await proProofStream.getCurrent() else {
+        let needsNewProof: Bool = {
+            guard let currentProof: Network.SessionPro.ProProof = syncState.proProof else {
                 return true
             }
             
@@ -402,12 +418,12 @@ public actor SessionProManager: SessionProManagerType {
         let proStatus: Network.SessionPro.BackendUserProStatus = (proofIsActive ? .active : .expired)
         syncState.update(
             rotatingKeyPair: .set(to: rotatingKeyPair),
-            backendUserProStatus: .set(to: proStatus),
+            proStatus: .set(to: mockedIfNeeded(proStatus)),
             proProof: .set(to: response.proof)
         )
         self.rotatingKeyPair = rotatingKeyPair
-        await self.proProofStream.send(response.proof)
-        await self.backendUserProStatusStream.send(proStatus)
+        await self.proStatusStream.send(mockedIfNeeded(proStatus))
+        await self.sendUpdatedIsRefundingState()
     }
     
     public func addProPayment(transactionId: String) async throws {
@@ -459,19 +475,107 @@ public actor SessionProManager: SessionProManagerType {
         let proStatus: Network.SessionPro.BackendUserProStatus = (proofIsActive ? .active : .expired)
         syncState.update(
             rotatingKeyPair: .set(to: rotatingKeyPair),
-            backendUserProStatus: .set(to: proStatus),
+            proStatus: .set(to: mockedIfNeeded(proStatus)),
             proProof: .set(to: response.proof)
         )
         self.rotatingKeyPair = rotatingKeyPair
-        await self.proProofStream.send(response.proof)
-        await self.backendUserProStatusStream.send(proStatus)
+        await self.proStatusStream.send(mockedIfNeeded(proStatus))
+        await self.sendUpdatedIsRefundingState()
         
         /// Just in case we refresh the pro state (this will avoid needless requests based on the current state but will resolve other
         /// edge-cases since it's the main driver to the Pro state)
         try? await refreshProState()
     }
+    
+    public func requestRefund(
+        scene: UIWindowScene
+    ) async throws {
+        guard let latestPaymentItem: Network.SessionPro.PaymentItem = await latestPaymentItemStream.getCurrent() else {
+            throw NetworkError.explicit("No latest payment item")
+        }
+        
+        /// User has already requested a refund for this item
+        guard latestPaymentItem.refundRequestedTimestampMs == 0 else {
+            throw NetworkError.explicit("Refund already requested for latest payment")
+        }
+        
+        /// Only Apple support refunding via this mechanism so no point continuing if we don't have a `appleTransactionId`
+        guard let transactionId: String = latestPaymentItem.appleTransactionId else {
+            throw NetworkError.explicit("Latest payment wasn't originated from an Apple device")
+        }
+        
+        /// If we don't have the `fakeAppleSubscriptionForDev` feature enabled then we need to actually request the refund from Apple
+        if !dependencies[feature: .fakeAppleSubscriptionForDev] {
+            var transactions: [Transaction] = []
+            
+            for await result in Transaction.currentEntitlements {
+                if case .verified(let transaction) = result {
+                    transactions.append(transaction)
+                }
+            }
+            
+            let sortedTransactions: [Transaction] = transactions.sorted { $0.purchaseDate > $1.purchaseDate }
+            let latestTransaction: Transaction? = sortedTransactions.first
+            let latestPaymentItemTransaction: Transaction? = sortedTransactions.first(where: { "\($0.id)" == latestPaymentItem.appleTransactionId })
+            
+            if latestTransaction != latestPaymentItemTransaction {
+                Log.warn(.sessionPro, "The latest transaction didn't match the latest payment item")
+            }
+            
+            /// Prioritise the transaction that matches the latest payment item
+            guard let targetTransaction: Transaction = (latestPaymentItemTransaction ?? latestTransaction) else {
+                throw NetworkError.explicit("No Transaction")
+            }
+            
+            let status: Transaction.RefundRequestStatus = try await targetTransaction.beginRefundRequest(in: scene)
+            
+            switch status {
+                case .success: break    /// Continue on to send the refund to our backend
+                case .userCancelled: throw NetworkError.explicit("Cancelled refund request")
+                @unknown default: throw NetworkError.explicit("Unknown refund request status")
+            }
+        }
+        
+        let refundRequestedTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let request = try Network.SessionPro.setPaymentRefundRequested(
+            transactionId: transactionId,
+            refundRequestedTimestampMs: refundRequestedTimestampMs,
+            masterKeyPair: try dependencies[singleton: .crypto].tryGenerate(.sessionProMasterKeyPair()),
+            using: dependencies
+        )
+        
+        // FIXME: Make this async/await when the refactored networking is merged
+        let response: Network.SessionPro.SetPaymentRefundRequestedResponse = try await request
+            .send(using: dependencies)
+            .values
+            .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+        
+        guard response.header.errors.isEmpty else {
+            let errorString: String = response.header.errors.joined(separator: ", ")
+            Log.error(.sessionPro, "Refund submission failed due to error(s): \(errorString)")
+            throw NetworkError.explicit(errorString)
+        }
+        
+        /// Need to refresh the pro state to get the updated payment item (which should now include a `refundRequestedTimestampMs`)
+        try await refreshProState()
+    }
         
     // MARK: - Internal Functions
+    
+    /// The user is in a refunding state when their pro status is `active` and the `refundRequestedTimestampMs` is not `0`
+    private func sendUpdatedIsRefundingState() async {
+        let status: Network.SessionPro.BackendUserProStatus? = await proStatusStream.getCurrent()
+        let paymentItem: Network.SessionPro.PaymentItem? = await latestPaymentItemStream.getCurrent()
+        
+        await isRefundingStream.send(
+            mockedIfNeeded(
+                SessionPro.IsRefunding(
+                    status == .active &&
+                    (paymentItem?.refundRequestedTimestampMs ?? 0) > 0
+                )
+            )
+        )
+    }
     
     private func clearProProof() async throws {
         try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
@@ -494,54 +598,6 @@ public actor SessionProManager: SessionProManagerType {
         
         // TODO: [PRO] Need to add these in (likely part of pro settings)
     }
-    
-    private func startProStatusObservations() {
-        proStatusObservationTask?.cancel()
-        proStatusObservationTask = Task {
-            await withTaskGroup(of: Void.self) { [weak self, dependencies] group in
-                if #available(iOS 16, *) {
-                    /// Observe the main Session Pro feature flag
-                    group.addTask {
-                        for await proEnabled in dependencies.stream(feature: .sessionProEnabled) {
-                            guard proEnabled else {
-                                self?.syncState.update(backendUserProStatus: .set(to: nil))
-                                await self?.backendUserProStatusStream.send(.none)
-                                continue
-                            }
-                            
-                            /// Restart the observation (will fetch the correct current states)
-                            try? await self?.refreshProState()
-                        }
-                    }
-                    
-                    /// Observe the explicit mocking for the current session pro status
-                    group.addTask {
-                        for await status in dependencies.stream(feature: .mockCurrentUserSessionProBackendStatus) {
-                            /// Ignore status updates if pro is enabled, and if the mock status was removed we need to fetch
-                            /// the "real" status
-                            guard dependencies[feature: .sessionProEnabled] else { continue }
-                            
-                            switch status {
-                                case .useActual: try? await self?.refreshProState()
-                                case .simulate(let status):
-                                    self?.syncState.update(backendUserProStatus: .set(to: status))
-                                    await self?.backendUserProStatusStream.send(status)
-                            }
-                        }
-                    }
-                }
-                
-                /// If Session Pro isn't enabled then no need to do any of the other tasks (they check the proper Session Pro stauts
-                /// via `libSession` and the network
-                guard dependencies[feature: .sessionProEnabled] else {
-                    await group.waitForAll()
-                    return
-                }
-                
-                await group.waitForAll()
-            }
-        }
-    }
 }
 
 // MARK: - SyncState
@@ -550,15 +606,13 @@ private final class SessionProManagerSyncState {
     private let lock: NSLock = NSLock()
     private let _dependencies: Dependencies
     private var _rotatingKeyPair: KeyPair? = nil
-    private var _backendUserProStatus: Network.SessionPro.BackendUserProStatus? = nil
+    private var _proStatus: Network.SessionPro.BackendUserProStatus? = nil
     private var _proProof: Network.SessionPro.ProProof? = nil
     private var _proFeatures: SessionPro.Features = .none
     
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
     fileprivate var rotatingKeyPair: KeyPair? { lock.withLock { _rotatingKeyPair } }
-    fileprivate var backendUserProStatus: Network.SessionPro.BackendUserProStatus? {
-        lock.withLock { _backendUserProStatus }
-    }
+    fileprivate var proStatus: Network.SessionPro.BackendUserProStatus? { lock.withLock { _proStatus } }
     fileprivate var proProof: Network.SessionPro.ProProof? { lock.withLock { _proProof } }
     fileprivate var proFeatures: SessionPro.Features? { lock.withLock { _proFeatures } }
     
@@ -568,13 +622,13 @@ private final class SessionProManagerSyncState {
     
     fileprivate func update(
         rotatingKeyPair: Update<KeyPair?> = .useExisting,
-        backendUserProStatus: Update<Network.SessionPro.BackendUserProStatus?> = .useExisting,
+        proStatus: Update<Network.SessionPro.BackendUserProStatus?> = .useExisting,
         proProof: Update<Network.SessionPro.ProProof?> = .useExisting,
         proFeatures: Update<SessionPro.Features> = .useExisting
     ) {
         lock.withLock {
             self._rotatingKeyPair = rotatingKeyPair.or(self._rotatingKeyPair)
-            self._backendUserProStatus = backendUserProStatus.or(self._backendUserProStatus)
+            self._proStatus = proStatus.or(self._proStatus)
             self._proProof = proProof.or(self._proProof)
             self._proFeatures = proFeatures.or(self._proFeatures)
         }
@@ -584,20 +638,21 @@ private final class SessionProManagerSyncState {
 // MARK: - SessionProManagerType
 
 public protocol SessionProManagerType: SessionProUIManagerType {
-    var proFeatures: SessionPro.Features { get }
     var plans: [SessionPro.Plan] { get }
     
     nonisolated var characterLimit: Int { get }
     nonisolated var currentUserCurrentRotatingKeyPair: KeyPair? { get }
-    nonisolated var currentUserCurrentBackendProStatus: Network.SessionPro.BackendUserProStatus? { get }
+    nonisolated var currentUserCurrentProStatus: Network.SessionPro.BackendUserProStatus? { get }
     nonisolated var currentUserCurrentProProof: Network.SessionPro.ProProof? { get }
+    nonisolated var currentUserCurrentProFeatures: SessionPro.Features? { get }
     
     nonisolated var loadingState: AsyncStream<SessionPro.LoadingState> { get }
-    nonisolated var backendUserProStatus: AsyncStream<Network.SessionPro.BackendUserProStatus?> { get }
-    nonisolated var proProof: AsyncStream<Network.SessionPro.ProProof?> { get }
+    nonisolated var proStatus: AsyncStream<Network.SessionPro.BackendUserProStatus?> { get }
     nonisolated var autoRenewing: AsyncStream<Bool?> { get }
     nonisolated var accessExpiryTimestampMs: AsyncStream<UInt64?> { get }
     nonisolated var latestPaymentItem: AsyncStream<Network.SessionPro.PaymentItem?> { get }
+    nonisolated var latestPaymentOriginatingPlatform: AsyncStream<SessionProUI.ClientPlatform> { get }
+    nonisolated var isRefunding: AsyncStream<SessionPro.IsRefunding> { get }
     
     nonisolated func proStatus<I: DataProtocol>(
         for proof: Network.SessionPro.ProProof?,
@@ -614,11 +669,27 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     
     func refreshProState() async throws
     func addProPayment(transactionId: String) async throws
+    func requestRefund(scene: UIWindowScene) async throws
 }
 
 public extension SessionProManagerType {
     nonisolated func features(for message: String) -> SessionPro.FeaturesForMessage {
         return features(for: message, features: .none)
+    }
+}
+
+// MARK: - Convenience
+
+extension SessionProUI.ClientPlatform {
+    /// The originating platform the latest payment came from
+    ///
+    /// **Note:** There may not be a latest payment, in which case we default to `iOS` because we are on an `iOS` device
+    init(_ provider: Network.SessionPro.PaymentProvider?) {
+        switch provider {
+            case .none: self = .iOS
+            case .appStore: self = .iOS
+            case .playStore: self = .android
+        }
     }
 }
 
@@ -637,14 +708,7 @@ public extension ObservableKey {
         return ObservableKey.stream(
             key: "currentUserProStatus",
             generic: .currentUserProStatus
-        ) { [weak manager] in manager?.backendUserProStatus }
-    }
-    
-    static func currentUserProProof(_ manager: SessionProManagerType) -> ObservableKey {
-        return ObservableKey.stream(
-            key: "currentUserProProof",
-            generic: .currentUserProProof
-        ) { [weak manager] in manager?.proProof }
+        ) { [weak manager] in manager?.proStatus }
     }
     
     static func currentUserProAutoRenewing(_ manager: SessionProManagerType) -> ObservableKey {
@@ -667,14 +731,151 @@ public extension ObservableKey {
             generic: .currentUserProLatestPaymentItem
         ) { [weak manager] in manager?.latestPaymentItem }
     }
+    
+    static func currentUserLatestPaymentOriginatingPlatform(_ manager: SessionProManagerType) -> ObservableKey {
+        return ObservableKey.stream(
+            key: "currentUserLatestPaymentOriginatingPlatform",
+            generic: .currentUserLatestPaymentOriginatingPlatform
+        ) { [weak manager] in manager?.latestPaymentOriginatingPlatform }
+    }
+    
+    static func currentUserProIsRefunding(_ manager: SessionProManagerType) -> ObservableKey {
+        return ObservableKey.stream(
+            key: "currentUserProIsRefunding",
+            generic: .currentUserProIsRefunding
+        ) { [weak manager] in manager?.isRefunding }
+    }
 }
 
 // stringlint:ignore_contents
 public extension GenericObservableKey {
     static let currentUserProLoadingState: GenericObservableKey = "currentUserProLoadingState"
     static let currentUserProStatus: GenericObservableKey = "currentUserProStatus"
-    static let currentUserProProof: GenericObservableKey = "currentUserProProof"
     static let currentUserProAutoRenewing: GenericObservableKey = "currentUserProAutoRenewing"
     static let currentUserProAccessExpiryTimestampMs: GenericObservableKey = "currentUserProAccessExpiryTimestampMs"
     static let currentUserProLatestPaymentItem: GenericObservableKey = "currentUserProLatestPaymentItem"
+    static let currentUserLatestPaymentOriginatingPlatform: GenericObservableKey = "currentUserLatestPaymentOriginatingPlatform"
+    static let currentUserProIsRefunding: GenericObservableKey = "currentUserProIsRefunding"
+}
+
+// MARK: - Mocking
+
+private extension SessionProManager {
+    private func startProStatusObservations() {
+        proMockingObservationTask = ObservationBuilder
+            .initialValue(MockState(using: dependencies))
+            .debounce(for: .milliseconds(10))
+            .using(dependencies: dependencies)
+            .query { previousValue, _, _, dependencies in
+                MockState(previousInfo: previousValue.info, using: dependencies)
+            }
+            .assign { [weak self] state in
+                Task.detached(priority: .userInitiated) {
+                    /// If the entire Session Pro feature is disabled then clear any state
+                    guard state.info.sessionProEnabled else {
+                        self?.syncState.update(
+                            rotatingKeyPair: .set(to: nil),
+                            proStatus: .set(to: nil),
+                            proProof: .set(to: nil),
+                            proFeatures: .set(to: .none)
+                        )
+                        
+                        await self?.loadingStateStream.send(.loading)
+                        await self?.proStatusStream.send(nil)
+                        await self?.autoRenewingStream.send(nil)
+                        await self?.accessExpiryTimestampMsStream.send(nil)
+                        await self?.latestPaymentItemStream.send(nil)
+                        await self?.sendUpdatedIsRefundingState()
+                        return
+                    }
+                    
+                    let needsStateRefresh: Bool = {
+                        /// We we just enabled Session Pro then we need to fetch the users state
+                        if state.info.sessionProEnabled && state.previousInfo?.sessionProEnabled == false {
+                            return true
+                        }
+                        
+                        /// If any of the mock states changed from a mock to use the actual value then we need to know what the
+                        /// actual value is (so need to refresh the state)
+                        switch (state.previousInfo?.mockProBackendStatus, state.info.mockProBackendStatus) {
+                            case (.simulate, .useActual): return true
+                            default: break
+                        }
+                        
+                        switch (state.previousInfo?.mockProLoadingState, state.info.mockProLoadingState) {
+                            case (.simulate, .useActual): return true
+                            default: break
+                        }
+                        
+                        switch (state.previousInfo?.mockIsRefunding, state.info.mockIsRefunding) {
+                            case (.simulate, .useActual): return true
+                            default: break
+                        }
+                        
+                        return false
+                    }()
+                    
+                    /// If we need a state refresh then start a new task to do so (we don't want the mocking to be dependant on the
+                    /// result of the refresh so don't wait for it to complete before doing any mock changes)
+                    if needsStateRefresh {
+                        Task.detached { [weak self] in try await self?.refreshProState() }
+                    }
+                    
+                    /// While it would be easier to just rely on `refreshProState` to update the mocked statuses, that would
+                    /// mean the mocking requires network connectivity which isn't ideal, so we also explicitly send out any mock
+                    /// changes separately
+                    if state.info.mockProBackendStatus != state.previousInfo?.mockProBackendStatus {
+                        switch state.info.mockProBackendStatus {
+                            case .useActual: break
+                            case .simulate(let value):
+                                self?.syncState.update(proStatus: .set(to: value))
+                                await self?.proStatusStream.send(value)
+                                await self?.sendUpdatedIsRefundingState()
+                        }
+                    }
+                    
+                    if state.info.mockProLoadingState != state.previousInfo?.mockProLoadingState {
+                        switch state.info.mockProLoadingState {
+                            case .useActual: break
+                            case .simulate(let value): await self?.loadingStateStream.send(value)
+                        }
+                    }
+                    
+                    if state.info.mockIsRefunding != state.previousInfo?.mockIsRefunding {
+                        switch state.info.mockIsRefunding {
+                            case .useActual: break
+                            case .simulate(let value): await self?.isRefundingStream.send(value)
+                        }
+                    }
+                }
+            }
+    }
+    
+    private func mockedIfNeeded(_ value: SessionPro.LoadingState) -> SessionPro.LoadingState {
+        switch dependencies[feature: .mockCurrentUserSessionProLoadingState] {
+            case .simulate(let mockedValue): return mockedValue
+            case .useActual: return value
+        }
+    }
+    
+    private func mockedIfNeeded(_ value: Network.SessionPro.BackendUserProStatus) -> Network.SessionPro.BackendUserProStatus {
+        switch dependencies[feature: .mockCurrentUserSessionProBackendStatus] {
+            case .simulate(let mockedValue): return mockedValue
+            case .useActual: return value
+        }
+    }
+    
+    private func mockedIfNeeded(_ value: SessionProUI.ClientPlatform) -> SessionProUI.ClientPlatform {
+        switch dependencies[feature: .mockCurrentUserSessionProOriginatingPlatform] {
+            case .simulate(let mockedValue): return mockedValue
+            case .useActual: return value
+        }
+    }
+    
+    private func mockedIfNeeded(_ value: SessionPro.IsRefunding) -> SessionPro.IsRefunding {
+        switch dependencies[feature: .mockCurrentUserSessionProIsRefunding] {
+            case .simulate(let mockedValue): return mockedValue
+            case .useActual: return value
+        }
+    }
 }

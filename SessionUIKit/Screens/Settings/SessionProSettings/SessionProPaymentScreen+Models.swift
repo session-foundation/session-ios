@@ -11,17 +11,17 @@ public extension SessionProPaymentScreenContent {
             currentPlan: SessionProPlanInfo,
             expiredOn: Date,
             isAutoRenewing: Bool,
-            originatingPlatform: ClientPlatform
+            originatingPlatform: SessionProUI.ClientPlatform
         )
         case renew(
-            originatingPlatform: ClientPlatform
+            originatingPlatform: SessionProUI.ClientPlatform
         )
         case refund(
-            originatingPlatform: ClientPlatform,
+            originatingPlatform: SessionProUI.ClientPlatform,
             requestedAt: Date?
         )
         case cancel(
-            originatingPlatform: ClientPlatform
+            originatingPlatform: SessionProUI.ClientPlatform
         )
         
         var description: ThemedAttributedString {
@@ -59,39 +59,6 @@ public extension SessionProPaymentScreenContent {
                     return "proCancelSorry"
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
-            }
-        }
-    }
-    
-    enum ClientPlatform: Equatable {
-        case iOS
-        case android
-        
-        public var store: String {
-            switch self {
-                case .iOS: return Constants.platform_store
-                case .android: return Constants.android_platform_store
-            }
-        }
-        
-        public var account: String {
-            switch self {
-                case .iOS: return Constants.platform_account
-                case .android: return Constants.android_platform_account
-            }
-        }
-        
-        public var deviceType: String {
-            switch self {
-                case .iOS: return Constants.platform
-                case .android: return Constants.android_platform
-            }
-        }
-        
-        public var name: String {
-            switch self {
-                case .iOS: return Constants.platform_name
-                case .android: return Constants.android_platform_name
             }
         }
     }

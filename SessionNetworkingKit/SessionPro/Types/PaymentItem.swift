@@ -9,27 +9,26 @@ public extension Network.SessionPro {
         public let status: PaymentStatus
         public let plan: Plan
         public let paymentProvider: PaymentProvider?
-        public let paymentProviderMetadata: PaymentProviderMetadata?
         
         public let autoRenewing: Bool
-        let unredeemedTimestampMs: UInt64
-        let redeemedTimestampMs: UInt64
-        let expiryTimestampMs: UInt64
-        let gracePeriodDurationMs: UInt64
-        let platformRefundExpiryTimestampMs: UInt64
-        let revokedTimestampMs: UInt64
+        public let unredeemedTimestampMs: UInt64
+        public let redeemedTimestampMs: UInt64
+        public let expiryTimestampMs: UInt64
+        public let gracePeriodDurationMs: UInt64
+        public let platformRefundExpiryTimestampMs: UInt64
+        public let revokedTimestampMs: UInt64
+        public let refundRequestedTimestampMs: UInt64
         
-        let googlePaymentToken: String?
-        let googleOrderId: String?
-        let appleOriginalTransactionId: String?
-        let appleTransactionId: String?
-        let appleWebLineOrderId: String?
+        public let googlePaymentToken: String?
+        public let googleOrderId: String?
+        public let appleOriginalTransactionId: String?
+        public let appleTransactionId: String?
+        public let appleWebLineOrderId: String?
         
         init(_ libSessionValue: session_pro_backend_pro_payment_item) {
             status = PaymentStatus(libSessionValue.status)
             plan = Plan(libSessionValue.plan)
             paymentProvider = PaymentProvider(libSessionValue.payment_provider)
-            paymentProviderMetadata = PaymentProviderMetadata(libSessionValue.payment_provider_metadata)
             
             autoRenewing = libSessionValue.auto_renewing
             unredeemedTimestampMs = libSessionValue.unredeemed_unix_ts_ms
@@ -38,6 +37,7 @@ public extension Network.SessionPro {
             gracePeriodDurationMs = libSessionValue.grace_period_duration_ms
             platformRefundExpiryTimestampMs = libSessionValue.platform_refund_expiry_unix_ts_ms
             revokedTimestampMs = libSessionValue.revoked_unix_ts_ms
+            refundRequestedTimestampMs = libSessionValue.refund_requested_unix_ts_ms
             
             googlePaymentToken = libSessionValue.get(
                 \.google_payment_token,

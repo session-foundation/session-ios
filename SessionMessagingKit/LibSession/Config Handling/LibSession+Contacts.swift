@@ -75,20 +75,13 @@ internal extension LibSessionCacheType {
                     }(),
                     nicknameUpdate: .set(to: data.profile.nickname),
                     proUpdate: {
-                        guard let proof: Network.SessionPro.ProProof = Network.SessionPro.ProProof(profile: data.profile) else {
-                            return .none
-                        }
-                        
-                        let isActive: Bool = dependencies[singleton: .sessionProManager].proProofIsActive(
-                            for: proof,
-                            atTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-                        )
+                        guard let genIndexHashHex: String = profile.proGenIndexHashHex else { return .none }
                         
                         return .contactUpdate(
-                            SessionPro.DecodedProForMessage(
-                                status: (isActive ? .valid : .expired),
-                                proProof: proof,
-                                features: data.profile.proFeatures
+                            Profile.ProState(
+                                features: data.profile.proFeatures,
+                                expiryUnixTimestampMs: data.profile.proExpiryUnixTimestampMs,
+                                genIndexHashHex: genIndexHashHex
                             )
                         )
                     }(),

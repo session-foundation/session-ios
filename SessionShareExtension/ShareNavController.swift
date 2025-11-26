@@ -758,4 +758,15 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     @MainActor func numberOfCharactersLeft(for text: String) -> Int {
         return dependencies[singleton: .sessionProManager].numberOfCharactersLeft(for: text)
     }
+    
+    func proUrlStringProvider() -> SessionProUI.UrlStringProvider {
+        return SessionPro.Metadata.urls
+    }
+    
+    func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> SessionProUI.ClientPlatformStringProvider {
+        switch platform {
+            case .iOS: return SessionPro.Metadata.appStore
+            case .android: return SessionPro.Metadata.playStore
+        }
+    }
 }

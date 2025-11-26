@@ -20,23 +20,3 @@ public extension SessionPro {
         }
     }
 }
-
-// MARK: - MockableFeature
-
-public extension FeatureStorage {
-    static let mockCurrentUserSessionProLoadingState: FeatureConfig<MockableFeature<SessionPro.LoadingState>> = Dependencies.create(
-        identifier: "mockCurrentUserSessionProLoadingState"
-    )
-}
-
-extension SessionPro.LoadingState: MockableFeatureValue {
-    public var title: String { "\(self)" }
-    
-    public var subtitle: String {
-        switch self {
-            case .loading: return "The UI state while we are waiting on the network response."
-            case .error: return "The UI state when there was an error retrieving the users Pro status."
-            case .success: return "The UI state once we have successfully retrieved the users Pro status."
-        }
-    }
-}

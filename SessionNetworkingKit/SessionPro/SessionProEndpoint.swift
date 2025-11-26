@@ -10,6 +10,7 @@ public extension Network.SessionPro {
         case generateProProof
         case getProRevocations
         case getProDetails
+        case setPaymentRefundRequested
         
         public static var name: String { "SessionPro.Endpoint" }
         
@@ -19,6 +20,7 @@ public extension Network.SessionPro {
                 case .generateProProof: return "generate_pro_proof"
                 case .getProRevocations: return "get_pro_revocations"
                 case .getProDetails: return "get_pro_details"
+                case .setPaymentRefundRequested: return "set_payment_refund_requested"
             }
         }
     }

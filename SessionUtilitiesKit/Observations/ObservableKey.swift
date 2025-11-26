@@ -55,6 +55,11 @@ public struct ObservedEvent: Hashable, Sendable {
         self.storedValue = value.map { AnySendableHashable($0) }
     }
     
+    public init(key: ObservableKey, value: AnySendableHashable) {
+        self.key = key
+        self.storedValue = value
+    }
+    
     public init(key: ObservableKey, value: None?) {
         self.key = key
         self.storedValue = value.map { AnySendableHashable($0) }

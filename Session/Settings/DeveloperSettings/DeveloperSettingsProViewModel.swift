@@ -49,12 +49,14 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public enum Section: SessionTableSection {
         case general
         case subscriptions
+        case proBackend
         case features
         
         var title: String? {
             switch self {
                 case .general: return nil
                 case .subscriptions: return "Subscriptions"
+                case .proBackend: return "Pro Backend"
                 case .features: return "Features"
             }
         }
@@ -72,6 +74,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         case mockCurrentUserSessionProBackendStatus
         case mockCurrentUserSessionProLoadingState
+        case mockCurrentUserSessionProOriginatingPlatform
         case proBadgeEverywhere
         case fakeAppleSubscriptionForDev
 
@@ -88,6 +91,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case manageProSubscriptions
         case restoreProSubscription
         case requestRefund
+        
         case submitPurchaseToProBackend
         case refreshProState
         case removeProFromUserConfig
@@ -102,6 +106,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .mockCurrentUserSessionProBackendStatus: return "mockCurrentUserSessionProBackendStatus"
                 case .mockCurrentUserSessionProLoadingState: return "mockCurrentUserSessionProLoadingState"
+                case .mockCurrentUserSessionProOriginatingPlatform: return "mockCurrentUserSessionProOriginatingPlatform"
                 case .proBadgeEverywhere: return "proBadgeEverywhere"
                 case .fakeAppleSubscriptionForDev: return "fakeAppleSubscriptionForDev"
                 
@@ -118,6 +123,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .manageProSubscriptions: return "manageProSubscriptions"
                 case .restoreProSubscription: return "restoreProSubscription"
                 case .requestRefund: return "requestRefund"
+                
                 case .submitPurchaseToProBackend: return "submitPurchaseToProBackend"
                 case .refreshProState: return "refreshProState"
                 case .removeProFromUserConfig: return "removeProFromUserConfig"
@@ -135,6 +141,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .mockCurrentUserSessionProBackendStatus: result.append(.mockCurrentUserSessionProBackendStatus); fallthrough
                 case .mockCurrentUserSessionProLoadingState: result.append(.mockCurrentUserSessionProLoadingState); fallthrough
+                case .mockCurrentUserSessionProOriginatingPlatform: result.append(.mockCurrentUserSessionProOriginatingPlatform); fallthrough
                 case .proBadgeEverywhere: result.append(.proBadgeEverywhere); fallthrough
                 case .fakeAppleSubscriptionForDev: result.append(.fakeAppleSubscriptionForDev); fallthrough
 
@@ -151,6 +158,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .manageProSubscriptions: result.append(.manageProSubscriptions); fallthrough
                 case .restoreProSubscription: result.append(.restoreProSubscription); fallthrough
                 case .requestRefund: result.append(.requestRefund); fallthrough
+                
                 case .submitPurchaseToProBackend: result.append(.submitPurchaseToProBackend); fallthrough
                 case .refreshProState: result.append(.refreshProState); fallthrough
                 case .removeProFromUserConfig: result.append(.removeProFromUserConfig)
@@ -174,6 +182,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         let mockCurrentUserSessionProBackendStatus: MockableFeature<Network.SessionPro.BackendUserProStatus>
         let mockCurrentUserSessionProLoadingState: MockableFeature<SessionPro.LoadingState>
+        let mockCurrentUserSessionProOriginatingPlatform: MockableFeature<SessionProUI.ClientPlatform>
         let proBadgeEverywhere: Bool
         let fakeAppleSubscriptionForDev: Bool
 
@@ -211,12 +220,12 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.sessionProEnabled),
             .feature(.mockCurrentUserSessionProBackendStatus),
             .feature(.mockCurrentUserSessionProLoadingState),
+            .feature(.mockCurrentUserSessionProOriginatingPlatform),
             .feature(.proBadgeEverywhere),
             .feature(.fakeAppleSubscriptionForDev),
             //            .feature(.proPlanToRecover),
             //            .feature(.mockCurrentUserSessionProExpiry),
             //            .feature(.mockInstalledFromIPA),
-            //            .feature(.proPlanOriginatingPlatform),
             .feature(.forceMessageFeatureProBadge),
             .feature(.forceMessageFeatureLongMessage),
             .feature(.forceMessageFeatureAnimatedAvatar),
@@ -229,13 +238,13 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 
                 mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
                 mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
+                mockCurrentUserSessionProOriginatingPlatform: dependencies[feature: .mockCurrentUserSessionProOriginatingPlatform],
                 proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
                 fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
                 
 //                proPlanToRecover: dependencies[feature: .proPlanToRecover],
 //                proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
 //                mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
-//                originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
 
                 forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
                 forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
@@ -305,12 +314,12 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             sessionProEnabled: dependencies[feature: .sessionProEnabled],
             mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
             mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
+            mockCurrentUserSessionProOriginatingPlatform: dependencies[feature: .mockCurrentUserSessionProOriginatingPlatform],
             proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
             fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
 //            proPlanToRecover: dependencies[feature: .proPlanToRecover],
 //            proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
 //            mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
-//            originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
             forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
             forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
             forceMessageFeatureAnimatedAvatar: dependencies[feature: .forceMessageFeatureAnimatedAvatar],
@@ -357,19 +366,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         // MARK: - Mockable Features
         
-        let mockedProStatus: String = {
-            switch state.mockCurrentUserSessionProBackendStatus {
-                case .simulate(let status): return "<span>\(status)</span>"
-                case .useActual: return "<disabled>None</disabled>"
-            }
-        }()
-        let mockedLoadingState: String = {
-            switch state.mockCurrentUserSessionProLoadingState {
-                case .simulate(let state): return "<span>\(state)</span>"
-                case .useActual: return "<disabled>None</disabled>"
-            }
-        }()
-        
         let features: SectionModel = SectionModel(
             model: .features,
             elements: [
@@ -379,7 +375,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     subtitle: """
                     Force the current users Session Pro to a specific status locally.
                     
-                    <b>Current:</b> \(mockedProStatus)
+                    <b>Current:</b> \(devValue: state.mockCurrentUserSessionProBackendStatus)
                     """,
                     trailingAccessory: .icon(.squarePen),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
@@ -404,7 +400,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     subtitle: """
                     Force the Session Pro UI into a specific loading state.
                     
-                    <b>Current:</b> \(mockedLoadingState)
+                    <b>Current:</b> \(devValue: state.mockCurrentUserSessionProLoadingState)
                     
                     Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
                     """,
@@ -421,6 +417,39 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                             explanation: "Force the Session Pro UI into a specific loading state.",
                             feature: .mockCurrentUserSessionProLoadingState,
                             currentValue: state.mockCurrentUserSessionProLoadingState,
+                            navigatableStateHolder: viewModel,
+                            onMockingRemoved: { [dependencies] in
+                                Task.detached(priority: .userInitiated) { [dependencies] in
+                                    try? await dependencies[singleton: .sessionProManager].refreshProState()
+                                }
+                            },
+                            using: viewModel?.dependencies
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .mockCurrentUserSessionProOriginatingPlatform,
+                    title: "Mocked Originating Platform",
+                    subtitle: """
+                    Force the current users Session Pro to have originated from a specific platform.
+                    
+                    <b>Current:</b> \(devValue: state.mockCurrentUserSessionProOriginatingPlatform)
+                    
+                    Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    isEnabled: {
+                        switch (state.mockCurrentUserSessionProLoadingState, state.mockCurrentUserSessionProBackendStatus, state.currentProStatus) {
+                            case (.simulate, _, _), (_, .simulate, _), (_, _, .some): return true
+                            default: return false
+                        }
+                    }(),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableState(
+                            title: "Mocked Originating Platform",
+                            explanation: "Force the current users Session Pro to have originated from a specific platform.",
+                            feature: .mockCurrentUserSessionProOriginatingPlatform,
+                            currentValue: state.mockCurrentUserSessionProOriginatingPlatform,
                             navigatableStateHolder: viewModel,
                             onMockingRemoved: { [dependencies] in
                                 Task.detached(priority: .userInitiated) { [dependencies] in
@@ -565,7 +594,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     subtitle: """
                     Purchase Session Pro via the App Store.
                     
-                    <b>Note:</b> This only works on a real device (and some old iOS versions don't seem to support Sandbox accounts (eg. iOS 16).
+                    <b>Notes:</b>
+                    • This only works on a real device (and some old iOS versions don't seem to support Sandbox accounts (eg. iOS 16).
+                    • This subscription isn't connected to the Session account by default (they are for testing purposes)
                     
                     <b>Status:</b> \(purchaseStatus)
                     <b>Product Name:</b> \(productName)
@@ -609,14 +640,17 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     <b>Status: </b>\(refundStatus)
                     """,
                     trailingAccessory: .highlightingBackgroundLabel(title: "Request"),
-                    isEnabled: (
-                        state.purchaseTransaction != nil ||
-                        state.fakeAppleSubscriptionForDev
-                    ),
+                    isEnabled: (state.purchaseTransaction != nil),
                     onTap: { [weak viewModel] in
                         Task { await viewModel?.requestRefund() }
                     }
-                ),
+                )
+            ]
+        )
+        
+        let proBackend: SectionModel = SectionModel(
+            model: .proBackend,
+            elements: [
                 SessionCell.Info(
                     id: .submitPurchaseToProBackend,
                     title: "Submit Purchase to Pro Backend",
@@ -843,7 +877,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
 //            )
 //            .compactMap { $0 }
         
-        return [general, features, subscriptions]
+        return [general, features, subscriptions, proBackend]
     }
     
     // MARK: - Functions
@@ -1188,6 +1222,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         do {
             let result = try await transaction.beginRefundRequest(in: scene)
+            
             dependencies.notifyAsync(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
                 value: DeveloperSettingsProEvent.refundTransaction(result)
@@ -1232,7 +1267,9 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     private func refreshProState() async {
         do {
             try await dependencies[singleton: .sessionProManager].refreshProState()
-            let status: Network.SessionPro.BackendUserProStatus? = dependencies[singleton: .sessionProManager].currentUserCurrentBackendProStatus
+            let status: Network.SessionPro.BackendUserProStatus? = await dependencies[singleton: .sessionProManager]
+                .proStatus
+                .first(defaultValue: nil)
             
             dependencies.notifyAsync(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),

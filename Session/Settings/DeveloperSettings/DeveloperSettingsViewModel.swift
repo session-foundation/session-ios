@@ -1974,7 +1974,19 @@ final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accesso
     }
 }
 
+// MARK: - Format Convenience
+
+internal extension String.StringInterpolation {
+    mutating func appendInterpolation<T: CustomStringConvertible>(devValue: MockableFeature<T>) {
+        switch devValue {
+            case .useActual: appendLiteral("<disabled>None</disabled>")
+            case .simulate(let value): appendLiteral("<span>\(value)</span>")
+        }
+    }
+}
+
 // MARK: - WarningVersion
+
 struct WarningVersion: Listable {
     var version: Int
     

@@ -261,8 +261,8 @@ public struct SessionProPaymentScreen: View {
         let modal: ModalHostingViewController = ModalHostingViewController(
             modal: MutipleLinksModal(
                 links: [
-                    Constants.session_pro_terms_url,
-                    Constants.session_pro_privacy_url
+                    SNUIKit.proUrlStringProvider().termsOfService,
+                    SNUIKit.proUrlStringProvider().privacyPolicy
                 ],
                 openURL: { url in
                     viewModel.openURL(url)
@@ -273,7 +273,7 @@ public struct SessionProPaymentScreen: View {
     }
     
     private func openPlatformStoreWebsite() {
-        guard let url: URL = URL(string: Constants.google_play_store_subscriptions_url) else { return }
+        guard let url: URL = URL(string: SNUIKit.proClientPlatformStringProvider(for: .android).cancelSubscriptionUrl) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(

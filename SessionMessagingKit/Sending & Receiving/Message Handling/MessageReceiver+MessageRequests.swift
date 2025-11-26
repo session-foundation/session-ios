@@ -30,7 +30,7 @@ extension MessageReceiver {
                 publicKey: senderId,
                 displayNameUpdate: .contactUpdate(profile.displayName),
                 displayPictureUpdate: .contactUpdateTo(profile, fallback: .none),
-                proUpdate: .contactUpdate(decodedMessage.decodedPro),
+                proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
                 currentUserSessionIds: currentUserSessionIds,
                 using: dependencies

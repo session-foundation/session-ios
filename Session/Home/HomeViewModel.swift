@@ -5,6 +5,7 @@ import Combine
 import GRDB
 import DifferenceKit
 import SignalUtilitiesKit
+import SessionNetworkingKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 import StoreKit
@@ -645,11 +646,13 @@ public class HomeViewModel: NavigatableStateHolder {
     }
     
     @MainActor func showSessionProCTAIfNeeded() async {
-        switch dependencies[singleton: .sessionProManager].currentUserCurrentBackendProStatus {
-            case .none, .neverBeenPro:
-                return
+        let status: Network.SessionPro.BackendUserProStatus? = await dependencies[singleton: .sessionProManager].proStatus.first(defaultValue: nil)
+        let isRefunding: SessionPro.IsRefunding = await dependencies[singleton: .sessionProManager].isRefunding.first(defaultValue: .notRefunding)
+        
+        switch (status, isRefunding) {
+            case (.none, _), (.neverBeenPro, _), (.active, .refunding): return
             
-            case .active:
+            case (.active, .notRefunding):
                 let expiryInSeconds: TimeInterval = (await dependencies[singleton: .sessionProManager]
                     .accessExpiryTimestampMs
                     .first()
@@ -668,7 +671,7 @@ public class HomeViewModel: NavigatableStateHolder {
                     }
                 )
                 
-            case .expired:
+            case (.expired, _):
                 let expiryInSeconds: TimeInterval = (await dependencies[singleton: .sessionProManager]
                     .accessExpiryTimestampMs
                     .first()
@@ -764,7 +767,7 @@ public class HomeViewModel: NavigatableStateHolder {
         
         // stringlint:disable
         let surveyUrl: URL = url.appending(queryItems: [
-            .init(name: "platform", value: Constants.platform_name),
+            .init(name: "platform", value: SessionPro.Metadata.appStore.device),
             .init(name: "version", value: dependencies[cache: .appVersion].appVersion)
         ])
         

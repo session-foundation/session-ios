@@ -2088,7 +2088,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 isGrandfathered: (numPinnedConversations > SessionPro.PinnedConversationLimit)
                             ),
                             dataManager: dependencies[singleton: .imageDataManager],
-                            sessionProUIManager: dependencies[singleton: .sessionProManager]
+                            sessionProUIManager: dependencies[singleton: .sessionProManager],
                             onConfirm: { [dependencies] in
                                 // TODO: [PRO] Need to sort this out
                                 dependencies[singleton: .sessionProState].upgradeToPro(

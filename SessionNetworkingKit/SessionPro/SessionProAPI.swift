@@ -209,4 +209,50 @@ public extension Network.SessionPro {
             using: dependencies
         )
     }
+    
+    static func setPaymentRefundRequested(
+        transactionId: String,
+        refundRequestedTimestampMs: UInt64,
+        masterKeyPair: KeyPair,
+        using dependencies: Dependencies
+    ) throws -> Network.PreparedRequest<SetPaymentRefundRequestedResponse> {
+        let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
+        let timestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        let cTransactionId: [UInt8] = Array(transactionId.utf8)
+        let signature: Signature = try Signature(
+            session_pro_backend_set_payment_refund_requested_request_build_sigs(
+                Network.SessionPro.apiVersion,
+                cMasterPrivateKey,
+                cMasterPrivateKey.count,
+                timestampMs,
+                refundRequestedTimestampMs,
+                PaymentProvider.appStore.libSessionValue,
+                cTransactionId,
+                cTransactionId.count,
+                [], /// The `order_id` is only needed for Google transactions
+                0
+            )
+        )
+        
+        return try Network.PreparedRequest(
+            request: try Request<SetPaymentRefundRequestedRequest, Endpoint>(
+                method: .post,
+                endpoint: .getProRevocations,
+                body: SetPaymentRefundRequestedRequest(
+                    masterPublicKey: masterKeyPair.publicKey,
+                    masterSignature: signature,
+                    timestampMs: timestampMs,
+                    refundRequestedTimestampMs: refundRequestedTimestampMs,
+                    transaction: UserTransaction(
+                        provider: .appStore,
+                        paymentId: transactionId,
+                        orderId: "" /// The `order_id` is only needed for Google transactions
+                    ),
+                ),
+                using: dependencies
+            ),
+            responseType: SetPaymentRefundRequestedResponse.self,
+            using: dependencies
+        )
+    }
 }

@@ -176,7 +176,6 @@ public extension Profile {
         {
             dataMessageProto.setProfileKey(displayPictureEncryptionKey)
             profileProto.setProfilePicture(displayPictureUrl)
-            // TODO: Add ProProof if needed
         }
         
         if let profileLastUpdated: TimeInterval = profileLastUpdated {
