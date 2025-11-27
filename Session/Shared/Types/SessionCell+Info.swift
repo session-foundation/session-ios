@@ -8,6 +8,7 @@ import SessionMessagingKit
 extension SessionCell {
     public struct Info<ID: Hashable & Differentiable>: Equatable, Hashable, Differentiable {
         let id: ID
+        let canReuseCell: Bool
         let position: Position
         let leadingAccessory: SessionCell.Accessory?
         let title: TextInfo?
@@ -32,6 +33,7 @@ extension SessionCell {
         
         init(
             id: ID,
+            canReuseCell: Bool = false, // FIXME: This shouldn't be needed but is a hack to prevent layout bugs on cell reuse
             position: Position = .individual,
             leadingAccessory: SessionCell.Accessory? = nil,
             title: SessionCell.TextInfo? = nil,
@@ -46,6 +48,7 @@ extension SessionCell {
             onTapView: (@MainActor (UIView?) -> Void)? = nil
         ) {
             self.id = id
+            self.canReuseCell = canReuseCell
             self.position = position
             self.leadingAccessory = leadingAccessory
             self.title = title
@@ -66,6 +69,7 @@ extension SessionCell {
         
         public func hash(into hasher: inout Hasher) {
             id.hash(into: &hasher)
+            canReuseCell.hash(into: &hasher)
             position.hash(into: &hasher)
             leadingAccessory.hash(into: &hasher)
             title.hash(into: &hasher)
@@ -80,6 +84,7 @@ extension SessionCell {
         public static func == (lhs: Info<ID>, rhs: Info<ID>) -> Bool {
             return (
                 lhs.id == rhs.id &&
+                lhs.canReuseCell == rhs.canReuseCell &&
                 lhs.position == rhs.position &&
                 lhs.leadingAccessory == rhs.leadingAccessory &&
                 lhs.title == rhs.title &&
@@ -96,6 +101,7 @@ extension SessionCell {
         public func updatedPosition(for index: Int, count: Int) -> Info {
             return Info(
                 id: id,
+                canReuseCell: canReuseCell,
                 position: Position.with(index, count: count),
                 leadingAccessory: leadingAccessory,
                 title: title,
@@ -120,6 +126,7 @@ public extension SessionCell.Info {
 
     init(
         id: ID,
+        canReuseCell: Bool = false,
         position: Position = .individual,
         accessory: SessionCell.Accessory,
         styling: SessionCell.StyleInfo = SessionCell.StyleInfo(),
@@ -130,6 +137,7 @@ public extension SessionCell.Info {
         onTapView: (@MainActor (UIView?) -> Void)? = nil
     ) {
         self.id = id
+        self.canReuseCell = canReuseCell
         self.position = position
         self.leadingAccessory = accessory
         self.title = nil
@@ -148,6 +156,7 @@ public extension SessionCell.Info {
 
     init(
         id: ID,
+        canReuseCell: Bool = false,
         position: Position = .individual,
         leadingAccessory: SessionCell.Accessory,
         trailingAccessory: SessionCell.Accessory,
@@ -157,6 +166,7 @@ public extension SessionCell.Info {
         confirmationInfo: ConfirmationModal.Info? = nil
     ) {
         self.id = id
+        self.canReuseCell = canReuseCell
         self.position = position
         self.leadingAccessory = leadingAccessory
         self.title = nil
@@ -175,6 +185,7 @@ public extension SessionCell.Info {
 
     init(
         id: ID,
+        canReuseCell: Bool = false,
         position: Position = .individual,
         leadingAccessory: SessionCell.Accessory? = nil,
         title: String,
@@ -186,6 +197,7 @@ public extension SessionCell.Info {
         onTap: (@MainActor () -> Void)? = nil
     ) {
         self.id = id
+        self.canReuseCell = canReuseCell
         self.position = position
         self.leadingAccessory = leadingAccessory
         self.title = SessionCell.TextInfo(title, font: .title)
@@ -204,6 +216,7 @@ public extension SessionCell.Info {
 
     init(
         id: ID,
+        canReuseCell: Bool = false,
         position: Position = .individual,
         leadingAccessory: SessionCell.Accessory? = nil,
         title: SessionCell.TextInfo,
@@ -215,6 +228,7 @@ public extension SessionCell.Info {
         onTap: (@MainActor () -> Void)? = nil
     ) {
         self.id = id
+        self.canReuseCell = canReuseCell
         self.position = position
         self.leadingAccessory = leadingAccessory
         self.title = title
@@ -233,6 +247,7 @@ public extension SessionCell.Info {
 
     init(
         id: ID,
+        canReuseCell: Bool = false,
         position: Position = .individual,
         leadingAccessory: SessionCell.Accessory? = nil,
         title: String,
@@ -246,6 +261,7 @@ public extension SessionCell.Info {
         onTapView: (@MainActor (UIView?) -> Void)? = nil
     ) {
         self.id = id
+        self.canReuseCell = canReuseCell
         self.position = position
         self.leadingAccessory = leadingAccessory
         self.title = SessionCell.TextInfo(title, font: .title)

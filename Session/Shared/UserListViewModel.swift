@@ -144,6 +144,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                         
                         return SessionCell.Info(
                             id: .user(userInfo.profileId),
+                            canReuseCell: true,
                             leadingAccessory: .profile(
                                 id: userInfo.profileId,
                                 profile: userInfo.profile,
