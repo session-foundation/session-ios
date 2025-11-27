@@ -3,19 +3,18 @@
 import Foundation
 import Combine
 import SwiftUI
-import Lucide
 import GRDB
 import DifferenceKit
 import SessionUIKit
-import SignalUtilitiesKit
-import SessionMessagingKit
 import SessionUtilitiesKit
 
-public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType, NavigatableStateHolder {
+public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType, NavigatableStateHolder, NavigatableStateHolder_SwiftUI {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
+    public var navigatableStateSwiftUI: NavigatableState_SwiftUI = NavigatableState_SwiftUI()
     public let title: String = ""
     public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public let isInBottomSheet: Bool
     
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: ViewModelState
@@ -23,8 +22,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     
     // MARK: - Initialization
     
-    @MainActor init(using dependencies: Dependencies) {
+    @MainActor public init(
+        isInBottomSheet: Bool = false,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
+        self.isInBottomSheet = isInBottomSheet
         self.internalState = ViewModelState.initialState()
         
         self.observationTask = ObservationBuilder
@@ -379,105 +382,18 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         let proFeatures: SectionModel = SectionModel(
             model: .proFeatures,
-            elements: getProFeaturesElements(state: state, previousState: previousState, viewModel: viewModel)
+            elements: getProFeaturesElements(state: state, viewModel: viewModel)
         )
+        
+        // We can return the logo and proFeatures here since they are the only 2 sections that
+        // the bottom sheet needs
+        guard !viewModel.isInBottomSheet else {
+            return [ logo, proFeatures ]
+        }
         
         let proStats: SectionModel = SectionModel(
             model: .proStats,
-            elements: [
-                SessionListScreenContent.ListItemInfo(
-                    id: .proStats,
-                    variant: .dataMatrix(
-                        info: [
-                            [
-                                .init(
-                                    leadingAccessory: .icon(
-                                        .messageSquare,
-                                        size: .large,
-                                        customTint: .primary
-                                    ),
-                                    title: .init(
-                                        "proLongerMessagesSent"
-                                            .putNumber(state.numberOfLongerMessagesSent)
-                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfLongerMessagesSent)
-                                            .localized(),
-                                        font: .Headings.H9
-                                    ),
-                                    isLoading: state.loadingState == .loading
-                                ),
-                                .init(
-                                    leadingAccessory: .icon(
-                                        .pin,
-                                        size: .large,
-                                        customTint: .primary
-                                    ),
-                                    title: .init(
-                                        "proPinnedConversations"
-                                            .putNumber(state.numberOfPinnedConversations)
-                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfPinnedConversations)
-                                            .localized(),
-                                        font: .Headings.H9
-                                    ),
-                                    isLoading: state.loadingState == .loading
-                                )
-                            ],
-                            [
-                                .init(
-                                    leadingAccessory: .icon(
-                                        .rectangleEllipsis,
-                                        size: .large,
-                                        customTint: .primary
-                                    ),
-                                    title: .init(
-                                        "proBadgesSent"
-                                            .putNumber(state.numberOfProBadgesSent)
-                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfProBadgesSent)
-                                            .put(key: "pro", value: Constants.pro)
-                                            .localized(),
-                                        font: .Headings.H9
-                                    ),
-                                    isLoading: state.loadingState == .loading
-                                ),
-                                .init(
-                                    leadingAccessory: .icon(
-                                        UIImage(named: "ic_user_group"),
-                                        size: .large,
-                                        customTint: .disabled
-                                    ),
-                                    title: .init(
-                                        "proGroupsUpgraded"
-                                            .putNumber(state.numberOfGroupsUpgraded)
-                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfGroupsUpgraded)
-                                            .localized(),
-                                        font: .Headings.H9,
-                                        color: state.loadingState == .loading ? .textPrimary : .disabled
-                                    ),
-                                    tooltipInfo: .init(
-                                        id: "SessionListScreen.DataMatrix.UpgradedGroups.ToolTip", // stringlint:ignore
-                                        content: "proLargerGroupsTooltip"
-                                            .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
-                                        tintColor: .disabled,
-                                        position: .topLeft
-                                    ),
-                                    isLoading: state.loadingState == .loading
-                                )
-                            ]
-                        ]
-                    ),
-                    onTap: { [weak viewModel] in
-                        guard state.loadingState == .loading else { return }
-                        viewModel?.showLoadingModal(
-                            from: .proStats,
-                            title: "proStatsLoading"
-                                .put(key: "pro", value: Constants.pro)
-                                .localized(),
-                            description: "proStatsLoadingDescription"
-                                .put(key: "pro", value: Constants.pro)
-                                .localized()
-                        )
-                    }
-                )
-            ]
+            elements: getProStatsElements(state: state, viewModel: viewModel)
         )
         
         let proSettings: SectionModel = SectionModel(
@@ -566,25 +482,119 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
     }
     
+    // MARK: - Pro Stats Elements
+    
+    private static func getProStatsElements(
+        state: ViewModelState,
+        viewModel: SessionProSettingsViewModel
+    ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
+        return [
+            SessionListScreenContent.ListItemInfo(
+                id: .proStats,
+                variant: .dataMatrix(
+                    info: [
+                        [
+                            .init(
+                                leadingAccessory: .icon(
+                                    .messageSquare,
+                                    size: .large,
+                                    customTint: .primary
+                                ),
+                                title: .init(
+                                    "proLongerMessagesSent"
+                                        .putNumber(state.numberOfLongerMessagesSent)
+                                        .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfLongerMessagesSent)
+                                        .localized(),
+                                    font: .Headings.H9
+                                ),
+                                isLoading: state.loadingState == .loading
+                            ),
+                            .init(
+                                leadingAccessory: .icon(
+                                    .pin,
+                                    size: .large,
+                                    customTint: .primary
+                                ),
+                                title: .init(
+                                    "proPinnedConversations"
+                                        .putNumber(state.numberOfPinnedConversations)
+                                        .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfPinnedConversations)
+                                        .localized(),
+                                    font: .Headings.H9
+                                ),
+                                isLoading: state.loadingState == .loading
+                            )
+                        ],
+                        [
+                            .init(
+                                leadingAccessory: .icon(
+                                    .rectangleEllipsis,
+                                    size: .large,
+                                    customTint: .primary
+                                ),
+                                title: .init(
+                                    "proBadgesSent"
+                                        .putNumber(state.numberOfProBadgesSent)
+                                        .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfProBadgesSent)
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localized(),
+                                    font: .Headings.H9
+                                ),
+                                isLoading: state.loadingState == .loading
+                            ),
+                            .init(
+                                leadingAccessory: .icon(
+                                    UIImage(named: "ic_user_group"),
+                                    size: .large,
+                                    customTint: .disabled
+                                ),
+                                title: .init(
+                                    "proGroupsUpgraded"
+                                        .putNumber(state.numberOfGroupsUpgraded)
+                                        .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfGroupsUpgraded)
+                                        .localized(),
+                                    font: .Headings.H9,
+                                    color: state.loadingState == .loading ? .textPrimary : .disabled
+                                ),
+                                tooltipInfo: .init(
+                                    id: "SessionListScreen.DataMatrix.UpgradedGroups.ToolTip", // stringlint:ignore
+                                    content: "proLargerGroupsTooltip"
+                                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize)),
+                                    tintColor: .disabled,
+                                    position: .topLeft
+                                ),
+                                isLoading: state.loadingState == .loading
+                            )
+                        ]
+                    ]
+                ),
+                onTap: { [weak viewModel] in
+                    guard state.loadingState == .loading else { return }
+                    viewModel?.showLoadingModal(
+                        from: .proStats,
+                        title: "proStatsLoading"
+                            .put(key: "pro", value: Constants.pro)
+                            .localized(),
+                        description: "proStatsLoadingDescription"
+                            .put(key: "pro", value: Constants.pro)
+                            .localized()
+                    )
+                }
+            )
+        ]
+    }
+    
     // MARK: - Pro Features Elements
     
     private static func getProFeaturesElements(
         state: ViewModelState,
-        previousState: ViewModelState,
         viewModel: SessionProSettingsViewModel
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
         let proFeaturesIds: [ListItem] = [ .longerMessages, .unlimitedPins, .animatedDisplayPictures, .badges ]
-        let proFeatureInfos: [ProFeaturesInfo] = ProFeaturesInfo.allCases(
-            proStateExpired: {
-                if case .expired = state.currentProPlanState {
-                    return true
-                } else {
-                    return false
-                }
-            }()
-        )
-        
-        return zip(proFeaturesIds, proFeatureInfos).map { id, info in
+        let proFeatureInfos: [ProFeaturesInfo] = ProFeaturesInfo.allCases(proStateExpired: false)
+        let plusMoreFeatureInfo: ProFeaturesInfo = ProFeaturesInfo.plusMoreFeatureInfo(proStateExpired: false)
+
+        var result = zip(proFeaturesIds, proFeatureInfos).map { id, info in
             SessionListScreenContent.ListItemInfo(
                 id: id,
                 variant: .cell(
@@ -602,38 +612,35 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     )
                 )
             )
-        }.appending(
+        }
+        result.append(
             SessionListScreenContent.ListItemInfo(
                 id: .plusLoadsMore,
                 variant: .cell(
                     info: .init(
                         leadingAccessory: .icon(
-                            Lucide.image(icon: .circlePlus, size: IconSize.medium.size),
+                            plusMoreFeatureInfo.icon,
                             iconSize: .medium,
                             customTint: .black,
-                            gradientBackgroundColors: {
-                                return switch state.currentProPlanState {
-                                    case .expired: [ThemeValue.disabled]
-                                    default: [.explicitPrimary(.orange), .explicitPrimary(.yellow)]
-                                }
-                            }(),
+                            gradientBackgroundColors: plusMoreFeatureInfo.backgroundColors,
                             backgroundSize: .veryLarge,
                             backgroundCornerRadius: 8
                         ),
-                        title: .init("plusLoadsMore".localized(), font: .Headings.H9),
+                        title: .init(plusMoreFeatureInfo.title, font: .Headings.H9),
                         description: .init(
                             font: .Body.smallRegular,
-                            attributedString: "plusLoadsMoreDescription"
-                                .put(key: "pro", value: Constants.pro)
-                                .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
-                                .localizedFormatted(Fonts.Body.smallRegular),
+                            attributedString: plusMoreFeatureInfo.description,
                             color: .textSecondary
                         )
                     )
                 ),
-                onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_roadmap) }
+                onTap: { [weak viewModel] in
+                    viewModel?.openUrl(Constants.session_pro_roadmap)
+                }
             )
         )
+
+        return result
     }
     
     // MARK: - Pro Settings Elements
@@ -956,8 +963,8 @@ extension SessionProSettingsViewModel {
                 cancelTitle: "urlCopy".localized(),
                 cancelStyle: .alert_text,
                 hasCloseButton: true,
-                onConfirm:  { modal in
-                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                onConfirm:  { [dependencies] modal in
+                    dependencies[singleton: .appContext].openUrl(url)
                     modal.dismiss(animated: true)
                 },
                 onCancel: { _ in
@@ -1019,6 +1026,7 @@ extension SessionProSettingsViewModel {
     }
     
     func updateProPlan() {
+        // TODO: [Pro] Remove this or position it to the right place when the real logic is pluged in
         guard !dependencies[feature: .mockInstalledFromIPA] else {
             DispatchQueue.main.async {
                 let viewController = ModalActivityIndicatorViewController() { [weak self] modalActivityIndicator in
@@ -1031,6 +1039,23 @@ extension SessionProSettingsViewModel {
                 }
                 self.transitionToScreen(viewController, transitionType: .present)
             }
+            return
+        }
+        
+        guard !isInBottomSheet else {
+            self.transitionToScreen(
+                SessionProPaymentScreen(
+                    viewModel: SessionProPaymentScreenContent.ViewModel(
+                        dependencies: dependencies,
+                        dataModel: .init(
+                            flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(using: dependencies),
+                            plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                        ),
+                        isFromBottomSheet: true
+                    )
+                ),
+                transitionType: .push
+            )
             return
         }
         

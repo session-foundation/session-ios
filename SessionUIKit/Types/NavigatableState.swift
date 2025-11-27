@@ -1,10 +1,48 @@
 // Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import SwiftUI
 import Combine
-import SessionUIKit
-import SessionUtilitiesKit
-import SignalUtilitiesKit
+
+// MARK: - SwiftUI NavigationDestination
+
+struct NavigationDestination: Identifiable {
+    public let id = UUID()
+    public let view: AnyView
+    
+    public init<V: View>(_ view: V) {
+        self.view = AnyView(view)
+    }
+}
+
+// MARK: - SwiftUI NavigatableStateHolder
+
+public protocol NavigatableStateHolder_SwiftUI {
+    var navigatableStateSwiftUI: NavigatableState_SwiftUI { get }
+}
+
+public extension NavigatableStateHolder_SwiftUI {
+    func transitionToScreen<V: View>(_ view: V, transitionType: TransitionType = .push) {
+        navigatableStateSwiftUI._transitionToScreen.send((NavigationDestination(view), transitionType))
+    }
+}
+
+
+// MARK: - SwiftUI NavigatableState
+
+public struct NavigatableState_SwiftUI {
+    let transitionToScreen: AnyPublisher<(NavigationDestination, TransitionType), Never>
+    
+    // MARK: - Internal Variables
+    
+    fileprivate let _transitionToScreen: PassthroughSubject<(NavigationDestination, TransitionType), Never> = PassthroughSubject()
+    
+    // MARK: - Initialization
+    
+    public init() {
+        self.transitionToScreen = _transitionToScreen.shareReplay(0)
+    }
+}
 
 // MARK: - NavigatableStateHolder
 
@@ -45,7 +83,7 @@ public struct NavigatableState {
     
     // MARK: - Initialization
     
-    init() {
+    public init() {
         self.showToast = _showToast.shareReplay(0)
         self.transitionToScreen = _transitionToScreen.shareReplay(0)
         self.dismissScreen = _dismissScreen.shareReplay(0)
@@ -97,9 +135,7 @@ public struct NavigatableState {
                     case .auto:
                         guard
                             let viewController: UIViewController = viewController,
-                            (viewController.navigationController?.viewControllers
-                                .firstIndex(of: viewController))
-                                .defaulting(to: 0) > 0
+                            (viewController.navigationController?.viewControllers.firstIndex(of: viewController) ?? 0) > 0
                         else {
                             viewController?.dismiss(animated: true, completion: completion)
                             return

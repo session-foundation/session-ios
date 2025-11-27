@@ -26,8 +26,8 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
         _viewModel = StateObject(wrappedValue: viewModel)
         _state = ObservedObject(wrappedValue: viewModel.state)
         
-        if let navigatableStateHolder = viewModel as? any SessionListScreenContent.NavigatableStateHolder {
-            navigatableState = navigatableStateHolder.navigatableState
+        if let navigatableStateHolder = viewModel as? any NavigatableStateHolder_SwiftUI {
+            navigatableState = navigatableStateHolder.navigatableStateSwiftUI
         } else {
             navigatableState = nil
         }
@@ -35,11 +35,10 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     
     // MARK: - Navigatable
     
-    @State private var navigationDestination: SessionListScreenContent.NavigationDestination? = nil
+    @State private var navigationDestination: NavigationDestination? = nil
     @State private var isNavigationActive: Bool = false
-    @State private var disposables: Set<AnyCancellable> = []
-    private let navigatableState: SessionListScreenContent.NavigatableState?
-    private var navigationPublisher: AnyPublisher<(SessionListScreenContent.NavigationDestination, TransitionType), Never> {
+    private let navigatableState: NavigatableState_SwiftUI?
+    private var navigationPublisher: AnyPublisher<(NavigationDestination, TransitionType), Never> {
         navigatableState?.transitionToScreen ?? Empty().eraseToAnyPublisher()
     }
     
@@ -77,14 +76,6 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
             if transitionType == .push {
                 navigationDestination = destination
                 isNavigationActive = true
-            }
-        }
-        .onAppear {
-            if let viewController: UIViewController = self.host.controller {
-                navigatableState?.setupBindings(
-                    viewController: viewController,
-                    disposables: &disposables
-                )
             }
         }
     }

@@ -241,7 +241,7 @@ extension SessionProState: SessionProCTAManagerType {
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) {
-        let viewModel = SessionProBottomSheetViewModel(using: dependencies)
+        let viewModel = SessionProSettingsViewModel(isInBottomSheet: true, using: dependencies)
         let sessionProBottomSheet: BottomSheetHostingViewController = BottomSheetHostingViewController(
             bottomSheet: BottomSheet(
                 hasCloseButton: true,

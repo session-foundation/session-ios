@@ -4,12 +4,6 @@ import UIKit
 import DifferenceKit
 import Lucide
 
-public protocol SessionProBottomSheetViewModelType: SessionListScreenContent.ViewModelType {
-    func showLoadingModal(title: String, description: String)
-    func showErrorModal(title: String, description: ThemedAttributedString)
-    func openUrl(_ urlString: String)
-}
-
 // MARK: - Pro Features Info
 
 public struct ProFeaturesInfo {
