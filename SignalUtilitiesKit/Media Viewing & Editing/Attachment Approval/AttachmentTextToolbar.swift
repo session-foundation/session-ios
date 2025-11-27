@@ -90,7 +90,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     }()
     
     private lazy var sessionProBadge: SessionProBadge = {
-        let result: SessionProBadge = SessionProBadge(size: .small)
+        let result: SessionProBadge = SessionProBadge(size: .medium)
         result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
         
         return result
@@ -140,7 +140,7 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
         separator.pin([ UIView.HorizontalEdge.leading, UIView.VerticalEdge.top, UIView.HorizontalEdge.trailing ], to: self)
         
         // Bottom stack view
-        let bottomStackView = UIStackView(arrangedSubviews: [ inputTextView, container(for: sendButton) ])
+        let bottomStackView = UIStackView(arrangedSubviews: [ inputTextView, InputViewButton.container(for: sendButton) ])
         bottomStackView.axis = .horizontal
         bottomStackView.spacing = Values.smallSpacing
         bottomStackView.alignment = .center
@@ -179,18 +179,6 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
     
     @objc private func characterLimitLabelTapped() {
         delegate?.attachmentTextToolBarDidTapCharacterLimitLabel(self)
-    }
-    
-    // MARK: - Convenience
-    
-    private func container(for button: InputViewButton) -> UIView {
-        let result: UIView = UIView()
-        result.addSubview(button)
-        result.set(.width, to: InputViewButton.expandedSize)
-        result.set(.height, to: InputViewButton.expandedSize)
-        button.center(in: result)
-        
-        return result
     }
 }
 

@@ -96,29 +96,6 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         case isContactApproved
     }
     
-    public struct MessageInputState: Equatable {
-        public let allowedInputTypes: MessageInputTypes
-        public let message: String?
-        public let accessibility: Accessibility?
-        public let messageAccessibility: Accessibility?
-        
-        public static var all: MessageInputState = MessageInputState(allowedInputTypes: .all)
-        
-        // MARK: - Initialization
-        
-        init(
-            allowedInputTypes: MessageInputTypes,
-            message: String? = nil,
-            accessibility: Accessibility? = nil,
-            messageAccessibility: Accessibility? = nil
-        ) {
-            self.allowedInputTypes = allowedInputTypes
-            self.message = message
-            self.accessibility = accessibility
-            self.messageAccessibility = messageAccessibility
-        }
-    }
-    
     public var differenceIdentifier: String { threadId }
     public var id: String { threadId }
     
@@ -267,11 +244,11 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         return Date(timeIntervalSince1970: TimeInterval(Double(interactionTimestampMs) / 1000))
     }
     
-    public var messageInputState: MessageInputState {
-        guard !threadIsNoteToSelf else { return MessageInputState(allowedInputTypes: .all) }
+    public var messageInputState: InputView.InputState {
+        guard !threadIsNoteToSelf else { return InputView.InputState(inputs: .all) }
         guard threadIsBlocked != true else {
-            return MessageInputState(
-                allowedInputTypes: .none,
+            return InputView.InputState(
+                inputs: .disabled,
                 message: "blockBlockedDescription".localized(),
                 messageAccessibility: Accessibility(
                     identifier: "Blocked banner"
@@ -280,17 +257,22 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         }
         
         if threadVariant == .community && threadCanWrite == false {
-            return MessageInputState(
-                allowedInputTypes: .none,
+            return InputView.InputState(
+                inputs: .disabled,
                 message: "permissionsWriteCommunity".localized()
             )
         }
         
-        return MessageInputState(
-            allowedInputTypes: (threadRequiresApproval == false && threadIsMessageRequest == false ?
-                .all :
-                .textOnly
-            )
+        /// Attachments shouldn't be allowed for message requests or if uploads are disabled
+        let finalInputs: InputView.Input
+        
+        switch (threadRequiresApproval, threadIsMessageRequest, threadCanUpload) {
+            case (false, false, true): finalInputs = .all
+            default: finalInputs = [.text, .attachmentsDisabled, .voiceMessagesDisabled]
+        }
+        
+        return InputView.InputState(
+            inputs: finalInputs
         )
     }
     
@@ -343,6 +325,31 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
             threadIsMessageRequest == false &&
             threadVariant != .legacyGroup
         )
+    }
+    
+    public func isSessionPro(using dependencies: Dependencies) -> Bool {
+        guard threadIsNoteToSelf == false && threadVariant != .community else {
+            return false
+        }
+        return dependencies.mutate(cache: .libSession) { [threadId] in $0.validateSessionProState(for: threadId)}
+    }
+    
+    public func getQRCodeString() -> String {
+        switch self.threadVariant {
+            case .contact, .legacyGroup, .group:
+                return self.threadId
+
+            case .community:
+                guard
+                    let urlString: String = LibSession.communityUrlFor(
+                        server: self.openGroupServer,
+                        roomToken: self.openGroupRoomToken,
+                        publicKey: self.openGroupPublicKey
+                    )
+                else { return "" }
+
+                return urlString
+        }
     }
     
     // MARK: - Marking as Read

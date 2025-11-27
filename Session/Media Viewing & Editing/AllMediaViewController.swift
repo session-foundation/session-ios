@@ -260,9 +260,9 @@ extension AllMediaViewController: MediaPresentationContextProvider {
     func mediaPresentationContext(mediaId: String, in coordinateSpace: UICoordinateSpace) -> MediaPresentationContext? {
         return self.mediaTitleViewController.mediaPresentationContext(mediaId: mediaId, in: coordinateSpace)
     }
-
-    func snapshotOverlayView(in coordinateSpace: UICoordinateSpace) -> (UIView, CGRect)? {
-        return self.mediaTitleViewController.snapshotOverlayView(in: coordinateSpace)
+    
+    func lowestViewToRenderAboveContent() -> UIView? {
+        return nil
     }
 }
 

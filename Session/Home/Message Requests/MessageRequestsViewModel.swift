@@ -322,6 +322,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
                                     threadCanWrite: false,  // Irrelevant for the MessageRequestsViewModel
                                     threadCanUpload: false  // Irrelevant for the MessageRequestsViewModel
                                 ),
+                                canReuseCell: true,
                                 accessibility: Accessibility(
                                     identifier: "Message request"
                                 ),

@@ -26,11 +26,15 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         dataManager: nil
     )
 
-    private lazy var displayNameLabel: UILabel = {
-        let result: UILabel = UILabel()
+    private lazy var displayNameLabel: SessionLabelWithProBadge = {
+        let result: SessionLabelWithProBadge = SessionLabelWithProBadge(
+            proBadgeSize: .small,
+            withStretchingSpacer: false
+        )
         result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
+        result.isProBadgeHidden = true
         
         return result
     }()
@@ -300,6 +304,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             string: cellViewModel.displayName,
             attributes: [ .themeForegroundColor: ThemeValue.textPrimary ]
         )
+        displayNameLabel.isProBadgeHidden = !cellViewModel.isSessionPro(using: dependencies)
     }
     
     public func updateForMessageSearchResult(
@@ -328,6 +333,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             string: cellViewModel.displayName,
             attributes: [ .themeForegroundColor: ThemeValue.textPrimary ]
         )
+        displayNameLabel.isProBadgeHidden = !cellViewModel.isSessionPro(using: dependencies)
         snippetLabel.themeAttributedText = getHighlightedSnippet(
             content: Interaction.previewText(
                 variant: (cellViewModel.interactionVariant ?? .standardIncoming),
@@ -378,6 +384,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             textColor: .textPrimary,
             using: dependencies
         )
+        displayNameLabel.isProBadgeHidden = !cellViewModel.isSessionPro(using: dependencies)
         
         switch cellViewModel.threadVariant {
             case .contact, .community: bottomLabelStackView.isHidden = true
@@ -440,6 +447,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             using: dependencies
         )
         displayNameLabel.text = cellViewModel.displayName
+        displayNameLabel.isProBadgeHidden = !cellViewModel.isSessionPro(using: dependencies)
         timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
         
         if cellViewModel.threadContactIsTyping == true {
@@ -597,7 +605,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 string: "messageSnippetGroup"
                     .put(key: "author", value: authorName)
                     .put(key: "message_snippet", value: "")
-                    .localized(),
+                    .localizedDeformatted(),
                 attributes: [ .themeForegroundColor: textColor ]
             ))
         }
@@ -607,7 +615,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 case .infoGroupCurrentUserErrorLeaving:
                     return "groupLeaveErrorFailed"
                         .put(key: "group_name", value: cellViewModel.displayName)
-                        .localized()
+                        .localizedDeformatted()
                 
                 default:
                     return Interaction.previewText(
@@ -619,7 +627,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                         attachmentCount: cellViewModel.interactionAttachmentCount,
                         isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
                         using: dependencies
-                    )
+                    ).localizedDeformatted()
             }
         }()
         

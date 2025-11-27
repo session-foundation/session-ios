@@ -26,7 +26,7 @@ public final class CallRingTonePlayer {
             player?.numberOfLoops = -1
             player?.play()
         } catch let error {
-            print(error.localizedDescription)
+            Log.warn("[Calls] Failed to start playing ringtone due to error: \(error.localizedDescription)")
         }
     }
     

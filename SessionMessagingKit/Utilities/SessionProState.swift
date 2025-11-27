@@ -20,7 +20,7 @@ public class SessionProState: SessionProManagerType {
     public var isSessionProSubject: CurrentValueSubject<Bool, Never>
     public var isSessionProPublisher: AnyPublisher<Bool, Never> {
         isSessionProSubject
-            .filter { $0 }
+            .compactMap { $0 }
             .eraseToAnyPublisher()
     }
     
@@ -38,14 +38,18 @@ public class SessionProState: SessionProManagerType {
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
-        beforePresented: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
-        guard dependencies[feature: .sessionProEnabled] && (!isSessionProSubject.value) else {
+        let shouldShowProCTA: Bool = {
+            guard dependencies[feature: .sessionProEnabled] else { return false }
+            if case .groupLimit = variant { return true }
+            return !dependencies[feature: .mockCurrentUserSessionPro]
+        }()
+        
+        guard shouldShowProCTA else {
             return false
         }
-        beforePresented?()
         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
             modal: ProCTAModal(
                 delegate: dependencies[singleton: .sessionProState],
