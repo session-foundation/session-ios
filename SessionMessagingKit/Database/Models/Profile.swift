@@ -55,8 +55,9 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     public let blocksCommunityMessageRequests: Bool?
     
     /// The Pro Proof for when this profile is updated
-    // TODO: Implement this when the structure of Session Pro Proof is determined
+    // TODO: Implement these when the structure of Session Pro Proof is determined
     public let sessionProProof: String?
+    public var showProBadge: Bool?
     
     // MARK: - Initialization
     
@@ -68,7 +69,8 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         displayPictureEncryptionKey: Data? = nil,
         profileLastUpdated: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
-        sessionProProof: String? = nil
+        sessionProProof: String? = nil,
+        showProBadge: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -78,6 +80,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         self.profileLastUpdated = profileLastUpdated
         self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
         self.sessionProProof = sessionProProof
+        self.showProBadge = showProBadge
     }
 }
 
@@ -190,10 +193,11 @@ public extension Profile {
         _ db: ObservingDatabase,
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false,
         customFallback: String? = nil
     ) -> String {
         let existingDisplayName: String? = (try? Profile.fetchOne(db, id: id))?
-            .displayName(for: threadVariant)
+            .displayName(for: threadVariant, suppressId: suppressId)
         
         return (existingDisplayName ?? (customFallback ?? id))
     }
@@ -201,10 +205,11 @@ public extension Profile {
     static func displayNameNoFallback(
         _ db: ObservingDatabase,
         id: ID,
-        threadVariant: SessionThread.Variant = .contact
+        threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false
     ) -> String? {
         return (try? Profile.fetchOne(db, id: id))?
-            .displayName(for: threadVariant)
+            .displayName(for: threadVariant, suppressId: suppressId)
     }
     
     // MARK: - Fetch or Create
@@ -218,7 +223,8 @@ public extension Profile {
             displayPictureEncryptionKey: nil,
             profileLastUpdated: nil,
             blocksCommunityMessageRequests: nil,
-            sessionProProof: nil
+            sessionProProof: nil,
+            showProBadge: nil
         )
     }
     
@@ -241,13 +247,14 @@ public extension Profile {
     static func displayName(
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false,
         customFallback: String? = nil,
         using dependencies: Dependencies
     ) -> String {
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         var displayName: String?
         dependencies[singleton: .storage].readAsync(
-            retrieve: { db in Profile.displayName(db, id: id, threadVariant: threadVariant) },
+            retrieve: { db in Profile.displayName(db, id: id, threadVariant: threadVariant, suppressId: suppressId) },
             completion: { result in
                 switch result {
                     case .failure: break
@@ -264,12 +271,13 @@ public extension Profile {
     static func displayNameNoFallback(
         id: ID,
         threadVariant: SessionThread.Variant = .contact,
+        suppressId: Bool = false,
         using dependencies: Dependencies
     ) -> String? {
         let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
         var displayName: String?
         dependencies[singleton: .storage].readAsync(
-            retrieve: { db in Profile.displayNameNoFallback(db, id: id, threadVariant: threadVariant) },
+            retrieve: { db in Profile.displayNameNoFallback(db, id: id, threadVariant: threadVariant, suppressId: suppressId) },
             completion: { result in
                 switch result {
                     case .failure: break

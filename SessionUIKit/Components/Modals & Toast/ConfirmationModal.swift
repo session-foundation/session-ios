@@ -457,9 +457,10 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 internalOnTextChanged = { [weak textField, weak confirmButton, weak cancelButton] text, _ in
                     onTextChanged(text)
                     textField?.accessibilityLabel = text
-                    confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info)
+                    let error: String? = inputInfo.inputChecker?(text)
+                    confirmButton?.isEnabled = info.confirmEnabled.isValid(with: info) && error == nil
                     cancelButton?.isEnabled = info.cancelEnabled.isValid(with: info)
-                    self.updateContent(withError: inputInfo.inputChecker?(text))
+                    self.updateContent(withError: error)
                 }
                 textFieldContainer.layoutIfNeeded()
                 
@@ -544,7 +545,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 mainStackView.spacing = 0
                 contentStackView.spacing = Values.verySmallSpacing
                 proDescriptionLabelContainer.isHidden = (description == nil)
-                proDescriptionLabel.attributedText = description
+                proDescriptionLabel.themeAttributedText = description
                 imageViewContainer.isHidden = false
                 profileView.clipsToBounds = (style == .circular)
                 profileView.setDataManager(dataManager)
@@ -1080,7 +1081,7 @@ public extension ConfirmationModal.Info {
             placeholder: ImageDataManager.DataSource?,
             icon: ProfilePictureView.ProfileIcon = .none,
             style: ImageStyle,
-            description: NSAttributedString?,
+            description: ThemedAttributedString?,
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
             onProBageTapped: (() -> Void)?,

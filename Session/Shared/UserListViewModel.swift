@@ -149,8 +149,15 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                 profile: userInfo.profile,
                                 profileIcon: (showProfileIcons ? userInfo.value.profileIcon : .none)
                             ),
-                            title: title,
-                            subtitle: userInfo.itemDescription(using: dependencies),
+                            title: SessionCell.TextInfo(
+                                title,
+                                font: .title,
+                                trailingImage: {
+                                    guard (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: userInfo.profile) }) else { return nil }
+                                    return ("ProBadge", { [dependencies] in SessionProBadge(size: .small).toImage(using: dependencies) })
+                                }()
+                            ),
+                            subtitle: SessionCell.TextInfo(userInfo.itemDescription(using: dependencies), font: .subtitle),
                             trailingAccessory: trailingAccessory,
                             styling: SessionCell.StyleInfo(
                                 subtitleTintColor: userInfo.itemDescriptionColor(using: dependencies),

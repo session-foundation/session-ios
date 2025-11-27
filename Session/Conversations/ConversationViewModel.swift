@@ -746,7 +746,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             ),
             expiresInSeconds: threadData.disappearingMessagesConfiguration?.expiresInSeconds(),
             linkPreviewUrl: linkPreviewDraft?.urlString,
-            isProMessage: dependencies[cache: .libSession].isSessionPro,
+            isProMessage: (text.defaulting(to: "").utf16.count > LibSession.CharacterLimit),
             using: dependencies
         )
         var optimisticAttachments: [Attachment]?
@@ -784,6 +784,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             body: interaction.body,
             expiresStartedAtMs: interaction.expiresStartedAtMs,
             expiresInSeconds: interaction.expiresInSeconds,
+            isProMessage: interaction.isProMessage,
             isSenderModeratorOrAdmin: {
                 switch threadData.threadVariant {
                     case .group, .legacyGroup:

@@ -58,6 +58,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case rawBody
         case expiresStartedAtMs
         case expiresInSeconds
+        case isProMessage
 
         case state
         case hasBeenReadByRecipient
@@ -141,6 +142,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let rawBody: String?
     public let expiresStartedAtMs: Double?
     public let expiresInSeconds: TimeInterval?
+    public let isProMessage: Bool
     
     public let state: Interaction.State
     public let hasBeenReadByRecipient: Bool
@@ -252,6 +254,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             rawBody: self.rawBody,
             expiresStartedAtMs: self.expiresStartedAtMs,
             expiresInSeconds: self.expiresInSeconds,
+            isProMessage: self.isProMessage,
             state: state.or(self.state),
             hasBeenReadByRecipient: self.hasBeenReadByRecipient,
             mostRecentFailureText: mostRecentFailureText.or(self.mostRecentFailureText),
@@ -468,6 +471,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             rawBody: self.body,
             expiresStartedAtMs: self.expiresStartedAtMs,
             expiresInSeconds: self.expiresInSeconds,
+            isProMessage: self.isProMessage,
             state: self.state,
             hasBeenReadByRecipient: self.hasBeenReadByRecipient,
             mostRecentFailureText: self.mostRecentFailureText,
@@ -755,6 +759,7 @@ public extension MessageViewModel {
         self.rawBody = nil
         self.expiresStartedAtMs = nil
         self.expiresInSeconds = nil
+        self.isProMessage = false
         
         self.state = .sent
         self.hasBeenReadByRecipient = false
@@ -806,6 +811,7 @@ public extension MessageViewModel {
         body: String?,
         expiresStartedAtMs: Double?,
         expiresInSeconds: TimeInterval?,
+        isProMessage: Bool,
         state: Interaction.State = .sending,
         isSenderModeratorOrAdmin: Bool,
         currentUserProfile: Profile,
@@ -838,6 +844,7 @@ public extension MessageViewModel {
         self.rawBody = body
         self.expiresStartedAtMs = expiresStartedAtMs
         self.expiresInSeconds = expiresInSeconds
+        self.isProMessage = isProMessage
         
         self.state = state
         self.hasBeenReadByRecipient = false
@@ -952,7 +959,7 @@ public extension MessageViewModel {
             let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
             let linkPreviewAttachment: TypedTableAlias<Attachment> = TypedTableAlias(ViewModel.self, column: .linkPreviewAttachment)
             
-            let numColumnsBeforeLinkedRecords: Int = 24
+            let numColumnsBeforeLinkedRecords: Int = 25
             let finalGroupSQL: SQL = (groupSQL ?? "")
             let request: SQLRequest<ViewModel> = """
                 SELECT
@@ -978,6 +985,7 @@ public extension MessageViewModel {
                     \(interaction[.body]),
                     \(interaction[.expiresStartedAtMs]),
                     \(interaction[.expiresInSeconds]),
+                    \(interaction[.isProMessage]),
                     \(interaction[.state]),
                     (\(interaction[.recipientReadTimestampMs]) IS NOT NULL) AS \(ViewModel.Columns.hasBeenReadByRecipient),
                     \(interaction[.mostRecentFailureText]),

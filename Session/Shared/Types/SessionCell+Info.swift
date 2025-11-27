@@ -126,7 +126,8 @@ public extension SessionCell.Info {
         isEnabled: Bool = true,
         accessibility: Accessibility? = nil,
         confirmationInfo: ConfirmationModal.Info? = nil,
-        onTap: (@MainActor () -> Void)? = nil
+        onTap: (@MainActor () -> Void)? = nil,
+        onTapView: (@MainActor (UIView?) -> Void)? = nil
     ) {
         self.id = id
         self.position = position
@@ -140,7 +141,7 @@ public extension SessionCell.Info {
         self.accessibility = accessibility
         self.confirmationInfo = confirmationInfo
         self.onTap = onTap
-        self.onTapView = nil
+        self.onTapView = onTapView
     }
 
     // leadingAccessory, trailingAccessory

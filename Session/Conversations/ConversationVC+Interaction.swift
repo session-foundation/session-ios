@@ -652,7 +652,7 @@ extension ConversationVC:
             for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
             isSessionPro: viewModel.isCurrentUserSessionPro
         ) >= 0 else {
-            showModalForMessagesExceedingCharacterLimit(isSessionPro: viewModel.isCurrentUserSessionPro)
+            showModalForMessagesExceedingCharacterLimit(viewModel.isCurrentUserSessionPro)
             return
         }
         
@@ -663,7 +663,7 @@ extension ConversationVC:
         )
     }
     
-    @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
+    @MainActor func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
             beforePresented: { [weak self] in
@@ -1667,6 +1667,11 @@ extension ConversationVC:
                 dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId) }
             )
             
+            let isCurrentUser: Bool = (viewModel.threadData.currentUserSessionIds?.contains(sessionId) == true)
+            guard !isCurrentUser else {
+                return ("you".localized(), "you".localized())
+            }
+            
             return (
                 (profile?.displayName(for: .contact) ?? cellViewModel.authorNameSuppressedId),
                 profile?.displayName(for: .contact, ignoringNickname: true)
@@ -2355,6 +2360,14 @@ extension ConversationVC:
         let messageInfoViewController = MessageInfoViewController(
             actions: actions,
             messageViewModel: finalCellViewModel,
+            threadCanWrite: (viewModel.threadData.threadCanWrite == true),
+            onStartThread: { [weak self] in
+                self?.startThread(
+                    with: cellViewModel.authorId,
+                    openGroupServer: cellViewModel.threadOpenGroupServer,
+                    openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
+                )
+            },
             using: viewModel.dependencies
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
@@ -2906,11 +2919,14 @@ extension ConversationVC:
 
     func startVoiceMessageRecording() {
         // Request permission if needed
-        Permissions.requestMicrophonePermissionIfNeeded(using: viewModel.dependencies) { [weak self] in
-            DispatchQueue.main.async {
-                self?.cancelVoiceMessageRecording()
+        Permissions.requestMicrophonePermissionIfNeeded(
+            using: viewModel.dependencies,
+            onNotGranted: { [weak self] in
+                DispatchQueue.main.async {
+                    self?.cancelVoiceMessageRecording()
+                }
             }
-        }
+        )
         
         // Keep screen on
         UIApplication.shared.isIdleTimerDisabled = false
