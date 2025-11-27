@@ -675,7 +675,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
         
         guard dependencies.hasSet(feature: .mockCurrentUserSessionProState) else { return }
-        dependencies.set(feature: .mockCurrentUserSessionProState, to: nil)
+        dependencies.reset(feature: .mockCurrentUserSessionProState)
     }
     
     private func updateSessionProEnabled(current: Bool) {
