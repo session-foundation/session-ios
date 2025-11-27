@@ -582,7 +582,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 SessionListScreenContent.ListItemInfo(
                     id: info.id,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 info.icon,
                                 iconSize: .medium,
@@ -591,8 +591,16 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 backgroundSize: .veryLarge,
                                 backgroundCornerRadius: 8
                             ),
-                            title: .init(info.title, font: .Headings.H9, accessory: info.accessory),
-                            description: .init(info.description, font: .Body.smallRegular, color: .textSecondary)
+                            title: SessionListScreenContent.TextInfo(
+                                info.title,
+                                font: .Headings.H9,
+                                accessory: info.accessory
+                            ),
+                            description: SessionListScreenContent.TextInfo(
+                                info.description,
+                                font: .Body.smallRegular,
+                                color: .textSecondary
+                            )
                         )
                     )
                 )
@@ -600,7 +608,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 SessionListScreenContent.ListItemInfo(
                     id: .plusLoadsMore,
                     variant: .cell(
-                        info: .init(
+                        info: ListItemCell.Info(
                             leadingAccessory: .icon(
                                 Lucide.image(icon: .circlePlus, size: IconSize.medium.size),
                                 iconSize: .medium,
@@ -614,8 +622,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 backgroundSize: .veryLarge,
                                 backgroundCornerRadius: 8
                             ),
-                            title: .init("plusLoadsMore".localized(), font: .Headings.H9),
-                            description: .init(
+                            title: SessionListScreenContent.TextInfo(
+                                "plusLoadsMore".localized(),
+                                font: .Headings.H9
+                            ),
+                            description: SessionListScreenContent.TextInfo(
                                 font: .Body.smallRegular,
                                 attributedString: "plusLoadsMoreDescription"
                                     .put(key: "pro", value: Constants.pro)
@@ -625,7 +636,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(SessionPro.Metadata.urls.roadmap) }
+                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.urls.proRoadmap) }
                 )
             )
         )
@@ -666,7 +677,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_faq_url) }
+                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.urls.proFaq) }
                 ),
                 SessionListScreenContent.ListItemInfo(
                     id: .support,
@@ -694,7 +705,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(SessionPro.Metadata.urls.support) }
+                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.urls.support) }
                 )
             ]
         )
@@ -1116,7 +1127,7 @@ extension SessionProSettingsViewModel {
                         try? await dependencies[singleton: .sessionProManager].refreshProState()
                     }
                 },
-                onCancel: { [weak self] _ in self?.openUrl(SessionPro.Metadata.urls.support) }
+                onCancel: { [weak self] _ in self?.openUrl(Constants.urls.support) }
             )
         )
         
@@ -1199,7 +1210,7 @@ extension SessionProSettingsViewModel {
                                 return modal.dismiss(animated: true)
                             }
                             
-                            self?.openUrl(SessionPro.Metadata.urls.proAccessNotFound)
+                            self?.openUrl(Constants.urls.proAccessNotFound)
                         }
                     )
                 )

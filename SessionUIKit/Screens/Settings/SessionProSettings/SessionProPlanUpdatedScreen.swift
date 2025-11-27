@@ -10,12 +10,9 @@ public struct SessionProPlanUpdatedScreen: View {
     var blurSize: CGFloat { UIScreen.main.bounds.width - 2 * Values.mediumSpacing }
     var dismissButtonTitle: String {
         switch flow {
-            case .purchase, .renew:
-                "Start Using Pro"
-            case .update:
-                "theReturn".localized()
-            default: 
-                ""
+            case .purchase, .renew: "proStartUsing".put(key: "pro", value: Constants.pro).localized()
+            case .update: "theReturn".localized()
+            default: ""
         }
     }
     var desription: ThemedAttributedString {

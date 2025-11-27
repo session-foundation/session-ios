@@ -110,7 +110,7 @@ enum MockDataGenerator {
                     currentUserSessionId: userSessionId
                 )
                 .upserted(db)
-                try Profile(
+                try Profile.with(
                     id: randomSessionId,
                     name: (0..<contactNameLength)
                         .compactMap { _ in stringContent.randomElement(using: &dmThreadRandomGenerator) }
@@ -192,7 +192,7 @@ enum MockDataGenerator {
                         currentUserSessionId: userSessionId
                     )
                     .upserted(db)
-                    try Profile(
+                    try Profile.with(
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &cgThreadRandomGenerator) }
@@ -299,7 +299,7 @@ enum MockDataGenerator {
                         currentUserSessionId: userSessionId
                     )
                     .upserted(db)
-                    try Profile(
+                    try Profile.with(
                         id: randomSessionId,
                         name: (0..<contactNameLength)
                             .compactMap { _ in stringContent.randomElement(using: &ogThreadRandomGenerator) }

@@ -261,8 +261,8 @@ public struct SessionProPaymentScreen: View {
         let modal: ModalHostingViewController = ModalHostingViewController(
             modal: MutipleLinksModal(
                 links: [
-                    SNUIKit.proUrlStringProvider().termsOfService,
-                    SNUIKit.proUrlStringProvider().privacyPolicy
+                    SNUIKit.urlStringProvider().proTermsOfService,
+                    SNUIKit.urlStringProvider().proPrivacyPolicy
                 ],
                 openURL: { url in
                     viewModel.openURL(url)

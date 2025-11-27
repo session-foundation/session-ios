@@ -638,7 +638,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 case .nickname(let nickname): profileData = profileData.with(nickname: .set(to: nickname))
                 case .displayPictureUrl(let url): profileData = profileData.with(displayPictureUrl: .set(to: url))
                 case .proStatus(_, let features, let proExpiryUnixTimestampMs, let proGenIndexHashHex):
-                    let finalFeatures: SessionPro.Features = {
+                    let finalFeatures: SessionPro.ProfileFeatures = {
                         guard dependencies[feature: .sessionProEnabled] else { return .none }
                         
                         return features
@@ -920,7 +920,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 /// Update the caches with the newly fetched values
                 quoteMap.merge(fetchedQuoteMap, uniquingKeysWith: { _, new in new })
                 fetchedProfiles.forEach { profile in
-                    let finalFeatures: SessionPro.Features = {
+                    let finalFeatures: SessionPro.ProfileFeatures = {
                         guard dependencies[feature: .sessionProEnabled] else { return .none }
                         
                         return profile.proFeatures
@@ -1282,11 +1282,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         // Generate the optimistic data
         let optimisticMessageId: Int64 = (-Int64.max + sentTimestampMs) /// Unique but avoids collisions with messages
         let currentState: State = await self.state
-        let proFeatures: SessionPro.Features = try {
-            let userProfileFeatures: SessionPro.Features = (dependencies[singleton: .sessionProManager].currentUserCurrentProFeatures ?? .none)
+        let proMessageFeatures: SessionPro.MessageFeatures = try {
             let result: SessionPro.FeaturesForMessage = dependencies[singleton: .sessionProManager].features(
-                for: (text ?? ""),
-                features: userProfileFeatures
+                for: (text ?? "")
             )
             
             switch result.status {
@@ -1294,14 +1292,18 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 case .utfDecodingError:
                     Log.warn(.messageSender, "Failed to extract features for message, falling back to manual handling")
                     guard (text ?? "").utf16.count > SessionPro.CharacterLimit else {
-                        return userProfileFeatures
+                        return .none
                     }
                     
-                    return userProfileFeatures.union(.largerCharacterLimit)
+                    return .largerCharacterLimit
                     
                 case .exceedsCharacterLimit: throw MessageError.messageTooLarge
             }
         }()
+        let proProfileFeatures: SessionPro.ProfileFeatures = (
+            dependencies[singleton: .sessionProManager].currentUserCurrentProProfileFeatures ??
+            .none
+        )
         let interaction: Interaction = Interaction(
             threadId: currentState.threadId,
             threadVariant: currentState.threadVariant,
@@ -1317,7 +1319,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             ),
             expiresInSeconds: currentState.threadViewModel.disappearingMessagesConfiguration?.expiresInSeconds(),
             linkPreviewUrl: linkPreviewViewModel?.urlString,
-            proFeatures: proFeatures,
+            proMessageFeatures: proMessageFeatures,
+            proProfileFeatures: proProfileFeatures,
             using: dependencies
         )
         var optimisticAttachments: [Attachment]?

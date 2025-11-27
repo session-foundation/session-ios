@@ -47,7 +47,7 @@ public actor SessionProManager: SessionProManagerType {
         syncState.proStatus
     }
     nonisolated public var currentUserCurrentProProof: Network.SessionPro.ProProof? { syncState.proProof }
-    nonisolated public var currentUserCurrentProFeatures: SessionPro.Features? { syncState.proFeatures }
+    nonisolated public var currentUserCurrentProProfileFeatures: SessionPro.ProfileFeatures? { syncState.proProfileFeatures }
     nonisolated public var currentUserIsCurrentlyPro: Bool { syncState.proStatus == .active }
     
     nonisolated public var pinnedConversationLimit: Int { SessionPro.PinnedConversationLimit }
@@ -110,8 +110,8 @@ public actor SessionProManager: SessionProManagerType {
         for proof: Network.SessionPro.ProProof?,
         verifyPubkey: I?,
         atTimestampMs timestampMs: UInt64
-    ) -> SessionPro.DecodedStatus {
-        guard let proof: Network.SessionPro.ProProof else { return .none }
+    ) -> SessionPro.DecodedStatus? {
+        guard let proof: Network.SessionPro.ProProof else { return nil }
         
         var cProProof: session_protocol_pro_proof = proof.libSessionValue
         let cVerifyPubkey: [UInt8] = (verifyPubkey.map { Array($0) } ?? [])
@@ -138,7 +138,7 @@ public actor SessionProManager: SessionProManagerType {
         return session_protocol_pro_proof_is_active(&cProProof, timestampMs)
     }
     
-    nonisolated public func features(for message: String, features: SessionPro.Features) -> SessionPro.FeaturesForMessage {
+    nonisolated public func features(for message: String) -> SessionPro.FeaturesForMessage {
         guard let cMessage: [CChar] = message.cString(using: .utf8) else {
             return SessionPro.FeaturesForMessage.invalidString
         }
@@ -146,22 +146,23 @@ public actor SessionProManager: SessionProManagerType {
         return SessionPro.FeaturesForMessage(
             session_protocol_pro_features_for_utf8(
                 cMessage,
-                (cMessage.count - 1),  /// Need to `- 1` to avoid counting the null-termination character
-                features.libSessionValue
+                (cMessage.count - 1)  /// Need to `- 1` to avoid counting the null-termination character
             )
         )
     }
     
     nonisolated public func attachProInfoIfNeeded(message: Message) -> Message {
         let featuresForMessage: SessionPro.FeaturesForMessage = features(
-            for: ((message as? VisibleMessage)?.text ?? ""),
-            features: (syncState.proFeatures ?? .none)
+            for: ((message as? VisibleMessage)?.text ?? "")
         )
+        let profileFeatures: SessionPro.ProfileFeatures = (syncState.proProfileFeatures ?? .none)
         
         /// We only want to attach the `proFeatures` and `proProof` if a pro feature is _actually_ used
         guard
-            featuresForMessage.status == .success,
-            featuresForMessage.features != .none,
+            featuresForMessage.status == .success, (
+                profileFeatures != .none ||
+                featuresForMessage.features != .none
+            ),
             let proof: Network.SessionPro.ProProof = syncState.proProof
         else {
             if featuresForMessage.status != .success {
@@ -171,7 +172,8 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         let updatedMessage: Message = message
-        updatedMessage.proFeatures = featuresForMessage.features
+        updatedMessage.proMessageFeatures = featuresForMessage.features
+        updatedMessage.proProfileFeatures = profileFeatures
         updatedMessage.proProof = proof
         
         return updatedMessage
@@ -229,7 +231,7 @@ public actor SessionProManager: SessionProManagerType {
             rotatingKeyPair: .set(to: rotatingKeyPair),
             proStatus: .set(to: mockedIfNeeded(proStatus)),
             proProof: .set(to: proState.proConfig?.proProof),
-            proFeatures: .set(to: proState.profile.proFeatures)
+            proProfileFeatures: .set(to: proState.profile.proFeatures)
         )
         
         /// Then update the async state and streams
@@ -608,13 +610,13 @@ private final class SessionProManagerSyncState {
     private var _rotatingKeyPair: KeyPair? = nil
     private var _proStatus: Network.SessionPro.BackendUserProStatus? = nil
     private var _proProof: Network.SessionPro.ProProof? = nil
-    private var _proFeatures: SessionPro.Features = .none
+    private var _proProfileFeatures: SessionPro.ProfileFeatures = .none
     
     fileprivate var dependencies: Dependencies { lock.withLock { _dependencies } }
     fileprivate var rotatingKeyPair: KeyPair? { lock.withLock { _rotatingKeyPair } }
     fileprivate var proStatus: Network.SessionPro.BackendUserProStatus? { lock.withLock { _proStatus } }
     fileprivate var proProof: Network.SessionPro.ProProof? { lock.withLock { _proProof } }
-    fileprivate var proFeatures: SessionPro.Features? { lock.withLock { _proFeatures } }
+    fileprivate var proProfileFeatures: SessionPro.ProfileFeatures? { lock.withLock { _proProfileFeatures } }
     
     fileprivate init(using dependencies: Dependencies) {
         self._dependencies = dependencies
@@ -624,13 +626,13 @@ private final class SessionProManagerSyncState {
         rotatingKeyPair: Update<KeyPair?> = .useExisting,
         proStatus: Update<Network.SessionPro.BackendUserProStatus?> = .useExisting,
         proProof: Update<Network.SessionPro.ProProof?> = .useExisting,
-        proFeatures: Update<SessionPro.Features> = .useExisting
+        proProfileFeatures: Update<SessionPro.ProfileFeatures> = .useExisting
     ) {
         lock.withLock {
             self._rotatingKeyPair = rotatingKeyPair.or(self._rotatingKeyPair)
             self._proStatus = proStatus.or(self._proStatus)
             self._proProof = proProof.or(self._proProof)
-            self._proFeatures = proFeatures.or(self._proFeatures)
+            self._proProfileFeatures = proProfileFeatures.or(self._proProfileFeatures)
         }
     }
 }
@@ -644,7 +646,7 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     nonisolated var currentUserCurrentRotatingKeyPair: KeyPair? { get }
     nonisolated var currentUserCurrentProStatus: Network.SessionPro.BackendUserProStatus? { get }
     nonisolated var currentUserCurrentProProof: Network.SessionPro.ProProof? { get }
-    nonisolated var currentUserCurrentProFeatures: SessionPro.Features? { get }
+    nonisolated var currentUserCurrentProProfileFeatures: SessionPro.ProfileFeatures? { get }
     
     nonisolated var loadingState: AsyncStream<SessionPro.LoadingState> { get }
     nonisolated var proStatus: AsyncStream<Network.SessionPro.BackendUserProStatus?> { get }
@@ -658,24 +660,18 @@ public protocol SessionProManagerType: SessionProUIManagerType {
         for proof: Network.SessionPro.ProProof?,
         verifyPubkey: I?,
         atTimestampMs timestampMs: UInt64
-    ) -> SessionPro.DecodedStatus
+    ) -> SessionPro.DecodedStatus?
     nonisolated func proProofIsActive(
         for proof: Network.SessionPro.ProProof?,
         atTimestampMs timestampMs: UInt64
     ) -> Bool
-    nonisolated func features(for message: String, features: SessionPro.Features) -> SessionPro.FeaturesForMessage
+    nonisolated func features(for message: String) -> SessionPro.FeaturesForMessage
     nonisolated func attachProInfoIfNeeded(message: Message) -> Message
     func updateWithLatestFromUserConfig() async
     
     func refreshProState() async throws
     func addProPayment(transactionId: String) async throws
     func requestRefund(scene: UIWindowScene) async throws
-}
-
-public extension SessionProManagerType {
-    nonisolated func features(for message: String) -> SessionPro.FeaturesForMessage {
-        return features(for: message, features: .none)
-    }
 }
 
 // MARK: - Convenience
@@ -777,7 +773,7 @@ private extension SessionProManager {
                             rotatingKeyPair: .set(to: nil),
                             proStatus: .set(to: nil),
                             proProof: .set(to: nil),
-                            proFeatures: .set(to: .none)
+                            proProfileFeatures: .set(to: .none)
                         )
                         
                         await self?.loadingStateStream.send(.loading)

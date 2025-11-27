@@ -1251,7 +1251,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                                 isApproved: true,
                                                 currentUserSessionId: currentUserSessionId
                                             ).upserted(db)
-                                            _ = try Profile(
+                                            _ = try Profile.with(
                                                 id: sessionId.hexString,
                                                 name: String(format: "\(self?.contactPrefix ?? "")%04d", index + 1)
                                             ).upserted(db)

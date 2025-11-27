@@ -556,7 +556,7 @@ internal extension LibSession {
             }
             
             result.append(
-                Profile(
+                Profile.with(
                     id: member.get(\.session_id),
                     name: member.get(\.name),
                     nickname: nil,

@@ -57,18 +57,21 @@ struct MessageInfoScreen: View {
             }
         }
         
-        static func from(_ features: SessionPro.Features) -> [ProFeature] {
+        static func from(
+            messageFeatures: SessionPro.MessageFeatures,
+            profileFeatures: SessionPro.ProfileFeatures
+        ) -> [ProFeature] {
             var result: [ProFeature] = []
             
-            if features.contains(.proBadge) {
+            if profileFeatures.contains(.proBadge) {
                 result.append(.proBadge)
             }
             
-            if features.contains(.largerCharacterLimit) {
+            if messageFeatures.contains(.largerCharacterLimit) {
                 result.append(.increasedMessageLength)
             }
             
-            if features.contains(.animatedAvatar) {
+            if profileFeatures.contains(.animatedAvatar) {
                 result.append(.animatedDisplayPicture)
             }
             
@@ -111,7 +114,10 @@ struct MessageInfoScreen: View {
                 profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
                 using: dependencies
             ).front,
-            proFeatures: ProFeature.from(messageViewModel.proFeatures),
+            proFeatures: ProFeature.from(
+                messageFeatures: messageViewModel.proMessageFeatures,
+                profileFeatures: messageViewModel.proProfileFeatures
+            ),
             shouldShowProBadge: messageViewModel.profile.proFeatures.contains(.proBadge),
             displayNameRetriever: displayNameRetriever
         )
@@ -855,15 +861,16 @@ struct MessageInfoView_Previews: PreviewProvider {
                 body: "Mauris sapien dui, sagittis et fringilla eget, tincidunt vel mauris. Mauris bibendum quis ipsum ac pulvinar. Integer semper elit vitae placerat efficitur. Quisque blandit scelerisque orci, a fringilla dui. In a sollicitudin tortor. Vivamus consequat sollicitudin felis, nec pretium dolor bibendum sit amet. Integer non congue risus, id imperdiet diam. Proin elementum enim at felis commodo semper. Pellentesque magna magna, laoreet nec hendrerit in, suscipit sit amet risus. Nulla et imperdiet massa. Donec commodo felis quis arcu dignissim lobortis. Praesent nec fringilla felis, ut pharetra sapien. Donec ac dignissim nisi, non lobortis justo. Nulla congue velit nec sodales bibendum. Nullam feugiat, mauris ac consequat posuere, eros sem dignissim nulla, ac convallis dolor sem rhoncus dolor. Cras ut luctus risus, quis viverra mauris.",
                 timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
                 state: .failed,
-                proFeatures: .proBadge,
+                proMessageFeatures: .largerCharacterLimit,
                 using: dependencies
             ),
             reactionInfo: nil,
             maybeUnresolvedQuotedInfo: nil,
             profileCache: [
-                "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg": Profile(
+                "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg": Profile.with(
                     id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
-                    name: "TestUser"
+                    name: "TestUser",
+                    proFeatures: .proBadge
                 )
             ],
             attachmentCache: [:],

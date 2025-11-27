@@ -1052,7 +1052,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     private func openDonationsUrl() {
-        guard let url: URL = URL(string: Constants.session_donations_url) else { return }
+        guard let url: URL = URL(string: Constants.urls.donationsApp) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
@@ -1087,7 +1087,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     private func openTokenUrl() {
-        guard let url: URL = URL(string: Constants.session_token_url) else { return }
+        guard let url: URL = URL(string: Constants.urls.token) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(

@@ -17,7 +17,7 @@ public struct QuotedReplyModel: Sendable, Equatable, Hashable {
     public let contentType: String?
     public let sourceFileName: String?
     public let thumbnailDownloadFailed: Bool
-    public let proFeatures: SessionPro.Features
+    public let proMessageFeatures: SessionPro.MessageFeatures
     public let currentUserSessionIds: Set<String>
     
     // MARK: - Initialization
@@ -33,7 +33,7 @@ public struct QuotedReplyModel: Sendable, Equatable, Hashable {
         contentType: String?,
         sourceFileName: String?,
         thumbnailDownloadFailed: Bool,
-        proFeatures: SessionPro.Features,
+        proMessageFeatures: SessionPro.MessageFeatures,
         currentUserSessionIds: Set<String>
     ) {
         self.threadId = threadId
@@ -46,7 +46,7 @@ public struct QuotedReplyModel: Sendable, Equatable, Hashable {
         self.contentType = contentType
         self.sourceFileName = sourceFileName
         self.thumbnailDownloadFailed = thumbnailDownloadFailed
-        self.proFeatures = proFeatures
+        self.proMessageFeatures = proMessageFeatures
         self.currentUserSessionIds = currentUserSessionIds
     }
     
@@ -60,7 +60,7 @@ public struct QuotedReplyModel: Sendable, Equatable, Hashable {
         timestampMs: Int64,
         attachments: [Attachment]?,
         linkPreviewAttachment: Attachment?,
-        proFeatures: SessionPro.Features,
+        proMessageFeatures: SessionPro.MessageFeatures,
         currentUserSessionIds: Set<String>
     ) -> QuotedReplyModel? {
         guard variant == .standardOutgoing || variant == .standardIncoming else { return nil }
@@ -79,7 +79,7 @@ public struct QuotedReplyModel: Sendable, Equatable, Hashable {
             contentType: targetAttachment?.contentType,
             sourceFileName: targetAttachment?.sourceFilename,
             thumbnailDownloadFailed: false,
-            proFeatures: proFeatures,
+            proMessageFeatures: proMessageFeatures,
             currentUserSessionIds: currentUserSessionIds
         )
     }

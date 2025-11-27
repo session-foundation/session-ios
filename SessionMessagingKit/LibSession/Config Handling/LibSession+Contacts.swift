@@ -79,7 +79,7 @@ internal extension LibSessionCacheType {
                         
                         return .contactUpdate(
                             Profile.ProState(
-                                features: data.profile.proFeatures,
+                                profileFeatures: data.profile.proFeatures,
                                 expiryUnixTimestampMs: data.profile.proExpiryUnixTimestampMs,
                                 genIndexHashHex: genIndexHashHex
                             )
@@ -714,7 +714,7 @@ extension LibSession {
         fileprivate var profile: Profile? {
             guard let name: String = name else { return nil }
             
-            return Profile(
+            return Profile.with(
                 id: id,
                 name: name,
                 nickname: nickname,
@@ -847,7 +847,8 @@ internal extension LibSessionCacheType {
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
                 profileLastUpdated: TimeInterval(contact.profile_updated),
-                proFeatures: SessionPro.Features(contact.pro_features),
+                blocksCommunityMessageRequests: nil,    /// Not synced
+                proFeatures: SessionPro.ProfileFeatures(contact.profile_bitset),
                 proExpiryUnixTimestampMs: (proProofMetadata?.expiryUnixTimestampMs ?? 0),
                 proGenIndexHashHex: proProofMetadata?.genIndexHashHex
             )

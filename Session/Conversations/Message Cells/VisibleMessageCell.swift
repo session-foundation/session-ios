@@ -396,7 +396,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             nil
         )
         authorLabel.themeTextColor = .textPrimary
-        authorLabel.isProBadgeHidden = !cellViewModel.proFeatures.contains(.proBadge)
+        authorLabel.isProBadgeHidden = !cellViewModel.profile.proFeatures.contains(.proBadge)
         
         // Flip horizontally for RTL languages
         replyIconImageView.transform = CGAffineTransform.identity

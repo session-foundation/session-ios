@@ -64,7 +64,7 @@ enum _028_GenerateInitialUserConfigDumps: Migration {
             displayName: .set(to: (userProfile?["name"] ?? "")),
             displayPictureUrl: .set(to: userProfile?["profilePictureUrl"]),
             displayPictureEncryptionKey: .set(to: userProfile?["profileEncryptionKey"]),
-            proFeatures: .useExisting,
+            proProfileFeatures: .useExisting,
             isReuploadProfilePicture: false
         )
         

@@ -33,7 +33,7 @@ struct RenewPlanNoBillingAccessContent: View {
                             .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
                             .put(key: "platform_store_other", value: SNUIKit.proClientPlatformStringProvider(for: .android).store)
                             .put(key: "app_name", value: Constants.app_name)
-                            .put(key: "build_variant", value: Constants.IPA)    // TODO: [PRO] source this from libSession?
+                            .put(key: "build_variant", value: SNUIKit.buildVariantStringProvider().ipa)
                             .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                             .localizedFormatted(Fonts.Body.baseRegular)
                     )

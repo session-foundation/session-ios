@@ -10,7 +10,8 @@ import SessionUtilitiesKit
 public extension Crypto.Generator {
     static func encodedMessage<I: DataProtocol, R: RangeReplaceableCollection>(
         plaintext: I,
-        proFeatures: SessionPro.Features,
+        proMessageFeatures: SessionPro.MessageFeatures,
+        proProfileFeatures: SessionPro.ProfileFeatures,
         destination: Message.Destination,
         sentTimestampMs: UInt64
     ) throws -> Crypto.Generator<R> where R.Element == UInt8 {
@@ -21,7 +22,7 @@ public extension Crypto.Generator {
             let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
             let cRotatingProSecretKey: [UInt8]? = {
                 /// If the message doens't contain any pro features then we shouldn't include a pro signature
-                guard proFeatures != .none else { return nil }
+                guard proMessageFeatures != .none || proProfileFeatures != .none else { return nil }
                 
                 return dependencies[singleton: .sessionProManager]
                     .currentUserCurrentRotatingKeyPair?
@@ -418,7 +419,7 @@ public extension Crypto.Generator {
     }
 }
 
-extension bytes32: CAccessible & CMutable {}
-extension bytes33: CAccessible & CMutable {}
-extension bytes64: CAccessible & CMutable {}
-extension session_protocol_decode_envelope_keys: CAccessible & CMutable {}
+extension bytes32: @retroactive CAccessible & CMutable {}
+extension bytes33: @retroactive CAccessible & CMutable {}
+extension bytes64: @retroactive CAccessible & CMutable {}
+extension session_protocol_decode_envelope_keys: @retroactive CAccessible & CMutable {}

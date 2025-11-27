@@ -214,7 +214,7 @@ public struct ProfileEvent: Hashable {
         case displayPictureUrl(String?)
         case proStatus(
             isPro: Bool,
-            features: SessionPro.Features,
+            profileFeatures: SessionPro.ProfileFeatures,
             expiryUnixTimestampMs: UInt64,
             genIndexHashHex: String?
         )

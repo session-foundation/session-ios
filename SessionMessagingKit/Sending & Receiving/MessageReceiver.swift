@@ -90,7 +90,8 @@ public enum MessageReceiver {
         switch decodedMessage.decodedPro?.status {
             case .valid, .expired: break
             case .none, .invalidProBackendSig, .invalidUserSig:
-                message.proFeatures = nil
+                message.proMessageFeatures = nil
+                message.proProfileFeatures = nil
                 message.proProof = nil
         }
         

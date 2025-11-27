@@ -80,12 +80,12 @@ public extension Profile {
     
     struct ProState: Equatable {
         public static let nonPro: ProState = ProState(
-            features: .none,
+            profileFeatures: .none,
             expiryUnixTimestampMs: 0,
             genIndexHashHex: nil
         )
         
-        let features: SessionPro.Features
+        let profileFeatures: SessionPro.ProfileFeatures
         let expiryUnixTimestampMs: UInt64
         let genIndexHashHex: String?
         
@@ -95,11 +95,11 @@ public extension Profile {
         }
         
         init(
-            features: SessionPro.Features,
+            profileFeatures: SessionPro.ProfileFeatures,
             expiryUnixTimestampMs: UInt64,
             genIndexHashHex: String?
         ) {
-            self.features = features
+            self.profileFeatures = profileFeatures
             self.expiryUnixTimestampMs = expiryUnixTimestampMs
             self.genIndexHashHex = genIndexHashHex
         }
@@ -109,7 +109,7 @@ public extension Profile {
                 return nil
             }
             
-            self.features = decodedPro.features
+            self.profileFeatures = decodedPro.profileFeatures
             self.expiryUnixTimestampMs = decodedPro.proProof.expiryUnixTimestampMs
             self.genIndexHashHex = decodedPro.proProof.genIndexHash.toHexString()
         }
@@ -128,7 +128,7 @@ public extension Profile {
     static func updateLocal(
         displayNameUpdate: TargetUserUpdate<String?> = .none,
         displayPictureUpdate: DisplayPictureManager.Update = .none,
-        proFeatures: SessionPro.Features? = nil,
+        proFeatures: SessionPro.ProfileFeatures? = nil,
         using dependencies: Dependencies
     ) async throws {
         /// Perform any non-database related changes for the update
@@ -165,13 +165,13 @@ public extension Profile {
             let profileUpdateTimestamp: TimeInterval = (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
             let proUpdate: TargetUserUpdate<ProState?> = {
                 guard
-                    let targetFeatures: SessionPro.Features = proFeatures,
+                    let targetFeatures: SessionPro.ProfileFeatures = proFeatures,
                     let proof: Network.SessionPro.ProProof = dependencies[singleton: .sessionProManager].currentUserCurrentProProof
                 else { return .none }
                 
                 return .currentUserUpdate(
                     ProState(
-                        features: targetFeatures,
+                        profileFeatures: targetFeatures,
                         expiryUnixTimestampMs: proof.expiryUnixTimestampMs,
                         genIndexHashHex: proof.genIndexHash.toHexString()
                     )
@@ -211,7 +211,7 @@ public extension Profile {
         let isCurrentUser = currentUserSessionIds.contains(publicKey)
         let profile: Profile = cacheSource.resolve(db, publicKey: publicKey, using: dependencies)
         let proState: ProState = ProState(
-            features: profile.proFeatures,
+            profileFeatures: profile.proFeatures,
             expiryUnixTimestampMs: profile.proExpiryUnixTimestampMs,
             genIndexHashHex: profile.proGenIndexHashHex
         )
@@ -322,14 +322,14 @@ public extension Profile {
                     case .reupload, .config: break  /// Don't modify the current state
                     case .staticImage:
                         updatedProState = ProState(
-                            features: updatedProState.features.removing(.animatedAvatar),
+                            profileFeatures: updatedProState.profileFeatures.removing(.animatedAvatar),
                             expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
                             genIndexHashHex: updatedProState.genIndexHashHex
                         )
                     
                     case .animatedImage:
                         updatedProState = ProState(
-                            features: updatedProState.features.inserting(.animatedAvatar),
+                            profileFeatures: updatedProState.profileFeatures.inserting(.animatedAvatar),
                             expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
                             genIndexHashHex: updatedProState.genIndexHashHex
                         )
@@ -338,9 +338,9 @@ public extension Profile {
             
             /// If the pro state no longer matches then we need to emit an event
             if updatedProState != proState {
-                if updatedProState.features != proState.features {
-                    updatedProfile = updatedProfile.with(proFeatures: .set(to: updatedProState.features))
-                    profileChanges.append(Profile.Columns.proFeatures.set(to: updatedProState.features.rawValue))
+                if updatedProState.profileFeatures != proState.profileFeatures {
+                    updatedProfile = updatedProfile.with(proFeatures: .set(to: updatedProState.profileFeatures))
+                    profileChanges.append(Profile.Columns.proFeatures.set(to: updatedProState.profileFeatures.rawValue))
                 }
                 
                 if updatedProState.expiryUnixTimestampMs != proState.expiryUnixTimestampMs {
@@ -363,7 +363,7 @@ public extension Profile {
                     id: publicKey,
                     change: .proStatus(
                         isPro: updatedProState.isPro,
-                        features: updatedProState.features,
+                        profileFeatures: updatedProState.profileFeatures,
                         expiryUnixTimestampMs: updatedProState.expiryUnixTimestampMs,
                         genIndexHashHex: updatedProState.genIndexHashHex
                     )
@@ -491,7 +491,7 @@ public extension Profile {
                             displayName: .set(to: updatedProfile.name),
                             displayPictureUrl: .set(to: updatedProfile.displayPictureUrl),
                             displayPictureEncryptionKey: .set(to: updatedProfile.displayPictureEncryptionKey),
-                            proFeatures: .set(to: updatedProState.features),
+                            proProfileFeatures: .set(to: updatedProState.profileFeatures),
                             isReuploadProfilePicture: {
                                 switch displayPictureUpdate {
                                     case .currentUserUpdateTo(_, _, let type): return (type == .reupload)
@@ -499,6 +499,13 @@ public extension Profile {
                                 }
                             }()
                         )
+                    }
+                }
+                
+                /// After the commit completes we need to update the SessionProManager to ensure it has the latest state
+                db.afterCommit {
+                    Task.detached(priority: .userInitiated) {
+                        await dependencies[singleton: .sessionProManager].updateWithLatestFromUserConfig()
                     }
                 }
             }

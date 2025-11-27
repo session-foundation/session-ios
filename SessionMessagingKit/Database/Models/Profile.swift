@@ -54,7 +54,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     public let blocksCommunityMessageRequests: Bool?
     
     /// The Session Pro features enabled for this profile
-    public let proFeatures: SessionPro.Features
+    public let proFeatures: SessionPro.ProfileFeatures
     
     /// The unix timestamp (in milliseconds) when Session Pro expires for this profile
     public let proExpiryUnixTimestampMs: UInt64
@@ -64,7 +64,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     
     // MARK: - Initialization
     
-    public init(
+    public static func with(
         id: String,
         name: String,
         nickname: String? = nil,
@@ -72,20 +72,22 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         displayPictureEncryptionKey: Data? = nil,
         profileLastUpdated: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
-        proFeatures: SessionPro.Features = .none,
+        proFeatures: SessionPro.ProfileFeatures = .none,
         proExpiryUnixTimestampMs: UInt64 = 0,
         proGenIndexHashHex: String? = nil
-    ) {
-        self.id = id
-        self.name = name
-        self.nickname = nickname
-        self.displayPictureUrl = displayPictureUrl
-        self.displayPictureEncryptionKey = displayPictureEncryptionKey
-        self.profileLastUpdated = profileLastUpdated
-        self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
-        self.proFeatures = proFeatures
-        self.proExpiryUnixTimestampMs = proExpiryUnixTimestampMs
-        self.proGenIndexHashHex = proGenIndexHashHex
+    ) -> Profile {
+        return Profile(
+            id: id,
+            name: name,
+            nickname: nickname,
+            displayPictureUrl: displayPictureUrl,
+            displayPictureEncryptionKey: displayPictureEncryptionKey,
+            profileLastUpdated: profileLastUpdated,
+            blocksCommunityMessageRequests: blocksCommunityMessageRequests,
+            proFeatures: proFeatures,
+            proExpiryUnixTimestampMs: proExpiryUnixTimestampMs,
+            proGenIndexHashHex: proGenIndexHashHex
+        )
     }
 }
 
@@ -145,7 +147,10 @@ public extension Profile {
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: displayPictureKey,
             profileLastUpdated: try container.decodeIfPresent(TimeInterval.self, forKey: .profileLastUpdated),
-            blocksCommunityMessageRequests: try container.decodeIfPresent(Bool.self, forKey: .blocksCommunityMessageRequests)
+            blocksCommunityMessageRequests: try container.decodeIfPresent(Bool.self, forKey: .blocksCommunityMessageRequests),
+            proFeatures: try container.decode(SessionPro.ProfileFeatures.self, forKey: .proFeatures),
+            proExpiryUnixTimestampMs: try container.decode(UInt64.self, forKey: .proExpiryUnixTimestampMs),
+            proGenIndexHashHex: try container.decodeIfPresent(String.self, forKey: .proGenIndexHashHex)
         )
     }
     
@@ -159,6 +164,9 @@ public extension Profile {
         try container.encodeIfPresent(displayPictureEncryptionKey, forKey: .displayPictureEncryptionKey)
         try container.encodeIfPresent(profileLastUpdated, forKey: .profileLastUpdated)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
+        try container.encode(proFeatures, forKey: .proFeatures)
+        try container.encode(proExpiryUnixTimestampMs, forKey: .proExpiryUnixTimestampMs)
+        try container.encodeIfPresent(proGenIndexHashHex, forKey: .proGenIndexHashHex)
     }
 }
 
@@ -452,7 +460,7 @@ public extension Profile {
         displayPictureEncryptionKey: Update<Data?> = .useExisting,
         profileLastUpdated: Update<TimeInterval?> = .useExisting,
         blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
-        proFeatures: Update<SessionPro.Features> = .useExisting,
+        proFeatures: Update<SessionPro.ProfileFeatures> = .useExisting,
         proExpiryUnixTimestampMs: Update<UInt64> = .useExisting,
         proGenIndexHashHex: Update<String?> = .useExisting
     ) -> Profile {

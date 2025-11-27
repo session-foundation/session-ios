@@ -1859,21 +1859,31 @@ struct SessionProtos_ProMessage {
   /// Clears the value of `proof`. Subsequent reads from it will return its default value.
   mutating func clearProof() {self._proof = nil}
 
-  var features: UInt64 {
-    get {return _features ?? 0}
-    set {_features = newValue}
+  var profileBitset: UInt64 {
+    get {return _profileBitset ?? 0}
+    set {_profileBitset = newValue}
   }
-  /// Returns true if `features` has been explicitly set.
-  var hasFeatures: Bool {return self._features != nil}
-  /// Clears the value of `features`. Subsequent reads from it will return its default value.
-  mutating func clearFeatures() {self._features = nil}
+  /// Returns true if `profileBitset` has been explicitly set.
+  var hasProfileBitset: Bool {return self._profileBitset != nil}
+  /// Clears the value of `profileBitset`. Subsequent reads from it will return its default value.
+  mutating func clearProfileBitset() {self._profileBitset = nil}
+
+  var msgBitset: UInt64 {
+    get {return _msgBitset ?? 0}
+    set {_msgBitset = newValue}
+  }
+  /// Returns true if `msgBitset` has been explicitly set.
+  var hasMsgBitset: Bool {return self._msgBitset != nil}
+  /// Clears the value of `msgBitset`. Subsequent reads from it will return its default value.
+  mutating func clearMsgBitset() {self._msgBitset = nil}
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _proof: SessionProtos_ProProof? = nil
-  fileprivate var _features: UInt64? = nil
+  fileprivate var _profileBitset: UInt64? = nil
+  fileprivate var _msgBitset: UInt64? = nil
 }
 
 #if swift(>=5.5) && canImport(_Concurrency)
@@ -3779,7 +3789,8 @@ extension SessionProtos_ProMessage: SwiftProtobuf.Message, SwiftProtobuf._Messag
   static let protoMessageName: String = _protobuf_package + ".ProMessage"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "proof"),
-    2: .same(proto: "features"),
+    2: .same(proto: "profileBitset"),
+    3: .same(proto: "msgBitset"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -3789,7 +3800,8 @@ extension SessionProtos_ProMessage: SwiftProtobuf.Message, SwiftProtobuf._Messag
       // enabled. https://github.com/apple/swift-protobuf/issues/1034
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularMessageField(value: &self._proof) }()
-      case 2: try { try decoder.decodeSingularUInt64Field(value: &self._features) }()
+      case 2: try { try decoder.decodeSingularUInt64Field(value: &self._profileBitset) }()
+      case 3: try { try decoder.decodeSingularUInt64Field(value: &self._msgBitset) }()
       default: break
       }
     }
@@ -3803,15 +3815,19 @@ extension SessionProtos_ProMessage: SwiftProtobuf.Message, SwiftProtobuf._Messag
     try { if let v = self._proof {
       try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
     } }()
-    try { if let v = self._features {
+    try { if let v = self._profileBitset {
       try visitor.visitSingularUInt64Field(value: v, fieldNumber: 2)
+    } }()
+    try { if let v = self._msgBitset {
+      try visitor.visitSingularUInt64Field(value: v, fieldNumber: 3)
     } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: SessionProtos_ProMessage, rhs: SessionProtos_ProMessage) -> Bool {
     if lhs._proof != rhs._proof {return false}
-    if lhs._features != rhs._features {return false}
+    if lhs._profileBitset != rhs._profileBitset {return false}
+    if lhs._msgBitset != rhs._msgBitset {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }

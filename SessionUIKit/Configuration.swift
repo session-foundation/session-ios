@@ -28,8 +28,9 @@ public actor SNUIKit {
         
         @MainActor func numberOfCharactersLeft(for text: String) -> Int
         
-        func proUrlStringProvider() -> SessionProUI.UrlStringProvider
-        func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> SessionProUI.ClientPlatformStringProvider
+        func urlStringProvider() -> StringProvider.Url
+        func buildVariantStringProvider() -> StringProvider.BuildVariant
+        func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform
     }
     
     @MainActor public static var mainWindow: UIWindow? = nil
@@ -143,23 +144,33 @@ public actor SNUIKit {
         return (config?.numberOfCharactersLeft(for: text) ?? 0)
     }
     
-    internal static func proUrlStringProvider() -> SessionProUI.UrlStringProvider {
+    internal static func urlStringProvider() -> StringProvider.Url {
         configLock.lock()
         defer { configLock.unlock() }
         
         return (
-            config?.proUrlStringProvider() ??
-            SessionProUI.FallbackUrlStringProvider()
+            config?.urlStringProvider() ??
+            StringProvider.FallbackUrlStringProvider()
         )
     }
     
-    internal static func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> SessionProUI.ClientPlatformStringProvider {
+    internal static func buildVariantStringProvider() -> StringProvider.BuildVariant {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
+        return (
+            config?.buildVariantStringProvider() ??
+            StringProvider.FallbackBuildVariantStringProvider()
+        )
+    }
+    
+    internal static func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform {
         configLock.lock()
         defer { configLock.unlock() }
         
         return (
             config?.proClientPlatformStringProvider(for: platform) ??
-            SessionProUI.FallbackClientPlatformStringProvider()
+            StringProvider.FallbackClientPlatformStringProvider()
         )
     }
 }

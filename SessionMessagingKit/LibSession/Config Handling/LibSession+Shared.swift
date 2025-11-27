@@ -762,7 +762,7 @@ public extension LibSession.Cache {
             visibleMessage?.profile?.displayName?.nullIfEmpty
         )
         let profileLastUpdatedInMessage: TimeInterval? = visibleMessage?.profile?.updateTimestampSeconds
-        let fallbackProfile: Profile? = displayNameInMessage.map { Profile(id: contactId, name: $0) }
+        let fallbackProfile: Profile? = displayNameInMessage.map { Profile.with(id: contactId, name: $0) }
         
         guard var cContactId: [CChar] = contactId.cString(using: .utf8) else {
             return fallbackProfile
@@ -781,7 +781,7 @@ public extension LibSession.Cache {
             let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
             let lastUpdated: TimeInterval = max((profileLastUpdatedInMessage ?? 0), TimeInterval(user_profile_get_profile_updated(conf)))
             let proConfig: SessionPro.ProConfig? = self.proConfig
-            let proFeatures: SessionPro.Features = SessionPro.Features(user_profile_get_pro_features(conf))
+            let proProfileFeatures: SessionPro.ProfileFeatures = SessionPro.ProfileFeatures(user_profile_get_pro_features(conf))
             
             return Profile(
                 id: contactId,
@@ -790,7 +790,8 @@ public extension LibSession.Cache {
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : displayPic.get(\.key)),
                 profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil),
-                proFeatures: proFeatures,
+                blocksCommunityMessageRequests: !self.get(.checkForCommunityMessageRequests),
+                proFeatures: proProfileFeatures,
                 proExpiryUnixTimestampMs: (proConfig?.proProof.expiryUnixTimestampMs ?? 0),
                 proGenIndexHashHex: proConfig.map { $0.proProof.genIndexHash.toHexString() }
             )
@@ -823,8 +824,9 @@ public extension LibSession.Cache {
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : member.get(\.profile_pic.key)),
                 profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil),
+                blocksCommunityMessageRequests: visibleMessage?.profile?.blocksCommunityMessageRequests,
                 /// Group members don't sync pro status so try to extract from the provided message
-                proFeatures: (visibleMessage?.proFeatures ?? .none),
+                proFeatures: (visibleMessage?.proProfileFeatures ?? .none),
                 proExpiryUnixTimestampMs: (visibleMessage?.proProof?.expiryUnixTimestampMs ?? 0),
                 proGenIndexHashHex: visibleMessage?.proProof.map { $0.genIndexHash.toHexString() }
             )
@@ -844,7 +846,7 @@ public extension LibSession.Cache {
         
         let displayPictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
         let lastUpdated: TimeInterval = max((profileLastUpdatedInMessage ?? 0), TimeInterval(contact.get( \.profile_updated)))
-        let proFeatures: SessionPro.Features = SessionPro.Features(contact.pro_features)
+        let proProfileFeatures: SessionPro.ProfileFeatures = SessionPro.ProfileFeatures(contact.profile_bitset)
         let proProofMetadata: LibSession.ProProofMetadata? = proProofMetadata(threadId: contactId)
         
         /// The `displayNameInMessage` and other values contained within the message are likely newer than the values stored
@@ -856,7 +858,8 @@ public extension LibSession.Cache {
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
             profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil),
-            proFeatures: (visibleMessage?.proFeatures ?? proFeatures),
+            blocksCommunityMessageRequests: visibleMessage?.profile?.blocksCommunityMessageRequests,
+            proFeatures: (visibleMessage?.proProfileFeatures ?? proProfileFeatures),
             proExpiryUnixTimestampMs: (
                 visibleMessage?.proProof?.expiryUnixTimestampMs ??
                 proProofMetadata?.expiryUnixTimestampMs ??

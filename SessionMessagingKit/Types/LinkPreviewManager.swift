@@ -240,12 +240,13 @@ public actor LinkPreviewManager: LinkPreviewManagerType {
         return urlMatches
     }
     
+    // stringlint:ignore_contents
     private func downloadLink(
         url urlString: String,
         remainingRetries: UInt = 3
     ) async throws -> (Data, URLResponse) {
         /// We only load Link Previews for HTTPS urls so append an explanation for not
-        let httpsScheme: String = "https"   // stringlint:ignore
+        let httpsScheme: String = "https"
 
         guard URLComponents(string: urlString)?.scheme?.lowercased() == httpsScheme else {
             throw LinkPreviewError.insecureLink

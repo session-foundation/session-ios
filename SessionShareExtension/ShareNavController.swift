@@ -415,7 +415,7 @@ final class ShareNavController: UINavigationController {
                     case .none:
                         return continuation.resume(
                             throwing: ShareViewControllerError.assertionError(
-                                description: "missing item provider"
+                                description: "missing item provider"    // stringlint:ignore
                             )
                         )
                         
@@ -423,7 +423,7 @@ final class ShareNavController: UINavigationController {
                         guard let tempFilePath = try? dependencies[singleton: .fileManager].write(dataToTemporaryFile: data) else {
                             return continuation.resume(
                                 throwing: ShareViewControllerError.assertionError(
-                                    description: "Error writing item data"
+                                    description: "Error writing item data"    // stringlint:ignore
                                 )
                             )
                         }
@@ -478,7 +478,7 @@ final class ShareNavController: UINavigationController {
                         catch {
                             return continuation.resume(
                                 throwing: ShareViewControllerError.assertionError(
-                                    description: "Failed to copy temporary file: \(error)"
+                                    description: "Failed to copy temporary file: \(error)" // stringlint:ignore
                                 )
                             )
                         }
@@ -497,7 +497,7 @@ final class ShareNavController: UINavigationController {
                         // don't know how to handle.
                         return continuation.resume(
                             throwing: ShareViewControllerError.assertionError(
-                                description: "Unexpected value: \(String(describing: value))"
+                                description: "Unexpected value: \(String(describing: value))" // stringlint:ignore
                             )
                         )
                 }
@@ -759,14 +759,18 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
         return dependencies[singleton: .sessionProManager].numberOfCharactersLeft(for: text)
     }
     
-    func proUrlStringProvider() -> SessionProUI.UrlStringProvider {
-        return SessionPro.Metadata.urls
+    func urlStringProvider() -> StringProvider.Url {
+        return Constants.urls
     }
     
-    func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> SessionProUI.ClientPlatformStringProvider {
+    func buildVariantStringProvider() -> StringProvider.BuildVariant {
+        return Constants.buildVariants
+    }
+    
+    func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform {
         switch platform {
-            case .iOS: return SessionPro.Metadata.appStore
-            case .android: return SessionPro.Metadata.playStore
+            case .iOS: return Constants.PaymentProvider.appStore
+            case .android: return Constants.PaymentProvider.playStore
         }
     }
 }

@@ -4232,8 +4232,11 @@ extension SNProtoProProof.SNProtoProProofBuilder {
         if let _value = proof {
             builder.setProof(_value)
         }
-        if hasFeatures {
-            builder.setFeatures(features)
+        if hasProfileBitset {
+            builder.setProfileBitset(profileBitset)
+        }
+        if hasMsgBitset {
+            builder.setMsgBitset(msgBitset)
         }
         return builder
     }
@@ -4248,8 +4251,12 @@ extension SNProtoProProof.SNProtoProProofBuilder {
             proto.proof = valueParam.proto
         }
 
-        @objc public func setFeatures(_ valueParam: UInt64) {
-            proto.features = valueParam
+        @objc public func setProfileBitset(_ valueParam: UInt64) {
+            proto.profileBitset = valueParam
+        }
+
+        @objc public func setMsgBitset(_ valueParam: UInt64) {
+            proto.msgBitset = valueParam
         }
 
         @objc public func build() throws -> SNProtoProMessage {
@@ -4265,11 +4272,18 @@ extension SNProtoProProof.SNProtoProProofBuilder {
 
     @objc public let proof: SNProtoProProof?
 
-    @objc public var features: UInt64 {
-        return proto.features
+    @objc public var profileBitset: UInt64 {
+        return proto.profileBitset
     }
-    @objc public var hasFeatures: Bool {
-        return proto.hasFeatures
+    @objc public var hasProfileBitset: Bool {
+        return proto.hasProfileBitset
+    }
+
+    @objc public var msgBitset: UInt64 {
+        return proto.msgBitset
+    }
+    @objc public var hasMsgBitset: Bool {
+        return proto.hasMsgBitset
     }
 
     private init(proto: SessionProtos_ProMessage,

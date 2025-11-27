@@ -1064,7 +1064,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         displayName: Update<String>,
         displayPictureUrl: Update<String?>,
         displayPictureEncryptionKey: Update<Data?>,
-        proFeatures: Update<SessionPro.Features>,
+        proProfileFeatures: Update<SessionPro.ProfileFeatures>,
         isReuploadProfilePicture: Bool
     ) throws
     func updateProConfig(proConfig: SessionPro.ProConfig)
@@ -1214,7 +1214,7 @@ public extension LibSessionCacheType {
             displayName: .set(to: displayName),
             displayPictureUrl: .useExisting,
             displayPictureEncryptionKey: .useExisting,
-            proFeatures: .useExisting,
+            proProfileFeatures: .useExisting,
             isReuploadProfilePicture: false
         )
     }
@@ -1348,7 +1348,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
         displayName: Update<String>,
         displayPictureUrl: Update<String?>,
         displayPictureEncryptionKey: Update<Data?>,
-        proFeatures: Update<SessionPro.Features>,
+        proProfileFeatures: Update<SessionPro.ProfileFeatures>,
         isReuploadProfilePicture: Bool
     ) throws {}
     func updateProConfig(proConfig: SessionPro.ProConfig) {}

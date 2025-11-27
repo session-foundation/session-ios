@@ -66,7 +66,8 @@ public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Dif
     public let quoteViewModel: QuoteViewModel?
     public let linkPreview: LinkPreview?
     public let linkPreviewAttachment: Attachment?
-    public let proFeatures: SessionPro.Features
+    public let proMessageFeatures: SessionPro.MessageFeatures
+    public let proProfileFeatures: SessionPro.ProfileFeatures
     
     public let state: Interaction.State
     public let hasBeenReadByRecipient: Bool
@@ -158,10 +159,11 @@ public extension MessageViewModel {
         self.expiresInSeconds = nil
         self.attachments = []
         self.reactionInfo = []
-        self.profile = Profile(id: "", name: "")
+        self.profile = Profile.with(id: "", name: "")
         self.linkPreview = nil
         self.linkPreviewAttachment = nil
-        self.proFeatures = .none
+        self.proMessageFeatures = .none
+        self.proProfileFeatures = .none
         
         self.state = .localOnly
         self.hasBeenReadByRecipient = false
@@ -260,12 +262,17 @@ public extension MessageViewModel {
             linkPreview: linkPreviewInfo?.preview,
             using: dependencies
         )
-        let proFeatures: SessionPro.Features = {
+        let proMessageFeatures: SessionPro.MessageFeatures = {
             guard dependencies[feature: .sessionProEnabled] else { return .none }
             
-            return interaction.proFeatures
-                .union(dependencies[feature: .forceMessageFeatureProBadge] ? .proBadge : .none)
+            return interaction.proMessageFeatures
                 .union(dependencies[feature: .forceMessageFeatureLongMessage] ? .largerCharacterLimit : .none)
+        }()
+        let proProfileFeatures: SessionPro.ProfileFeatures = {
+            guard dependencies[feature: .sessionProEnabled] else { return .none }
+            
+            return interaction.proProfileFeatures
+                .union(dependencies[feature: .forceMessageFeatureProBadge] ? .proBadge : .none)
                 .union(dependencies[feature: .forceMessageFeatureAnimatedAvatar] ? .animatedAvatar : .none)
         }()
         
@@ -291,7 +298,19 @@ public extension MessageViewModel {
         self.expiresInSeconds = interaction.expiresInSeconds
         self.attachments = attachments
         self.reactionInfo = (reactionInfo ?? [])
-        self.profile = targetProfile
+        self.profile = targetProfile.with(
+            proFeatures: .set(to: {
+                guard dependencies[feature: .sessionProEnabled] else { return .none }
+                
+                var result: SessionPro.ProfileFeatures = targetProfile.proFeatures
+                
+                if dependencies[feature: .proBadgeEverywhere] {
+                    result.insert(.proBadge)
+                }
+                
+                return result
+            }())
+        )
         self.quoteViewModel = maybeUnresolvedQuotedInfo.map { info -> QuoteViewModel? in
             /// Should be `interaction` not `quotedInteraction`
             let targetDirection: QuoteViewModel.Direction = (interaction.variant.isOutgoing ?
@@ -338,14 +357,6 @@ public extension MessageViewModel {
                 attachmentCache: attachmentCache
             )
             let targetQuotedAttachment: Attachment? = (quotedAttachments?.first ?? quotedLinkPreviewInfo?.attachment)
-            let quotedInteractionProFeatures: SessionPro.Features = {
-                guard dependencies[feature: .sessionProEnabled] else { return .none }
-                
-                return quotedInteraction.proFeatures
-                    .union(dependencies[feature: .forceMessageFeatureProBadge] ? .proBadge : .none)
-                    .union(dependencies[feature: .forceMessageFeatureLongMessage] ? .largerCharacterLimit : .none)
-                    .union(dependencies[feature: .forceMessageFeatureAnimatedAvatar] ? .animatedAvatar : .none)
-            }()
             
             return QuoteViewModel(
                 mode: .regular,
@@ -390,7 +401,14 @@ public extension MessageViewModel {
                         )
                     }
                 ),
-                showProBadge: quotedInteractionProFeatures.contains(.proBadge),
+                showProBadge: {
+                    guard dependencies[feature: .sessionProEnabled] else { return false }
+                    
+                    return (
+                        quotedAuthorProfile.proFeatures.contains(.proBadge) ||
+                        dependencies[feature: .proBadgeEverywhere]
+                    )
+                }(),
                 currentUserSessionIds: currentUserSessionIds,
                 displayNameRetriever: { sessionId, _ in
                     guard !currentUserSessionIds.contains(targetProfile.id) else { return "you".localized() }
@@ -403,7 +421,8 @@ public extension MessageViewModel {
         }
         self.linkPreview = linkPreviewInfo?.preview
         self.linkPreviewAttachment = linkPreviewInfo?.attachment
-        self.proFeatures = proFeatures
+        self.proMessageFeatures = proMessageFeatures
+        self.proProfileFeatures = proProfileFeatures
         
         self.state = interaction.state
         self.hasBeenReadByRecipient = (interaction.recipientReadTimestampMs != nil)
@@ -564,7 +583,8 @@ public extension MessageViewModel {
             quoteViewModel: quoteViewModel,
             linkPreview: linkPreview,
             linkPreviewAttachment: linkPreviewAttachment,
-            proFeatures: proFeatures,
+            proMessageFeatures: proMessageFeatures,
+            proProfileFeatures: proProfileFeatures,
             state: state.or(self.state),
             hasBeenReadByRecipient: hasBeenReadByRecipient,
             mostRecentFailureText: mostRecentFailureText.or(self.mostRecentFailureText),

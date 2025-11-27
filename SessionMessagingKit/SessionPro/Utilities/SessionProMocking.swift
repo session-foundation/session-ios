@@ -95,8 +95,8 @@ public extension FeatureStorage {
 extension SessionProUI.ClientPlatform: @retroactive CustomStringConvertible {
     public var description: String {
         switch self {
-            case .iOS: return SessionPro.Metadata.appStore.device
-            case .android: return SessionPro.Metadata.playStore.device
+            case .iOS: return Constants.PaymentProvider.appStore.device
+            case .android: return Constants.PaymentProvider.playStore.device
         }
     }
 }

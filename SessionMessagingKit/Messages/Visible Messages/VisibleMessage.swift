@@ -62,7 +62,8 @@ public final class VisibleMessage: Message {
         openGroupInvitation: VMOpenGroupInvitation? = nil,
         reaction: VMReaction? = nil,
         proProof: Network.SessionPro.ProProof? = nil,
-        proFeatures: SessionPro.Features? = nil
+        proMessageFeatures: SessionPro.MessageFeatures? = nil,
+        proProfileFeatures: SessionPro.ProfileFeatures? = nil
     ) {
         self.syncTarget = syncTarget
         self.text = text
@@ -78,7 +79,8 @@ public final class VisibleMessage: Message {
             sentTimestampMs: sentTimestampMs,
             sender: sender,
             proProof: proProof,
-            proFeatures: proFeatures
+            proMessageFeatures: proMessageFeatures,
+            proProfileFeatures: proProfileFeatures
         )
     }
     
@@ -121,8 +123,13 @@ public final class VisibleMessage: Message {
     public override class func fromProto(_ proto: SNProtoContent, sender: String, using dependencies: Dependencies) -> VisibleMessage? {
         guard let dataMessage = proto.dataMessage else { return nil }
         
-        let proInfo: (proof: Network.SessionPro.ProProof, features: SessionPro.Features)? = proto.proMessage
-            .map { proMessage -> (proof: Network.SessionPro.ProProof, features: SessionPro.Features)? in
+        typealias ProInfo = (
+            proof: Network.SessionPro.ProProof,
+            messageFeatures: SessionPro.MessageFeatures,
+            profileFeatures: SessionPro.ProfileFeatures
+        )
+        let proInfo: ProInfo? = proto.proMessage
+            .map { proMessage -> ProInfo? in
                 guard
                     let vmProof: SNProtoProProof = proMessage.proof,
                     vmProof.hasVersion,
@@ -141,7 +148,8 @@ public final class VisibleMessage: Message {
                         expiryUnixTimestampMs: vmProof.expiryUnixTs,
                         signature: Array(vmSig)
                     ),
-                    SessionPro.Features(proMessage.features)
+                    SessionPro.MessageFeatures(rawValue: proMessage.msgBitset),
+                    SessionPro.ProfileFeatures(rawValue: proMessage.profileBitset)
                 )
             }
         
@@ -156,7 +164,8 @@ public final class VisibleMessage: Message {
             openGroupInvitation: dataMessage.openGroupInvitation.map { VMOpenGroupInvitation.fromProto($0) },
             reaction: dataMessage.reaction.map { VMReaction.fromProto($0) },
             proProof: proInfo?.proof,
-            proFeatures: proInfo?.features
+            proMessageFeatures: proInfo?.messageFeatures,
+            proProfileFeatures: proInfo?.profileFeatures
         )
     }
 
@@ -214,10 +223,14 @@ public final class VisibleMessage: Message {
         }
         
         // Pro content
+        let proMessageFeatures: SessionPro.MessageFeatures = (self.proMessageFeatures ?? .none)
+        let proProfileFeatures: SessionPro.ProfileFeatures = (self.proProfileFeatures ?? .none)
+        
         if
-            let proProof: Network.SessionPro.ProProof = proProof,
-            let proFeatures: SessionPro.Features = proFeatures,
-            proFeatures != .none
+            let proProof: Network.SessionPro.ProProof = proProof, (
+                proMessageFeatures != .none ||
+                proProfileFeatures != .none
+            )
         {
             let proMessageBuilder: SNProtoProMessage.SNProtoProMessageBuilder = SNProtoProMessage.builder()
             let proofBuilder: SNProtoProProof.SNProtoProProofBuilder = SNProtoProProof.builder()
@@ -229,7 +242,14 @@ public final class VisibleMessage: Message {
             
             do {
                 proMessageBuilder.setProof(try proofBuilder.build())
-                proMessageBuilder.setFeatures(proFeatures.rawValue)
+                
+                if proMessageFeatures != .none {
+                    proMessageBuilder.setMsgBitset(proMessageFeatures.rawValue)
+                }
+                
+                if proProfileFeatures != .none {
+                    proMessageBuilder.setProfileBitset(proProfileFeatures.rawValue)
+                }
                 
                 proto.setProMessage(try proMessageBuilder.build())
             } catch {

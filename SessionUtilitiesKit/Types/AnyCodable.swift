@@ -36,7 +36,7 @@ public struct AnyCodable: Codable {
         else {
             throw DecodingError.dataCorruptedError(
                 in: container,
-                debugDescription: "Unsupported JSON type"
+                debugDescription: "Unsupported JSON type"   // stringlint:disable
             )
         }
     }

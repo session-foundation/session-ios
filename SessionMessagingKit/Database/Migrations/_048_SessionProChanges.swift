@@ -12,7 +12,8 @@ enum _048_SessionProChanges: Migration {
     static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.alter(table: "interaction") { t in
             t.drop(column: "isProMessage")
-            t.add(column: "proFeatures", .integer).defaults(to: 0)
+            t.add(column: "proMessageFeatures", .integer).defaults(to: 0)
+            t.add(column: "proProfileFeatures", .integer).defaults(to: 0)
         }
         
         try db.alter(table: "profile") { t in

@@ -104,7 +104,7 @@ enum AppReviewPromptState {
                         .localized(),
                     message: "rateSessionModalDescription"
                         .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "storevariant", value: SessionPro.Metadata.appStore.store)
+                        .put(key: "storevariant", value: Constants.PaymentProvider.appStore.store)
                         .localized(),
                     primaryButtonTitle: "rateSessionApp".localized(),
                     primaryButtonAccessibilityIdentifier: "rate-app-button",

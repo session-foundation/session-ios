@@ -391,7 +391,8 @@ public final class MessageSender {
         return try dependencies[singleton: .crypto].tryGenerate(
             .encodedMessage(
                 plaintext: Array(plaintext),
-                proFeatures: (finalMessage.proFeatures ?? .none),
+                proMessageFeatures: (finalMessage.proMessageFeatures ?? .none),
+                proProfileFeatures: (finalMessage.proProfileFeatures ?? .none),
                 destination: destination,
                 sentTimestampMs: sentTimestampMs
             )

@@ -188,12 +188,12 @@ struct LandingScreen: View {
                 cancelStyle: .textPrimary,
                 hasCloseButton: true,
                 onConfirm: { _ in
-                    if let url: URL = URL(string: "https://getsession.org/terms-of-service") {
+                    if let url: URL = URL(string: Constants.urls.termsOfService) {
                         UIApplication.shared.open(url)
                     }
                 },
                 onCancel: { modal in
-                    if let url: URL = URL(string: "https://getsession.org/privacy-policy") {
+                    if let url: URL = URL(string: Constants.urls.privacyPolicy) {
                         UIApplication.shared.open(url)
                     }
                     modal.close()

@@ -124,14 +124,18 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
         return dependencies[singleton: .sessionProManager].numberOfCharactersLeft(for: text)
     }
     
-    func proUrlStringProvider() -> SessionProUI.UrlStringProvider {
-        return SessionPro.Metadata.urls
+    func urlStringProvider() -> StringProvider.Url {
+        return Constants.urls
     }
     
-    func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> SessionProUI.ClientPlatformStringProvider {
+    func buildVariantStringProvider() -> StringProvider.BuildVariant {
+        return Constants.buildVariants
+    }
+    
+    func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform {
         switch platform {
-            case .iOS: return SessionPro.Metadata.appStore
-            case .android: return SessionPro.Metadata.playStore
+            case .iOS: return Constants.PaymentProvider.appStore
+            case .android: return Constants.PaymentProvider.playStore
         }
     }
 }

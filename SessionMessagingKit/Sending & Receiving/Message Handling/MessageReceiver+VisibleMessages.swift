@@ -213,7 +213,8 @@ extension MessageReceiver {
                 // If we received an outgoing message then we can assume the interaction has already
                 // been sent, otherwise we should just use whatever the default state is
                 state: (variant == .standardOutgoing ? .sent : nil),
-                proFeatures: (message.proFeatures ?? .none),
+                proMessageFeatures: (message.proMessageFeatures ?? .none),
+                proProfileFeatures: (message.proProfileFeatures ?? .none),
                 using: dependencies
             ).inserted(db)
         }
@@ -720,7 +721,7 @@ extension MessageReceiver {
         
         /// Extract the features used for the message
         let info: SessionPro.FeaturesForMessage = dependencies[singleton: .sessionProManager].features(for: text)
-        let proStatus: SessionPro.DecodedStatus = dependencies[singleton: .sessionProManager].proStatus(
+        let proStatus: SessionPro.DecodedStatus? = dependencies[singleton: .sessionProManager].proStatus(
             for: decodedMessage.decodedPro?.proProof,
             verifyPubkey: {
                 switch threadVariant {

@@ -173,7 +173,7 @@ public class HomeViewModel: NavigatableStateHolder {
         ) -> State {
             return State(
                 viewState: .loading,
-                userProfile: Profile(id: dependencies[cache: .general].sessionId.hexString, name: ""),
+                userProfile: Profile.with(id: dependencies[cache: .general].sessionId.hexString, name: ""),
                 serviceNetwork: dependencies[feature: .serviceNetwork],
                 forceOffline: dependencies[feature: .forceOffline],
                 hasSavedThread: false,
@@ -299,7 +299,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 case .nickname(let nickname): userProfile = userProfile.with(nickname: .set(to: nickname))
                 case .displayPictureUrl(let url): userProfile = userProfile.with(displayPictureUrl: .set(to: url))
                 case .proStatus(_, let features, let proExpiryUnixTimestampMs, let proGenIndexHashHex):
-                    let finalFeatures: SessionPro.Features = {
+                    let finalFeatures: SessionPro.ProfileFeatures = {
                         guard dependencies[feature: .sessionProEnabled] else { return .none }
                         
                         return features
@@ -763,11 +763,11 @@ public class HomeViewModel: NavigatableStateHolder {
     
     @MainActor
     func submitFeedbackSurvery() {
-        guard let url: URL = URL(string: Constants.session_feedback_url) else { return }
+        guard let url: URL = URL(string: Constants.urls.feedback) else { return }
         
         // stringlint:disable
         let surveyUrl: URL = url.appending(queryItems: [
-            .init(name: "platform", value: SessionPro.Metadata.appStore.device),
+            .init(name: "platform", value: Constants.PaymentProvider.appStore.device),
             .init(name: "version", value: dependencies[cache: .appVersion].appVersion)
         ])
         

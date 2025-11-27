@@ -69,11 +69,11 @@ internal extension LibSessionCacheType {
                     )
                 else { return .none }
                 
-                let features: SessionPro.Features = SessionPro.Features(user_profile_get_pro_features(conf))
+                let profileFeatures: SessionPro.ProfileFeatures = SessionPro.ProfileFeatures(user_profile_get_pro_features(conf))
                 
                 return .currentUserUpdate(
                     Profile.ProState(
-                        features: features,
+                        profileFeatures: profileFeatures,
                         expiryUnixTimestampMs: proConfig.proProof.expiryUnixTimestampMs,
                         genIndexHashHex: proConfig.proProof.genIndexHash.toHexString()
                     )
@@ -261,7 +261,7 @@ public extension LibSession.Cache {
         displayName: Update<String>,
         displayPictureUrl: Update<String?>,
         displayPictureEncryptionKey: Update<Data?>,
-        proFeatures: Update<SessionPro.Features>,
+        proProfileFeatures: Update<SessionPro.ProfileFeatures>,
         isReuploadProfilePicture: Bool
     ) throws {
         guard let config: LibSession.Config = config(for: .userProfile, sessionId: userSessionId) else {
@@ -277,7 +277,7 @@ public extension LibSession.Cache {
         let oldDisplayPic: user_profile_pic = user_profile_get_pic(conf)
         let oldDisplayPictureUrl: String? = oldDisplayPic.get(\.url, nullIfEmpty: true)
         let oldDisplayPictureKey: Data? = oldDisplayPic.get(\.key, nullIfEmpty: true)
-        let oldProFeatures: SessionPro.Features = SessionPro.Features(user_profile_get_pro_features(conf))
+        let oldProProfileFeatures: SessionPro.ProfileFeatures = SessionPro.ProfileFeatures(user_profile_get_pro_features(conf))
         
         /// Either assign the updated profile pic, or sent a blank profile pic (to remove the current one)
         ///
@@ -314,9 +314,9 @@ public extension LibSession.Cache {
         ///
         /// **Note:** Setting the name (even if it hasn't changed) currently results in a timestamp change so only do this if it was
         /// changed (this will be fixed in `libSession v1.5.8`)
-        if proFeatures.or(.none) != oldProFeatures {
-            user_profile_set_pro_badge(conf, proFeatures.or(.none).contains(.proBadge))
-            user_profile_set_animated_avatar(conf, proFeatures.or(.none).contains(.animatedAvatar))
+        if proProfileFeatures.or(.none) != oldProProfileFeatures {
+            user_profile_set_pro_badge(conf, proProfileFeatures.or(.none).contains(.proBadge))
+            user_profile_set_animated_avatar(conf, proProfileFeatures.or(.none).contains(.animatedAvatar))
         }
     }
     
@@ -346,4 +346,4 @@ public extension LibSession {
 
 // MARK: - C Conformance
 
-extension user_profile_pic: CAccessible & CMutable {}
+extension user_profile_pic: @retroactive CAccessible & CMutable {}

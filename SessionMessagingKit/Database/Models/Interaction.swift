@@ -52,7 +52,8 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         case mostRecentFailureText
         
         // Session Pro
-        case proFeatures
+        case proMessageFeatures
+        case proProfileFeatures
     }
     
     public enum Variant: Int, Sendable, Codable, Hashable, DatabaseValueConvertible, CaseIterable {
@@ -203,8 +204,11 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
     /// The reason why the most recent attempt to send this message failed
     public private(set) var mostRecentFailureText: String?
     
-    /// A bitset indicating which Session Pro features were used when this message was sent
-    public let proFeatures: SessionPro.Features
+    /// A bitset indicating which Session Pro message features were used when this message was sent
+    public let proMessageFeatures: SessionPro.MessageFeatures
+    
+    /// A bitset indicating which Session Pro profile features were used when this message was sent
+    public let proProfileFeatures: SessionPro.ProfileFeatures
     
     // MARK: - Initialization
     
@@ -230,7 +234,8 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         state: State,
         recipientReadTimestampMs: Int64?,
         mostRecentFailureText: String?,
-        proFeatures: SessionPro.Features
+        proMessageFeatures: SessionPro.MessageFeatures,
+        proProfileFeatures: SessionPro.ProfileFeatures
     ) {
         self.id = id
         self.serverHash = serverHash
@@ -253,7 +258,8 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         self.state = (variant.isLocalOnly ? .localOnly : state)
         self.recipientReadTimestampMs = recipientReadTimestampMs
         self.mostRecentFailureText = mostRecentFailureText
-        self.proFeatures = proFeatures
+        self.proMessageFeatures = proMessageFeatures
+        self.proProfileFeatures = proProfileFeatures
     }
     
     public init(
@@ -275,7 +281,8 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         openGroupWhisperMods: Bool = false,
         openGroupWhisperTo: String? = nil,
         state: Interaction.State? = nil,
-        proFeatures: SessionPro.Features = .none,
+        proMessageFeatures: SessionPro.MessageFeatures = .none,
+        proProfileFeatures: SessionPro.ProfileFeatures = .none,
         using dependencies: Dependencies
     ) {
         self.serverHash = serverHash
@@ -290,7 +297,7 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
                 case .standardIncoming, .standardOutgoing:
                     return dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
 
-                /// For TSInteractions which are not `standardIncoming` and `standardOutgoing` use the `timestampMs` value
+                /// For Interactions which are not `standardIncoming` and `standardOutgoing` use the `timestampMs` value
                 default: return timestampMs
             }
         }()
@@ -312,7 +319,8 @@ public struct Interaction: Sendable, Codable, Identifiable, Equatable, Hashable,
         
         self.recipientReadTimestampMs = nil
         self.mostRecentFailureText = nil
-        self.proFeatures = proFeatures
+        self.proMessageFeatures = proMessageFeatures
+        self.proProfileFeatures = proProfileFeatures
     }
     
     // MARK: - Custom Database Interaction
@@ -402,7 +410,8 @@ public extension Interaction {
             state: try container.decode(State.self, forKey: .state),
             recipientReadTimestampMs: try? container.decode(Int64?.self, forKey: .recipientReadTimestampMs),
             mostRecentFailureText: try? container.decode(String?.self, forKey: .mostRecentFailureText),
-            proFeatures: try container.decode(SessionPro.Features.self, forKey: .proFeatures)
+            proMessageFeatures: try container.decode(SessionPro.MessageFeatures.self, forKey: .proMessageFeatures),
+            proProfileFeatures: try container.decode(SessionPro.ProfileFeatures.self, forKey: .proProfileFeatures)
         )
     }
 }
@@ -446,7 +455,8 @@ public extension Interaction {
             state: (state ?? self.state),
             recipientReadTimestampMs: (recipientReadTimestampMs ?? self.recipientReadTimestampMs),
             mostRecentFailureText: (mostRecentFailureText ?? self.mostRecentFailureText),
-            proFeatures: self.proFeatures
+            proMessageFeatures: self.proMessageFeatures,
+            proProfileFeatures: self.proProfileFeatures
         )
     }
     

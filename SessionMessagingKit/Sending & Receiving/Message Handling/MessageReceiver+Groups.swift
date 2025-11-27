@@ -630,7 +630,7 @@ extension MessageReceiver {
             groupSessionIdHexString: groupSessionId.hexString,
             profile: message.profile.map { profile in
                 profile.displayName.map {
-                    Profile(
+                    Profile.with(
                         id: decodedMessage.sender.hexString,
                         name: $0,
                         displayPictureUrl: profile.profilePictureUrl,
