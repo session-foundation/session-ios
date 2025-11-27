@@ -586,11 +586,11 @@ class DeveloperSettingsFileServerViewModel: SessionTableViewModel, NavigatableSt
         features.forEach { feature in
             guard dependencies.hasSet(feature: feature) else { return }
             
-            dependencies.set(feature: feature, to: nil)
+            dependencies.reset(feature: feature)
         }
         
         if dependencies.hasSet(feature: .customFileServer) {
-            dependencies.set(feature: .customFileServer, to: nil)
+            dependencies.reset(feature: .customFileServer)
         }
     }
     

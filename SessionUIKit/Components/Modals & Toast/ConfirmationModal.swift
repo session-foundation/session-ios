@@ -453,6 +453,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textField.isAccessibilityElement = true
                 textField.accessibilityIdentifier = inputInfo.accessibility?.identifier
                 textField.accessibilityLabel = inputInfo.accessibility?.label ?? textField.text
+                textField.keyboardType = inputInfo.keyboardType
                 textFieldContainer.isHidden = false
                 internalOnTextChanged = { [weak textField, weak confirmButton, weak cancelButton] text, _ in
                     onTextChanged(text)
@@ -987,6 +988,7 @@ public extension ConfirmationModal.Info {
             public let placeholder: String
             public let initialValue: String?
             public let clearButton: Bool
+            public let keyboardType: UIKeyboardType
             public let accessibility: Accessibility?
             public let inputChecker: ((String) -> String?)?
             
@@ -994,12 +996,14 @@ public extension ConfirmationModal.Info {
                 placeholder: String,
                 initialValue: String? = nil,
                 clearButton: Bool = false,
+                keyboardType: UIKeyboardType = .default,
                 accessibility: Accessibility? = nil,
                 inputChecker: ((String) -> String?)? = nil
             ) {
                 self.placeholder = placeholder
                 self.initialValue = initialValue
                 self.clearButton = clearButton
+                self.keyboardType = keyboardType
                 self.accessibility = accessibility
                 self.inputChecker = inputChecker
             }
@@ -1008,6 +1012,7 @@ public extension ConfirmationModal.Info {
                 lhs.placeholder == rhs.placeholder &&
                 lhs.initialValue == rhs.initialValue &&
                 lhs.clearButton == rhs.clearButton &&
+                lhs.keyboardType == rhs.keyboardType &&
                 lhs.accessibility == rhs.accessibility
             }
             
@@ -1015,6 +1020,7 @@ public extension ConfirmationModal.Info {
                 placeholder.hash(into: &hasher)
                 initialValue?.hash(into: &hasher)
                 clearButton.hash(into: &hasher)
+                keyboardType.hash(into: &hasher)
                 accessibility?.hash(into: &hasher)
             }
         }

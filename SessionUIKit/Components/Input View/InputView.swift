@@ -628,8 +628,14 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         disabledInputLabel.accessibilityLabel = updatedInputState.messageAccessibility?.label
         
         disabledInputTapGestureRecognizer.isEnabled = (updatedInputState.inputs.isEmpty)
-        attachmentsButtonContainer.isHidden = !updatedInputState.inputs.contains(.attachments)
-        voiceMessageButtonContainer.isHidden = !updatedInputState.inputs.contains(.voiceMessages)
+        attachmentsButtonContainer.isHidden = (
+            !updatedInputState.inputs.contains(.attachments) &&
+            !updatedInputState.inputs.contains(.attachmentsDisabled)
+        )
+        voiceMessageButtonContainer.isHidden = (
+            !updatedInputState.inputs.contains(.voiceMessages) &&
+            !updatedInputState.inputs.contains(.voiceMessagesDisabled)
+        )
         attachmentsButton.isSoftDisabled = updatedInputState.inputs.contains(.attachmentsDisabled)
         voiceMessageButton.isSoftDisabled = updatedInputState.inputs.contains(.voiceMessagesDisabled)
 

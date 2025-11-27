@@ -558,8 +558,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         stackView.spacing = 2
                         bubbleView.addSubview(stackView)
                         stackView.pin(to: bubbleView)
-//                        stackView.pin([UIView.HorizontalEdge.leading, UIView.HorizontalEdge.trailing, UIView.VerticalEdge.top], to: bubbleView)
-//                        stackView.pin(.bottom, to: .bottom, of: bubbleView, withInset: -inset)
                         snContentView.addArrangedSubview(bubbleBackgroundView)
                         
                         let linkPreviewView: LinkPreviewView = LinkPreviewView()
@@ -573,8 +571,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         )
                         stackView.addArrangedSubview(linkPreviewView)
                         self.linkPreviewView = linkPreviewView
-                        
-                        readMoreButton.themeTextColor = bodyLabelTextColor
                         
                         let bodyTappableLabelContainer: UIView = UIView()
                         let bodyTappableInfo: (label: TappableLabel, height: CGFloat) = VisibleMessageCell.getBodyTappableLabel(

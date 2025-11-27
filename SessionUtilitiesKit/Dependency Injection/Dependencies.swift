@@ -33,7 +33,14 @@ public class Dependencies {
         return cachedIsRTLRetriever.retriever()
     }
     
-    public var dateNow: Date { Date() }
+    public var dateNow: Date {
+        let customTimestamp: TimeInterval = self[feature: .customDateTime]
+        
+        return (customTimestamp > 0 ?
+            Date(timeIntervalSince1970: customTimestamp) :
+            Date()
+        )
+    }
     public var fixedTime: Int { 0 }
     public var forceSynchronous: Bool { false }
     
@@ -192,7 +199,7 @@ public extension Dependencies {
         return existingValue.hasStoredValue(using: self)
     }
     
-    func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T?) {
+    func set<T: FeatureOption>(feature: FeatureConfig<T>, to updatedFeature: T) {
         let key: Dependencies.DependencyStorage.Key = DependencyStorage.Key.Variant.feature
             .key(feature.identifier)
         let typedValue: DependencyStorage.Value? = _storage.performMap { $0.instances[key] }
@@ -220,7 +227,7 @@ public extension Dependencies {
         _storage.perform { storage in
             storage.instances[key]?
                 .value(as: Feature<T>.self)?
-                .setValue(to: nil, using: self)
+                .removeValue(using: self)
         }
         removeValue(feature.identifier, of: .feature)
         

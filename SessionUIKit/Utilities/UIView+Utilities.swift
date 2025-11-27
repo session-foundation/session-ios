@@ -33,7 +33,7 @@ public extension UIView {
         SNUIKit.imageCache.setObject(renderedImage, forKey: cacheKey)
         return renderedImage
     }
-
+    
     func toImage(isOpaque: Bool, scale: CGFloat) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale

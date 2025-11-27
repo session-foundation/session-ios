@@ -71,7 +71,7 @@ public class TestDependencies: Dependencies {
                 _featureInstances.performUpdate { $0.setting(feature.identifier, feature.createInstance(self)) }
             }
             
-            set(feature: feature, to: newValue)
+            set(feature: feature, to: (newValue ?? feature.createInstance(self).defaultOption))
         }
     }
     

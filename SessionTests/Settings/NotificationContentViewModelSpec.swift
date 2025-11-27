@@ -74,6 +74,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
+                                canReuseCell: true,
                                 position: .top,
                                 title: "notificationsContentShowNameAndContent".localized(),
                                 trailingAccessory: .radio(
@@ -82,6 +83,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
+                                canReuseCell: true,
                                 position: .middle,
                                 title: "notificationsContentShowNameOnly".localized(),
                                 trailingAccessory: .radio(
@@ -90,6 +92,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
+                                canReuseCell: true,
                                 position: .bottom,
                                 title: "notificationsContentShowNoNameOrContent".localized(),
                                 trailingAccessory: .radio(
@@ -118,6 +121,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                         equal([
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameAndPreview,
+                                canReuseCell: true,
                                 position: .top,
                                 title: "notificationsContentShowNameAndContent".localized(),
                                 trailingAccessory: .radio(
@@ -126,6 +130,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.nameNoPreview,
+                                canReuseCell: true,
                                 position: .middle,
                                 title: "notificationsContentShowNameOnly".localized(),
                                 trailingAccessory: .radio(
@@ -134,6 +139,7 @@ class NotificationContentViewModelSpec: AsyncSpec {
                             ),
                             SessionCell.Info(
                                 id: Preferences.NotificationPreviewType.noNameNoPreview,
+                                canReuseCell: true,
                                 position: .bottom,
                                 title: "notificationsContentShowNoNameOrContent".localized(),
                                 trailingAccessory: .radio(

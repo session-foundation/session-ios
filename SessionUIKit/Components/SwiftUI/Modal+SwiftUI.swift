@@ -98,7 +98,6 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
 
 protocol ModalHostIdentifiable {}
 
-
 // MARK: - ModalHostingViewController
 
 open class ModalHostingViewController<Content>: UIHostingController<ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>>, ModalHostIdentifiable where Content: View {

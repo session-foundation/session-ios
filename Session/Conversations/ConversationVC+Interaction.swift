@@ -1061,10 +1061,14 @@ extension ConversationVC:
             guard newText.count > 1 else { return false } /// Only a single char
             guard currentStartIndex != nil || lastCharacterIsMentionChar else { return false } /// No mention char
             
-            let mentionCharIndex: String.Index = (
-                currentStartIndex ??
-                newText.index(before: lastCharacterIndex)
-            )
+            let mentionCharIndex: String.Index = {
+                guard
+                    let currentStartIndex: String.Index = currentStartIndex,
+                    lastCharacterIndex >= currentStartIndex
+                else { return newText.index(before: lastCharacterIndex) }
+                
+                return currentStartIndex
+            }()
             return (String(newText[mentionCharIndex]) == MentionSelectionView.ViewModel.mentionChar)
         }()
         let isValidMention: Bool = (
@@ -1089,6 +1093,10 @@ extension ConversationVC:
         let mentions: [MentionSelectionView.ViewModel] = ((try? await self.viewModel.mentions(for: query)) ?? [])
         
         await MainActor.run {
+            if lastCharacterIsMentionChar {
+                currentMentionStartIndex = lastCharacterIndex
+            }
+            
             snInputView.showMentionsUI(for: mentions)
         }
     }
