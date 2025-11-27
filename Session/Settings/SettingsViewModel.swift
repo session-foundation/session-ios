@@ -1037,32 +1037,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         self.transitionToScreen(shareVC, transitionType: .present)
     }
     
-    private func openDonationsUrl() {
-        guard let url: URL = URL(string: Constants.session_donations_url) else { return }
-        
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
-                hasCloseButton: true,
-                onConfirm: { modal in
-                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                    modal.dismiss(animated: true)
-                },
-                onCancel: { modal in
-                    UIPasteboard.general.string = url.absoluteString
-                    modal.dismiss(animated: true)
-                }
-            )
-        )
+    @MainActor private func openDonationsUrl() {
+        guard let modal: ConfirmationModal = dependencies[singleton: .donationsManager].openDonationsUrlModal() else {
+            return
+        }
         
         self.transitionToScreen(modal, transitionType: .present)
         

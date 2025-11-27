@@ -107,6 +107,7 @@ public class HomeViewModel: NavigatableStateHolder {
         let pendingAppReviewPromptState: AppReviewPromptState?
         let appWasInstalledPriorToAppReviewRelease: Bool
         let showVersionSupportBanner: Bool
+        let showDonationsCTAModal: Bool
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -136,7 +137,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 .userDefault(.hasChangedTheme),
                 .updateScreen(HomeViewModel.self),
                 .feature(.versionDeprecationWarning),
-                .feature(.versionDeprecationMinimum)
+                .feature(.versionDeprecationMinimum),
+                .showDonationsCTAModal
             ]
             
             itemCache.values.forEach { threadViewModel in
@@ -197,7 +199,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 appReviewPromptState: nil,
                 pendingAppReviewPromptState: appReviewPromptState,
                 appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
-                showVersionSupportBanner: showVersionSupportBanner
+                showVersionSupportBanner: showVersionSupportBanner,
+                showDonationsCTAModal: false
             )
         }
     }
@@ -224,6 +227,7 @@ public class HomeViewModel: NavigatableStateHolder {
         var pendingAppReviewPromptState: AppReviewPromptState? = previousState.pendingAppReviewPromptState
         let appWasInstalledPriorToAppReviewRelease: Bool = previousState.appWasInstalledPriorToAppReviewRelease
         var showVersionSupportBanner: Bool = previousState.showVersionSupportBanner
+        var showDonationsCTAModal: Bool = previousState.showDonationsCTAModal
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -470,6 +474,15 @@ public class HomeViewModel: NavigatableStateHolder {
             pendingAppReviewPromptState = event.pendingAppReviewPromptState
             appReviewPromptState = event.appReviewPromptState
         }
+        
+        /// If this update has an event indicating we should show the donations modal then do so, the next change will result in the flag
+        /// being reset so we don't unintentionally show it again
+        if groupedOtherEvents?[.showDonationsCTAModal] != nil {
+            showDonationsCTAModal = true
+        }
+        else if showDonationsCTAModal {
+            showDonationsCTAModal = false
+        }
 
         /// Generate the new state
         return State(
@@ -491,7 +504,8 @@ public class HomeViewModel: NavigatableStateHolder {
             appReviewPromptState: appReviewPromptState,
             pendingAppReviewPromptState: pendingAppReviewPromptState,
             appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
-            showVersionSupportBanner: showVersionSupportBanner
+            showVersionSupportBanner: showVersionSupportBanner,
+            showDonationsCTAModal: showDonationsCTAModal
         )
     }
     
@@ -601,8 +615,11 @@ public class HomeViewModel: NavigatableStateHolder {
         ].flatMap { $0 }
     }
     
-    @MainActor
-    func viewDidAppear() {
+    // MARK: - Handle App review
+    
+    @MainActor func viewDidAppear() {
+        dependencies[singleton: .donationsManager].conversationListDidAppear()
+        
         if state.pendingAppReviewPromptState != nil {
             // Handle App review
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
@@ -787,6 +804,8 @@ public class HomeViewModel: NavigatableStateHolder {
             case .enjoyingSession:
                 handlePromptChangeState(.rateSession)
                 scheduleAppReviewRetry()
+                dependencies[singleton: .donationsManager].positiveReviewChosen()
+                
             case .feedback:
                 // Close prompt before showing survery
                 handlePromptChangeState(nil)

@@ -2,7 +2,7 @@
 
 import UIKit
 
-open class Modal: UIViewController, UIGestureRecognizerDelegate {
+open class Modal: UIViewController, UIGestureRecognizerDelegate, ModalHostIdentifiable {
     private static let cornerRadius: CGFloat = 11
     
     public enum DismissType: Equatable, Hashable {
@@ -183,7 +183,7 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
             case .single: break
             
             case .recursive:
-                while targetViewController?.presentingViewController is Modal {
+                while targetViewController?.presentingViewController is ModalHostIdentifiable {
                     targetViewController = targetViewController?.presentingViewController
                 }
         }
