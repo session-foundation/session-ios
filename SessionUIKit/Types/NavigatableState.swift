@@ -71,9 +71,9 @@ public extension NavigatableStateHolder {
 // MARK: - NavigatableState
 
 public struct NavigatableState {
-    let showToast: AnyPublisher<(ThemedAttributedString, ThemeValue, CGFloat), Never>
-    let transitionToScreen: AnyPublisher<(UIViewController, TransitionType), Never>
-    let dismissScreen: AnyPublisher<(DismissType, (() -> Void)?), Never>
+    public let showToast: AnyPublisher<(ThemedAttributedString, ThemeValue, CGFloat), Never>
+    public let transitionToScreen: AnyPublisher<(UIViewController, TransitionType), Never>
+    public let dismissScreen: AnyPublisher<(DismissType, (() -> Void)?), Never>
     
     // MARK: - Internal Variables
     
