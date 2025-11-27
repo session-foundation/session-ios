@@ -75,6 +75,7 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
                         
                         return SessionCell.Info(
                             id: TableItem(collection: collection),
+                            canReuseCell: true,
                             leadingAccessory: .iconAsync(
                                 size: .extraLarge,
                                 source: lastAssetItem?.source,

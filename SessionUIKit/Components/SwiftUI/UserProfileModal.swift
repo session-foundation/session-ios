@@ -73,7 +73,7 @@ public struct UserProfileModal: View {
                                 )
                                 .scaleEffect(scale, anchor: .topLeading)
                                 .onTapGesture {
-                                    withAnimation {
+                                    withAnimation(.easeInOut(duration: 0.1)) {
                                         self.isProfileImageExpanding.toggle()
                                     }
                                 }
@@ -85,7 +85,7 @@ public struct UserProfileModal: View {
                             )
                             
                             if info.sessionId != nil {
-                                let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (20, 12)
+                                let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (24, 14)
                                 ZStack {
                                     Circle()
                                         .foregroundColor(themeColor: .primary)
@@ -366,9 +366,8 @@ public struct UserProfileModal: View {
         let viewController = SessionHostingViewController(
             rootView: LightBox(
                 itemsToShare: [
-                    QRCode.qrCodeImageWithTintAndBackground(
+                    QRCode.qrCodeImageWithBackground(
                         image: qrCodeImage,
-                        themeStyle: ThemeManager.currentTheme.interfaceStyle,
                         size: CGSize(width: 400, height: 400),
                         insets: UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
                     )

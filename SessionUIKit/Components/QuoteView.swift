@@ -2,6 +2,7 @@
 
 import UIKit
 import UniformTypeIdentifiers
+import Lucide
 
 public final class QuoteView: UIView {
     static let thumbnailSize: CGFloat = 48
@@ -64,8 +65,6 @@ public final class QuoteView: UIView {
         let mainStackView = UIStackView(arrangedSubviews: [])
         mainStackView.axis = .horizontal
         mainStackView.spacing = smallSpacing
-        mainStackView.isLayoutMarginsRelativeArrangement = true
-        mainStackView.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: smallSpacing)
         mainStackView.alignment = .center
         mainStackView.setCompressionResistance(.vertical, to: .required)
         
@@ -121,13 +120,17 @@ public final class QuoteView: UIView {
         bodyLabel.themeAttributedText = viewModel.attributedText
         
         // Label stack view
-        let authorLabel = UILabel()
+        let authorLabel = SessionLabelWithProBadge(
+            proBadgeSize: .mini,
+            proBadgeThemeBackgroundColor: viewModel.proBadgeThemeColor
+        )
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
         authorLabel.text = viewModel.author
         authorLabel.themeTextColor = viewModel.targetThemeColor
         authorLabel.lineBreakMode = .byTruncatingTail
-        authorLabel.isHidden = (authorLabel.text == nil)
         authorLabel.numberOfLines = 1
+        authorLabel.isHidden = (authorLabel.text == nil)
+        authorLabel.isProBadgeHidden = !viewModel.showProBadge
         authorLabel.setCompressionResistance(.vertical, to: .required)
         
         let labelStackView = UIStackView(arrangedSubviews: [ authorLabel, bodyLabel ])
@@ -146,7 +149,7 @@ public final class QuoteView: UIView {
         if viewModel.mode == .draft {
             // Cancel button
             let cancelButton = UIButton(type: .custom)
-            cancelButton.setImage(UIImage(named: "X")?.withRenderingMode(.alwaysTemplate), for: .normal)
+            cancelButton.setImage(Lucide.image(icon: .x, size: 24)?.withRenderingMode(.alwaysTemplate), for: .normal)
             cancelButton.themeTintColor = .textPrimary
             cancelButton.set(.width, to: cancelButtonSize)
             cancelButton.set(.height, to: cancelButtonSize)
@@ -154,6 +157,8 @@ public final class QuoteView: UIView {
             
             mainStackView.addArrangedSubview(cancelButton)
             cancelButton.center(.vertical, in: self)
+            mainStackView.isLayoutMarginsRelativeArrangement = true
+            mainStackView.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 1)
         }
     }
 

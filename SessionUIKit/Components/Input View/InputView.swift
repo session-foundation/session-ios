@@ -243,6 +243,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
             rowId: 0,
             interactionId: nil,
             authorId: "",
+            showProBadge: false,
             timestampMs: 0,
             quotedInteractionId: 0,
             quotedInteractionIsDeleted: false,

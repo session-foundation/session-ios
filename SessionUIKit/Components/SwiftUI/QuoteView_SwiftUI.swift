@@ -37,6 +37,7 @@ public struct QuoteViewModel: Equatable, Hashable {
     public let rowId: Int64
     public let interactionId: Int64?
     public let authorId: String
+    public let showProBadge: Bool
     public let timestampMs: Int64
     public let quotedInteractionId: Int64
     public let quotedInteractionIsDeleted: Bool
@@ -76,6 +77,17 @@ public struct QuoteViewModel: Equatable, Hashable {
                 return (direction == .outgoing ?
                     .messageBubble_outgoingText :
                     .messageBubble_incomingText
+                )
+        }
+    }
+    
+    var proBadgeThemeColor: ThemeValue {
+        switch mode {
+            case .draft: return .primary
+            case .regular:
+                return (direction == .outgoing ?
+                    .white :
+                    .primary
                 )
         }
     }
@@ -133,6 +145,7 @@ public struct QuoteViewModel: Equatable, Hashable {
         rowId: Int64,
         interactionId: Int64?,
         authorId: String,
+        showProBadge: Bool,
         timestampMs: Int64,
         quotedInteractionId: Int64,
         quotedInteractionIsDeleted: Bool,
@@ -146,6 +159,7 @@ public struct QuoteViewModel: Equatable, Hashable {
         self.rowId = rowId
         self.interactionId = interactionId
         self.authorId = authorId
+        self.showProBadge = showProBadge
         self.timestampMs = timestampMs
         self.quotedInteractionId = quotedInteractionId
         self.quotedInteractionIsDeleted = quotedInteractionIsDeleted
@@ -164,6 +178,7 @@ public struct QuoteViewModel: Equatable, Hashable {
         self.rowId = -1
         self.interactionId = nil
         self.authorId = ""
+        self.showProBadge = false
         self.timestampMs = 0
         self.quotedInteractionId = 0
         self.quotedInteractionIsDeleted = false
@@ -235,9 +250,7 @@ public struct QuoteView_SwiftUI: View {
         ) {
             if viewModel.hasAttachment {
                 ZStack() {
-                    RoundedRectangle(
-                        cornerRadius: Self.cornerRadius
-                    )
+                    RoundedRectangle(cornerRadius: Self.cornerRadius)
                     .fill(themeColor: .messageBubble_overlay)
                     .frame(
                         width: Self.thumbnailSize,
@@ -355,6 +368,7 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                             rowId: 0,
                             interactionId: nil,
                             authorId: "05123",
+                            showProBadge: false,
                             timestampMs: 0,
                             quotedInteractionId: 0,
                             quotedInteractionIsDeleted: false,
@@ -382,6 +396,7 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                             rowId: 0,
                             interactionId: nil,
                             authorId: "05123",
+                            showProBadge: true,
                             timestampMs: 0,
                             quotedInteractionId: 0,
                             quotedInteractionIsDeleted: false,
@@ -409,6 +424,7 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                             rowId: 0,
                             interactionId: nil,
                             authorId: "",
+                            showProBadge: false,
                             timestampMs: 0,
                             quotedInteractionId: 0,
                             quotedInteractionIsDeleted: false,
