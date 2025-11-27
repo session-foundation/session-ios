@@ -5,7 +5,7 @@ import Foundation
 import Quick
 import Nimble
 
-@testable import SessionUtilitiesKit
+@testable import SessionUIKit
 
 class StringUtilitiesSpec: QuickSpec {
     override class func spec() {

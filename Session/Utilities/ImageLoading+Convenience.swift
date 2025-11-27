@@ -38,23 +38,58 @@ public extension ImageDataManager.DataSource {
         size: ImageDataManager.ThumbnailSize,
         using dependencies: Dependencies
     ) -> ImageDataManager.DataSource? {
+        guard let path: String = try? dependencies[singleton: .attachmentManager].path(for: attachment.downloadUrl) else {
+            return nil
+        }
+        
+        return thumbnailFrom(
+            utType: (UTType(sessionMimeType: attachment.contentType) ?? .invalid),
+            path: path,
+            sourceFilename: attachment.sourceFilename,
+            size: size,
+            using: dependencies
+        )
+    }
+    
+    static func thumbnailFrom(
+        quoteViewModel: QuoteViewModel,
+        using dependencies: Dependencies
+    ) -> ImageDataManager.DataSource? {
         guard
-            attachment.isVisualMedia,
+            let info: QuoteViewModel.AttachmentInfo = quoteViewModel.quotedAttachmentInfo,
             let path: String = try? dependencies[singleton: .attachmentManager]
-                .path(for: attachment.downloadUrl)
+                .path(for: info.downloadUrl)
         else { return nil }
         
+        return .thumbnailFrom(
+            utType: info.utType,
+            path: path,
+            sourceFilename: info.sourceFilename,
+            size: .small,
+            using: dependencies
+        )
+    }
+    
+    static func thumbnailFrom(
+        utType: UTType,
+        path: String,
+        sourceFilename: String? = nil,
+        size: ImageDataManager.ThumbnailSize,
+        using dependencies: Dependencies
+    ) -> ImageDataManager.DataSource? {
+        guard utType != .invalid else { return nil }
+        
         /// Can't thumbnail animated images so just load the full file in this case
-        if attachment.isAnimated {
+        if utType.isAnimated {
             return .url(URL(fileURLWithPath: path))
         }
         
         /// Videos have a custom method for generating their thumbnails so use that instead
-        if attachment.isVideo {
+        if utType.isVideo {
             return .videoUrl(
                 URL(fileURLWithPath: path),
-                (UTType(sessionMimeType: attachment.contentType) ?? .invalid),
-                attachment.sourceFilename,
+                utType,
+                sourceFilename,
                 dependencies[singleton: .attachmentManager]
             )
         }
@@ -176,3 +211,21 @@ public extension SessionAsyncImage {
         )
     }
 }
+
+// MARK: - Attachment Convenience
+
+public extension Attachment {
+    func quoteAttachmentInfo(using dependencies: Dependencies) -> QuoteViewModel.AttachmentInfo? {
+        guard let utType: UTType = UTType(sessionMimeType: contentType) else { return nil }
+        
+        return QuoteViewModel.AttachmentInfo(
+            id: id,
+            utType: utType,
+            isVoiceMessage: (variant == .voiceMessage),
+            downloadUrl: downloadUrl,
+            sourceFilename: sourceFilename,
+            thumbnailSource: .thumbnailFrom(attachment: self, size: .small, using: dependencies)
+        )
+    }
+}
+

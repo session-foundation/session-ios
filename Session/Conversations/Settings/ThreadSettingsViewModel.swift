@@ -311,7 +311,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         trailingImage: {
                             guard !threadViewModel.threadIsNoteToSelf else { return nil }
                             guard (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) else { return nil }
-                            return ("ProBadge", { [dependencies] in SessionProBadge(size: .medium).toImage(using: dependencies) })
+                            
+                            return (
+                                .themedKey(
+                                    SessionProBadge.Size.medium.cacheKey,
+                                    themeBackgroundColor: .primary
+                                ),
+                                { SessionProBadge(size: .medium) }
+                            )
                         }()
                     ),
                     styling: SessionCell.StyleInfo(
@@ -351,7 +358,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     return .groupLimit(
                                         isAdmin: currentUserIsClosedGroupAdmin,
                                         isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }),
-                                        proBadgeImage: SessionProBadge(size: .mini).toImage(using: dependencies)
+                                        proBadgeImage: UIView.image(
+                                            for: .themedKey(
+                                                SessionProBadge.Size.mini.cacheKey,
+                                                themeBackgroundColor: .primary
+                                            ),
+                                            generator: { SessionProBadge(size: .mini) }
+                                        )
                                     )
                                 default: return .generic
                             }

@@ -1,0 +1,25 @@
+{
+  "configurations" : [
+    {
+      "id" : "C7832D05-760A-4AEA-8F36-05204D374CFF",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:Session.xcodeproj",
+        "identifier" : "FD9E26B72EA72D3E00404C7F",
+        "name" : "SessionUIKitTests"
+      }
+    }
+  ],
+  "version" : 1
+}

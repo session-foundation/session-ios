@@ -12,6 +12,82 @@ public final class ProfilePictureView: UIView {
             case currentUser(SessionProManagerType)
         }
         
+        public enum Size {
+            case navigation
+            case message
+            case list
+            case hero
+            case modal
+            case expanded
+            
+            public var viewSize: CGFloat {
+                switch self {
+                    case .navigation, .message: return 26
+                    case .list: return 46
+                    case .hero: return 110
+                    case .modal: return 90
+                    case .expanded: return 190
+                }
+            }
+            
+            public var imageSize: CGFloat {
+                switch self {
+                    case .navigation, .message: return 26
+                    case .list: return 46
+                    case .hero: return 90
+                    case .modal: return 90
+                    case .expanded: return 190
+                }
+            }
+            
+            public var multiImageSize: CGFloat {
+                switch self {
+                    case .navigation, .message, .modal: return 18  // Shouldn't be used
+                    case .list: return 32
+                    case .hero: return 80
+                    case .expanded: return 140
+                }
+            }
+            
+            var iconSize: CGFloat {
+                switch self {
+                    case .navigation, .message: return 10   // Intentionally not a multiple of 4
+                    case .list: return 16
+                    case .hero: return 24
+                    case .modal: return 24 // Shouldn't be used
+                    case .expanded: return 33
+                }
+            }
+        }
+        
+        public enum ProfileIcon: Equatable, Hashable {
+            case none
+            case crown
+            case rightPlus
+            case letter(Character, Bool)
+            case pencil
+            case qrCode
+            
+            func iconVerticalInset(for size: Size) -> CGFloat {
+                switch (self, size) {
+                    case (.crown, .navigation), (.crown, .message): return 2
+                    case (.crown, .list): return 3
+                    case (.crown, .hero): return 5
+                        
+                    case (.rightPlus, _): return 3
+                    default: return 0
+                }
+            }
+            
+            var isLeadingAligned: Bool {
+                switch self {
+                    case .none, .letter: return true
+                    case .rightPlus, .pencil, .crown, .qrCode: return false
+                }
+            }
+        }
+        
+        // TODO: [PRO] Should be able to remove the "public" once `MessageInfoScreen.getProFeaturesInfo()` has been updated
         public let source: ImageDataManager.DataSource?
         let animationBehaviour: AnimationBehaviour
         let renderingMode: UIImage.RenderingMode?
@@ -45,84 +121,9 @@ public final class ProfilePictureView: UIView {
         }
     }
     
-    public enum Size {
-        case navigation
-        case message
-        case list
-        case hero
-        case modal
-        case expanded
-        
-        public var viewSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 26
-                case .list: return 46
-                case .hero: return 110
-                case .modal: return 90
-                case .expanded: return 190
-            }
-        }
-        
-        public var imageSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 26
-                case .list: return 46
-                case .hero: return 90
-                case .modal: return 90
-                case .expanded: return 190
-            }
-        }
-        
-        public var multiImageSize: CGFloat {
-            switch self {
-                case .navigation, .message, .modal: return 18  // Shouldn't be used
-                case .list: return 32
-                case .hero: return 80
-                case .expanded: return 140
-            }
-        }
-        
-        var iconSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 10   // Intentionally not a multiple of 4
-                case .list: return 16
-                case .hero: return 24
-                case .modal: return 24 // Shouldn't be used
-                case .expanded: return 33
-            }
-        }
-    }
-    
-    public enum ProfileIcon: Equatable, Hashable {
-        case none
-        case crown
-        case rightPlus
-        case letter(Character, Bool)
-        case pencil
-        case qrCode
-        
-        func iconVerticalInset(for size: Size) -> CGFloat {
-            switch (self, size) {
-                case (.crown, .navigation), (.crown, .message): return 2
-                case (.crown, .list): return 3
-                case (.crown, .hero): return 5
-                    
-                case (.rightPlus, _): return 3
-                default: return 0
-            }
-        }
-        
-        var isLeadingAligned: Bool {
-            switch self {
-                case .none, .letter: return true
-                case .rightPlus, .pencil, .crown, .qrCode: return false
-            }
-        }
-    }
-    
     private var dataManager: ImageDataManagerType?
     private var disposables: Set<AnyCancellable> = Set()
-    public var size: Size {
+    public var size: Info.Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)
             heightConstraint.constant = size.viewSize
@@ -289,7 +290,7 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Size, dataManager: ImageDataManagerType?) {
+    public init(size: Info.Size, dataManager: ImageDataManagerType?) {
         self.dataManager = dataManager
         self.size = size
         
@@ -399,7 +400,7 @@ public final class ProfilePictureView: UIView {
     // MARK: - Content
     
     private func updateIconView(
-        icon: ProfileIcon,
+        icon: Info.ProfileIcon,
         imageView: UIImageView,
         label: UILabel,
         backgroundView: UIView,
@@ -722,13 +723,13 @@ import SwiftUI
 public struct ProfilePictureSwiftUI: UIViewRepresentable {
     public typealias UIViewType = ProfilePictureView
 
-    var size: ProfilePictureView.Size
+    var size: ProfilePictureView.Info.Size
     var info: ProfilePictureView.Info
     var additionalInfo: ProfilePictureView.Info?
     let dataManager: ImageDataManagerType
     
     public init(
-        size: ProfilePictureView.Size,
+        size: ProfilePictureView.Info.Size,
         info: ProfilePictureView.Info,
         additionalInfo: ProfilePictureView.Info? = nil,
         dataManager: ImageDataManagerType

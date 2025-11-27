@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 class EmojiPickerSheet: BaseVC {
     private let dependencies: Dependencies
     let completionHandler: (EmojiWithSkinTones?) -> Void
-    let dismissHandler: () -> Void
+    let dismissHandler: (() -> Void)?
     
     // MARK: Components
     
@@ -52,7 +52,11 @@ class EmojiPickerSheet: BaseVC {
 
     // MARK: - Initialization
 
-    init(completionHandler: @escaping (EmojiWithSkinTones?) -> Void, dismissHandler: @escaping () -> Void, using dependencies: Dependencies) {
+    init(
+        completionHandler: @escaping (EmojiWithSkinTones?) -> Void,
+        dismissHandler: (() -> Void)? = nil,
+        using dependencies: Dependencies
+    ) {
         self.dependencies = dependencies
         self.completionHandler = completionHandler
         self.dismissHandler = dismissHandler

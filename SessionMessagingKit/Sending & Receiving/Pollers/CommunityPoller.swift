@@ -3,6 +3,7 @@
 import Foundation
 import Combine
 import GRDB
+import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
 

@@ -303,7 +303,14 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                                 ),
                                 trailingImage: {
                                     guard (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: memberInfo.profile) }) else { return nil }
-                                    return ("ProBadge", { [dependencies] in SessionProBadge(size: .small).toImage(using: dependencies) })
+                                    
+                                    return (
+                                        .themedKey(
+                                            SessionProBadge.Size.small.cacheKey,
+                                            themeBackgroundColor: .primary
+                                        ),
+                                        { SessionProBadge(size: .small) }
+                                    )
                                 }()
                             ),
                             subtitle: (!isUpdatedGroup ? nil : SessionCell.TextInfo(

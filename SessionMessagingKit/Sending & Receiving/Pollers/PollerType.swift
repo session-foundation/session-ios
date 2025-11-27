@@ -4,6 +4,7 @@
 
 import Foundation
 import Combine
+import SessionUIKit
 import SessionNetworkingKit
 import SessionUtilitiesKit
 

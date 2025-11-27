@@ -1670,7 +1670,7 @@ public final class JobQueue: Hashable {
             if executionType != .concurrent || currentlyRunningJobIds.isEmpty {
                 let timingString: String = (nextJobTimestamp == 0 ?
                     "that should be in the queue" :
-                    "scheduled \(.seconds(secondsUntilNextJob), unit: .s) ago"
+                    "scheduled \(secondsUntilNextJob)s ago"
                 )
                 Log.info(.jobRunner, "Restarting \(queueContext) immediately for job \(timingString)")
             }
@@ -1688,7 +1688,7 @@ public final class JobQueue: Hashable {
         guard executionType == .concurrent || currentlyRunningJobIds.isEmpty else { return }
         
         // Setup a trigger
-        Log.info(.jobRunner, "Stopping \(queueContext) until next job in \(.seconds(secondsUntilNextJob), unit: .s)")
+        Log.info(.jobRunner, "Stopping \(queueContext) until next job in \(secondsUntilNextJob)s")
         _nextTrigger.performUpdate { trigger in
             trigger?.invalidate()   // Need to invalidate the old trigger to prevent a memory leak
             return Trigger.create(queue: self, timestamp: nextJobTimestamp, using: dependencies)

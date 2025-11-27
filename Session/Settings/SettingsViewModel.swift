@@ -337,10 +337,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         state.profile.displayName(),
                         font: .titleLarge,
                         alignment: .center,
-                        trailingImage: (state.isSessionPro ?
-                            ("ProBadge", { SessionProBadge(size: .medium).toImage(using: viewModel.dependencies) }) :
-                            nil
-                        )
+                        trailingImage: {
+                            guard state.isSessionPro else { return nil }
+                            
+                            return (
+                                .themedKey(
+                                    SessionProBadge.Size.medium.cacheKey,
+                                    themeBackgroundColor: .primary
+                                ),
+                                { SessionProBadge(size: .medium) }
+                            )
+                        }()
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,

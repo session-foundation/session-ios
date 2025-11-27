@@ -24,7 +24,8 @@ public protocol AttachmentApprovalViewControllerDelegate: AnyObject {
         didApproveAttachments attachments: [PendingAttachment],
         forThreadId threadId: String,
         threadVariant: SessionThread.Variant,
-        messageText: String?
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?
     )
 
     func attachmentApprovalDidCancel(_ attachmentApproval: AttachmentApprovalViewController)
@@ -69,13 +70,16 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private let threadId: String
     private let threadVariant: SessionThread.Variant
     private let isAddMoreVisible: Bool
+    private let initialMessageText: String
+    private var quoteViewModel: QuoteViewModel?
+    private let onQuoteCancelled: (() -> Void)?
     private var isSessionPro: Bool {
         dependencies[cache: .libSession].isSessionPro
     }
     
     var isKeyboardVisible: Bool = false
     private let disableLinkPreviewImageDownload: Bool
-    private let didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?
+    private let didLoadLinkPreview: ((LinkPreviewViewModel.LoadResult) -> Void)?
 
     public weak var approvalDelegate: AttachmentApprovalViewControllerDelegate?
     
@@ -115,51 +119,49 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         
         return pageViewController.shouldHideControls
     }
-    
-    override public var inputAccessoryView: UIView? {
-        bottomToolView.layoutIfNeeded()
-        return bottomToolView
-    }
 
     override public var canBecomeFirstResponder: Bool {
         return !shouldHideControls
     }
     
     public var messageText: String? {
-        get { return bottomToolView.attachmentTextToolbar.text }
-        set { bottomToolView.attachmentTextToolbar.text = newValue }
+        get { return snInputView.text }
+        set { snInputView.text = (newValue ?? "") }
     }
 
     // MARK: - Initializers
 
-    @available(*, unavailable, message:"use attachment: constructor instead.")
-    required public init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    required public init?(
+    required public init(
         mode: Mode,
+        delegate: AttachmentApprovalViewControllerDelegate?,
         threadId: String,
         threadVariant: SessionThread.Variant,
         attachments: [PendingAttachment],
+        messageText: String?,
+        quoteViewModel: QuoteViewModel?,
         disableLinkPreviewImageDownload: Bool,
-        didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?,
+        didLoadLinkPreview: ((LinkPreviewViewModel.LoadResult) -> Void)?,
+        onQuoteCancelled: (() -> Void)?,
         using dependencies: Dependencies
     ) {
-        guard !attachments.isEmpty else { return nil }
-        
         self.dependencies = dependencies
         self.mode = mode
+        self.approvalDelegate = delegate
         self.threadId = threadId
         self.threadVariant = threadVariant
         let attachmentItems = attachments.map {
             PendingAttachmentRailItem(attachment: $0, using: dependencies)
         }
+        self.initialMessageText = (messageText ?? "")
+        self.quoteViewModel = quoteViewModel
         self.isAddMoreVisible = (mode == .sharedNavigation)
         self.disableLinkPreviewImageDownload = disableLinkPreviewImageDownload
         self.didLoadLinkPreview = didLoadLinkPreview
-
-        self.attachmentRailItemCollection = PendingAttachmentRailItemCollection(attachmentItems: attachmentItems, isAddMoreVisible: isAddMoreVisible)
+        self.attachmentRailItemCollection = PendingAttachmentRailItemCollection(
+            attachmentItems: attachmentItems,
+            isAddMoreVisible: isAddMoreVisible
+        )
+        self.onQuoteCancelled = onQuoteCancelled
 
         super.init(
             transitionStyle: .scroll,
@@ -178,50 +180,134 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             object: nil
         )
     }
+    
+    @available(*, unavailable, message:"use attachment: constructor instead.")
+    required public init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-    }
-
-    public class func wrappedInNavController(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        attachments: [PendingAttachment],
-        approvalDelegate: AttachmentApprovalViewControllerDelegate,
-        disableLinkPreviewImageDownload: Bool,
-        didLoadLinkPreview: ((LinkPreviewDraft) -> Void)?,
-        using dependencies: Dependencies
-    ) -> UINavigationController? {
-        guard let vc = AttachmentApprovalViewController(
-            mode: .modal,
-            threadId: threadId,
-            threadVariant: threadVariant,
-            attachments: attachments,
-            disableLinkPreviewImageDownload: disableLinkPreviewImageDownload,
-            didLoadLinkPreview: didLoadLinkPreview,
-            using: dependencies
-        ) else { return nil }
-        vc.approvalDelegate = approvalDelegate
-        
-        let navController = StyledNavigationController(rootViewController: vc)
-        
-        return navController
     }
 
     // MARK: - UI
     
     private let kSpacingBetweenItems: CGFloat = 20
     
-    private lazy var bottomToolView: AttachmentApprovalInputAccessoryView = {
-        let bottomToolView = AttachmentApprovalInputAccessoryView(delegate: self, using: dependencies)
-        bottomToolView.delegate = self
-        bottomToolView.attachmentTextToolbar.delegate = self
-        bottomToolView.galleryRailView.delegate = self
-
-        return bottomToolView
+    lazy var footerControlsStackView: UIStackView = {
+        let result: UIStackView = UIStackView(arrangedSubviews: [
+            galleryRailTopSeparator,
+            galleryRailView,
+            snInputView
+        ])
+        result.axis = .vertical
+        result.alignment = .fill
+        result.distribution = .fill
+        
+        return result
+    }()
+    
+    private lazy var galleryRailTopSeparator: UIView = {
+        let result: UIView = UIView()
+        result.themeBackgroundColor = .borderSeparator
+        result.set(.height, to: Values.separatorThickness)
+        
+        return result
     }()
 
-    private var galleryRailView: GalleryRailView { return bottomToolView.galleryRailView }
+    private lazy var galleryRailView: GalleryRailView = {
+        let result: GalleryRailView = GalleryRailView()
+        result.scrollFocusMode = .keepWithinBounds
+        result.delegate = self
+        result.set(.height, to: 72)
+        
+        return result
+    }()
+    
+    private lazy var snInputView: InputView = {
+        let result: InputView = InputView(
+            delegate: self,
+            displayNameRetriever: Profile.defaultDisplayNameRetriever(
+                threadVariant: threadVariant,
+                using: dependencies
+            ),
+            imageDataManager: dependencies[singleton: .imageDataManager],
+            linkPreviewManager: dependencies[singleton: .linkPreviewManager],
+            sessionProState: dependencies[singleton: .sessionProState],
+            onQuoteCancelled: onQuoteCancelled,
+            didLoadLinkPreview: { [weak self] result in
+                self?.didLoadLinkPreview?(result)
+                
+                switch result {
+                    case .error(let error):
+                        /// In the case of an error we want to update the `MediaMessageView` to show the error
+                        self?.viewControllers?.forEach { viewController in
+                            guard let prepViewController: AttachmentPrepViewController = viewController as? AttachmentPrepViewController else {
+                                return
+                            }
+                            
+                            switch error {
+                                case LinkPreviewError.featureDisabled:
+                                    prepViewController.mediaMessageView.setError(
+                                        title: "linkPreviewsTurnedOff".localized(),
+                                        subtitle: "linkPreviewsTurnedOffDescription"
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .localized()
+                                    )
+                                    
+                                case LinkPreviewError.insecureLink:
+                                    prepViewController.mediaMessageView.setError(
+                                        title: nil,
+                                        subtitle: "linkPreviewsErrorUnsecure".localized()
+                                    )
+                                
+                                default:
+                                    prepViewController.mediaMessageView.setError(
+                                        title: nil,
+                                        subtitle: "linkPreviewsErrorLoad".localized()
+                                    )
+                            }
+                        }
+                        
+                    default: break
+                }
+            }
+        )
+        result.text = initialMessageText
+        result.setMessageInputState(
+            InputView.InputState(
+                inputs: {
+                    guard !disableLinkPreviewImageDownload else { return [.text] }
+                    
+                    return [.text, .attachmentsHidden]
+                }(),
+                alwaysShowSendButton: true
+            )
+        )
+        result.quoteViewModel = quoteViewModel
+        
+        return result
+    }()
+    
+    lazy var inputBackgroundView: UIView = {
+        let result: UIView = UIView()
+        
+        let backgroundView: UIView = UIView()
+        backgroundView.themeBackgroundColor = .backgroundSecondary
+        backgroundView.alpha = Values.lowOpacity
+        result.addSubview(backgroundView)
+        backgroundView.pin(to: result)
+        
+        let blurView: UIVisualEffectView = UIVisualEffectView()
+        result.addSubview(blurView)
+        blurView.pin(to: result)
+        
+        ThemeManager.onThemeChange(observer: blurView) { [weak blurView] theme, _, _ in
+            blurView?.effect = UIBlurEffect(style: theme.blurStyle)
+        }
+        
+        return result
+    }()
 
     private lazy var pagerScrollView: UIScrollView? = {
         // This is kind of a hack. Since we don't have first class access to the superview's `scrollView`
@@ -239,6 +325,19 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
         self.view.themeBackgroundColor = .newConversation_background
         
+        // Message requests view & scroll to bottom
+        view.addSubview(inputBackgroundView)
+        view.addSubview(footerControlsStackView)
+        
+        footerControlsStackView.pin(.leading, to: .leading, of: view)
+        footerControlsStackView.pin(.trailing, to: .trailing, of: view)
+        footerControlsStackView.pin(.bottom, to: .top, of: view.keyboardLayoutGuide)
+        
+        inputBackgroundView.pin(.top, to: .top, of: footerControlsStackView)
+        inputBackgroundView.pin(.leading, to: .leading, of: view)
+        inputBackgroundView.pin(.trailing, to: .trailing, of: view)
+        inputBackgroundView.pin(.bottom, to: .bottom, of: view)
+        
         // Avoid an unpleasant "bounce" which doesn't make sense in the context of a single item.
         pagerScrollView?.isScrollEnabled = (attachmentItems.count > 1)
 
@@ -254,16 +353,23 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             self.currentPageViewController?.view.layoutIfNeeded()
         }
         
-        // If the first item is just text, or is a URL and LinkPreviews are disabled
-        // then just fill the 'message' box with it
-        let firstItemIsPlainText: Bool = {
-            switch firstItem.attachment.source {
-                case .text: return true
-                default: return false
+        /// If the first item is just text, or is a URL and LinkPreviews are disabled then just fill the 'message' box with it
+        Task {
+            let firstItemIsPlainText: Bool = {
+                switch firstItem.attachment.source {
+                    case .text: return true
+                    default: return false
+                }
+            }()
+            let hasNoLinkPreview: Bool = (firstItem.attachment.utType.conforms(to: .url) ?
+                await dependencies[singleton: .linkPreviewManager].previewUrl(
+                    for: firstItem.attachment.toText()
+                ) == nil :
+                false
+            )
+            if firstItemIsPlainText || hasNoLinkPreview {
+                snInputView.text = (firstItem.attachment.toText() ?? "")
             }
-        }()
-        if firstItemIsPlainText || (firstItem.attachment.utType.conforms(to: .url) && LinkPreview.previewUrl(for: firstItem.attachment.toText(), using: dependencies) == nil) {
-            bottomToolView.attachmentTextToolbar.text = firstItem.attachment.toText()
         }
     }
 
@@ -291,30 +397,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     
     @MainActor private func updateContents() {
         updateNavigationBar()
-        updateInputAccessory()
-    }
-
-    // MARK: - Input Accessory
-
-    @MainActor public func updateInputAccessory() {
-        var currentPageViewController: AttachmentPrepViewController?
-        
-        if pageViewControllers?.count == 1 {
-            currentPageViewController = pageViewControllers?.first
-        }
-        let currentAttachmentItem: PendingAttachmentRailItem? = currentPageViewController?.attachmentItem
-
-        let hasPresentedView = (self.presentedViewController != nil)
-        let isToolbarFirstResponder = bottomToolView.hasFirstResponder
-        
-        if !shouldHideControls, !isFirstResponder, !hasPresentedView, !isToolbarFirstResponder {
-            becomeFirstResponder()
-        }
-
-        bottomToolView.update(
-            currentAttachmentItem: currentAttachmentItem,
-            shouldHideControls: shouldHideControls
-        )
     }
 
     // MARK: - Navigation Bar
@@ -455,12 +537,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         }
 
         Log.debug(.cat, "Cache miss.")
-        let viewController = AttachmentPrepViewController(
-            attachmentItem: item,
-            disableLinkPreviewImageDownload: disableLinkPreviewImageDownload,
-            didLoadLinkPreview: didLoadLinkPreview,
-            using: dependencies
-        )
+        let viewController = AttachmentPrepViewController(attachmentItem: item, using: dependencies)
         viewController.prepDelegate = self
         cachedPages[item.uniqueIdentifier] = viewController
 
@@ -521,6 +598,8 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         else {
             galleryRailView.isHidden = true
         }
+        
+        galleryRailTopSeparator.isHidden = galleryRailView.isHidden
     }
 
     // For any attachments edited with the image editor, returns a
@@ -614,35 +693,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
 
         return nextItem
     }
-    
-    func hideInputAccessoryView() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.hideInputAccessoryView()
-            }
-            return
-        }
-        self.isKeyboardVisible = self.bottomToolView.isEditingMediaMessage
-        self.inputAccessoryView?.resignFirstResponder()
-        self.inputAccessoryView?.isHidden = true
-        self.inputAccessoryView?.alpha = 0
-    }
-    
-    func showInputAccessoryView() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.showInputAccessoryView()
-            }
-            return
-        }
-        UIView.animate(withDuration: 0.25, animations: {
-            self.inputAccessoryView?.isHidden = false
-            self.inputAccessoryView?.alpha = 1
-            if self.isKeyboardVisible {
-                self.inputAccessoryView?.becomeFirstResponder()
-            }
-        })
-    }
 
     // MARK: - Event Handlers
     
@@ -653,12 +703,8 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
         guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
-            beforePresented: { [weak self] in
-                self?.hideInputAccessoryView()
-            },
             afterClosed: { [weak self] in
-                self?.showInputAccessoryView()
-                self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
             presenting: { [weak self] modal in
                 self?.present(modal, animated: true)
@@ -667,7 +713,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             return
         }
         
-        self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modalMessageCharacterTooLongTitle".localized(),
@@ -678,28 +723,32 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
                     scrollMode: .never
                 ),
                 cancelTitle: "okay".localized(),
-                cancelStyle: .alert_text,
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                }
+                cancelStyle: .alert_text
             )
         )
         present(confirmationModal, animated: true, completion: nil)
     }
 }
 
-// MARK: - AttachmentTextToolbarDelegate
+// MARK: - InputViewDelegate
 
-extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
-    @MainActor func attachmentTextToolBarDidTapCharacterLimitLabel(_ attachmentTextToolbar: AttachmentTextToolbar) {
+extension AttachmentApprovalViewController: InputViewDelegate {
+    public func showLinkPreviewSuggestionModal() {}
+    public func handleDisabledInputTapped() {}
+    public func handleAttachmentButtonTapped() {}
+    public func handleDisabledAttachmentButtonTapped() {}
+    public func handleDisabledVoiceMessageButtonTapped() {}
+    public func handleMentionSelected(_ viewModel: MentionSelectionView.ViewModel, from view: MentionSelectionView) {}
+    public func didPasteImageDataFromPasteboard(_ imageData: Data) {}
+    public func startVoiceMessageRecording() {}
+    public func endVoiceMessageRecording() {}
+    public func cancelVoiceMessageRecording() {}
+    
+    public func handleCharacterLimitLabelTapped() {
         guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
-            beforePresented: { [weak self] in
-                self?.hideInputAccessoryView()
-            },
             afterClosed: { [weak self] in
-                self?.showInputAccessoryView()
-                self?.bottomToolView.attachmentTextToolbar.updateNumberOfCharactersLeft(self?.bottomToolView.attachmentTextToolbar.text ?? "")
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
             presenting: { [weak self] modal in
                 self?.present(modal, animated: true)
@@ -708,7 +757,6 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
             return
         }
         
-        self.hideInputAccessoryView()
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modalMessageCharacterTooLongTitle".localized(),
@@ -719,20 +767,16 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
                     scrollMode: .never
                 ),
                 cancelTitle: "okay".localized(),
-                cancelStyle: .alert_text,
-                afterClosed: { [weak self] in
-                    self?.showInputAccessoryView()
-                }
+                cancelStyle: .alert_text
             )
         )
         present(confirmationModal, animated: true, completion: nil)
     }
 
-    @MainActor func attachmentTextToolbarDidTapSend(_ attachmentTextToolbar: AttachmentTextToolbar) {
+    public func handleSendButtonTapped() {
         guard
-            let text = attachmentTextToolbar.text,
             LibSession.numberOfCharactersLeft(
-                for: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
                 isSessionPro: isSessionPro
             ) >= 0
         else {
@@ -744,20 +788,19 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
         // and remains visible momentarily after share extension is dismissed.
         // It's easiest to just hide it at this point since we're done with it.
         currentPageViewController?.shouldAllowAttachmentViewResizing = false
-        attachmentTextToolbar.isUserInteractionEnabled = false
-        attachmentTextToolbar.isHidden = true
 
         approvalDelegate?.attachmentApproval(
             self,
             didApproveAttachments: attachments,
             forThreadId: threadId,
             threadVariant: threadVariant,
-            messageText: attachmentTextToolbar.text
+            messageText: snInputView.text,
+            quoteViewModel: snInputView.quoteViewModel
         )
     }
 
-    @MainActor func attachmentTextToolbarDidChange(_ attachmentTextToolbar: AttachmentTextToolbar) {
-        approvalDelegate?.attachmentApproval(self, didChangeMessageText: attachmentTextToolbar.text)
+    public func inputTextViewDidChangeContent(_ inputTextView: InputTextView) {
+        approvalDelegate?.attachmentApproval(self, didChangeMessageText: inputTextView.text)
     }
 }
 
@@ -766,10 +809,6 @@ extension AttachmentApprovalViewController: AttachmentTextToolbarDelegate {
 extension AttachmentApprovalViewController: AttachmentPrepViewControllerDelegate {
     @MainActor func prepViewControllerUpdateNavigationBar() {
         updateNavigationBar()
-    }
-
-    @MainActor func prepViewControllerUpdateControls() {
-        updateInputAccessory()
     }
 }
 
@@ -855,13 +894,5 @@ extension AttachmentApprovalViewController: ApprovalRailCellViewDelegate {
 
     func canRemoveApprovalRailCellView(_ approvalRailCellView: ApprovalRailCellView) -> Bool {
         return self.attachmentItems.count > 1
-    }
-}
-
-// MARK: -
-
-extension AttachmentApprovalViewController: AttachmentApprovalInputAccessoryViewDelegate {
-    public func attachmentApprovalInputUpdateMediaRail() {
-        updateMediaRail()
     }
 }

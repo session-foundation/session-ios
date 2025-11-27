@@ -5,12 +5,12 @@ extension UIEdgeInsets {
         self.init(top: value, left: value, bottom: value, right: value)
     }
     
-    public init(top: CGFloat, leading: CGFloat, bottom: CGFloat, trailing: CGFloat) {
+    @MainActor public init(top: CGFloat, leading: CGFloat, bottom: CGFloat, trailing: CGFloat) {
         self.init(
             top: top,
-            left: (Dependencies.isRTL ? trailing : leading),
+            left: (SNUIKit.isRTL ? trailing : leading),
             bottom: bottom,
-            right: (Dependencies.isRTL ? leading : trailing)
+            right: (SNUIKit.isRTL ? leading : trailing)
         )
     }
 }
