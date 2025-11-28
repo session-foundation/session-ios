@@ -753,12 +753,17 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         
         let mentionCellHeight = (ProfilePictureView.Info.Size.message.viewSize + 2 * Values.smallSpacing)
         mentionsViewHeightConstraint.constant = CGFloat(min(3, candidates.count)) * mentionCellHeight
-        self.mentionsViewContainer.alpha = 0
-        self.mentionsViewContainer.isHidden = false
+        
+        if mentionsViewContainer.isHidden {
+            self.mentionsViewContainer.alpha = 0
+            self.mentionsViewContainer.isHidden = false
+        }
         layoutIfNeeded()
         
-        UIView.animate(withDuration: 0.15) { [weak self] in
-            self?.mentionsViewContainer.alpha = 1
+        if mentionsViewContainer.alpha < 1 {
+            UIView.animate(withDuration: 0.15) { [weak self] in
+                self?.mentionsViewContainer.alpha = 1
+            }
         }
     }
     

@@ -35,7 +35,13 @@ extension ConversationVC:
     }
     
     // Handle taps outside of tableview cell to dismiss keyboard
-    @MainActor @objc func dismissKeyboardOnTap() {
+    @MainActor @objc func dismissKeyboardOnTap(_ recognizer: UITapGestureRecognizer) {
+        /// If the tap was inside the "Send" button on the input then we **don't** want to dismiss the keyboard (the user should be
+        /// able to send multiple messages in a row)
+        let location: CGPoint = recognizer.location(in: self.snInputView.sendButton)
+        
+        guard !snInputView.sendButton.bounds.contains(location) else { return }
+        
         _ = self.snInputView.resignFirstResponder()
     }
     
@@ -1037,28 +1043,23 @@ extension ConversationVC:
             
             return newText[newText.index(before: lastCharacterIndex)].isWhitespace
         }()
-        let doubleMentionChar: Bool = {
-            guard newText.count > 1 else { return false } /// Only a single char
-            guard currentStartIndex != nil || lastCharacterIsMentionChar else { return false } /// No mention char
-            
-            let mentionCharIndex: String.Index = {
-                guard
-                    let currentStartIndex: String.Index = currentStartIndex,
-                    lastCharacterIndex >= currentStartIndex
-                else { return newText.index(before: lastCharacterIndex) }
-                
-                return currentStartIndex
-            }()
-            return (String(newText[mentionCharIndex]) == MentionSelectionView.ViewModel.mentionChar)
-        }()
-        let isValidMention: Bool = (
+        let isStartingNewMention: Bool = (
             lastCharacterIsMentionChar &&
-            whitespaceOrNewLineBeforeMentionChar &&
-            !doubleMentionChar
+            whitespaceOrNewLineBeforeMentionChar
         )
+        let isContinuingMention: Bool = {
+            guard let startIndex: String.Index = currentStartIndex else { return false }
+            guard startIndex < newText.endIndex else { return false }
+            
+            /// Make sure there's no whitespace between the mention start and current position
+            let mentionRange: Range<String.Index> = startIndex..<newText.endIndex
+            let textSinceMention: String = String(newText[mentionRange])
+            
+            return !textSinceMention.contains(where: { $0.isWhitespace })
+        }()
         
         /// If it's not a valid mention then we need to reset the state and hide the mentions UI (if visible)
-        guard isValidMention else {
+        guard isStartingNewMention || isContinuingMention else {
             await MainActor.run {
                 currentMentionStartIndex = nil
                 snInputView.hideMentionsUI()
@@ -1066,17 +1067,32 @@ extension ConversationVC:
             return
         }
         
-        let query: String = (lastCharacterIsMentionChar ?
-            "" :
-            String(newText[newText.index(after: currentStartIndex ?? newText.startIndex)...]) /// + 1 to get rid of the @
-        )
+        /// Determine the mention start index and query
+        let mentionStartIndex: String.Index
+        let query: String
+        
+        if isStartingNewMention {
+            mentionStartIndex = lastCharacterIndex
+            query = ""
+        } else if let startIndex: String.Index = currentStartIndex {
+            mentionStartIndex = startIndex
+            
+            /// Get text after the @ symbol
+            let queryStartIndex: String.Index = newText.index(after: startIndex)
+            query = String(newText[queryStartIndex...])
+        } else {
+            /// Shouldn't reach here, but handle gracefully
+            await MainActor.run {
+                currentMentionStartIndex = nil
+                snInputView.hideMentionsUI()
+            }
+            return
+        }
+
         let mentions: [MentionSelectionView.ViewModel] = ((try? await self.viewModel.mentions(for: query)) ?? [])
         
         await MainActor.run {
-            if lastCharacterIsMentionChar {
-                currentMentionStartIndex = lastCharacterIndex
-            }
-            
+            currentMentionStartIndex = mentionStartIndex
             snInputView.showMentionsUI(for: mentions)
         }
     }
