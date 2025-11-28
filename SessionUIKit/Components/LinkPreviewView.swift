@@ -134,7 +134,7 @@ public final class LinkPreviewView: UIView {
         return result
     }()
     
-    var bodyTappableLabel: TappableLabel?
+    var bodyTappableLabel: LinkHighlightingLabel?
 
     // MARK: - Initialization
     

@@ -10,16 +10,35 @@ public enum SwipeState {
     case cancelled
 }
 
-public enum GestureRecognizerType {
-    case tap, longPress, doubleTap
-}
-
 public class MessageCell: UITableViewCell {
     var dependencies: Dependencies?
     var viewModel: MessageViewModel?
     weak var delegate: MessageCellDelegate?
     open var contextSnapshotView: UIView? { return nil }
-    open var allowedGestureRecognizers: Set<GestureRecognizerType> { return [] } // Override to have gestures
+    
+    public lazy var tapGestureRegonizer: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        result.numberOfTapsRequired = 1
+        result.require(toFail: doubleTapGestureRegonizer)
+        addGestureRecognizer(result)
+        
+        return result
+    }()
+    
+    public lazy var doubleTapGestureRegonizer: UITapGestureRecognizer = {
+        let result: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
+        result.numberOfTapsRequired = 2
+        addGestureRecognizer(result)
+        
+        return result
+    }()
+    
+    public lazy var longPressGestureRegonizer: UILongPressGestureRecognizer = {
+        let result: UILongPressGestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
+        addGestureRecognizer(result)
+        
+        return result
+    }()
 
     // MARK: - Lifecycle
     
@@ -27,14 +46,12 @@ public class MessageCell: UITableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         
         setUpViewHierarchy()
-        setUpGestureRecognizers()
     }
 
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         
         setUpViewHierarchy()
-        setUpGestureRecognizers()
     }
 
     func setUpViewHierarchy() {
@@ -45,35 +62,6 @@ public class MessageCell: UITableViewCell {
         self.selectedBackgroundView = selectedBackgroundView
     }
 
-    func setUpGestureRecognizers() {
-        var tapGestureRecognizer: UITapGestureRecognizer?
-        var doubleTapGestureRecognizer: UITapGestureRecognizer?
-        
-        if allowedGestureRecognizers.contains(.tap) {
-            let tapGesture: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-            tapGesture.numberOfTapsRequired = 1
-            addGestureRecognizer(tapGesture)
-            tapGestureRecognizer = tapGesture
-        }
-        
-        if allowedGestureRecognizers.contains(.doubleTap) {
-            let doubleTapGesture: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
-            doubleTapGesture.numberOfTapsRequired = 2
-            addGestureRecognizer(doubleTapGesture)
-            doubleTapGestureRecognizer = doubleTapGesture
-        }
-        
-        if allowedGestureRecognizers.contains(.longPress) {
-            let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
-            addGestureRecognizer(longPressGesture)
-        }
-        
-        // If we have both tap and double tap gestures then the single tap should fail if a double tap occurs
-        if let tapGesture: UITapGestureRecognizer = tapGestureRecognizer, let doubleTapGesture: UITapGestureRecognizer = doubleTapGestureRecognizer {
-            tapGesture.require(toFail: doubleTapGesture)
-        }
-    }
-
     // MARK: - Updating
     
     public override func prepareForReuse() {
@@ -81,6 +69,9 @@ public class MessageCell: UITableViewCell {
         
         self.dependencies = nil
         self.viewModel = nil
+        self.tapGestureRegonizer.isEnabled = false
+        self.doubleTapGestureRegonizer.isEnabled = false
+        self.longPressGestureRegonizer.isEnabled = false
     }
     
     func update(
@@ -104,24 +95,14 @@ public class MessageCell: UITableViewCell {
     // MARK: - Convenience
     
     static func cellType(for viewModel: MessageViewModel) -> MessageCell.Type {
-        guard viewModel.cellType != .typingIndicator else { return TypingIndicatorCell.self }
-        guard viewModel.cellType != .dateHeader else { return DateHeaderCell.self }
-        guard viewModel.cellType != .unreadMarker else { return UnreadMarkerCell.self }
-        
-        switch viewModel.variant {
-            case .standardOutgoing, .standardIncoming, ._legacyStandardIncomingDeleted,
-                .standardIncomingDeleted, .standardOutgoingDeleted, .standardIncomingDeletedLocally,
-                .standardOutgoingDeletedLocally:
+        switch viewModel.cellType {
+            case .typingIndicator: return TypingIndicatorCell.self
+            case .dateHeader: return DateHeaderCell.self
+            case .unreadMarker: return UnreadMarkerCell.self
+            case .call: return CallMessageCell.self
+            case .infoMessage: return InfoMessageCell.self
+            case .textOnlyMessage, .mediaMessage, .audio, .voiceMessage, .genericAttachment:
                 return VisibleMessageCell.self
-                
-            case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
-                .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
-                .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
-                .infoMessageRequestAccepted, .infoGroupInfoInvited, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
-                return InfoMessageCell.self
-                
-            case .infoCall:
-                return CallMessageCell.self
         }
     }
     

@@ -6,7 +6,7 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 import SessionMessagingKit
 
-final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
+final class VisibleMessageCell: MessageCell {
     private static let maxNumberOfLinesAfterTruncation: Int = 25
     
     private var isHandlingLongPress: Bool = false
@@ -16,22 +16,14 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     var quoteView: QuoteView?
     var linkPreviewView: LinkPreviewView?
     var documentView: DocumentView?
-    var bodyTappableLabel: TappableLabel?
-    var bodyTappableLabelHeight: CGFloat = 0
-    var bodayTappableLabelHeightConstraint: NSLayoutConstraint?
+    var bodyLabel: LinkHighlightingLabel?
+    var bodyLabelHeight: CGFloat = 0
+    var bodyLabelHeightConstraint: NSLayoutConstraint?
     var bodyContainerStackView: UIStackView?
     var voiceMessageView: VoiceMessageView?
     var audioStateChanged: ((TimeInterval, Bool) -> ())?
     
     override var contextSnapshotView: UIView? { return snContentView }
-    
-    override var allowedGestureRecognizers: Set<GestureRecognizerType> {
-        return [
-            .tap,
-            .longPress,
-            .doubleTap
-        ]
-    }
     
     private lazy var panGestureRecognizer: UIPanGestureRecognizer = {
         let result = UIPanGestureRecognizer(target: self, action: #selector(handlePan))
@@ -330,6 +322,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
     ) {
         self.dependencies = dependencies
         self.viewModel = cellViewModel
+        self.tapGestureRegonizer.isEnabled = cellViewModel.cellType.supportedGestures.contains(.tap)
+        self.doubleTapGestureRegonizer.isEnabled = cellViewModel.cellType.supportedGestures.contains(.doubleTap)
+        self.longPressGestureRegonizer.isEnabled = cellViewModel.cellType.supportedGestures.contains(.longPress)
         
         // We want to add spacing between "clusters" of messages to indicate that time has
         // passed (even if there wasn't enough time to warrant showing a date header)
@@ -384,7 +379,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         )
         
         bubbleView.accessibilityIdentifier = "Message body"
-        bubbleView.accessibilityLabel = bodyTappableLabel?.attributedText?.string
+        bubbleView.accessibilityLabel = bodyLabel?.accessibilityLabel
         bubbleView.isAccessibilityElement = true
         
         // Author label
@@ -510,7 +505,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         quoteView = nil
         linkPreviewView = nil
         documentView = nil
-        bodyTappableLabel = nil
+        bodyLabel = nil
         
         /// These variants have no content so do nothing after cleaning up old state
         guard
@@ -574,23 +569,22 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                         self.readMoreButton.themeTextColor = bodyLabelTextColor
                         
                         let bodyTappableLabelContainer: UIView = UIView()
-                        let bodyTappableInfo: (label: TappableLabel, height: CGFloat) = VisibleMessageCell.getBodyTappableLabel(
+                        let bodyTappableInfo: (label: LinkHighlightingLabel, height: CGFloat) = VisibleMessageCell.getBodyLabel(
                             for: cellViewModel,
                             with: maxWidth,
                             textColor: bodyLabelTextColor,
                             searchText: lastSearchText,
-                            delegate: self,
                             using: dependencies
                         )
                         
                         bodyTappableLabelContainer.addSubview(bodyTappableInfo.label)
                         bodyTappableInfo.label.pin(to: bodyTappableLabelContainer, withInset: 12)
                         stackView.addArrangedSubview(bodyTappableLabelContainer)
-                        self.bodyTappableLabel = bodyTappableInfo.label
-                        self.bodyTappableLabelHeight = bodyTappableInfo.height
+                        self.bodyLabel = bodyTappableInfo.label
+                        self.bodyLabelHeight = bodyTappableInfo.height
                         
                         let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
-                        self.bodayTappableLabelHeightConstraint = bodyTappableInfo.label.set(
+                        self.bodyLabelHeightConstraint = bodyTappableInfo.label.set(
                             .height,
                             to: (shouldExpanded ?
                                 bodyTappableInfo.height :
@@ -631,6 +625,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                     let hInset: CGFloat = 2
                     let quoteView: QuoteView = QuoteView(
                         viewModel: quoteViewModel.with(
+                            direction: (cellViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
+                            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+                            showProBadge: dependencies.mutate(cache: .libSession) {
+                                $0.validateSessionProState(for: quoteViewModel.authorId)
+                            },
                             thumbnailSource: .thumbnailFrom(
                                 quoteViewModel: quoteViewModel,
                                 using: dependencies
@@ -648,16 +647,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 }
                 
                 // Body text view
-                let (bodyTappableLabel, height) = VisibleMessageCell.getBodyTappableLabel(
+                let (bodyTappableLabel, height) = VisibleMessageCell.getBodyLabel(
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
                     searchText: lastSearchText,
-                    delegate: self,
                     using: dependencies
                 )
-                self.bodyTappableLabel = bodyTappableLabel
-                self.bodyTappableLabelHeight = height
+                self.bodyLabel = bodyTappableLabel
+                self.bodyLabelHeight = height
                 stackView.addArrangedSubview(bodyTappableLabel)
                 readMoreButton.themeTextColor = bodyLabelTextColor
                 let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
@@ -726,6 +724,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 let hInset: CGFloat = 2
                 let quoteView: QuoteView = QuoteView(
                     viewModel: quoteViewModel.with(
+                        direction: (cellViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
+                        currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+                        showProBadge: dependencies.mutate(cache: .libSession) {
+                            $0.validateSessionProState(for: quoteViewModel.authorId)
+                        },
                         thumbnailSource: .thumbnailFrom(
                             quoteViewModel: quoteViewModel,
                             using: dependencies
@@ -742,16 +745,15 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 stackView.addArrangedSubview(quoteViewContainer)
                 
                 // Body
-                let (bodyTappableLabel, height) = VisibleMessageCell.getBodyTappableLabel(
+                let (bodyTappableLabel, height) = VisibleMessageCell.getBodyLabel(
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
                     searchText: lastSearchText,
-                    delegate: self,
                     using: dependencies
                 )
-                self.bodyTappableLabel = bodyTappableLabel
-                self.bodyTappableLabelHeight = height
+                self.bodyLabel = bodyTappableLabel
+                self.bodyLabelHeight = height
                 stackView.addArrangedSubview(bodyTappableLabel)
                 readMoreButton.themeTextColor = bodyLabelTextColor
                 let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
@@ -776,17 +778,16 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 stackView.axis = .vertical
                 stackView.spacing = 2
             
-                let (bodyTappableLabel, height) = VisibleMessageCell.getBodyTappableLabel(
+                let (bodyTappableLabel, height) = VisibleMessageCell.getBodyLabel(
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
                     searchText: lastSearchText,
-                    delegate: self,
                     using: dependencies
                 )
 
-                self.bodyTappableLabel = bodyTappableLabel
-                self.bodyTappableLabelHeight = height
+                self.bodyLabel = bodyTappableLabel
+                self.bodyLabelHeight = height
                 stackView.addArrangedSubview(bodyTappableLabel)
                 readMoreButton.themeTextColor = bodyLabelTextColor
                 let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: cellViewModel)
@@ -808,6 +809,11 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
             case (.some(let quoteViewModel), _):
                 let quoteView: QuoteView = QuoteView(
                     viewModel: quoteViewModel.with(
+                        direction: (cellViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
+                        currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
+                        showProBadge: dependencies.mutate(cache: .libSession) {
+                            $0.validateSessionProState(for: quoteViewModel.authorId)
+                        },
                         thumbnailSource: .thumbnailFrom(
                             quoteViewModel: quoteViewModel,
                             using: dependencies
@@ -837,7 +843,7 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
 
         switch cellViewModel.cellType {
-            case .typingIndicator, .dateHeader, .unreadMarker, .textOnlyMessage: break
+            case .typingIndicator, .dateHeader, .unreadMarker, .textOnlyMessage, .infoMessage, .call: break
 
             case .mediaMessage:
                 // Album view
@@ -988,9 +994,9 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         quoteView = nil
         linkPreviewView = nil
         documentView = nil
-        bodyTappableLabel = nil
-        bodyTappableLabelHeight = 0
-        bodayTappableLabelHeightConstraint = nil
+        bodyLabel = nil
+        bodyLabelHeight = 0
+        bodyLabelHeightConstraint = nil
         
         viewsToMoveForReply.forEach { $0.transform = .identity }
         replyButton.alpha = 0
@@ -1122,14 +1128,21 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         }
         else if snContentView.bounds.contains(snContentView.convert(location, from: self)) {
             if !readMoreButton.isHidden && readMoreButton.bounds.contains(readMoreButton.convert(location, from: self)) {
-                bodyTappableLabel?.numberOfLines = 0
-                bodyTappableLabel?.invalidateIntrinsicContentSize()
+                bodyLabel?.numberOfLines = 0
+                bodyLabel?.invalidateIntrinsicContentSize()
                 readMoreButton.isHidden = true
                 self.bodyContainerStackView?.removeArrangedSubview(readMoreButton)
                 delegate?.handleReadMoreButtonTapped(self, for: cellViewModel)
             } else {
                 delegate?.handleItemTapped(cellViewModel, cell: self, cellLocation: location)
             }
+        }
+        else if
+            let label: LinkHighlightingLabel = bodyLabel,
+            label.containsLinks,
+            let tappedUrlString: String = label.urlString(at: gestureRecognizer.location(in: label))
+        {
+            delegate?.openUrl(tappedUrlString)
         }
     }
 
@@ -1184,10 +1197,6 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
                 
             default: break
         }
-    }
-    
-    func tapableLabel(_ label: TappableLabel, didTapUrl url: String, atRange range: NSRange) {
-        delegate?.openUrl(url)
     }
     
     private func resetReply() {
@@ -1436,27 +1445,27 @@ final class VisibleMessageCell: MessageCell, TappableLabelDelegate {
         return attributedText
     }
     
-    public static func getBodyTappableLabel(
+    public static func getBodyLabel(
         for cellViewModel: MessageViewModel,
         with availableWidth: CGFloat,
         textColor: ThemeValue,
         searchText: String?,
-        delegate: TappableLabelDelegate?,
         using dependencies: Dependencies
-    ) -> (label: TappableLabel, height: CGFloat) {
-        let result: TappableLabel = TappableLabel()
-        result.setContentHugging(.vertical, to: .required)
-        result.setCompressionResistance(.vertical, to: .required)
-        result.themeAttributedText = VisibleMessageCell.getBodyAttributedText(
+    ) -> (label: LinkHighlightingLabel, height: CGFloat) {
+        let attributedText: ThemedAttributedString? = VisibleMessageCell.getBodyAttributedText(
             for: cellViewModel,
             textColor: textColor,
             searchText: searchText,
             using: dependencies
         )
+        let result: LinkHighlightingLabel = LinkHighlightingLabel()
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
+        result.themeAttributedText = attributedText
+        result.accessibilityLabel = attributedText?.constructedAccessibilityLabel
         result.themeBackgroundColor = .clear
         result.isOpaque = false
         result.isUserInteractionEnabled = true
-        result.delegate = delegate
         
         let availableSpace: CGSize = CGSize(width: availableWidth, height: .greatestFiniteMagnitude)
         let size: CGSize = result.sizeThatFits(availableSpace)

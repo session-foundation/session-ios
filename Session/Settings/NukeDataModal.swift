@@ -319,10 +319,15 @@ final class NukeDataModal: Modal {
         // profile storage
         let wasUnlinked: Bool = dependencies[defaults: .standard, key: .wasUnlinked]
         let serviceNetwork: ServiceNetwork = dependencies[feature: .serviceNetwork]
+        let donationsState: [String: Any] = dependencies[singleton: .donationsManager].cachedState()
         
         dependencies[singleton: .app].resetData { [dependencies] in
             // Resetting the data clears the old user defaults. We need to restore the unlink default.
             dependencies[defaults: .standard, key: .wasUnlinked] = wasUnlinked
+            
+            // We want to maintain the state for the donations CTA modals so we don't spam the user if
+            // they decide to create a new account
+            dependencies[singleton: .donationsManager].restoreState(donationsState)
             
             // We also want to keep the `ServiceNetwork` setting (so someone testing can delete and restore
             // accounts on Testnet without issue

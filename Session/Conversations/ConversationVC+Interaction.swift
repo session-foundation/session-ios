@@ -35,7 +35,13 @@ extension ConversationVC:
     }
     
     // Handle taps outside of tableview cell to dismiss keyboard
-    @MainActor @objc func dismissKeyboardOnTap() {
+    @MainActor @objc func dismissKeyboardOnTap(_ recognizer: UITapGestureRecognizer) {
+        /// If the tap was inside the "Send" button on the input then we **don't** want to dismiss the keyboard (the user should be
+        /// able to send multiple messages in a row)
+        let location: CGPoint = recognizer.location(in: self.snInputView.sendButton)
+        
+        guard !snInputView.sendButton.bounds.contains(location) else { return }
+        
         _ = self.snInputView.resignFirstResponder()
     }
     
@@ -1037,28 +1043,23 @@ extension ConversationVC:
             
             return newText[newText.index(before: lastCharacterIndex)].isWhitespace
         }()
-        let doubleMentionChar: Bool = {
-            guard newText.count > 1 else { return false } /// Only a single char
-            guard currentStartIndex != nil || lastCharacterIsMentionChar else { return false } /// No mention char
-            
-            let mentionCharIndex: String.Index = {
-                guard
-                    let currentStartIndex: String.Index = currentStartIndex,
-                    lastCharacterIndex >= currentStartIndex
-                else { return newText.index(before: lastCharacterIndex) }
-                
-                return currentStartIndex
-            }()
-            return (String(newText[mentionCharIndex]) == MentionSelectionView.ViewModel.mentionChar)
-        }()
-        let isValidMention: Bool = (
+        let isStartingNewMention: Bool = (
             lastCharacterIsMentionChar &&
-            whitespaceOrNewLineBeforeMentionChar &&
-            !doubleMentionChar
+            whitespaceOrNewLineBeforeMentionChar
         )
+        let isContinuingMention: Bool = {
+            guard let startIndex: String.Index = currentStartIndex else { return false }
+            guard startIndex < newText.endIndex else { return false }
+            
+            /// Make sure there's no whitespace between the mention start and current position
+            let mentionRange: Range<String.Index> = startIndex..<newText.endIndex
+            let textSinceMention: String = String(newText[mentionRange])
+            
+            return !textSinceMention.contains(where: { $0.isWhitespace })
+        }()
         
         /// If it's not a valid mention then we need to reset the state and hide the mentions UI (if visible)
-        guard isValidMention else {
+        guard isStartingNewMention || isContinuingMention else {
             await MainActor.run {
                 currentMentionStartIndex = nil
                 snInputView.hideMentionsUI()
@@ -1066,17 +1067,32 @@ extension ConversationVC:
             return
         }
         
-        let query: String = (lastCharacterIsMentionChar ?
-            "" :
-            String(newText[newText.index(after: currentStartIndex ?? newText.startIndex)...]) /// + 1 to get rid of the @
-        )
+        /// Determine the mention start index and query
+        let mentionStartIndex: String.Index
+        let query: String
+        
+        if isStartingNewMention {
+            mentionStartIndex = lastCharacterIndex
+            query = ""
+        } else if let startIndex: String.Index = currentStartIndex {
+            mentionStartIndex = startIndex
+            
+            /// Get text after the @ symbol
+            let queryStartIndex: String.Index = newText.index(after: startIndex)
+            query = String(newText[queryStartIndex...])
+        } else {
+            /// Shouldn't reach here, but handle gracefully
+            await MainActor.run {
+                currentMentionStartIndex = nil
+                snInputView.hideMentionsUI()
+            }
+            return
+        }
+
         let mentions: [MentionSelectionView.ViewModel] = ((try? await self.viewModel.mentions(for: query)) ?? [])
         
         await MainActor.run {
-            if lastCharacterIsMentionChar {
-                currentMentionStartIndex = lastCharacterIndex
-            }
-            
+            currentMentionStartIndex = mentionStartIndex
             snInputView.showMentionsUI(for: mentions)
         }
     }
@@ -1273,11 +1289,12 @@ extension ConversationVC:
             guard
                 let visibleCell: VisibleMessageCell = cell as? VisibleMessageCell,
                 targetView?.bounds.contains(locationInTargetView) != true,
-                visibleCell.bodyTappableLabel?.containsLinks == true
+                let bodyLabel: LinkHighlightingLabel = visibleCell.bodyLabel,
+                bodyLabel.containsLinks,
+                let tappedUrlString: String = bodyLabel.urlString(at: cell.convert(cellLocation, to: bodyLabel))
             else { return false }
             
-            let tappableLabelPoint: CGPoint = cell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
-            visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+            openUrl(tappedUrlString)
             return true
         }
         
@@ -1442,15 +1459,19 @@ extension ConversationVC:
                 
                 let quotePoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.quoteView)
                 let linkPreviewPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.linkPreviewView?.previewView)
-                let tappableLabelPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
-                let containsLinks: Bool = (
-                    // If there is only a single link and it matches the LinkPreview then consider this _just_ a
-                    // LinkPreview
-                    visibleCell.bodyTappableLabel?.containsLinks == true && (
-                        (visibleCell.bodyTappableLabel?.links.count ?? 0) > 1 ||
-                        visibleCell.bodyTappableLabel?.links[cellViewModel.linkPreview?.url ?? ""] == nil
+                let tappableLabelPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.bodyLabel)
+                let containsLinks: Bool = {
+                    guard let bodyLabel: LinkHighlightingLabel = visibleCell.bodyLabel else { return false }
+                    
+                    return (
+                        // If there is only a single link and it matches the LinkPreview then consider this _just_ a
+                        // LinkPreview
+                        bodyLabel.containsLinks == true && (
+                            bodyLabel.links.count > 1 ||
+                            bodyLabel.links[cellViewModel.linkPreview?.url ?? ""] == nil
+                        )
                     )
-                )
+                }()
                 let quoteViewContainsTouch: Bool = (visibleCell.quoteView?.bounds.contains(quotePoint) == true)
                 let linkPreviewViewContainsTouch: Bool = (visibleCell.linkPreviewView?.previewView.bounds.contains(linkPreviewPoint) == true)
                 
@@ -1488,7 +1509,12 @@ extension ConversationVC:
                         }
                     
                     // If the message contained links then interact with them directly
-                    case (true, _, _, _, _): visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+                    case (true, _, _, _, _):
+                        guard let tappedUrlString: String = visibleCell.bodyLabel?.urlString(at: tappableLabelPoint) else {
+                            return
+                        }
+                        
+                        openUrl(tappedUrlString)
                         
                     default: break
                 }
@@ -2407,7 +2433,7 @@ extension ConversationVC:
 
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         switch cellViewModel.cellType {
-            case .typingIndicator, .dateHeader, .unreadMarker: break
+            case .typingIndicator, .dateHeader, .unreadMarker, .infoMessage, .call: break
             
             case .textOnlyMessage:
                 if cellViewModel.body == nil, let linkPreview: LinkPreview = cellViewModel.linkPreview {

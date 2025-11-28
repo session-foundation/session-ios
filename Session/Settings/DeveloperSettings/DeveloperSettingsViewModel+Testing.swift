@@ -85,6 +85,19 @@ extension DeveloperSettingsViewModel {
             ///
             /// **Note:** Only used if `customFileServerUrl` is valid
             case customFileServerPubkey
+            
+            /// Specifies a custom Date/Time that should be used by the app
+            ///
+            /// **Value:** Seconds since epoch
+            ///
+            /// **Note:** This value is static no matter how long the app runs for, additionally the service node network requires
+            /// that device clocks are accurate within ~2 minutes so setting this value will generally result in network requests failing
+            case customDateTime
+            
+            /// Specifies a custom Date/Time that the app was first installed
+            ///
+            /// **Value:** Seconds since epoch
+            case customFirstInstallDateTime
         }
         
         let envVars: [EnvironmentVariable: String] = ProcessInfo.processInfo.environment
@@ -160,6 +173,28 @@ extension DeveloperSettingsViewModel {
                     
                 /// This is handled in the `customFileServerUrl` case
                 case .customFileServerPubkey: break
+                    
+                case .customDateTime:
+                    guard
+                        let valueString: String = envVars[.customDateTime],
+                        let value: TimeInterval = try? TimeInterval(valueString, format: .number)
+                    else {
+                        Log.warn("An invalid 'customDateTime' was provided")
+                        break
+                    }
+                    
+                    dependencies.set(feature: .customDateTime, to: value)
+                    
+                case .customFirstInstallDateTime:
+                    guard
+                        let valueString: String = envVars[.customFirstInstallDateTime],
+                        let value: TimeInterval = try? TimeInterval(valueString, format: .number)
+                    else {
+                        Log.warn("An invalid 'customFirstInstallDateTime' was provided")
+                        break
+                    }
+                    
+                    dependencies.set(feature: .customFirstInstallDateTime, to: value)
             }
         }
 #endif

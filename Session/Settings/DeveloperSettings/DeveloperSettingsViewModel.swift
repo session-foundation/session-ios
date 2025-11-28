@@ -74,17 +74,15 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case proConfig
         case groupConfig
         
+        case customDateTime
         case fileServerConfig
+        case modalsAndBanners
         case animationsEnabled
         case showStringKeys
         case truncatePubkeysInLogs
         case copyDocumentsPath
         case copyAppGroupPath
-        case resetAppReviewPrompt
-        case simulateAppReviewLimit
         case usePngInsteadOfWebPForFallbackImageType
-        case versionDeprecationWarning
-        case versionDeprecationMinimum
         
         case defaultLogLevel
         case advancedLogging
@@ -117,18 +115,16 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     
                 case .proConfig: return "proConfig"
                 case .groupConfig: return "groupConfig"
-                
+                    
+                case .customDateTime: return "customDateTime"
                 case .fileServerConfig: return "fileServerConfig"
+                case .modalsAndBanners: return "modalsAndBanners"
                 case .animationsEnabled: return "animationsEnabled"
                 case .showStringKeys: return "showStringKeys"
                 case .truncatePubkeysInLogs: return "truncatePubkeysInLogs"
                 case .copyDocumentsPath: return "copyDocumentsPath"
                 case .copyAppGroupPath: return "copyAppGroupPath"
-                case .resetAppReviewPrompt: return "resetAppReviewPrompt"
-                case .simulateAppReviewLimit: return "simulateAppReviewLimit"
                 case .usePngInsteadOfWebPForFallbackImageType: return "usePngInsteadOfWebPForFallbackImageType"
-                case .versionDeprecationWarning: return "versionDeprecationWarning"
-                case .versionDeprecationMinimum: return "versionDeprecationMinimum"
                 
                 case .defaultLogLevel: return "defaultLogLevel"
                 case .advancedLogging: return "advancedLogging"
@@ -165,18 +161,16 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .proConfig: result.append(.proConfig); fallthrough
                 case .groupConfig: result.append(.groupConfig); fallthrough
                     
+                case .customDateTime: result.append(.customDateTime); fallthrough
                 case .fileServerConfig: result.append(.fileServerConfig); fallthrough
+                case .modalsAndBanners: result.append(.modalsAndBanners); fallthrough
                 case .animationsEnabled: result.append(.animationsEnabled); fallthrough
                 case .showStringKeys: result.append(.showStringKeys); fallthrough
                 case .truncatePubkeysInLogs: result.append(.truncatePubkeysInLogs); fallthrough
                 case .copyDocumentsPath: result.append(.copyDocumentsPath); fallthrough
                 case .copyAppGroupPath: result.append(.copyAppGroupPath); fallthrough
-                case .resetAppReviewPrompt: result.append(.resetAppReviewPrompt); fallthrough
-                case .simulateAppReviewLimit: result.append(.simulateAppReviewLimit); fallthrough
                 case .usePngInsteadOfWebPForFallbackImageType:
                     result.append(usePngInsteadOfWebPForFallbackImageType); fallthrough
-                case .versionDeprecationWarning: result.append(.versionDeprecationWarning); fallthrough
-                case .versionDeprecationMinimum: result.append(.versionDeprecationMinimum); fallthrough
                 
                 case .defaultLogLevel: result.append(.defaultLogLevel); fallthrough
                 case .advancedLogging: result.append(.advancedLogging); fallthrough
@@ -210,6 +204,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let developerMode: Bool
         let versionBlindedID: String?
         
+        let customDateTime: TimeInterval?
         let shortenFileTTL: Bool
         let animationsEnabled: Bool
         let showStringKeys: Bool
@@ -229,11 +224,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         let forceSlowDatabaseQueries: Bool
         
-        let updateSimulateAppReviewLimit: Bool
         let usePngInsteadOfWebPForFallbackImageType: Bool
-        
-        let versionDeprecationWarning: Bool
-        let versionDeprecationMinimum: Int
     }
     
     let title: String = "Developer Settings"
@@ -258,6 +249,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     cache.get(.developerModeEnabled)
                 },
                 versionBlindedID: versionBlindedID,
+                customDateTime: dependencies[feature: .customDateTime],
                 shortenFileTTL: dependencies[feature: .shortenFileTTL],
                 animationsEnabled: dependencies[feature: .animationsEnabled],
                 showStringKeys: dependencies[feature: .showStringKeys],
@@ -276,16 +268,21 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 communityPollLimit: dependencies[feature: .communityPollLimit],
                 
                 forceSlowDatabaseQueries: dependencies[feature: .forceSlowDatabaseQueries],
-                updateSimulateAppReviewLimit: dependencies[feature: .simulateAppReviewLimit],
-                usePngInsteadOfWebPForFallbackImageType: dependencies[feature: .usePngInsteadOfWebPForFallbackImageType],
-                
-                versionDeprecationWarning: dependencies[feature: .versionDeprecationWarning],
-                versionDeprecationMinimum: dependencies[feature: .versionDeprecationMinimum]
+                usePngInsteadOfWebPForFallbackImageType: dependencies[feature: .usePngInsteadOfWebPForFallbackImageType]
             )
         }
         .compactMapWithPrevious { [weak self] prev, current -> [SectionModel]? in self?.content(prev, current) }
     
     private func content(_ previous: State?, _ current: State) -> [SectionModel] {
+        let customDateTime: String = {
+            let customDateTimestamp: TimeInterval = dependencies[feature: .customDateTime]
+            
+            return (customDateTimestamp > 0 ?
+                "<span>\(Date(timeIntervalSince1970: customDateTimestamp).formattedForBanner)</span>" :
+                "<disabled>None</disabled>"
+            )
+        }()
+        
         let developerMode: SectionModel = SectionModel(
             model: .developerMode,
             elements: [
@@ -357,6 +354,29 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             model: .general,
             elements: [
                 SessionCell.Info(
+                    id: .customDateTime,
+                    title: "Custom Date/Time",
+                    subtitle: """
+                    Specify a custom date/time that the app should use.
+                    
+                    <b>Current Value:</b> \(devValue: dependencies[feature: .customDateTime])
+                    
+                    <b>Warning:</b>
+                    Service nodes require the time to be within 2 minutes of their time so modifying this value will generally result in all network requests failing.
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak self, dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableDate(
+                            title: "Custom Date/Time",
+                            explanation: "The custom date/time to use throughout the app.",
+                            feature: .customDateTime,
+                            navigatableStateHolder: self,
+                            onValueChanged: { _ in self?.forceRefresh(type: .databaseQuery) },
+                            using: dependencies
+                        )
+                    }
+                ),
+                SessionCell.Info(
                     id: .fileServerConfig,
                     title: "File Server Configuration",
                     subtitle: """
@@ -371,6 +391,21 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         self?.transitionToScreen(
                             SessionTableViewController(
                                 viewModel: DeveloperSettingsFileServerViewModel(using: dependencies)
+                            )
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .modalsAndBanners,
+                    title: "Modal and Banner Settings",
+                    subtitle: """
+                    Configure settings related to the modals and banners.
+                    """,
+                    trailingAccessory: .icon(.chevronRight),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: DeveloperSettingsModalsAndBannersViewModel(using: dependencies)
                             )
                         )
                     }
@@ -455,34 +490,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
                 ),
                 SessionCell.Info(
-                    id: .resetAppReviewPrompt,
-                    title: "Reset App Review Prompt",
-                    subtitle: """
-                    Clears user default settings for the app review prompt, enabling quicker testing of various display conditions.
-                    """,
-                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset"),
-                    onTap: { [weak self] in
-                        self?.resetAppReviewPrompt()
-                    }
-                ),
-                SessionCell.Info(
-                    id: .simulateAppReviewLimit,
-                    title: "Simulate App Review Limit",
-                    subtitle: """
-                    Controls whether the in-app rating prompt is displayed. This can will simulate a rate limit, preventing the prompt from appearing.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.updateSimulateAppReviewLimit,
-                        oldValue: previous?.updateSimulateAppReviewLimit
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .simulateAppReviewLimit,
-                            to: !current.updateSimulateAppReviewLimit
-                        )
-                    }
-                ),
-                SessionCell.Info(
                     id: .usePngInsteadOfWebPForFallbackImageType,
                     title: "Use PNG instead of WebP for fallback image type",
                     subtitle: """
@@ -498,52 +505,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                         self?.updateFlag(
                             for: .usePngInsteadOfWebPForFallbackImageType,
                             to: !current.usePngInsteadOfWebPForFallbackImageType
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .versionDeprecationWarning,
-                    title: "Version Deprecation Banner",
-                    subtitle: """
-                    Enable the banner that warns users when their operating system (iOS 15.x or earlier) is nearing the end of support or cannot access the latest features.
-                    """,
-                    trailingAccessory: .toggle(
-                        current.versionDeprecationWarning,
-                        oldValue: previous?.versionDeprecationWarning
-                    ),
-                    onTap: { [weak self] in
-                        self?.updateFlag(
-                            for: .versionDeprecationWarning,
-                            to: !current.versionDeprecationWarning
-                        )
-                    }
-                ),
-                SessionCell.Info(
-                    id: .versionDeprecationMinimum,
-                    title: "Version Deprecation Minimum Version",
-                    subtitle: """
-                    The minimum version allowed before showing version deprecation warning.
-                    """,
-                    trailingAccessory: .dropDown { "iOS \(current.versionDeprecationMinimum)" },
-                    onTap: { [weak self, dependencies] in
-                        self?.transitionToScreen(
-                            SessionTableViewController(
-                                viewModel: SessionListViewModel<WarningVersion>(
-                                    title: "Minimum iOS Version",
-                                    options: [
-                                        WarningVersion(version: 16),
-                                        WarningVersion(version: 17),
-                                        WarningVersion(version: 18)
-                                    ],
-                                    behaviour: .autoDismiss(
-                                        initialSelection: WarningVersion(version: current.versionDeprecationMinimum),
-                                        onOptionSelected: { [weak self] selected in
-                                            dependencies.set(feature: .versionDeprecationMinimum, to: selected.version)
-                                        }
-                                    ),
-                                    using: dependencies
-                                )
-                            )
                         )
                     }
                 )
@@ -732,19 +693,22 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     subtitle: """
                     The number of messages to try to retrieve when polling a community (up to a maximum of 256).
                     
+                    <b>Current Value:</b> \(devValue: dependencies[feature: .communityPollLimit])
+                    
                     <b>Note:</b> An empty value, or a value of 0 will use the default value: \(dependencies.defaultValue(feature: .communityPollLimit).map { "\($0)"} ?? "N/A").
                     """,
-                    trailingAccessory: .custom(info: PollLimitInputView.Info(
-                        limit: dependencies[feature: .communityPollLimit],
-                        onChange: { [dependencies] value in
-                            dependencies.set(feature: .communityPollLimit, to: value)
-                        }
-                    )),
-                    onTapView: { view in
-                        view?.subviews
-                            .flatMap { $0.subviews }
-                            .first(where: { $0 is UITextField })?
-                            .becomeFirstResponder()
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak self, dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableNumber(
+                            title: "Comunity Poll Limit",
+                            explanation: "The number of messages to try to retrieve when polling a community (up to a maximum of 256).",
+                            feature: .communityPollLimit,
+                            minValue: 0,
+                            maxValue: 256,
+                            navigatableStateHolder: self,
+                            onValueChanged: { _ in self?.forceRefresh(type: .databaseQuery) },
+                            using: dependencies
+                        )
                     }
                 )
             ]
@@ -869,15 +833,17 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         /// then we will get a compile error if it doesn't get resetting instructions added)
         TableItem.allCases.forEach { item in
             switch item {
-                case .developerMode, .versionBlindedID, .scheduleLocalNotification, .copyDocumentsPath,
-                    .copyAppGroupPath, .resetSnodeCache, .createMockContacts, .exportDatabase,
-                    .importDatabase, .advancedLogging, .resetAppReviewPrompt:
+                case .developerMode, .versionBlindedID, .customDateTime, .scheduleLocalNotification,
+                    .copyDocumentsPath, .copyAppGroupPath, .resetSnodeCache, .createMockContacts,
+                    .exportDatabase, .importDatabase, .advancedLogging:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
                 
                 case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)
                 case .proConfig: DeveloperSettingsProViewModel.disableDeveloperMode(using: dependencies)
                 case .fileServerConfig:
                     DeveloperSettingsFileServerViewModel.disableDeveloperMode(using: dependencies)
+                case .modalsAndBanners:
+                    DeveloperSettingsModalsAndBannersViewModel.disableDeveloperMode(using: dependencies)
                     
                 case .animationsEnabled:
                     guard dependencies.hasSet(feature: .animationsEnabled) else { return }
@@ -893,11 +859,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     guard dependencies.hasSet(feature: .truncatePubkeysInLogs) else { return }
                     
                     updateFlag(for: .truncatePubkeysInLogs, to: nil)
-                    
-                case .simulateAppReviewLimit:
-                    guard dependencies.hasSet(feature: .simulateAppReviewLimit) else { return }
-                    
-                    updateFlag(for: .simulateAppReviewLimit, to: nil)
                     
                 case .usePngInsteadOfWebPForFallbackImageType:
                     guard dependencies.hasSet(feature: .usePngInsteadOfWebPForFallbackImageType) else { return }
@@ -925,21 +886,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .debugDisappearingMessageDurations:
                     guard dependencies.hasSet(feature: .debugDisappearingMessageDurations) else { return }
                     
-                    updateFlag(for: .debugDisappearingMessageDurations, to: nil)
-                
-                case .versionDeprecationWarning:
-                    guard dependencies.hasSet(feature: .versionDeprecationWarning) else { return }
-                    
-                    updateFlag(for: .versionDeprecationWarning, to: nil)
-                case .versionDeprecationMinimum:
-                    guard dependencies.hasSet(feature: .versionDeprecationMinimum) else { return }
-                    
-                    dependencies.set(feature: .versionDeprecationMinimum, to: nil)
+                    updateFlag(for: .debugDisappearingMessageDurations, to: nil)                
                     
                 case .communityPollLimit:
                     guard dependencies.hasSet(feature: .communityPollLimit) else { return }
                     
-                    dependencies.set(feature: .communityPollLimit, to: nil)
+                    dependencies.reset(feature: .communityPollLimit)
                     forceRefresh(type: .databaseQuery)
                     
                 case .forceSlowDatabaseQueries:
@@ -955,7 +907,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
 
     private func updateDefaulLogLevel(to updatedDefaultLogLevel: Log.Level?) {
-        dependencies.set(feature: .logLevel(cat: .default), to: updatedDefaultLogLevel)
+        switch updatedDefaultLogLevel {
+            case .some(let value): dependencies.set(feature: .logLevel(cat: .default), to: value)
+            case .none: dependencies.reset(feature: .logLevel(cat: .default))
+        }
         forceRefresh(type: .databaseQuery)
     }
     
@@ -1000,7 +955,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             .run(uploadOnlyIfStale: false, using: dependencies)
             .handleEvents(
                 receiveOutput: { [weak self, dependencies] _ in
-                    dependencies.set(feature: .pushNotificationService, to: updatedService)
+                    switch updatedService {
+                        case .some(let value): dependencies.set(feature: .pushNotificationService, to: value)
+                        case .none: dependencies.reset(feature: .pushNotificationService)
+                    }
+                    
                     dependencies[defaults: .standard, key: .isUsingFullAPNs] = true
                     
                     self?.forceRefresh(type: .databaseQuery)
@@ -1112,7 +1071,10 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         Log.info("[DevSettings] Reloading state for \(String(describing: updatedNetwork))")
         
         /// Update to the new `ServiceNetwork`
-        dependencies.set(feature: .serviceNetwork, to: updatedNetwork)
+        switch updatedNetwork {
+            case .some(let value): dependencies.set(feature: .serviceNetwork, to: value)
+            case .none: dependencies.reset(feature: .serviceNetwork)
+        }
         
         /// Start the new network cache and clear out the old one
         dependencies.warmCache(cache: .libSessionNetwork)
@@ -1146,7 +1108,11 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     
     private func updateFlag(for feature: FeatureConfig<Bool>, to updatedFlag: Bool?) {
         /// Update to the new flag
-        dependencies.set(feature: feature, to: updatedFlag)
+        switch updatedFlag {
+            case .some(let value): dependencies.set(feature: feature, to: value)
+            case .none: dependencies.reset(feature: feature)
+        }
+        
         forceRefresh(type: .databaseQuery)
     }
     
@@ -1306,20 +1272,6 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         
         showToast(
             text: "copied".localized(),
-            backgroundColor: .backgroundSecondary
-        )
-    }
-    
-    private func resetAppReviewPrompt() {
-        dependencies[defaults: .standard, key: .didShowAppReviewPrompt] = false
-        dependencies[defaults: .standard, key: .hasVisitedPathScreen] = false
-        dependencies[defaults: .standard, key: .hasPressedDonateButton] = false
-        dependencies[defaults: .standard, key: .hasChangedTheme] = false
-        dependencies[defaults: .standard, key: .rateAppRetryDate] = nil
-        dependencies[defaults: .standard, key: .rateAppRetryAttemptCount] = 0
-        
-        showToast(
-            text: "Cleared",
             backgroundColor: .backgroundSecondary
         )
     }
@@ -1777,6 +1729,300 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
     }
 }
 
+// MARK: - Convenience
+
+extension DeveloperSettingsViewModel {
+    static func showModalForMockableNumber(
+        title: String,
+        explanation: String,
+        feature: FeatureConfig<Int>,
+        minValue: Int = Int.min,
+        maxValue: Int = Int.max,
+        defaultValue: Int? = nil,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: ((Int?) -> Void)? = nil,
+        using dependencies: Dependencies?
+    ) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        showModalForMockableNumber(
+            title: title,
+            explanation: explanation,
+            minValue: minValue,
+            maxValue: maxValue,
+            initialValue: dependencies[feature: feature],
+            defaultValue: defaultValue,
+            hasSet: dependencies.hasSet(feature: feature),
+            navigatableStateHolder: navigatableStateHolder,
+            onValueChanged: { newValue in
+                switch newValue {
+                    case .some(let value): dependencies.set(feature: feature, to: value)
+                    case .none: dependencies.reset(feature: feature)
+                }
+                
+                onValueChanged?(newValue)
+            }
+        )
+    }
+    
+    static func showModalForMockableNumber(
+        title: String,
+        explanation: String,
+        defaults: UserDefaultsConfig,
+        key: UserDefaults.IntKey,
+        minValue: Int = Int.min,
+        maxValue: Int = Int.max,
+        defaultValue: Int? = nil,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: ((Int?) -> Void)? = nil,
+        using dependencies: Dependencies?
+    ) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        showModalForMockableNumber(
+            title: title,
+            explanation: explanation,
+            minValue: minValue,
+            maxValue: maxValue,
+            initialValue: dependencies[defaults: defaults, key: key],
+            defaultValue: defaultValue,
+            hasSet: (dependencies[defaults: defaults].object(forKey: key.rawValue) != nil),
+            navigatableStateHolder: navigatableStateHolder,
+            onValueChanged: { newValue in
+                if let value: Int = newValue {
+                    dependencies[defaults: defaults, key: key] = value
+                }
+                else {
+                    dependencies[defaults: defaults].removeObject(forKey: key.rawValue)
+                }
+                
+                onValueChanged?(newValue)
+            }
+        )
+    }
+    
+    static func showModalForMockableDate(
+        title: String,
+        explanation: String,
+        feature: FeatureConfig<TimeInterval>,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: ((TimeInterval?) -> Void)? = nil,
+        using dependencies: Dependencies?
+    ) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        showModalForMockableDate(
+            title: title,
+            explanation: explanation,
+            initialValue: dependencies[feature: feature],
+            hasSet: dependencies.hasSet(feature: feature),
+            navigatableStateHolder: navigatableStateHolder,
+            onValueChanged: { newValue in
+                switch newValue {
+                    case .some(let value): dependencies.set(feature: feature, to: value)
+                    case .none: dependencies.reset(feature: feature)
+                }
+                
+                onValueChanged?(newValue)
+            }
+        )
+    }
+    
+    static func showModalForMockableDate(
+        title: String,
+        explanation: String,
+        defaults: UserDefaultsConfig,
+        key: UserDefaults.DoubleKey,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: ((TimeInterval?) -> Void)? = nil,
+        using dependencies: Dependencies?
+    ) {
+        guard let dependencies: Dependencies = dependencies else { return }
+        
+        showModalForMockableDate(
+            title: title,
+            explanation: explanation,
+            initialValue: dependencies[defaults: defaults, key: key],
+            hasSet: (dependencies[defaults: defaults].object(forKey: key.rawValue) != nil),
+            navigatableStateHolder: navigatableStateHolder,
+            onValueChanged: { newValue in
+                if let value: TimeInterval = newValue {
+                    dependencies[defaults: defaults, key: key] = value
+                }
+                else {
+                    dependencies[defaults: defaults].removeObject(forKey: key.rawValue)
+                }
+                
+                onValueChanged?(newValue)
+            }
+        )
+    }
+    
+    // MARK: - Actual modals
+    
+    private static func showModalForMockableNumber(
+        title: String,
+        explanation: String,
+        minValue: Int,
+        maxValue: Int,
+        initialValue: Int?,
+        defaultValue: Int?,
+        hasSet: Bool,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: @escaping ((Int?) -> Void)
+    ) {
+        var updatedValue: String? = nil
+        let range: String? = {
+            switch (minValue, maxValue) {
+                case (Int.min, Int.max): return nil
+                case (0, Int.max): return "0 or higher"
+                default: return "\(minValue) - \(maxValue)"
+            }
+        }()
+        
+        navigatableStateHolder?.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: title,
+                    body: .input(
+                        explanation: ThemedAttributedString(string: explanation),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: (
+                                range.map { "Enter Value (\($0))" } ??
+                                "Enter Value"
+                            ),
+                            initialValue: (initialValue.map { "\($0)" } ?? ""),
+                            keyboardType: .numberPad
+                        ),
+                        onChange: { value in updatedValue = value }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { _ in
+                        guard
+                            let stringValue: String = updatedValue,
+                            let value: Int = Int(stringValue),
+                            value >= minValue &&
+                            value <= maxValue
+                        else { return false }
+                        
+                        return true
+                    },
+                    cancelTitle: (defaultValue != nil && hasSet ?
+                        "remove".localized() :
+                        "cancel".localized()
+                    ),
+                    cancelStyle: (defaultValue != nil && hasSet ? .danger : .alert_text),
+                    hasCloseButton: hasSet,
+                    dismissOnConfirm: false,
+                    onConfirm: { modal in
+                        guard
+                            let stringValue: String = updatedValue,
+                            let value: Int = Int(stringValue),
+                            value >= minValue &&
+                            value <= maxValue
+                        else {
+                            modal.updateContent(
+                                withError: (
+                                    range.map { "Value must be a number in the range \($0)" } ??
+                                    "Value must be a number"
+                                )
+                            )
+                            return
+                        }
+                        
+                        modal.dismiss(animated: true)
+                        onValueChanged(value)
+                    },
+                    onCancel: { modal in
+                        modal.dismiss(animated: true)
+                        
+                        guard defaultValue != nil && hasSet else { return }
+                        
+                        onValueChanged(defaultValue)
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+    
+    private static func showModalForMockableDate(
+        title: String,
+        explanation: String,
+        initialValue: TimeInterval?,
+        hasSet: Bool,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onValueChanged: ((TimeInterval?) -> Void)? = nil
+    ) {
+        var updatedValue: String? = nil
+        let dateFormat: String = "HH:mm dd/MM/yyyy"
+        let formatter: DateFormatter = DateFormatter()
+        formatter.dateFormat = dateFormat
+        let targetInitialValue: String = {
+            let value: TimeInterval = (initialValue ?? 0)
+            
+            guard value > 0 else { return "" }
+            
+            return formatter.string(from: Date(timeIntervalSince1970: value))
+        }()
+        
+        navigatableStateHolder?.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: title,
+                    body: .input(
+                        explanation: ThemedAttributedString(string: explanation),
+                        info: ConfirmationModal.Info.Body.InputInfo(
+                            placeholder: "Enter Date/Time (\(dateFormat))",
+                            initialValue: targetInitialValue
+                        ),
+                        onChange: { value in updatedValue = value }
+                    ),
+                    confirmTitle: "save".localized(),
+                    confirmEnabled: .afterChange { _ in
+                        guard
+                            let value: String = updatedValue,
+                            formatter.date(from: value) != nil
+                        else { return false }
+                        
+                        return true
+                    },
+                    cancelTitle: (hasSet ?
+                        "remove".localized() :
+                        "cancel".localized()
+                    ),
+                    cancelStyle: (hasSet ? .danger : .alert_text),
+                    hasCloseButton: hasSet,
+                    dismissOnConfirm: false,
+                    onConfirm: { modal in
+                        guard
+                            let value: String = updatedValue,
+                            let date: Date = formatter.date(from: value)
+                        else {
+                            modal.updateContent(
+                                withError: "Value must be in the format '\(dateFormat)'."
+                            )
+                            return
+                        }
+                        
+                        modal.dismiss(animated: true)
+                        onValueChanged?(date.timeIntervalSince1970)
+                    },
+                    onCancel: { modal in
+                        modal.dismiss(animated: true)
+                        
+                        guard hasSet else { return }
+                        
+                        onValueChanged?(nil)
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
+}
+
+
 // MARK: - DocumentPickerResult
 
 private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
@@ -1802,96 +2048,24 @@ private class DocumentPickerResult: NSObject, UIDocumentPickerDelegate {
     }
 }
 
-// MARK: - PollLimitInputView
+// MARK: - Format Convenience
 
-final class PollLimitInputView: UIView, UITextFieldDelegate, SessionCell.Accessory.CustomView {
-    struct Info: Equatable, SessionCell.Accessory.CustomViewInfo {
-        typealias View = PollLimitInputView
+internal extension String.StringInterpolation {
+    mutating func appendInterpolation(devValue: TimeInterval?) {
+        guard let value: TimeInterval = devValue, value > 0 else { return appendLiteral("<disabled>None</disabled>") }
         
-        let limit: Int
-        let onChange: (Int?) -> Void
-        
-        public static func ==(lhs: Info, rhs: Info) -> Bool {
-            return lhs.limit == rhs.limit
-        }
-        
-        public func hash(into hasher: inout Hasher) {
-            limit.hash(into: &hasher)
-        }
+        appendLiteral("<span>\(Date(timeIntervalSince1970: value).formattedForBanner)</span>")
     }
     
-    static func create(maxContentWidth: CGFloat, using dependencies: Dependencies) -> PollLimitInputView {
-        return PollLimitInputView()
-    }
-    
-    public static let size: SessionCell.Accessory.Size = .fillWidthWrapHeight
-    private var onChange: ((Int?) -> Void)?
-
-    // MARK: - Components
-
-    private lazy var textField: UITextField = {
-        let result = UITextField()
-        result.font = .systemFont(ofSize: Values.mediumFontSize)
-        result.textAlignment = .center
-        result.delegate = self
-
-        return result
-    }()
-
-    // MARK: - Initializtion
-
-    init() {
-        super.init(frame: .zero)
-
-        setupUI()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("Use init(color:) instead")
-    }
-
-    // MARK: - Layout
-
-    private func setupUI() {
-        layer.borderWidth = 1
-        layer.cornerRadius = 8
-        themeBackgroundColor = .backgroundPrimary
-        themeBorderColor = .borderSeparator
+    mutating func appendInterpolation(devValue: Int?) {
+        guard let value: Int = devValue else { return appendLiteral("<disabled>None</disabled>") }
         
-        addSubview(textField)
-        textField.pin(to: self, withInset: Values.verySmallSpacing)
-    }
-
-    // MARK: - Content
-
-    func update(with info: Info) {
-        onChange = info.onChange
-        textField.text = "\(info.limit)"
-    }
-    
-    // MARK: - UITextFieldDelegate
-    
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        let currentText: String = (textField.text ?? "")
-        
-        guard let textRange: Range = Range(range, in: currentText) else { return false }
-        
-        let updatedText: String = currentText.replacingCharacters(in: textRange, with: string)
-        
-        // Allow an empty string (revert to the default in this case)
-        guard !updatedText.isEmpty else {
-            onChange?(nil)
-            return true
-        }
-        guard let value: Int = Int(updatedText) else { return false }
-        guard value >= 0 && value < 256 else { return false }
-        
-        onChange?(value)
-        return true
+        appendLiteral("<span>\(value)</span>")
     }
 }
 
 // MARK: - WarningVersion
+
 struct WarningVersion: Listable {
     var version: Int
     

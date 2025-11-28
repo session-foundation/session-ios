@@ -690,12 +690,11 @@ struct MessageBubble: View {
                 ) - 2 * Self.inset
             )
             let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: messageViewModel)
-            let height: CGFloat = VisibleMessageCell.getBodyTappableLabel(
+            let height: CGFloat = VisibleMessageCell.getBodyLabel(
                 for: messageViewModel,
                 with: maxWidth,
                 textColor: bodyLabelTextColor,
                 searchText: nil,
-                delegate: nil,
                 using: dependencies
             ).height
             
@@ -733,6 +732,11 @@ struct MessageBubble: View {
                         if let quoteViewModel: QuoteViewModel = messageViewModel.quoteViewModel {
                             QuoteView_SwiftUI(
                                 viewModel: quoteViewModel.with(
+                                    direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
+                                    currentUserSessionIds: (messageViewModel.currentUserSessionIds ?? []),
+                                    showProBadge: dependencies.mutate(cache: .libSession) {
+                                        $0.validateSessionProState(for: quoteViewModel.authorId)
+                                    },
                                     thumbnailSource: .thumbnailFrom(
                                         quoteViewModel: quoteViewModel,
                                         using: dependencies
