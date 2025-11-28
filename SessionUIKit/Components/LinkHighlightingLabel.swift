@@ -8,23 +8,15 @@ import UIKit
 // • The long press interaction that shows the context menu should still work.
 
 // See https://stackoverflow.com/questions/47983838/how-can-you-change-the-color-of-links-in-a-uilabel
-
-public protocol TappableLabelDelegate: AnyObject {
-    func tapableLabel(_ label: TappableLabel, didTapUrl url: String, atRange range: NSRange)
-}
-
-public class TappableLabel: UILabel {
+public class LinkHighlightingLabel: UILabel {
     public private(set) var links: [String: NSRange] = [:]
-    private lazy var highlightedMentionBackgroundView: HighlightMentionBackgroundView = HighlightMentionBackgroundView(targetLabel: self)
     private(set) var layoutManager = NSLayoutManager()
-    private(set) var textContainer = NSTextContainer(size: CGSize.zero)
+    public private(set) var textContainer = NSTextContainer(size: CGSize.zero)
     private(set) var textStorage = NSTextStorage() {
         didSet {
             textStorage.addLayoutManager(layoutManager)
         }
     }
-
-    public weak var delegate: TappableLabelDelegate?
 
     public override var attributedText: NSAttributedString? {
         didSet {
@@ -36,12 +28,6 @@ public class TappableLabel: UILabel {
 
             textStorage = NSTextStorage(attributedString: attributedText)
             findLinksAndRange(attributeString: attributedText)
-            highlightedMentionBackgroundView.maxPadding = highlightedMentionBackgroundView
-                .calculateMaxPadding(for: attributedText)
-            highlightedMentionBackgroundView.frame = self.bounds.insetBy(
-                dx: -highlightedMentionBackgroundView.maxPadding,
-                dy: -highlightedMentionBackgroundView.maxPadding
-            )
         }
     }
 
@@ -84,30 +70,50 @@ public class TappableLabel: UILabel {
     
     // MARK: - Layout
     
-    public override func didMoveToSuperview() {
-        super.didMoveToSuperview()
-
-        // Note: Because we want the 'highlight' content to appear behind the label we need
-        // to add the 'highlightedMentionBackgroundView' below it in the view hierarchy
-        //
-        // In order to try and avoid adding even more complexity to UI components which use
-        // this 'TappableLabel' we are going some view hierarchy manipulation and forcing
-        // these elements to maintain the same superview
-        highlightedMentionBackgroundView.removeFromSuperview()
-        superview?.insertSubview(highlightedMentionBackgroundView, belowSubview: self)
-    }
-    
     public override func layoutSubviews() {
         super.layoutSubviews()
         
         textContainer.size = bounds.size
-        highlightedMentionBackgroundView.frame = self.frame.insetBy(
-            dx: -highlightedMentionBackgroundView.maxPadding,
-            dy: -highlightedMentionBackgroundView.maxPadding
-        )
+        
+        if preferredMaxLayoutWidth != bounds.width {
+            preferredMaxLayoutWidth = bounds.width
+            invalidateIntrinsicContentSize()
+        }
+    }
+    
+    public override var intrinsicContentSize: CGSize {
+        // Compute layout with the current/expected width
+        let width = preferredMaxLayoutWidth > 0 ? preferredMaxLayoutWidth : bounds.width
+        let targetWidth = (width > 0) ? width : UIScreen.main.bounds.width
+
+        textContainer.size = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
+        _ = layoutManager.glyphRange(for: textContainer) // forces layout
+        let used = layoutManager.usedRect(for: textContainer)
+
+        // Ceil to avoid fractional sizes causing extra lines/clipping
+        return CGSize(width: ceil(used.width), height: ceil(used.height))
+    }
+    
+    public override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let targetWidth = size.width > 0 ? size.width : UIScreen.main.bounds.width
+        textContainer.size = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
+        _ = layoutManager.glyphRange(for: textContainer)
+        let used = layoutManager.usedRect(for: textContainer)
+        return CGSize(width: min(ceil(used.width), targetWidth), height: ceil(used.height))
     }
     
     // MARK: - Functions
+    
+    public func urlString(at point: CGPoint) -> String? {
+        textContainer.size = bounds.size
+        
+        let indexOfCharacter = layoutManager.glyphIndex(for: point, in: textContainer)
+        for (urlString, range) in links where NSLocationInRange(indexOfCharacter, range) {
+            return urlString
+        }
+        
+        return nil
+    }
 
     private func findLinksAndRange(attributeString: NSAttributedString) {
         links = [:]
@@ -120,23 +126,5 @@ public class TappableLabel: UILabel {
         }
         attributeString.enumerateAttribute(.link, in: NSRange(0..<attributeString.length), options: [.longestEffectiveRangeNotRequired], using: enumerationBlock)
         attributeString.enumerateAttribute(.attachment, in: NSRange(0..<attributeString.length), options: [.longestEffectiveRangeNotRequired], using: enumerationBlock)
-    }
-
-    public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let locationOfTouch = touches.first?.location(in: self) else {
-            return
-        }
-        
-        handleTouch(at: locationOfTouch)
-    }
-    
-    public func handleTouch(at point: CGPoint) {
-        textContainer.size = bounds.size
-        
-        let indexOfCharacter = layoutManager.glyphIndex(for: point, in: textContainer)
-        for (urlString, range) in links where NSLocationInRange(indexOfCharacter, range) {
-            delegate?.tapableLabel(self, didTapUrl: urlString, atRange: range)
-            return
-        }
     }
 }

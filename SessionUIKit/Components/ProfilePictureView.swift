@@ -12,7 +12,83 @@ public final class ProfilePictureView: UIView {
             case currentUser(SessionProManagerType)
         }
         
-        let source: ImageDataManager.DataSource?
+        public enum Size {
+            case navigation
+            case message
+            case list
+            case hero
+            case modal
+            case expanded
+            
+            public var viewSize: CGFloat {
+                switch self {
+                    case .navigation, .message: return 26
+                    case .list: return 46
+                    case .hero: return 110
+                    case .modal: return 90
+                    case .expanded: return 190
+                }
+            }
+            
+            public var imageSize: CGFloat {
+                switch self {
+                    case .navigation, .message: return 26
+                    case .list: return 46
+                    case .hero: return 90
+                    case .modal: return 90
+                    case .expanded: return 190
+                }
+            }
+            
+            public var multiImageSize: CGFloat {
+                switch self {
+                    case .navigation, .message, .modal: return 18  // Shouldn't be used
+                    case .list: return 32
+                    case .hero: return 80
+                    case .expanded: return 140
+                }
+            }
+            
+            var iconSize: CGFloat {
+                switch self {
+                    case .navigation, .message: return 10   // Intentionally not a multiple of 4
+                    case .list: return 16
+                    case .hero: return 24
+                    case .modal: return 24 // Shouldn't be used
+                    case .expanded: return 33
+                }
+            }
+        }
+        
+        public enum ProfileIcon: Equatable, Hashable {
+            case none
+            case crown
+            case rightPlus
+            case letter(Character, Bool)
+            case pencil
+            case qrCode
+            
+            func iconVerticalInset(for size: Size) -> CGFloat {
+                switch (self, size) {
+                    case (.crown, .navigation), (.crown, .message): return 2
+                    case (.crown, .list): return 3
+                    case (.crown, .hero): return 5
+                        
+                    case (.rightPlus, _): return 3
+                    default: return 0
+                }
+            }
+            
+            var isLeadingAligned: Bool {
+                switch self {
+                    case .none, .letter: return true
+                    case .rightPlus, .pencil, .crown, .qrCode: return false
+                }
+            }
+        }
+        
+        // TODO: [PRO] Should be able to remove the "public" once `MessageInfoScreen.getProFeaturesInfo()` has been updated
+        public let source: ImageDataManager.DataSource?
         let animationBehaviour: AnimationBehaviour
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
@@ -45,79 +121,9 @@ public final class ProfilePictureView: UIView {
         }
     }
     
-    public enum Size {
-        case navigation
-        case message
-        case list
-        case hero
-        case modal
-        
-        public var viewSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 26
-                case .list: return 46
-                case .hero: return 110
-                case .modal: return 90
-            }
-        }
-        
-        public var imageSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 26
-                case .list: return 46
-                case .hero: return 80
-                case .modal: return 90
-            }
-        }
-        
-        public var multiImageSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 18  // Shouldn't be used
-                case .list: return 32
-                case .hero: return 80
-                case .modal: return 90
-            }
-        }
-        
-        var iconSize: CGFloat {
-            switch self {
-                case .navigation, .message: return 10   // Intentionally not a multiple of 4
-                case .list: return 16
-                case .hero: return 24
-                case .modal: return 24 // Shouldn't be used
-            }
-        }
-    }
-    
-    public enum ProfileIcon: Equatable, Hashable {
-        case none
-        case crown
-        case rightPlus
-        case letter(Character, Bool)
-        case pencil
-        
-        func iconVerticalInset(for size: Size) -> CGFloat {
-            switch (self, size) {
-                case (.crown, .navigation), (.crown, .message): return 1
-                case (.crown, .list): return 3
-                case (.crown, .hero): return 5
-                    
-                case (.rightPlus, _): return 3
-                default: return 0
-            }
-        }
-        
-        var isLeadingAligned: Bool {
-            switch self {
-                case .none, .crown, .letter: return true
-                case .rightPlus, .pencil: return false
-            }
-        }
-    }
-    
     private var dataManager: ImageDataManagerType?
     private var disposables: Set<AnyCancellable> = Set()
-    public var size: Size {
+    public var size: Info.Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)
             heightConstraint.constant = size.viewSize
@@ -162,6 +168,8 @@ public final class ProfilePictureView: UIView {
     private var profileIconBottomConstraint: NSLayoutConstraint!
     private var profileIconBackgroundLeadingAlignConstraint: NSLayoutConstraint!
     private var profileIconBackgroundTrailingAlignConstraint: NSLayoutConstraint!
+    private var profileIconBackgroundTopAlignConstraint: NSLayoutConstraint!
+    private var profileIconBackgroundBottomAlignConstraint: NSLayoutConstraint!
     private var profileIconBackgroundWidthConstraint: NSLayoutConstraint!
     private var profileIconBackgroundHeightConstraint: NSLayoutConstraint!
     private var additionalProfileIconTopConstraint: NSLayoutConstraint!
@@ -282,7 +290,7 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Size, dataManager: ImageDataManagerType?) {
+    public init(size: Info.Size, dataManager: ImageDataManagerType?) {
         self.dataManager = dataManager
         self.size = size
         
@@ -348,11 +356,14 @@ public final class ProfilePictureView: UIView {
         profileIconLabel.pin(to: profileIconBackgroundView)
         profileIconBackgroundLeadingAlignConstraint = profileIconBackgroundView.pin(.leading, to: .leading, of: imageContainerView)
         profileIconBackgroundTrailingAlignConstraint = profileIconBackgroundView.pin(.trailing, to: .trailing, of: imageContainerView)
-        profileIconBackgroundView.pin(.bottom, to: .bottom, of: imageContainerView)
+        profileIconBackgroundTopAlignConstraint = profileIconBackgroundView.pin(.top, to: .top, of: imageContainerView)
+        profileIconBackgroundBottomAlignConstraint = profileIconBackgroundView.pin(.bottom, to: .bottom, of: imageContainerView)
         profileIconBackgroundWidthConstraint = profileIconBackgroundView.set(.width, to: size.iconSize)
         profileIconBackgroundHeightConstraint = profileIconBackgroundView.set(.height, to: size.iconSize)
         profileIconBackgroundLeadingAlignConstraint.isActive = false
         profileIconBackgroundTrailingAlignConstraint.isActive = false
+        profileIconBackgroundTopAlignConstraint.isActive = false
+        profileIconBackgroundBottomAlignConstraint.isActive = false
         
         additionalProfileIconTopConstraint = additionalProfileIconImageView.pin(
             .top,
@@ -389,7 +400,7 @@ public final class ProfilePictureView: UIView {
     // MARK: - Content
     
     private func updateIconView(
-        icon: ProfileIcon,
+        icon: Info.ProfileIcon,
         imageView: UIImageView,
         label: UILabel,
         backgroundView: UIView,
@@ -411,7 +422,7 @@ public final class ProfilePictureView: UIView {
                 label.isHidden = true
             
             case .crown:
-                imageView.image = UIImage(systemName: "crown.fill")
+                imageView.image = UIImage(named: "ic_crown")?.withRenderingMode(.alwaysTemplate)
                 imageView.contentMode = .scaleAspectFit
                 imageView.themeTintColor = .dynamicForPrimary(
                     .green,
@@ -421,6 +432,8 @@ public final class ProfilePictureView: UIView {
                 backgroundView.themeBackgroundColor = .profileIcon_background
                 imageView.isHidden = false
                 label.isHidden = true
+                profileIconBackgroundTopAlignConstraint.isActive = false
+                profileIconBackgroundBottomAlignConstraint.isActive = true
                 
             case .rightPlus:
                 imageView.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))
@@ -429,12 +442,16 @@ public final class ProfilePictureView: UIView {
                 backgroundView.themeBackgroundColor = .primary
                 imageView.isHidden = false
                 label.isHidden = true
+                profileIconBackgroundTopAlignConstraint.isActive = false
+                profileIconBackgroundBottomAlignConstraint.isActive = true
                 
             case .letter(let character, let dangerMode):
                 label.themeTextColor = (dangerMode ? .textPrimary : .backgroundPrimary)
                 backgroundView.themeBackgroundColor = (dangerMode ? .danger : .textPrimary)
                 label.isHidden = false
                 label.text = "\(character)"
+                profileIconBackgroundTopAlignConstraint.isActive = true
+                profileIconBackgroundBottomAlignConstraint.isActive = false
             
             case .pencil:
                 imageView.image = Lucide.image(icon: .pencil, size: 14)?.withRenderingMode(.alwaysTemplate)
@@ -443,7 +460,19 @@ public final class ProfilePictureView: UIView {
                 backgroundView.themeBackgroundColor = .primary
                 imageView.isHidden = false
                 label.isHidden = true
+                profileIconBackgroundTopAlignConstraint.isActive = false
+                profileIconBackgroundBottomAlignConstraint.isActive = true
             
+            case .qrCode:
+                imageView.image = Lucide.image(icon: .qrCode, size: (size == .expanded ? 20 : 14))?.withRenderingMode(.alwaysTemplate)
+                imageView.contentMode = .center
+                imageView.themeTintColor = .black
+                backgroundView.themeBackgroundColor = .primary
+                imageView.isHidden = false
+                label.isHidden = true
+                profileIconBackgroundTopAlignConstraint.isActive = true
+                profileIconBackgroundBottomAlignConstraint.isActive = false
+                trailingAlignConstraint.constant = (size == .expanded ? -8 : 0)
         }
     }
     
@@ -680,6 +709,13 @@ public final class ProfilePictureView: UIView {
                     .store(in: &disposables)
         }
     }
+    
+    public func getTouchedView(from localPoint: CGPoint) -> UIView {
+        if profileIconBackgroundView.frame.contains(localPoint) {
+            return profileIconBackgroundView
+        }
+        return self
+    }
 }
 
 import SwiftUI
@@ -687,13 +723,13 @@ import SwiftUI
 public struct ProfilePictureSwiftUI: UIViewRepresentable {
     public typealias UIViewType = ProfilePictureView
 
-    var size: ProfilePictureView.Size
+    var size: ProfilePictureView.Info.Size
     var info: ProfilePictureView.Info
     var additionalInfo: ProfilePictureView.Info?
     let dataManager: ImageDataManagerType
     
     public init(
-        size: ProfilePictureView.Size,
+        size: ProfilePictureView.Info.Size,
         info: ProfilePictureView.Info,
         additionalInfo: ProfilePictureView.Info? = nil,
         dataManager: ImageDataManagerType

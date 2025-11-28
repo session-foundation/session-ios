@@ -3,6 +3,7 @@
 // stringlint:disable
 
 import Foundation
+import UniformTypeIdentifiers
 import GRDB
 import DifferenceKit
 import SessionUIKit
@@ -12,23 +13,6 @@ fileprivate typealias ViewModel = MessageViewModel
 fileprivate typealias AttachmentInteractionInfo = MessageViewModel.AttachmentInteractionInfo
 fileprivate typealias ReactionInfo = MessageViewModel.ReactionInfo
 fileprivate typealias TypingIndicatorInfo = MessageViewModel.TypingIndicatorInfo
-fileprivate typealias QuotedInfo = MessageViewModel.QuotedInfo
-
-public struct QuoteViewModel: FetchableRecord, Decodable, Equatable, Hashable, Differentiable {
-    fileprivate static let numberOfColumns: Int = 4
-    
-    public let interactionId: Int64
-    public let authorId: String
-    public let timestampMs: Int64
-    public let body: String?
-    
-    public init(interactionId: Int64, authorId: String, timestampMs: Int64, body: String?) {
-        self.interactionId = interactionId
-        self.authorId = authorId
-        self.timestampMs = timestampMs
-        self.body = body
-    }
-}
 
 // TODO: [Database Relocation] Refactor this to split database data from no-database data (to avoid unneeded nullables)
 public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, Hashable, Identifiable, Differentiable, ColumnExpressible {
@@ -58,6 +42,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case rawBody
         case expiresStartedAtMs
         case expiresInSeconds
+        case isProMessage
 
         case state
         case hasBeenReadByRecipient
@@ -65,7 +50,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case isSenderModeratorOrAdmin
         case isTypingIndicator
         case profile
-        case quotedInfo
+        case quoteViewModel
         case linkPreview
         case linkPreviewAttachment
 
@@ -93,12 +78,21 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case optimisticMessageId
     }
     
+    public enum Gesture {
+        case tap
+        case doubleTap
+        case longPress
+    }
+    
+    // TODO: [PRO] Shouldn't need a bunch of these conformances
     public enum CellType: Int, Decodable, Equatable, Hashable, DatabaseValueConvertible {
         case textOnlyMessage
         case mediaMessage
         case audio
         case voiceMessage
         case genericAttachment
+        case infoMessage
+        case call
         case typingIndicator
         case dateHeader
         case unreadMarker
@@ -109,6 +103,16 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             switch self {
                 case .typingIndicator, .dateHeader, .unreadMarker: return true
                 default: return false
+            }
+        }
+        
+        public var supportedGestures: Set<Gesture> {
+            switch self {
+                case .typingIndicator, .dateHeader, .unreadMarker: return []
+                case .voiceMessage: return [.tap, .doubleTap, .longPress]
+                case .textOnlyMessage, .mediaMessage, .audio, .genericAttachment,
+                    .infoMessage, .call:
+                    return [.tap, .longPress]
             }
         }
     }
@@ -141,6 +145,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let rawBody: String?
     public let expiresStartedAtMs: Double?
     public let expiresInSeconds: TimeInterval?
+    public let isProMessage: Bool
     
     public let state: Interaction.State
     public let hasBeenReadByRecipient: Bool
@@ -148,7 +153,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
     public let isSenderModeratorOrAdmin: Bool
     public let isTypingIndicator: Bool?
     public let profile: Profile?
-    public let quotedInfo: QuotedInfo?
+    public let quoteViewModel: QuoteViewModel?
     public let linkPreview: LinkPreview?
     public let linkPreviewAttachment: Attachment?
     
@@ -226,7 +231,7 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         state: Update<Interaction.State> = .useExisting,         // Optimistic outgoing messages
         mostRecentFailureText: Update<String?> = .useExisting,   // Optimistic outgoing messages
         profile: Update<Profile?> = .useExisting,
-        quotedInfo: Update<QuotedInfo?> = .useExisting,           // Workaround for blinded current user
+        quoteViewModel: Update<QuoteViewModel?> = .useExisting,  // Workaround for blinded current user
         attachments: Update<[Attachment]?> = .useExisting,
         reactionInfo: Update<[ReactionInfo]?> = .useExisting
     ) -> MessageViewModel {
@@ -252,13 +257,14 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             rawBody: self.rawBody,
             expiresStartedAtMs: self.expiresStartedAtMs,
             expiresInSeconds: self.expiresInSeconds,
+            isProMessage: self.isProMessage,
             state: state.or(self.state),
             hasBeenReadByRecipient: self.hasBeenReadByRecipient,
             mostRecentFailureText: mostRecentFailureText.or(self.mostRecentFailureText),
             isSenderModeratorOrAdmin: self.isSenderModeratorOrAdmin,
             isTypingIndicator: self.isTypingIndicator,
             profile: profile.or(self.profile),
-            quotedInfo: quotedInfo.or(self.quotedInfo),
+            quoteViewModel: quoteViewModel.or(self.quoteViewModel),
             linkPreview: self.linkPreview,
             linkPreviewAttachment: self.linkPreviewAttachment,
             currentUserSessionId: self.currentUserSessionId,
@@ -296,7 +302,21 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         let cellType: CellType = {
             guard self.isTypingIndicator != true else { return .typingIndicator }
             guard !self.variant.isDeletedMessage else { return .textOnlyMessage }
-            guard let attachment: Attachment = self.attachments?.first else { return .textOnlyMessage }
+            guard let attachment: Attachment = self.attachments?.first else {
+                switch variant {
+                    case .infoCall: return .call
+                    case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                        .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
+                        .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
+                        .infoMessageRequestAccepted, .infoGroupInfoInvited, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
+                        return .infoMessage
+                        
+                    case ._legacyStandardIncomingDeleted, .standardIncomingDeleted, .standardOutgoingDeleted, .standardIncomingDeletedLocally, .standardOutgoingDeletedLocally:
+                        return .textOnlyMessage /// Should be handled above
+                        
+                    case .standardOutgoing, .standardIncoming: return .textOnlyMessage
+                }
+            }
 
             // The only case which currently supports multiple attachments is a 'mediaMessage'
             // (the album view)
@@ -468,13 +488,14 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             rawBody: self.body,
             expiresStartedAtMs: self.expiresStartedAtMs,
             expiresInSeconds: self.expiresInSeconds,
+            isProMessage: self.isProMessage,
             state: self.state,
             hasBeenReadByRecipient: self.hasBeenReadByRecipient,
             mostRecentFailureText: self.mostRecentFailureText,
             isSenderModeratorOrAdmin: self.isSenderModeratorOrAdmin,
             isTypingIndicator: self.isTypingIndicator,
             profile: (self.profile?.id == currentUserProfile.id ? currentUserProfile : self.profile),
-            quotedInfo: self.quotedInfo,
+            quoteViewModel: self.quoteViewModel,
             linkPreview: self.linkPreview,
             linkPreviewAttachment: self.linkPreviewAttachment,
             currentUserSessionId: self.currentUserSessionId,
@@ -645,67 +666,6 @@ public extension MessageViewModel {
     }
 }
 
-// MARK: - QuotedInfo
-
-public extension MessageViewModel {
-    struct QuotedInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, Hashable, ColumnExpressible {
-        public typealias Columns = CodingKeys
-        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
-            case rowId
-            case interactionId
-            case authorId
-            case timestampMs
-            case body
-            case attachment
-            case quotedInteractionId
-            case quotedInteractionVariant
-        }
-        
-        public let rowId: Int64
-        public let interactionId: Int64
-        public let authorId: String
-        public let timestampMs: Int64
-        public let body: String?
-        public let attachment: Attachment?
-        public let quotedInteractionId: Int64
-        public let quotedInteractionVariant: Interaction.Variant
-        
-        // MARK: - Identifiable
-        
-        public var id: String { "quote-\(interactionId)-attachment_\(attachment?.id ?? "None")" }
-        
-        // MARK: - Initialization
-        
-        public init(previewBody: String) {
-            self.body = previewBody
-            
-            /// This is an preview version so none of these values matter
-            self.rowId = -1
-            self.interactionId = -1
-            self.authorId = ""
-            self.timestampMs = 0
-            self.attachment = nil
-            self.quotedInteractionId = -1
-            self.quotedInteractionVariant = .standardOutgoing
-        }
-        
-        public init?(replyModel: QuotedReplyModel?) {
-            guard let model: QuotedReplyModel = replyModel else { return nil }
-            
-            self.authorId = model.authorId
-            self.timestampMs = model.timestampMs
-            self.body = model.body
-            self.attachment = model.attachment
-            
-            /// This is an optimistic version so none of these values exist yet
-            self.rowId = -1
-            self.interactionId = -1
-            self.quotedInteractionId = -1
-            self.quotedInteractionVariant = .standardOutgoing
-        }
-    }
-}
-
 // MARK: - Convenience Initialization
 
 public extension MessageViewModel {
@@ -719,7 +679,7 @@ public extension MessageViewModel {
         timestampMs: Int64 = Int64.max,
         receivedAtTimestampMs: Int64 = Int64.max,
         body: String? = nil,
-        quotedInfo: QuotedInfo? = nil,
+        quoteViewModel: QuoteViewModel? = nil,
         cellType: CellType = .typingIndicator,
         isTypingIndicator: Bool? = nil,
         isLast: Bool = true,
@@ -755,6 +715,7 @@ public extension MessageViewModel {
         self.rawBody = nil
         self.expiresStartedAtMs = nil
         self.expiresInSeconds = nil
+        self.isProMessage = false
         
         self.state = .sent
         self.hasBeenReadByRecipient = false
@@ -762,7 +723,7 @@ public extension MessageViewModel {
         self.isSenderModeratorOrAdmin = false
         self.isTypingIndicator = isTypingIndicator
         self.profile = nil
-        self.quotedInfo = quotedInfo
+        self.quoteViewModel = quoteViewModel
         self.linkPreview = nil
         self.linkPreviewAttachment = nil
         self.currentUserSessionId = ""
@@ -806,10 +767,11 @@ public extension MessageViewModel {
         body: String?,
         expiresStartedAtMs: Double?,
         expiresInSeconds: TimeInterval?,
+        isProMessage: Bool,
         state: Interaction.State = .sending,
         isSenderModeratorOrAdmin: Bool,
         currentUserProfile: Profile,
-        quotedInfo: QuotedInfo?,
+        quoteViewModel: QuoteViewModel?,
         linkPreview: LinkPreview?,
         linkPreviewAttachment: Attachment?,
         attachments: [Attachment]?
@@ -838,6 +800,7 @@ public extension MessageViewModel {
         self.rawBody = body
         self.expiresStartedAtMs = expiresStartedAtMs
         self.expiresInSeconds = expiresInSeconds
+        self.isProMessage = isProMessage
         
         self.state = state
         self.hasBeenReadByRecipient = false
@@ -845,7 +808,7 @@ public extension MessageViewModel {
         self.isSenderModeratorOrAdmin = isSenderModeratorOrAdmin
         self.isTypingIndicator = false
         self.profile = currentUserProfile
-        self.quotedInfo = quotedInfo
+        self.quoteViewModel = quoteViewModel
         self.linkPreview = linkPreview
         self.linkPreviewAttachment = linkPreviewAttachment
         self.currentUserSessionId = currentUserProfile.id
@@ -952,7 +915,7 @@ public extension MessageViewModel {
             let linkPreview: TypedTableAlias<LinkPreview> = TypedTableAlias()
             let linkPreviewAttachment: TypedTableAlias<Attachment> = TypedTableAlias(ViewModel.self, column: .linkPreviewAttachment)
             
-            let numColumnsBeforeLinkedRecords: Int = 24
+            let numColumnsBeforeLinkedRecords: Int = 25
             let finalGroupSQL: SQL = (groupSQL ?? "")
             let request: SQLRequest<ViewModel> = """
                 SELECT
@@ -978,6 +941,7 @@ public extension MessageViewModel {
                     \(interaction[.body]),
                     \(interaction[.expiresStartedAtMs]),
                     \(interaction[.expiresInSeconds]),
+                    \(interaction[.isProMessage]),
                     \(interaction[.state]),
                     (\(interaction[.recipientReadTimestampMs]) IS NOT NULL) AS \(ViewModel.Columns.hasBeenReadByRecipient),
                     \(interaction[.mostRecentFailureText]),
@@ -1263,14 +1227,168 @@ public extension MessageViewModel.TypingIndicatorInfo {
     }
 }
 
-// MARK: --QuotedInfo
+// MARK: - QuoteViewModel
 
-public extension MessageViewModel.QuotedInfo {
+extension QuoteViewModel: @retroactive FetchableRecordWithRowId, @retroactive Decodable, @retroactive Identifiable, Differentiable, @retroactive ColumnExpressible {
+    fileprivate static let numberOfColumns: Int = 4
+    
+    public typealias Columns = CodingKeys
+    public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+        case rowId
+        case interactionId
+        case authorId
+        case timestampMs
+        case quotedInteractionId
+        case quotedInteractionVariant
+        case quotedText
+        case quotedAttachment
+    }
+    
+    // MARK: - Identifiable
+    
+    public var id: String {
+        "quote-\(interactionId.map { "\($0)" } ?? "nil")-attachment_\(quotedAttachmentInfo?.id ?? "None")"
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+        var quotedAttachmentInfo: AttachmentInfo?
+        var interactionIsDeleted: Bool = false
+        
+        if
+            let attachment: Attachment = try container.decodeIfPresent(Attachment.self, forKey: .quotedAttachment),
+            let utType: UTType = UTType(sessionMimeType: attachment.contentType)
+        {
+            quotedAttachmentInfo = AttachmentInfo(
+                id: attachment.id,
+                utType: utType,
+                isVoiceMessage: (attachment.variant == .voiceMessage),
+                downloadUrl: attachment.downloadUrl,
+                sourceFilename: attachment.sourceFilename,
+                thumbnailSource: nil    /// Intentionally `nil`, should be set via the `with` function below in the UI
+            )
+        }
+        
+        if let variant: Interaction.Variant = try container.decodeIfPresent(Interaction.Variant.self, forKey: .quotedInteractionVariant) {
+            interactionIsDeleted = variant.isDeletedMessage
+        }
+        
+        self = QuoteViewModel(
+            mode: .regular,
+            direction: .outgoing,
+            currentUserSessionIds: [],
+            rowId: try container.decode(Int64.self, forKey: .rowId),
+            interactionId: try container.decode(Int64.self, forKey: .interactionId),
+            authorId: try container.decode(String.self, forKey: .authorId),
+            showProBadge: false,
+            timestampMs: try container.decode(Int64.self, forKey: .timestampMs),
+            quotedInteractionId: try container.decode(Int64.self, forKey: .quotedInteractionId),
+            quotedInteractionIsDeleted: interactionIsDeleted,
+            quotedText: try container.decodeIfPresent(String.self, forKey: .quotedText),
+            quotedAttachmentInfo: quotedAttachmentInfo,
+            displayNameRetriever: { _, _ in nil }
+        )
+    }
+    
+    public func with(
+        direction: QuoteViewModel.Direction,
+        currentUserSessionIds: Set<String>,
+        showProBadge: Bool,
+        thumbnailSource: ImageDataManager.DataSource?,
+        displayNameRetriever: @escaping (String, Bool) -> String?
+    ) -> QuoteViewModel {
+        return QuoteViewModel(
+            mode: mode,
+            direction: direction,
+            currentUserSessionIds: currentUserSessionIds,
+            rowId: rowId,
+            interactionId: interactionId,
+            authorId: authorId,
+            showProBadge: showProBadge,
+            timestampMs: timestampMs,
+            quotedInteractionId: quotedInteractionId,
+            quotedInteractionIsDeleted: quotedInteractionIsDeleted,
+            quotedText: quotedText,
+            quotedAttachmentInfo: quotedAttachmentInfo.map {
+                AttachmentInfo(
+                    id: $0.id,
+                    utType: $0.utType,
+                    isVoiceMessage: $0.isVoiceMessage,
+                    downloadUrl: $0.downloadUrl,
+                    sourceFilename: $0.sourceFilename,
+                    thumbnailSource: thumbnailSource
+                )
+            },
+            displayNameRetriever: displayNameRetriever
+        )
+    }
+}
+//TODO: Need to test that this actually works
+//public extension MessageViewModel {
+//    struct QuotedInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, Hashable, ColumnExpressible {
+//        public typealias Columns = CodingKeys
+//        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+//            case rowId
+//            case interactionId
+//            case authorId
+//            case timestampMs
+//            case body
+//            case attachment
+//            case quotedInteractionId
+//            case quotedInteractionVariant
+//        }
+//        
+//        public let rowId: Int64
+//        public let interactionId: Int64
+//        public let authorId: String
+//        public let timestampMs: Int64
+//        public let body: String?
+//        public let attachment: Attachment?
+//        public let quotedInteractionId: Int64
+//        public let quotedInteractionVariant: Interaction.Variant
+//        
+//        // MARK: - Identifiable
+//        
+//        public var id: String { "quote-\(interactionId)-attachment_\(attachment?.id ?? "None")" }
+//        
+//        // MARK: - Initialization
+//        
+//        public init(previewBody: String) {
+//            self.body = previewBody
+//            
+//            /// This is an preview version so none of these values matter
+//            self.rowId = -1
+//            self.interactionId = -1
+//            self.authorId = ""
+//            self.timestampMs = 0
+//            self.attachment = nil
+//            self.quotedInteractionId = -1
+//            self.quotedInteractionVariant = .standardOutgoing
+//        }
+//        
+//        public init?(replyModel: QuotedReplyModel?) {
+//            guard let model: QuotedReplyModel = replyModel else { return nil }
+//            
+//            self.authorId = model.authorId
+//            self.timestampMs = model.timestampMs
+//            self.body = model.body
+//            self.attachment = model.attachment
+//            
+//            /// This is an optimistic version so none of these values exist yet
+//            self.rowId = -1
+//            self.interactionId = -1
+//            self.quotedInteractionId = -1
+//            self.quotedInteractionVariant = .standardOutgoing
+//        }
+//    }
+//}
+
+public extension QuoteViewModel {
     static func baseQuery(
         userSessionId: SessionId,
         currentUserSessionIds: Set<String>
-    ) -> ((SQL?) -> AdaptedFetchRequest<SQLRequest<MessageViewModel.QuotedInfo>>) {
-        return { additionalFilters -> AdaptedFetchRequest<SQLRequest<QuotedInfo>> in
+    ) -> ((SQL?) -> AdaptedFetchRequest<SQLRequest<QuoteViewModel>>) {
+        return { additionalFilters -> AdaptedFetchRequest<SQLRequest<QuoteViewModel>> in
             let quote: TypedTableAlias<Quote> = TypedTableAlias()
             let quoteInteraction: TypedTableAlias<Interaction> = TypedTableAlias(name: "quoteInteraction")
             let quoteInteractionAttachment: TypedTableAlias<InteractionAttachment> = TypedTableAlias(
@@ -1289,17 +1407,17 @@ public extension MessageViewModel.QuotedInfo {
                 """
             }()
             
-            let numColumnsBeforeLinkedRecords: Int = 5
-            let request: SQLRequest<QuotedInfo> = """
+            let numColumnsBeforeLinkedRecords: Int = 7
+            let request: SQLRequest<QuoteViewModel> = """
                 SELECT
-                    \(quote[.rowId]) AS \(QuotedInfo.Columns.rowId),
-                    \(quote[.interactionId]) AS \(QuotedInfo.Columns.interactionId),
-                    \(quote[.authorId]) AS \(QuotedInfo.Columns.authorId),
-                    \(quote[.timestampMs]) AS \(QuotedInfo.Columns.timestampMs),
-                    \(quoteInteraction[.body]) AS \(QuotedInfo.Columns.body),
-                    \(attachment.allColumns),
-                    \(quoteInteraction[.id]) AS \(QuotedInfo.Columns.quotedInteractionId),
-                    \(quoteInteraction[.variant]) AS \(QuotedInfo.Columns.quotedInteractionVariant)
+                    \(quote[.rowId]) AS \(QuoteViewModel.Columns.rowId),
+                    \(quote[.interactionId]) AS \(QuoteViewModel.Columns.interactionId),
+                    \(quote[.authorId]) AS \(QuoteViewModel.Columns.authorId),
+                    \(quote[.timestampMs]) AS \(QuoteViewModel.Columns.timestampMs),
+                    \(quoteInteraction[.id]) AS \(QuoteViewModel.Columns.quotedInteractionId),
+                    \(quoteInteraction[.variant]) AS \(QuoteViewModel.Columns.quotedInteractionVariant),
+                    \(quoteInteraction[.body]) AS \(QuoteViewModel.Columns.quotedText),
+                    \(attachment.allColumns)
                 FROM \(Quote.self)
                 JOIN \(quoteInteraction) ON (
                     \(quoteInteraction[.timestampMs]) = \(quote[.timestampMs]) AND (
@@ -1335,8 +1453,8 @@ public extension MessageViewModel.QuotedInfo {
                     Attachment.numberOfSelectedColumns(db)
                 ])
                 
-                return ScopeAdapter.with(QuotedInfo.self, [
-                    .attachment: adapters[1]
+                return ScopeAdapter.with(QuoteViewModel.self, [
+                    .quotedAttachment: adapters[1]
                 ])
             }
         }
@@ -1351,45 +1469,48 @@ public extension MessageViewModel.QuotedInfo {
         """
     }
     
-    static func createReferencedRowIdsRetriever() -> (([Int64], DataCache<MessageViewModel.QuotedInfo>) -> [Int64]) {
+    static func createReferencedRowIdsRetriever() -> (([Int64], DataCache<QuoteViewModel>) -> [Int64]) {
         return { pagedRowIds, dataCache -> [Int64] in
-            dataCache.values.compactMap { quotedInfo in
+            dataCache.values.compactMap { viewModel in
                 guard
-                    pagedRowIds.contains(quotedInfo.quotedInteractionId) ||
-                    pagedRowIds.contains(quotedInfo.interactionId)
+                    let interactionId: Int64 = viewModel.interactionId, (
+                        pagedRowIds.contains(viewModel.quotedInteractionId) ||
+                        pagedRowIds.contains(interactionId)
+                    )
                 else { return nil }
                 
-                return quotedInfo.rowId
+                return viewModel.rowId
             }
         }
     }
     
-    static func createAssociateDataClosure() -> (DataCache<MessageViewModel.QuotedInfo>, DataCache<MessageViewModel>) -> DataCache<MessageViewModel> {
+    static func createAssociateDataClosure() -> (DataCache<QuoteViewModel>, DataCache<MessageViewModel>) -> DataCache<MessageViewModel> {
         return { dataCache, pagedDataCache -> DataCache<MessageViewModel> in
             var updatedPagedDataCache: DataCache<MessageViewModel> = pagedDataCache
             
             // Update changed records
-            dataCache.values.forEach { quoteInfo in
+            dataCache.values.forEach { quoteViewModel in
                 guard
-                    let interactionRowId: Int64 = updatedPagedDataCache.lookup[quoteInfo.interactionId],
+                    let interactionId: Int64 = quoteViewModel.interactionId,
+                    let interactionRowId: Int64 = updatedPagedDataCache.lookup[interactionId],
                     let dataToUpdate: ViewModel = updatedPagedDataCache.data[interactionRowId]
                 else { return }
                 
-                switch quoteInfo.quotedInteractionVariant.isDeletedMessage {
+                switch quoteViewModel.quotedInteractionIsDeleted {
                     // If the original message wasn't deleted and the quote contains some of it's content
                     // then remove that content from the quote
                     case false:
                         updatedPagedDataCache = updatedPagedDataCache.upserting(
-                            dataToUpdate.with(quotedInfo: .set(to: quoteInfo))
+                            dataToUpdate.with(quoteViewModel: .set(to: quoteViewModel))
                         )
                         
                     // If the original message was deleted and the quote contains some of it's content
                     // then remove that content from the quote
                     case true:
-                        guard dataToUpdate.quotedInfo != nil else { return }
+                        guard dataToUpdate.quoteViewModel != nil else { return }
                         
                         updatedPagedDataCache = updatedPagedDataCache.upserting(
-                            dataToUpdate.with(quotedInfo: .set(to: nil))
+                            dataToUpdate.with(quoteViewModel: .set(to: nil))
                         )
                 }
             }

@@ -91,6 +91,7 @@ class NotificationSoundViewModel: SessionTableViewModel, NavigationItemSource, N
                         .map { sound in
                             SessionCell.Info(
                                 id: sound,
+                                canReuseCell: true,
                                 title: {
                                     guard sound != .note else {
                                         return "\(sound.displayName) (default)"

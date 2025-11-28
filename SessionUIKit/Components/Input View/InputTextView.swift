@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import UniformTypeIdentifiers
 
 public final class InputTextView: UITextView, UITextViewDelegate {
     private static let defaultFont: UIFont = .systemFont(ofSize: Values.mediumFontSize)
@@ -61,8 +62,10 @@ public final class InputTextView: UITextView, UITextViewDelegate {
     public override func paste(_ sender: Any?) {
         if
             UIPasteboard.general.hasImages,
-            let firstItem: [String: Any] = UIPasteboard.general.items.first,
-            let itemData: Data = firstItem.values.first as? Data
+            let firstImageType: String = UIPasteboard.general.types.first(where: {
+                UTType($0)?.conforms(to: .image) == true
+            }),
+            let itemData: Data = UIPasteboard.general.data(forPasteboardType: firstImageType)
         {
             snDelegate?.didPasteImageDataFromPasteboard(self, imageData: itemData)
         }

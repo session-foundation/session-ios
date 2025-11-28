@@ -409,7 +409,7 @@ class DeveloperSettingsGroupsViewModel: SessionTableViewModel, NavigatableStateH
         features.forEach { feature in
             guard dependencies.hasSet(feature: feature) else { return }
             
-            dependencies.set(feature: feature, to: nil)
+            dependencies.reset(feature: feature)
         }
     }
 }

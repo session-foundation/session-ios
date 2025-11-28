@@ -7,6 +7,12 @@ import SessionUIKit
 
 public extension SessionCell {
     struct TextInfo: Hashable, Equatable {
+        public typealias TrailingImage = (
+            cacheKey: UIView.CachedImageKey,
+            accessibilityLabel: String?,
+            viewGenerator: (() -> UIView)
+        )
+        
         public enum Interaction: Hashable, Equatable {
             case none
             case copy
@@ -18,6 +24,7 @@ public extension SessionCell {
         let editingPlaceholder: String?
         let interaction: Interaction
         let accessibility: Accessibility?
+        let trailingImage: TrailingImage?
         let extraViewGenerator: (() -> UIView)?
         
         private let fontStyle: FontStyle
@@ -30,6 +37,7 @@ public extension SessionCell {
             editingPlaceholder: String? = nil,
             interaction: Interaction = .none,
             accessibility: Accessibility? = nil,
+            trailingImage: TrailingImage? = nil,
             extraViewGenerator: (() -> UIView)? = nil
         ) {
             self.text = text
@@ -38,6 +46,7 @@ public extension SessionCell {
             self.editingPlaceholder = editingPlaceholder
             self.interaction = interaction
             self.accessibility = accessibility
+            self.trailingImage = trailingImage
             self.extraViewGenerator = extraViewGenerator
         }
         
@@ -50,6 +59,8 @@ public extension SessionCell {
             interaction.hash(into: &hasher)
             editingPlaceholder.hash(into: &hasher)
             accessibility.hash(into: &hasher)
+            trailingImage?.cacheKey.hash(into: &hasher)
+            trailingImage?.accessibilityLabel.hash(into: &hasher)
         }
         
         public static func == (lhs: TextInfo, rhs: TextInfo) -> Bool {
@@ -59,7 +70,9 @@ public extension SessionCell {
                 lhs.textAlignment == rhs.textAlignment &&
                 lhs.interaction == rhs.interaction &&
                 lhs.editingPlaceholder == rhs.editingPlaceholder &&
-                lhs.accessibility == rhs.accessibility
+                lhs.accessibility == rhs.accessibility &&
+                lhs.trailingImage?.cacheKey == rhs.trailingImage?.cacheKey &&
+                lhs.trailingImage?.accessibilityLabel == rhs.trailingImage?.accessibilityLabel
             )
         }
     }
@@ -110,16 +123,14 @@ public extension SessionCell {
         var font: UIFont {
             switch self {
                 case .title: return .boldSystemFont(ofSize: 16)
-                case .titleLarge: return .systemFont(ofSize: Values.veryLargeFontSize, weight: .medium)
+                case .titleLarge: return Fonts.Headings.H4
                 case .titleRegular: return .systemFont(ofSize: 16)
                     
                 case .subtitle: return .systemFont(ofSize: 14)
                 case .subtitleBold: return .boldSystemFont(ofSize: 14)
                 
                 case .monoSmall: return Fonts.spaceMono(ofSize: Values.smallFontSize)
-                case .monoLarge: return Fonts.spaceMono(
-                    ofSize: (isIPhone5OrSmaller ? Values.mediumFontSize : Values.largeFontSize)
-                )
+                case .monoLarge: return Fonts.Display.extraLarge
             }
         }
     }

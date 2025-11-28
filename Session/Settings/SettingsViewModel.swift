@@ -35,7 +35,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
-        self.internalState = State.initialState(userSessionId: dependencies[cache: .general].sessionId)
+        self.internalState = State.initialState(
+            userSessionId: dependencies[cache: .general].sessionId,
+            isSessionPro: dependencies[cache: .libSession].isSessionPro
+        )
         
         bindState()
     }
@@ -44,6 +47,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     
     enum NavItem: Equatable {
         case close
+        case edit
         case qrCode
     }
     
@@ -51,8 +55,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case profileInfo
         case sessionId
         
-        case donationAndCommunity
-        case network
+        case sessionProAndCommunity
+        case donationAndNetwork
         case settings
         case helpAndData
         
@@ -68,7 +72,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         var style: SessionTableSectionStyle {
             switch self {
                 case .sessionId: return .titleSeparator
-                case .donationAndCommunity, .network, .settings, .helpAndData: return .padding
+                case .sessionProAndCommunity, .donationAndNetwork, .settings, .helpAndData: return .padding
                 default: return .none
             }
         }
@@ -81,9 +85,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         case sessionId
         case idActions
         
-        case donate
+        case sessionPro
         case inviteAFriend
         
+        case donate
         case path
         case sessionNetwork
         
@@ -114,7 +119,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = [
         SessionNavItem(
             id: .qrCode,
-            image: UIImage(named: "QRCode")?
+            image: Lucide.image(icon: .qrCode, size: 24)?
                 .withRenderingMode(.alwaysTemplate),
             style: .plain,
             accessibilityIdentifier: "View QR code",
@@ -125,6 +130,24 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 viewController.setNavBarTitle("qrCode".localized())
                 self?.transitionToScreen(viewController)
             }
+        ),
+        SessionNavItem(
+            id: .edit,
+            image: Lucide.image(icon: .pencil, size: 22)?
+                .withRenderingMode(.alwaysTemplate),
+            style: .plain,
+            accessibilityIdentifier: "Edit Profile Name",
+            action: { [weak self] in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    self.transitionToScreen(
+                        ConfirmationModal(
+                            info: self.updateDisplayName(current: self.internalState.profile.displayName())
+                        ),
+                        transitionType: .present
+                    )
+                }
+            }
         )
     ]
     
@@ -133,6 +156,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public struct State: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
+        let isSessionPro: Bool
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let developerModeEnabled: Bool
@@ -147,15 +171,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 .profile(userSessionId.hexString),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
+                .feature(.mockCurrentUserSessionPro),
                 .setting(.developerModeEnabled),
                 .setting(.hideRecoveryPasswordPermanently)
+                // TODO: [PRO] Need to observe changes to the users pro status
             ]
         }
         
-        static func initialState(userSessionId: SessionId) -> State {
+        static func initialState(userSessionId: SessionId, isSessionPro: Bool) -> State {
             return State(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
+                isSessionPro: isSessionPro,
                 serviceNetwork: .mainnet,
                 forceOffline: false,
                 developerModeEnabled: false,
@@ -189,6 +216,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     ) async -> State {
         /// Store mutable copies of the data to update
         var profile: Profile = previousState.profile
+        var isSessionPro: Bool = previousState.isSessionPro
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
         var developerModeEnabled: Bool = previousState.developerModeEnabled
@@ -249,12 +277,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 
                 forceOffline = updatedValue
             }
+            else if event.key == .feature(.mockCurrentUserSessionPro) {
+                guard let updatedValue: Bool = event.value as? Bool else { return }
+                
+                isSessionPro = updatedValue
+            }
         }
         
         /// Generate the new state
         return State(
             userSessionId: previousState.userSessionId,
             profile: profile,
+            isSessionPro: isSessionPro,
             serviceNetwork: serviceNetwork,
             forceOffline: forceOffline,
             developerModeEnabled: developerModeEnabled,
@@ -276,7 +310,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             switch (state.serviceNetwork, state.forceOffline) {
                                 case (.testnet, false): return .letter("T", false)     // stringlint:ignore
                                 case (.testnet, true): return .letter("T", true)       // stringlint:ignore
-                                default: return .none
+                                default: return (state.profile.displayPictureUrl?.isEmpty == false) ? .pencil : .rightPlus
                             }
                         }()
                     ),
@@ -302,18 +336,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     title: SessionCell.TextInfo(
                         state.profile.displayName(),
                         font: .titleLarge,
-                        alignment: .center
-                    ),
-                    trailingAccessory: .icon(
-                        .pencil,
-                        size: .small,
-                        customTint: .textSecondary
+                        alignment: .center,
+                        trailingImage: {
+                            guard state.isSessionPro else { return nil }
+                            
+                            return SessionProBadge.trailingImage(
+                                size: .medium,
+                                themeBackgroundColor: .primary
+                            )
+                        }()
                     ),
                     styling: SessionCell.StyleInfo(
                         alignment: .centerHugging,
                         customPadding: SessionCell.Padding(
                             top: Values.smallSpacing,
-                            leading: IconSize.small.size,
                             bottom: Values.mediumSpacing,
                             interItem: 0
                         ),
@@ -384,78 +420,156 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 )
             ]
         )
-        let donationAndCommunity: SectionModel = SectionModel(
-            model: .donationAndCommunity,
-            elements: [
-                SessionCell.Info(
-                    id: .donate,
-                    leadingAccessory: .icon(
-                        .heart,
-                        customTint: .sessionButton_border
-                    ),
-                    title: "donate".localized(),
-                    styling: SessionCell.StyleInfo(
-                        tintColor: .sessionButton_border
-                    ),
-                    onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
-                ),
-                SessionCell.Info(
-                    id: .inviteAFriend,
-                    leadingAccessory: .icon(.userRoundPlus),
-                    title: "sessionInviteAFriend".localized(),
-                    onTap: { [weak viewModel] in
-                        let invitation: String = "accountIdShare"
-                            .put(key: "app_name", value: Constants.app_name)
-                            .put(key: "account_id", value: state.profile.id)
-                            .put(key: "session_download_url", value: Constants.session_download_url)
-                            .localized()
-                        
-                        viewModel?.transitionToScreen(
-                            UIActivityViewController(
-                                activityItems: [ invitation ],
-                                applicationActivities: nil
-                            ),
-                            transitionType: .present
-                        )
-                    }
-                )
-            ]
-        )
-        let network: SectionModel = SectionModel(
-            model: .network,
-            elements: [
-                SessionCell.Info(
-                    id: .path,
-                    leadingAccessory: .custom(
-                        info: PathStatusViewAccessory.Info()
-                    ),
-                    title: "onionRoutingPath".localized(),
-                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-                        viewModel?.transitionToScreen(PathVC(using: dependencies))
-                    }
-                ),
-                SessionCell.Info(
-                    id: .sessionNetwork,
-                    leadingAccessory: .icon(
-                        UIImage(named: "icon_session_network")?
-                            .withRenderingMode(.alwaysTemplate)
-                    ),
-                    title: Constants.network_name,
-                    trailingAccessory: .custom(
-                        info: NewTagView.Info()
-                    ),
-                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-                        let viewController: SessionHostingViewController = SessionHostingViewController(
-                            rootView: SessionNetworkScreen(
-                                viewModel: SessionNetworkScreenContent.ViewModel(dependencies: dependencies)
+        
+        let sessionProAndCommunity: SectionModel
+        let donationAndNetwork: SectionModel
+        
+        // FIXME: [PRO] Should be able to remove this once pro is properly enabled
+        if viewModel.dependencies[feature: .sessionProEnabled] {
+            sessionProAndCommunity = SectionModel(
+                model: .sessionProAndCommunity,
+                elements: [
+                    SessionCell.Info(
+                        id: .sessionPro,
+                        leadingAccessory: .proBadge(size: .small),
+                        title: Constants.app_pro,
+                        onTap: { [weak viewModel] in
+                            // TODO: Implement
+                        }
+                    ),//
+                    SessionCell.Info(
+                        id: .inviteAFriend,
+                        leadingAccessory: .icon(.userRoundPlus),
+                        title: "sessionInviteAFriend".localized(),
+                        onTap: { [weak viewModel] in
+                            let invitation: String = "accountIdShare"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .put(key: "account_id", value: state.profile.id)
+                                .put(key: "session_download_url", value: Constants.session_download_url)
+                                .localized()
+                            
+                            viewModel?.transitionToScreen(
+                                UIActivityViewController(
+                                    activityItems: [ invitation ],
+                                    applicationActivities: nil
+                                ),
+                                transitionType: .present
                             )
-                        )
-                        viewController.setNavBarTitle(Constants.network_name)
-                        viewModel?.transitionToScreen(viewController)
-                    }
-                )
-            ]
-        )
+                        }
+                    )
+                ]
+            )
+            donationAndNetwork = SectionModel(
+                model: .donationAndNetwork,
+                elements: [
+                    SessionCell.Info(
+                        id: .donate,
+                        leadingAccessory: .icon(
+                            .heart,
+                            customTint: .sessionButton_border
+                        ),
+                        title: "donate".localized(),
+                        onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
+                    ),
+                    SessionCell.Info(
+                        id: .path,
+                        leadingAccessory: .custom(
+                            info: PathStatusViewAccessory.Info()
+                        ),
+                        title: "onionRoutingPath".localized(),
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.transitionToScreen(PathVC(using: dependencies))
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .sessionNetwork,
+                        leadingAccessory: .icon(
+                            UIImage(named: "icon_session_network")?
+                                .withRenderingMode(.alwaysTemplate)
+                        ),
+                        title: Constants.network_name,
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            let viewController: SessionHostingViewController = SessionHostingViewController(
+                                rootView: SessionNetworkScreen(
+                                    viewModel: SessionNetworkScreenContent.ViewModel(dependencies: dependencies)
+                                )
+                            )
+                            viewController.setNavBarTitle(Constants.network_name)
+                            viewModel?.transitionToScreen(viewController)
+                        }
+                    )
+                ]
+            )
+        }
+        else {
+            sessionProAndCommunity = SectionModel(
+                model: .sessionProAndCommunity,
+                elements: [
+                    SessionCell.Info(
+                        id: .donate,
+                        leadingAccessory: .icon(
+                            .heart,
+                            customTint: .sessionButton_border
+                        ),
+                        title: "donate".localized(),
+                        onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
+                    ),
+                    SessionCell.Info(
+                        id: .inviteAFriend,
+                        leadingAccessory: .icon(.userRoundPlus),
+                        title: "sessionInviteAFriend".localized(),
+                        onTap: { [weak viewModel] in
+                            let invitation: String = "accountIdShare"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .put(key: "account_id", value: state.profile.id)
+                                .put(key: "session_download_url", value: Constants.session_download_url)
+                                .localized()
+                            
+                            viewModel?.transitionToScreen(
+                                UIActivityViewController(
+                                    activityItems: [ invitation ],
+                                    applicationActivities: nil
+                                ),
+                                transitionType: .present
+                            )
+                        }
+                    )
+                ]
+            )
+            donationAndNetwork = SectionModel(
+                model: .donationAndNetwork,
+                elements: [
+                    SessionCell.Info(
+                        id: .path,
+                        leadingAccessory: .custom(
+                            info: PathStatusViewAccessory.Info()
+                        ),
+                        title: "onionRoutingPath".localized(),
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.transitionToScreen(PathVC(using: dependencies))
+                        }
+                    ),
+                    SessionCell.Info(
+                        id: .sessionNetwork,
+                        leadingAccessory: .icon(
+                            UIImage(named: "icon_session_network")?
+                                .withRenderingMode(.alwaysTemplate)
+                        ),
+                        title: Constants.network_name,
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            let viewController: SessionHostingViewController = SessionHostingViewController(
+                                rootView: SessionNetworkScreen(
+                                    viewModel: SessionNetworkScreenContent.ViewModel(dependencies: dependencies)
+                                )
+                            )
+                            viewController.setNavBarTitle(Constants.network_name)
+                            viewModel?.transitionToScreen(viewController)
+                        }
+                    )
+                ]
+            )
+        }
+        
         let settings: SectionModel = SectionModel(
             model: .settings,
             elements: [
@@ -596,7 +710,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             elements: helpAndDataElements
         )
         
-        return [profileInfo, sessionId, donationAndCommunity, network, settings, helpAndData]
+        return [profileInfo, sessionId, sessionProAndCommunity, donationAndNetwork, settings, helpAndData]
     }
     
     public lazy var footerView: AnyPublisher<UIView?, Never> = Just(VersionFooterView(
@@ -644,6 +758,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 self?.updatedName != current
             },
             cancelStyle: .alert_text,
+            hasCloseButton: true,
             dismissOnConfirm: false,
             onConfirm: { [weak self] modal in
                 guard
@@ -700,7 +815,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             at: .leading,
                             font: .systemFont(ofSize: Values.smallFontSize),
                             textColor: .textSecondary,
-                            proBadgeSize: .small
+                            proBadgeSize: .small,
+                            using: dependencies
                         ):
                     "proAnimatedDisplayPicturesNonProModalDescription"
                         .localized()
@@ -708,7 +824,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             at: .trailing,
                             font: .systemFont(ofSize: Values.smallFontSize),
                             textColor: .textSecondary,
-                            proBadgeSize: .small
+                            proBadgeSize: .small,
+                            using: dependencies
                         )
             }(),
             accessibility: Accessibility(
@@ -767,7 +884,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         switch modal.info.body {
                             case .image(.some(let source), _, _, let style, _, _, _, _, _):
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
-                                
                                 guard (
                                     !isAnimatedImage ||
                                     dependencies[cache: .libSession].isSessionPro ||
@@ -857,7 +973,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return .currentUserUpdateTo(
             url: result.downloadUrl,
             key: result.encryptionKey,
-            sessionProProof: dependencies.mutate(cache: .libSession) { $0.getProProof() },
+            sessionProProof: dependencies.mutate(cache: .libSession) { $0.getCurrentUserProProof() },
             isReupload: false
         )
     }
@@ -958,33 +1074,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         self.transitionToScreen(shareVC, transitionType: .present)
     }
     
-    private func openDonationsUrl() {
-        guard let url: URL = URL(string: Constants.session_donations_url) else { return }
-        
-        let modal: ConfirmationModal = ConfirmationModal(
-            info: ConfirmationModal.Info(
-                title: "urlOpen".localized(),
-                body: .attributedText(
-                    "urlOpenDescription"
-                        .put(key: "url", value: url.absoluteString)
-                        .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
-                ),
-                confirmTitle: "open".localized(),
-                confirmStyle: .danger,
-                cancelTitle: "urlCopy".localized(),
-                cancelStyle: .alert_text,
-                hasCloseButton: true,
-                onConfirm: { modal in
-                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                    modal.dismiss(animated: true)
-                },
-                onCancel: { modal in
-                    UIPasteboard.general.string = url.absoluteString
-                    
-                    modal.dismiss(animated: true)
-                }
-            )
-        )
+    @MainActor private func openDonationsUrl() {
+        guard let modal: ConfirmationModal = dependencies[singleton: .donationsManager].openDonationsUrlModal() else { return }
         
         self.transitionToScreen(modal, transitionType: .present)
         

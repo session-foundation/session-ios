@@ -53,11 +53,13 @@ if [[ "$MODE" == "test" ]]; then
     echo "----------------------------------------------------"
     echo "Checking for test failures in xcresult bundle..."
 
-    xcresultparser --output-format cli --no-test-result --coverage ./build/artifacts/testResults.xcresult
+    xcresultparser --output-format cli --no-test-result --coverage-report-format targets --coverage ./build/artifacts/testResults.xcresult
     parser_output=$(xcresultparser --output-format cli --no-test-result ./build/artifacts/testResults.xcresult)
 
-    build_errors_count=$(echo "$parser_output" | grep "Number of errors" | awk '{print $NF}' | grep -o '[0-9]*' || echo "0")
-    failed_tests_count=$(echo "$parser_output" | grep "Number of failed tests" | awk '{print $NF}' | grep -o '[0-9]*' || echo "0")
+    # Strip ANSI color codes before parsing
+    clean_parser_output=$(echo "$parser_output" | sed 's/\[[0-9;]*m//g')
+    build_errors_count=$(echo "$clean_parser_output" | grep "Number of errors" | awk '{print $NF}' | grep -o '[0-9]*' || echo "0")
+    failed_tests_count=$(echo "$clean_parser_output" | grep "Number of failed tests" | awk '{print $NF}' | grep -o '[0-9]*' || echo "0")
 
     if [ "${build_errors_count:-0}" -gt 0 ] || [ "${failed_tests_count:-0}" -gt 0 ]; then
         echo ""

@@ -94,7 +94,7 @@ public class SessionCell: UITableViewCell {
         return result
     }()
     
-    fileprivate let titleLabel: SRCopyableLabel = {
+    public let titleLabel: SRCopyableLabel = {
         let result: SRCopyableLabel = SRCopyableLabel()
         result.translatesAutoresizingMaskIntoConstraints = false
         result.isUserInteractionEnabled = false
@@ -318,11 +318,14 @@ public class SessionCell: UITableViewCell {
         titleLabel.text = ""
         titleLabel.themeTextColor = .textPrimary
         titleLabel.alpha = 1
+        titleLabel.preferredMaxLayoutWidth = 0
         subtitleLabel.isUserInteractionEnabled = false
         subtitleLabel.attributedText = nil
         subtitleLabel.themeTextColor = .textPrimary
+        subtitleLabel.preferredMaxLayoutWidth = 0
         expandableDescriptionLabel.themeAttributedText = nil
         expandableDescriptionLabel.themeTextColor = .textPrimary
+        expandableDescriptionLabel.preferredMaxLayoutWidth = 0
         trailingAccessoryView.prepareForReuse()
         trailingAccessoryView.alpha = 1
         trailingAccessoryFillConstraint.isActive = false
@@ -521,6 +524,7 @@ public class SessionCell: UITableViewCell {
         }
         
         // Content
+        let oldTitle: String? = titleLabel.text
         let contentStackViewHorizontalInset: CGFloat = (
             (backgroundLeftConstraint.constant + (-backgroundRightConstraint.constant)) +
             (contentStackViewLeadingConstraint.constant + (-contentStackViewTrailingConstraint.constant))
@@ -542,6 +546,11 @@ public class SessionCell: UITableViewCell {
         titleLabel.accessibilityIdentifier = info.title?.accessibility?.identifier
         titleLabel.accessibilityLabel = info.title?.accessibility?.label
         titleLabel.isHidden = (info.title == nil)
+        titleLabel.attachTrailing(
+            cacheKey: info.title?.trailingImage?.cacheKey,
+            accessibilityLabel: info.title?.trailingImage?.accessibilityLabel,
+            viewGenerator: info.title?.trailingImage?.viewGenerator
+        )
         subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)
         subtitleLabel.font = info.subtitle?.font
         subtitleLabel.themeTextColor = info.styling.subtitleTintColor
@@ -570,6 +579,12 @@ public class SessionCell: UITableViewCell {
             maxContentWidth: (tableSize.width - contentStackViewHorizontalInset),
             using: dependencies
         )
+        
+        /// Need to force a re-layout if the title changes as it might not size the content correctly if we don't
+        if titleLabel.text != oldTitle {
+            titleLabel.setNeedsLayout()
+            titleLabel.layoutIfNeeded()
+        }
     }
     
     // MARK: - Interaction

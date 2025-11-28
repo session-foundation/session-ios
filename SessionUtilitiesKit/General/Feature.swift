@@ -29,6 +29,14 @@ public extension FeatureStorage {
         }()
     )
     
+    static let customDateTime: FeatureConfig<TimeInterval> = Dependencies.create(
+        identifier: "customDateTime"
+    )
+    
+    static let customFirstInstallDateTime: FeatureConfig<TimeInterval> = Dependencies.create(
+        identifier: "customFirstInstallDateTime"
+    )
+    
     static let forceOffline: FeatureConfig<Bool> = Dependencies.create(
         identifier: "forceOffline"
     )
@@ -94,8 +102,20 @@ public extension FeatureStorage {
         identifier: "mockCurrentUserSessionPro"
     )
     
-    static let treatAllIncomingMessagesAsProMessages: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "treatAllIncomingMessagesAsProMessages"
+    static let allUsersSessionPro: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "allUsersSessionPro"
+    )
+    
+    static let messageFeatureProBadge: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "messageFeatureProBadge"
+    )
+    
+    static let messageFeatureLongMessage: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "messageFeatureLongMessage"
+    )
+    
+    static let messageFeatureAnimatedAvatar: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "messageFeatureAnimatedAvatar"
     )
     
     static let shortenFileTTL: FeatureConfig<Bool> = Dependencies.create(
@@ -243,8 +263,12 @@ public struct Feature<T: FeatureOption>: FeatureType {
         return selectedOption
     }
     
-    internal func setValue(to updatedValue: T?, using dependencies: Dependencies) {
-        dependencies[defaults: .appGroup].set(updatedValue?.rawValue, forKey: identifier)
+    internal func setValue(to updatedValue: T, using dependencies: Dependencies) {
+        dependencies[defaults: .appGroup].set(updatedValue.rawValue, forKey: identifier)
+    }
+    
+    internal func removeValue(using dependencies: Dependencies) {
+        dependencies[defaults: .appGroup].removeObject(forKey: identifier)
     }
 }
 
@@ -309,6 +333,31 @@ extension Int: FeatureOption {
     // MARK: - Feature Option
     
     public static var defaultOption: Int = 0
+    
+    public var title: String {
+        return "\(self)"
+    }
+    
+    public var subtitle: String? {
+        return "\(self)"
+    }
+}
+
+// MARK: - TimeInterval FeatureOption
+
+extension TimeInterval: @retroactive RawRepresentable {}
+extension TimeInterval: FeatureOption {
+    // MARK: - Initialization
+    
+    public var rawValue: TimeInterval { return self }
+    
+    public init?(rawValue: TimeInterval) {
+        self = rawValue
+    }
+    
+    // MARK: - Feature Option
+    
+    public static var defaultOption: TimeInterval = 0
     
     public var title: String {
         return "\(self)"

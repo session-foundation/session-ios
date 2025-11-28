@@ -24,16 +24,6 @@ if [ "${ACTION}" = "install" ] || [ "${CONFIGURATION}" = "Release" ]; then
   fi
 fi
 
-# Robustly removes a directory, first clearing any immutable flags (work around Xcode's indexer file locking)
-remove_locked_dir() {
-  local dir_to_remove="$1"
-  if [ -d "${dir_to_remove}" ]; then
-    echo "- Unlocking and removing ${dir_to_remove}"
-    chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
-    rm -rf "${dir_to_remove}"
-  fi
-}
-
 sync_headers() {
     local source_dir="$1"
     echo "- Syncing headers from ${source_dir}"
@@ -53,9 +43,29 @@ sync_headers() {
     
     for dest in "${destinations[@]}"; do
         if [ -n "$dest" ]; then
-            remove_locked_dir "$dest"
-            mkdir -p "$dest"
-            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$dest/"
+            local unique_id=$(uuidgen)
+            local temp_dest="${BUILD_DIR}/headers_staging_$(unique_id)"
+            rm -rf "$temp_dest"
+            mkdir -p "$temp_dest"
+            
+            rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$temp_dest/"
+            
+            # Atomically move the old directory out of the way
+            local old_dest="${BUILD_DIR}/headers_old_$(unique_id)"
+            if [ -d "$dest" ]; then
+                mv "$dest" "$old_dest"
+            fi
+            
+            # Atomically move the new, correct directory into place
+            mv "$temp_dest" "$dest"
+            
+            # Clean up the old directory
+            if [ -d "$old_dest" ]; then
+                # Clear any immutable flags (work around Xcode's indexer file locking)
+                chflags -R nouchg "${dir_to_remove}" &>/dev/null || true
+                rm -rf "$old_dest"
+            fi
+            
             echo "  Synced to: $dest"
         fi
     done
@@ -75,9 +85,17 @@ fi
 
 if [ "${COMPILE_LIB_SESSION}" != "YES" ]; then
   echo "Using pre-packaged SessionUtil"
-  sync_headers "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/"
   
-  # Create the placeholder in the FINAL products directory to satisfy dependency.
+    if [ "$CI" = "true" ] || [ "$DRONE" = "true" ]; then
+    # In CI, Xcode's SPM integration is reliable. Skip manual header sync
+    # to avoid the 'redefinition of module' error.
+    echo "- CI environment detected, skipping manual header sync to rely on SPM"
+  else
+    echo "- Local build detected, syncing headers to assist Xcode indexer"
+    sync_headers "${PRE_BUILT_FRAMEWORK_DIR}/${FRAMEWORK_DIR}/${TARGET_ARCH_DIR}/Headers/"
+  fi
+  
+  # Create the placeholder in the FINAL products directory to satisfy dependency
   touch "${BUILT_PRODUCTS_DIR}/libsession-util.a"
   
   echo "- Revert to SPM complete."

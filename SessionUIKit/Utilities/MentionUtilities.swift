@@ -4,6 +4,9 @@ import Foundation
 import UIKit
 
 public enum MentionUtilities {
+    private static let currentUserCacheKey: String = "Mention.CurrentUser" // stringlint:ignore
+    private static let pubkeyRegex: NSRegularExpression = try! NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
+    
     public enum MentionLocation {
         case incomingMessage
         case outgoingMessage
@@ -18,15 +21,24 @@ public enum MentionUtilities {
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String, Bool) -> String?
     ) -> (String, [(range: NSRange, profileId: String, isCurrentUser: Bool)]) {
-        guard
-            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
-        else { return (string, []) }
+        /// In `Localization` we manually insert RTL isolate markers to ensure mixked RTL/LTR strings
+        var workingString: String = string
+        let hasRLIPrefix: Bool = workingString.hasPrefix("\u{2067}")
+        let hasPDISuffix: Bool = workingString.hasSuffix("\u{2069}")
+            
+        if hasRLIPrefix {
+            workingString = String(workingString.dropFirst())
+        }
         
-        var string = string
+        if hasPDISuffix {
+            workingString = String(workingString.dropLast())
+        }
+
+        var string: String = workingString
         var lastMatchEnd: Int = 0
         var mentions: [(range: NSRange, profileId: String, isCurrentUser: Bool)] = []
         
-        while let match: NSTextCheckingResult = regex.firstMatch(
+        while let match: NSTextCheckingResult = pubkeyRegex.firstMatch(
             in: string,
             options: .withoutAnchoringBounds,
             range: NSRange(location: lastMatchEnd, length: string.utf16.count - lastMatchEnd)
@@ -58,7 +70,13 @@ public enum MentionUtilities {
             ))
         }
         
-        return (string, mentions)
+        /// Need to add the RTL isolate markers back if we had them
+        let finalString: String = (string.containsRTL ?
+            "\(LocalizationHelper.forceRTLLeading)\(string)\(LocalizationHelper.forceRTLTrailing)" :
+            string
+        )
+        
+        return (finalString, mentions)
     }
     
     public static func highlightMentionsNoAttributes(
@@ -66,17 +84,13 @@ public enum MentionUtilities {
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String, Bool) -> String?
     ) -> String {
-        /// **Note:** We are returning the string here so the 'textColor' and 'primaryColor' values are irrelevant
-        return highlightMentions(
+        let (string, _) = getMentions(
             in: string,
             currentUserSessionIds: currentUserSessionIds,
-            location: .styleFree,
-            textColor: .black,
-            attributes: [:],
             displayNameRetriever: displayNameRetriever
         )
-        .string
-        .deformatted()
+        
+        return string
     }
 
     public static func highlightMentions(
@@ -94,47 +108,67 @@ public enum MentionUtilities {
         )
         
         let sizeDiff: CGFloat = (Values.smallFontSize / Values.mediumFontSize)
-        let result: ThemedAttributedString = ThemedAttributedString(string: string, attributes: attributes)
-        mentions.forEach { mention in
-            result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: Values.smallFontSize), range: mention.range)
-            
+        let result = ThemedAttributedString(string: string, attributes: attributes)
+        let mentionFont = UIFont.boldSystemFont(ofSize: Values.smallFontSize)
+        // Iterate in reverse so index ranges remain valid while replacing
+        for mention in mentions.sorted(by: { $0.range.location > $1.range.location }) {
             if mention.isCurrentUser && location == .incomingMessage {
-                // Note: The designs don't match with the dynamic sizing so these values need to be calculated
-                // to maintain a "rounded rect" effect rather than a "pill" effect
-                result.addAttribute(.currentUserMentionBackgroundCornerRadius, value: (8 * sizeDiff), range: mention.range)
-                result.addAttribute(.currentUserMentionBackgroundPadding, value: (3 * sizeDiff), range: mention.range)
-                result.addAttribute(.currentUserMentionBackgroundColor, value: ThemeValue.primary, range: mention.range)
+                // Build the rendered chip image
+                let image: UIImage = UIView.image(
+                    for: .themedKey(
+                        MentionUtilities.currentUserCacheKey,
+                        themeBackgroundColor: .primary
+                    ),
+                    generator: {
+                        HighlightMentionView(
+                            mentionText: (result.string as NSString).substring(with: mention.range),
+                            font: mentionFont,
+                            themeTextColor: .dynamicForInterfaceStyle(light: textColor, dark: .black),
+                            themeBackgroundColor: .primary,
+                            backgroundCornerRadius: (8 * sizeDiff),
+                            backgroundPadding: (3 * sizeDiff)
+                        )
+                    }
+                )
                 
-                // Only add the additional kern if the mention isn't at the end of the string (otherwise this
-                // would crash due to an index out of bounds exception)
-                if mention.range.upperBound < result.length {
-                    result.addAttribute(.kern, value: (3 * sizeDiff), range: NSRange(location: mention.range.upperBound, length: 1))
+                /// Set the `accessibilityLabel` to ensure it's still visible to accessibility inspectors
+                let attachment: NSTextAttachment = NSTextAttachment()
+                attachment.accessibilityLabel = (result.string as NSString).substring(with: mention.range)
+                
+                let offsetY: CGFloat = (mentionFont.capHeight - image.size.height) / 2
+                attachment.image = image
+                attachment.bounds = CGRect(
+                    x: 0,
+                    y: offsetY,
+                    width: image.size.width,
+                    height: image.size.height
+                )
+
+                let attachmentString = NSMutableAttributedString(attachment: attachment)
+
+                // Replace the mention text with the image attachment
+                result.replaceCharacters(in: mention.range, with: attachmentString)
+
+                let insertIndex = mention.range.location + attachmentString.length
+                if insertIndex < result.length {
+                    result.addAttribute(.kern, value: (3 * sizeDiff), range: NSRange(location: insertIndex, length: 1))
                 }
+                continue
             }
             
+            result.addAttribute(.font, value: mentionFont, range: mention.range)
+
             var targetColor: ThemeValue = textColor
-            
-            switch (location, mention.isCurrentUser) {
-                // 1 - Incoming messages where the mention is for the current user
-                case (.incomingMessage, true):
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                
-                // 2 - Incoming messages where the mention is for another user
-                case (.incomingMessage, false):
+            switch location {
+                case .incomingMessage:
                     targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .primary)
-                    
-                // 3 - Outgoing messages
-                case (.outgoingMessage, _):
+                case .outgoingMessage:
                     targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                
-                // 4 - Mentions in quotes
-                case (.outgoingQuote, _):
+                case .outgoingQuote:
                     targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                case (.incomingQuote, _):
+                case .incomingQuote:
                     targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .primary)
-                    
-                // 5 - Mentions in quote drafts
-                case (.quoteDraft, _), (.styleFree, _):
+                case .quoteDraft, .styleFree:
                     targetColor = .dynamicForInterfaceStyle(light: textColor, dark: textColor)
             }
             

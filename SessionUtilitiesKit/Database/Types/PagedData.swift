@@ -337,8 +337,8 @@ public extension PagedData.LoadedInfo {
                 /// If the `targetIndex` is over a page before the current content or more than a page after the current content
                 /// then we want to reload the entire content (to avoid loading an excessive amount of data), otherwise we should
                 /// load all messages between the current content and the `targetIndex` (plus padding)
-                let isCloseBefore = targetIndex >= (firstPageOffset - pageSize)
-                let isCloseAfter = targetIndex <= (lastIndex + pageSize)
+                let isCloseBefore: Bool = (targetIndex >= (firstPageOffset - pageSize) && targetIndex < firstPageOffset)
+                let isCloseAfter: Bool = (targetIndex > lastIndex && targetIndex <= (lastIndex + pageSize))
                 
                 if isCloseBefore {
                     newOffset = max(0, targetIndex - padding)

@@ -300,7 +300,15 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                                 font: .title,
                                 accessibility: Accessibility(
                                     identifier: "Contact"
-                                )
+                                ),
+                                trailingImage: {
+                                    guard (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: memberInfo.profile) }) else { return nil }
+                                    
+                                    return SessionProBadge.trailingImage(
+                                        size: .small,
+                                        themeBackgroundColor: .primary
+                                    )
+                                }()
                             ),
                             subtitle: (!isUpdatedGroup ? nil : SessionCell.TextInfo(
                                 memberInfo.value.statusDescription,

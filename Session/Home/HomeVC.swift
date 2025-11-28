@@ -324,7 +324,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             serviceNetwork: self.viewModel.state.serviceNetwork,
             forceOffline: self.viewModel.state.forceOffline
         )
-        setUpNavBarSessionHeading()
+        setUpNavBarSessionHeading(currentUserSessionProState: viewModel.dependencies[singleton: .sessionProState])
         
         // Banner stack view
         view.addSubview(bannersStackView)
@@ -451,6 +451,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             case .loaded:
                 loadingConversationsLabel.isHidden = true
                 emptyStateStackView.isHidden = true
+        }
+        
+        // If we should show the `showDonationsCTAModal` then do so
+        if state.showDonationsCTAModal {
+            viewModel.dependencies[singleton: .donationsManager].presentDonationsCTAModal(in: self)
         }
         
         // If we are still loading then don't try to load the table content (it'll be empty and we

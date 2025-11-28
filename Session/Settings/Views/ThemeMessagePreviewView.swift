@@ -18,7 +18,10 @@ final class ThemeMessagePreviewView: UIView {
             with: MessageViewModel(
                 variant: .standardIncoming,
                 body: "appearancePreview2".localized(),
-                quotedInfo: MessageViewModel.QuotedInfo(previewBody: "appearancePreview1".localized()),
+                quoteViewModel: QuoteViewModel(
+                    showYouAsAuthor: true,
+                    previewBody: "appearancePreview1".localized()
+                ),
                 cellType: .textOnlyMessage
             ),
             playbackInfo: nil,
