@@ -1273,11 +1273,12 @@ extension ConversationVC:
             guard
                 let visibleCell: VisibleMessageCell = cell as? VisibleMessageCell,
                 targetView?.bounds.contains(locationInTargetView) != true,
-                visibleCell.bodyTappableLabel?.containsLinks == true
+                let bodyLabel: LinkHighlightingLabel = visibleCell.bodyLabel,
+                bodyLabel.containsLinks,
+                let tappedUrlString: String = bodyLabel.urlString(at: cell.convert(cellLocation, to: bodyLabel))
             else { return false }
             
-            let tappableLabelPoint: CGPoint = cell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
-            visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+            openUrl(tappedUrlString)
             return true
         }
         
@@ -1442,15 +1443,19 @@ extension ConversationVC:
                 
                 let quotePoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.quoteView)
                 let linkPreviewPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.linkPreviewView?.previewView)
-                let tappableLabelPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
-                let containsLinks: Bool = (
-                    // If there is only a single link and it matches the LinkPreview then consider this _just_ a
-                    // LinkPreview
-                    visibleCell.bodyTappableLabel?.containsLinks == true && (
-                        (visibleCell.bodyTappableLabel?.links.count ?? 0) > 1 ||
-                        visibleCell.bodyTappableLabel?.links[cellViewModel.linkPreview?.url ?? ""] == nil
+                let tappableLabelPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.bodyLabel)
+                let containsLinks: Bool = {
+                    guard let bodyLabel: LinkHighlightingLabel = visibleCell.bodyLabel else { return false }
+                    
+                    return (
+                        // If there is only a single link and it matches the LinkPreview then consider this _just_ a
+                        // LinkPreview
+                        bodyLabel.containsLinks == true && (
+                            bodyLabel.links.count > 1 ||
+                            bodyLabel.links[cellViewModel.linkPreview?.url ?? ""] == nil
+                        )
                     )
-                )
+                }()
                 let quoteViewContainsTouch: Bool = (visibleCell.quoteView?.bounds.contains(quotePoint) == true)
                 let linkPreviewViewContainsTouch: Bool = (visibleCell.linkPreviewView?.previewView.bounds.contains(linkPreviewPoint) == true)
                 
@@ -1488,7 +1493,12 @@ extension ConversationVC:
                         }
                     
                     // If the message contained links then interact with them directly
-                    case (true, _, _, _, _): visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+                    case (true, _, _, _, _):
+                        guard let tappedUrlString: String = visibleCell.bodyLabel?.urlString(at: tappableLabelPoint) else {
+                            return
+                        }
+                        
+                        openUrl(tappedUrlString)
                         
                     default: break
                 }
@@ -2407,7 +2417,7 @@ extension ConversationVC:
 
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         switch cellViewModel.cellType {
-            case .typingIndicator, .dateHeader, .unreadMarker: break
+            case .typingIndicator, .dateHeader, .unreadMarker, .infoMessage, .call: break
             
             case .textOnlyMessage:
                 if cellViewModel.body == nil, let linkPreview: LinkPreview = cellViewModel.linkPreview {

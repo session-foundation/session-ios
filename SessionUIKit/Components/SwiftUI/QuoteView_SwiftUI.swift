@@ -49,7 +49,7 @@ public struct QuoteViewModel: Equatable, Hashable {
     
     var hasAttachment: Bool { quotedAttachmentInfo != nil }
     var author: String? {
-        guard !currentUserSessionIds.contains(authorId) else { return "you".localized() }
+        guard authorId.isEmpty || !currentUserSessionIds.contains(authorId) else { return "you".localized() }
         guard quotedText != nil else {
             // When we can't find the quoted message we want to hide the author label
             return displayNameRetriever(authorId, false)

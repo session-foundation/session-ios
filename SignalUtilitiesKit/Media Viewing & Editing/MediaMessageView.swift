@@ -95,7 +95,7 @@ public class MediaMessageView: UIView {
         view.themeTintColor = .textPrimary
         
         // Override the image to the correct one
-        if attachment.isValidVisualMedia, let source: ImageDataManager.DataSource = attachment.visualMediaSource {
+        if attachment.isValid, let source: ImageDataManager.DataSource = attachment.visualMediaSource {
             view.layer.minificationFilter = .trilinear
             view.layer.magnificationFilter = .trilinear
             view.loadImage(source)
@@ -158,7 +158,7 @@ public class MediaMessageView: UIView {
         }
         
         // Title for everything except these types
-        if !attachment.utType.conforms(to: .url) && !attachment.isValidVisualMedia {
+        if !attachment.utType.conforms(to: .url) && !attachment.isValid {
             if let fileName: String = attachment.sourceFilename?.trimmingCharacters(in: .whitespacesAndNewlines), fileName.count > 0 {
                 label.text = fileName
             }
@@ -196,7 +196,7 @@ public class MediaMessageView: UIView {
         }
         
         // Subtitle for everything else except these types
-        if !attachment.utType.conforms(to: .url) && !attachment.isValidVisualMedia {
+        if !attachment.utType.conforms(to: .url) && !attachment.isValid {
             // Format string for file size label in call interstitial view.
             // Embeds: {{file size as 'N mb' or 'N kb'}}.
             let fileSize: UInt = UInt(attachment.fileSize)
@@ -271,12 +271,12 @@ public class MediaMessageView: UIView {
         
         let maybeImageSize: CGFloat? = {
             if attachment.utType.isImage || attachment.utType.isAnimated {
-                guard attachment.isValidVisualMedia else { return nil }
+                guard attachment.isValid else { return nil }
                 
                 // If we don't have a valid image then use the 'generic' case
             }
             else if attachment.utType.isVideo {
-                guard attachment.isValidVisualMedia else { return nil }
+                guard attachment.isValid else { return nil }
                 
                 // If we don't have a valid image then use the 'generic' case
             }

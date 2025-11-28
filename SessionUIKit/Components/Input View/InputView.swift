@@ -627,7 +627,10 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         disabledInputLabel.accessibilityIdentifier = updatedInputState.messageAccessibility?.identifier
         disabledInputLabel.accessibilityLabel = updatedInputState.messageAccessibility?.label
         
-        disabledInputTapGestureRecognizer.isEnabled = (updatedInputState.inputs.isEmpty)
+        disabledInputTapGestureRecognizer.isEnabled = (
+            updatedInputState.inputs.isEmpty ||
+            updatedInputState.inputs == .disabled
+        )
         attachmentsButtonContainer.isHidden = (
             !updatedInputState.inputs.contains(.attachments) &&
             !updatedInputState.inputs.contains(.attachmentsDisabled)
@@ -641,7 +644,8 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
 
         UIView.animate(withDuration: 0.3) { [weak self] in
             self?.bottomStackView.arrangedSubviews.forEach { $0.alpha = updatedInputState.inputs.isEmpty ? 0 : 1 }
-            self?.disabledInputLabel.alpha = (updatedInputState.inputs.isEmpty ? Values.mediumOpacity : 0)
+            self?.disabledInputLabel.alpha = ((self?.disabledInputLabel.text ?? "").isEmpty ? 0 : Values.mediumOpacity)
+            self?.inputTextView.alpha = ((self?.disabledInputLabel.text ?? "").isEmpty ? 1 : 0)
             self?.attachmentsButton.alpha = (updatedInputState.inputs.contains(.attachmentsDisabled) ? 0.4 : 1)
             self?.voiceMessageButton.alpha = (updatedInputState.inputs.contains(.voiceMessagesDisabled) ? 0.4 : 1)
             
@@ -777,10 +781,6 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
 
     @MainActor public func handleMentionSelected(_ viewModel: MentionSelectionView.ViewModel, from view: MentionSelectionView) {
         delegate?.handleMentionSelected(viewModel, from: view)
-    }
-    
-    func tapableLabel(_ label: TappableLabel, didTapUrl url: String, atRange range: NSRange) {
-        // Do nothing
     }
     
     @objc private func disabledInputTapped() {
