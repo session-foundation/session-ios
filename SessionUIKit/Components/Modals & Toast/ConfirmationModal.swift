@@ -382,25 +382,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
-        closeButton.pin(.right, to: .right, of: contentView, withInset: -8)
-        
-        // Observe keyboard notifications
-        let keyboardNotifications: [Notification.Name] = [
-            UIResponder.keyboardWillShowNotification,
-            UIResponder.keyboardDidShowNotification,
-            UIResponder.keyboardWillChangeFrameNotification,
-            UIResponder.keyboardDidChangeFrameNotification,
-            UIResponder.keyboardWillHideNotification,
-            UIResponder.keyboardDidHideNotification
-        ]
-        keyboardNotifications.forEach { notification in
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(handleKeyboardNotification(_:)),
-                name: notification,
-                object: nil
-            )
-        }
+        closeButton.pin(.right, to: .right, of: contentView, withInset: -8)        
     }
     
     // MARK: - Content
@@ -732,65 +714,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc internal func textViewClearButtonTapped() {
         textView.text = ""
         textViewDidChange(textView)
-    }
-    
-    // MARK: - Keyboard Avoidance
-
-    @objc func handleKeyboardNotification(_ notification: Notification) {
-        guard
-            let userInfo: [AnyHashable: Any] = notification.userInfo,
-            var keyboardEndFrame: CGRect = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
-        else { return }
-        
-        // If reduce motion+crossfade transitions is on, in iOS 14 UIKit vends out a keyboard end frame
-        // of CGRect zero. This breaks the math below.
-        //
-        // If our keyboard end frame is CGRectZero, build a fake rect that's translated off the bottom edge.
-        if keyboardEndFrame == .zero {
-            keyboardEndFrame = CGRect(
-                x: UIScreen.main.bounds.minX,
-                y: UIScreen.main.bounds.maxY,
-                width: UIScreen.main.bounds.width,
-                height: 0
-            )
-        }
-        
-        // Please refer to https://github.com/mapbox/mapbox-navigation-ios/issues/1600
-        // and https://stackoverflow.com/a/25260930 to better understand what we are
-        // doing with the UIViewAnimationOptions
-        let curveValue: Int = ((userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? Int(UIView.AnimationOptions.curveEaseInOut.rawValue))
-        let options: UIView.AnimationOptions = UIView.AnimationOptions(rawValue: UInt(curveValue << 16))
-        let duration = ((userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval) ?? 0)
-        
-        guard duration > 0, !UIAccessibility.isReduceMotionEnabled else {
-            // UIKit by default (sometimes? never?) animates all changes in response to keyboard events.
-            // We want to suppress those animations if the view isn't visible,
-            // otherwise presentation animations don't work properly.
-            UIView.performWithoutAnimation {
-                self.updateKeyboardAvoidance(keyboardEndFrame: keyboardEndFrame)
-            }
-            return
-        }
-        
-        UIView.animate(
-            withDuration: duration,
-            delay: 0,
-            options: options,
-            animations: { [weak self] in
-                self?.updateKeyboardAvoidance(keyboardEndFrame: keyboardEndFrame)
-                self?.view.layoutIfNeeded()
-            },
-            completion: nil
-        )
-    }
-    
-    private func updateKeyboardAvoidance(keyboardEndFrame: CGRect) {
-        let contentCenteredBottom: CGFloat = (view.center.y + (contentView.bounds.height / 2))
-        contentTopConstraint?.isActive = (
-            ((keyboardEndFrame.minY - contentCenteredBottom) < 10) &&
-            keyboardEndFrame.minY < (view.bounds.height - 100)
-        )
-        contentCenterYConstraint?.isActive = (contentTopConstraint?.isActive != true)
     }
 }
 
