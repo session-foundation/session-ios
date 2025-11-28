@@ -379,7 +379,7 @@ final class VisibleMessageCell: MessageCell {
         )
         
         bubbleView.accessibilityIdentifier = "Message body"
-        bubbleView.accessibilityLabel = bodyLabel?.attributedText?.string
+        bubbleView.accessibilityLabel = bodyLabel?.accessibilityLabel
         bubbleView.isAccessibilityElement = true
         
         // Author label
@@ -1452,15 +1452,17 @@ final class VisibleMessageCell: MessageCell {
         searchText: String?,
         using dependencies: Dependencies
     ) -> (label: LinkHighlightingLabel, height: CGFloat) {
-        let result: LinkHighlightingLabel = LinkHighlightingLabel()
-        result.setContentHugging(.vertical, to: .required)
-        result.setCompressionResistance(.vertical, to: .required)
-        result.themeAttributedText = VisibleMessageCell.getBodyAttributedText(
+        let attributedText: ThemedAttributedString? = VisibleMessageCell.getBodyAttributedText(
             for: cellViewModel,
             textColor: textColor,
             searchText: searchText,
             using: dependencies
         )
+        let result: LinkHighlightingLabel = LinkHighlightingLabel()
+        result.setContentHugging(.vertical, to: .required)
+        result.setCompressionResistance(.vertical, to: .required)
+        result.themeAttributedText = attributedText
+        result.accessibilityLabel = attributedText?.constructedAccessibilityLabel
         result.themeBackgroundColor = .clear
         result.isOpaque = false
         result.isUserInteractionEnabled = true

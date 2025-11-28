@@ -17,6 +17,19 @@ public extension SessionProBadge.Size{
 }
 
 public extension SessionProBadge {
+    fileprivate static let accessibilityLabel: String = Constants.app_pro
+    
+    static func trailingImage(
+        size: SessionProBadge.Size,
+        themeBackgroundColor: ThemeValue
+    ) -> SessionCell.TextInfo.TrailingImage {
+        return (
+            .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
+            accessibilityLabel: SessionProBadge.accessibilityLabel,
+            { SessionProBadge(size: size) }
+        )
+    }
+    
     func toImage(using dependencies: Dependencies) -> UIImage {
         let themePrimaryColor: Theme.PrimaryColor = dependencies
             .mutate(cache: .libSession) { $0.get(.themePrimaryColor) }
@@ -52,9 +65,12 @@ public extension String {
                 base.append(
                     ThemedAttributedString(
                         imageAttachmentGenerator: {
-                            UIView.image(
-                                for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
-                                generator: { SessionProBadge(size: proBadgeSize) }
+                            (
+                                UIView.image(
+                                    for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
+                                    generator: { SessionProBadge(size: proBadgeSize) }
+                                ),
+                                SessionProBadge.accessibilityLabel
                             )
                         },
                         referenceFont: font
@@ -68,9 +84,12 @@ public extension String {
                 base.append(
                     ThemedAttributedString(
                         imageAttachmentGenerator: {
-                            UIView.image(
-                                for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
-                                generator: { SessionProBadge(size: proBadgeSize) }
+                            (
+                                UIView.image(
+                                    for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
+                                    generator: { SessionProBadge(size: proBadgeSize) }
+                                ),
+                                SessionProBadge.accessibilityLabel
                             )
                         },
                         referenceFont: font

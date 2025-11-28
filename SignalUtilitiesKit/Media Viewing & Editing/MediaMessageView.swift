@@ -158,7 +158,12 @@ public class MediaMessageView: UIView {
         }
         
         // Title for everything except these types
-        if !attachment.utType.conforms(to: .url) && !attachment.isValid {
+        if
+            !attachment.utType.conforms(to: .url) &&
+            !attachment.utType.isImage &&
+            !attachment.utType.isAnimated &&
+            !attachment.utType.isVideo
+        {
             if let fileName: String = attachment.sourceFilename?.trimmingCharacters(in: .whitespacesAndNewlines), fileName.count > 0 {
                 label.text = fileName
             }
@@ -196,7 +201,12 @@ public class MediaMessageView: UIView {
         }
         
         // Subtitle for everything else except these types
-        if !attachment.utType.conforms(to: .url) && !attachment.isValid {
+        if
+            !attachment.utType.conforms(to: .url) &&
+            !attachment.utType.isImage &&
+            !attachment.utType.isAnimated &&
+            !attachment.utType.isVideo
+        {
             // Format string for file size label in call interstitial view.
             // Embeds: {{file size as 'N mb' or 'N kb'}}.
             let fileSize: UInt = UInt(attachment.fileSize)

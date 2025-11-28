@@ -8,6 +8,9 @@ import NaturalLanguage
 // MARK: - LocalizationHelper
 
 final public class LocalizationHelper: CustomStringConvertible {
+    public static let forceRTLLeading: String = "\u{2067}"
+    public static let forceRTLTrailing: String = "\u{2069}"
+    
     private static let bundle: Bundle = {
         let bundleName = "SessionUIKit"
         
@@ -87,7 +90,7 @@ final public class LocalizationHelper: CustomStringConvertible {
         // Add RTL mark for strings containing RTL characters\ to try to ensure proper rendering when
         // starting/ending with English variables
         if localizedString.containsRTL {
-            localizedString = "\u{200F}" + localizedString + "\u{200F}"
+            return "\(LocalizationHelper.forceRTLLeading)\(localizedString)\(LocalizationHelper.forceRTLTrailing)"
         }
 
         return localizedString
@@ -153,7 +156,7 @@ public extension String {
     }
 }
 
-private extension String {
+public extension String {
     /// Determines if a string contains Right-to-Left (RTL) characters.
     ///
     /// Rather than using `NLLanguageRecognizer` to find the string's dominant language (and then that languages direction using
@@ -164,6 +167,9 @@ private extension String {
     /// thread it could result in lag
     var containsRTL: Bool {
         return unicodeScalars.contains { scalar in
+            // Exclude Zero Width No-Break Space / BOM
+            guard scalar.value != 0xFEFF else { return false }
+            
             switch scalar.value {
                 case 0x0590...0x05FF: return true   // Hebrew
                     
@@ -175,7 +181,7 @@ private extension String {
                     
                 // Presentation forms (used by all Arabic-script languages)
                 case 0xFB1D...0xFDFF,   // Hebrew + Arabic presentation forms
-                    0xFE70...0xFEFF:   // Arabic Presentation Forms-B
+                    0xFE70...0xFEFE:   // Arabic Presentation Forms-B
                     return true
                     
                 default: return false

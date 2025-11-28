@@ -312,12 +312,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             guard !threadViewModel.threadIsNoteToSelf else { return nil }
                             guard (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadId) }) else { return nil }
                             
-                            return (
-                                .themedKey(
-                                    SessionProBadge.Size.medium.cacheKey,
-                                    themeBackgroundColor: .primary
-                                ),
-                                { SessionProBadge(size: .medium) }
+                            return SessionProBadge.trailingImage(
+                                size: .medium,
+                                themeBackgroundColor: .primary
                             )
                         }()
                     ),

@@ -408,6 +408,12 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         // Set the content based on the provided info
         titleLabel.text = info.title
+        titleLabel.isAccessibilityElement = true
+        titleLabel.accessibilityIdentifier = "Modal heading"
+        titleLabel.accessibilityLabel = info.title
+        
+        explanationLabel.isAccessibilityElement = true
+        explanationLabel.accessibilityIdentifier = "Modal description"
         
         switch info.body {
             case .none:
@@ -416,17 +422,20 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             case .text(let text, let scrollMode):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.text = text
+                explanationLabel.accessibilityLabel = text
                 explanationLabel.scrollMode = scrollMode
                 explanationLabel.isHidden = false
                 
             case .attributedText(let attributedText, let scrollMode):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.themeAttributedText = attributedText
+                explanationLabel.accessibilityLabel = attributedText.constructedAccessibilityLabel
                 explanationLabel.scrollMode = scrollMode
                 explanationLabel.isHidden = false
                 
             case .input(let explanation, let inputInfo, let onTextChanged):
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = inputInfo.placeholder
@@ -449,6 +458,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 
             case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = firstInputInfo.placeholder
@@ -481,6 +491,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             case .radio(let explanation, let warning, let options):
                 mainStackView.spacing = 0
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 warningLabel.themeAttributedText = warning
@@ -554,6 +565,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             
             case .inputConfirmation(let explanation, let textToConfirm):
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textToConfirmLabel.themeAttributedText = textToConfirm
@@ -575,14 +587,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         cancelButton.setThemeTitleColor(.disabled, for: .disabled)
         cancelButton.isEnabled = info.cancelEnabled.isValid(with: info)
         closeButton.isHidden = !info.hasCloseButton
-        
-        titleLabel.isAccessibilityElement = true
-        titleLabel.accessibilityIdentifier = "Modal heading"
-        titleLabel.accessibilityLabel = titleLabel.text
-        
-        explanationLabel.isAccessibilityElement = true
-        explanationLabel.accessibilityIdentifier = "Modal description"
-        explanationLabel.accessibilityLabel = explanationLabel.text
     }
     
     // MARK: - Error Handling

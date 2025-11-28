@@ -340,12 +340,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         trailingImage: {
                             guard state.isSessionPro else { return nil }
                             
-                            return (
-                                .themedKey(
-                                    SessionProBadge.Size.medium.cacheKey,
-                                    themeBackgroundColor: .primary
-                                ),
-                                { SessionProBadge(size: .medium) }
+                            return SessionProBadge.trailingImage(
+                                size: .medium,
+                                themeBackgroundColor: .primary
                             )
                         }()
                     ),

@@ -4,7 +4,12 @@ import UIKit
 
 public extension UILabel {
     /// Appends a rendered snapshot of `view` as an inline image attachment.
-    func attachTrailing(cacheKey: CachedImageKey?, viewGenerator: (() -> UIView)?, spacing: String = " ") {
+    func attachTrailing(
+        cacheKey: CachedImageKey?,
+        accessibilityLabel: String? = nil,
+        viewGenerator: (() -> UIView)?,
+        spacing: String = " "
+    ) {
         guard let cacheKey, let viewGenerator else { return }
 
         let base = ThemedAttributedString()
@@ -16,7 +21,12 @@ public extension UILabel {
 
         base.append(NSAttributedString(string: spacing))
         base.append(ThemedAttributedString(
-            imageAttachmentGenerator: { UIView.image(for: cacheKey, generator: viewGenerator) },
+            imageAttachmentGenerator: {
+                (
+                    UIView.image(for: cacheKey, generator: viewGenerator),
+                    accessibilityLabel
+                )
+            },
             referenceFont: font
         ))
 

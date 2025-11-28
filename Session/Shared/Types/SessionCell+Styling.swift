@@ -7,6 +7,12 @@ import SessionUIKit
 
 public extension SessionCell {
     struct TextInfo: Hashable, Equatable {
+        public typealias TrailingImage = (
+            cacheKey: UIView.CachedImageKey,
+            accessibilityLabel: String?,
+            viewGenerator: (() -> UIView)
+        )
+        
         public enum Interaction: Hashable, Equatable {
             case none
             case copy
@@ -18,7 +24,7 @@ public extension SessionCell {
         let editingPlaceholder: String?
         let interaction: Interaction
         let accessibility: Accessibility?
-        let trailingImage: (cacheKey: UIView.CachedImageKey, viewGenerator: (() -> UIView))?
+        let trailingImage: TrailingImage?
         let extraViewGenerator: (() -> UIView)?
         
         private let fontStyle: FontStyle
@@ -31,7 +37,7 @@ public extension SessionCell {
             editingPlaceholder: String? = nil,
             interaction: Interaction = .none,
             accessibility: Accessibility? = nil,
-            trailingImage: (cacheKey: UIView.CachedImageKey, viewGenerator: (() -> UIView))? = nil,
+            trailingImage: TrailingImage? = nil,
             extraViewGenerator: (() -> UIView)? = nil
         ) {
             self.text = text
@@ -54,6 +60,7 @@ public extension SessionCell {
             editingPlaceholder.hash(into: &hasher)
             accessibility.hash(into: &hasher)
             trailingImage?.cacheKey.hash(into: &hasher)
+            trailingImage?.accessibilityLabel.hash(into: &hasher)
         }
         
         public static func == (lhs: TextInfo, rhs: TextInfo) -> Bool {
@@ -64,7 +71,8 @@ public extension SessionCell {
                 lhs.interaction == rhs.interaction &&
                 lhs.editingPlaceholder == rhs.editingPlaceholder &&
                 lhs.accessibility == rhs.accessibility &&
-                lhs.trailingImage?.cacheKey == rhs.trailingImage?.cacheKey
+                lhs.trailingImage?.cacheKey == rhs.trailingImage?.cacheKey &&
+                lhs.trailingImage?.accessibilityLabel == rhs.trailingImage?.accessibilityLabel
             )
         }
     }
