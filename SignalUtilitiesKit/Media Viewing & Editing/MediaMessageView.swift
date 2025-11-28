@@ -352,6 +352,7 @@ public class MediaMessageView: UIView {
         switch (title, subtitle) {
             case (.some(let title), .some(let subtitle)):
                 titleLabel.text = title
+                titleLabel.textAlignment = .center
                 titleLabel.isHidden = false
                 titleSeparator.isHidden = false
                 subtitleLabel.text = subtitle

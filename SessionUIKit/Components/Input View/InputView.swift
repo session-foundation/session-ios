@@ -488,15 +488,12 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
+            guard await !linkPreviewManager.allPreviewUrls(forMessageBodyText: text).isEmpty else { return }
             
             let areLinkPreviewsEnabled: Bool = await linkPreviewManager.areLinkPreviewsEnabled
             let hasSeenLinkPreviewSuggestion: Bool = await linkPreviewManager.hasSeenLinkPreviewSuggestion
             
-            if
-                await !linkPreviewManager.allPreviewUrls(forMessageBodyText: text).isEmpty &&
-                !areLinkPreviewsEnabled &&
-                !hasSeenLinkPreviewSuggestion
-            {
+            if !areLinkPreviewsEnabled && !hasSeenLinkPreviewSuggestion {
                 await MainActor.run { [weak self] in
                     self?.delegate?.showLinkPreviewSuggestionModal()
                 }
