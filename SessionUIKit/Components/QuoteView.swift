@@ -114,7 +114,7 @@ public final class QuoteView: UIView {
         }
         
         // Body label
-        let bodyLabel = TappableLabel()
+        let bodyLabel = LinkHighlightingLabel()
         bodyLabel.lineBreakMode = .byTruncatingTail
         bodyLabel.numberOfLines = 2
         bodyLabel.themeAttributedText = viewModel.attributedText

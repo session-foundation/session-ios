@@ -8,12 +8,7 @@ import UIKit
 // • The long press interaction that shows the context menu should still work.
 
 // See https://stackoverflow.com/questions/47983838/how-can-you-change-the-color-of-links-in-a-uilabel
-
-public protocol TappableLabelDelegate: AnyObject {
-    func tapableLabel(_ label: TappableLabel, didTapUrl url: String, atRange range: NSRange)
-}
-
-public class TappableLabel: UILabel {
+public class LinkHighlightingLabel: UILabel {
     public private(set) var links: [String: NSRange] = [:]
     private(set) var layoutManager = NSLayoutManager()
     public private(set) var textContainer = NSTextContainer(size: CGSize.zero)
@@ -22,8 +17,6 @@ public class TappableLabel: UILabel {
             textStorage.addLayoutManager(layoutManager)
         }
     }
-
-    public weak var delegate: TappableLabelDelegate?
 
     public override var attributedText: NSAttributedString? {
         didSet {
@@ -110,6 +103,17 @@ public class TappableLabel: UILabel {
     }
     
     // MARK: - Functions
+    
+    public func urlString(at point: CGPoint) -> String? {
+        textContainer.size = bounds.size
+        
+        let indexOfCharacter = layoutManager.glyphIndex(for: point, in: textContainer)
+        for (urlString, range) in links where NSLocationInRange(indexOfCharacter, range) {
+            return urlString
+        }
+        
+        return nil
+    }
 
     private func findLinksAndRange(attributeString: NSAttributedString) {
         links = [:]
@@ -122,23 +126,5 @@ public class TappableLabel: UILabel {
         }
         attributeString.enumerateAttribute(.link, in: NSRange(0..<attributeString.length), options: [.longestEffectiveRangeNotRequired], using: enumerationBlock)
         attributeString.enumerateAttribute(.attachment, in: NSRange(0..<attributeString.length), options: [.longestEffectiveRangeNotRequired], using: enumerationBlock)
-    }
-
-    public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let locationOfTouch = touches.first?.location(in: self) else {
-            return
-        }
-        
-        handleTouch(at: locationOfTouch)
-    }
-    
-    public func handleTouch(at point: CGPoint) {
-        textContainer.size = bounds.size
-        
-        let indexOfCharacter = layoutManager.glyphIndex(for: point, in: textContainer)
-        for (urlString, range) in links where NSLocationInRange(indexOfCharacter, range) {
-            delegate?.tapableLabel(self, didTapUrl: urlString, atRange: range)
-            return
-        }
     }
 }

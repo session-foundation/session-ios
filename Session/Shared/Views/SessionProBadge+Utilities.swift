@@ -16,6 +16,36 @@ public extension SessionProBadge.Size{
     }
 }
 
+public extension SessionProBadge {
+    fileprivate static let accessibilityLabel: String = Constants.app_pro
+    
+    static func trailingImage(
+        size: SessionProBadge.Size,
+        themeBackgroundColor: ThemeValue
+    ) -> SessionCell.TextInfo.TrailingImage {
+        return (
+            .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
+            accessibilityLabel: SessionProBadge.accessibilityLabel,
+            { SessionProBadge(size: size) }
+        )
+    }
+    
+    func toImage(using dependencies: Dependencies) -> UIImage {
+        let themePrimaryColor: Theme.PrimaryColor = dependencies
+            .mutate(cache: .libSession) { $0.get(.themePrimaryColor) }
+            .defaulting(to: .defaultPrimaryColor)
+        let cacheKey: String = "\(self.size.cacheKey).\(themePrimaryColor)" // stringlint:ignore
+        
+        if let cachedImage = dependencies[cache: .generalUI].get(for: cacheKey) {
+            return cachedImage
+        }
+        
+        let renderedImage = self.toImage(isOpaque: self.isOpaque, scale: UIScreen.main.scale)
+        dependencies.mutate(cache: .generalUI) { $0.cache(renderedImage, for: cacheKey) }
+        return renderedImage
+    }
+}
+
 public extension String {
     enum SessionProBadgePosition {
         case leading, trailing
@@ -35,9 +65,12 @@ public extension String {
                 base.append(
                     ThemedAttributedString(
                         imageAttachmentGenerator: {
-                            UIView.image(
-                                for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
-                                generator: { SessionProBadge(size: proBadgeSize) }
+                            (
+                                UIView.image(
+                                    for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
+                                    generator: { SessionProBadge(size: proBadgeSize) }
+                                ),
+                                SessionProBadge.accessibilityLabel
                             )
                         },
                         referenceFont: font
@@ -51,9 +84,12 @@ public extension String {
                 base.append(
                     ThemedAttributedString(
                         imageAttachmentGenerator: {
-                            UIView.image(
-                                for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
-                                generator: { SessionProBadge(size: proBadgeSize) }
+                            (
+                                UIView.image(
+                                    for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
+                                    generator: { SessionProBadge(size: proBadgeSize) }
+                                ),
+                                SessionProBadge.accessibilityLabel
                             )
                         },
                         referenceFont: font

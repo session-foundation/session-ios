@@ -5,6 +5,7 @@ import UIKit
 
 public enum MentionUtilities {
     private static let currentUserCacheKey: String = "Mention.CurrentUser" // stringlint:ignore
+    private static let pubkeyRegex: NSRegularExpression = try! NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
     
     public enum MentionLocation {
         case incomingMessage
@@ -20,15 +21,24 @@ public enum MentionUtilities {
         currentUserSessionIds: Set<String>,
         displayNameRetriever: (String, Bool) -> String?
     ) -> (String, [(range: NSRange, profileId: String, isCurrentUser: Bool)]) {
-        guard
-            let regex: NSRegularExpression = try? NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
-        else { return (string, []) }
+        /// In `Localization` we manually insert RTL isolate markers to ensure mixked RTL/LTR strings
+        var workingString: String = string
+        let hasRLIPrefix: Bool = workingString.hasPrefix("\u{2067}")
+        let hasPDISuffix: Bool = workingString.hasSuffix("\u{2069}")
+            
+        if hasRLIPrefix {
+            workingString = String(workingString.dropFirst())
+        }
         
-        var string = string
+        if hasPDISuffix {
+            workingString = String(workingString.dropLast())
+        }
+
+        var string: String = workingString
         var lastMatchEnd: Int = 0
         var mentions: [(range: NSRange, profileId: String, isCurrentUser: Bool)] = []
         
-        while let match: NSTextCheckingResult = regex.firstMatch(
+        while let match: NSTextCheckingResult = pubkeyRegex.firstMatch(
             in: string,
             options: .withoutAnchoringBounds,
             range: NSRange(location: lastMatchEnd, length: string.utf16.count - lastMatchEnd)
@@ -60,7 +70,13 @@ public enum MentionUtilities {
             ))
         }
         
-        return (string, mentions)
+        /// Need to add the RTL isolate markers back if we had them
+        let finalString: String = (string.containsRTL ?
+            "\(LocalizationHelper.forceRTLLeading)\(string)\(LocalizationHelper.forceRTLTrailing)" :
+            string
+        )
+        
+        return (finalString, mentions)
     }
     
     public static func highlightMentionsNoAttributes(
@@ -115,8 +131,11 @@ public enum MentionUtilities {
                     }
                 )
                 
-                let attachment = NSTextAttachment()
-                let offsetY = (mentionFont.capHeight - image.size.height) / 2
+                /// Set the `accessibilityLabel` to ensure it's still visible to accessibility inspectors
+                let attachment: NSTextAttachment = NSTextAttachment()
+                attachment.accessibilityLabel = (result.string as NSString).substring(with: mention.range)
+                
+                let offsetY: CGFloat = (mentionFont.capHeight - image.size.height) / 2
                 attachment.image = image
                 attachment.bounds = CGRect(
                     x: 0,

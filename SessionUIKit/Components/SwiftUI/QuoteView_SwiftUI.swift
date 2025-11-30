@@ -49,7 +49,7 @@ public struct QuoteViewModel: Equatable, Hashable {
     
     var hasAttachment: Bool { quotedAttachmentInfo != nil }
     var author: String? {
-        guard !currentUserSessionIds.contains(authorId) else { return "you".localized() }
+        guard authorId.isEmpty || !currentUserSessionIds.contains(authorId) else { return "you".localized() }
         guard quotedText != nil else {
             // When we can't find the quoted message we want to hide the author label
             return displayNameRetriever(authorId, false)
@@ -168,8 +168,9 @@ public struct QuoteViewModel: Equatable, Hashable {
         self.displayNameRetriever = displayNameRetriever
     }
     
-    public init(previewBody: String) {
+    public init(showYouAsAuthor: Bool, previewBody: String) {
         self.quotedText = previewBody
+        self.authorId = (showYouAsAuthor ? "you".localized() : "")
         
         /// This is an preview version so none of these values matter
         self.mode = .regular
@@ -177,7 +178,6 @@ public struct QuoteViewModel: Equatable, Hashable {
         self.currentUserSessionIds = []
         self.rowId = -1
         self.interactionId = nil
-        self.authorId = ""
         self.showProBadge = false
         self.timestampMs = 0
         self.quotedInteractionId = 0

@@ -78,12 +78,21 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         case optimisticMessageId
     }
     
+    public enum Gesture {
+        case tap
+        case doubleTap
+        case longPress
+    }
+    
+    // TODO: [PRO] Shouldn't need a bunch of these conformances
     public enum CellType: Int, Decodable, Equatable, Hashable, DatabaseValueConvertible {
         case textOnlyMessage
         case mediaMessage
         case audio
         case voiceMessage
         case genericAttachment
+        case infoMessage
+        case call
         case typingIndicator
         case dateHeader
         case unreadMarker
@@ -94,6 +103,16 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
             switch self {
                 case .typingIndicator, .dateHeader, .unreadMarker: return true
                 default: return false
+            }
+        }
+        
+        public var supportedGestures: Set<Gesture> {
+            switch self {
+                case .typingIndicator, .dateHeader, .unreadMarker: return []
+                case .voiceMessage: return [.tap, .doubleTap, .longPress]
+                case .textOnlyMessage, .mediaMessage, .audio, .genericAttachment,
+                    .infoMessage, .call:
+                    return [.tap, .longPress]
             }
         }
     }
@@ -283,7 +302,21 @@ public struct MessageViewModel: FetchableRecordWithRowId, Decodable, Equatable, 
         let cellType: CellType = {
             guard self.isTypingIndicator != true else { return .typingIndicator }
             guard !self.variant.isDeletedMessage else { return .textOnlyMessage }
-            guard let attachment: Attachment = self.attachments?.first else { return .textOnlyMessage }
+            guard let attachment: Attachment = self.attachments?.first else {
+                switch variant {
+                    case .infoCall: return .call
+                    case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                        .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
+                        .infoDisappearingMessagesUpdate, .infoScreenshotNotification, .infoMediaSavedNotification,
+                        .infoMessageRequestAccepted, .infoGroupInfoInvited, .infoGroupInfoUpdated, .infoGroupMembersUpdated:
+                        return .infoMessage
+                        
+                    case ._legacyStandardIncomingDeleted, .standardIncomingDeleted, .standardOutgoingDeleted, .standardIncomingDeletedLocally, .standardOutgoingDeletedLocally:
+                        return .textOnlyMessage /// Should be handled above
+                        
+                    case .standardOutgoing, .standardIncoming: return .textOnlyMessage
+                }
+            }
 
             // The only case which currently supports multiple attachments is a 'mediaMessage'
             // (the album view)
@@ -1258,6 +1291,9 @@ extension QuoteViewModel: @retroactive FetchableRecordWithRowId, @retroactive De
     }
     
     public func with(
+        direction: QuoteViewModel.Direction,
+        currentUserSessionIds: Set<String>,
+        showProBadge: Bool,
         thumbnailSource: ImageDataManager.DataSource?,
         displayNameRetriever: @escaping (String, Bool) -> String?
     ) -> QuoteViewModel {

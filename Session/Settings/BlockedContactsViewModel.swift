@@ -304,12 +304,9 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                     trailingImage: {
                                         guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateProProof(for: model.profile) }) else { return nil }
                                         
-                                        return (
-                                            .themedKey(
-                                                SessionProBadge.Size.small.cacheKey,
-                                                themeBackgroundColor: .primary
-                                            ),
-                                            { SessionProBadge(size: .small) }
+                                        return SessionProBadge.trailingImage(
+                                            size: .small,
+                                            themeBackgroundColor: .primary
                                         )
                                     }()
                                 ),
