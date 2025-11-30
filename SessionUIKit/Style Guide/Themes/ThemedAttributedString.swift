@@ -31,8 +31,10 @@ public extension NSAttributedString.Key {
 
 public class ThemedAttributedString: Equatable, Hashable {
     internal var value: NSMutableAttributedString {
-        if let image = imageAttachmentGenerator?() {
-            let attachment = NSTextAttachment(image: image)
+        if let (image, accessibilityLabel) = imageAttachmentGenerator?() {
+            let attachment: NSTextAttachment = NSTextAttachment(image: image)
+            attachment.accessibilityLabel = accessibilityLabel   /// Ensure it's still visible to accessibility inspectors
+            
             if let font = imageAttachmentReferenceFont {
                 attachment.bounds = CGRect(
                     x: 0,
@@ -48,7 +50,37 @@ public class ThemedAttributedString: Equatable, Hashable {
     }
     public var string: String { value.string }
     public var length: Int { value.length }
-    internal var imageAttachmentGenerator: (() -> UIImage?)?
+    
+    /// It seems that a number of UI elements don't properly check the `NSTextAttachment.accessibilityLabel` when
+    /// constructing their accessibility label, as such we need to construct our own which includes that content
+    public var constructedAccessibilityLabel: String {
+        let result: NSMutableString = NSMutableString()
+        let rawString: String = value.string
+        let fullRange: NSRange = NSRange(location: 0, length: self.length)
+        
+        value.enumerateAttributes(
+            in: fullRange,
+            options: []
+        ) { attributes, range, stop in
+            /// If it's an `NSTextAttachment` then we should remove it
+            if let attachment: NSTextAttachment = attributes[.attachment] as? NSTextAttachment {
+                /// It has a custom `accessibilityLabel` so we should use that
+                if let label: String = attachment.accessibilityLabel, !label.isEmpty {
+                    result.append(label)
+                }
+                
+                /// It has no label so don't add anything
+            } else {
+                /// It's standard text so just add it
+                let textSegment: String = (rawString as NSString).substring(with: range)
+                result.append(textSegment)
+            }
+        }
+        
+        return result as String
+    }
+    
+    internal var imageAttachmentGenerator: (() -> (UIImage, String?)?)?
     internal var imageAttachmentReferenceFont: UIFont?
     internal var attributedString: NSMutableAttributedString
     
@@ -82,7 +114,7 @@ public class ThemedAttributedString: Equatable, Hashable {
         self.attributedString = NSMutableAttributedString(attachment: attachment)
     }
     
-    public init(imageAttachmentGenerator: @escaping (() -> UIImage?), referenceFont: UIFont?) {
+    public init(imageAttachmentGenerator: @escaping (() -> (UIImage, String?)?), referenceFont: UIFont?) {
         self.attributedString = NSMutableAttributedString()
         self.imageAttachmentGenerator = imageAttachmentGenerator
         self.imageAttachmentReferenceFont = referenceFont

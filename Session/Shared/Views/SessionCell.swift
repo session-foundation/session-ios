@@ -548,6 +548,7 @@ public class SessionCell: UITableViewCell {
         titleLabel.isHidden = (info.title == nil)
         titleLabel.attachTrailing(
             cacheKey: info.title?.trailingImage?.cacheKey,
+            accessibilityLabel: info.title?.trailingImage?.accessibilityLabel,
             viewGenerator: info.title?.trailingImage?.viewGenerator
         )
         subtitleLabel.isUserInteractionEnabled = (info.subtitle?.interaction == .copy)

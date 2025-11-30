@@ -156,12 +156,9 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                 trailingImage: {
                                     guard (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: userInfo.profile) }) else { return nil }
                                     
-                                    return (
-                                        .themedKey(
-                                            SessionProBadge.Size.small.cacheKey,
-                                            themeBackgroundColor: .primary
-                                        ),
-                                        { SessionProBadge(size: .small) }
+                                    return SessionProBadge.trailingImage(
+                                        size: .small,
+                                        themeBackgroundColor: .primary
                                     )
                                 }()
                             ),

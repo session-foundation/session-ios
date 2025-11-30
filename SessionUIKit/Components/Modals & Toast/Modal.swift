@@ -15,9 +15,6 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate, ModalHostIdenti
     
     // MARK: - Components
     
-    internal var contentTopConstraint: NSLayoutConstraint?
-    internal var contentCenterYConstraint: NSLayoutConstraint?
-    
     private lazy var dimmingView: UIView = {
         let result = UIVisualEffectView()
         
@@ -112,10 +109,9 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate, ModalHostIdenti
         }
         
         containerView.center(.horizontal, in: view)
-        contentCenterYConstraint = containerView.center(.vertical, in: view)
-        contentTopConstraint = containerView
-            .pin(.top, toMargin: .top, of: view, withInset: 10)
-            .setting(isActive: false)
+        containerView.center(.vertical, in: view).setting(priority: .defaultHigh)
+        containerView.pin(.top, greaterThanOrEqualTo: .top, of: view, withInset: 20)
+        containerView.pin(.bottom, lessThanOrEqualTo: .top, of: view.keyboardLayoutGuide, withInset: -20)
         
         // Gestures
         let swipeGestureRecognizer = UISwipeGestureRecognizer(target: self, action: #selector(close))
