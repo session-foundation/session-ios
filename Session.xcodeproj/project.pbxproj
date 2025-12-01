@@ -207,6 +207,7 @@
 		945E89D62E9602AB00D8D907 /* SessionProPaymentScreen+Purchase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */; };
 		9463794A2E7131070017A014 /* SessionProManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946379492E71308B0017A014 /* SessionProManagerType.swift */; };
 		9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */; };
+		946A495F2ED956FE005A6CF2 /* SessionListScreen+ListItemProfilePicture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946A495E2ED956EC005A6CF2 /* SessionListScreen+ListItemProfilePicture.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
 		9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */; };
 		9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */; };
@@ -1664,6 +1665,7 @@
 		945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Purchase.swift"; sourceTree = "<group>"; };
 		946379492E71308B0017A014 /* SessionProManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProManagerType.swift; sourceTree = "<group>"; };
 		9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Models.swift"; sourceTree = "<group>"; };
+		946A495E2ED956EC005A6CF2 /* SessionListScreen+ListItemProfilePicture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItemProfilePicture.swift"; sourceTree = "<group>"; };
 		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationSettingsViewModel.swift; sourceTree = "<group>"; };
@@ -3070,6 +3072,7 @@
 		943B43502EC2AF3D008ABC34 /* ListItemViews */ = {
 			isa = PBXGroup;
 			children = (
+				946A495E2ED956EC005A6CF2 /* SessionListScreen+ListItemProfilePicture.swift */,
 				943B43572EC2AFCF008ABC34 /* SessionListScreen+ListItemButton.swift */,
 				943B43552EC2AFAB008ABC34 /* SessionListScreen+ListItemDataMatrix.swift */,
 				943B43532EC2AF82008ABC34 /* SessionListScreen+ListItemLogoWithPro.swift */,
@@ -6591,6 +6594,7 @@
 				94B6BB002E3AE83C00E718BB /* QRCodeView.swift in Sources */,
 				FDB3DA882E24810C00148F8D /* SessionAsyncImage.swift in Sources */,
 				9499E6032DDD9BF900091434 /* ExpandableLabel.swift in Sources */,
+				946A495F2ED956FE005A6CF2 /* SessionListScreen+ListItemProfilePicture.swift in Sources */,
 				94AAB14D2E1F39B500A6FA18 /* ProCTAModal.swift in Sources */,
 				FDE754BA2C9B97B8002A2623 /* UIDevice+Utilities.swift in Sources */,
 				C331FFB92558FA8D00070591 /* UIView+Constraints.swift in Sources */,

@@ -37,7 +37,7 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Sendable
         }
     }
     
-    public enum DisappearingMessageType: Int, Codable, Hashable, DatabaseValueConvertible {
+    public enum DisappearingMessageType: Int, Codable, Hashable, Sendable, DatabaseValueConvertible {
         case unknown
         case disappearAfterRead
         case disappearAfterSend

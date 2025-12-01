@@ -6,6 +6,9 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     @EnvironmentObject var host: HostWrapper
     @StateObject private var viewModel: ViewModel
     @ObservedObject private var state: SessionListScreenContent.ListItemDataState<ViewModel.Section, ViewModel.ListItem>
+    
+    // MARK: - Tooltips variables
+    
     @State var isShowingTooltip: Bool = false
     @State var tooltipContent: ThemedAttributedString = ThemedAttributedString()
     @State var tooltipViewId: String = ""
@@ -16,11 +19,18 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     /// This will result in the tooltip will show again right after it dismissed when tapping the TooltipsIcon. This `suppressUntil` is a workaround to fix this issue.
     @State var suppressUntil: Date = .distantPast
     
+    // MARK: Profile picture variables
+    
+    @State var profilePictureContent: ListItemProfilePicture.Content = .profilePicture
+    @State var isProfileImageExpanding: Bool = false
+    private var dataManager: ImageDataManagerType
+    
     private let coordinateSpaceName: String = "SessionListScreen" // stringlint:ignore
     
-    public init(viewModel: ViewModel) {
+    public init(viewModel: ViewModel, dataManager: ImageDataManagerType) {
         _viewModel = StateObject(wrappedValue: viewModel)
         _state = ObservedObject(wrappedValue: viewModel.state)
+        self.dataManager = dataManager
     }
     
     public var body: some View {
@@ -36,31 +46,36 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 .foregroundColor(themeColor: .textSecondary)
                                 .padding(.horizontal, Values.smallSpacing)
                             
-                            if case .titleWithTooltips(let info) = section.model.style {
-                                Image(systemName: "questionmark.circle")
-                                    .font(.Body.baseRegular)
-                                    .foregroundColor(themeColor: .textSecondary)
-                                    .anchorView(viewId: info.id)
-                                    .accessibility(
-                                        Accessibility(identifier: "Section Header Tooltip")
-                                    )
-                                    .onTapGesture {
-                                        guard Date() >= suppressUntil else { return }
-                                        suppressUntil = Date().addingTimeInterval(0.2)
-                                        guard tooltipViewId != info.id && !isShowingTooltip else {
-                                            withAnimation {
-                                                isShowingTooltip = false
+                            switch section.model.style {
+                                case .titleWithTooltips(let info):
+                                    Image(systemName: "questionmark.circle")
+                                        .font(.Body.baseRegular)
+                                        .foregroundColor(themeColor: .textSecondary)
+                                        .anchorView(viewId: info.id)
+                                        .accessibility(
+                                            Accessibility(identifier: "Section Header Tooltip")
+                                        )
+                                        .onTapGesture {
+                                            guard Date() >= suppressUntil else { return }
+                                            suppressUntil = Date().addingTimeInterval(0.2)
+                                            guard tooltipViewId != info.id && !isShowingTooltip else {
+                                                withAnimation {
+                                                    isShowingTooltip = false
+                                                }
+                                                return
                                             }
-                                            return
+                                            tooltipContent = info.content
+                                            tooltipPosition = info.position
+                                            tooltipViewId = info.id
+                                            tooltipArrowOffset = 30
+                                            withAnimation {
+                                                isShowingTooltip = true
+                                            }
                                         }
-                                        tooltipContent = info.content
-                                        tooltipPosition = info.position
-                                        tooltipViewId = info.id
-                                        tooltipArrowOffset = 30
-                                        withAnimation {
-                                            isShowingTooltip = true
-                                        }
-                                    }
+                                case .titleSeparator:
+                                    Seperator_SwiftUI(title: "accountId".localized())
+                                default:
+                                    EmptyView()
                             }
                         }
                         .listRowBackground(Color.clear)
@@ -119,6 +134,14 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         .onTapGesture {
                                             element.onTap?()
                                         }
+                                case .profilePicture(let info):
+                                    ListItemProfilePicture(
+                                        content: $profilePictureContent,
+                                        isProfileImageExpanding: $isProfileImageExpanding,
+                                        info: info,
+                                        dataManager: dataManager,
+                                        host: host
+                                    )
                             }
                         }
                     }

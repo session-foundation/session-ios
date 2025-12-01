@@ -639,6 +639,11 @@ public extension LibSession {
                     }
                 }
         }
+        
+        db.addEvent(
+            disappearingMessagesConfig,
+            forKey: .disappearingMessagesConfigUpdated(sessionId)
+        )
     }
 }
 

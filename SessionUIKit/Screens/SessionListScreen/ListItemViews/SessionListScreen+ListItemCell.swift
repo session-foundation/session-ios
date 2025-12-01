@@ -34,9 +34,11 @@ public struct ListItemCell: View {
                 leadingAccessory.accessoryView()
             }
             
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .center, spacing: 0) {
                 if let title = info.title {
                     HStack(spacing: Values.verySmallSpacing) {
+                        if case .trailing = info.title?.alignment { Spacer() }
+                        
                         if case .proBadgeLeading(let themeBackgroundColor) = title.accessory  {
                             SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
@@ -60,11 +62,15 @@ public struct ListItemCell: View {
                         if case .proBadgeTrailing(let themeBackgroundColor) = title.accessory  {
                             SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
+                        
+                        if case .leading = info.title?.alignment { Spacer() }
                     }
                 }
                 
                 if let description = info.description {
                     HStack(spacing: Values.verySmallSpacing) {
+                        if case .trailing = info.description?.alignment { Spacer() }
+                        
                         if case .proBadgeLeading(let themeBackgroundColor) = description.accessory {
                             SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
@@ -88,6 +94,8 @@ public struct ListItemCell: View {
                         if case .proBadgeTrailing(let themeBackgroundColor) = description.accessory {
                             SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
+                        
+                        if case .leading = info.description?.alignment { Spacer() }
                     }
                 }
             }
@@ -98,7 +106,6 @@ public struct ListItemCell: View {
             )
             
             if let trailingAccessory = info.trailingAccessory {
-                Spacer(minLength: 0)
                 trailingAccessory.accessoryView()
             }
         }

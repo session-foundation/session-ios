@@ -85,6 +85,12 @@ public extension ObservableKey {
     static let messageRequestDeleted: ObservableKey = "messageRequestDeleted"
     static let messageRequestMessageRead: ObservableKey = "messageRequestMessageRead"
     static let messageRequestUnreadMessageReceived: ObservableKey = "messageRequestUnreadMessageReceived"
+    
+    // MARK: - Disappearing Messages
+    
+    static func disappearingMessagesConfigUpdated(_ id: String) -> ObservableKey {
+        ObservableKey("disappearingMessagesConfigUpdated-\(id)", .disappearingMessagesConfigUpdate)
+    }
 }
 
 public extension GenericObservableKey {
@@ -105,6 +111,7 @@ public extension GenericObservableKey {
     static let attachmentCreated: GenericObservableKey = "attachmentCreated"
     static let attachmentUpdated: GenericObservableKey = "attachmentUpdated"
     static let attachmentDeleted: GenericObservableKey = "attachmentDeleted"
+    static let disappearingMessagesConfigUpdate: GenericObservableKey = "disappearingMessagesConfigUpdate"
 }
 
 // MARK: - Event Payloads - General
