@@ -1642,41 +1642,43 @@ extension ConversationVC:
             return cellViewModel.profile?.blocksCommunityMessageRequests != true
         }()
         
-        let userProfileModal: ModalHostingViewController = ModalHostingViewController(
-            modal: UserProfileModal(
-                info: .init(
-                    sessionId: sessionId,
-                    blindedId: blindedId,
-                    qrCodeImage: qrCodeImage,
-                    profileInfo: profileInfo,
-                    displayName: displayName,
-                    contactDisplayName: contactDisplayName,
-                    isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
-                    isMessageRequestsEnabled: isMessasgeRequestsEnabled,
-                    onStartThread: { [weak self] in
-                        self?.startThread(
-                            with: cellViewModel.authorId,
-                            openGroupServer: cellViewModel.threadOpenGroupServer,
-                            openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
-                        )
-                    },
-                    onProBadgeTapped: { [weak self, dependencies] in
-                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                            .generic,
-                            dismissType: .single,
-                            afterClosed: { [weak self] in
-                                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
-                            },
-                            presenting: { modal in
-                                dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
-                            }
-                        )
-                    }
-                ),
-                dataManager: dependencies[singleton: .imageDataManager]
+        DispatchQueue.main.async { [weak self] in
+            let userProfileModal: ModalHostingViewController = ModalHostingViewController(
+                modal: UserProfileModal(
+                    info: .init(
+                        sessionId: sessionId,
+                        blindedId: blindedId,
+                        qrCodeImage: qrCodeImage,
+                        profileInfo: profileInfo,
+                        displayName: displayName,
+                        contactDisplayName: contactDisplayName,
+                        isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
+                        isMessageRequestsEnabled: isMessasgeRequestsEnabled,
+                        onStartThread: { [weak self] in
+                            self?.startThread(
+                                with: cellViewModel.authorId,
+                                openGroupServer: cellViewModel.threadOpenGroupServer,
+                                openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
+                            )
+                        },
+                        onProBadgeTapped: { [weak self, dependencies] in
+                            dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                .generic,
+                                dismissType: .single,
+                                afterClosed: { [weak self] in
+                                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                                },
+                                presenting: { modal in
+                                    dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
+                                }
+                            )
+                        }
+                    ),
+                    dataManager: dependencies[singleton: .imageDataManager]
+                )
             )
-        )
-        present(userProfileModal, animated: true, completion: nil)
+            self?.present(userProfileModal, animated: true, completion: nil)
+        }
     }
     
     func startThread(
