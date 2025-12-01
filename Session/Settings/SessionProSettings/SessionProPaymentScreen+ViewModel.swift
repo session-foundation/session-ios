@@ -13,7 +13,7 @@ extension SessionProPaymentScreenContent {
         
         private var dependencies: Dependencies
         
-        init(dependencies: Dependencies, dataModel: DataModel) {
+        init(dataModel: DataModel, dependencies: Dependencies) {
             self.dependencies = dependencies
             self.dataModel = dataModel
         }

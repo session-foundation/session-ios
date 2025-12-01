@@ -23,9 +23,12 @@ public extension StringProvider {
     
     protocol BuildVariant {
         var apk: String { get }
+        var appStore: String { get }
+        var development: String { get }
         var fDroid: String { get }
         var huawei: String { get }
         var ipa: String { get }
+        var testFlight: String { get }
     }
     
     protocol ClientPlatform {
@@ -64,9 +67,12 @@ internal extension StringProvider {
     /// This type should not be used where possible as it's values aren't maintained (proper values are sourced from `libSession`)
     struct FallbackBuildVariantStringProvider: StringProvider.BuildVariant {
         let apk: String = "APK"
+        let appStore: String = "Apple App Store"
+        let development: String = "Development"
         let fDroid: String = "F-Droid Store"
         let huawei: String = "Huawei App Gallery"
         let ipa: String = "IPA"
+        let testFlight: String = "TestFlight"
     }
     
     /// This type should not be used where possible as it's values aren't maintained (proper values are sourced from `libSession`)

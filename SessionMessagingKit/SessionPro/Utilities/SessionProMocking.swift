@@ -16,7 +16,8 @@ internal extension SessionProManager {
             let mockProLoadingState: MockableFeature<SessionPro.LoadingState>
             let mockProBackendStatus: MockableFeature<Network.SessionPro.BackendUserProStatus>
             let mockOriginatingPlatform: MockableFeature<SessionProUI.ClientPlatform>
-            let mockIsRefunding: MockableFeature<SessionPro.IsRefunding>
+            let mockBuildVariant: MockableFeature<SessionProUI.BuildVariant>
+            let mockRefundingStatus: MockableFeature<SessionPro.RefundingStatus>
         }
         
         let previousInfo: Info?
@@ -27,7 +28,8 @@ internal extension SessionProManager {
             .feature(.mockCurrentUserSessionProLoadingState),
             .feature(.mockCurrentUserSessionProBackendStatus),
             .feature(.mockCurrentUserSessionProOriginatingPlatform),
-            .feature(.mockCurrentUserSessionProIsRefunding)
+            .feature(.mockCurrentUserSessionProBuildVariant),
+            .feature(.mockCurrentUserSessionProRefundingStatus)
         ]
         
         init(previousInfo: Info? = nil, using dependencies: Dependencies) {
@@ -37,7 +39,8 @@ internal extension SessionProManager {
                 mockProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
                 mockProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
                 mockOriginatingPlatform: dependencies[feature: .mockCurrentUserSessionProOriginatingPlatform],
-                mockIsRefunding: dependencies[feature: .mockCurrentUserSessionProIsRefunding]
+                mockBuildVariant: dependencies[feature: .mockCurrentUserSessionProBuildVariant],
+                mockRefundingStatus: dependencies[feature: .mockCurrentUserSessionProRefundingStatus]
             )
         }
     }
@@ -112,15 +115,36 @@ extension SessionProUI.ClientPlatform: @retroactive MockableFeatureValue {
     }
 }
 
-// MARK: - SessionPro.IsRefunding
+// MARK: - SessionProUI.BuildVariant
 
 public extension FeatureStorage {
-    static let mockCurrentUserSessionProIsRefunding: FeatureConfig<MockableFeature<SessionPro.IsRefunding>> = Dependencies.create(
-        identifier: "mockCurrentUserSessionProIsRefunding"
+    static let mockCurrentUserSessionProBuildVariant: FeatureConfig<MockableFeature<SessionProUI.BuildVariant>> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProBuildVariant"
     )
 }
 
-extension SessionPro.IsRefunding: MockableFeatureValue {
+extension SessionProUI.BuildVariant: @retroactive MockableFeatureValue {
+    public var title: String { "\(self)" }
+    
+    public var subtitle: String {
+        switch self {
+            case .apk: return "The app was installed directly as an APK."
+            case .fDroid: return "The app was installed via fDroid."
+            case .huawei: return "The app is a Huawei build."
+            case .ipa: return "The app was installed direcrtly as an IPA."
+        }
+    }
+}
+
+// MARK: - SessionPro.RefundingStatus
+
+public extension FeatureStorage {
+    static let mockCurrentUserSessionProRefundingStatus: FeatureConfig<MockableFeature<SessionPro.RefundingStatus>> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProRefundingStatus"
+    )
+}
+
+extension SessionPro.RefundingStatus: MockableFeatureValue {
     public var title: String { "\(self)" }
     
     public var subtitle: String {

@@ -34,13 +34,14 @@ public actor SessionProManager: SessionProManagerType {
     private var rotatingKeyPair: KeyPair?
     public var plans: [SessionPro.Plan] = []
     
+    nonisolated private let buildVariantStream: CurrentValueAsyncStream<BuildVariant> = CurrentValueAsyncStream(BuildVariant.current)
     nonisolated private let loadingStateStream: CurrentValueAsyncStream<SessionPro.LoadingState> = CurrentValueAsyncStream(.loading)
     nonisolated private let proStatusStream: CurrentValueAsyncStream<Network.SessionPro.BackendUserProStatus?> = CurrentValueAsyncStream(nil)
     nonisolated private let autoRenewingStream: CurrentValueAsyncStream<Bool?> = CurrentValueAsyncStream(nil)
     nonisolated private let accessExpiryTimestampMsStream: CurrentValueAsyncStream<UInt64?> = CurrentValueAsyncStream(nil)
     nonisolated private let latestPaymentItemStream: CurrentValueAsyncStream<Network.SessionPro.PaymentItem?> = CurrentValueAsyncStream(nil)
     nonisolated private let latestPaymentOriginatingPlatformStream: CurrentValueAsyncStream<SessionProUI.ClientPlatform> = CurrentValueAsyncStream(.iOS)
-    nonisolated private let isRefundingStream: CurrentValueAsyncStream<SessionPro.IsRefunding> = CurrentValueAsyncStream(false)
+    nonisolated private let refundingStatusStream: CurrentValueAsyncStream<SessionPro.RefundingStatus> = CurrentValueAsyncStream(.notRefunding)
     
     nonisolated public var currentUserCurrentRotatingKeyPair: KeyPair? { syncState.rotatingKeyPair }
     nonisolated public var currentUserCurrentProStatus: Network.SessionPro.BackendUserProStatus? {
@@ -60,6 +61,7 @@ public actor SessionProManager: SessionProManagerType {
             .asAsyncStream()
     }
     
+    nonisolated public var buildVariant: AsyncStream<BuildVariant> { buildVariantStream.stream }
     nonisolated public var loadingState: AsyncStream<SessionPro.LoadingState> { loadingStateStream.stream }
     nonisolated public var proStatus: AsyncStream<Network.SessionPro.BackendUserProStatus?> { proStatusStream.stream }
     nonisolated public var autoRenewing: AsyncStream<Bool?> { autoRenewingStream.stream }
@@ -68,7 +70,7 @@ public actor SessionProManager: SessionProManagerType {
     nonisolated public var latestPaymentOriginatingPlatform: AsyncStream<SessionProUI.ClientPlatform> {
         latestPaymentOriginatingPlatformStream.stream
     }
-    nonisolated public var isRefunding: AsyncStream<SessionPro.IsRefunding> { isRefundingStream.stream }
+    nonisolated public var refundingStatus: AsyncStream<SessionPro.RefundingStatus> { refundingStatusStream.stream }
     
     // MARK: - Initialization
     
@@ -239,7 +241,7 @@ public actor SessionProManager: SessionProManagerType {
         self.rotatingKeyPair = rotatingKeyPair
         await self.proStatusStream.send(mockedIfNeeded(proStatus))
         await self.accessExpiryTimestampMsStream.send(proState.accessExpiryTimestampMs)
-        await self.sendUpdatedIsRefundingState()
+        await self.sendUpdatedRefundingStatusState()
         
         /// If the `accessExpiryTimestampMs` value changed then we should trigger a refresh because it generally means that
         /// other device did something that should refresh the pro state
@@ -282,7 +284,7 @@ public actor SessionProManager: SessionProManagerType {
         // TODO: [PRO] Need to actually implement this
         dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: .simulate(.active))
         await proStatusStream.send(.active)
-        await sendUpdatedIsRefundingState()
+        await sendUpdatedRefundingStatusState()
         completion?(true)
     }
     
@@ -331,7 +333,7 @@ public actor SessionProManager: SessionProManagerType {
         await self.latestPaymentOriginatingPlatformStream.send(mockedIfNeeded(
             SessionProUI.ClientPlatform(response.items.first?.paymentProvider)
         ))
-        await self.sendUpdatedIsRefundingState()
+        await self.sendUpdatedRefundingStatusState()
         
         switch response.status {
             case .active:
@@ -425,7 +427,7 @@ public actor SessionProManager: SessionProManagerType {
         )
         self.rotatingKeyPair = rotatingKeyPair
         await self.proStatusStream.send(mockedIfNeeded(proStatus))
-        await self.sendUpdatedIsRefundingState()
+        await self.sendUpdatedRefundingStatusState()
     }
     
     public func addProPayment(transactionId: String) async throws {
@@ -482,7 +484,7 @@ public actor SessionProManager: SessionProManagerType {
         )
         self.rotatingKeyPair = rotatingKeyPair
         await self.proStatusStream.send(mockedIfNeeded(proStatus))
-        await self.sendUpdatedIsRefundingState()
+        await self.sendUpdatedRefundingStatusState()
         
         /// Just in case we refresh the pro state (this will avoid needless requests based on the current state but will resolve other
         /// edge-cases since it's the main driver to the Pro state)
@@ -565,13 +567,13 @@ public actor SessionProManager: SessionProManagerType {
     // MARK: - Internal Functions
     
     /// The user is in a refunding state when their pro status is `active` and the `refundRequestedTimestampMs` is not `0`
-    private func sendUpdatedIsRefundingState() async {
+    private func sendUpdatedRefundingStatusState() async {
         let status: Network.SessionPro.BackendUserProStatus? = await proStatusStream.getCurrent()
         let paymentItem: Network.SessionPro.PaymentItem? = await latestPaymentItemStream.getCurrent()
         
-        await isRefundingStream.send(
+        await refundingStatusStream.send(
             mockedIfNeeded(
-                SessionPro.IsRefunding(
+                SessionPro.RefundingStatus(
                     status == .active &&
                     (paymentItem?.refundRequestedTimestampMs ?? 0) > 0
                 )
@@ -647,14 +649,15 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     nonisolated var currentUserCurrentProStatus: Network.SessionPro.BackendUserProStatus? { get }
     nonisolated var currentUserCurrentProProof: Network.SessionPro.ProProof? { get }
     nonisolated var currentUserCurrentProProfileFeatures: SessionPro.ProfileFeatures? { get }
-    
+    // TODO: [PRO] Need to finish off the "buildVariant" logic
+    nonisolated var buildVariant: AsyncStream<BuildVariant> { get }
     nonisolated var loadingState: AsyncStream<SessionPro.LoadingState> { get }
     nonisolated var proStatus: AsyncStream<Network.SessionPro.BackendUserProStatus?> { get }
     nonisolated var autoRenewing: AsyncStream<Bool?> { get }
     nonisolated var accessExpiryTimestampMs: AsyncStream<UInt64?> { get }
     nonisolated var latestPaymentItem: AsyncStream<Network.SessionPro.PaymentItem?> { get }
     nonisolated var latestPaymentOriginatingPlatform: AsyncStream<SessionProUI.ClientPlatform> { get }
-    nonisolated var isRefunding: AsyncStream<SessionPro.IsRefunding> { get }
+    nonisolated var refundingStatus: AsyncStream<SessionPro.RefundingStatus> { get }
     
     nonisolated func proStatus<I: DataProtocol>(
         for proof: Network.SessionPro.ProProof?,
@@ -735,11 +738,11 @@ public extension ObservableKey {
         ) { [weak manager] in manager?.latestPaymentOriginatingPlatform }
     }
     
-    static func currentUserProIsRefunding(_ manager: SessionProManagerType) -> ObservableKey {
+    static func currentUserProRefundingStatus(_ manager: SessionProManagerType) -> ObservableKey {
         return ObservableKey.stream(
-            key: "currentUserProIsRefunding",
-            generic: .currentUserProIsRefunding
-        ) { [weak manager] in manager?.isRefunding }
+            key: "currentUserProRefundingStatus",
+            generic: .currentUserProRefundingStatus
+        ) { [weak manager] in manager?.refundingStatus }
     }
 }
 
@@ -751,7 +754,7 @@ public extension GenericObservableKey {
     static let currentUserProAccessExpiryTimestampMs: GenericObservableKey = "currentUserProAccessExpiryTimestampMs"
     static let currentUserProLatestPaymentItem: GenericObservableKey = "currentUserProLatestPaymentItem"
     static let currentUserLatestPaymentOriginatingPlatform: GenericObservableKey = "currentUserLatestPaymentOriginatingPlatform"
-    static let currentUserProIsRefunding: GenericObservableKey = "currentUserProIsRefunding"
+    static let currentUserProRefundingStatus: GenericObservableKey = "currentUserProRefundingStatus"
 }
 
 // MARK: - Mocking
@@ -781,7 +784,7 @@ private extension SessionProManager {
                         await self?.autoRenewingStream.send(nil)
                         await self?.accessExpiryTimestampMsStream.send(nil)
                         await self?.latestPaymentItemStream.send(nil)
-                        await self?.sendUpdatedIsRefundingState()
+                        await self?.sendUpdatedRefundingStatusState()
                         return
                     }
                     
@@ -803,7 +806,17 @@ private extension SessionProManager {
                             default: break
                         }
                         
-                        switch (state.previousInfo?.mockIsRefunding, state.info.mockIsRefunding) {
+                        switch (state.previousInfo?.mockOriginatingPlatform, state.info.mockOriginatingPlatform) {
+                            case (.simulate, .useActual): return true
+                            default: break
+                        }
+                        
+                        switch (state.previousInfo?.mockBuildVariant, state.info.mockBuildVariant) {
+                            case (.simulate, .useActual): return true
+                            default: break
+                        }
+                        
+                        switch (state.previousInfo?.mockRefundingStatus, state.info.mockRefundingStatus) {
                             case (.simulate, .useActual): return true
                             default: break
                         }
@@ -826,7 +839,7 @@ private extension SessionProManager {
                             case .simulate(let value):
                                 self?.syncState.update(proStatus: .set(to: value))
                                 await self?.proStatusStream.send(value)
-                                await self?.sendUpdatedIsRefundingState()
+                                await self?.sendUpdatedRefundingStatusState()
                         }
                     }
                     
@@ -837,10 +850,24 @@ private extension SessionProManager {
                         }
                     }
                     
-                    if state.info.mockIsRefunding != state.previousInfo?.mockIsRefunding {
-                        switch state.info.mockIsRefunding {
+                    if state.info.mockOriginatingPlatform != state.previousInfo?.mockOriginatingPlatform {
+                        switch state.info.mockBuildVariant {
                             case .useActual: break
-                            case .simulate(let value): await self?.isRefundingStream.send(value)
+                            case .simulate(let value): await self?.latestPaymentOriginatingPlatformStream.send(value)
+                        }
+                    }
+                    
+                    if state.info.mockBuildVariant != state.previousInfo?.mockBuildVariant {
+                        switch state.info.mockBuildVariant {
+                            case .useActual: break
+                            case .simulate(let value): await self?.buildVariantStream.send(value)
+                        }
+                    }
+                    
+                    if state.info.mockRefundingStatus != state.previousInfo?.mockRefundingStatus {
+                        switch state.info.mockRefundingStatus {
+                            case .useActual: break
+                            case .simulate(let value): await self?.refundingStatusStream.send(value)
                         }
                     }
                 }
@@ -868,8 +895,8 @@ private extension SessionProManager {
         }
     }
     
-    private func mockedIfNeeded(_ value: SessionPro.IsRefunding) -> SessionPro.IsRefunding {
-        switch dependencies[feature: .mockCurrentUserSessionProIsRefunding] {
+    private func mockedIfNeeded(_ value: SessionPro.RefundingStatus) -> SessionPro.RefundingStatus {
+        switch dependencies[feature: .mockCurrentUserSessionProRefundingStatus] {
             case .simulate(let mockedValue): return mockedValue
             case .useActual: return value
         }

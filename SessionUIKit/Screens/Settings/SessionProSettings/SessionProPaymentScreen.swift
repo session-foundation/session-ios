@@ -82,7 +82,7 @@ public struct SessionProPaymentScreen: View {
                                 )
                             }
                         
-                        case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform):
+                        case .update(let currentPlan, let expiredOn, let originatingPlatform, let isAutoRenewing):
                             if viewModel.dataModel.plans.isEmpty || originatingPlatform != .iOS {
                                 UpdatePlanNonOriginatingPlatformContent(
                                     currentPlan: currentPlan,
@@ -198,7 +198,7 @@ public struct SessionProPaymentScreen: View {
     private func updatePlan() {
         let updatedPlan = viewModel.dataModel.plans[currentSelection]
         if
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _) = viewModel.dataModel.flow,
+            case .update(let currentPlan, let expiredOn, _, let isAutoRenewing) = viewModel.dataModel.flow,
             let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: expiredOn)
         {
             let confirmationModal = ConfirmationModal(

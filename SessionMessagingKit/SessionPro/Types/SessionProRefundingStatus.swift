@@ -3,7 +3,7 @@
 import Foundation
 
 public extension SessionPro {
-    enum IsRefunding: Sendable, Equatable, Hashable, CaseIterable, CustomStringConvertible, ExpressibleByBooleanLiteral {
+    enum RefundingStatus: Sendable, Equatable, Hashable, CaseIterable, CustomStringConvertible, ExpressibleByBooleanLiteral {
         case notRefunding
         case refunding
         
@@ -12,7 +12,7 @@ public extension SessionPro {
         }
         
         public init(_ value: Bool) {
-            self = IsRefunding(booleanLiteral: value)
+            self = RefundingStatus(booleanLiteral: value)
         }
         
         // stringlint:ignore_contents

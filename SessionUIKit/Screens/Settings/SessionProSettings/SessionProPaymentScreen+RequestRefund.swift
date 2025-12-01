@@ -161,14 +161,16 @@ struct RequestRefundNonOriginatorContent: View {
                 return "refundNonOriginatorApple"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "pro", value: Constants.pro)
-                    .put(key: "platform_account", value: originatingPlatform.account)
+                    .put(key: "platform_account", value: originatingPlatform.platformAccount)
                     .localizedFormatted(Fonts.Body.baseRegular)
+            
             case (_, true):
                 return "proPlanPlatformRefund"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "platform_store", value: originatingPlatform.store)
-                    .put(key: "platform_account", value: originatingPlatform.account)
+                    .put(key: "platform_account", value: originatingPlatform.platformAccount)
                     .localizedFormatted(Fonts.Body.baseRegular)
+            
             case (_, false):
                 return "proPlanPlatformRefundLong"
                     .put(key: "app_pro", value: Constants.app_pro)

@@ -621,6 +621,8 @@
 		FD2AAAF228ED57B500A49611 /* SynchronousStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */; };
 		FD2B4B042949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */; };
 		FD2C68612EA09527000B0E37 /* MessageError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2C68602EA09523000B0E37 /* MessageError.swift */; };
+		FD2CFB8E2EDD00F500EC7F98 /* SessionProOriginatingAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2CFB8D2EDD00EE00EC7F98 /* SessionProOriginatingAccount.swift */; };
+		FD2CFB932EDD0B4300EC7F98 /* BuildVariant.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2CFB922EDD0B3F00EC7F98 /* BuildVariant.swift */; };
 		FD2DD5902C6DD13C0073D9BE /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2DD58F2C6DD13C0073D9BE /* DifferenceKit */; };
 		FD306BCC2EB02D9E00ADB003 /* GetProDetailsRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCB2EB02D9B00ADB003 /* GetProDetailsRequest.swift */; };
 		FD306BCE2EB02E3600ADB003 /* Signature.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCD2EB02E3400ADB003 /* Signature.swift */; };
@@ -674,14 +676,14 @@
 		FD360EC32ECD23A40050CAF4 /* GetProRevocationsResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC22ECD239D0050CAF4 /* GetProRevocationsResponse.swift */; };
 		FD360EC52ECD24C30050CAF4 /* RevocationItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC42ECD24C00050CAF4 /* RevocationItem.swift */; };
 		FD360EC72ECD38750050CAF4 /* OptionSet+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC62ECD38710050CAF4 /* OptionSet+Utilities.swift */; };
+		FD360EC92ECD3EB20050CAF4 /* DonationCTAModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */; };
+		FD360ECB2ECD59550050CAF4 /* DonationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */; };
+		FD360ECD2ECD70590050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */; };
 		FD360ECF2ECEE5F60050CAF4 /* SessionProLoadingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECE2ECEE5F20050CAF4 /* SessionProLoadingState.swift */; };
 		FD360ED12ECFB8AC0050CAF4 /* SessionProExpiry.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ED02ECFB8A70050CAF4 /* SessionProExpiry.swift */; };
 		FD360ED42ED035150050CAF4 /* ImageLoading+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521992E08DBB000061B8E /* ImageLoading+Convenience.swift */; };
 		FD360ED62ED3D2280050CAF4 /* ObservationUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ED52ED3D2250050CAF4 /* ObservationUtilities.swift */; };
 		FD360ED82ED3E5C20050CAF4 /* SessionProPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ED72ED3E5BF0050CAF4 /* SessionProPlan.swift */; };
-		FD360EC92ECD3EB20050CAF4 /* DonationCTAModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */; };
-		FD360ECB2ECD59550050CAF4 /* DonationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */; };
-		FD360ECD2ECD70590050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */; };
 		FD360EDA2ED3E8BC0050CAF4 /* DonationsCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */; };
 		FD360EDB2ED3E8BC0050CAF4 /* DonationsCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */; };
 		FD368A6829DE8F9C000DBF1E /* _026_AddFTSIfNeeded.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */; };
@@ -2107,6 +2109,8 @@
 		FD2AAAEF28ED57B500A49611 /* SynchronousStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynchronousStorage.swift; sourceTree = "<group>"; };
 		FD2B4B032949887A00AB4848 /* QueryInterfaceRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "QueryInterfaceRequest+Utilities.swift"; sourceTree = "<group>"; };
 		FD2C68602EA09523000B0E37 /* MessageError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageError.swift; sourceTree = "<group>"; };
+		FD2CFB8D2EDD00EE00EC7F98 /* SessionProOriginatingAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProOriginatingAccount.swift; sourceTree = "<group>"; };
+		FD2CFB922EDD0B3F00EC7F98 /* BuildVariant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildVariant.swift; sourceTree = "<group>"; };
 		FD306BCB2EB02D9B00ADB003 /* GetProDetailsRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProDetailsRequest.swift; sourceTree = "<group>"; };
 		FD306BCD2EB02E3400ADB003 /* Signature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Signature.swift; sourceTree = "<group>"; };
 		FD306BCF2EB02F3500ADB003 /* GetProDetailsResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProDetailsResponse.swift; sourceTree = "<group>"; };
@@ -2133,13 +2137,13 @@
 		FD360EC22ECD239D0050CAF4 /* GetProRevocationsResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProRevocationsResponse.swift; sourceTree = "<group>"; };
 		FD360EC42ECD24C00050CAF4 /* RevocationItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevocationItem.swift; sourceTree = "<group>"; };
 		FD360EC62ECD38710050CAF4 /* OptionSet+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OptionSet+Utilities.swift"; sourceTree = "<group>"; };
+		FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonationCTAModal.swift; sourceTree = "<group>"; };
+		FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonationsManager.swift; sourceTree = "<group>"; };
+		FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsModalsAndBannersViewModel.swift; sourceTree = "<group>"; };
 		FD360ECE2ECEE5F20050CAF4 /* SessionProLoadingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProLoadingState.swift; sourceTree = "<group>"; };
 		FD360ED02ECFB8A70050CAF4 /* SessionProExpiry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProExpiry.swift; sourceTree = "<group>"; };
 		FD360ED52ED3D2250050CAF4 /* ObservationUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationUtilities.swift; sourceTree = "<group>"; };
 		FD360ED72ED3E5BF0050CAF4 /* SessionProPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProPlan.swift; sourceTree = "<group>"; };
-		FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonationCTAModal.swift; sourceTree = "<group>"; };
-		FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonationsManager.swift; sourceTree = "<group>"; };
-		FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsModalsAndBannersViewModel.swift; sourceTree = "<group>"; };
 		FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = DonationsCTA.webp; sourceTree = "<group>"; };
 		FD368A6729DE8F9B000DBF1E /* _026_AddFTSIfNeeded.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = _026_AddFTSIfNeeded.swift; sourceTree = "<group>"; };
 		FD368A6929DE9E30000DBF1E /* UIContextualAction+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIContextualAction+Utilities.swift"; sourceTree = "<group>"; };
@@ -4989,13 +4993,14 @@
 		FD71163028E2C41900B47552 /* Types */ = {
 			isa = PBXGroup;
 			children = (
-				FD1F3CFB2ED7F37300E536D5 /* StringProviders.swift */,
 				FDE6E99729F8E63A00F93C5D /* Accessibility.swift */,
+				FD2CFB922EDD0B3F00EC7F98 /* BuildVariant.swift */,
 				FD71163128E2C42A00B47552 /* IconSize.swift */,
 				FDB11A602DD5BDC900BEF49F /* ImageDataManager.swift */,
 				FDAA36B82EB3FBC20040603E /* LinkPreviewManagerType.swift */,
 				943C6D832B86B5F1004ACE64 /* Localization.swift */,
 				FDAA36BF2EB435910040603E /* SessionProUIManagerType.swift */,
+				FD1F3CFB2ED7F37300E536D5 /* StringProviders.swift */,
 				FDC0F0032BFECE12002CBFB9 /* TimeUnit.swift */,
 			);
 			path = Types;
@@ -5351,15 +5356,16 @@
 			children = (
 				FD360EBE2ECAD5160050CAF4 /* SessionProConfig.swift */,
 				FDAA36CD2EB484450040603E /* SessionProDecodedProForMessage.swift */,
+				FDAA36CF2EB485EF0040603E /* SessionProDecodedStatus.swift */,
 				FD360ED02ECFB8A70050CAF4 /* SessionProExpiry.swift */,
-				FDAA36C92EB476060040603E /* SessionProProfileFeatures.swift */,
 				FDAA36C52EB474C40040603E /* SessionProFeaturesForMessage.swift */,
 				FDAA36C72EB475140040603E /* SessionProFeatureStatus.swift */,
-				FD1F3CF72ED6A6EB00E536D5 /* SessionProRefundingStatus.swift */,
 				FD360ECE2ECEE5F20050CAF4 /* SessionProLoadingState.swift */,
 				FD1F3CF92ED7B34700E536D5 /* SessionProMessageFeatures.swift */,
+				FD2CFB8D2EDD00EE00EC7F98 /* SessionProOriginatingAccount.swift */,
 				FD360ED72ED3E5BF0050CAF4 /* SessionProPlan.swift */,
-				FDAA36CF2EB485EF0040603E /* SessionProDecodedStatus.swift */,
+				FDAA36C92EB476060040603E /* SessionProProfileFeatures.swift */,
+				FD1F3CF72ED6A6EB00E536D5 /* SessionProRefundingStatus.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -6808,6 +6814,7 @@
 				FDA335F52D91157A007E0EB6 /* SessionImageView.swift in Sources */,
 				94519A972E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift in Sources */,
 				FD9E26B32EA72CC500404C7F /* UIEdgeInsets+Utilities.swift in Sources */,
+				FD2CFB932EDD0B4300EC7F98 /* BuildVariant.swift in Sources */,
 				FD8A5B0D2DBF2CA1004C689B /* Localization.swift in Sources */,
 				945E89D62E9602AB00D8D907 /* SessionProPaymentScreen+Purchase.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
@@ -7378,6 +7385,7 @@
 				FDE7549B2C940108002A2623 /* MessageViewModel+DeletionActions.swift in Sources */,
 				FD09799527FE7B8E00936362 /* Interaction.swift in Sources */,
 				FD37EA0D28AB2A45003AE748 /* _013_FixDeletedMessageReadState.swift in Sources */,
+				FD2CFB8E2EDD00F500EC7F98 /* SessionProOriginatingAccount.swift in Sources */,
 				FDD23AE32E457CFE0057E853 /* _010_FlagMessageHashAsDeletedOrInvalid.swift in Sources */,
 				7BAA7B6628D2DE4700AE1489 /* _018_OpenGroupPermission.swift in Sources */,
 				FD2286692C37DA5500BC06F7 /* PollerType.swift in Sources */,

@@ -665,10 +665,10 @@ public class HomeViewModel: NavigatableStateHolder {
     
     @MainActor func showSessionProCTAIfNeeded() async {
         let status: Network.SessionPro.BackendUserProStatus? = await dependencies[singleton: .sessionProManager].proStatus.first(defaultValue: nil)
-        let isRefunding: SessionPro.IsRefunding = await dependencies[singleton: .sessionProManager].isRefunding.first(defaultValue: .notRefunding)
+        let refundingStatus: SessionPro.RefundingStatus = await dependencies[singleton: .sessionProManager].refundingStatus.first(defaultValue: .notRefunding)
         let variant: ProCTAModal.Variant
         
-        switch (status, isRefunding) {
+        switch (status, refundingStatus) {
             case (.none, _), (.neverBeenPro, _), (.active, .refunding): return
                 
             case (.active, .notRefunding):
