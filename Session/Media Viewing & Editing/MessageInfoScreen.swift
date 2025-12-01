@@ -539,14 +539,17 @@ struct MessageInfoScreen: View {
         guard dependencies[feature: .sessionProEnabled] && (!dependencies[cache: .libSession].isSessionPro) else {
             return
         }
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                delegate: dependencies[singleton: .sessionProState],
-                variant: proCTAVariant,
-                dataManager: dependencies[singleton: .imageDataManager]
+        
+        DispatchQueue.main.async {
+            let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+                modal: ProCTAModal(
+                    delegate: dependencies[singleton: .sessionProState],
+                    variant: proCTAVariant,
+                    dataManager: dependencies[singleton: .imageDataManager]
+                )
             )
-        )
-        self.host.controller?.present(sessionProModal, animated: true)
+            self.host.controller?.present(sessionProModal, animated: true)
+        }
     }
     
     func showUserProfileModal() {
@@ -623,24 +626,26 @@ struct MessageInfoScreen: View {
             )
         }()
         
-        let userProfileModal: ModalHostingViewController = ModalHostingViewController(
-            modal: UserProfileModal(
-                info: .init(
-                    sessionId: sessionId,
-                    blindedId: blindedId,
-                    qrCodeImage: qrCodeImage,
-                    profileInfo: profileInfo,
-                    displayName: displayName,
-                    contactDisplayName: contactDisplayName,
-                    isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
-                    isMessageRequestsEnabled: isMessasgeRequestsEnabled,
-                    onStartThread: self.onStartThread,
-                    onProBadgeTapped: self.showSessionProCTAIfNeeded
-                ),
-                dataManager: dependencies[singleton: .imageDataManager]
+        DispatchQueue.main.async {
+            let userProfileModal: ModalHostingViewController = ModalHostingViewController(
+                modal: UserProfileModal(
+                    info: .init(
+                        sessionId: sessionId,
+                        blindedId: blindedId,
+                        qrCodeImage: qrCodeImage,
+                        profileInfo: profileInfo,
+                        displayName: displayName,
+                        contactDisplayName: contactDisplayName,
+                        isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
+                        isMessageRequestsEnabled: isMessasgeRequestsEnabled,
+                        onStartThread: self.onStartThread,
+                        onProBadgeTapped: self.showSessionProCTAIfNeeded
+                    ),
+                    dataManager: dependencies[singleton: .imageDataManager]
+                )
             )
-        )
-        self.host.controller?.present(userProfileModal, animated: true, completion: nil)
+            self.host.controller?.present(userProfileModal, animated: true, completion: nil)
+        }
     }
     
     private func showMediaFullScreen(attachment: Attachment) {
