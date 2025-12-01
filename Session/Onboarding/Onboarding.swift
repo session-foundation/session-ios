@@ -396,13 +396,15 @@ extension Onboarding {
                             
                             /// If we don't have the `Note to Self` thread then create it (not visible by default)
                             if (try? SessionThread.exists(db, id: userSessionId.hexString)) != nil {
-                                try SessionThread.upsert(
-                                    db,
-                                    id: userSessionId.hexString,
-                                    variant: .contact,
-                                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
-                                    using: dependencies
-                                )
+                                try ThreadCreationContext.$isOnboarding.withValue(true) {
+                                    try SessionThread.upsert(
+                                        db,
+                                        id: userSessionId.hexString,
+                                        variant: .contact,
+                                        values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+                                        using: dependencies
+                                    )
+                                }
                             }
                             
                             /// Update the `displayName` if changed
