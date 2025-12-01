@@ -355,7 +355,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         trailingImage: {
                             switch state.proStatus {
                                 case .none, .neverBeenPro: return nil
-                                case .active, .refunding:
+                                case .active:
                                     return SessionProBadge.trailingImage(
                                         size: .medium,
                                         themeBackgroundColor: .primary
@@ -462,7 +462,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                         .put(key: "app_name", value: Constants.app_name)
                                         .localized()
 
-                                case .active, .refunding:
+                                case .active:
                                     return "sessionProBeta"
                                         .put(key: "app_pro", value: Constants.app_pro)
                                         .localized()

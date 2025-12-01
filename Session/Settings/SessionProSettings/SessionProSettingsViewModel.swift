@@ -129,6 +129,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     
     public struct State: ObservableKeyProvider {
         let profile: Profile
+        let buildVariant: BuildVariant
         let loadingState: SessionPro.LoadingState
         let numberOfGroupsUpgraded: Int
         let numberOfPinnedConversations: Int
@@ -140,6 +141,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         let proAccessExpiryTimestampMs: UInt64?
         let proLatestPaymentItem: Network.SessionPro.PaymentItem?
         let proLastPaymentOriginatingPlatform: SessionProUI.ClientPlatform
+        let proOriginatingAccount: SessionPro.OriginatingAccount
         let proRefundingStatus: SessionPro.RefundingStatus
         
         @MainActor public func sections(viewModel: SessionProSettingsViewModel, previousState: State) -> [SectionModel] {
@@ -159,12 +161,14 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             return [
                 .anyConversationPinnedPriorityChanged,
                 .profile(profile.id),
+                .buildVariant(sessionProManager),
                 .currentUserProLoadingState(sessionProManager),
                 .currentUserProStatus(sessionProManager),
                 .currentUserProAutoRenewing(sessionProManager),
                 .currentUserProAccessExpiryTimestampMs(sessionProManager),
                 .currentUserProLatestPaymentItem(sessionProManager),
                 .currentUserLatestPaymentOriginatingPlatform(sessionProManager),
+                .currentUserProOriginatingAccount(sessionProManager),
                 .currentUserProRefundingStatus(sessionProManager),
                 .setting(.groupsUpgradedCounter),
                 .setting(.proBadgesSentCounter),
@@ -175,6 +179,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         static func initialState(using dependencies: Dependencies) -> State {
             return State(
                 profile: dependencies.mutate(cache: .libSession) { $0.profile },
+                buildVariant: BuildVariant.current,
                 loadingState: .loading,
                 numberOfGroupsUpgraded: 0,
                 numberOfPinnedConversations: 0,
@@ -186,6 +191,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                 proAccessExpiryTimestampMs: nil,
                 proLatestPaymentItem: nil,
                 proLastPaymentOriginatingPlatform: .iOS,
+                proOriginatingAccount: .originatingAccount,
                 proRefundingStatus: false
             )
         }
@@ -198,6 +204,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         using dependencies: Dependencies
     ) async -> State {
         var profile: Profile = previousState.profile
+        var buildVariant: BuildVariant = previousState.buildVariant
         var loadingState: SessionPro.LoadingState = previousState.loadingState
         var numberOfGroupsUpgraded: Int = previousState.numberOfGroupsUpgraded
         var numberOfPinnedConversations: Int = previousState.numberOfPinnedConversations
@@ -209,6 +216,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         var proAccessExpiryTimestampMs: UInt64? = previousState.proAccessExpiryTimestampMs
         var proLatestPaymentItem: Network.SessionPro.PaymentItem? = previousState.proLatestPaymentItem
         var proLastPaymentOriginatingPlatform: SessionProUI.ClientPlatform = previousState.proLastPaymentOriginatingPlatform
+        var proOriginatingAccount: SessionPro.OriginatingAccount = previousState.proOriginatingAccount
         var proRefundingStatus: SessionPro.RefundingStatus = previousState.proRefundingStatus
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
@@ -257,6 +265,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         let changes: EventChangeset = eventsToProcess.split(by: { $0.dataRequirement })
         
         /// Process any general event changes
+        if let value = changes.latest(.buildVariant, as: BuildVariant.self) {
+            buildVariant = value
+        }
+        
         if let value = changes.latest(.currentUserProLoadingState, as: SessionPro.LoadingState.self) {
             loadingState = value
         }
@@ -279,6 +291,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         if let value = changes.latest(.currentUserLatestPaymentOriginatingPlatform, as: SessionProUI.ClientPlatform.self) {
             proLastPaymentOriginatingPlatform = value
+        }
+        
+        if let value = changes.latest(.currentUserProOriginatingAccount, as: SessionPro.OriginatingAccount.self) {
+            proOriginatingAccount = value
         }
         
         if let value = changes.latest(.currentUserProRefundingStatus, as: SessionPro.RefundingStatus.self) {
@@ -332,6 +348,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         return State(
             profile: profile,
+            buildVariant: buildVariant,
             loadingState: loadingState,
             numberOfGroupsUpgraded: numberOfGroupsUpgraded,
             numberOfPinnedConversations: numberOfPinnedConversations,
@@ -343,6 +360,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             proAccessExpiryTimestampMs: proAccessExpiryTimestampMs,
             proLatestPaymentItem: proLatestPaymentItem,
             proLastPaymentOriginatingPlatform: proLastPaymentOriginatingPlatform,
+            proOriginatingAccount: proOriginatingAccount,
             proRefundingStatus: proRefundingStatus
         )
     }
@@ -1135,7 +1153,7 @@ extension SessionProSettingsViewModel {
     }
     
     @MainActor func updateProPlan(state: State) {
-        guard !dependencies[feature: .mockInstalledFromIPA] else {
+        guard state.buildVariant != .ipa else {
             let viewController = ModalActivityIndicatorViewController() { [weak self] modalActivityIndicator in
                 Task {
                     sleep(5)
@@ -1159,6 +1177,7 @@ extension SessionProSettingsViewModel {
                             accessExpiryTimestampMs: state.proAccessExpiryTimestampMs,
                             latestPaymentItem: state.proLatestPaymentItem,
                             lastPaymentOriginatingPlatform: state.proLastPaymentOriginatingPlatform,
+                            originatingAccount: state.proOriginatingAccount,
                             refundingStatus: state.proRefundingStatus
                         ),
                         plans: state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
@@ -1237,11 +1256,11 @@ extension SessionProSettingsViewModel {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPaymentScreen(
                 viewModel: SessionProPaymentScreenContent.ViewModel(
-                    dependencies: dependencies,
                     dataModel: SessionProPaymentScreenContent.DataModel(
                         flow: .cancel(originatingPlatform: state.proLastPaymentOriginatingPlatform),
                         plans: state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
-                    )
+                    ),
+                    dependencies: dependencies
                 )
             )
         )
@@ -1252,15 +1271,15 @@ extension SessionProSettingsViewModel {
         let viewController: SessionHostingViewController = SessionHostingViewController(
             rootView: SessionProPaymentScreen(
                 viewModel: SessionProPaymentScreenContent.ViewModel(
-                    dependencies: dependencies,
                     dataModel: SessionProPaymentScreenContent.DataModel(
                         flow: .refund(
                             originatingPlatform: state.proLastPaymentOriginatingPlatform,
-                            isNonOriginatingAccount: dependencies[feature: .mockNonOriginatingAccount], // TODO: [PRO] Get the real state if not originator
+                            isNonOriginatingAccount: (state.proOriginatingAccount == .nonOriginatingAccount),
                             requestedAt: nil
                         ),
                         plans: state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
-                    )
+                    ),
+                    dependencies: dependencies
                 )
             )
         )
@@ -1355,6 +1374,7 @@ extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         accessExpiryTimestampMs: UInt64?,
         latestPaymentItem: Network.SessionPro.PaymentItem?,
         lastPaymentOriginatingPlatform: SessionProUI.ClientPlatform,
+        originatingAccount: SessionPro.OriginatingAccount,
         refundingStatus: SessionPro.RefundingStatus
     ) {
         let latestPlan: SessionPro.Plan? = plans.first { $0.variant == latestPaymentItem?.plan }
@@ -1374,7 +1394,7 @@ extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
             case (.active, .some, .refunding):
                 self = .refund(
                     originatingPlatform: lastPaymentOriginatingPlatform,
-                    isNonOriginatingAccount: dependencies[feature: .mockNonOriginatingAccount], // TODO: [PRO] Get the real state if not originator,
+                    isNonOriginatingAccount: (originatingAccount == .nonOriginatingAccount),
                     requestedAt: (latestPaymentItem?.refundRequestedTimestampMs).map {
                         Date(timeIntervalSince1970: (Double($0) / 1000))
                     }

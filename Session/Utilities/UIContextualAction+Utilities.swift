@@ -245,15 +245,10 @@ public extension UIContextualAction {
                                         ),
                                         dataManager: dependencies[singleton: .imageDataManager],
                                         sessionProUIManager: dependencies[singleton: .sessionProManager],
+                                        onConfirm: { [dependencies] in
+                                        },
                                         afterClosed: { [completionHandler] in
                                             completionHandler(true)
-                                        },
-                                        onConfirm: { [dependencies] in
-                                            dependencies[singleton: .sessionProState].upgradeToPro(
-                                                plan: SessionProPlan(variant: .threeMonths),
-                                                originatingPlatform: .iOS,
-                                                completion: nil
-                                            )
                                         }
                                     )
                                 )

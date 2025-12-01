@@ -14,6 +14,8 @@ public protocol SessionProUIManagerType: Actor {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
+        onConfirm: (() -> Void)?,
+        onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool
@@ -24,25 +26,18 @@ public protocol SessionProUIManagerType: Actor {
 public extension SessionProUIManagerType {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
-        afterClosed: (() -> Void)?,
-        presenting: ((UIViewController) -> Void)?
+        dismissType: Modal.DismissType = .recursive,
+        onConfirm: (() -> Void)? = nil,
+        onCancel: (() -> Void)? = nil,
+        afterClosed: (() -> Void)? = nil,
+        presenting: ((UIViewController) -> Void)? = nil
     ) -> Bool {
         showSessionProCTAIfNeeded(
             variant,
-            dismissType: .recursive,
+            dismissType: dismissType,
+            onConfirm: onConfirm,
+            onCancel: onCancel,
             afterClosed: afterClosed,
-            presenting: presenting
-        )
-    }
-    
-    @discardableResult @MainActor func showSessionProCTAIfNeeded(
-        _ variant: ProCTAModal.Variant,
-        presenting: ((UIViewController) -> Void)?
-    ) -> Bool {
-        showSessionProCTAIfNeeded(
-            variant,
-            dismissType: .recursive,
-            afterClosed: nil,
             presenting: presenting
         )
     }

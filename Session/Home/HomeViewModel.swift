@@ -702,17 +702,39 @@ public class HomeViewModel: NavigatableStateHolder {
         
         try? await Task.sleep(for: .seconds(1)) /// Cooperative suspension, so safe to call on main thread
         
+        let plans: [SessionPro.Plan] = await dependencies[singleton: .sessionProManager].plans
+        let proStatus: Network.SessionPro.BackendUserProStatus? = await dependencies[singleton: .sessionProManager].proStatus
+            .first(defaultValue: nil)
+        let proAutoRenewing: Bool? = await dependencies[singleton: .sessionProManager].autoRenewing
+            .first(defaultValue: nil)
+        let proAccessExpiryTimestampMs: UInt64? = await dependencies[singleton: .sessionProManager].accessExpiryTimestampMs
+            .first(defaultValue: nil)
+        let proLatestPaymentItem: Network.SessionPro.PaymentItem? = await dependencies[singleton: .sessionProManager].latestPaymentItem
+            .first(defaultValue: nil)
+        let proLastPaymentOriginatingPlatform: SessionProUI.ClientPlatform = await dependencies[singleton: .sessionProManager].latestPaymentOriginatingPlatform
+            .first(defaultValue: .iOS)
+        let proRefundingStatus: SessionPro.RefundingStatus = await dependencies[singleton: .sessionProManager].refundingStatus
+            .first(defaultValue: .notRefunding)
+        
         dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
             variant,
-            onConfirm: {
+            onConfirm: { [weak self, dependencies] in
                 let viewController: SessionHostingViewController = SessionHostingViewController(
                     rootView: SessionProPaymentScreen(
                         viewModel: SessionProPaymentScreenContent.ViewModel(
-                            dependencies: dependencies,
                             dataModel: SessionProPaymentScreenContent.DataModel(
-                                flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(using: dependencies),
-                                plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
-                            )
+                                flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow(
+                                    plans: plans,
+                                    proStatus: proStatus,
+                                    autoRenewing: proAutoRenewing,
+                                    accessExpiryTimestampMs: proAccessExpiryTimestampMs,
+                                    latestPaymentItem: proLatestPaymentItem,
+                                    lastPaymentOriginatingPlatform: proLastPaymentOriginatingPlatform,
+                                    refundingStatus: proRefundingStatus
+                                ),
+                                plans: plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
+                            ),
+                            dependencies: dependencies
                         )
                     )
                 )

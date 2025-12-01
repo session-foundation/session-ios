@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 
 public extension Constants {
     static let urls: GeneralUrls = GeneralUrls(SESSION_PROTOCOL_STRINGS)
-    static let buildVariants: BuildVariants = BuildVariants(SESSION_PROTOCOL_STRINGS)
+    static let buildVariants: BuildVariants = BuildVariants(SESSION_PROTOCOL_STRINGS, PaymentProvider.appStore)
     
     enum PaymentProvider {
         private static let metadata: [session_pro_backend_payment_provider_metadata] = [
@@ -68,15 +68,21 @@ public extension Constants {
     
     struct BuildVariants: StringProvider.BuildVariant {
         public let apk: String
+        public var appStore: String
+        public var development: String
         public let fDroid: String
         public let huawei: String
         public let ipa: String
+        public var testFlight: String
         
-        fileprivate init(_ libSessionValue: session_protocol_strings) {
+        fileprivate init(_ libSessionValue: session_protocol_strings, _ iOSPaymentProvider: PaymentProvider.Info) {
             self.apk = libSessionValue.get(\.build_variant_apk)
+            self.appStore = iOSPaymentProvider.store
+            self.development = "Development"    // stringlint:ignore
             self.fDroid = libSessionValue.get(\.build_variant_fdroid)
             self.huawei = libSessionValue.get(\.build_variant_huawei)
             self.ipa = libSessionValue.get(\.build_variant_ipa)
+            self.testFlight = "TestFlight"    // stringlint:ignore
         }
     }
 }

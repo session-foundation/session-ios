@@ -41,6 +41,7 @@ public actor SessionProManager: SessionProManagerType {
     nonisolated private let accessExpiryTimestampMsStream: CurrentValueAsyncStream<UInt64?> = CurrentValueAsyncStream(nil)
     nonisolated private let latestPaymentItemStream: CurrentValueAsyncStream<Network.SessionPro.PaymentItem?> = CurrentValueAsyncStream(nil)
     nonisolated private let latestPaymentOriginatingPlatformStream: CurrentValueAsyncStream<SessionProUI.ClientPlatform> = CurrentValueAsyncStream(.iOS)
+    nonisolated private let originatingAccountStream: CurrentValueAsyncStream<SessionPro.OriginatingAccount> = CurrentValueAsyncStream(.originatingAccount)
     nonisolated private let refundingStatusStream: CurrentValueAsyncStream<SessionPro.RefundingStatus> = CurrentValueAsyncStream(.notRefunding)
     
     nonisolated public var currentUserCurrentRotatingKeyPair: KeyPair? { syncState.rotatingKeyPair }
@@ -70,6 +71,7 @@ public actor SessionProManager: SessionProManagerType {
     nonisolated public var latestPaymentOriginatingPlatform: AsyncStream<SessionProUI.ClientPlatform> {
         latestPaymentOriginatingPlatformStream.stream
     }
+    nonisolated public var originatingAccount: AsyncStream<SessionPro.OriginatingAccount> { originatingAccountStream.stream }
     nonisolated public var refundingStatus: AsyncStream<SessionPro.RefundingStatus> { refundingStatusStream.stream }
     
     // MARK: - Initialization
@@ -253,6 +255,8 @@ public actor SessionProManager: SessionProManagerType {
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
+        onConfirm: (() -> Void)?,
+        onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool {
@@ -272,6 +276,8 @@ public actor SessionProManager: SessionProManagerType {
                 dataManager: syncState.dependencies[singleton: .imageDataManager],
                 sessionProUIManager: self,
                 dismissType: dismissType,
+                onConfirm: onConfirm,
+                onCancel: onCancel,
                 afterClosed: afterClosed
             )
         )
@@ -657,6 +663,7 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     nonisolated var accessExpiryTimestampMs: AsyncStream<UInt64?> { get }
     nonisolated var latestPaymentItem: AsyncStream<Network.SessionPro.PaymentItem?> { get }
     nonisolated var latestPaymentOriginatingPlatform: AsyncStream<SessionProUI.ClientPlatform> { get }
+    nonisolated var originatingAccount: AsyncStream<SessionPro.OriginatingAccount> { get }
     nonisolated var refundingStatus: AsyncStream<SessionPro.RefundingStatus> { get }
     
     nonisolated func proStatus<I: DataProtocol>(
@@ -696,6 +703,13 @@ extension SessionProUI.ClientPlatform {
 
 // stringlint:ignore_contents
 public extension ObservableKey {
+    static func buildVariant(_ manager: SessionProManagerType) -> ObservableKey {
+        return ObservableKey.stream(
+            key: "buildVariant",
+            generic: .buildVariant
+        ) { [weak manager] in manager?.buildVariant }
+    }
+    
     static func currentUserProLoadingState(_ manager: SessionProManagerType) -> ObservableKey {
         return ObservableKey.stream(
             key: "currentUserProLoadingState",
@@ -738,6 +752,13 @@ public extension ObservableKey {
         ) { [weak manager] in manager?.latestPaymentOriginatingPlatform }
     }
     
+    static func currentUserProOriginatingAccount(_ manager: SessionProManagerType) -> ObservableKey {
+        return ObservableKey.stream(
+            key: "currentUserProOriginatingAccount",
+            generic: .currentUserProOriginatingAccount
+        ) { [weak manager] in manager?.originatingAccount }
+    }
+    
     static func currentUserProRefundingStatus(_ manager: SessionProManagerType) -> ObservableKey {
         return ObservableKey.stream(
             key: "currentUserProRefundingStatus",
@@ -748,12 +769,14 @@ public extension ObservableKey {
 
 // stringlint:ignore_contents
 public extension GenericObservableKey {
+    static let buildVariant: GenericObservableKey = "buildVariant"
     static let currentUserProLoadingState: GenericObservableKey = "currentUserProLoadingState"
     static let currentUserProStatus: GenericObservableKey = "currentUserProStatus"
     static let currentUserProAutoRenewing: GenericObservableKey = "currentUserProAutoRenewing"
     static let currentUserProAccessExpiryTimestampMs: GenericObservableKey = "currentUserProAccessExpiryTimestampMs"
     static let currentUserProLatestPaymentItem: GenericObservableKey = "currentUserProLatestPaymentItem"
     static let currentUserLatestPaymentOriginatingPlatform: GenericObservableKey = "currentUserLatestPaymentOriginatingPlatform"
+    static let currentUserProOriginatingAccount: GenericObservableKey = "currentUserProOriginatingAccount"
     static let currentUserProRefundingStatus: GenericObservableKey = "currentUserProRefundingStatus"
 }
 
@@ -816,9 +839,18 @@ private extension SessionProManager {
                             default: break
                         }
                         
+                        switch (state.previousInfo?.mockOriginatingAccount, state.info.mockOriginatingAccount) {
+                            case (.simulate, .useActual): return true
+                            default: break
+                        }
+                        
                         switch (state.previousInfo?.mockRefundingStatus, state.info.mockRefundingStatus) {
                             case (.simulate, .useActual): return true
                             default: break
+                        }
+                        
+                        if (state.previousInfo?.mockAccessExpiryTimestamp ?? 0) > 0 && state.info.mockAccessExpiryTimestamp == 0 {
+                            return true
                         }
                         
                         return false
@@ -851,7 +883,7 @@ private extension SessionProManager {
                     }
                     
                     if state.info.mockOriginatingPlatform != state.previousInfo?.mockOriginatingPlatform {
-                        switch state.info.mockBuildVariant {
+                        switch state.info.mockOriginatingPlatform {
                             case .useActual: break
                             case .simulate(let value): await self?.latestPaymentOriginatingPlatformStream.send(value)
                         }
@@ -864,10 +896,23 @@ private extension SessionProManager {
                         }
                     }
                     
+                    if state.info.mockOriginatingAccount != state.previousInfo?.mockOriginatingAccount {
+                        switch state.info.mockOriginatingAccount {
+                            case .useActual: break
+                            case .simulate(let value): await self?.originatingAccountStream.send(value)
+                        }
+                    }
+                    
                     if state.info.mockRefundingStatus != state.previousInfo?.mockRefundingStatus {
                         switch state.info.mockRefundingStatus {
                             case .useActual: break
                             case .simulate(let value): await self?.refundingStatusStream.send(value)
+                        }
+                    }
+                    
+                    if state.info.mockAccessExpiryTimestamp != state.previousInfo?.mockAccessExpiryTimestamp {
+                        if state.info.mockAccessExpiryTimestamp > 0 {
+                            await self?.accessExpiryTimestampMsStream.send(UInt64(state.info.mockAccessExpiryTimestamp))
                         }
                     }
                 }
@@ -900,5 +945,13 @@ private extension SessionProManager {
             case .simulate(let mockedValue): return mockedValue
             case .useActual: return value
         }
+    }
+    
+    private func mockedIfNeeded(_ value: UInt64?) -> UInt64? {
+        let mockedValue: TimeInterval = dependencies[feature: .mockCurrentUserAccessExpiryTimestamp]
+        
+        guard mockedValue > 0 else { return value }
+        
+        return UInt64(mockedValue)
     }
 }

@@ -2086,12 +2086,14 @@ extension DeveloperSettingsViewModel {
                             }
                         }()
                         
-                        switch selectedValue {
-                            case .none, .useActual:
-                                dependencies?.set(feature: feature, to: nil)
+                        let finalValue: MockableFeature<M> = (selectedValue ?? .useActual)
+                        
+                        switch finalValue {
+                            case .useActual:
+                                dependencies?.reset(feature: feature)
                                 onMockingRemoved?()
                                 
-                            case .simulate: dependencies?.set(feature: feature, to: selectedValue)
+                            case .simulate: dependencies?.set(feature: feature, to: finalValue)
                         }
                     }
                 )

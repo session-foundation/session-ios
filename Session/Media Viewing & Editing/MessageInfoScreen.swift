@@ -461,7 +461,7 @@ struct MessageInfoScreen: View {
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
                                             
-                                            if viewModel.proFeatures.contains(.proBadge) {
+                                            if viewModel.shouldShowProBadge {
                                                 SessionProBadge_SwiftUI(size: .small)
                                                     .onTapGesture {
                                                         showSessionProCTAIfNeeded()

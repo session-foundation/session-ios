@@ -22,24 +22,26 @@ public struct ProCTAModal: View {
     private let sessionProUIManager: SessionProUIManagerType
     
     let dismissType: Modal.DismissType
-    let afterClosed: (() -> Void)?
     let onConfirm: (() -> Void)?
+    let onCancel: (() -> Void)?
+    let afterClosed: (() -> Void)?
     
     public init(
         variant: ProCTAModal.Variant,
         dataManager: ImageDataManagerType,
         sessionProUIManager: SessionProUIManagerType,
         dismissType: Modal.DismissType = .recursive,
-        afterClosed: (() -> Void)? = nil,
-        onConfirm: (() -> Void)? = nil
-    
+        onConfirm: (() -> Void)? = nil,
+        onCancel: (() -> Void)? = nil,
+        afterClosed: (() -> Void)? = nil
     ) {
         self.variant = variant
         self.dataManager = dataManager
         self.sessionProUIManager = sessionProUIManager
         self.dismissType = dismissType
-        self.afterClosed = afterClosed
         self.onConfirm = onConfirm
+        self.onCancel = onCancel
+        self.afterClosed = afterClosed
     }
     
     public var body: some View {
@@ -261,6 +263,7 @@ public struct ProCTAModal: View {
 
                             // Cancel Button
                             Button {
+                                onCancel?()
                                 close(nil)
                             } label: {
                                 Text(variant.cancelButtonTitle)
@@ -452,44 +455,6 @@ public extension ProCTAModal.Variant {
             case .groupLimit(let isAdmin, let isSessionProActivated, _): return (!isAdmin || isSessionProActivated)
             default: return false
         }
-    }
-}
-
-// MARK: - SessionProCTAManagerType
-
-public protocol SessionProCTAManagerType: AnyObject {
-    var isSessionProPublisher: AnyPublisher<Bool, Never> { get }
-    
-    @discardableResult @MainActor func showSessionProCTAIfNeeded(
-        _ variant: ProCTAModal.Variant,
-        dismissType: Modal.DismissType,
-        beforePresented: (() -> Void)?,
-        onConfirm: (() -> Void)?,
-        onCancel: (() -> Void)?,
-        afterClosed: (() -> Void)?,
-        presenting: ((UIViewController) -> Void)?
-    ) -> Bool
-}
-
-// MARK: - Convenience
-
-public extension SessionProCTAManagerType {
-    @discardableResult @MainActor func showSessionProCTAIfNeeded(
-        _ variant: ProCTAModal.Variant,
-        dismissType: Modal.DismissType = .recursive,
-        onConfirm: (() -> Void)? = nil,
-        onCancel: (() -> Void)? = nil,
-        afterClosed: (() -> Void)? = nil,
-        presenting: ((UIViewController) -> Void)? = nil
-    ) -> Bool {
-        showSessionProCTAIfNeeded(
-            variant,
-            dismissType: dismissType,
-            onConfirm: onConfirm,
-            onCancel: onCancel,
-            afterClosed: afterClosed,
-            presenting: presenting
-        )
     }
 }
 

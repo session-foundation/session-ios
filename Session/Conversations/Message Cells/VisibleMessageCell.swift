@@ -578,7 +578,6 @@ final class VisibleMessageCell: MessageCell {
                             with: maxWidth,
                             textColor: bodyLabelTextColor,
                             searchText: lastSearchText,
-                            delegate: self,
                             displayNameRetriever: displayNameRetriever
                         )
                         
@@ -645,7 +644,6 @@ final class VisibleMessageCell: MessageCell {
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
                     searchText: lastSearchText,
-                    delegate: self,
                     displayNameRetriever: displayNameRetriever
                 )
                 self.bodyLabel = bodyTappableLabel
@@ -730,7 +728,6 @@ final class VisibleMessageCell: MessageCell {
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
                     searchText: lastSearchText,
-                    delegate: self,
                     displayNameRetriever: displayNameRetriever
                 )
                 self.bodyLabel = bodyTappableLabel
@@ -764,7 +761,6 @@ final class VisibleMessageCell: MessageCell {
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
                     searchText: lastSearchText,
-                    delegate: self,
                     displayNameRetriever: displayNameRetriever
                 )
 
