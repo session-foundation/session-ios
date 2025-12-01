@@ -453,7 +453,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     private lazy var tableViewTapGesture: UITapGestureRecognizer = {
         let result: UITapGestureRecognizer = UITapGestureRecognizer()
         result.delegate = self
-        result.addTarget(self, action: #selector(dismissKeyboardOnTap))
+        result.addTarget(self, action: #selector(dismissKeyboardOnMessageListTap))
         result.cancelsTouchesInView = false
         
         return result

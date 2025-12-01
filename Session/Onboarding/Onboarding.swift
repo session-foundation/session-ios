@@ -440,8 +440,11 @@ extension Onboarding {
                         }
                     },
                     completion: { _ in
-                        /// No need to show the seed again if the user is restoring
-                        dependencies.setAsync(.hasViewedSeed, (initialFlow == .restore))
+                        /// No need to show the seed again if the user is restoring (just in case only set the value if it hasn't already
+                        /// been set - this will prevent us from unintentionally re-showing the seed banner)
+                        if !dependencies.mutate(cache: .libSession, { $0.has(.hasViewedSeed) }) {
+                            dependencies.setAsync(.hasViewedSeed, (initialFlow == .restore))
+                        }
                         
                         /// Now that the onboarding process is completed we can store the `UserMetadata` for the Share and Notification
                         /// extensions (prior to this point the account is in an invalid state so they can't be used)
