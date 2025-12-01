@@ -306,12 +306,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                                         return nil
                                     }
                                     
-                                    return (
-                                        .themedKey(
-                                            SessionProBadge.Size.small.cacheKey,
-                                            themeBackgroundColor: .primary
-                                        ),
-                                        { SessionProBadge(size: .small) }
+                                    return SessionProBadge.trailingImage(
+                                        size: .small,
+                                        themeBackgroundColor: .primary
                                     )
                                 }()
                             ),

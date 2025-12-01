@@ -13,13 +13,6 @@ final class InfoMessageCell: MessageCell {
     
     override var contextSnapshotView: UIView? { return label }
     
-    override var allowedGestureRecognizers: Set<GestureRecognizerType> {
-        return [
-            .longPress,
-            .tap
-        ]
-    }
-    
     // MARK: - UI
     
     private lazy var iconContainerViewWidthConstraint = iconContainerView.set(.width, to: InfoMessageCell.iconSize)
@@ -103,6 +96,9 @@ final class InfoMessageCell: MessageCell {
         self.isAccessibilityElement = true
         self.dependencies = dependencies
         self.viewModel = cellViewModel
+        self.tapGestureRegonizer.isEnabled = cellViewModel.cellType.supportedGestures.contains(.tap)
+        self.doubleTapGestureRegonizer.isEnabled = cellViewModel.cellType.supportedGestures.contains(.doubleTap)
+        self.longPressGestureRegonizer.isEnabled = cellViewModel.cellType.supportedGestures.contains(.longPress)
         
         self.actionLabel.isHidden = true
         self.actionLabel.text = nil

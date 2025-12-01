@@ -30,9 +30,24 @@ public extension NSAttributedString.Key {
 // MARK: - ThemedAttributedString
 
 public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hashable {
+    /// `NSMutableAttributedString` is not `Sendable` so we need to manually manage access via an `NSLock` to ensure
+    /// thread safety
+    private let lock: NSLock = NSLock()
+    private let _attributedString: NSMutableAttributedString
+    
+    internal let imageAttachmentGenerator: (@Sendable () -> (UIImage, String?)?)?
+    internal let imageAttachmentReferenceFont: UIFont?
+    internal var attributedString: NSAttributedString {
+        lock.lock()
+        defer { lock.unlock() }
+        return _attributedString
+    }
+    
     internal var value: NSAttributedString {
-        if let image = imageAttachmentGenerator?() {
-            let attachment = NSTextAttachment(image: image)
+        if let (image, accessibilityLabel) = imageAttachmentGenerator?() {
+            let attachment: NSTextAttachment = NSTextAttachment(image: image)
+            attachment.accessibilityLabel = accessibilityLabel   /// Ensure it's still visible to accessibility inspectors
+            
             if let font = imageAttachmentReferenceFont {
                 attachment.bounds = CGRect(
                     x: 0,
@@ -44,22 +59,42 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
             
             return NSAttributedString(attachment: attachment)
         }
+        
         return attributedString
     }
     public var string: String { value.string }
     public var length: Int { value.length }
     
-    /// `NSMutableAttributedString` is not `Sendable` so we need to manually manage access via an `NSLock` to ensure
-    /// thread safety
-    private let lock: NSLock = NSLock()
-    private let _attributedString: NSMutableAttributedString
-    
-    internal let imageAttachmentGenerator: (@Sendable () -> UIImage?)?
-    internal let imageAttachmentReferenceFont: UIFont?
-    internal var attributedString: NSAttributedString {
+    /// It seems that a number of UI elements don't properly check the `NSTextAttachment.accessibilityLabel` when
+    /// constructing their accessibility label, as such we need to construct our own which includes that content
+    public var constructedAccessibilityLabel: String {
         lock.lock()
         defer { lock.unlock() }
-        return _attributedString
+        
+        let result: NSMutableString = NSMutableString()
+        let rawString: String = value.string
+        let fullRange: NSRange = NSRange(location: 0, length: self.length)
+        
+        value.enumerateAttributes(
+            in: fullRange,
+            options: []
+        ) { attributes, range, stop in
+            /// If it's an `NSTextAttachment` then we should remove it
+            if let attachment: NSTextAttachment = attributes[.attachment] as? NSTextAttachment {
+                /// It has a custom `accessibilityLabel` so we should use that
+                if let label: String = attachment.accessibilityLabel, !label.isEmpty {
+                    result.append(label)
+                }
+                
+                /// It has no label so don't add anything
+            } else {
+                /// It's standard text so just add it
+                let textSegment: String = (rawString as NSString).substring(with: range)
+                result.append(textSegment)
+            }
+        }
+        
+        return result as String
     }
     
     public init() {
@@ -101,7 +136,7 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         self.imageAttachmentReferenceFont = nil
     }
     
-    public init(imageAttachmentGenerator: @escaping (@Sendable () -> UIImage?), referenceFont: UIFont?) {
+    public init(imageAttachmentGenerator: @escaping (@Sendable () -> (UIImage, String?)?), referenceFont: UIFont?) {
         self._attributedString = NSMutableAttributedString()
         self.imageAttachmentGenerator = imageAttachmentGenerator
         self.imageAttachmentReferenceFont = referenceFont

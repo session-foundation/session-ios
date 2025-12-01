@@ -10,15 +10,33 @@ import SessionUIKit
 import SessionUtilitiesKit
 
 public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Differentiable {
-    public enum CellType: Int, Sendable, Decodable, Equatable, Hashable {
+    public enum Gesture {
+        case tap
+        case doubleTap
+        case longPress
+    }
+    
+    public enum CellType: Sendable, Equatable, Hashable {
         case textOnlyMessage
         case mediaMessage
         case audio
         case voiceMessage
         case genericAttachment
+        case infoMessage
+        case call
         case typingIndicator
         case dateHeader
         case unreadMarker
+        
+        public var supportedGestures: Set<Gesture> {
+            switch self {
+                case .typingIndicator, .dateHeader, .unreadMarker: return []
+                case .voiceMessage: return [.tap, .doubleTap, .longPress]
+                case .textOnlyMessage, .mediaMessage, .audio, .genericAttachment,
+                    .infoMessage, .call:
+                    return [.tap, .longPress]
+            }
+        }
     }
     
     public var differenceIdentifier: Int64 { id }
@@ -848,7 +866,22 @@ private extension MessageViewModel {
         attachments: [Attachment]?
     ) -> MessageViewModel.CellType {
         guard !interaction.variant.isDeletedMessage else { return .textOnlyMessage }
-        guard let attachment: Attachment = attachments?.first else { return .textOnlyMessage }
+        guard let attachment: Attachment = attachments?.first else {
+            switch interaction.variant {
+                case .infoCall: return .call
+                case .infoLegacyGroupCreated, .infoLegacyGroupUpdated, .infoLegacyGroupCurrentUserLeft,
+                    .infoGroupCurrentUserLeaving, .infoGroupCurrentUserErrorLeaving,
+                    .infoDisappearingMessagesUpdate, .infoScreenshotNotification,
+                    .infoMediaSavedNotification, .infoMessageRequestAccepted, .infoGroupInfoInvited,
+                    .infoGroupInfoUpdated, .infoGroupMembersUpdated:
+                    return .infoMessage
+                    
+                case ._legacyStandardIncomingDeleted, .standardIncomingDeleted, .standardOutgoingDeleted, .standardIncomingDeletedLocally, .standardOutgoingDeletedLocally:
+                    return .textOnlyMessage /// Should be handled above
+                    
+                case .standardOutgoing, .standardIncoming: return .textOnlyMessage
+            }
+        }
 
         /// The only case which currently supports multiple attachments is a 'mediaMessage' (the album view)
         guard attachments?.count == 1 else { return .mediaMessage }

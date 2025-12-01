@@ -75,6 +75,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case mockCurrentUserSessionProBackendStatus
         case mockCurrentUserSessionProLoadingState
         case mockCurrentUserSessionProOriginatingPlatform
+        case mockCurrentUserNonOriginatingAccount
         case proBadgeEverywhere
         case fakeAppleSubscriptionForDev
 
@@ -84,8 +85,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         case proPlanToRecover
         case proPlanExpiry
+        case proPlanExpiredOverThirtyDays
         case mockInstalledFromIPA
         case originatingPlatform
+        case nonOriginatingAccount
         
         case purchaseProSubscription
         case manageProSubscriptions
@@ -107,6 +110,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .mockCurrentUserSessionProBackendStatus: return "mockCurrentUserSessionProBackendStatus"
                 case .mockCurrentUserSessionProLoadingState: return "mockCurrentUserSessionProLoadingState"
                 case .mockCurrentUserSessionProOriginatingPlatform: return "mockCurrentUserSessionProOriginatingPlatform"
+                case .mockCurrentUserNonOriginatingAccount: return "mockCurrentUserNonOriginatingAccount"
                 case .proBadgeEverywhere: return "proBadgeEverywhere"
                 case .fakeAppleSubscriptionForDev: return "fakeAppleSubscriptionForDev"
                 
@@ -116,6 +120,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     
                 case .proPlanToRecover: return "proPlanToRecover"
                 case .proPlanExpiry: return "proPlanExpiry"
+                case .proPlanExpiredOverThirtyDays: return "proPlanExpiredOverThirtyDays"
                 case .mockInstalledFromIPA: return "mockInstalledFromIPA"
                 case .originatingPlatform: return "originatingPlatform"
                     
@@ -142,6 +147,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .mockCurrentUserSessionProBackendStatus: result.append(.mockCurrentUserSessionProBackendStatus); fallthrough
                 case .mockCurrentUserSessionProLoadingState: result.append(.mockCurrentUserSessionProLoadingState); fallthrough
                 case .mockCurrentUserSessionProOriginatingPlatform: result.append(.mockCurrentUserSessionProOriginatingPlatform); fallthrough
+                case .mockCurrentUserNonOriginatingAccount: result.append(.mockCurrentUserNonOriginatingAccount); fallthrough
                 case .proBadgeEverywhere: result.append(.proBadgeEverywhere); fallthrough
                 case .fakeAppleSubscriptionForDev: result.append(.fakeAppleSubscriptionForDev); fallthrough
 
@@ -151,7 +157,10 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 
                 case .proPlanToRecover: result.append(.proPlanToRecover); fallthrough
                 case .proPlanExpiry: result.append(.proPlanExpiry); fallthrough
-                case .mockInstalledFromIPA: result.append(mockInstalledFromIPA); fallthrough
+
+                // TODO: Probably need to add this one
+//                case .proPlanExpiredOverThirtyDays: result.append(.proPlanExpiredOverThirtyDays); fallthrough
+//                case .mockInstalledFromIPA: result.append(mockInstalledFromIPA); fallthrough
                 case .originatingPlatform: result.append(.originatingPlatform); fallthrough
                     
                 case .purchaseProSubscription: result.append(.purchaseProSubscription); fallthrough
@@ -183,6 +192,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let mockCurrentUserSessionProBackendStatus: MockableFeature<Network.SessionPro.BackendUserProStatus>
         let mockCurrentUserSessionProLoadingState: MockableFeature<SessionPro.LoadingState>
         let mockCurrentUserSessionProOriginatingPlatform: MockableFeature<SessionProUI.ClientPlatform>
+        let mockCurrentUserNonOriginatingAccount: Bool
         let proBadgeEverywhere: Bool
         let fakeAppleSubscriptionForDev: Bool
 
@@ -194,6 +204,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
 //        let proPlanExpiry: SessionProStateExpiryMock
 //        let mockInstalledFromIPA: Bool
 //        let originatingPlatform: ClientPlatform
+//        let proPlanExpiredOverThirtyDays: Bool
         
         let products: [Product]
         let purchasedProduct: Product?
@@ -221,11 +232,13 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.mockCurrentUserSessionProBackendStatus),
             .feature(.mockCurrentUserSessionProLoadingState),
             .feature(.mockCurrentUserSessionProOriginatingPlatform),
+            .feature(.mockCurrentUserNonOriginatingAccount),
             .feature(.proBadgeEverywhere),
             .feature(.fakeAppleSubscriptionForDev),
             //            .feature(.proPlanToRecover),
             //            .feature(.mockCurrentUserSessionProExpiry),
             //            .feature(.mockInstalledFromIPA),
+//                .feature(.mockExpiredOverThirtyDays),
             .feature(.forceMessageFeatureProBadge),
             .feature(.forceMessageFeatureLongMessage),
             .feature(.forceMessageFeatureAnimatedAvatar),
@@ -239,11 +252,13 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
                 mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
                 mockCurrentUserSessionProOriginatingPlatform: dependencies[feature: .mockCurrentUserSessionProOriginatingPlatform],
+                mockCurrentUserNonOriginatingAccount: dependencies[feature: .mockCurrentUserNonOriginatingAccount],
                 proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
                 fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
                 
 //                proPlanToRecover: dependencies[feature: .proPlanToRecover],
 //                proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
+//                proPlanExpiredOverThirtyDays: dependencies[feature: .mockExpiredOverThirtyDays],
 //                mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
 
                 forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
@@ -315,10 +330,12 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
             mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
             mockCurrentUserSessionProOriginatingPlatform: dependencies[feature: .mockCurrentUserSessionProOriginatingPlatform],
+            mockCurrentUserNonOriginatingAccount: dependencies[feature: .mockCurrentUserNonOriginatingAccount],
             proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
             fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
 //            proPlanToRecover: dependencies[feature: .proPlanToRecover],
 //            proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
+//            proPlanExpiredOverThirtyDays: dependencies[feature: .mockExpiredOverThirtyDays],
 //            mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
             forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
             forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
@@ -460,6 +477,24 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
+                // TODO: [PRO] Add this in
+//                (
+//                    state.originatingPlatform != .iOS ? nil :
+//                        SessionCell.Info(
+//                            id: .nonOriginatingAccount,
+//                            title: "Non-Originating Apple ID",
+//                            trailingAccessory: .toggle(
+//                                state.nonOriginatingAccount,
+//                                oldValue: previousState.nonOriginatingAccount
+//                            ),
+//                            onTap: { [dependencies = viewModel.dependencies] in
+//                                dependencies.set(
+//                                    feature: .mockNonOriginatingAccount,
+//                                    to: !state.nonOriginatingAccount
+//                                )
+//                            }
+//                        )
+//                ),
                 SessionCell.Info(
                     id: .proBadgeEverywhere,
                     title: "Show the Pro Badge everywhere",
@@ -788,7 +823,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
 //                contentsOf: [
 //                    {
 //                        switch state.mockCurrentUserSessionPro {
-//                            case .none, .expired:
+//                            case .none:
 //                                SessionCell.Info(
 //                                    id: .proPlanToRecover,
 //                                    title: "Pro plan to recover",
@@ -803,6 +838,24 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
 //                                        dependencies.set(
 //                                            feature: .proPlanToRecover,
 //                                            to: !state.proPlanToRecover
+//                                        )
+//                                    }
+//                                )
+//                            case .expired:
+//                                SessionCell.Info(
+//                                    id: .proPlanExpiredOverThirtyDays,
+//                                    title: "Expired over 30 days",
+//                                    subtitle: """
+//                                    Mock pro plan expired over 30 days, so the Expired CTA shouldn't show.
+//                                    """,
+//                                    trailingAccessory: .toggle(
+//                                        state.proPlanExpiredOverThirtyDays,
+//                                        oldValue: previousState.proPlanExpiredOverThirtyDays
+//                                    ),
+//                                    onTap: { [dependencies = viewModel.dependencies] in
+//                                        dependencies.set(
+//                                            feature: .mockExpiredOverThirtyDays,
+//                                            to: !state.proPlanExpiredOverThirtyDays
 //                                        )
 //                                    }
 //                                )
@@ -895,15 +948,15 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         features.forEach { feature in
             guard dependencies.hasSet(feature: feature) else { return }
             
-            dependencies.set(feature: feature, to: nil)
+            dependencies.reset(feature: feature)
         }
         
         if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
-            dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
+            dependencies.reset(feature: .mockCurrentUserSessionProBackendStatus)
         }
         
         if dependencies.hasSet(feature: .mockCurrentUserSessionProLoadingState) {
-            dependencies.set(feature: .mockCurrentUserSessionProLoadingState, to: nil)
+            dependencies.reset(feature: .mockCurrentUserSessionProLoadingState)
         }
     }
     
@@ -913,18 +966,20 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         dependencies.set(feature: .sessionProEnabled, to: !current)
         
         if dependencies.hasSet(feature: .proBadgeEverywhere) {
-            dependencies.set(feature: .proBadgeEverywhere, to: nil)
+            dependencies.reset(feature: .proBadgeEverywhere)
         }
         
         if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
-            dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: nil)
+            dependencies.reset(feature: .mockCurrentUserSessionProBackendStatus)
+            
             Task.detached(priority: .userInitiated) { [dependencies] in
                 try? await dependencies[singleton: .sessionProManager].refreshProState()
             }
         }
         
         if dependencies.hasSet(feature: .mockCurrentUserSessionProLoadingState) {
-            dependencies.set(feature: .mockCurrentUserSessionProLoadingState, to: nil)
+            dependencies.reset(feature: .mockCurrentUserSessionProLoadingState)
+            
             Task.detached(priority: .userInitiated) { [dependencies] in
                 try? await dependencies[singleton: .sessionProManager].refreshProState()
             }

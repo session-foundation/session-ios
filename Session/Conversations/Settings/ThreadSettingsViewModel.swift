@@ -318,12 +318,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 !threadViewModel.threadIsNoteToSelf
                             else { return nil }
                             
-                            return (
-                                .themedKey(
-                                    SessionProBadge.Size.medium.cacheKey,
-                                    themeBackgroundColor: .primary
-                                ),
-                                { SessionProBadge(size: .medium) }
+                            return SessionProBadge.trailingImage(
+                                size: .medium,
+                                themeBackgroundColor: .primary
                             )
                         }()
                     ),
@@ -381,6 +378,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         
                         dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                             proCTAModalVariant,
+                            onConfirm: {},
                             presenting: { modal in
                                 self?.transitionToScreen(modal, transitionType: .present)
                             }

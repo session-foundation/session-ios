@@ -18,13 +18,6 @@ final class CallMessageCell: MessageCell {
     
     override var contextSnapshotView: UIView? { return container }
     
-    override var allowedGestureRecognizers: Set<GestureRecognizerType> {
-        return [
-            .longPress,
-            .tap
-        ]
-    }
-    
     // MARK: - UI
     
     private lazy var topConstraint: NSLayoutConstraint = mainStackView.pin(.top, to: .top, of: self, withInset: CallMessageCell.inset)
@@ -147,6 +140,9 @@ final class CallMessageCell: MessageCell {
         self.accessibilityIdentifier = "Control message"
         self.isAccessibilityElement = true
         self.viewModel = cellViewModel
+        self.tapGestureRegonizer.isEnabled = cellViewModel.cellType.supportedGestures.contains(.tap)
+        self.doubleTapGestureRegonizer.isEnabled = cellViewModel.cellType.supportedGestures.contains(.doubleTap)
+        self.longPressGestureRegonizer.isEnabled = cellViewModel.cellType.supportedGestures.contains(.longPress)
         self.topConstraint.constant = (cellViewModel.shouldShowDateHeader ? 0 : CallMessageCell.inset)
         
         iconImageView.image = {

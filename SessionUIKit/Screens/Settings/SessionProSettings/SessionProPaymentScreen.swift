@@ -83,7 +83,15 @@ public struct SessionProPaymentScreen: View {
                             }
                         
                         case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform):
-                            if originatingPlatform == .iOS {
+                            if viewModel.dataModel.plans.isEmpty || originatingPlatform != .iOS {
+                                UpdatePlanNonOriginatingPlatformContent(
+                                    currentPlan: currentPlan,
+                                    currentPlanExpiredOn: expiredOn,
+                                    isAutoRenewing: isAutoRenewing,
+                                    originatingPlatform: originatingPlatform,
+                                    openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
+                                )
+                            } else {
                                 SessionProPlanPurchaseContent(
                                     currentSelection: $currentSelection,
                                     isShowingTooltip: $isShowingTooltip,
@@ -96,26 +104,25 @@ public struct SessionProPaymentScreen: View {
                                     purchaseAction: { updatePlan() },
                                     openTosPrivacyAction: { openTosPrivacy() }
                                 )
-                            } else {
-                                UpdatePlanNonOriginatingPlatformContent(
-                                    currentPlan: currentPlan,
-                                    currentPlanExpiredOn: expiredOn,
-                                    isAutoRenewing: isAutoRenewing,
-                                    originatingPlatform: originatingPlatform,
-                                    openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
-                                )
                             }
-                        
-                        case .refund(let originatingPlatform, let requestedAt):
-                            if originatingPlatform == .iOS {
+                        case .refund(let originatingPlatform, let isNonOriginatingAccount, let requestedAt):
+                            if originatingPlatform == .iOS && isNonOriginatingAccount != true {
                                 RequestRefundOriginatingPlatformContent(
                                     requestRefundAction: {
-                                        // TODO: Request Refund action
+                                        viewModel.requestRefund(
+                                            success: {
+                                                host.controller?.navigationController?.popViewController(animated: true)
+                                            },
+                                            failure: {
+                                                // TODO: [PRO] Request refund failure behaviour
+                                            }
+                                         )
                                     }
                                 )
                             } else {
-                                RequestRefundNonOriginatingPlatformContent(
+                                RequestRefundNonOriginatorContent(
                                     originatingPlatform: originatingPlatform,
+                                    isNonOriginatingAccount: isNonOriginatingAccount,
                                     requestedAt: requestedAt,
                                     openPlatformStoreWebsiteAction: { openPlatformStoreWebsite() }
                                 )
@@ -130,7 +137,7 @@ public struct SessionProPaymentScreen: View {
                                                 host.controller?.navigationController?.popViewController(animated: true)
                                             },
                                             failure: {
-                                                // TODO: Payment failure behaviour
+                                                // TODO: [PRO] Payment failure behaviour
                                             }
                                         )
                                     }

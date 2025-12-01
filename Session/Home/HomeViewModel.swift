@@ -109,6 +109,7 @@ public class HomeViewModel: NavigatableStateHolder {
         let pendingAppReviewPromptState: AppReviewPromptState?
         let appWasInstalledPriorToAppReviewRelease: Bool
         let showVersionSupportBanner: Bool
+        let showDonationsCTAModal: Bool
         
         @MainActor public func sections(viewModel: HomeViewModel) -> [SectionModel] {
             HomeViewModel.sections(state: self, viewModel: viewModel)
@@ -138,7 +139,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 .userDefault(.hasChangedTheme),
                 .updateScreen(HomeViewModel.self),
                 .feature(.versionDeprecationWarning),
-                .feature(.versionDeprecationMinimum)
+                .feature(.versionDeprecationMinimum),
+                .showDonationsCTAModal
             ]
             
             itemCache.values.forEach { threadViewModel in
@@ -199,7 +201,8 @@ public class HomeViewModel: NavigatableStateHolder {
                 appReviewPromptState: nil,
                 pendingAppReviewPromptState: appReviewPromptState,
                 appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
-                showVersionSupportBanner: showVersionSupportBanner
+                showVersionSupportBanner: showVersionSupportBanner,
+                showDonationsCTAModal: false
             )
         }
     }
@@ -226,6 +229,7 @@ public class HomeViewModel: NavigatableStateHolder {
         var pendingAppReviewPromptState: AppReviewPromptState? = previousState.pendingAppReviewPromptState
         let appWasInstalledPriorToAppReviewRelease: Bool = previousState.appWasInstalledPriorToAppReviewRelease
         var showVersionSupportBanner: Bool = previousState.showVersionSupportBanner
+        var showDonationsCTAModal: Bool = previousState.showDonationsCTAModal
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
@@ -485,6 +489,15 @@ public class HomeViewModel: NavigatableStateHolder {
             pendingAppReviewPromptState = event.pendingAppReviewPromptState
             appReviewPromptState = event.appReviewPromptState
         }
+        
+        /// If this update has an event indicating we should show the donations modal then do so, the next change will result in the flag
+        /// being reset so we don't unintentionally show it again
+        if groupedOtherEvents?[.showDonationsCTAModal] != nil {
+            showDonationsCTAModal = true
+        }
+        else if showDonationsCTAModal {
+            showDonationsCTAModal = false
+        }
 
         /// Generate the new state
         return State(
@@ -506,7 +519,8 @@ public class HomeViewModel: NavigatableStateHolder {
             appReviewPromptState: appReviewPromptState,
             pendingAppReviewPromptState: pendingAppReviewPromptState,
             appWasInstalledPriorToAppReviewRelease: appWasInstalledPriorToAppReviewRelease,
-            showVersionSupportBanner: showVersionSupportBanner
+            showVersionSupportBanner: showVersionSupportBanner,
+            showDonationsCTAModal: showDonationsCTAModal
         )
     }
     
@@ -620,7 +634,11 @@ public class HomeViewModel: NavigatableStateHolder {
         ].flatMap { $0 }
     }
     
+    // MARK: - Handle App review
+    
     @MainActor func viewDidAppear() {
+        dependencies[singleton: .donationsManager].conversationListDidAppear()
+        
         if state.pendingAppReviewPromptState != nil {
             // Handle App review
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
@@ -648,10 +666,11 @@ public class HomeViewModel: NavigatableStateHolder {
     @MainActor func showSessionProCTAIfNeeded() async {
         let status: Network.SessionPro.BackendUserProStatus? = await dependencies[singleton: .sessionProManager].proStatus.first(defaultValue: nil)
         let isRefunding: SessionPro.IsRefunding = await dependencies[singleton: .sessionProManager].isRefunding.first(defaultValue: .notRefunding)
+        let variant: ProCTAModal.Variant
         
         switch (status, isRefunding) {
             case (.none, _), (.neverBeenPro, _), (.active, .refunding): return
-            
+                
             case (.active, .notRefunding):
                 let expiryInSeconds: TimeInterval = (await dependencies[singleton: .sessionProManager]
                     .accessExpiryTimestampMs
@@ -659,16 +678,12 @@ public class HomeViewModel: NavigatableStateHolder {
                     .map { value in value.map { Date(timeIntervalSince1970: (Double($0) / 1000)) } }
                     .map { $0.timeIntervalSince(dependencies.dateNow) } ?? 0)
                 guard expiryInSeconds <= 7 * 24 * 60 * 60 else { return }
-                guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return }
                 
-                try? await Task.sleep(for: .seconds(1)) /// Cooperative suspension, so safe to call on main thread
-                
-                dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-                    .expiring(timeLeft: expiryInSeconds.formatted(format: .long, allowedUnits: [ .day, .hour, .minute ])),
-                    presenting: { [weak self, dependencies] modal in
-                        dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
-                        self?.transitionToScreen(modal, transitionType: .present)
-                    }
+                variant = .expiring(
+                    timeLeft: expiryInSeconds.formatted(
+                        format: .long,
+                        allowedUnits: [ .day, .hour, .minute ]
+                    )
                 )
                 
             case (.expired, _):
@@ -679,18 +694,35 @@ public class HomeViewModel: NavigatableStateHolder {
                     .map { $0.timeIntervalSince(dependencies.dateNow) } ?? 0)
                 
                 guard expiryInSeconds <= 30 * 24 * 60 * 60 else { return }
-                guard !dependencies[defaults: .standard, key: .hasShownProExpiredCTA] else { return }
                 
-                try? await Task.sleep(for: .seconds(1)) /// Cooperative suspension, so safe to call on main thread
-                
-                dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-                    .expiring(timeLeft: nil),
-                    presenting: { [weak self, dependencies] modal in
-                        dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = true
-                        self?.transitionToScreen(modal, transitionType: .present)
-                    }
-                )
+                variant = .expiring(timeLeft: nil)
         }
+        
+        guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return }
+        
+        try? await Task.sleep(for: .seconds(1)) /// Cooperative suspension, so safe to call on main thread
+        
+        dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+            variant,
+            onConfirm: {
+                let viewController: SessionHostingViewController = SessionHostingViewController(
+                    rootView: SessionProPaymentScreen(
+                        viewModel: SessionProPaymentScreenContent.ViewModel(
+                            dependencies: dependencies,
+                            dataModel: SessionProPaymentScreenContent.DataModel(
+                                flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(using: dependencies),
+                                plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                            )
+                        )
+                    )
+                )
+                self?.transitionToScreen(viewController)
+            },
+            presenting: { [weak self, dependencies] modal in
+                dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
+                self?.transitionToScreen(modal, transitionType: .present)
+            }
+        )
     }
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {
@@ -807,6 +839,8 @@ public class HomeViewModel: NavigatableStateHolder {
             case .enjoyingSession:
                 handlePromptChangeState(.rateSession)
                 scheduleAppReviewRetry()
+                dependencies[singleton: .donationsManager].positiveReviewChosen()
+                
             case .feedback:
                 // Close prompt before showing survery
                 handlePromptChangeState(nil)

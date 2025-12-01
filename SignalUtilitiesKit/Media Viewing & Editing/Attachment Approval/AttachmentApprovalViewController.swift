@@ -696,7 +696,10 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     @MainActor func showModalForMessagesExceedingCharacterLimit() {
         let didShowCTAModal: Bool = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
             .longerMessages,
-            afterClosed: { [weak self] in
+            onConfirm: { [weak self] in
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
             presenting: { [weak self] modal in
@@ -740,7 +743,10 @@ extension AttachmentApprovalViewController: InputViewDelegate {
     public func handleCharacterLimitLabelTapped() {
         let didShowCTAModal: Bool = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
             .longerMessages,
-            afterClosed: { [weak self] in
+            onConfirm: { [weak self] in
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
             presenting: { [weak self] modal in

@@ -20,7 +20,10 @@ final class ThemeMessagePreviewView: UIView {
                 timestampMs: 0,
                 variant: .standardIncoming,
                 body: "appearancePreview2".localized(),
-                quoteViewModel: QuoteViewModel(previewBody: "appearancePreview1".localized()),
+                quoteViewModel: QuoteViewModel(
+                    showYouAsAuthor: true,
+                    previewBody: "appearancePreview1".localized()
+                )
             ),
             playbackInfo: nil,
             showExpandedReactions: false,

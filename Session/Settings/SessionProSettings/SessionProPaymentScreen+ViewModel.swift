@@ -42,6 +42,16 @@ extension SessionProPaymentScreenContent {
             }
         }
         
+        public func requestRefund(success: (() -> Void)?, failure: (() -> Void)?) {
+            dependencies[singleton: .sessionProState].requestRefund { result in
+                if result {
+                    success?()
+                } else {
+                    failure?()
+                }
+            }
+        }
+        
         public func openURL(_ url: URL) {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }

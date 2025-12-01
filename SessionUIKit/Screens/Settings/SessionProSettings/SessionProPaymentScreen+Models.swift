@@ -10,14 +10,15 @@ public extension SessionProPaymentScreenContent {
         case update(
             currentPlan: SessionProPlanInfo,
             expiredOn: Date,
-            isAutoRenewing: Bool,
-            originatingPlatform: SessionProUI.ClientPlatform
+            originatingPlatform: SessionProUI.ClientPlatform,
+            isAutoRenewing: Bool
         )
         case renew(
             originatingPlatform: SessionProUI.ClientPlatform
         )
         case refund(
             originatingPlatform: SessionProUI.ClientPlatform,
+            isNonOriginatingAccount: Bool?,
             requestedAt: Date?
         )
         case cancel(
@@ -31,16 +32,28 @@ public extension SessionProPaymentScreenContent {
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 
-                case .update(let currentPlan, let expiredOn, let isAutoRenewing, _):
-                    guard isAutoRenewing else {
-                        return "proAccessActivatedNotAuto"
-                            .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                            .put(key: "pro", value: Constants.pro)
-                            .localizedFormatted(Fonts.Body.baseRegular)
-                    }
+                case .update(let currentPlan, let expiredOn, .android, true):
+                    return "proAccessActivatedAutoShort"
+                        .put(key: "current_plan_length", value: currentPlan.durationString)
+                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(Fonts.Body.baseRegular)
                     
+                case .update(let currentPlan, let expiredOn, .android, false):
+                    return "proAccessExpireDate"
+                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(Fonts.Body.baseRegular)
+                
+                case .update(let currentPlan, let expiredOn, .iOS, true):
                     return "proAccessActivatesAuto"
                         .put(key: "current_plan_length", value: currentPlan.durationString)
+                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(Fonts.Body.baseRegular)
+                    
+                case .update(let currentPlan, let expiredOn, .iOS, false):
+                    return "proAccessActivatedNotAuto"
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
@@ -131,6 +144,7 @@ public extension SessionProPaymentScreenContent {
         
         func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?)
         func cancelPro(success: (() -> Void)?, failure: (() -> Void)?)
+        func requestRefund(success: (() -> Void)?, failure: (() -> Void)?)
         func openURL(_ url: URL)
     }
 }

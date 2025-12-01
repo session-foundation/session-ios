@@ -144,6 +144,7 @@ class SessionListViewModel<T: Listable>: SessionTableViewModel, NavigationItemSo
                         .map { option in
                             SessionCell.Info(
                                 id: option,
+                                canReuseCell: true,
                                 title: option.title,
                                 subtitle: option.subtitle,
                                 trailingAccessory: .radio(

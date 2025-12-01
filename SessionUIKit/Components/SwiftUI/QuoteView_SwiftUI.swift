@@ -166,11 +166,11 @@ public struct QuoteViewModel: Sendable, Equatable, Hashable {
         )
     }
     
-    public init(previewBody: String) {
+    public init(showYouAsAuthor: Bool, previewBody: String) {
         self.quotedInfo = QuotedInfo(
             interactionId: 0,
             authorId: "",
-            authorName: "",
+            authorName: (showYouAsAuthor ? "you".localized() : ""),
             timestampMs: 0,
             body: previewBody,
             attachmentInfo: nil

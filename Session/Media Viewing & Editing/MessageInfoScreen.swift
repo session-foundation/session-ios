@@ -671,12 +671,11 @@ struct MessageBubble: View {
                 ) - 2 * Self.inset
             )
             let maxHeight: CGFloat = VisibleMessageCell.getMaxHeightAfterTruncation(for: messageViewModel)
-            let height: CGFloat = VisibleMessageCell.getBodyTappableLabel(
+            let height: CGFloat = VisibleMessageCell.getBodyLabel(
                 for: messageViewModel,
                 with: maxWidth,
                 textColor: bodyLabelTextColor,
                 searchText: nil,
-                delegate: nil,
                 displayNameRetriever: displayNameRetriever
             ).height
             

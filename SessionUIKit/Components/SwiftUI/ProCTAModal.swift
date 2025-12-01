@@ -463,6 +463,9 @@ public protocol SessionProCTAManagerType: AnyObject {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
+        beforePresented: (() -> Void)?,
+        onConfirm: (() -> Void)?,
+        onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool
@@ -474,12 +477,16 @@ public extension SessionProCTAManagerType {
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType = .recursive,
+        onConfirm: (() -> Void)? = nil,
+        onCancel: (() -> Void)? = nil,
         afterClosed: (() -> Void)? = nil,
         presenting: ((UIViewController) -> Void)? = nil
     ) -> Bool {
         showSessionProCTAIfNeeded(
             variant,
             dismissType: dismissType,
+            onConfirm: onConfirm,
+            onCancel: onCancel,
             afterClosed: afterClosed,
             presenting: presenting
         )
