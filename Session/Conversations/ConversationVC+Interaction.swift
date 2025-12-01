@@ -35,12 +35,12 @@ extension ConversationVC:
     }
     
     // Handle taps outside of tableview cell to dismiss keyboard
-    @MainActor @objc func dismissKeyboardOnTap(_ recognizer: UITapGestureRecognizer) {
-        /// If the tap was inside the "Send" button on the input then we **don't** want to dismiss the keyboard (the user should be
-        /// able to send multiple messages in a row)
-        let location: CGPoint = recognizer.location(in: self.snInputView.sendButton)
+    @MainActor @objc func dismissKeyboardOnMessageListTap(_ recognizer: UITapGestureRecognizer) {
+        /// If the tap was inside the input then we **don't** want to dismiss the keyboard (the user should be able to interact with their
+        /// current text, or tap the buttons without the keyboard being dismissed)
+        let location: CGPoint = recognizer.location(in: self.snInputView)
         
-        guard !snInputView.sendButton.bounds.contains(location) else { return }
+        guard !snInputView.bounds.contains(location) else { return }
         
         _ = self.snInputView.resignFirstResponder()
     }
@@ -1642,41 +1642,43 @@ extension ConversationVC:
             return cellViewModel.profile?.blocksCommunityMessageRequests != true
         }()
         
-        let userProfileModal: ModalHostingViewController = ModalHostingViewController(
-            modal: UserProfileModal(
-                info: .init(
-                    sessionId: sessionId,
-                    blindedId: blindedId,
-                    qrCodeImage: qrCodeImage,
-                    profileInfo: profileInfo,
-                    displayName: displayName,
-                    contactDisplayName: contactDisplayName,
-                    isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
-                    isMessageRequestsEnabled: isMessasgeRequestsEnabled,
-                    onStartThread: { [weak self] in
-                        self?.startThread(
-                            with: cellViewModel.authorId,
-                            openGroupServer: cellViewModel.threadOpenGroupServer,
-                            openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
-                        )
-                    },
-                    onProBadgeTapped: { [weak self, dependencies] in
-                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                            .generic,
-                            dismissType: .single,
-                            afterClosed: { [weak self] in
-                                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
-                            },
-                            presenting: { modal in
-                                dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
-                            }
-                        )
-                    }
-                ),
-                dataManager: dependencies[singleton: .imageDataManager]
+        DispatchQueue.main.async { [weak self] in
+            let userProfileModal: ModalHostingViewController = ModalHostingViewController(
+                modal: UserProfileModal(
+                    info: .init(
+                        sessionId: sessionId,
+                        blindedId: blindedId,
+                        qrCodeImage: qrCodeImage,
+                        profileInfo: profileInfo,
+                        displayName: displayName,
+                        contactDisplayName: contactDisplayName,
+                        isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
+                        isMessageRequestsEnabled: isMessasgeRequestsEnabled,
+                        onStartThread: { [weak self] in
+                            self?.startThread(
+                                with: cellViewModel.authorId,
+                                openGroupServer: cellViewModel.threadOpenGroupServer,
+                                openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
+                            )
+                        },
+                        onProBadgeTapped: { [weak self, dependencies] in
+                            dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                .generic,
+                                dismissType: .single,
+                                afterClosed: { [weak self] in
+                                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                                },
+                                presenting: { modal in
+                                    dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
+                                }
+                            )
+                        }
+                    ),
+                    dataManager: dependencies[singleton: .imageDataManager]
+                )
             )
-        )
-        present(userProfileModal, animated: true, completion: nil)
+            self?.present(userProfileModal, animated: true, completion: nil)
+        }
     }
     
     func startThread(
