@@ -141,7 +141,6 @@ public extension Crypto.Generator {
         ) { dependencies in
             let cEncodedMessage: [UInt8] = Array(encodedMessage)
             let cBackendPubkey: [UInt8] = Array(Data(hex: Network.SessionPro.serverEdPublicKey))
-            let currentTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             var error: [CChar] = [CChar](repeating: 0, count: 256)
             
             switch origin {
@@ -149,10 +148,11 @@ public extension Crypto.Generator {
                     /// **Note:** This will generate an error in the debug console because we are slowly migrating the structure of
                     /// Community protobuf content, first we try to decode as an envelope (which logs this error when it's the legacy
                     /// structure) then we try to decode as the legacy structure (which succeeds)
+                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
                     var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
                         cEncodedMessage,
                         cEncodedMessage.count,
-                        currentTimestampMs,
+                        sentTimestampMs,
                         cBackendPubkey,
                         cBackendPubkey.count,
                         &error,
@@ -182,10 +182,11 @@ public extension Crypto.Generator {
                     /// **Note:** This will generate an error in the debug console because we are slowly migrating the structure of
                     /// Community protobuf content, first we try to decode as an envelope (which logs this error when it's the legacy
                     /// structure) then we try to decode as the legacy structure (which succeeds)
+                    let sentTimestampMs: UInt64 = UInt64(floor(posted * 1000))
                     var cResult: session_protocol_decoded_community_message = session_protocol_decode_for_community(
                         cPlaintext,
                         cPlaintext.count,
-                        currentTimestampMs,
+                        sentTimestampMs,
                         cBackendPubkey,
                         cBackendPubkey.count,
                         &error,
@@ -255,7 +256,6 @@ public extension Crypto.Generator {
                             &cKeys,
                             cEncodedMessage,
                             cEncodedMessage.count,
-                            currentTimestampMs,
                             cBackendPubkey,
                             cBackendPubkey.count,
                             &error,
