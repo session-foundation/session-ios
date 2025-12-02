@@ -600,8 +600,15 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         viewModel: SessionProSettingsViewModel
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
         let proFeaturesIds: [ListItem] = [ .longerMessages, .unlimitedPins, .animatedDisplayPictures, .badges ]
-        let proFeatureInfos: [ProFeaturesInfo] = ProFeaturesInfo.allCases(proStateExpired: false)
-        let plusMoreFeatureInfo: ProFeaturesInfo = ProFeaturesInfo.plusMoreFeatureInfo(proStateExpired: false)
+        let proState: ProFeaturesInfo.ProState = {
+            switch state.currentProPlanState {
+                case .none: return .none
+                case .expired: return .expired
+                default: return .active
+            }
+        }()
+        let proFeatureInfos: [ProFeaturesInfo] = ProFeaturesInfo.allCases(proState: proState)
+        let plusMoreFeatureInfo: ProFeaturesInfo = ProFeaturesInfo.plusMoreFeatureInfo(proState: proState)
 
         var result = zip(proFeaturesIds, proFeatureInfos).map { id, info in
             SessionListScreenContent.ListItemInfo(
