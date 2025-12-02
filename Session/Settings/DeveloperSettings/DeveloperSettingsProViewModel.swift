@@ -72,10 +72,12 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public enum TableItem: Hashable, Differentiable, CaseIterable {
         case enableSessionPro
         
+        case mockCurrentUserSessionProBuildVariant
         case mockCurrentUserSessionProBackendStatus
         case mockCurrentUserSessionProLoadingState
         case mockCurrentUserSessionProOriginatingPlatform
-        case mockCurrentUserNonOriginatingAccount
+        case mockCurrentUserOriginatingAccount
+        case mockCurrentUserAccessExpiryTimestamp
         case proBadgeEverywhere
         case fakeAppleSubscriptionForDev
 
@@ -84,11 +86,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case forceMessageFeatureAnimatedAvatar
         
         case proPlanToRecover
-        case proPlanExpiry
-        case proPlanExpiredOverThirtyDays
-        case mockInstalledFromIPA
-        case originatingPlatform
-        case nonOriginatingAccount
         
         case purchaseProSubscription
         case manageProSubscriptions
@@ -107,10 +104,12 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             switch self {
                 case .enableSessionPro: return "enableSessionPro"
                     
+                case .mockCurrentUserSessionProBuildVariant: return "mockCurrentUserSessionProBuildVariant"
                 case .mockCurrentUserSessionProBackendStatus: return "mockCurrentUserSessionProBackendStatus"
                 case .mockCurrentUserSessionProLoadingState: return "mockCurrentUserSessionProLoadingState"
                 case .mockCurrentUserSessionProOriginatingPlatform: return "mockCurrentUserSessionProOriginatingPlatform"
-                case .mockCurrentUserNonOriginatingAccount: return "mockCurrentUserNonOriginatingAccount"
+                case .mockCurrentUserOriginatingAccount: return "mockCurrentUserOriginatingAccount"
+                case .mockCurrentUserAccessExpiryTimestamp: return "mockCurrentUserAccessExpiryTimestamp"
                 case .proBadgeEverywhere: return "proBadgeEverywhere"
                 case .fakeAppleSubscriptionForDev: return "fakeAppleSubscriptionForDev"
                 
@@ -119,10 +118,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .forceMessageFeatureAnimatedAvatar: return "forceMessageFeatureAnimatedAvatar"
                     
                 case .proPlanToRecover: return "proPlanToRecover"
-                case .proPlanExpiry: return "proPlanExpiry"
-                case .proPlanExpiredOverThirtyDays: return "proPlanExpiredOverThirtyDays"
-                case .mockInstalledFromIPA: return "mockInstalledFromIPA"
-                case .originatingPlatform: return "originatingPlatform"
                     
                 case .purchaseProSubscription: return "purchaseProSubscription"
                 case .manageProSubscriptions: return "manageProSubscriptions"
@@ -143,11 +138,13 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             var result: [TableItem] = []
             switch TableItem.enableSessionPro {
                 case .enableSessionPro: result.append(.enableSessionPro); fallthrough
-                    
+                
+                case .mockCurrentUserSessionProBuildVariant: result.append(.mockCurrentUserSessionProBuildVariant); fallthrough
                 case .mockCurrentUserSessionProBackendStatus: result.append(.mockCurrentUserSessionProBackendStatus); fallthrough
                 case .mockCurrentUserSessionProLoadingState: result.append(.mockCurrentUserSessionProLoadingState); fallthrough
                 case .mockCurrentUserSessionProOriginatingPlatform: result.append(.mockCurrentUserSessionProOriginatingPlatform); fallthrough
-                case .mockCurrentUserNonOriginatingAccount: result.append(.mockCurrentUserNonOriginatingAccount); fallthrough
+                case .mockCurrentUserAccessExpiryTimestamp: result.append(.mockCurrentUserAccessExpiryTimestamp); fallthrough
+                case .mockCurrentUserOriginatingAccount: result.append(.mockCurrentUserOriginatingAccount); fallthrough
                 case .proBadgeEverywhere: result.append(.proBadgeEverywhere); fallthrough
                 case .fakeAppleSubscriptionForDev: result.append(.fakeAppleSubscriptionForDev); fallthrough
 
@@ -156,12 +153,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .forceMessageFeatureAnimatedAvatar: result.append(.forceMessageFeatureAnimatedAvatar); fallthrough
                 
                 case .proPlanToRecover: result.append(.proPlanToRecover); fallthrough
-                case .proPlanExpiry: result.append(.proPlanExpiry); fallthrough
-
-                // TODO: Probably need to add this one
-//                case .proPlanExpiredOverThirtyDays: result.append(.proPlanExpiredOverThirtyDays); fallthrough
-//                case .mockInstalledFromIPA: result.append(mockInstalledFromIPA); fallthrough
-                case .originatingPlatform: result.append(.originatingPlatform); fallthrough
                     
                 case .purchaseProSubscription: result.append(.purchaseProSubscription); fallthrough
                 case .manageProSubscriptions: result.append(.manageProSubscriptions); fallthrough
@@ -189,10 +180,12 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     public struct State: Equatable, ObservableKeyProvider {
         let sessionProEnabled: Bool
         
+        let mockCurrentUserSessionProBuildVariant: MockableFeature<BuildVariant>
         let mockCurrentUserSessionProBackendStatus: MockableFeature<Network.SessionPro.BackendUserProStatus>
         let mockCurrentUserSessionProLoadingState: MockableFeature<SessionPro.LoadingState>
         let mockCurrentUserSessionProOriginatingPlatform: MockableFeature<SessionProUI.ClientPlatform>
-        let mockCurrentUserNonOriginatingAccount: Bool
+        let mockCurrentUserOriginatingAccount: MockableFeature<SessionPro.OriginatingAccount>
+        let mockCurrentUserAccessExpiryTimestamp: TimeInterval
         let proBadgeEverywhere: Bool
         let fakeAppleSubscriptionForDev: Bool
 
@@ -201,10 +194,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let forceMessageFeatureAnimatedAvatar: Bool
         // TODO: [PRO] Add these back
 //        let proPlanToRecover: Bool
-//        let proPlanExpiry: SessionProStateExpiryMock
-//        let mockInstalledFromIPA: Bool
-//        let originatingPlatform: ClientPlatform
-//        let proPlanExpiredOverThirtyDays: Bool
         
         let products: [Product]
         let purchasedProduct: Product?
@@ -229,10 +218,12 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         public let observedKeys: Set<ObservableKey> = [
             .feature(.sessionProEnabled),
+            .feature(.mockCurrentUserSessionProBuildVariant),
             .feature(.mockCurrentUserSessionProBackendStatus),
             .feature(.mockCurrentUserSessionProLoadingState),
             .feature(.mockCurrentUserSessionProOriginatingPlatform),
-            .feature(.mockCurrentUserNonOriginatingAccount),
+            .feature(.mockCurrentUserOriginatingAccount),
+            .feature(.mockCurrentUserAccessExpiryTimestamp),
             .feature(.proBadgeEverywhere),
             .feature(.fakeAppleSubscriptionForDev),
             //            .feature(.proPlanToRecover),
@@ -249,17 +240,16 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             return State(
                 sessionProEnabled: dependencies[feature: .sessionProEnabled],
                 
+                mockCurrentUserSessionProBuildVariant: dependencies[feature: .mockCurrentUserSessionProBuildVariant],
                 mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
                 mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
                 mockCurrentUserSessionProOriginatingPlatform: dependencies[feature: .mockCurrentUserSessionProOriginatingPlatform],
-                mockCurrentUserNonOriginatingAccount: dependencies[feature: .mockCurrentUserNonOriginatingAccount],
+                mockCurrentUserOriginatingAccount: dependencies[feature: .mockCurrentUserOriginatingAccount],
+                mockCurrentUserAccessExpiryTimestamp: dependencies[feature: .mockCurrentUserAccessExpiryTimestamp],
                 proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
                 fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
                 
 //                proPlanToRecover: dependencies[feature: .proPlanToRecover],
-//                proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
-//                proPlanExpiredOverThirtyDays: dependencies[feature: .mockExpiredOverThirtyDays],
-//                mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
 
                 forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
                 forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
@@ -327,16 +317,15 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         return State(
             sessionProEnabled: dependencies[feature: .sessionProEnabled],
+            mockCurrentUserSessionProBuildVariant: dependencies[feature: .mockCurrentUserSessionProBuildVariant],
             mockCurrentUserSessionProBackendStatus: dependencies[feature: .mockCurrentUserSessionProBackendStatus],
             mockCurrentUserSessionProLoadingState: dependencies[feature: .mockCurrentUserSessionProLoadingState],
             mockCurrentUserSessionProOriginatingPlatform: dependencies[feature: .mockCurrentUserSessionProOriginatingPlatform],
-            mockCurrentUserNonOriginatingAccount: dependencies[feature: .mockCurrentUserNonOriginatingAccount],
+            mockCurrentUserOriginatingAccount: dependencies[feature: .mockCurrentUserOriginatingAccount],
+            mockCurrentUserAccessExpiryTimestamp: dependencies[feature: .mockCurrentUserAccessExpiryTimestamp],
             proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
             fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
 //            proPlanToRecover: dependencies[feature: .proPlanToRecover],
-//            proPlanExpiry: dependencies[feature: .mockCurrentUserSessionProExpiry],
-//            proPlanExpiredOverThirtyDays: dependencies[feature: .mockExpiredOverThirtyDays],
-//            mockInstalledFromIPA: dependencies[feature: .mockInstalledFromIPA],
             forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
             forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
             forceMessageFeatureAnimatedAvatar: dependencies[feature: .forceMessageFeatureAnimatedAvatar],
@@ -386,6 +375,31 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let features: SectionModel = SectionModel(
             model: .features,
             elements: [
+                SessionCell.Info(
+                    id: .mockCurrentUserSessionProBuildVariant,
+                    title: "Mocked Build Variant",
+                    subtitle: """
+                    Force the app to be a specific build variant.
+                    
+                    <b>Current:</b> \(devValue: state.mockCurrentUserSessionProBuildVariant)
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableState(
+                            title: "Mocked Build Variant",
+                            explanation: "Force the app to be a specific build variant.",
+                            feature: .mockCurrentUserSessionProBuildVariant,
+                            currentValue: state.mockCurrentUserSessionProBuildVariant,
+                            navigatableStateHolder: viewModel,
+                            onMockingRemoved: { [dependencies] in
+                                Task.detached(priority: .userInitiated) { [dependencies] in
+                                    try? await dependencies[singleton: .sessionProManager].refreshProState()
+                                }
+                            },
+                            using: viewModel?.dependencies
+                        )
+                    }
+                ),
                 SessionCell.Info(
                     id: .mockCurrentUserSessionProBackendStatus,
                     title: "Mocked Pro Status",
@@ -477,24 +491,58 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                // TODO: [PRO] Add this in
-//                (
-//                    state.originatingPlatform != .iOS ? nil :
-//                        SessionCell.Info(
-//                            id: .nonOriginatingAccount,
-//                            title: "Non-Originating Apple ID",
-//                            trailingAccessory: .toggle(
-//                                state.nonOriginatingAccount,
-//                                oldValue: previousState.nonOriginatingAccount
-//                            ),
-//                            onTap: { [dependencies = viewModel.dependencies] in
-//                                dependencies.set(
-//                                    feature: .mockNonOriginatingAccount,
-//                                    to: !state.nonOriginatingAccount
-//                                )
-//                            }
-//                        )
-//                ),
+                SessionCell.Info(
+                    id: .mockCurrentUserOriginatingAccount,
+                    title: "Mocked Originating Account",
+                    subtitle: """
+                    Force the current users Session Pro to have originated from a specific account.
+                    
+                    <b>Current:</b> \(devValue: state.mockCurrentUserOriginatingAccount)
+                    
+                    Note: This option will only be available if the users pro state has been mocked, there is already a mocked loading state, or the users pro state has been fetched via the "Refresh Pro State" action on this screen.
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    isEnabled: {
+                        switch (state.mockCurrentUserSessionProLoadingState, state.mockCurrentUserSessionProBackendStatus, state.currentProStatus) {
+                            case (.simulate, _, _), (_, .simulate, _), (_, _, .some): return true
+                            default: return false
+                        }
+                    }(),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableState(
+                            title: "Mocked Originating Account",
+                            explanation: "Force the current users Session Pro to have originated from a specific account.",
+                            feature: .mockCurrentUserOriginatingAccount,
+                            currentValue: state.mockCurrentUserOriginatingAccount,
+                            navigatableStateHolder: viewModel,
+                            onMockingRemoved: { [dependencies] in
+                                Task.detached(priority: .userInitiated) { [dependencies] in
+                                    try? await dependencies[singleton: .sessionProManager].refreshProState()
+                                }
+                            },
+                            using: viewModel?.dependencies
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .mockCurrentUserAccessExpiryTimestamp,
+                    title: "Mocked Access Expiry Date/Time",
+                    subtitle: """
+                    Specify a custom date/time that the users Session Pro should expire.
+                    
+                    <b>Current:</b> \(devValue: viewModel.dependencies[feature: .mockCurrentUserAccessExpiryTimestamp])
+                    """,
+                    trailingAccessory: .icon(.squarePen),
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        DeveloperSettingsViewModel.showModalForMockableDate(
+                            title: "Mocked Access Expiry Date/Time",
+                            explanation: "The custom date/time the users Session Pro should expire.",
+                            feature: .mockCurrentUserAccessExpiryTimestamp,
+                            navigatableStateHolder: viewModel,
+                            using: dependencies
+                        )
+                    }
+                ),
                 SessionCell.Info(
                     id: .proBadgeEverywhere,
                     title: "Show the Pro Badge everywhere",
@@ -730,206 +778,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             ]
         )
         
-//        let features: SectionModel = SectionModel(
-//            model: .features,
-//            elements: [
-//                SessionCell.Info(
-//                    id: .proStatus,
-//                    title: "Pro Status",
-//                    subtitle: """
-//                    Mock current user a Session Pro user locally.
-//                    """,
-//                    trailingAccessory: .dropDown { state.mockCurrentUserSessionPro.title },
-//                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-//                        viewModel?.transitionToScreen(
-//                            SessionTableViewController(
-//                                viewModel: SessionListViewModel<SessionProStateMock>(
-//                                    title: "Session Pro State",
-//                                    options: SessionProStateMock.allCases,
-//                                    behaviour: .autoDismiss(
-//                                        initialSelection: state.mockCurrentUserSessionPro,
-//                                        onOptionSelected: viewModel?.updateSessionProState
-//                                    ),
-//                                    using: dependencies
-//                                )
-//                            )
-//                        )
-//                    }
-//                ),
-//                SessionCell.Info(
-//                    id: .allUsersSessionPro,
-//                    title: "Everyone is a Pro",
-//                    subtitle: """
-//                    Treat all incoming messages as Pro messages.
-//                    Treat all contacts, groups as Session Pro.
-//                    """,
-//                    trailingAccessory: .toggle(
-//                        state.allUsersSessionPro,
-//                        oldValue: previousState.allUsersSessionPro
-//                    ),
-//                    onTap: { [dependencies = viewModel.dependencies] in
-//                        dependencies.set(
-//                            feature: .allUsersSessionPro,
-//                            to: !state.allUsersSessionPro
-//                        )
-//                    }
-//                )
-//            ].appending(
-//                contentsOf: !state.allUsersSessionPro ? [] : [
-//                    SessionCell.Info(
-//                        id: .messageFeatureProBadge,
-//                        title: .init("Message Feature: Pro Badge", font: .subtitle),
-//                        trailingAccessory: .toggle(
-//                            state.messageFeatureProBadge,
-//                            oldValue: previousState.messageFeatureProBadge
-//                        ),
-//                        onTap: { [dependencies = viewModel.dependencies] in
-//                            dependencies.set(
-//                                feature: .messageFeatureProBadge,
-//                                to: !state.messageFeatureProBadge
-//                            )
-//                        }
-//                    ),
-//                    SessionCell.Info(
-//                        id: .messageFeatureLongMessage,
-//                        title: .init("Message Feature: Long Message", font: .subtitle),
-//                        trailingAccessory: .toggle(
-//                            state.messageFeatureLongMessage,
-//                            oldValue: previousState.messageFeatureLongMessage
-//                        ),
-//                        onTap: { [dependencies = viewModel.dependencies] in
-//                            dependencies.set(
-//                                feature: .messageFeatureLongMessage,
-//                                to: !state.messageFeatureLongMessage
-//                            )
-//                        }
-//                    ),
-//                    SessionCell.Info(
-//                        id: .messageFeatureAnimatedAvatar,
-//                        title: .init("Message Feature: Animated Avatar", font: .subtitle),
-//                        trailingAccessory: .toggle(
-//                            state.messageFeatureAnimatedAvatar,
-//                            oldValue: previousState.messageFeatureAnimatedAvatar
-//                        ),
-//                        onTap: { [dependencies = viewModel.dependencies] in
-//                            dependencies.set(
-//                                feature: .messageFeatureAnimatedAvatar,
-//                                to: !state.messageFeatureAnimatedAvatar
-//                            )
-//                        }
-//                    )
-//                ]
-//            ).appending(
-//                contentsOf: [
-//                    {
-//                        switch state.mockCurrentUserSessionPro {
-//                            case .none:
-//                                SessionCell.Info(
-//                                    id: .proPlanToRecover,
-//                                    title: "Pro plan to recover",
-//                                    subtitle: """
-//                                    Mock a pro plan to recover for pro state `None` and `Expired`.
-//                                    """,
-//                                    trailingAccessory: .toggle(
-//                                        state.proPlanToRecover,
-//                                        oldValue: previousState.proPlanToRecover
-//                                    ),
-//                                    onTap: { [dependencies = viewModel.dependencies] in
-//                                        dependencies.set(
-//                                            feature: .proPlanToRecover,
-//                                            to: !state.proPlanToRecover
-//                                        )
-//                                    }
-//                                )
-//                            case .expired:
-//                                SessionCell.Info(
-//                                    id: .proPlanExpiredOverThirtyDays,
-//                                    title: "Expired over 30 days",
-//                                    subtitle: """
-//                                    Mock pro plan expired over 30 days, so the Expired CTA shouldn't show.
-//                                    """,
-//                                    trailingAccessory: .toggle(
-//                                        state.proPlanExpiredOverThirtyDays,
-//                                        oldValue: previousState.proPlanExpiredOverThirtyDays
-//                                    ),
-//                                    onTap: { [dependencies = viewModel.dependencies] in
-//                                        dependencies.set(
-//                                            feature: .mockExpiredOverThirtyDays,
-//                                            to: !state.proPlanExpiredOverThirtyDays
-//                                        )
-//                                    }
-//                                )
-//                            case .active, .expiring:
-//                                SessionCell.Info(
-//                                    id: .proPlanExpiry,
-//                                    title: "Pro plan expiry",
-//                                    subtitle: """
-//                                    Mock current pro plan expiry.
-//                                    """,
-//                                    trailingAccessory: .dropDown { state.proPlanExpiry.title },
-//                                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-//                                        viewModel?.transitionToScreen(
-//                                            SessionTableViewController(
-//                                                viewModel: SessionListViewModel<SessionProStateExpiryMock>(
-//                                                    title: "Session Pro Plan Expiry",
-//                                                    options: SessionProStateExpiryMock.allCases,
-//                                                    behaviour: .autoDismiss(
-//                                                        initialSelection: state.proPlanExpiry,
-//                                                        onOptionSelected: viewModel?.updateSessionProExpiry
-//                                                    ),
-//                                                    using: dependencies
-//                                                )
-//                                            )
-//                                        )
-//                                    }
-//                                )
-//                            default: nil
-//                        }
-//                    }(),
-//                    (
-//                        state.mockCurrentUserSessionPro == .none ? nil :
-//                            SessionCell.Info(
-//                                id: .originatingPlatform,
-//                                title: "Originating Platform",
-//                                trailingAccessory: .dropDown { state.originatingPlatform.title },
-//                                onTap: { [dependencies = viewModel.dependencies] in
-//                                    let newValue: ClientPlatform = {
-//                                        switch state.originatingPlatform {
-//                                            case .Android: return .iOS
-//                                            case .iOS: return .Android
-//                                        }
-//                                    }()
-//                                    
-//                                    dependencies.set(
-//                                        feature: .proPlanOriginatingPlatform,
-//                                        to: newValue
-//                                    )
-//                                    dependencies[singleton: .sessionProState].updateOriginatingPlatform(newValue)
-//                                }
-//                            )
-//                    ),
-//                    SessionCell.Info(
-//                        id: .mockInstalledFromIPA,
-//                        title: "Mock installed from IPA",
-//                        subtitle: """
-//                        Mock current app is installed from IPA,
-//                        which means NO billing access.
-//                        """,
-//                        trailingAccessory: .toggle(
-//                            state.mockInstalledFromIPA,
-//                            oldValue: previousState.mockInstalledFromIPA
-//                        ),
-//                        onTap: { [dependencies = viewModel.dependencies] in
-//                            dependencies.set(
-//                                feature: .mockInstalledFromIPA,
-//                                to: !state.mockInstalledFromIPA
-//                            )
-//                        }
-//                    )
-//                ]
-//            )
-//            .compactMap { $0 }
-        
         return [general, features, subscriptions, proBackend]
     }
     
@@ -985,120 +833,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             }
         }
     }
-    
-//    private func showMockProStatusModal(currentStatus: Network.SessionPro.BackendUserProStatus?) {
-//        self.transitionToScreen(
-//            ConfirmationModal(
-//                info: ConfirmationModal.Info(
-//                    title: "Mocked Pro Status",
-//                    body: .radio(
-//                        explanation: ThemedAttributedString(
-//                            string: "Force the current users Session Pro to a specific status locally."
-//                        ),
-//                        warning: nil,
-//                        options: {
-//                            return ([nil] + Network.SessionPro.BackendUserProStatus.allCases).map { status in
-//                                ConfirmationModal.Info.Body.RadioOptionInfo(
-//                                    title: status.title,
-//                                    descriptionText: status.subtitle.map {
-//                                        ThemedAttributedString(
-//                                            stringWithHTMLTags: $0,
-//                                            font: RadioButton.descriptionFont
-//                                        )
-//                                    },
-//                                    enabled: true,
-//                                    selected: currentStatus == status
-//                                )
-//                            }
-//                        }()
-//                    ),
-//                    confirmTitle: "select".localized(),
-//                    cancelStyle: .alert_text,
-//                    onConfirm: { [dependencies] modal in
-//                        let selectedStatus: Network.SessionPro.BackendUserProStatus? = {
-//                            switch modal.info.body {
-//                                case .radio(_, _, let options):
-//                                    return options
-//                                        .enumerated()
-//                                        .first(where: { _, value in value.selected })
-//                                        .map { index, _ in
-//                                            let targetIndex: Int = (index - 1)
-//                                            
-//                                            guard targetIndex >= 0 && (targetIndex - 1) < Network.SessionPro.BackendUserProStatus.allCases.count else {
-//                                                return nil
-//                                            }
-//                                            
-//                                            return Network.SessionPro.BackendUserProStatus.allCases[targetIndex]
-//                                        }
-//                                
-//                                default: return nil
-//                            }
-//                        }()
-//                        
-//                        dependencies.set(feature: .mockCurrentUserSessionProBackendStatus, to: selectedStatus)
-//                    }
-//                )
-//            ),
-//            transitionType: .present
-//        )
-//    }
-//    
-//    private func showMockLoadingStateModal(currentState: SessionProLoadingState?) {
-//        self.transitionToScreen(
-//            ConfirmationModal(
-//                info: ConfirmationModal.Info(
-//                    title: "Mocked Loading State",
-//                    body: .radio(
-//                        explanation: ThemedAttributedString(
-//                            string: "Force the Session Pro UI into a specific loading state."
-//                        ),
-//                        warning: nil,
-//                        options: {
-//                            return ([nil] + SessionProLoadingState.allCases).map { status in
-//                                ConfirmationModal.Info.Body.RadioOptionInfo(
-//                                    title: status.title,
-//                                    descriptionText: status.subtitle.map {
-//                                        ThemedAttributedString(
-//                                            stringWithHTMLTags: $0,
-//                                            font: RadioButton.descriptionFont
-//                                        )
-//                                    },
-//                                    enabled: true,
-//                                    selected: currentStatus == status
-//                                )
-//                            }
-//                        }()
-//                    ),
-//                    confirmTitle: "select".localized(),
-//                    cancelStyle: .alert_text,
-//                    onConfirm: { [dependencies] modal in
-//                        let selectedState: SessionProLoadingState? = {
-//                            switch modal.info.body {
-//                                case .radio(_, _, let options):
-//                                    return options
-//                                        .enumerated()
-//                                        .first(where: { _, value in value.selected })
-//                                        .map { index, _ in
-//                                            let targetIndex: Int = (index - 1)
-//                                            
-//                                            guard targetIndex >= 0 && (targetIndex - 1) < SessionProLoadingState.allCases.count else {
-//                                                return nil
-//                                            }
-//                                            
-//                                            return SessionProLoadingState.allCases[targetIndex]
-//                                        }
-//                                
-//                                default: return nil
-//                            }
-//                        }()
-//                        
-//                        dependencies.set(feature: .mockCurrentUserSessionProLoadingState, to: selectedState)
-//                    }
-//                )
-//            ),
-//            transitionType: .present
-//        )
-//    }
 //
 //    private func updateSessionProState(to state: SessionProStateMock) {
 //        dependencies.set(feature: .mockCurrentUserSessionProState, to: state)
@@ -1123,11 +857,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
 //            case .refunding:
 //                dependencies[singleton: .sessionProState].requestRefund(completion: nil)
 //        }
-//    }
-//    
-//    private func updateSessionProExpiry(to expiry: SessionProStateExpiryMock) {
-//        dependencies.set(feature: .mockCurrentUserSessionProExpiry, to: expiry)
-//        dependencies[singleton: .sessionProState].updateProExpiry(expiry.durationInSeconds)
 //    }
     
     // MARK: - Pro Requests
@@ -1322,13 +1051,11 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     private func refreshProState() async {
         do {
             try await dependencies[singleton: .sessionProManager].refreshProState()
-            let status: Network.SessionPro.BackendUserProStatus? = await dependencies[singleton: .sessionProManager]
-                .proStatus
-                .first(defaultValue: nil)
+            let state: SessionPro.State = dependencies[singleton: .sessionProManager].currentUserCurrentProState
             
             dependencies.notifyAsync(
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
-                value: DeveloperSettingsProEvent.currentProStatus("\(status.map { "\($0)" } ?? "Unknown")", false)
+                value: DeveloperSettingsProEvent.currentProStatus("\(state.status)", false)
             )
         }
         catch {

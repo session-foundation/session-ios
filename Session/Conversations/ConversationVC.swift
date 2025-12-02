@@ -483,6 +483,9 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         self.viewModel = ConversationViewModel(
             threadViewModel: threadViewModel,
             focusedInteractionInfo: focusedInteractionInfo,
+            currentUserMentionImage: MentionUtilities.generateCurrentUserMentionImage(
+                textColor: MessageViewModel.bodyTextColor(isOutgoing: false)    /// Outgoing messages don't use the image
+            ),
             using: dependencies
         )
         

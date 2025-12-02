@@ -35,47 +35,23 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
     private let lock: NSLock = NSLock()
     private let _attributedString: NSMutableAttributedString
     
-    internal let imageAttachmentGenerator: (@Sendable () -> (UIImage, String?)?)?
-    internal let imageAttachmentReferenceFont: UIFont?
     internal var attributedString: NSAttributedString {
         lock.lock()
         defer { lock.unlock() }
         return _attributedString
     }
     
-    internal var value: NSAttributedString {
-        if let (image, accessibilityLabel) = imageAttachmentGenerator?() {
-            let attachment: NSTextAttachment = NSTextAttachment(image: image)
-            attachment.accessibilityLabel = accessibilityLabel   /// Ensure it's still visible to accessibility inspectors
-            
-            if let font = imageAttachmentReferenceFont {
-                attachment.bounds = CGRect(
-                    x: 0,
-                    y: font.capHeight / 2 - image.size.height / 2,
-                    width: image.size.width,
-                    height: image.size.height
-                )
-            }
-            
-            return NSAttributedString(attachment: attachment)
-        }
-        
-        return attributedString
-    }
-    public var string: String { value.string }
-    public var length: Int { value.length }
+    public var string: String { attributedString.string }
     
     /// It seems that a number of UI elements don't properly check the `NSTextAttachment.accessibilityLabel` when
     /// constructing their accessibility label, as such we need to construct our own which includes that content
     public var constructedAccessibilityLabel: String {
-        lock.lock()
-        defer { lock.unlock() }
-        
         let result: NSMutableString = NSMutableString()
-        let rawString: String = value.string
-        let fullRange: NSRange = NSRange(location: 0, length: self.length)
+        let attrString: NSAttributedString = attributedString
+        let rawString: String = attrString.string
+        let fullRange: NSRange = NSRange(location: 0, length: attrString.length)
         
-        value.enumerateAttributes(
+        attrString.enumerateAttributes(
             in: fullRange,
             options: []
         ) { attributes, range, stop in
@@ -99,14 +75,10 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
     
     public init() {
         self._attributedString = NSMutableAttributedString()
-        self.imageAttachmentGenerator = nil
-        self.imageAttachmentReferenceFont = nil
     }
     
     public init(attributedString: ThemedAttributedString) {
         self._attributedString = attributedString._attributedString
-        self.imageAttachmentGenerator = attributedString.imageAttachmentGenerator
-        self.imageAttachmentReferenceFont = attributedString.imageAttachmentReferenceFont
     }
     
     public init(attributedString: NSAttributedString) {
@@ -114,8 +86,6 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         ThemedAttributedString.validateAttributes(attributedString)
         #endif
         self._attributedString = NSMutableAttributedString(attributedString: attributedString)
-        self.imageAttachmentGenerator = nil
-        self.imageAttachmentReferenceFont = nil
     }
     
     public init(string: String, attributes: [NSAttributedString.Key: Any] = [:]) {
@@ -123,8 +93,6 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         ThemedAttributedString.validateAttributes(attributes)
         #endif
         self._attributedString = NSMutableAttributedString(string: string, attributes: attributes)
-        self.imageAttachmentGenerator = nil
-        self.imageAttachmentReferenceFont = nil
     }
     
     public init(attachment: NSTextAttachment, attributes: [NSAttributedString.Key: Any] = [:]) {
@@ -132,14 +100,10 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         ThemedAttributedString.validateAttributes(attributes)
         #endif
         self._attributedString = NSMutableAttributedString(attachment: attachment)
-        self.imageAttachmentGenerator = nil
-        self.imageAttachmentReferenceFont = nil
     }
     
     public init(imageAttachmentGenerator: @escaping (@Sendable () -> (UIImage, String?)?), referenceFont: UIFont?) {
         self._attributedString = NSMutableAttributedString()
-        self.imageAttachmentGenerator = imageAttachmentGenerator
-        self.imageAttachmentReferenceFont = referenceFont
     }
     
     required init?(coder: NSCoder) {
@@ -147,17 +111,32 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
     }
     
     public static func == (lhs: ThemedAttributedString, rhs: ThemedAttributedString) -> Bool {
-        return lhs.value == rhs.value
+        return lhs.attributedString == rhs.attributedString
     }
     
     public func hash(into hasher: inout Hasher) {
-        value.hash(into: &hasher)
+        attributedString.hash(into: &hasher)
     }
     
     // MARK: - Forwarded Functions
     
     public func attributedSubstring(from range: NSRange) -> ThemedAttributedString {
-        return ThemedAttributedString(attributedString: value.attributedSubstring(from: range))
+        return ThemedAttributedString(attributedString: attributedString.attributedSubstring(from: range))
+    }
+    
+    public func insert(_ attributedString: NSAttributedString, at location: Int) {
+        #if DEBUG
+        ThemedAttributedString.validateAttributes(attributedString)
+        #endif
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.insert(attributedString, at: location)
+    }
+    
+    public func insert(_ other: ThemedAttributedString, at location: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.insert(other.attributedString, at: location)
     }
     
     public func appending(string: String, attributes: [NSAttributedString.Key: Any]? = nil) -> ThemedAttributedString {
@@ -179,10 +158,10 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         self._attributedString.append(attributedString)
     }
     
-    public func append(_ attributedString: ThemedAttributedString) {
+    public func append(_ other: ThemedAttributedString) {
         lock.lock()
         defer { lock.unlock() }
-        self._attributedString.append(attributedString.value)
+        self._attributedString.append(other.attributedString)
     }
     
     public func appending(_ attributedString: NSAttributedString) -> ThemedAttributedString {
@@ -195,18 +174,18 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         return self
     }
     
-    public func appending(_ attributedString: ThemedAttributedString) -> ThemedAttributedString {
+    public func appending(_ other: ThemedAttributedString) -> ThemedAttributedString {
         lock.lock()
         defer { lock.unlock() }
-        self._attributedString.append(attributedString.value)
+        self._attributedString.append(other.attributedString)
         return self
     }
     
     public func addAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange? = nil) {
         #if DEBUG
-        ThemedAttributedString.validateAttributes([name: value])
+        ThemedAttributedString.validateAttributes([name: attributedString])
         #endif
-        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: attributedString.length))
         lock.lock()
         defer { lock.unlock() }
         self._attributedString.addAttribute(name, value: attrValue, range: targetRange)
@@ -214,9 +193,9 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
     
     public func addingAttribute(_ name: NSAttributedString.Key, value attrValue: Any, range: NSRange? = nil) -> ThemedAttributedString {
         #if DEBUG
-        ThemedAttributedString.validateAttributes([name: value])
+        ThemedAttributedString.validateAttributes([name: attributedString])
         #endif
-        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: attributedString.length))
         lock.lock()
         defer { lock.unlock() }
         self._attributedString.addAttribute(name, value: attrValue, range: targetRange)
@@ -227,7 +206,7 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         #if DEBUG
         ThemedAttributedString.validateAttributes(attrs)
         #endif
-        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: attributedString.length))
         lock.lock()
         defer { lock.unlock() }
         self._attributedString.addAttributes(attrs, range: targetRange)
@@ -237,7 +216,7 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         #if DEBUG
         ThemedAttributedString.validateAttributes(attrs)
         #endif
-        let targetRange: NSRange = (range ?? NSRange(location: 0, length: self.length))
+        let targetRange: NSRange = (range ?? NSRange(location: 0, length: attributedString.length))
         lock.lock()
         defer { lock.unlock() }
         self._attributedString.addAttributes(attrs, range: targetRange)
@@ -291,4 +270,26 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         }
     }
     #endif
+}
+
+public extension ThemedAttributedString {
+    convenience init(
+        image: UIImage,
+        accessibilityLabel: String?,
+        font: UIFont? = nil
+    ) {
+        let attachment: NSTextAttachment = NSTextAttachment(image: image)
+        attachment.accessibilityLabel = accessibilityLabel   /// Ensure it's still visible to accessibility inspectors
+        
+        if let font {
+            attachment.bounds = CGRect(
+                x: 0,
+                y: font.capHeight / 2 - image.size.height / 2,
+                width: image.size.width,
+                height: image.size.height
+            )
+        }
+        
+        self.init(attachment: attachment)
+    }
 }

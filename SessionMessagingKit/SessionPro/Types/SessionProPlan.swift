@@ -7,7 +7,7 @@ import SessionNetworkingKit
 import SessionUtilitiesKit
 
 public extension SessionPro {
-    struct Plan: Equatable, Sendable {
+    struct Plan: Sendable, Equatable, Hashable {
         // stringlint:ignore_contents
         private static let productIds: [String] = [
             "com.getsession.org.pro_sub_1_month",
@@ -28,49 +28,62 @@ public extension SessionPro {
         
         // MARK: - Functions
         
-        public static func retrievePlans() async throws -> [Plan] {
+        public static func retrieveProductsAndPlans() async throws -> (products: [Product], plans: [Plan]) {
 #if targetEnvironment(simulator)
-            return [
-                Plan(
-                    id: "SimId3",   // stringlint:ignore
-                    variant: .twelveMonths,
-                    durationMonths: 12,
-                    price: 111,
-                    pricePerMonth: 9.25,
-                    discountPercent: 75
-                ),
-                Plan(
-                    id: "SimId2",   // stringlint:ignore
-                    variant: .threeMonths,
-                    durationMonths: 3,
-                    price: 222,
-                    pricePerMonth: 74,
-                    discountPercent: 50
-                ),
-                Plan(
-                    id: "SimId1",   // stringlint:ignore
-                    variant: .oneMonth,
-                    durationMonths: 1,
-                    price: 444,
-                    pricePerMonth: 444,
-                    discountPercent: nil
-                )
-            ]
+            return (
+                [],
+                [
+                    Plan(
+                        id: "SimId3",   // stringlint:ignore
+                        variant: .twelveMonths,
+                        durationMonths: 12,
+                        price: 111,
+                        pricePerMonth: 9.25,
+                        discountPercent: 75
+                    ),
+                    Plan(
+                        id: "SimId2",   // stringlint:ignore
+                        variant: .threeMonths,
+                        durationMonths: 3,
+                        price: 222,
+                        pricePerMonth: 74,
+                        discountPercent: 50
+                    ),
+                    Plan(
+                        id: "SimId1",   // stringlint:ignore
+                        variant: .oneMonth,
+                        durationMonths: 1,
+                        price: 444,
+                        pricePerMonth: 444,
+                        discountPercent: nil
+                    )
+                ]
+            )
 #endif
             let products: [Product] = try await Product
                 .products(for: productIds)
                 .sorted()
                 .reversed()
             
-            guard let shortestProductPrice: Decimal = products.last?.price else {
-                return []
+            guard let shortestMonthlyPrice: Decimal = products.last.map({ $0.price / Decimal($0.durationMonths) }) else {
+                return ([], [])
             }
             
-            return products.map { product in
+            let plans: [Plan] = products.map { product in
                 let durationMonths: Int = product.durationMonths
-                let priceDiff: Decimal = (shortestProductPrice - product.price)
-                let discountDecimal: Decimal = ((priceDiff / shortestProductPrice) * 100)
-                let discount: Int = Int(truncating: discountDecimal as NSNumber)
+                let thisMonthlyPrice: Decimal = (product.price / Decimal(durationMonths))
+                let monthlySavings: Decimal = (shortestMonthlyPrice - thisMonthlyPrice)
+                let discountDecimal: Decimal = ((monthlySavings / shortestMonthlyPrice) * 100)
+                let discount: Int = NSDecimalNumber(decimal: discountDecimal)
+                    .rounding(accordingToBehavior: NSDecimalNumberHandler(
+                        roundingMode: .down,
+                        scale: 0,
+                        raiseOnExactness: false,
+                        raiseOnOverflow: false,
+                        raiseOnUnderflow: false,
+                        raiseOnDivideByZero: false
+                    ))
+                    .intValue
                 let variant: Network.SessionPro.Plan = {
                     switch durationMonths {
                         case 1: return .oneMonth
@@ -91,6 +104,8 @@ public extension SessionPro {
                     discountPercent: (variant != .oneMonth ? discount : nil)
                 )
             }
+            
+            return (products, plans)
         }
     }
 }

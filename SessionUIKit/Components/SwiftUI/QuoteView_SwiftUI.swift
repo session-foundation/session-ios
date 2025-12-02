@@ -63,7 +63,8 @@ public struct QuoteViewModel: Sendable, Equatable, Hashable {
         quotedInfo: nil,
         showProBadge: false,
         currentUserSessionIds: [],
-        displayNameRetriever: { _, _ in nil }
+        displayNameRetriever: { _, _ in nil },
+        currentUserMentionImage: nil
     )
     
     public let mode: Mode
@@ -120,7 +121,8 @@ public struct QuoteViewModel: Sendable, Equatable, Hashable {
         quotedInfo: QuotedInfo?,
         showProBadge: Bool,
         currentUserSessionIds: Set<String>,
-        displayNameRetriever: @escaping DisplayNameRetriever
+        displayNameRetriever: @escaping DisplayNameRetriever,
+        currentUserMentionImage: UIImage?
     ) {
         self.mode = mode
         self.direction = direction
@@ -162,7 +164,8 @@ public struct QuoteViewModel: Sendable, Equatable, Hashable {
                 .themeForegroundColor: targetThemeColor,
                 .font: UIFont.systemFont(ofSize: Values.smallFontSize)
             ],
-            displayNameRetriever: displayNameRetriever
+            displayNameRetriever: displayNameRetriever,
+            currentUserMentionImage: currentUserMentionImage
         )
     }
     
@@ -358,7 +361,8 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                             ),
                             showProBadge: true,
                             currentUserSessionIds: ["05123"],
-                            displayNameRetriever: { _, _ in nil }
+                            displayNameRetriever: { _, _ in nil },
+                            currentUserMentionImage: nil
                         ),
                         dataManager: ImageDataManager()
                     )
@@ -386,7 +390,8 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                             ),
                             showProBadge: false,
                             currentUserSessionIds: [],
-                            displayNameRetriever: { _, _ in "Some User" }
+                            displayNameRetriever: { _, _ in "Some User" },
+                            currentUserMentionImage: nil
                         ),
                         dataManager: ImageDataManager()
                     )
@@ -421,7 +426,8 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                             ),
                             showProBadge: false,
                             currentUserSessionIds: [],
-                            displayNameRetriever: { _, _ in nil }
+                            displayNameRetriever: { _, _ in nil },
+                            currentUserMentionImage: nil
                         ),
                         dataManager: ImageDataManager()
                     )

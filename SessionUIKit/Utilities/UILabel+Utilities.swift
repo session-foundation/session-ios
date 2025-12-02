@@ -4,7 +4,7 @@ import UIKit
 
 public extension UILabel {
     /// Appends a rendered snapshot of `view` as an inline image attachment.
-    func attachTrailing(
+    @MainActor func attachTrailing(
         cacheKey: CachedImageKey?,
         accessibilityLabel: String? = nil,
         viewGenerator: (() -> UIView)?,
@@ -15,20 +15,20 @@ public extension UILabel {
         let base = ThemedAttributedString()
         if let existing = attributedText, existing.length > 0 {
             base.append(existing)
-        } else if let t = text {
+        }
+        else if let t = text {
             base.append(NSAttributedString(string: t, attributes: [.font: font as Any, .foregroundColor: textColor as Any]))
         }
 
+        let image: UIImage = UIView.image(for: cacheKey, generator: viewGenerator)
         base.append(NSAttributedString(string: spacing))
-        base.append(ThemedAttributedString(
-            imageAttachmentGenerator: {
-                (
-                    UIView.image(for: cacheKey, generator: viewGenerator),
-                    accessibilityLabel
-                )
-            },
-            referenceFont: font
-        ))
+        base.append(
+            ThemedAttributedString(
+                image: image,
+                accessibilityLabel: accessibilityLabel,
+                font: font
+            )
+        )
 
         themeAttributedText = base
         numberOfLines = 0

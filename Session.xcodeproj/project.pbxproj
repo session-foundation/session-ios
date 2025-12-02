@@ -516,7 +516,7 @@
 		FD1F3CED2ED5728600E536D5 /* SetPaymentRefundRequestedResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CEC2ED5728300E536D5 /* SetPaymentRefundRequestedResponse.swift */; };
 		FD1F3CEF2ED6509900E536D5 /* SessionProUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CEE2ED6509600E536D5 /* SessionProUI.swift */; };
 		FD1F3CF32ED657AC00E536D5 /* Constants+LibSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CF22ED657A800E536D5 /* Constants+LibSession.swift */; };
-		FD1F3CF62ED69B6600E536D5 /* SessionProMocking.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CF52ED69B6200E536D5 /* SessionProMocking.swift */; };
+		FD1F3CF62ED69B6600E536D5 /* SessionProState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CF52ED69B6200E536D5 /* SessionProState.swift */; };
 		FD1F3CF82ED6A6F400E536D5 /* SessionProRefundingStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CF72ED6A6EB00E536D5 /* SessionProRefundingStatus.swift */; };
 		FD1F3CFA2ED7B34C00E536D5 /* SessionProMessageFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CF92ED7B34700E536D5 /* SessionProMessageFeatures.swift */; };
 		FD1F3CFC2ED7F37600E536D5 /* StringProviders.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1F3CFB2ED7F37300E536D5 /* StringProviders.swift */; };
@@ -623,6 +623,7 @@
 		FD2C68612EA09527000B0E37 /* MessageError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2C68602EA09523000B0E37 /* MessageError.swift */; };
 		FD2CFB8E2EDD00F500EC7F98 /* SessionProOriginatingAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2CFB8D2EDD00EE00EC7F98 /* SessionProOriginatingAccount.swift */; };
 		FD2CFB932EDD0B4300EC7F98 /* BuildVariant.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2CFB922EDD0B3F00EC7F98 /* BuildVariant.swift */; };
+		FD2CFB972EDE645D00EC7F98 /* SessionPro+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD2CFB962EDE645900EC7F98 /* SessionPro+Convenience.swift */; };
 		FD2DD5902C6DD13C0073D9BE /* DifferenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FD2DD58F2C6DD13C0073D9BE /* DifferenceKit */; };
 		FD306BCC2EB02D9E00ADB003 /* GetProDetailsRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCB2EB02D9B00ADB003 /* GetProDetailsRequest.swift */; };
 		FD306BCE2EB02E3600ADB003 /* Signature.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD306BCD2EB02E3400ADB003 /* Signature.swift */; };
@@ -680,7 +681,6 @@
 		FD360ECB2ECD59550050CAF4 /* DonationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */; };
 		FD360ECD2ECD70590050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */; };
 		FD360ECF2ECEE5F60050CAF4 /* SessionProLoadingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ECE2ECEE5F20050CAF4 /* SessionProLoadingState.swift */; };
-		FD360ED12ECFB8AC0050CAF4 /* SessionProExpiry.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ED02ECFB8A70050CAF4 /* SessionProExpiry.swift */; };
 		FD360ED42ED035150050CAF4 /* ImageLoading+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDE521992E08DBB000061B8E /* ImageLoading+Convenience.swift */; };
 		FD360ED62ED3D2280050CAF4 /* ObservationUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ED52ED3D2250050CAF4 /* ObservationUtilities.swift */; };
 		FD360ED82ED3E5C20050CAF4 /* SessionProPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD360ED72ED3E5BF0050CAF4 /* SessionProPlan.swift */; };
@@ -2036,7 +2036,7 @@
 		FD1F3CEC2ED5728300E536D5 /* SetPaymentRefundRequestedResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetPaymentRefundRequestedResponse.swift; sourceTree = "<group>"; };
 		FD1F3CEE2ED6509600E536D5 /* SessionProUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProUI.swift; sourceTree = "<group>"; };
 		FD1F3CF22ED657A800E536D5 /* Constants+LibSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Constants+LibSession.swift"; sourceTree = "<group>"; };
-		FD1F3CF52ED69B6200E536D5 /* SessionProMocking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProMocking.swift; sourceTree = "<group>"; };
+		FD1F3CF52ED69B6200E536D5 /* SessionProState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProState.swift; sourceTree = "<group>"; };
 		FD1F3CF72ED6A6EB00E536D5 /* SessionProRefundingStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProRefundingStatus.swift; sourceTree = "<group>"; };
 		FD1F3CF92ED7B34700E536D5 /* SessionProMessageFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProMessageFeatures.swift; sourceTree = "<group>"; };
 		FD1F3CFB2ED7F37300E536D5 /* StringProviders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringProviders.swift; sourceTree = "<group>"; };
@@ -2111,6 +2111,7 @@
 		FD2C68602EA09523000B0E37 /* MessageError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageError.swift; sourceTree = "<group>"; };
 		FD2CFB8D2EDD00EE00EC7F98 /* SessionProOriginatingAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProOriginatingAccount.swift; sourceTree = "<group>"; };
 		FD2CFB922EDD0B3F00EC7F98 /* BuildVariant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildVariant.swift; sourceTree = "<group>"; };
+		FD2CFB962EDE645900EC7F98 /* SessionPro+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionPro+Convenience.swift"; sourceTree = "<group>"; };
 		FD306BCB2EB02D9B00ADB003 /* GetProDetailsRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProDetailsRequest.swift; sourceTree = "<group>"; };
 		FD306BCD2EB02E3400ADB003 /* Signature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Signature.swift; sourceTree = "<group>"; };
 		FD306BCF2EB02F3500ADB003 /* GetProDetailsResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetProDetailsResponse.swift; sourceTree = "<group>"; };
@@ -2141,7 +2142,6 @@
 		FD360ECA2ECD59520050CAF4 /* DonationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DonationsManager.swift; sourceTree = "<group>"; };
 		FD360ECC2ECD70510050CAF4 /* DeveloperSettingsModalsAndBannersViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperSettingsModalsAndBannersViewModel.swift; sourceTree = "<group>"; };
 		FD360ECE2ECEE5F20050CAF4 /* SessionProLoadingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProLoadingState.swift; sourceTree = "<group>"; };
-		FD360ED02ECFB8A70050CAF4 /* SessionProExpiry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProExpiry.swift; sourceTree = "<group>"; };
 		FD360ED52ED3D2250050CAF4 /* ObservationUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationUtilities.swift; sourceTree = "<group>"; };
 		FD360ED72ED3E5BF0050CAF4 /* SessionProPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProPlan.swift; sourceTree = "<group>"; };
 		FD360ED92ED3E8BC0050CAF4 /* DonationsCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = DonationsCTA.webp; sourceTree = "<group>"; };
@@ -4508,7 +4508,7 @@
 		FD1F3CF42ED69B5B00E536D5 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				FD1F3CF52ED69B6200E536D5 /* SessionProMocking.swift */,
+				FD2CFB962EDE645900EC7F98 /* SessionPro+Convenience.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -5357,7 +5357,6 @@
 				FD360EBE2ECAD5160050CAF4 /* SessionProConfig.swift */,
 				FDAA36CD2EB484450040603E /* SessionProDecodedProForMessage.swift */,
 				FDAA36CF2EB485EF0040603E /* SessionProDecodedStatus.swift */,
-				FD360ED02ECFB8A70050CAF4 /* SessionProExpiry.swift */,
 				FDAA36C52EB474C40040603E /* SessionProFeaturesForMessage.swift */,
 				FDAA36C72EB475140040603E /* SessionProFeatureStatus.swift */,
 				FD360ECE2ECEE5F20050CAF4 /* SessionProLoadingState.swift */,
@@ -5366,6 +5365,7 @@
 				FD360ED72ED3E5BF0050CAF4 /* SessionProPlan.swift */,
 				FDAA36C92EB476060040603E /* SessionProProfileFeatures.swift */,
 				FD1F3CF72ED6A6EB00E536D5 /* SessionProRefundingStatus.swift */,
+				FD1F3CF52ED69B6200E536D5 /* SessionProState.swift */,
 			);
 			path = Types;
 			sourceTree = "<group>";
@@ -7264,7 +7264,6 @@
 				FDF848F729414477007DCAE5 /* CurrentUserPoller.swift in Sources */,
 				C3C2A74D2553A39700C340D1 /* VisibleMessage.swift in Sources */,
 				FD2272FD2C352D8E004D8A6C /* LibSession+ConvoInfoVolatile.swift in Sources */,
-				FD360ED12ECFB8AC0050CAF4 /* SessionProExpiry.swift in Sources */,
 				FD22727E2C32911C004D8A6C /* GarbageCollectionJob.swift in Sources */,
 				FD09B7E7288670FD00ED0B66 /* Reaction.swift in Sources */,
 				FDF0B75C2807F41D004C14C5 /* MessageSender+Convenience.swift in Sources */,
@@ -7316,7 +7315,7 @@
 				FDE754A12C9A60A6002A2623 /* Crypto+OpenGroup.swift in Sources */,
 				FDF0B7512807BA56004C14C5 /* NotificationsManagerType.swift in Sources */,
 				FD2272722C32911C004D8A6C /* FailedAttachmentDownloadsJob.swift in Sources */,
-				FD1F3CF62ED69B6600E536D5 /* SessionProMocking.swift in Sources */,
+				FD1F3CF62ED69B6600E536D5 /* SessionProState.swift in Sources */,
 				FDD23AEA2E458EB00057E853 /* _012_AddJobPriority.swift in Sources */,
 				FD245C59285065FC00B966DD /* ControlMessage.swift in Sources */,
 				B8DE1FB626C22FCB0079C9CE /* CallMessage.swift in Sources */,
@@ -7420,6 +7419,7 @@
 				FD5C7301284F0F7A0029977D /* MessageReceiver+UnsendRequests.swift in Sources */,
 				C3C2A75F2553A3C500C340D1 /* VisibleMessage+LinkPreview.swift in Sources */,
 				FD1F3CF32ED657AC00E536D5 /* Constants+LibSession.swift in Sources */,
+				FD2CFB972EDE645D00EC7F98 /* SessionPro+Convenience.swift in Sources */,
 				FDFE75B12ABD2D2400655640 /* _030_MakeBrokenProfileTimestampsNullable.swift in Sources */,
 				FD09799B27FFC82D00936362 /* Quote.swift in Sources */,
 				FD2273012C352D8E004D8A6C /* LibSession+Shared.swift in Sources */,

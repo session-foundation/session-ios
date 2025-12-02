@@ -129,20 +129,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     
     public struct State: ObservableKeyProvider {
         let profile: Profile
-        let buildVariant: BuildVariant
-        let loadingState: SessionPro.LoadingState
+        let proState: SessionPro.State
         let numberOfGroupsUpgraded: Int
         let numberOfPinnedConversations: Int
         let numberOfProBadgesSent: Int
         let numberOfLongerMessagesSent: Int
-        let plans: [SessionPro.Plan]
-        let proStatus: Network.SessionPro.BackendUserProStatus?
-        let proAutoRenewing: Bool?
-        let proAccessExpiryTimestampMs: UInt64?
-        let proLatestPaymentItem: Network.SessionPro.PaymentItem?
-        let proLastPaymentOriginatingPlatform: SessionProUI.ClientPlatform
-        let proOriginatingAccount: SessionPro.OriginatingAccount
-        let proRefundingStatus: SessionPro.RefundingStatus
         
         @MainActor public func sections(viewModel: SessionProSettingsViewModel, previousState: State) -> [SectionModel] {
             SessionProSettingsViewModel.sections(
@@ -161,15 +152,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             return [
                 .anyConversationPinnedPriorityChanged,
                 .profile(profile.id),
-                .buildVariant(sessionProManager),
-                .currentUserProLoadingState(sessionProManager),
-                .currentUserProStatus(sessionProManager),
-                .currentUserProAutoRenewing(sessionProManager),
-                .currentUserProAccessExpiryTimestampMs(sessionProManager),
-                .currentUserProLatestPaymentItem(sessionProManager),
-                .currentUserLatestPaymentOriginatingPlatform(sessionProManager),
-                .currentUserProOriginatingAccount(sessionProManager),
-                .currentUserProRefundingStatus(sessionProManager),
+                .currentUserProState(sessionProManager),
                 .setting(.groupsUpgradedCounter),
                 .setting(.proBadgesSentCounter),
                 .setting(.longerMessagesSentCounter)
@@ -179,20 +162,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         static func initialState(using dependencies: Dependencies) -> State {
             return State(
                 profile: dependencies.mutate(cache: .libSession) { $0.profile },
-                buildVariant: BuildVariant.current,
-                loadingState: .loading,
+                proState: dependencies[singleton: .sessionProManager].currentUserCurrentProState,
                 numberOfGroupsUpgraded: 0,
                 numberOfPinnedConversations: 0,
                 numberOfProBadgesSent: 0,
-                numberOfLongerMessagesSent: 0,
-                plans: [],
-                proStatus: nil,
-                proAutoRenewing: nil,
-                proAccessExpiryTimestampMs: nil,
-                proLatestPaymentItem: nil,
-                proLastPaymentOriginatingPlatform: .iOS,
-                proOriginatingAccount: .originatingAccount,
-                proRefundingStatus: false
+                numberOfLongerMessagesSent: 0
             )
         }
     }
@@ -204,20 +178,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         using dependencies: Dependencies
     ) async -> State {
         var profile: Profile = previousState.profile
-        var buildVariant: BuildVariant = previousState.buildVariant
-        var loadingState: SessionPro.LoadingState = previousState.loadingState
+        var proState: SessionPro.State = previousState.proState
         var numberOfGroupsUpgraded: Int = previousState.numberOfGroupsUpgraded
         var numberOfPinnedConversations: Int = previousState.numberOfPinnedConversations
         var numberOfProBadgesSent: Int = previousState.numberOfProBadgesSent
         var numberOfLongerMessagesSent: Int = previousState.numberOfLongerMessagesSent
-        var plans: [SessionPro.Plan] = previousState.plans
-        var proStatus: Network.SessionPro.BackendUserProStatus? = previousState.proStatus
-        var proAutoRenewing: Bool? = previousState.proAutoRenewing
-        var proAccessExpiryTimestampMs: UInt64? = previousState.proAccessExpiryTimestampMs
-        var proLatestPaymentItem: Network.SessionPro.PaymentItem? = previousState.proLatestPaymentItem
-        var proLastPaymentOriginatingPlatform: SessionProUI.ClientPlatform = previousState.proLastPaymentOriginatingPlatform
-        var proOriginatingAccount: SessionPro.OriginatingAccount = previousState.proOriginatingAccount
-        var proRefundingStatus: SessionPro.RefundingStatus = previousState.proRefundingStatus
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         let eventsToProcess: [ObservedEvent] = events
@@ -225,20 +190,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         /// If we have no previous state then we need to fetch the initial state
         if isInitialQuery {
             do {
-                loadingState = await dependencies[singleton: .sessionProManager].loadingState
-                    .first(defaultValue: .loading)
-                proStatus = await dependencies[singleton: .sessionProManager].proStatus
-                    .first(defaultValue: nil)
-                proAutoRenewing = await dependencies[singleton: .sessionProManager].autoRenewing
-                    .first(defaultValue: nil)
-                proAccessExpiryTimestampMs = await dependencies[singleton: .sessionProManager].accessExpiryTimestampMs
-                    .first(defaultValue: nil)
-                proLatestPaymentItem = await dependencies[singleton: .sessionProManager].latestPaymentItem
-                    .first(defaultValue: nil)
-                proLastPaymentOriginatingPlatform = await dependencies[singleton: .sessionProManager].latestPaymentOriginatingPlatform
-                    .first(defaultValue: .iOS)
-                proRefundingStatus = await dependencies[singleton: .sessionProManager].refundingStatus
-                    .first(defaultValue: .notRefunding)
+                proState = await dependencies[singleton: .sessionProManager].state
+                    .first(defaultValue: .invalid)
                 
                 try await dependencies[singleton: .storage].readAsync { db in
                     numberOfGroupsUpgraded = (db[.groupsUpgradedCounter] ?? 0)
@@ -256,49 +209,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             }
         }
         
-        /// Always try to get plans if they are empty
-        if plans.isEmpty {
-            plans = await dependencies[singleton: .sessionProManager].plans
-        }
-        
         /// Split the events between those that need database access and those that don't
         let changes: EventChangeset = eventsToProcess.split(by: { $0.dataRequirement })
         
         /// Process any general event changes
-        if let value = changes.latest(.buildVariant, as: BuildVariant.self) {
-            buildVariant = value
-        }
-        
-        if let value = changes.latest(.currentUserProLoadingState, as: SessionPro.LoadingState.self) {
-            loadingState = value
-        }
-        
-        if let value = changes.latest(.currentUserProStatus, as: Network.SessionPro.BackendUserProStatus.self) {
-            proStatus = value
-        }
-        
-        if let value = changes.latest(.currentUserProAutoRenewing, as: Bool.self) {
-            proAutoRenewing = value
-        }
-        
-        if let value = changes.latest(.currentUserProAccessExpiryTimestampMs, as: UInt64.self) {
-            proAccessExpiryTimestampMs = value
-        }
-        
-        if let value = changes.latest(.currentUserProLatestPaymentItem, as: Network.SessionPro.PaymentItem.self) {
-            proLatestPaymentItem = value
-        }
-        
-        if let value = changes.latest(.currentUserLatestPaymentOriginatingPlatform, as: SessionProUI.ClientPlatform.self) {
-            proLastPaymentOriginatingPlatform = value
-        }
-        
-        if let value = changes.latest(.currentUserProOriginatingAccount, as: SessionPro.OriginatingAccount.self) {
-            proOriginatingAccount = value
-        }
-        
-        if let value = changes.latest(.currentUserProRefundingStatus, as: SessionPro.RefundingStatus.self) {
-            proRefundingStatus = value
+        if let value = changes.latest(.currentUserProState, as: SessionPro.State.self) {
+            proState = value
         }
         
         changes.forEach(.profile, as: ProfileEvent.self) { event in
@@ -348,20 +264,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         return State(
             profile: profile,
-            buildVariant: buildVariant,
-            loadingState: loadingState,
+            proState: proState,
             numberOfGroupsUpgraded: numberOfGroupsUpgraded,
             numberOfPinnedConversations: numberOfPinnedConversations,
             numberOfProBadgesSent: numberOfProBadgesSent,
-            numberOfLongerMessagesSent: numberOfLongerMessagesSent,
-            plans: plans,
-            proStatus: proStatus,
-            proAutoRenewing: proAutoRenewing,
-            proAccessExpiryTimestampMs: proAccessExpiryTimestampMs,
-            proLatestPaymentItem: proLatestPaymentItem,
-            proLastPaymentOriginatingPlatform: proLastPaymentOriginatingPlatform,
-            proOriginatingAccount: proOriginatingAccount,
-            proRefundingStatus: proRefundingStatus
+            numberOfLongerMessagesSent: numberOfLongerMessagesSent
         )
     }
     
@@ -370,7 +277,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         previousState: State,
         viewModel: SessionProSettingsViewModel
     ) -> [SectionModel] {
-        let logo: SectionModel = SectionModel(
+        var logo: SectionModel = SectionModel(
             model: .logoWithPro,
             elements: [
                 SessionListScreenContent.ListItemInfo(
@@ -378,13 +285,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     variant: .logoWithPro(
                         info: ListItemLogoWithPro.Info(
                             style:{
-                                switch state.proStatus {
+                                switch state.proState.status {
                                     case .expired: .disabled
                                     default: .normal
                                 }
                             }(),
                             state: {
-                                guard state.proStatus != .none else {
+                                guard state.proState.status != .neverBeenPro else {
                                     return .success(
                                         description: "proFullestPotential"
                                             .put(key: "app_name", value: Constants.app_name)
@@ -393,12 +300,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     )
                                 }
                                 
-                                switch state.loadingState {
+                                switch state.proState.loadingState {
                                     case .success: return .success(description: nil)
                                     case .loading:
                                         return .loading(
                                             message: {
-                                                switch state.proStatus {
+                                                switch state.proState.status {
                                                     case .expired:
                                                         "checkingProStatus"
                                                             .put(key: "pro", value: Constants.pro)
@@ -415,7 +322,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     case .error:
                                         return .error(
                                             message: {
-                                                switch state.proStatus {
+                                                switch state.proState.status {
                                                     case .expired:
                                                         "errorCheckingProStatus"
                                                             .put(key: "pro", value: Constants.pro)
@@ -433,14 +340,16 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         )
                     ),
                     onTap: { [weak viewModel] in
-                        switch state.loadingState {
+                        guard state.proState.status != .neverBeenPro else { return }
+                        
+                        switch state.proState.loadingState {
                             case .success: break
                             case .loading:
                                 viewModel?.showLoadingModal(
                                     from: .logoWithPro,
                                     title: {
-                                        switch state.proStatus {
-                                            case .active, .neverBeenPro, .none:
+                                        switch state.proState.status {
+                                            case .active, .neverBeenPro:
                                                 "proStatusLoading"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -452,8 +361,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         }
                                     }(),
                                     description: {
-                                        switch state.proStatus {
-                                            case .active, .neverBeenPro, .none:
+                                        switch state.proState.status {
+                                            case .active, .neverBeenPro:
                                                 "proStatusLoadingDescription"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localized()
@@ -478,17 +387,21 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                         }
                     }
-                ),
-                (
-                    state.proStatus != .none ? nil :
-                        SessionListScreenContent.ListItemInfo(
-                            id: .continueButton,
-                            variant: .button(title: "theContinue".localized()),
-                            onTap: { [weak viewModel] in viewModel?.updateProPlan(state: state) }
-                        )
                 )
-            ].compactMap { $0 }
+            ]
         )
+        
+        switch state.proState.status {
+            case .active, .expired: break
+            case .neverBeenPro:
+                logo.elements.append(
+                    SessionListScreenContent.ListItemInfo(
+                        id: .continueButton,
+                        variant: .button(title: "theContinue".localized()),
+                        onTap: { [weak viewModel] in viewModel?.updateProPlan(state: state) }
+                    )
+                )
+        }
         
         let proStats: SectionModel = SectionModel(
             model: .proStats,
@@ -507,11 +420,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     title: SessionListScreenContent.TextInfo(
                                         "proLongerMessagesSent"
                                             .putNumber(state.numberOfLongerMessagesSent)
-                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfLongerMessagesSent)
+                                            .put(key: "total", value: state.proState.loadingState == .loading ? "" : state.numberOfLongerMessagesSent)
                                             .localized(),
                                         font: .Headings.H9
                                     ),
-                                    isLoading: state.loadingState == .loading
+                                    isLoading: state.proState.loadingState == .loading
                                 ),
                                 ListItemDataMatrix.Info(
                                     leadingAccessory: .icon(
@@ -522,11 +435,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     title: SessionListScreenContent.TextInfo(
                                         "proPinnedConversations"
                                             .putNumber(state.numberOfPinnedConversations)
-                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfPinnedConversations)
+                                            .put(key: "total", value: state.proState.loadingState == .loading ? "" : state.numberOfPinnedConversations)
                                             .localized(),
                                         font: .Headings.H9
                                     ),
-                                    isLoading: state.loadingState == .loading
+                                    isLoading: state.proState.loadingState == .loading
                                 )
                             ],
                             [
@@ -539,12 +452,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     title: SessionListScreenContent.TextInfo(
                                         "proBadgesSent"
                                             .putNumber(state.numberOfProBadgesSent)
-                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfProBadgesSent)
+                                            .put(key: "total", value: state.proState.loadingState == .loading ? "" : state.numberOfProBadgesSent)
                                             .put(key: "pro", value: Constants.pro)
                                             .localized(),
                                         font: .Headings.H9
                                     ),
-                                    isLoading: state.loadingState == .loading
+                                    isLoading: state.proState.loadingState == .loading
                                 ),
                                 ListItemDataMatrix.Info(
                                     leadingAccessory: .icon(
@@ -555,10 +468,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     title: SessionListScreenContent.TextInfo(
                                         "proGroupsUpgraded"
                                             .putNumber(state.numberOfGroupsUpgraded)
-                                            .put(key: "total", value: state.loadingState == .loading ? "" : state.numberOfGroupsUpgraded)
+                                            .put(key: "total", value: state.proState.loadingState == .loading ? "" : state.numberOfGroupsUpgraded)
                                             .localized(),
                                         font: .Headings.H9,
-                                        color: state.loadingState == .loading ? .textPrimary : .disabled
+                                        color: state.proState.loadingState == .loading ? .textPrimary : .disabled
                                     ),
                                     tooltipInfo: SessionListScreenContent.TooltipInfo(
                                         id: "SessionListScreen.DataMatrix.UpgradedGroups.ToolTip", // stringlint:ignore
@@ -567,13 +480,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         tintColor: .disabled,
                                         position: .topLeft
                                     ),
-                                    isLoading: state.loadingState == .loading
+                                    isLoading: state.proState.loadingState == .loading
                                 )
                             ]
                         ]
                     ),
                     onTap: { [weak viewModel] in
-                        guard state.loadingState == .loading else { return }
+                        guard state.proState.loadingState == .loading else { return }
                         
                         viewModel?.showLoadingModal(
                             from: .proStats,
@@ -596,7 +509,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         let proFeatures: SectionModel = SectionModel(
             model: .proFeatures,
-            elements: ProFeaturesInfo.allCases(state.proStatus).map { info in
+            elements: ProFeaturesInfo.allCases(state.proState.status).map { info in
                 SessionListScreenContent.ListItemInfo(
                     id: info.id,
                     variant: .cell(
@@ -632,7 +545,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 iconSize: .medium,
                                 customTint: .black,
                                 gradientBackgroundColors: {
-                                    return switch state.proStatus {
+                                    return switch state.proState.status {
                                         case .expired: [ThemeValue.disabled]
                                         default: [.explicitPrimary(.orange), .explicitPrimary(.yellow)]
                                     }
@@ -687,7 +600,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 .squareArrowUpRight,
                                 size: .large,
                                 customTint: {
-                                    switch state.proStatus {
+                                    switch state.proState.status {
                                         case .expired: return .textPrimary
                                         default: return .sessionButton_text
                                     }
@@ -715,7 +628,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 .squareArrowUpRight,
                                 size: .large,
                                 customTint: {
-                                    switch state.proStatus {
+                                    switch state.proState.status {
                                         case .expired: return .textPrimary
                                         default: return .sessionButton_text
                                     }
@@ -728,8 +641,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             ]
         )
         
-        return switch (state.proStatus, state.proRefundingStatus) {
-            case (.none, _), (.neverBeenPro, _): [ logo, proFeatures, help ]
+        return switch (state.proState.status, state.proState.refundingStatus) {
+            case (.neverBeenPro, _): [ logo, proFeatures, help ]
             case (.active, .notRefunding): [ logo, proStats, proSettings, proFeatures, proManagement, help ]
             case (.expired, _): [ logo, proManagement, proFeatures, help ]
             case (.active, .refunding): [ logo, proStats, proSettings, proFeatures, help ]
@@ -745,8 +658,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
         let initialProSettingsElements: [SessionListScreenContent.ListItemInfo<ListItem>]
         
-        switch (state.proStatus, state.proRefundingStatus) {
-            case (.none, _), (.neverBeenPro, _), (.expired, _): initialProSettingsElements = []
+        switch (state.proState.status, state.proState.refundingStatus) {
+            case (.neverBeenPro, _), (.expired, _): initialProSettingsElements = []
             case (.active, .notRefunding):
                 initialProSettingsElements = [
                     SessionListScreenContent.ListItemInfo(
@@ -760,7 +673,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     font: .Headings.H8
                                 ),
                                 description: {
-                                    switch state.loadingState {
+                                    switch state.proState.loadingState {
                                         case .loading:
                                             return SessionListScreenContent.TextInfo(
                                                 font: .Body.smallRegular,
@@ -780,7 +693,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         
                                         case .success:
                                             let expirationDate: Date = Date(
-                                                timeIntervalSince1970: floor(Double(state.proAccessExpiryTimestampMs ?? 0) / 1000)
+                                                timeIntervalSince1970: floor(Double(state.proState.accessExpiryTimestampMs ?? 0) / 1000)
                                             )
                                             let expirationString: String = expirationDate
                                                 .timeIntervalSince(viewModel.dependencies.dateNow)
@@ -792,7 +705,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             return SessionListScreenContent.TextInfo(
                                                 font: .Body.smallRegular,
                                                 attributedString: (
-                                                    state.proAutoRenewing == true ?
+                                                    state.proState.autoRenewing == true ?
                                                         "proAutoRenewTime"
                                                             .put(key: "pro", value: Constants.pro)
                                                             .put(key: "time", value: expirationString)
@@ -805,11 +718,11 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             )
                                     }
                                 }(),
-                                trailingAccessory: state.loadingState == .loading ? .loadingIndicator(size: .large) : .icon(.chevronRight, size: .large)
+                                trailingAccessory: state.proState.loadingState == .loading ? .loadingIndicator(size: .large) : .icon(.chevronRight, size: .large)
                             )
                         ),
                         onTap: { [weak viewModel] in
-                            switch state.loadingState {
+                            switch state.proState.loadingState {
                                 case .success: viewModel?.updateProPlan(state: state)
                                 case .loading:
                                     viewModel?.showLoadingModal(
@@ -851,14 +764,14 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 description: SessionListScreenContent.TextInfo(
                                     font: .Body.smallRegular,
                                     attributedString: "processingRefundRequest"
-                                        .put(key: "platform", value: state.proLastPaymentOriginatingPlatform.platform)
+                                        .put(key: "platform", value: state.proState.originatingPlatform.platform)
                                         .localizedFormatted(Fonts.Body.smallRegular)
                                 ),
                                 trailingAccessory: .icon(.circleAlert, size: .large)
                             )
                         ),
                         onTap: { [weak viewModel] in
-                            switch state.loadingState {
+                            switch state.proState.loadingState {
                                 case .success: viewModel?.updateProPlan(state: state)
                                 case .loading:
                                     viewModel?.showLoadingModal(
@@ -932,12 +845,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         state: State,
         viewModel: SessionProSettingsViewModel
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
-        switch (state.proStatus, state.proRefundingStatus) {
-            case (.none, _), (.neverBeenPro, _), (.active, .refunding): return []
+        switch (state.proState.status, state.proState.refundingStatus) {
+            case (.neverBeenPro, _), (.active, .refunding): return []
             case (.active, .notRefunding):
                 var renewingItems: [SessionListScreenContent.ListItemInfo<ListItem>] = []
                 
-                if state.proAutoRenewing == true {
+                if state.proState.autoRenewing == true {
                     renewingItems.append(
                         SessionListScreenContent.ListItemInfo(
                             id: .cancelPlan,
@@ -986,10 +899,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H8,
-                                    color: state.loadingState == .success ? .primary : .textPrimary
+                                    color: state.proState.loadingState == .success ? .primary : .textPrimary
                                 ),
                                 description: {
-                                    switch state.loadingState {
+                                    switch state.proState.loadingState {
                                         case .success: return nil
                                         case .error:
                                             return SessionListScreenContent.TextInfo(
@@ -1011,18 +924,18 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     }
                                 }(),
                                 trailingAccessory: (
-                                    state.loadingState == .loading ?
+                                    state.proState.loadingState == .loading ?
                                         .loadingIndicator(size: .large) :
                                         .icon(
                                             .circlePlus,
                                             size: .large,
-                                            customTint: state.loadingState == .success ? .primary : .textPrimary
+                                            customTint: state.proState.loadingState == .success ? .primary : .textPrimary
                                         )
                                 )
                             )
                         ),
                         onTap: { [weak viewModel] in
-                            switch state.loadingState {
+                            switch state.proState.loadingState {
                                 case .success: viewModel?.updateProPlan(state: state)
                                 case .loading:
                                     viewModel?.showLoadingModal(
@@ -1153,7 +1066,7 @@ extension SessionProSettingsViewModel {
     }
     
     @MainActor func updateProPlan(state: State) {
-        guard state.buildVariant != .ipa else {
+        guard state.proState.buildVariant != .ipa else {
             let viewController = ModalActivityIndicatorViewController() { [weak self] modalActivityIndicator in
                 Task {
                     sleep(5)
@@ -1170,17 +1083,8 @@ extension SessionProSettingsViewModel {
             rootView: SessionProPaymentScreen(
                 viewModel: SessionProPaymentScreenContent.ViewModel(
                     dataModel: SessionProPaymentScreenContent.DataModel(
-                        flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow(
-                            plans: state.plans,
-                            proStatus: state.proStatus,
-                            autoRenewing: state.proAutoRenewing,
-                            accessExpiryTimestampMs: state.proAccessExpiryTimestampMs,
-                            latestPaymentItem: state.proLatestPaymentItem,
-                            lastPaymentOriginatingPlatform: state.proLastPaymentOriginatingPlatform,
-                            originatingAccount: state.proOriginatingAccount,
-                            refundingStatus: state.proRefundingStatus
-                        ),
-                        plans: state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
+                        flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow(state: state.proState),
+                        plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     ),
                     dependencies: dependencies
                 )
@@ -1193,14 +1097,13 @@ extension SessionProSettingsViewModel {
         Task.detached(priority: .userInitiated) { [weak self, manager = dependencies[singleton: .sessionProManager]] in
             try? await manager.refreshProState()
             
-            let status: Network.SessionPro.BackendUserProStatus = (await manager.proStatus
-                .first(defaultValue: nil) ?? .neverBeenPro)
+            let state: SessionPro.State = manager.currentUserCurrentProState
             
             await MainActor.run { [weak self] in
                 let modal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
                         title: {
-                            switch status {
+                            switch state.status {
                                 case .active:
                                     return "proAccessRestored"
                                         .put(key: "pro", value: Constants.pro)
@@ -1213,7 +1116,7 @@ extension SessionProSettingsViewModel {
                             }
                         }(),
                         body: {
-                            switch status {
+                            switch state.status {
                                 case .active:
                                     return .text(
                                         "proAccessRestoredDescription"
@@ -1233,12 +1136,12 @@ extension SessionProSettingsViewModel {
                                     )
                             }
                         }(),
-                        confirmTitle: (status == .active ? nil : "helpSupport".localized()),
-                        cancelTitle: (status == .active ? "okay".localized() : "close".localized()),
-                        cancelStyle: (status == .active ? .textPrimary : .danger),
+                        confirmTitle: (state.status == .active ? nil : "helpSupport".localized()),
+                        cancelTitle: (state.status == .active ? "okay".localized() : "close".localized()),
+                        cancelStyle: (state.status == .active ? .textPrimary : .danger),
                         dismissOnConfirm: false,
                         onConfirm: { [weak self] modal in
-                            guard status != .active else {
+                            guard state.status != .active else {
                                 return modal.dismiss(animated: true)
                             }
                             
@@ -1257,8 +1160,8 @@ extension SessionProSettingsViewModel {
             rootView: SessionProPaymentScreen(
                 viewModel: SessionProPaymentScreenContent.ViewModel(
                     dataModel: SessionProPaymentScreenContent.DataModel(
-                        flow: .cancel(originatingPlatform: state.proLastPaymentOriginatingPlatform),
-                        plans: state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
+                        flow: .cancel(originatingPlatform: state.proState.originatingPlatform),
+                        plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     ),
                     dependencies: dependencies
                 )
@@ -1273,11 +1176,11 @@ extension SessionProSettingsViewModel {
                 viewModel: SessionProPaymentScreenContent.ViewModel(
                     dataModel: SessionProPaymentScreenContent.DataModel(
                         flow: .refund(
-                            originatingPlatform: state.proLastPaymentOriginatingPlatform,
-                            isNonOriginatingAccount: (state.proOriginatingAccount == .nonOriginatingAccount),
+                            originatingPlatform: state.proState.originatingPlatform,
+                            isNonOriginatingAccount: (state.proState.originatingAccount == .nonOriginatingAccount),
                             requestedAt: nil
                         ),
-                        plans: state.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
+                        plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     ),
                     dependencies: dependencies
                 )
@@ -1351,6 +1254,7 @@ extension SessionProSettingsViewModel {
                     title: "proBadges".localized(),
                     description: "proBadgesDescription".put(key: "app_name", value: Constants.app_name).localized(),
                     accessory: .proBadgeLeading(
+                        size: .mini,
                         themeBackgroundColor: {
                             return switch state {
                                 case .expired: .disabled
@@ -1361,97 +1265,6 @@ extension SessionProSettingsViewModel {
                 )
             ]
         }
-    }
-}
-
-// MARK: - Convenience
-
-extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
-    init(
-        plans: [SessionPro.Plan],
-        proStatus: Network.SessionPro.BackendUserProStatus?,
-        autoRenewing: Bool?,
-        accessExpiryTimestampMs: UInt64?,
-        latestPaymentItem: Network.SessionPro.PaymentItem?,
-        lastPaymentOriginatingPlatform: SessionProUI.ClientPlatform,
-        originatingAccount: SessionPro.OriginatingAccount,
-        refundingStatus: SessionPro.RefundingStatus
-    ) {
-        let latestPlan: SessionPro.Plan? = plans.first { $0.variant == latestPaymentItem?.plan }
-        let expiryDate: Date? = accessExpiryTimestampMs.map { Date(timeIntervalSince1970: floor(Double($0) / 1000)) }
-        
-        switch (proStatus, latestPlan, refundingStatus) {
-            case (.none, _, _), (.neverBeenPro, _, _), (.active, .none, _): self = .purchase
-            case (.active, .some(let plan), .notRefunding):
-                self = .update(
-                    currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo(plan: plan),
-                    expiredOn: (expiryDate ?? Date.distantPast),
-                    originatingPlatform: lastPaymentOriginatingPlatform,
-                    isAutoRenewing: (autoRenewing == true)
-                )
-                
-            case (.expired, _, _): self = .renew(originatingPlatform: lastPaymentOriginatingPlatform)
-            case (.active, .some, .refunding):
-                self = .refund(
-                    originatingPlatform: lastPaymentOriginatingPlatform,
-                    isNonOriginatingAccount: (originatingAccount == .nonOriginatingAccount),
-                    requestedAt: (latestPaymentItem?.refundRequestedTimestampMs).map {
-                        Date(timeIntervalSince1970: (Double($0) / 1000))
-                    }
-                )
-        }
-    }
-}
-
-extension SessionProPaymentScreenContent.SessionProPlanInfo {
-    init(plan: SessionPro.Plan) {
-        let price: Double = Double(truncating: plan.price as NSNumber)
-        let pricePerMonth: Double = Double(truncating: plan.pricePerMonth as NSNumber)
-        let formattedPrice: String = price.formatted(format: .currency(decimal: true, withLocalSymbol: true))
-        let formattedPricePerMonth: String = pricePerMonth.formatted(format: .currency(decimal: true, withLocalSymbol: true))
-        
-        self = SessionProPaymentScreenContent.SessionProPlanInfo(
-            duration: plan.durationMonths,
-            totalPrice: price,
-            pricePerMonth: pricePerMonth,
-            discountPercent: plan.discountPercent,
-            titleWithPrice: {
-                switch plan.variant {
-                    case .none, .oneMonth:
-                        return "proPriceOneMonth"
-                            .put(key: "monthly_price", value: formattedPricePerMonth)
-                            .localized()
-                    
-                    case .threeMonths:
-                        return "proPriceThreeMonths"
-                            .put(key: "monthly_price", value: formattedPricePerMonth)
-                            .localized()
-                    
-                    case .twelveMonths:
-                        return "proPriceTwelveMonths"
-                            .put(key: "monthly_price", value: formattedPricePerMonth)
-                            .localized()
-                }
-            }(),
-            subtitleWithPrice: {
-                switch plan.variant {
-                    case .none, .oneMonth:
-                        return "proBilledMonthly"
-                            .put(key: "price", value: formattedPrice)
-                            .localized()
-                    
-                    case .threeMonths:
-                        return "proBilledQuarterly"
-                            .put(key: "price", value: formattedPrice)
-                            .localized()
-                    
-                    case .twelveMonths:
-                        return "proBilledAnnually"
-                            .put(key: "price", value: formattedPrice)
-                            .localized()
-                }
-            }()
-        )
     }
 }
 

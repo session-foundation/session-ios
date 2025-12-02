@@ -520,7 +520,7 @@ extension DirectAttributedTextAssignable {
 extension AttributedTextAssignable {
     private var themeAttributedTextValue: ThemedAttributedString? {
         get { attributedTextValue.map { ThemedAttributedString(attributedString: $0) } }
-        set { attributedTextValue = newValue?.value }
+        set { attributedTextValue = newValue?.attributedString }
     }
     @MainActor public var themeAttributedText: ThemedAttributedString? {
         set { ThemeManager.set(self, keyPath: \.themeAttributedTextValue, to: newValue) }
@@ -532,7 +532,7 @@ extension UILabel: DirectAttributedTextAssignable {}
 extension UITextField: DirectAttributedTextAssignable {
     private var themeAttributedPlaceholderValue: ThemedAttributedString? {
         get { attributedPlaceholder.map { ThemedAttributedString(attributedString: $0) } }
-        set { attributedPlaceholder = newValue?.value }
+        set { attributedPlaceholder = newValue?.attributedString }
     }
     @MainActor public var themeAttributedPlaceholder: ThemedAttributedString? {
         set { ThemeManager.set(self, keyPath: \.themeAttributedPlaceholderValue, to: newValue) }

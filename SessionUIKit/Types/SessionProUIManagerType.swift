@@ -9,7 +9,6 @@ public protocol SessionProUIManagerType: Actor {
     nonisolated var currentUserIsPro: AsyncStream<Bool> { get }
     
     nonisolated func numberOfCharactersLeft(for content: String) -> Int
-    func upgradeToPro(completion: ((_ result: Bool) -> Void)?) async
     
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
@@ -19,6 +18,8 @@ public protocol SessionProUIManagerType: Actor {
         afterClosed: (() -> Void)?,
         presenting: ((UIViewController) -> Void)?
     ) -> Bool
+    
+    func purchasePro(productId: String) async throws
 }
 
 // MARK: - Convenience
@@ -67,10 +68,6 @@ internal actor NoopSessionProUIManager: SessionProUIManagerType {
     
     nonisolated public func numberOfCharactersLeft(for content: String) -> Int { 0 }
     
-    public func upgradeToPro(completion: ((_ result: Bool) -> Void)?) async {
-        completion?(false)
-    }
-    
     @discardableResult @MainActor func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
@@ -79,4 +76,6 @@ internal actor NoopSessionProUIManager: SessionProUIManagerType {
     ) -> Bool {
         return false
     }
+    
+    public func purchasePro(productId: String) async throws {}
 }

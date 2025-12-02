@@ -405,10 +405,11 @@ public enum ThemeManager {
                 }
                 
                 let newAttrString: NSMutableAttributedString = NSMutableAttributedString()
-                let fullRange: NSRange = NSRange(location: 0, length: originalThemedString.value.length)
+                let originalAttrString: NSAttributedString = originalThemedString.attributedString
+                let fullRange: NSRange = NSRange(location: 0, length: originalAttrString.length)
                 let currentState: ThemeState = syncState.state
                 
-                originalThemedString.value.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
+                originalAttrString.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
                     var newAttributes: [NSAttributedString.Key: Any] = attributes
                     
                     /// Convert any of our custom attributes to their normal ones
@@ -428,7 +429,7 @@ public enum ThemeManager {
                     }
                     
                     /// Add the themed substring to `newAttrString`
-                    let substring: String = originalThemedString.value.attributedSubstring(from: range).string
+                    let substring: String = originalAttrString.attributedSubstring(from: range).string
                     newAttrString.append(NSAttributedString(string: substring, attributes: newAttributes))
                 }
                 

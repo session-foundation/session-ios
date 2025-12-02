@@ -91,12 +91,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     @MainActor init(
         threadViewModel: SessionThreadViewModel,
         focusedInteractionInfo: Interaction.TimestampInfo? = nil,
+        currentUserMentionImage: UIImage,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.state = State.initialState(
             threadViewModel: threadViewModel,
             focusedInteractionInfo: focusedInteractionInfo,
+            currentUserMentionImage: currentUserMentionImage,
             using: dependencies
         )
         
@@ -138,6 +140,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let threadVariant: SessionThread.Variant
         let userSessionId: SessionId
         let currentUserSessionIds: Set<String>
+        let currentUserMentionImage: UIImage
         let isBlindedContact: Bool
         let wasPreviouslyBlindedContact: Bool
         
@@ -315,6 +318,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         static func initialState(
             threadViewModel: SessionThreadViewModel,
             focusedInteractionInfo: Interaction.TimestampInfo?,
+            currentUserMentionImage: UIImage,
             using dependencies: Dependencies
         ) -> State {
             let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -325,6 +329,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 threadVariant: threadViewModel.threadVariant,
                 userSessionId: userSessionId,
                 currentUserSessionIds: [userSessionId.hexString],
+                currentUserMentionImage: currentUserMentionImage,
                 isBlindedContact: SessionId.Prefix.isCommunityBlinded(threadViewModel.threadId),
                 wasPreviouslyBlindedContact: SessionId.Prefix.isCommunityBlinded(threadViewModel.threadId),
                 focusedInteractionInfo: focusedInteractionInfo,
@@ -1166,6 +1171,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         .first(where: { currentUserSessionIds.contains($0.authorId) })?
                         .id
                 ),
+                currentUserMentionImage: previousState.currentUserMentionImage,
                 using: dependencies
             )
         }
@@ -1176,6 +1182,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             threadVariant: threadVariant,
             userSessionId: previousState.userSessionId,
             currentUserSessionIds: currentUserSessionIds,
+            currentUserMentionImage: previousState.currentUserMentionImage,
             isBlindedContact: SessionId.Prefix.isCommunityBlinded(threadId),
             wasPreviouslyBlindedContact: SessionId.Prefix.isCommunityBlinded(previousState.threadId),
             focusedInteractionInfo: focusedInteractionInfo,
@@ -1300,10 +1307,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 case .exceedsCharacterLimit: throw MessageError.messageTooLarge
             }
         }()
-        let proProfileFeatures: SessionPro.ProfileFeatures = (
-            dependencies[singleton: .sessionProManager].currentUserCurrentProProfileFeatures ??
-            .none
-        )
+        let proProfileFeatures: SessionPro.ProfileFeatures = dependencies[singleton: .sessionProManager]
+            .currentUserCurrentProState
+            .profileFeatures
         let interaction: Interaction = Interaction(
             threadId: currentState.threadId,
             threadVariant: currentState.threadVariant,
@@ -1424,7 +1430,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 profileCache[sessionId]?.displayName(
                     includeSessionIdSuffix: (viewModel.threadVariant == .community && inMessageBody)
                 )
-            }
+            },
+            currentUserMentionImage: viewModel.currentUserMentionImage
         )
     }
 

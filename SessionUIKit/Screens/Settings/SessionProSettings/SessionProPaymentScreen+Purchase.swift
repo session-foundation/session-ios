@@ -18,6 +18,12 @@ struct  SessionProPlanPurchaseContent: View {
     let purchaseAction: () -> Void
     let openTosPrivacyAction: () -> Void
     
+    var isCurrentPlanSelected: Bool {
+        guard currentSelection < sessionProPlans.count else { return false }
+        
+        return (sessionProPlans[currentSelection] == currentPlan)
+    }
+    // TODO: [PRO] Do we need a loading state in case the plans aren't loaded yet?
     var body: some View {
         VStack(spacing: Values.mediumSmallSpacing) {
             ForEach(sessionProPlans.indices, id: \.self) { index in
@@ -45,14 +51,15 @@ struct  SessionProPlanPurchaseContent: View {
                     .background(
                         RoundedRectangle(cornerRadius: 7)
                             .fill(
-                                themeColor: (sessionProPlans[currentSelection] == currentPlan) ?
+                                themeColor: (isCurrentPlanSelected ?
                                     .disabled :
                                     .sessionButton_primaryFilledBackground
+                                )
                             )
                     )
                     .padding(.vertical, Values.smallSpacing)
             }
-            .disabled((sessionProPlans[currentSelection] == currentPlan))
+            .disabled(isCurrentPlanSelected)
             
             AttributedText(
                 "noteTosPrivacyPolicy"

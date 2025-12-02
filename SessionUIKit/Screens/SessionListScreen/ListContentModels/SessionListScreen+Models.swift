@@ -33,8 +33,14 @@ public extension SessionListScreenContent {
     
     struct TextInfo: Hashable, Equatable {
         public enum Accessory: Hashable, Equatable {
-            case proBadgeLeading(themeBackgroundColor: ThemeValue)
-            case proBadgeTrailing(themeBackgroundColor: ThemeValue)
+            case proBadgeLeading(
+                size: SessionProBadge.Size,
+                themeBackgroundColor: ThemeValue
+            )
+            case proBadgeTrailing(
+                size: SessionProBadge.Size,
+                themeBackgroundColor: ThemeValue
+            )
             case none
         }
         

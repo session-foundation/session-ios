@@ -62,6 +62,7 @@ public struct SessionProPaymentScreen: View {
                             )
                         
                         case .renew(let originatingPlatform):
+                            // TODO: [PRO] Should this check the build variant?
                             if viewModel.dataModel.plans.isEmpty {
                                 RenewPlanNoBillingAccessContent(
                                     originatingPlatform: originatingPlatform,
@@ -196,59 +197,63 @@ public struct SessionProPaymentScreen: View {
     }
     
     private func updatePlan() {
-        let updatedPlan = viewModel.dataModel.plans[currentSelection]
-        if
-            case .update(let currentPlan, let expiredOn, _, let isAutoRenewing) = viewModel.dataModel.flow,
-            let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: expiredOn)
-        {
-            let confirmationModal = ConfirmationModal(
-                info: .init(
-                    title: "updateAccess"
-                        .put(key: "pro", value: Constants.pro)
-                        .localized(),
-                    body: .attributedText(
-                        isAutoRenewing ?
-                            "proUpdateAccessDescription"
-                                .put(key: "current_plan_length", value: currentPlan.durationString)
-                                .put(key: "selected_plan_length", value: updatedPlan.durationString)
-                                .put(key: "selected_plan_length_singular", value: updatedPlan.durationStringSingular)
-                                .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                                .put(key: "pro", value: Constants.pro)
-                                .localizedFormatted(Fonts.Body.largeRegular) :
-                            "proUpdateAccessExpireDescription"
-                                .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                                .put(key: "selected_plan_length", value: updatedPlan.durationString)
-                                .put(key: "pro", value: Constants.pro)
-                                .localizedFormatted(Fonts.Body.largeRegular),
-                        scrollMode: .never
-                    ),
-                    confirmTitle: "update".localized(),
-                    onConfirm: { _ in
-                        self.viewModel.purchase(
-                            planInfo: updatedPlan,
-                            success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
-                            failure: {
-                                // TODO: Payment failure behaviour
-                            }
-                        )
-                    }
-                )
-            )
-            self.host.controller?.present(confirmationModal, animated: true)
-        }
+        let updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo = viewModel.dataModel.plans[currentSelection]
         
         switch viewModel.dataModel.flow {
+            case .refund, .cancel: break
             case .purchase, .renew:
-                if let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: Date()) {
-                    self.viewModel.purchase(
-                        planInfo: updatedPlan,
-                        success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
-                        failure: {
-                            // TODO: Payment failure behaviour
+                let updatedPlanExpiredOn: Date = (Calendar.current
+                    .date(byAdding: .month, value: updatedPlan.duration, to: viewModel.dateNow) ??
+                    viewModel.dateNow
+                )
+                
+                self.viewModel.purchase(
+                    planInfo: updatedPlan,
+                    success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
+                    failure: {
+                        // TODO: [PRO] Payment failure behaviour
+                    }
+                )
+                
+            case .update(let currentPlan, let expiredOn, _, let isAutoRenewing):
+                let updatedPlanExpiredOn: Date = (Calendar.current
+                    .date(byAdding: .month, value: updatedPlan.duration, to: expiredOn) ??
+                    expiredOn)
+                
+                let confirmationModal = ConfirmationModal(
+                    info: .init(
+                        title: "updateAccess"
+                            .put(key: "pro", value: Constants.pro)
+                            .localized(),
+                        body: .attributedText(
+                            isAutoRenewing ?
+                                "proUpdateAccessDescription"
+                                    .put(key: "current_plan_length", value: currentPlan.durationString)
+                                    .put(key: "selected_plan_length", value: updatedPlan.durationString)
+                                    .put(key: "selected_plan_length_singular", value: updatedPlan.durationStringSingular)
+                                    .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localizedFormatted(Fonts.Body.largeRegular) :
+                                "proUpdateAccessExpireDescription"
+                                    .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                    .put(key: "selected_plan_length", value: updatedPlan.durationString)
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localizedFormatted(Fonts.Body.largeRegular),
+                            scrollMode: .never
+                        ),
+                        confirmTitle: "update".localized(),
+                        onConfirm: { _ in
+                            self.viewModel.purchase(
+                                planInfo: updatedPlan,
+                                success: { onPaymentSuccess(expiredOn: updatedPlanExpiredOn) },
+                                failure: {
+                                    // TODO: [PRO] Payment failure behaviour
+                                }
+                            )
                         }
                     )
-                }
-            default: break
+                )
+                self.host.controller?.present(confirmationModal, animated: true)
         }
     }
     

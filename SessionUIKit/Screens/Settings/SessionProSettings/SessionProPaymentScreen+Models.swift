@@ -77,6 +77,7 @@ public extension SessionProPaymentScreenContent {
     }
     
     struct SessionProPlanInfo: Equatable {
+        public let id: String
         public let duration: Int
         let totalPrice: Double
         let pricePerMonth: Double
@@ -104,6 +105,7 @@ public extension SessionProPaymentScreenContent {
         }
         
         public init(
+            id: String,
             duration: Int,
             totalPrice: Double,
             pricePerMonth: Double,
@@ -111,6 +113,7 @@ public extension SessionProPaymentScreenContent {
             titleWithPrice: String,
             subtitleWithPrice: String
         ) {
+            self.id = id
             self.duration = duration
             self.totalPrice = totalPrice
             self.pricePerMonth = pricePerMonth
@@ -139,12 +142,13 @@ public extension SessionProPaymentScreenContent {
     
     protocol ViewModelType: AnyObject {
         var dataModel: DataModel { get set }
+        var dateNow: Date { get }
         var isRefreshing: Bool { get set }
         var errorString: String? { get set }
         
-        func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?)
-        func cancelPro(success: (() -> Void)?, failure: (() -> Void)?)
-        func requestRefund(success: (() -> Void)?, failure: (() -> Void)?)
+        @MainActor func purchase(planInfo: SessionProPlanInfo, success: (@MainActor () -> Void)?, failure: (@MainActor () -> Void)?)
+        @MainActor func cancelPro(success: (@MainActor () -> Void)?, failure: (@MainActor () -> Void)?)
+        @MainActor func requestRefund(success: (@MainActor () -> Void)?, failure: (@MainActor () -> Void)?)
         func openURL(_ url: URL)
     }
 }

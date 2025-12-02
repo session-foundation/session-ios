@@ -493,10 +493,7 @@ final class VisibleMessageCell: MessageCell {
         displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
-        let bodyLabelTextColor: ThemeValue = (cellViewModel.variant.isOutgoing ?
-            .messageBubble_outgoingText :
-            .messageBubble_incomingText
-        )
+        let bodyLabelTextColor: ThemeValue = cellViewModel.bodyTextColor
         snContentView.alignment = (cellViewModel.variant.isOutgoing ? .trailing : .leading)
         
         for subview in snContentView.arrangedSubviews {
@@ -1299,7 +1296,8 @@ final class VisibleMessageCell: MessageCell {
                 .themeForegroundColor: textColor,
                 .font: UIFont.systemFont(ofSize: getFontSize(for: cellViewModel))
             ],
-            displayNameRetriever: displayNameRetriever
+            displayNameRetriever: displayNameRetriever,
+            currentUserMentionImage: cellViewModel.currentUserMentionImage
         )
         
         // Custom handle links
@@ -1312,23 +1310,25 @@ final class VisibleMessageCell: MessageCell {
             // NSAttributedString and NSRange are both based on UTF-16 encoded lengths, so
             // in order to avoid strings which contain emojis breaking strings which end
             // with URLs we need to use the 'String.utf16.count' value when creating the range
+            let rawString: String = attributedText.string
+            
             return detector
                 .matches(
-                    in: attributedText.string,
+                    in: rawString,
                     options: [],
-                    range: NSRange(location: 0, length: attributedText.string.utf16.count)
+                    range: NSRange(location: 0, length: rawString.utf16.count)
                 )
                 .reduce(into: [:]) { result, match in
                     guard
                         let matchUrl: URL = match.url,
-                        let originalRange: Range = Range(match.range, in: attributedText.string)
+                        let originalRange: Range = Range(match.range, in: rawString)
                     else { return }
                     
                     /// If the URL entered didn't have a scheme it will default to 'http', we want to catch this and
                     /// set the scheme to 'https' instead as we don't load previews for 'http' so this will result
                     /// in more previews actually getting loaded without forcing the user to enter 'https://' before
                     /// every URL they enter
-                    let originalString: String = String(attributedText.string[originalRange])
+                    let originalString: String = String(rawString[originalRange])
                     
                     guard matchUrl.absoluteString != "http://\(originalString)" else {
                         guard let httpsUrl: URL = URL(string: "https://\(originalString)") else {

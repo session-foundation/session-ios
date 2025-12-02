@@ -49,6 +49,8 @@ public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Dif
         Date(timeIntervalSince1970: TimeInterval(Double(self.receivedAtTimestampMs) / 1000))
     }
     
+    public var bodyTextColor: ThemeValue { MessageViewModel.bodyTextColor(isOutgoing: variant.isOutgoing) }
+    
     /// This value defines what type of cell should appear and is generated based on the interaction variant
     /// and associated attachment data
     public let cellType: CellType
@@ -130,6 +132,9 @@ public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Dif
     
     /// This contains all sessionId values for the current user (standard and any blinded variants)
     public let currentUserSessionIds: Set<String>
+    
+    /// This is the mention image for the current user
+    public let currentUserMentionImage: UIImage?
 }
 
 public extension MessageViewModel {
@@ -202,6 +207,7 @@ public extension MessageViewModel {
         self.isLast = false
         self.isLastOutgoing = false
         self.currentUserSessionIds = []
+        self.currentUserMentionImage = nil
     }
     
     init?(
@@ -225,6 +231,7 @@ public extension MessageViewModel {
         nextInteraction: Interaction?,
         isLast: Bool,
         isLastOutgoing: Bool,
+        currentUserMentionImage: UIImage?,
         using dependencies: Dependencies
     ) {
         let targetId: Int64
@@ -348,7 +355,8 @@ public extension MessageViewModel {
                     quotedInfo: nil,
                     showProBadge: false,
                     currentUserSessionIds: currentUserSessionIds,
-                    displayNameRetriever: { _, _ in nil }
+                    displayNameRetriever: { _, _ in nil },
+                    currentUserMentionImage: nil
                 )
             }
             
@@ -434,7 +442,8 @@ public extension MessageViewModel {
                     return profileCache[sessionId]?.displayName(
                         includeSessionIdSuffix: (threadVariant == .community)
                     )
-                }
+                },
+                currentUserMentionImage: currentUserMentionImage
             )
         }
         self.linkPreview = linkPreviewInfo?.preview
@@ -571,6 +580,7 @@ public extension MessageViewModel {
         self.isLast = isLast
         self.isLastOutgoing = isLastOutgoing
         self.currentUserSessionIds = currentUserSessionIds
+        self.currentUserMentionImage = currentUserMentionImage
     }
     
     func with(
@@ -619,7 +629,8 @@ public extension MessageViewModel {
             isOnlyMessageInCluster: isOnlyMessageInCluster,
             isLast: isLast,
             isLastOutgoing: isLastOutgoing,
-            currentUserSessionIds: currentUserSessionIds
+            currentUserSessionIds: currentUserSessionIds,
+            currentUserMentionImage: currentUserMentionImage
         )
     }
     
@@ -716,6 +727,13 @@ public extension MessageViewModel {
 
 extension MessageViewModel {
     private static let maxMinutesBetweenTwoDateBreaks: Int = 5
+    
+    public static func bodyTextColor(isOutgoing: Bool) -> ThemeValue {
+        return (isOutgoing ?
+            .messageBubble_outgoingText :
+            .messageBubble_incomingText
+        )
+    }
     
     /// Returns the difference in minutes, ignoring seconds
     ///

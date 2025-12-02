@@ -166,7 +166,9 @@ public extension Profile {
             let proUpdate: TargetUserUpdate<ProState?> = {
                 guard
                     let targetFeatures: SessionPro.ProfileFeatures = proFeatures,
-                    let proof: Network.SessionPro.ProProof = dependencies[singleton: .sessionProManager].currentUserCurrentProProof
+                    let proof: Network.SessionPro.ProProof = dependencies[singleton: .sessionProManager]
+                        .currentUserCurrentProState
+                        .proof
                 else { return .none }
                 
                 return .currentUserUpdate(

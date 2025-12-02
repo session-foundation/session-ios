@@ -8,6 +8,8 @@ public typealias DisplayNameRetriever = (_ sessionId: String, _ inMessageBody: B
 public enum MentionUtilities {
     private static let currentUserCacheKey: String = "Mention.CurrentUser" // stringlint:ignore
     private static let pubkeyRegex: NSRegularExpression = try! NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
+    private static let mentionFont: UIFont = .boldSystemFont(ofSize: Values.smallFontSize)
+    private static let currentUserMentionImageSizeDiff: CGFloat = (Values.smallFontSize / Values.mediumFontSize)
     
     public enum MentionLocation {
         case incomingMessage
@@ -24,6 +26,25 @@ public enum MentionUtilities {
         return Set(pubkeyRegex
             .matches(in: string, range: NSRange(string.startIndex..., in: string))
             .compactMap { match in Range(match.range, in: string).map { String(string[$0]) } })
+    }
+    
+    @MainActor public static func generateCurrentUserMentionImage(textColor: ThemeValue) -> UIImage {
+        return UIView.image(
+            for: .themedKey(
+                MentionUtilities.currentUserCacheKey,
+                themeBackgroundColor: .primary
+            ),
+            generator: {
+                HighlightMentionView(
+                    mentionText: "@\("you".localized())",    // stringlint:ignore
+                    font: mentionFont,
+                    themeTextColor: .dynamicForInterfaceStyle(light: textColor, dark: .black),
+                    themeBackgroundColor: .primary,
+                    backgroundCornerRadius: (8 * currentUserMentionImageSizeDiff),
+                    backgroundPadding: (3 * currentUserMentionImageSizeDiff)
+                )
+            }
+        )
     }
     
     public static func getMentions(
@@ -109,7 +130,8 @@ public enum MentionUtilities {
         location: MentionLocation,
         textColor: ThemeValue,
         attributes: [NSAttributedString.Key: Any],
-        displayNameRetriever: DisplayNameRetriever
+        displayNameRetriever: DisplayNameRetriever,
+        currentUserMentionImage: UIImage?
     ) -> ThemedAttributedString {
         let (string, mentions) = getMentions(
             in: string,
@@ -117,41 +139,22 @@ public enum MentionUtilities {
             displayNameRetriever: displayNameRetriever
         )
         
-        let sizeDiff: CGFloat = (Values.smallFontSize / Values.mediumFontSize)
         let result = ThemedAttributedString(string: string, attributes: attributes)
-        let mentionFont = UIFont.boldSystemFont(ofSize: Values.smallFontSize)
+        
         // Iterate in reverse so index ranges remain valid while replacing
         for mention in mentions.sorted(by: { $0.range.location > $1.range.location }) {
-            if mention.isCurrentUser && location == .incomingMessage {
-                // Build the rendered chip image
-                let image: UIImage = UIView.image(
-                    for: .themedKey(
-                        MentionUtilities.currentUserCacheKey,
-                        themeBackgroundColor: .primary
-                    ),
-                    generator: {
-                        HighlightMentionView(
-                            mentionText: (result.string as NSString).substring(with: mention.range),
-                            font: mentionFont,
-                            themeTextColor: .dynamicForInterfaceStyle(light: textColor, dark: .black),
-                            themeBackgroundColor: .primary,
-                            backgroundCornerRadius: (8 * sizeDiff),
-                            backgroundPadding: (3 * sizeDiff)
-                        )
-                    }
-                )
-                
+            if mention.isCurrentUser && location == .incomingMessage, let currentUserMentionImage {
                 /// Set the `accessibilityLabel` to ensure it's still visible to accessibility inspectors
                 let attachment: NSTextAttachment = NSTextAttachment()
-                attachment.accessibilityLabel = (result.string as NSString).substring(with: mention.range)
+                attachment.accessibilityLabel = (result.attributedString.string as NSString).substring(with: mention.range)
                 
-                let offsetY: CGFloat = (mentionFont.capHeight - image.size.height) / 2
-                attachment.image = image
+                let offsetY: CGFloat = (mentionFont.capHeight - currentUserMentionImage.size.height) / 2
+                attachment.image = currentUserMentionImage
                 attachment.bounds = CGRect(
                     x: 0,
                     y: offsetY,
-                    width: image.size.width,
-                    height: image.size.height
+                    width: currentUserMentionImage.size.width,
+                    height: currentUserMentionImage.size.height
                 )
 
                 let attachmentString = NSMutableAttributedString(attachment: attachment)
@@ -160,8 +163,8 @@ public enum MentionUtilities {
                 result.replaceCharacters(in: mention.range, with: attachmentString)
 
                 let insertIndex = mention.range.location + attachmentString.length
-                if insertIndex < result.length {
-                    result.addAttribute(.kern, value: (3 * sizeDiff), range: NSRange(location: insertIndex, length: 1))
+                if insertIndex < result.attributedString.length {
+                    result.addAttribute(.kern, value: (3 * currentUserMentionImageSizeDiff), range: NSRange(location: insertIndex, length: 1))
                 }
                 continue
             }

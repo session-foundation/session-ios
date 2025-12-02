@@ -25,6 +25,7 @@ public extension Network.SessionPro {
                     transactionId: "12345678",
                     masterKeyPair: masterKeyPair,
                     rotatingKeyPair: rotatingKeyPair,
+                    requestTimeout: 5,
                     using: dependencies
                 )
                 let addProProofResponse = try await addProProofRequest
@@ -78,6 +79,7 @@ public extension Network.SessionPro {
         transactionId: String,
         masterKeyPair: KeyPair,
         rotatingKeyPair: KeyPair,
+        requestTimeout: TimeInterval,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<AddProPaymentOrGenerateProProofResponse> {
         let cMasterPrivateKey: [UInt8] = masterKeyPair.secretKey
@@ -115,6 +117,7 @@ public extension Network.SessionPro {
                 using: dependencies
             ),
             responseType: AddProPaymentOrGenerateProProofResponse.self,
+            requestTimeout: requestTimeout,
             using: dependencies
         )
     }

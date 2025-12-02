@@ -883,6 +883,7 @@ struct MessageInfoView_Previews: PreviewProvider {
             nextInteraction: nil,
             isLast: true,
             isLastOutgoing: false,
+            currentUserMentionImage: nil,
             using: dependencies
         )
         

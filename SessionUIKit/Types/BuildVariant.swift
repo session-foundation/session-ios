@@ -20,7 +20,7 @@ public enum BuildVariant: Sendable, Equatable, CaseIterable, CustomStringConvert
     
         let hasProvisioningProfile: Bool = (Bundle.main.path(forResource: "embedded", ofType: "mobileprovision") != nil)
         let receiptUrl: URL? = Bundle.main.appStoreReceiptURL
-        let hasSandboxReceipt: Bool = (receiptURL?.lastPathComponent == "sandboxReceipt")
+        let hasSandboxReceipt: Bool = (receiptUrl?.lastPathComponent == "sandboxReceipt")
         
         if !hasProvisioningProfile {
             return .appStore
