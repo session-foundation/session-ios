@@ -195,7 +195,10 @@ public struct ProCTAModal: View {
                                     Text(variant.benefits[index].description)
                                         .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
-                                        .fixedSize(horizontal: false, vertical: true)
+                                        .frame(
+                                            maxWidth: .infinity,
+                                            alignment: .leading
+                                        )
                                 }
                             }
                         }
@@ -347,39 +350,39 @@ public extension ProCTAModal {
                     return "proUserProfileModalCallToAction"
                         .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "app_name", value: Constants.app_name)
-                        .localizedFormatted()
+                        .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 case .longerMessages:
                     return "proCallToActionLongerMessages"
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .localizedFormatted()
+                        .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 case .animatedProfileImage(let isSessionProActivated):
                     return isSessionProActivated ?
                         "proAnimatedDisplayPicture"
-                            .localizedFormatted(baseFont: .systemFont(ofSize: 14)) :
+                        .localizedFormatted(baseFont: Fonts.Body.largeRegular) :
                         "proAnimatedDisplayPictureCallToActionDescription"
                             .put(key: "app_pro", value: Constants.app_pro)
-                            .localizedFormatted()
+                            .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 case .morePinnedConvos(let isGrandfathered):
                     if isGrandfathered {
                         return "proCallToActionPinnedConversations"
                             .put(key: "app_pro", value: Constants.app_pro)
-                            .localizedFormatted()
+                            .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                     }
                     return "proCallToActionPinnedConversationsMoreThan"
                         .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "limit", value: 5)    // TODO: [PRO] Get from SessionProUIManager
-                        .localizedFormatted()
+                        .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                 
                 case .groupLimit(let isAdmin, let isSessionProActivated, _):
                     switch (isAdmin, isSessionProActivated) {
                         case (_, true):
                             return "proGroupActivatedDescription"
-                                .localizedFormatted(baseFont: .systemFont(ofSize: 14))
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                         case (true, false):
                             return "proUserProfileModalCallToAction"
                                 .put(key: "app_pro", value: Constants.app_pro)
                                 .put(key: "app_name", value: Constants.app_name)
-                                .localizedFormatted()
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                         case (false, false):
                             // TODO: Localised
                             return ThemedAttributedString(
@@ -392,12 +395,12 @@ public extension ProCTAModal {
                             .put(key: "pro", value: Constants.pro)
                             .put(key: "time", value: timeLeft)
                             .put(key: "app_pro", value: Constants.app_pro)
-                            .localizedFormatted()
+                            .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                     } else {
                         return "proExpiredDescription"
                             .put(key: "pro", value: Constants.pro)
                             .put(key: "app_pro", value: Constants.app_pro)
-                            .localizedFormatted()
+                            .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                     }
             }
         }
