@@ -31,12 +31,18 @@ public extension SessionListScreenContent {
             case profilePicture(info: ListItemProfilePicture.Info)
         }
         
+        public enum TapTarget: Equatable, Hashable, Differentiable {
+            case none
+            case item
+            case proBadge
+        }
+        
         let id: ID
         let variant: Variant
         let isEnabled: Bool
         let accessibility: Accessibility?
         let confirmationInfo: ConfirmationModal.Info?
-        let onTap: (@MainActor () -> Void)?
+        let onTap: (@MainActor (TapTarget) -> Void)?
         
         public init(
             id: ID,
@@ -44,7 +50,7 @@ public extension SessionListScreenContent {
             isEnabled: Bool = true,
             accessibility: Accessibility? = nil,
             confirmationInfo: ConfirmationModal.Info? = nil,
-            onTap: (@MainActor () -> Void)? = nil
+            onTap: (@MainActor (TapTarget) -> Void)? = nil
         ) {
             self.id = id
             self.variant = variant
