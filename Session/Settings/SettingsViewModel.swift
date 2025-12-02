@@ -458,7 +458,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             }
                         }(),
                         styling: SessionCell.StyleInfo(
-                            tintColor: .primary
+                            tintColor: .sessionButton_text
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             let viewController: SessionListHostingViewController = SessionListHostingViewController(
