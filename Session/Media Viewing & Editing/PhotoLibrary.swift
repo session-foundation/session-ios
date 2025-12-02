@@ -162,11 +162,18 @@ class PhotoCollectionContents {
                     let options = PHImageRequestOptions()
                     options.deliveryMode = .highQualityFormat
                     options.isNetworkAccessAllowed = true
-                    
+                    options.isSynchronous = false
+                    options.progressHandler = { progress, error, stop, info in
+                        if let error = error {
+                            Log.warn("[PhotoLibrary] iCloud download progress error: \(error)")
+                        }
+                    }
+
                     imageManager.requestImageDataAndOrientation(for: asset, options: options) { data, uti, orientation, info in
                         guard !hasResumed else { return }
                         
                         guard let data = data, info?[PHImageErrorKey] == nil else {
+                            Log.error("[PhotoLibrary] Failed to retrieve animated image due to error: \(info?[PHImageErrorKey] ?? "Unknown error")")
                             hasResumed = true
                             continuation.resume(returning: nil)
                             return
@@ -196,6 +203,13 @@ class PhotoCollectionContents {
             default:
                 return await withCheckedContinuation { [imageManager] continuation in
                     let options = PHImageRequestOptions()
+                    options.isNetworkAccessAllowed = true
+                    options.isSynchronous = false
+                    options.progressHandler = { progress, error, stop, info in
+                        if let error = error {
+                            Log.warn("[PhotoLibrary] iCloud download progress error: \(error)")
+                        }
+                    }
                     
                     switch size {
                         case .small: options.deliveryMode = .opportunistic
@@ -213,6 +227,7 @@ class PhotoCollectionContents {
                             info?[PHImageErrorKey] == nil,
                             (info?[PHImageCancelledKey] as? Bool) != true
                         else {
+                            Log.error("[PhotoLibrary] Failed to retrieve image thumbnail due to error: \(info?[PHImageErrorKey] ?? "Unknown error")")
                             hasResumed = true
                             return continuation.resume(returning: nil)
                         }
@@ -240,11 +255,13 @@ class PhotoCollectionContents {
         let options: PHImageRequestOptions = PHImageRequestOptions()
         options.isSynchronous = false
         options.isNetworkAccessAllowed = true
+        options.isSynchronous = false
         options.deliveryMode = .highQualityFormat
         
         let pendingAttachment: PendingAttachment = try await withCheckedThrowingContinuation { [imageManager] continuation in
             imageManager.requestImageDataAndOrientation(for: asset, options: options) { imageData, dataUTI, orientation, info in
                 if let error: Error = info?[PHImageErrorKey] as? Error {
+                    Log.error("[PhotoLibrary] Failed to retrieve image due to error: \(error)")
                     return continuation.resume(throwing: error)
                 }
                 
