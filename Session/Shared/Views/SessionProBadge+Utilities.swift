@@ -26,7 +26,7 @@ public extension SessionProBadge {
         return (
             .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
             accessibilityLabel: SessionProBadge.accessibilityLabel,
-            { SessionProBadge(size: size) }
+            { SessionProBadge(size: size, themeBackgroundColor: themeBackgroundColor) }
         )
     }
 }

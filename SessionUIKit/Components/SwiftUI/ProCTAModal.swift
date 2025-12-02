@@ -422,10 +422,10 @@ public extension ProCTAModal {
         
         public var benefits: [Benefits] {
             return switch self {
-                case .generic: [ .largerGroups, .longerMessages, .loadsMore ]
+                case .generic: [ .longerMessages, .morePinnedConvos, .loadsMore ]
                 case .longerMessages: [ .longerMessages, .morePinnedConvos, .loadsMore ]
-                case .animatedProfileImage: [ .animatedProfileImage, .largerGroups, .loadsMore ]
-                case .morePinnedConvos: [ .morePinnedConvos, .largerGroups, .loadsMore ]
+                case .animatedProfileImage: [ .animatedProfileImage, .longerMessages, .loadsMore ]
+                case .morePinnedConvos: [ .morePinnedConvos, .longerMessages, .loadsMore ]
                 case .groupLimit(let isAdmin, let isSessionProActivated, _):
                     switch (isAdmin, isSessionProActivated) {
                         case (true, false): [ .largerGroups, .longerMessages, .loadsMore ]

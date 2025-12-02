@@ -34,7 +34,9 @@ struct  SessionProPlanPurchaseContent: View {
             }
             
             Button {
-                purchaseAction()
+                if !isPendingPurchase {
+                    purchaseAction()
+                }
             } label: {
                 ZStack {
                     if isPendingPurchase {

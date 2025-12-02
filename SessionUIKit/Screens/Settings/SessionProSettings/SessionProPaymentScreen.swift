@@ -108,8 +108,8 @@ public struct SessionProPaymentScreen: View {
                             currentPlan: nil,
                             sessionProPlans: viewModel.dataModel.plans,
                             actionButtonTitle: "upgrade".localized(),
-                            actionType: "proUpdatingAction".localized(),
-                            activationType: "proUpdatingAction".localized(),
+                            actionType: "proUpgradingAction".localized(),
+                            activationType: "proActivatingActivation".localized(),
                             purchaseAction: { updatePlan() },
                             openTosPrivacyAction: { openTosPrivacy() }
                         )

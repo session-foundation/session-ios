@@ -335,9 +335,18 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     title: "proStatusError"
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
-                                    description: "proStatusRefreshNetworkError"
-                                        .put(key: "pro", value: Constants.pro)
-                                        .localizedFormatted()
+                                    description: {
+                                        switch state.currentProPlanState {
+                                            case .none:
+                                                "proStatusNetworkErrorContinue"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted()
+                                            default:
+                                                "proStatusRefreshNetworkError"
+                                                    .put(key: "pro", value: Constants.pro)
+                                                    .localizedFormatted()
+                                        }
+                                    }()
                                 )
                             case .success:
                                 break
