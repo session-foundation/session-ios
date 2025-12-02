@@ -481,7 +481,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         
         return switch state.currentProPlanState {
             case .none:
-                [ logo, proFeatures, help ]
+                [ logo, proFeatures, proManagement, help ]
             case .active:
                 [ logo, proStats, proSettings, proFeatures, proManagement, help ]
             case .expired:
@@ -819,7 +819,39 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         viewModel: SessionProSettingsViewModel
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
         return switch state.currentProPlanState {
-            case .none: []
+            case .none:
+                [
+                    SessionListScreenContent.ListItemInfo(
+                        id: .recoverPlan,
+                        variant: .cell(
+                            info: .init(
+                                title: .init(
+                                    "proAccessRecover"
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localized(),
+                                    font: .Headings.H8,
+                                    color: .textPrimary
+                                ),
+                                trailingAccessory: .icon(
+                                    .refreshCcw,
+                                    size: .large,
+                                    customTint: .textPrimary
+                                )
+                            )
+                        ),
+                        onTap: { [weak viewModel] in
+                            Task {
+                                await viewModel?
+                                    .dependencies[singleton: .sessionProState]
+                                    .recoverPro { [weak viewModel] result in
+                                        DispatchQueue.main.async {
+                                            viewModel?.recoverProPlanCompletionHandler(result)
+                                        }
+                                    }
+                            }
+                        }
+                    )
+                ]
             case .active(_, _, let isAutoRenewing, _):
                 [
                     !isAutoRenewing ? nil :
@@ -953,7 +985,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     }
                             }
                         }
-                    ),
+                    )
                 ]
             case .refunding: []
         }
