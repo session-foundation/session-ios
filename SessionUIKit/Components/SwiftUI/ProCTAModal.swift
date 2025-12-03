@@ -101,51 +101,61 @@ public struct ProCTAModal: View {
                 // Content
                 VStack(spacing: Values.largeSpacing) {
                     // Title
-                    switch variant {
-                        case .animatedProfileImage(let isSessionProActivated) where isSessionProActivated:
-                            HStack(spacing: Values.smallSpacing) {
-                                SessionProBadge_SwiftUI(size: .large)
+                    if variant.isRenewing {
+                        HStack(spacing: Values.smallSpacing) {
+                            Text("renew".localized())
+                                .font(.Headings.H4)
+                                .foregroundColor(themeColor: .textPrimary)
+                            
+                            SessionProBadge_SwiftUI(size: .large)
+                        }
+                    } else {
+                        switch variant {
+                            case .animatedProfileImage(let isSessionProActivated, _) where isSessionProActivated:
+                                HStack(spacing: Values.smallSpacing) {
+                                    SessionProBadge_SwiftUI(size: .large)
 
-                                Text("proActivated".localized())
-                                    .font(.Headings.H4)
-                                    .foregroundColor(themeColor: .textPrimary)
-                            }
+                                    Text("proActivated".localized())
+                                        .font(.Headings.H4)
+                                        .foregroundColor(themeColor: .textPrimary)
+                                }
 
-                        case .groupLimit(_, let isSessionProActivated, _) where isSessionProActivated:
-                            HStack(spacing: Values.smallSpacing) {
-                                SessionProBadge_SwiftUI(size: .large)
-                                
-                                Text("proGroupActivated".localized())
-                                    .font(.Headings.H4)
-                                    .foregroundColor(themeColor: .textPrimary)
-                            }
+                            case .groupLimit(_, let isSessionProActivated, _) where isSessionProActivated:
+                                HStack(spacing: Values.smallSpacing) {
+                                    SessionProBadge_SwiftUI(size: .large)
+                                    
+                                    Text("proGroupActivated".localized())
+                                        .font(.Headings.H4)
+                                        .foregroundColor(themeColor: .textPrimary)
+                                }
 
-                        case .expiring(let timeLeft):
-                            let isExpired: Bool = (timeLeft?.isEmpty != false)
-                            HStack(spacing: Values.smallSpacing) {
-                                SessionProBadge_SwiftUI(
-                                    size: .large,
-                                    themeBackgroundColor: variant.themeColor
-                                )
-                                
-                                Text(isExpired ? "proExpired".localized() : "proExpiringSoon".localized())
-                                    .font(.Headings.H4)
-                                    .foregroundColor(themeColor: isExpired ? .disabled : .textPrimary)
-                            }
+                            case .expiring(let timeLeft):
+                                let isExpired: Bool = (timeLeft?.isEmpty != false)
+                                HStack(spacing: Values.smallSpacing) {
+                                    SessionProBadge_SwiftUI(
+                                        size: .large,
+                                        themeBackgroundColor: variant.themeColor
+                                    )
+                                    
+                                    Text(isExpired ? "proExpired".localized() : "proExpiringSoon".localized())
+                                        .font(.Headings.H4)
+                                        .foregroundColor(themeColor: isExpired ? .disabled : .textPrimary)
+                                }
 
-                        default:
-                            HStack(spacing: Values.smallSpacing) {
-                                Text("upgradeTo".localized())
-                                    .font(.Headings.H4)
-                                    .foregroundColor(themeColor: .textPrimary)
-                                
-                                SessionProBadge_SwiftUI(size: .large)
-                            }
+                            default:
+                                HStack(spacing: Values.smallSpacing) {
+                                    Text("upgradeTo".localized())
+                                        .font(.Headings.H4)
+                                        .foregroundColor(themeColor: .textPrimary)
+                                    
+                                    SessionProBadge_SwiftUI(size: .large)
+                                }
+                        }
                     }
                     
                     // Description, Subtitle
                     VStack(spacing: 0) {
-                        if case .animatedProfileImage(let isSessionProActivated) = variant, isSessionProActivated {
+                        if case .animatedProfileImage(let isSessionProActivated, _) = variant, isSessionProActivated {
                             HStack(spacing: Values.verySmallSpacing) {
                                 Text("proAlreadyPurchased".localized())
                                     .font(.Body.largeRegular)
@@ -281,12 +291,21 @@ public struct ProCTAModal: View {
 
 public extension ProCTAModal {
     enum Variant {
-        case generic
-        case longerMessages
-        case animatedProfileImage(isSessionProActivated: Bool)
-        case morePinnedConvos(isGrandfathered: Bool)
+        case generic(renew: Bool)
+        case longerMessages(renew: Bool)
+        case animatedProfileImage(isSessionProActivated: Bool, renew: Bool)
+        case morePinnedConvos(isGrandfathered: Bool, renew: Bool)
         case groupLimit(isAdmin: Bool, isSessionProActivated: Bool, proBadgeImage: UIImage)
         case expiring(timeLeft: String?)
+        
+        public var isRenewing: Bool {
+            switch self {
+                case .generic(let renew), .longerMessages(let renew), .animatedProfileImage(_, let renew), .morePinnedConvos(_, let renew):
+                    return renew
+                case .groupLimit, .expiring:
+                    return false
+            }
+        }
 
         // stringlint:ignore_contents
         public var backgroundImageName: String {
@@ -345,33 +364,59 @@ public extension ProCTAModal {
 
         public var subtitle: ThemedAttributedString {
             switch self {
-                case .generic:
-                    return "proUserProfileModalCallToAction"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "app_name", value: Constants.app_name)
-                        .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                case .longerMessages:
-                    return "proCallToActionLongerMessages"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                case .animatedProfileImage(let isSessionProActivated):
-                    return isSessionProActivated ?
-                        "proAnimatedDisplayPicture"
-                        .localizedFormatted(baseFont: Fonts.Body.largeRegular) :
-                        "proAnimatedDisplayPictureCallToActionDescription"
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                case .morePinnedConvos(let isGrandfathered):
-                    if isGrandfathered {
-                        return "proCallToActionPinnedConversations"
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                case .generic(let renew):
+                    return renew ?
+                        "proRenewMaxPotential"
+                            .put(key: "pro", value: Constants.pro)
+                            .put(key: "app_name", value: Constants.app_name)
+                            .localizedFormatted(baseFont: Fonts.Body.largeRegular) :
+                        "proUserProfileModalCallToAction"
+                                .put(key: "app_pro", value: Constants.app_pro)
+                                .put(key: "app_name", value: Constants.app_name)
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                case .longerMessages(let renew):
+                    return renew ?
+                        "proRenewLongerMessages"
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(baseFont: Fonts.Body.largeRegular) :
+                        "proCallToActionLongerMessages"
+                                .put(key: "app_pro", value: Constants.app_pro)
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                case .animatedProfileImage(let isSessionProActivated, let renew):
+                    switch (isSessionProActivated, renew) {
+                        case (true, _):
+                            return "proAnimatedDisplayPicture"
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                        case (false, true):
+                            return "proRenewAnimatedDisplayPicture"
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                        case (false, false):
+                            return "proAnimatedDisplayPictureCallToActionDescription"
+                                .put(key: "app_pro", value: Constants.app_pro)
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
                     }
-                    return "proCallToActionPinnedConversationsMoreThan"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "limit", value: 5)    // TODO: [PRO] Get from SessionProUIManager
-                        .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                
+                case .morePinnedConvos(let isGrandfathered, let renew):
+                    switch (isGrandfathered, renew) {
+                        case (true, false):
+                            return "proCallToActionPinnedConversations"
+                                .put(key: "app_pro", value: Constants.app_pro)
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                        case (false, false):
+                            return "proCallToActionPinnedConversationsMoreThan"
+                                .put(key: "app_pro", value: Constants.app_pro)
+                                .put(key: "limit", value: 5)    // TODO: [PRO] Get from SessionProUIManager
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                        case (true, true):
+                            return "proRenewPinMoreConversations"
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                        case (false, true):
+                            return "proRenewPinFiveConversations"
+                                .put(key: "pro", value: Constants.pro)
+                                .put(key: "limit", value: 5)    // TODO: [PRO] Get from SessionProUIManager
+                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                    }
                 case .groupLimit(let isAdmin, let isSessionProActivated, _):
                     switch (isAdmin, isSessionProActivated) {
                         case (_, true):
@@ -459,7 +504,7 @@ public extension ProCTAModal {
         
         public var onlyShowCloseButton: Bool {
             switch self {
-                case .animatedProfileImage(let isSessionProActivated):
+                case .animatedProfileImage(let isSessionProActivated, _):
                     return isSessionProActivated
                 case .groupLimit(let isAdmin, let isSessionProActivated, _):
                     return (!isAdmin || isSessionProActivated)
@@ -477,7 +522,7 @@ struct ProCTAModal_Previews: PreviewProvider {
         Group {
             PreviewThemeWrapper(theme: .classicDark) {
                 ProCTAModal(
-                    variant: .generic,
+                    variant: .generic(renew: false),
                     dataManager: ImageDataManager(),
                     dismissType: .single,
                     afterClosed: nil
@@ -488,7 +533,7 @@ struct ProCTAModal_Previews: PreviewProvider {
             
             PreviewThemeWrapper(theme: .classicLight) {
                 ProCTAModal(
-                    variant: .generic,
+                    variant: .generic(renew: false),
                     dataManager: ImageDataManager(),
                     dismissType: .single,
                     afterClosed: nil
@@ -499,7 +544,7 @@ struct ProCTAModal_Previews: PreviewProvider {
             
             PreviewThemeWrapper(theme: .oceanDark) {
                 ProCTAModal(
-                    variant: .generic,
+                    variant: .generic(renew: false),
                     dataManager: ImageDataManager(),
                     dismissType: .single,
                     afterClosed: nil
@@ -510,7 +555,7 @@ struct ProCTAModal_Previews: PreviewProvider {
             
             PreviewThemeWrapper(theme: .oceanLight) {
                 ProCTAModal(
-                    variant: .generic,
+                    variant: .generic(renew: false),
                     dataManager: ImageDataManager(),
                     dismissType: .single,
                     afterClosed: nil
