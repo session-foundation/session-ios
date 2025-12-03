@@ -211,6 +211,10 @@ struct ApproachCell: View {
             }
         }
         .padding(Values.mediumSpacing)
+        .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+        )
         .background(
             RoundedRectangle(cornerRadius: 11)
                 .fill(themeColor: .inputButton_background)

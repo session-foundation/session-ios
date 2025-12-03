@@ -1074,52 +1074,23 @@ extension SessionProSettingsViewModel {
     }
     
     func updateProPlan() {
-        // TODO: [Pro] Remove this or position it to the right place when the real logic is pluged in
-        guard !dependencies[feature: .mockInstalledFromIPA] else {
-            DispatchQueue.main.async {
-                let viewController = ModalActivityIndicatorViewController() { [weak self] modalActivityIndicator in
-                    Task {
-                        sleep(5)
-                        modalActivityIndicator.dismiss(animated: true) {
-                            self?.showToast(text: "errorGeneric".localized())
-                        }
-                    }
-                }
-                self.transitionToScreen(viewController, transitionType: .present)
-            }
-            return
-        }
-        
-        guard !isInBottomSheet else {
-            self.transitionToScreen(
-                SessionProPaymentScreen(
-                    viewModel: SessionProPaymentScreenContent.ViewModel(
-                        dependencies: dependencies,
-                        dataModel: .init(
-                            flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(using: dependencies),
-                            plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
-                        ),
-                        isFromBottomSheet: true
-                    )
+        let paymentScreen = SessionProPaymentScreen(
+            viewModel: SessionProPaymentScreenContent.ViewModel(
+                dependencies: dependencies,
+                dataModel: .init(
+                    flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(using: dependencies),
+                    plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
                 ),
-                transitionType: .push
-            )
-            return
-        }
-        
-        let viewController: SessionHostingViewController = SessionHostingViewController(
-            rootView: SessionProPaymentScreen(
-                viewModel: SessionProPaymentScreenContent.ViewModel(
-                    dependencies: dependencies,
-                    dataModel: .init(
-                        flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(using: dependencies),
-                        plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
-                    ),
-                    isFromBottomSheet: false
-                )
+                isFromBottomSheet: isInBottomSheet
             )
         )
-        self.transitionToScreen(viewController)
+        
+        guard !isInBottomSheet else {
+            self.transitionToScreen(paymentScreen, transitionType: .push)
+            return
+        }
+        
+        self.transitionToScreen(SessionHostingViewController(rootView: paymentScreen))
     }
     
     @MainActor func recoverProPlanCompletionHandler(_ result: Bool) {
