@@ -74,10 +74,16 @@ struct PlanCell: View {
             .background(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(themeColor: .backgroundSecondary)
+                    .shadow(
+                        color: .black.opacity(0.4),
+                        radius: 4,
+                        x: 2,
+                        y: 3
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(themeColor: isSelected ? .sessionButton_primaryFilledBackground : .borderSeparator)
+                    .stroke(themeColor: isSelected ? .sessionButton_text : .borderSeparator)
             )
             .padding(.top, Values.smallSpacing)
             .contentShape(Rectangle())
