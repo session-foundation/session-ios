@@ -244,8 +244,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     variant: .logoWithPro(
                         info: .init(
                             themeStyle:{
-                                switch state.currentProPlanState {
-                                    case .expired: .disabled
+                                switch (state.currentProPlanState, viewModel.isInBottomSheet) {
+                                    case (.expired, false): .disabled
                                     default: .normal
                                 }
                             }(),
@@ -286,13 +286,22 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         return .success
                                 }
                             }(),
-                            description: (
-                                state.currentProPlanState != .none ? nil :
-                                    "proFullestPotential"
-                                        .put(key: "app_name", value: Constants.app_name)
-                                        .put(key: "app_pro", value: Constants.app_pro)
-                                        .localizedFormatted()
-                            )
+                            description: {
+                                switch (state.currentProPlanState, viewModel.isInBottomSheet) {
+                                    case (.expired, true):
+                                        return "proAccessRenewStart"
+                                            .put(key: "pro", value: Constants.pro)
+                                            .put(key: "app_pro", value: Constants.app_pro)
+                                            .localizedFormatted()
+                                    case (.none, _):
+                                        return "proFullestPotential"
+                                            .put(key: "app_name", value: Constants.app_name)
+                                            .put(key: "app_pro", value: Constants.app_pro)
+                                            .localizedFormatted()
+                                    default:
+                                        return nil
+                                    }
+                            }()
                         )
                     ),
                     onTap: { [weak viewModel] in
@@ -354,7 +363,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                     }
                 ),
                 (
-                    state.currentProPlanState != .none ? nil :
+                    (state.currentProPlanState != .none && !viewModel.isInBottomSheet) ? nil :
                         SessionListScreenContent.ListItemInfo(
                             id: .continueButton,
                             variant: .button(title: "theContinue".localized(), enabled: (state.loadingState == .success)),
@@ -601,6 +610,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     ) -> [SessionListScreenContent.ListItemInfo<ListItem>] {
         let proFeaturesIds: [ListItem] = [ .longerMessages, .unlimitedPins, .animatedDisplayPictures, .badges ]
         let proState: ProFeaturesInfo.ProState = {
+            guard !viewModel.isInBottomSheet else { return .none }
             switch state.currentProPlanState {
                 case .none: return .none
                 case .expired: return .expired
