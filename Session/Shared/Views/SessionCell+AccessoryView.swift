@@ -383,10 +383,11 @@ extension SessionCell {
         private func layoutProBadgeView(_ view: UIView?, size: SessionProBadge.Size) {
             guard let badgeView: SessionProBadge = view as? SessionProBadge else { return }
             badgeView.size = size
+            let inset: CGFloat = (IconSize.medium.size - size.height) / 2
             badgeView.pin(.leading, to: .leading, of: self, withInset: Values.smallSpacing)
             badgeView.pin(.trailing, to: .trailing, of: self, withInset: -Values.smallSpacing)
-            badgeView.pin(.top, to: .top, of: self)
-            badgeView.pin(.bottom, to: .bottom, of: self)
+            badgeView.pin(.top, to: .top, of: self, withInset: inset)
+            badgeView.pin(.bottom, to: .bottom, of: self, withInset: -inset)
         }
         
         private func configureProBadgeView(_ view: UIView?, tintColor: ThemeValue) {
