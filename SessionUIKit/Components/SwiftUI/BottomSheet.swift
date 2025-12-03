@@ -168,9 +168,13 @@ public struct BottomSheet<Content>: View where Content: View {
     }
 }
 
+// MARK: - BottomSheetIdentifiable
+
+protocol BottomSheetIdentifiable {}
+
 // MARK: - BottomSheetHostingViewController
 
-open class BottomSheetHostingViewController<Content>: UIHostingController<ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>> where Content: View {
+open class BottomSheetHostingViewController<Content>: UIHostingController<ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>>, BottomSheetIdentifiable where Content: View {
     public init(bottomSheet: Content) {
         let container = HostWrapper()
         let modified = bottomSheet.environmentObject(container) as! ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>

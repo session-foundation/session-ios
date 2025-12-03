@@ -35,6 +35,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     
     // MARK: - Navigatable
     
+    @State private var disposables: Set<AnyCancellable> = []
     @State private var navigationDestination: NavigationDestination? = nil
     @State private var isNavigationActive: Bool = false
     private let navigatableState: NavigatableState_SwiftUI?
@@ -76,6 +77,18 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
             if transitionType == .push {
                 navigationDestination = destination
                 isNavigationActive = true
+            }
+        }
+        .onAppear {
+            if
+                let navigatableStateHolder = viewModel as? NavigatableStateHolder,
+                let viewController: UIViewController = self.host.controller,
+                viewController is BottomSheetIdentifiable
+            {
+                navigatableStateHolder.navigatableState.setupBindings(
+                    viewController: viewController,
+                    disposables: &disposables
+                )
             }
         }
     }
