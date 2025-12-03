@@ -25,7 +25,7 @@ struct MessageInfoScreen: View {
     let isCurrentUser: Bool
     let profileInfo: ProfilePictureView.Info?
     var proFeatures: [String] = []
-    var proCTAVariant: ProCTAModal.Variant = .generic
+    var proCTAVariant: ProCTAModal.Variant = .generic(renew: false)
     
     public init(
         actions: [ContextMenuVC.Action],
@@ -533,7 +533,7 @@ struct MessageInfoScreen: View {
     
     private func getProFeaturesInfo() -> (proFeatures: [String], proCTAVariant: ProCTAModal.Variant) {
         var proFeatures: [String] = []
-        var proCTAVariant: ProCTAModal.Variant = .generic
+        var proCTAVariant: ProCTAModal.Variant = .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
         
         guard dependencies[feature: .sessionProEnabled] else { return (proFeatures, proCTAVariant) }
         
@@ -547,7 +547,11 @@ struct MessageInfoScreen: View {
             dependencies[feature: .messageFeatureLongMessage]
         ) {
             proFeatures.append("proIncreasedMessageLengthFeature".localized())
-            proCTAVariant = (proFeatures.count > 1 ? .generic : .longerMessages)
+            proCTAVariant = (
+                proFeatures.count > 1 ?
+                    .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired) :
+                    .longerMessages(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
+            )
         }
         
         if (
@@ -555,7 +559,14 @@ struct MessageInfoScreen: View {
             dependencies[feature: .messageFeatureAnimatedAvatar]
         ) {
             proFeatures.append("proAnimatedDisplayPictureFeature".localized())
-            proCTAVariant = (proFeatures.count > 1 ? .generic : .animatedProfileImage(isSessionProActivated: false))
+            proCTAVariant = (
+                proFeatures.count > 1 ?
+                    .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired) :
+                    .animatedProfileImage(
+                        isSessionProActivated: false,
+                        renew: dependencies[singleton: .sessionProState].isSessionProExpired
+                    )
+            )
         }
         
         return (proFeatures, proCTAVariant)

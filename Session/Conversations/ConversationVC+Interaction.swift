@@ -562,7 +562,7 @@ extension ConversationVC:
     
     @MainActor func handleCharacterLimitLabelTapped() {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-            .longerMessages,
+            .longerMessages(renew: viewModel.dependencies[singleton: .sessionProState].isSessionProExpired),
             onConfirm: { [weak self, dependencies = viewModel.dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
                     afterClosed: { [weak self] in
@@ -707,7 +707,7 @@ extension ConversationVC:
     
     @MainActor func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-            .longerMessages,
+            .longerMessages(renew: viewModel.dependencies[singleton: .sessionProState].isSessionProExpired),
             onConfirm: { [weak self, dependencies = viewModel.dependencies] in
                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
                     afterClosed: { [weak self] in
@@ -1682,7 +1682,7 @@ extension ConversationVC:
                     },
                     onProBadgeTapped: { [weak self, dependencies] in
                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                            .generic,
+                            .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired),
                             dismissType: .single,
                             onConfirm: {
                                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(

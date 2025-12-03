@@ -363,7 +363,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                             generator: { SessionProBadge(size: .mini) }
                                         )
                                     )
-                                default: return .generic
+                                default:
+                                    return .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
                             }
                         }()
                         
@@ -2048,7 +2049,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                         modal: ProCTAModal(
                             variant: .morePinnedConvos(
-                                isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit)
+                                isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit),
+                                renew: dependencies[singleton: .sessionProState].isSessionProExpired
                             ),
                             dataManager: dependencies[singleton: .imageDataManager],
                             onConfirm: { [dependencies] in

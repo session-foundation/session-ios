@@ -868,7 +868,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 Task { @MainActor in
                     dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                         .animatedProfileImage(
-                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro,
+                            renew: dependencies[singleton: .sessionProState].isSessionProExpired
                         ),
                         onConfirm: {
                             dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
@@ -930,7 +931,8 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     Task { @MainActor in
                                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                                             .animatedProfileImage(
-                                                isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                                                isSessionProActivated: dependencies[cache: .libSession].isSessionPro,
+                                                renew: dependencies[singleton: .sessionProState].isSessionProExpired
                                             ),
                                             onConfirm: {
                                                 dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(

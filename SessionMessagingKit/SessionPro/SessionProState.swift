@@ -33,6 +33,12 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             }
             .eraseToAnyPublisher()
     }
+    public var isSessionProExpired: Bool {
+        switch sessionProStateSubject.value {
+            case .expired: return true
+            default: return false
+        }
+    }
     public var sessionProPlans: [SessionProPlan] {
         dependencies[feature: .mockInstalledFromIPA] ? [] : SessionProPlan.Variant.allCases.map { SessionProPlan(variant: $0) }
     }
