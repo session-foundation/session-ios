@@ -893,7 +893,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     font: .Headings.H8,
-                                    color: state.loadingState == .success ? .primary : .textPrimary
+                                    color: state.loadingState == .success ? .sessionButton_text : .textPrimary
                                 ),
                                 description: {
                                     switch state.loadingState {
@@ -923,7 +923,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .icon(
                                             .circlePlus,
                                             size: .large,
-                                            customTint: state.loadingState == .success ? .primary : .textPrimary
+                                            customTint: state.loadingState == .success ? .sessionButton_text : .textPrimary
                                         )
                                 )
                             )
@@ -943,10 +943,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 case .error:
                                     viewModel?.showErrorModal(
                                         from: .updatePlan,
-                                        title: "proAccessError"
+                                        title: "proStatusError"
                                             .put(key: "pro", value: Constants.pro)
                                             .localized(),
-                                        description: "proAccessNetworkLoadError"
+                                        description: "proStatusRenewError"
                                             .put(key: "pro", value: Constants.pro)
                                             .put(key: "app_name", value: Constants.app_name)
                                             .localizedFormatted(baseFont: .systemFont(ofSize: Values.smallFontSize))
