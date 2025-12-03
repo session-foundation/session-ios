@@ -306,7 +306,6 @@ public class HomeViewModel: NavigatableStateHolder {
             profileCache[eventValue.id] = userProfile
         }
         
-        
         /// Then handle database events
         if !dependencies[singleton: .storage].isSuspended, let databaseEvents: Set<ObservedEvent> = splitEvents[.databaseQuery], !databaseEvents.isEmpty {
             do {
@@ -383,8 +382,14 @@ public class HomeViewModel: NavigatableStateHolder {
                             .fetchCount(db)
                     }
                     
-                    /// Update loaded page info as needed
-                    if loadPageEvent != nil || !insertedIds.isEmpty || !deletedIds.isEmpty {
+                    /// Update loaded page info as needed (any change to a conversation could result in an order change so reload
+                    /// the paged data if needed (as that will fetch the correct order)
+                    if
+                        loadPageEvent != nil ||
+                        !idsNeedingRequery.isEmpty ||
+                        !insertedIds.isEmpty ||
+                        !deletedIds.isEmpty
+                    {
                         loadResult = try loadResult.load(
                             db,
                             target: (
