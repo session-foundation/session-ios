@@ -235,8 +235,7 @@ public struct ProCTAModal: View {
                         HStack(spacing: Values.smallSpacing) {
                             // Upgrade Button
                             ShineButton {
-                                close(nil)
-                                onConfirm?()
+                                close(onConfirm)
                             } label: {
                                 Text(variant.confirmButtonTitle)
                                     .font(.Body.baseRegular)
