@@ -70,12 +70,19 @@ struct NoBillingAccessContent: View {
                 ),
                 ApproachCell.Info(
                     title: "proNewInstallation".localized(),
-                    description: "proNewInstallationDescription"
-                        .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "platform_store", value: Constants.platform_store)
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "pro", value: Constants.pro)
-                        .localizedFormatted(),
+                    description:  isRenewingPro ?
+                        "proNewInstallationDescription"
+                            .put(key: "app_name", value: Constants.app_name)
+                            .put(key: "platform_store", value: Constants.platform_store)
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted() :
+                        "proNewInstallationUpgrade"
+                            .put(key: "app_name", value: Constants.app_name)
+                            .put(key: "platform_store", value: Constants.platform_store)
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(),
                     variant: .device
                 )
             ]
