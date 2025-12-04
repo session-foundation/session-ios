@@ -52,7 +52,7 @@ public extension SessionListScreenContent {
         let accessory: Accessory
         let interaction: Interaction
         let accessibility: Accessibility?
-        let trailingImage: UIImage?
+        let inlineTrailingImage: UIImage?
         
         public init(
             _ text: String? = nil,
@@ -63,7 +63,7 @@ public extension SessionListScreenContent {
             accessory: Accessory = .none,
             interaction: Interaction = .none,
             accessibility: Accessibility? = nil,
-            trailingImage: UIImage? = nil
+            inlineTrailingImage: UIImage? = nil
         ) {
             self.text = text
             self.font = font
@@ -73,7 +73,7 @@ public extension SessionListScreenContent {
             self.accessory = accessory
             self.interaction = interaction
             self.accessibility = accessibility
-            self.trailingImage = trailingImage
+            self.inlineTrailingImage = inlineTrailingImage
         }
         
         // MARK: - Conformance

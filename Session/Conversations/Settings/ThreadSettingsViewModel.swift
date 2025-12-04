@@ -351,7 +351,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 threadViewModel.displayName,
                                 font: .Headings.H4,
                                 alignment: .center,
-                                trailingImage: {
+                                inlineTrailingImage: {
                                     guard !threadViewModel.threadIsNoteToSelf else { return nil }
                                     guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: viewModel.threadId) }) else { return nil }
                                     

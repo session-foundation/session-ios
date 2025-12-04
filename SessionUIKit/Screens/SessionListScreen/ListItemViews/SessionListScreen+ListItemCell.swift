@@ -48,7 +48,7 @@ public struct ListItemCell: View {
                         if let text = title.text {
                             ZStack {
                                 if let trailingImage = title.trailingImage {
-                                    (Text(text) + Text(" \(Image(uiImage: trailingImage))"))
+                                    Text(text) + Text(" \(Image(uiImage: trailingImage))")
                                 } else {
                                     Text(text)
                                 }
