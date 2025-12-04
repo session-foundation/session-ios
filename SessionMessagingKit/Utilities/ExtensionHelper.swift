@@ -101,6 +101,10 @@ public class ExtensionHelper: ExtensionHelperType {
             throw ExtensionHelperError.failedToWriteToFile
         }
         _ = try dependencies[singleton: .fileManager].replaceItem(atPath: path, withItemAtPath: tmpPath)
+        
+        /// Need to update the `fileProtectionType` of the written file because as of `iOS 26` it seems to retain the setting
+        /// from the original storage directory instead if inheriting the setting of the current directory (and since we write to a temporary
+        /// directory it defaults to having `complete` protection instead of `completeUntilFirstUserAuthentication`)
         try? dependencies[singleton: .fileManager].protectFileOrFolder(at: path)
     }
     
@@ -357,6 +361,7 @@ public class ExtensionHelper: ExtensionHelperType {
                 let variant: ConfigDump.Variant
                 let filePathGenerated: Bool
                 let fileExists: Bool
+                let correctFileProtectionType: Bool
             }
             
             let sessionId: SessionId
@@ -380,20 +385,34 @@ public class ExtensionHelper: ExtensionHelperType {
                         sessionId: next.0,
                         states: next.1.map { variant in
                             let maybePath: String? = dumpFilePath(for: next.0, variant: variant)
+                            let maybeFileExists: Bool? = maybePath.map {
+                                dependencies[singleton: .fileManager].fileExists(atPath: $0)
+                            }
+                            let fileProtectionType: FileProtectionType? = maybePath.map { path in
+                                guard let attributes = try? FileManager.default.attributesOfItem(atPath: path) else {
+                                    return nil
+                                }
+                                
+                                return (attributes[.protectionKey] as? FileProtectionType)
+                            }
                             
                             return ReplicatedDumpInfo.DumpState(
                                 variant: variant,
                                 filePathGenerated: (maybePath != nil),
-                                fileExists: (
-                                    maybePath.map { dependencies[singleton: .fileManager].fileExists(atPath: $0) } ??
-                                    false
-                                )
+                                fileExists: (maybeFileExists ?? false),
+                                correctFileProtectionType: (fileProtectionType == .completeUntilFirstUserAuthentication)
                             )
                         }
                     )
                 )
             }
-            .filter { info in info.states.contains(where: { !$0.filePathGenerated || !$0.fileExists })}
+            .filter { info in
+                info.states.contains(where: {
+                    !$0.filePathGenerated ||
+                    !$0.fileExists ||
+                    !$0.correctFileProtectionType
+                })
+            }
         
         /// No need to read from the database if there are no missing dumps
         guard !missingReplicatedDumpInfo.isEmpty else { return }
@@ -410,6 +429,11 @@ public class ExtensionHelper: ExtensionHelperType {
                 .filter { !$0.fileExists }
                 .map { $0.variant }
             Log.warn(.cat, "Found missing replicated dumps (\(formatter.string(from: missingDumps) ?? "unknown")) for \(info.sessionId.hexString); triggering replication.")
+            
+            let incorrectProtectionDumps: [ConfigDump.Variant] = info.states
+                .filter { !$0.correctFileProtectionType }
+                .map { $0.variant }
+            Log.warn(.cat, "Found dumps with incorrect file protection type (\(formatter.string(from: incorrectProtectionDumps) ?? "unknown")) for \(info.sessionId.hexString); triggering replication.")
         }
         
         /// Load the config dumps from the database
