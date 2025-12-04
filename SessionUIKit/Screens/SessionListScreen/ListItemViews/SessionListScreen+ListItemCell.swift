@@ -46,12 +46,18 @@ public struct ListItemCell: View {
                         }
                         
                         if let text = title.text {
-                            Text(text)
-                                .font(title.font)
-                                .multilineTextAlignment(title.alignment)
-                                .foregroundColor(themeColor: title.color)
-                                .accessibility(title.accessibility)
-                                .fixedSize(horizontal: false, vertical: true)
+                            ZStack {
+                                if let trailingImage = title.trailingImage {
+                                    (Text(text) + Text(" \(Image(uiImage: trailingImage))"))
+                                } else {
+                                    Text(text)
+                                }
+                            }
+                            .font(title.font)
+                            .multilineTextAlignment(title.alignment)
+                            .foregroundColor(themeColor: title.color)
+                            .accessibility(title.accessibility)
+                            .fixedSize(horizontal: false, vertical: true)
                         } else if let attributedString = title.attributedString {
                             AttributedText(attributedString)
                                 .font(title.font)

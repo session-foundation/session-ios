@@ -52,7 +52,7 @@ public extension SessionListScreenContent {
         let accessory: Accessory
         let interaction: Interaction
         let accessibility: Accessibility?
-        let trailingImage: (cacheKey: UIView.CachedImageKey, viewGenerator: (() -> UIView))?
+        let trailingImage: UIImage?
         
         public init(
             _ text: String? = nil,
@@ -63,7 +63,7 @@ public extension SessionListScreenContent {
             accessory: Accessory = .none,
             interaction: Interaction = .none,
             accessibility: Accessibility? = nil,
-            trailingImage: (cacheKey: UIView.CachedImageKey, viewGenerator: (() -> UIView))? = nil
+            trailingImage: UIImage? = nil
         ) {
             self.text = text
             self.font = font
@@ -86,6 +86,7 @@ public extension SessionListScreenContent {
             color.hash(into: &hasher)
             accessory.hash(into: &hasher)
             accessibility.hash(into: &hasher)
+            trailingImage?.hash(into: &hasher)
         }
         
         public static func == (lhs: TextInfo, rhs: TextInfo) -> Bool {
@@ -96,7 +97,8 @@ public extension SessionListScreenContent {
                 lhs.alignment == rhs.alignment &&
                 lhs.color == rhs.color &&
                 lhs.accessory == rhs.accessory &&
-                lhs.accessibility == rhs.accessibility
+                lhs.accessibility == rhs.accessibility &&
+                lhs.trailingImage == rhs.trailingImage
             )
         }
     }
