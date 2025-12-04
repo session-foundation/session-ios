@@ -97,9 +97,8 @@ public class ExtensionHelper: ExtensionHelperType {
         /// Write the data to a temporary file first, then remove any existing file and move the temporary file to the final path
         let tmpPath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: nil)
         
-        guard dependencies[singleton: .fileManager].createFile(atPath: tmpPath, contents: ciphertext) else {
-            throw ExtensionHelperError.failedToWriteToFile
-        }
+        do { try dependencies[singleton: .fileManager].write(data: ciphertext, toPath: tmpPath) }
+        catch { throw ExtensionHelperError.failedToWriteToFile(error) }
         _ = try dependencies[singleton: .fileManager].replaceItem(atPath: path, withItemAtPath: tmpPath)
         
         /// Need to update the `fileProtectionType` of the written file because as of `iOS 26` it seems to retain the setting
@@ -431,7 +430,7 @@ public class ExtensionHelper: ExtensionHelperType {
             Log.warn(.cat, "Found missing replicated dumps (\(formatter.string(from: missingDumps) ?? "unknown")) for \(info.sessionId.hexString); triggering replication.")
             
             let incorrectProtectionDumps: [ConfigDump.Variant] = info.states
-                .filter { !$0.correctFileProtectionType }
+                .filter { $0.fileExists && !$0.correctFileProtectionType }
                 .map { $0.variant }
             Log.warn(.cat, "Found dumps with incorrect file protection type (\(formatter.string(from: incorrectProtectionDumps) ?? "unknown")) for \(info.sessionId.hexString); triggering replication.")
         }
@@ -1004,7 +1003,7 @@ public extension ExtensionHelper {
 
 public enum ExtensionHelperError: Error, CustomStringConvertible {
     case noEncryptionKey
-    case failedToWriteToFile
+    case failedToWriteToFile(Error)
     case failedToReadFromFile
     case failedToStoreDedupeRecord
     case failedToRemoveDedupeRecord
@@ -1014,7 +1013,7 @@ public enum ExtensionHelperError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
             case .noEncryptionKey: return "No encryption key available."
-            case .failedToWriteToFile: return "Failed to write to file."
+            case .failedToWriteToFile(let other): return "Failed to write to file (\(other))."
             case .failedToReadFromFile: return "Failed to read from file."
             case .failedToStoreDedupeRecord: return "Failed to store a record for message deduplication."
             case .failedToRemoveDedupeRecord: return "Failed to remove a record for message deduplication."
