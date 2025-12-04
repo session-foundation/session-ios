@@ -115,8 +115,11 @@ public class ExtensionHelper: ExtensionHelperType {
         }
         defer { encKey.resetBytes(in: 0..<encKey.count) }
 
-        guard let ciphertext: Data = dependencies[singleton: .fileManager].contents(atPath: path) else {
-            Log.error(.cat, "Failed to read contents of file")
+        let ciphertext: Data
+        
+        do { ciphertext = try dependencies[singleton: .fileManager].contents(atPath: path) }
+        catch {
+            Log.error(.cat, "Failed to read contents of file due to error: \(error)")
             throw ExtensionHelperError.failedToReadFromFile
         }
         
