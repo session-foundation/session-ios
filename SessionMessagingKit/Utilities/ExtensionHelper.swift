@@ -101,6 +101,7 @@ public class ExtensionHelper: ExtensionHelperType {
             throw ExtensionHelperError.failedToWriteToFile
         }
         _ = try dependencies[singleton: .fileManager].replaceItem(atPath: path, withItemAtPath: tmpPath)
+        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: path)
     }
     
     private func read(from path: String) throws -> Data {
