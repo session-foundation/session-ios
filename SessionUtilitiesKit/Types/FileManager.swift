@@ -166,11 +166,19 @@ public class SessionFileManager: FileManagerType {
         self.dependencies = dependencies
         
         /// Create a new temp directory for this instance
+        ///
+        /// **Note:** THe `ExtensionHelper` writes files to this folder temporarily before moving them to their final destination
+        /// and, as of iOS 26, files seem to keep the `fileProtectionType` from the location they were created in instead of from
+        /// the location they currently exist in. As such the temporary directory **must** use`completeUntilFirstUserAuthentication`
+        /// or the extensions won't function correctly
         let dirName: String = "\(SessionFileManager.temporaryDirectoryPrefix)\(UUID().uuidString)"
         self.temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent(dirName)
             .path
-        try? ensureDirectoryExists(at: self.temporaryDirectory, fileProtectionType: .complete)
+        try? ensureDirectoryExists(
+            at: self.temporaryDirectory,
+            fileProtectionType: .completeUntilFirstUserAuthentication
+        )
     }
     
     // MARK: - Functions
