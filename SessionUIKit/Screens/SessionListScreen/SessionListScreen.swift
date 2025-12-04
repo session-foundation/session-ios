@@ -40,44 +40,54 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                     // MARK: - Header
                     
                     if let title: String = section.model.title, section.model.style != .none {
-                        HStack(spacing: 0) {
-                            Text(title)
-                                .font(.Body.baseRegular)
-                                .foregroundColor(themeColor: .textSecondary)
-                                .padding(.horizontal, Values.smallSpacing)
-                            
+                        ZStack(alignment: .leading) {
                             switch section.model.style {
                                 case .titleWithTooltips(let info):
-                                    Image(systemName: "questionmark.circle")
+                                    HStack(spacing: 0) {
+                                        Text(title)
+                                            .font(.Body.baseRegular)
+                                            .foregroundColor(themeColor: .textSecondary)
+                                            .padding(.horizontal, Values.smallSpacing)
+                                        
+                                        Image(systemName: "questionmark.circle")
+                                            .font(.Body.baseRegular)
+                                            .foregroundColor(themeColor: .textSecondary)
+                                            .anchorView(viewId: info.id)
+                                            .accessibility(
+                                                Accessibility(identifier: "Section Header Tooltip")
+                                            )
+                                            .onTapGesture {
+                                                guard Date() >= suppressUntil else { return }
+                                                suppressUntil = Date().addingTimeInterval(0.2)
+                                                guard tooltipViewId != info.id && !isShowingTooltip else {
+                                                    withAnimation {
+                                                        isShowingTooltip = false
+                                                    }
+                                                    return
+                                                }
+                                                tooltipContent = info.content
+                                                tooltipPosition = info.position
+                                                tooltipViewId = info.id
+                                                tooltipArrowOffset = 30
+                                                withAnimation {
+                                                    isShowingTooltip = true
+                                                }
+                                            }
+                                    }
+                                case .titleSeparator:
+                                    Seperator_SwiftUI(
+                                        title: "accountId".localized(),
+                                        font: .Body.baseRegular
+                                    )
+                                default:
+                                    Text(title)
                                         .font(.Body.baseRegular)
                                         .foregroundColor(themeColor: .textSecondary)
-                                        .anchorView(viewId: info.id)
-                                        .accessibility(
-                                            Accessibility(identifier: "Section Header Tooltip")
-                                        )
-                                        .onTapGesture {
-                                            guard Date() >= suppressUntil else { return }
-                                            suppressUntil = Date().addingTimeInterval(0.2)
-                                            guard tooltipViewId != info.id && !isShowingTooltip else {
-                                                withAnimation {
-                                                    isShowingTooltip = false
-                                                }
-                                                return
-                                            }
-                                            tooltipContent = info.content
-                                            tooltipPosition = info.position
-                                            tooltipViewId = info.id
-                                            tooltipArrowOffset = 30
-                                            withAnimation {
-                                                isShowingTooltip = true
-                                            }
-                                        }
-                                case .titleSeparator:
-                                    Seperator_SwiftUI(title: "accountId".localized())
-                                default:
-                                    EmptyView()
+                                        .padding(.horizontal, Values.smallSpacing)
                             }
                         }
+                        .frame(minHeight: section.model.style.height)
+                        .listRowInsets(.init(top: 0, leading: section.model.style.edgePadding, bottom: 0, trailing: section.model.style.edgePadding))
                         .listRowBackground(Color.clear)
                     }
                     
@@ -89,28 +99,30 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                             let isLastElement: Bool = (index == section.elements.count - 1)
                             switch element.variant {
                                 case .cell(let info):
-                                    ListItemCell(info: info, height: section.model.style.height)
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            element.onTap?()
+                                    VStack(spacing: 0) {
+                                        ListItemCell(info: info, height: section.model.style.cellMinHeight)
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                element.onTap?(.item)
+                                            }
+                                            .padding(.vertical, Values.smallSpacing)
+                                            .padding(.top, (index == 0) ? section.model.extraVerticalPadding : 0)
+                                            .padding(.bottom, isLastElement ? section.model.extraVerticalPadding : 0)
+                                        
+                                        if (section.model.divider && !isLastElement) {
+                                            Divider()
+                                                .foregroundColor(themeColor: .borderSeparator)
+                                                .padding(.horizontal, Values.mediumSpacing)
                                         }
-                                        .padding(.vertical, Values.smallSpacing)
-                                        .padding(.top, (index == 0) ? Values.smallSpacing : 0)
-                                        .padding(.bottom, isLastElement ? Values.smallSpacing : 0)
-                                        .background(
-                                            Rectangle()
-                                                .foregroundColor(themeColor: .backgroundSecondary)
-                                        )
-                                    
-                                    if (section.model.divider && !isLastElement) {
-                                        Divider()
-                                            .foregroundColor(themeColor: .borderSeparator)
-                                            .padding(.horizontal, Values.mediumSpacing)
                                     }
+                                    .background(
+                                        Rectangle()
+                                            .foregroundColor(themeColor: section.model.style.backgroundColor)
+                                    )
                                 case .logoWithPro(let info):
                                     ListItemLogoWithPro(info: info)
                                         .onTapGesture {
-                                            element.onTap?()
+                                            element.onTap?(.item)
                                         }
                                 case .dataMatrix(let info):
                                     ListItemDataMatrix(
@@ -123,7 +135,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         info: info
                                     )
                                     .onTapGesture {
-                                        element.onTap?()
+                                        element.onTap?(.item)
                                     }
                                     .background(
                                         Rectangle()
@@ -132,7 +144,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 case .button(let title):
                                     ListItemButton(title: title)
                                         .onTapGesture {
-                                            element.onTap?()
+                                            element.onTap?(.item)
                                         }
                                 case .profilePicture(let info):
                                     ListItemProfilePicture(
@@ -142,12 +154,13 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         dataManager: dataManager,
                                         host: host
                                     )
+                                    .padding(.vertical, Values.smallSpacing)
                             }
                         }
                     }
                     .cornerRadius(11)
                     .padding(.vertical, Values.smallSpacing)
-                    .listRowInsets(.init(top: 0, leading: Values.mediumSpacing, bottom: 0, trailing: Values.mediumSpacing))
+                    .listRowInsets(.init(top: 0, leading: Values.largeSpacing, bottom: 0, trailing: Values.largeSpacing))
                     .listRowBackground(Color.clear)
                 }
                 .listRowSeparator(.hidden)

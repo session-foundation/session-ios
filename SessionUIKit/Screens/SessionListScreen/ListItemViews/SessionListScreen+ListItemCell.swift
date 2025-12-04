@@ -29,7 +29,7 @@ public struct ListItemCell: View {
     let height: CGFloat
     
     public var body: some View {
-        HStack(spacing: Values.mediumSpacing) {
+        HStack(spacing: Values.largeSpacing) {
             if let leadingAccessory = info.leadingAccessory {
                 leadingAccessory.accessoryView()
             }
@@ -38,6 +38,7 @@ public struct ListItemCell: View {
                 if let title = info.title {
                     HStack(spacing: Values.verySmallSpacing) {
                         if case .trailing = info.title?.alignment { Spacer() }
+                        if case .center = info.title?.alignment { Spacer() }
                         
                         if case .proBadgeLeading(let themeBackgroundColor) = title.accessory  {
                             SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
@@ -49,20 +50,21 @@ public struct ListItemCell: View {
                                 .multilineTextAlignment(title.alignment)
                                 .foregroundColor(themeColor: title.color)
                                 .accessibility(title.accessibility)
-                                .fixedSize()
+                                .fixedSize(horizontal: false, vertical: true)
                         } else if let attributedString = title.attributedString {
                             AttributedText(attributedString)
                                 .font(title.font)
                                 .multilineTextAlignment(title.alignment)
                                 .foregroundColor(themeColor: title.color)
                                 .accessibility(title.accessibility)
-                                .fixedSize()
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         
                         if case .proBadgeTrailing(let themeBackgroundColor) = title.accessory  {
                             SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
                         
+                        if case .center = info.title?.alignment { Spacer() }
                         if case .leading = info.title?.alignment { Spacer() }
                     }
                 }

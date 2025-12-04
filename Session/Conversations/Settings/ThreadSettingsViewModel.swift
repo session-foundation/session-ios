@@ -95,15 +95,21 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         public var style: SessionListScreenContent.ListSectionStyle {
             switch self {
                 case .sessionId, .sessionIdNoteToSelf: return .titleSeparator
-                case .destructiveActions: return .padding
-                case .adminActions: return .titleRoundedContent
+                case .adminActions, .destructiveActions, .content: return .titleRoundedContent
                 default: return .none
             }
         }
         
-        public var divider: Bool { return true }
+        public var divider: Bool {
+            switch self {
+                case .conversationInfo: return false
+                default: return true
+            }
+        }
         
         public var footer: String? { return nil }
+        
+        public var extraVerticalPadding: CGFloat { return 0 }
     }
     
     public enum ListItem: Differentiable {
@@ -481,7 +487,10 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             id: .leaveGroup,
                             variant: .cell(
                                 info: .init(
-                                    leadingAccessory: .icon(.trash2),
+                                    leadingAccessory: .icon(
+                                        .trash2,
+                                        customTint: .danger
+                                    ),
                                     title: .init(
                                         "groupDelete".localized(),
                                         font: .Headings.H8,
@@ -615,7 +624,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                             )
                                     }(),
                                     font: .Body.smallRegular,
-                                    color: .textSecondary
+                                    color: .textPrimary
                                 )
                             )
                         ),
@@ -704,7 +713,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                         return "notificationsAllMessages".localized()
                                     }(),
                                     font: .Body.smallRegular,
-                                    color: .textSecondary
+                                    color: .textPrimary
                                 )
                             )
                         ),

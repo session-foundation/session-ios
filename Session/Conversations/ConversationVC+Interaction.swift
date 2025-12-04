@@ -92,7 +92,8 @@ extension ConversationVC:
     }
 
     @objc func openSettings() {
-        let viewController = SessionTableViewController(viewModel: ThreadSettingsViewModel(
+        let viewController = SessionListHostingViewController(
+            viewModel: ThreadSettingsViewModel(
                 threadId: self.viewModel.threadData.threadId,
                 threadVariant: self.viewModel.threadData.threadVariant,
                 didTriggerSearch: { [weak self] in
@@ -103,7 +104,8 @@ extension ConversationVC:
                     }
                 },
                 using: self.viewModel.dependencies
-            )
+            ),
+            using: self.viewModel.dependencies
         )
         navigationController?.pushViewController(viewController, animated: true)
     }

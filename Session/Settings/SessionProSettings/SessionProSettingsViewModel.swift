@@ -76,7 +76,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             position: .topRight
                         )
                     )
-                case .proSettings, .proFeatures, .proManagement, .help: return .titleNoBackgroundContent
+                case .proSettings, .proFeatures, .proManagement, .help: return .titleRoundedContent
                 default: return .none
             }
         }
@@ -89,6 +89,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         public var footer: String? { return nil }
+        
+        public var extraVerticalPadding: CGFloat {
+            switch self {
+                case .proFeatures: return Values.smallSpacing
+                default : return 0
+            }
+        }
     }
     
     public enum ListItem: Differentiable {
@@ -295,7 +302,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             }()
                         )
                     ),
-                    onTap: { [weak viewModel] in
+                    onTap: { [weak viewModel] _ in
                         switch state.loadingState {
                             case .loading:
                                 viewModel?.showLoadingModal(
@@ -345,7 +352,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         SessionListScreenContent.ListItemInfo(
                             id: .continueButton,
                             variant: .button(title: "theContinue".localized()),
-                            onTap: { [weak viewModel] in viewModel?.updateProPlan() }
+                            onTap: { [weak viewModel] _ in viewModel?.updateProPlan() }
                         )
                 )
             ].compactMap { $0 }
@@ -362,7 +369,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 .init(
                                     leadingAccessory: .icon(
                                         .messageSquare,
-                                        size: .large,
+                                        size: .medium,
                                         customTint: .primary
                                     ),
                                     title: .init(
@@ -377,7 +384,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 .init(
                                     leadingAccessory: .icon(
                                         .pin,
-                                        size: .large,
+                                        size: .medium,
                                         customTint: .primary
                                     ),
                                     title: .init(
@@ -394,7 +401,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 .init(
                                     leadingAccessory: .icon(
                                         .rectangleEllipsis,
-                                        size: .large,
+                                        size: .medium,
                                         customTint: .primary
                                     ),
                                     title: .init(
@@ -410,7 +417,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 .init(
                                     leadingAccessory: .icon(
                                         UIImage(named: "ic_user_group"),
-                                        size: .large,
+                                        size: .medium,
                                         customTint: .disabled
                                     ),
                                     title: .init(
@@ -433,7 +440,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             ]
                         ]
                     ),
-                    onTap: { [weak viewModel] in
+                    onTap: { [weak viewModel] _ in
                         guard state.loadingState == .loading else { return }
                         viewModel?.showLoadingModal(
                             from: .proStats,
@@ -503,7 +510,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_roadmap) }
+                    onTap: { [weak viewModel] _ in viewModel?.openUrl(Constants.session_pro_roadmap) }
                 )
             )
         )
@@ -534,7 +541,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             ),
                             trailingAccessory: .icon(
                                 .squareArrowUpRight,
-                                size: .large,
+                                size: .medium,
                                 customTint: {
                                     switch state.currentProPlanState {
                                         case .expired: return .textPrimary
@@ -544,7 +551,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_faq_url) }
+                    onTap: { [weak viewModel] _ in viewModel?.openUrl(Constants.session_pro_faq_url) }
                 ),
                 SessionListScreenContent.ListItemInfo(
                     id: .support,
@@ -562,7 +569,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             ),
                             trailingAccessory: .icon(
                                 .squareArrowUpRight,
-                                size: .large,
+                                size: .medium,
                                 customTint: {
                                     switch state.currentProPlanState {
                                         case .expired: return .textPrimary
@@ -572,7 +579,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_support_url) }
+                    onTap: { [weak viewModel] _ in viewModel?.openUrl(Constants.session_pro_support_url) }
                 )
             ]
         )
@@ -645,10 +652,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 )
                                         }
                                     }(),
-                                    trailingAccessory: state.loadingState == .loading ? .loadingIndicator(size: .large) : .icon(.chevronRight, size: .large)
+                                    trailingAccessory: state.loadingState == .loading ? .loadingIndicator(size: .medium) : .icon(.chevronRight, size: .medium)
                                 )
                             ),
-                            onTap: { [weak viewModel] in
+                            onTap: { [weak viewModel] _ in
                                 switch state.loadingState {
                                     case .loading:
                                         viewModel?.showLoadingModal(
@@ -690,10 +697,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             .put(key: "platform", value: originatingPlatform.name)
                                             .localizedFormatted(Fonts.Body.smallRegular)
                                     ),
-                                    trailingAccessory: .icon(.circleAlert, size: .large)
+                                    trailingAccessory: .icon(.circleAlert, size: .medium)
                                 )
                             ),
-                            onTap: { [weak viewModel] in
+                            onTap: { [weak viewModel] _ in
                                 switch state.loadingState {
                                     case .loading:
                                         viewModel?.showLoadingModal(
@@ -735,7 +742,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         )
                     )
                 ),
-                onTap: { [dependencies = viewModel.dependencies] in
+                onTap: { [dependencies = viewModel.dependencies] _ in
                     dependencies.setAsync(.isProBadgeEnabled, !state.isProBadgeEnabled)
                 }
             )
@@ -764,20 +771,20 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         font: .Headings.H8,
                                         color: .danger
                                     ),
-                                    trailingAccessory: .icon(.circleX, size: .large, customTint: .danger)
+                                    trailingAccessory: .icon(.circleX, size: .medium, customTint: .danger)
                                 )
                             ),
-                            onTap: { [weak viewModel] in viewModel?.cancelPlan() }
+                            onTap: { [weak viewModel] _ in viewModel?.cancelPlan() }
                         ),
                     SessionListScreenContent.ListItemInfo(
                         id: .requestRefund,
                         variant: .cell(
                             info: .init(
                                 title: .init("requestRefund".localized(), font: .Headings.H8, color: .danger),
-                                trailingAccessory: .icon(.circleAlert, size: .large, customTint: .danger)
+                                trailingAccessory: .icon(.circleAlert, size: .medium, customTint: .danger)
                             )
                         ),
-                        onTap: { [weak viewModel] in viewModel?.requestRefund() }
+                        onTap: { [weak viewModel] _ in viewModel?.requestRefund() }
                     )
                 ].compactMap { $0 }
             case .expired:
@@ -817,16 +824,16 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 }(),
                                 trailingAccessory: (
                                     state.loadingState == .loading ?
-                                        .loadingIndicator(size: .large) :
+                                        .loadingIndicator(size: .medium) :
                                         .icon(
                                             .circlePlus,
-                                            size: .large,
+                                            size: .medium,
                                             customTint: state.loadingState == .success ? .primary : .textPrimary
                                         )
                                 )
                             )
                         ),
-                        onTap: { [weak viewModel] in
+                        onTap: { [weak viewModel] _ in
                             switch state.loadingState {
                                 case .loading:
                                     viewModel?.showLoadingModal(
@@ -867,12 +874,12 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 ),
                                 trailingAccessory: .icon(
                                     .refreshCcw,
-                                    size: .large,
+                                    size: .medium,
                                     customTint: .textPrimary
                                 )
                             )
                         ),
-                        onTap: { [weak viewModel] in viewModel?.recoverProPlan() }
+                        onTap: { [weak viewModel] _ in viewModel?.recoverProPlan() }
                     ),
                 ]
             case .refunding: []

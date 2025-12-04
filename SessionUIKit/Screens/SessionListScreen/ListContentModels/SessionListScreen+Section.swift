@@ -8,6 +8,7 @@ public extension SessionListScreenContent {
         var title: String? { get }
         var style: ListSectionStyle { get }
         var divider: Bool { get }
+        var extraVerticalPadding: CGFloat { get }
         var footer: String? { get }
     }
     
@@ -21,10 +22,8 @@ public extension SessionListScreenContent {
         
         var height: CGFloat {
             switch self {
-                case .none:
+                case .none, .titleWithTooltips, .titleNoBackgroundContent, .titleRoundedContent:
                     return 0
-                case .titleWithTooltips, .titleNoBackgroundContent, .titleRoundedContent:
-                    return 44
                 case .titleSeparator:
                     return Separator.height
                 case .padding:
@@ -32,14 +31,30 @@ public extension SessionListScreenContent {
             }
         }
         
+        var cellMinHeight: CGFloat {
+            switch self {
+                case .titleSeparator, .none:
+                    return 0
+                default:
+                    return 44
+            }
+        }
+        
         var edgePadding: CGFloat {
             switch self {
                 case .none, .padding:
                     return 0
-            case .titleWithTooltips, .titleNoBackgroundContent, .titleRoundedContent:
-                    return (Values.largeSpacing + Values.mediumSpacing)
-                case .titleSeparator:
+                case .titleWithTooltips, .titleNoBackgroundContent, .titleRoundedContent, .titleSeparator:
                     return Values.largeSpacing
+            }
+        }
+        
+        var backgroundColor: ThemeValue {
+            switch self {
+                case .titleNoBackgroundContent, .titleSeparator, .none:
+                    return .clear
+                case .titleRoundedContent, .titleWithTooltips, .padding:
+                    return .backgroundSecondary
             }
         }
     }
