@@ -29,16 +29,17 @@ public struct ListItemCell: View {
     let height: CGFloat
     
     public var body: some View {
-        HStack(spacing: Values.largeSpacing) {
+        HStack(spacing: Values.mediumSpacing) {
             if let leadingAccessory = info.leadingAccessory {
                 leadingAccessory.accessoryView()
+                    .padding(.horizontal, leadingAccessory.padding)
             }
             
             VStack(alignment: .center, spacing: 0) {
                 if let title = info.title {
                     HStack(spacing: Values.verySmallSpacing) {
-                        if case .trailing = info.title?.alignment { Spacer() }
-                        if case .center = info.title?.alignment { Spacer() }
+                        if case .trailing = info.title?.alignment { Spacer(minLength: 0) }
+                        if case .center = info.title?.alignment { Spacer(minLength: 0) }
                         
                         if case .proBadgeLeading(let themeBackgroundColor) = title.accessory  {
                             SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
@@ -64,14 +65,15 @@ public struct ListItemCell: View {
                             SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
                         
-                        if case .center = info.title?.alignment { Spacer() }
-                        if case .leading = info.title?.alignment { Spacer() }
+                        if case .center = info.title?.alignment { Spacer(minLength: 0) }
+                        if case .leading = info.title?.alignment { Spacer(minLength: 0) }
                     }
                 }
                 
                 if let description = info.description {
                     HStack(spacing: Values.verySmallSpacing) {
-                        if case .trailing = info.description?.alignment { Spacer() }
+                        if case .trailing = info.description?.alignment { Spacer(minLength: 0) }
+                        if case .center = info.description?.alignment { Spacer(minLength: 0) }
                         
                         if case .proBadgeLeading(let themeBackgroundColor) = description.accessory {
                             SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
@@ -97,7 +99,8 @@ public struct ListItemCell: View {
                             SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
                         
-                        if case .leading = info.description?.alignment { Spacer() }
+                        if case .center = info.description?.alignment { Spacer(minLength: 0) }
+                        if case .leading = info.description?.alignment { Spacer(minLength: 0) }
                     }
                 }
             }
@@ -109,6 +112,7 @@ public struct ListItemCell: View {
             
             if let trailingAccessory = info.trailingAccessory {
                 trailingAccessory.accessoryView()
+                    .padding(.horizontal, trailingAccessory.padding)
             }
         }
         .padding(.horizontal, Values.mediumSpacing)

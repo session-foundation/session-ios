@@ -27,7 +27,9 @@ public extension SessionListScreenContent.ListItemAccessory {
         shouldFill: Bool = false,
         accessibility: Accessibility? = nil
     ) -> SessionListScreenContent.ListItemAccessory {
-        return SessionListScreenContent.ListItemAccessory {
+        return SessionListScreenContent.ListItemAccessory(
+            padding: Values.smallSpacing
+        ) {
             Image(uiImage: image ?? UIImage())
                 .renderingMode(.template)
                 .resizable()
