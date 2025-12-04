@@ -2017,7 +2017,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     private func toggleConversationPinnedStatus(currentPinnedPriority: Int32) {
         let isCurrentlyPinned: Bool = (currentPinnedPriority > LibSession.visiblePriority)
         
-        if !isCurrentlyPinned && !dependencies[cache: .libSession].isSessionPro {
+        if !isCurrentlyPinned && dependencies[feature: .sessionProEnabled] && !dependencies[cache: .libSession].isSessionPro {
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
             dependencies[singleton: .storage].writeAsync (
                 updates: { [threadId, dependencies] db in
@@ -2046,25 +2046,27 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         numPinnedConversations > 0
                     else { return }
                     
-                    let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-                        modal: ProCTAModal(
-                            variant: .morePinnedConvos(
-                                isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit),
-                                renew: dependencies[singleton: .sessionProState].isSessionProExpired
-                            ),
-                            dataManager: dependencies[singleton: .imageDataManager],
-                            onConfirm: { [dependencies] in
-                                Task {
-                                    await dependencies[singleton: .sessionProState].upgradeToPro(
-                                        plan: SessionProPlan(variant: .threeMonths),
-                                        originatingPlatform: .iOS,
-                                        completion: nil
-                                    )
+                    DispatchQueue.main.async {
+                        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
+                            modal: ProCTAModal(
+                                variant: .morePinnedConvos(
+                                    isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit),
+                                    renew: dependencies[singleton: .sessionProState].isSessionProExpired
+                                ),
+                                dataManager: dependencies[singleton: .imageDataManager],
+                                onConfirm: { [dependencies] in
+                                    Task {
+                                        await dependencies[singleton: .sessionProState].upgradeToPro(
+                                            plan: SessionProPlan(variant: .threeMonths),
+                                            originatingPlatform: .iOS,
+                                            completion: nil
+                                        )
+                                    }
                                 }
-                            }
+                            )
                         )
-                    )
-                    self?.transitionToScreen(sessionProModal, transitionType: .present)
+                        self?.transitionToScreen(sessionProModal, transitionType: .present)
+                    }
                 }
             )
             return

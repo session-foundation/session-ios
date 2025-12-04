@@ -646,38 +646,40 @@ struct MessageInfoScreen: View {
             )
         }()
         
-        let userProfileModal: ModalHostingViewController = ModalHostingViewController(
-            modal: UserProfileModal(
-                info: .init(
-                    sessionId: sessionId,
-                    blindedId: blindedId,
-                    qrCodeImage: qrCodeImage,
-                    profileInfo: profileInfo,
-                    displayName: displayName,
-                    contactDisplayName: contactDisplayName,
-                    isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
-                    isMessageRequestsEnabled: isMessasgeRequestsEnabled,
-                    onStartThread: self.onStartThread,
-                    onProBadgeTapped: {
-                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                            proCTAVariant,
-                            onConfirm: {
-                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                                    presenting: { bottomSheet in
-                                        self.host.controller?.present(bottomSheet, animated: true)
-                                    }
-                                )
-                            },
-                            presenting: { modal in
-                                self.host.controller?.present(modal, animated: true)
-                            }
-                        )
-                    }
-                ),
-                dataManager: dependencies[singleton: .imageDataManager]
+        DispatchQueue.main.async {
+            let userProfileModal: ModalHostingViewController = ModalHostingViewController(
+                modal: UserProfileModal(
+                    info: .init(
+                        sessionId: sessionId,
+                        blindedId: blindedId,
+                        qrCodeImage: qrCodeImage,
+                        profileInfo: profileInfo,
+                        displayName: displayName,
+                        contactDisplayName: contactDisplayName,
+                        isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
+                        isMessageRequestsEnabled: isMessasgeRequestsEnabled,
+                        onStartThread: self.onStartThread,
+                        onProBadgeTapped: {
+                            dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                proCTAVariant,
+                                onConfirm: {
+                                    dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                        presenting: { bottomSheet in
+                                            self.host.controller?.present(bottomSheet, animated: true)
+                                        }
+                                    )
+                                },
+                                presenting: { modal in
+                                    self.host.controller?.present(modal, animated: true)
+                                }
+                            )
+                        }
+                    ),
+                    dataManager: dependencies[singleton: .imageDataManager]
+                )
             )
-        )
-        self.host.controller?.present(userProfileModal, animated: true, completion: nil)
+            self.host.controller?.present(userProfileModal, animated: true, completion: nil)
+        }
     }
     
     private func showMediaFullScreen(attachment: Attachment) {

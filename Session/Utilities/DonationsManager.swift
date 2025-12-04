@@ -57,7 +57,7 @@ public class DonationsManager {
         /// case we _do_ want to show it)
         let appInstallationDate: Date = {
             guard !dependencies.hasSet(feature: .customFirstInstallDateTime) else {
-                return Date(timeIntervalSince1970: dependencies[feature: .customFirstInstallDateTime] ?? 0)
+                return Date(timeIntervalSince1970: dependencies[feature: .customFirstInstallDateTime])
             }
             
             let attributes: [FileAttributeKey: Any]? = try? dependencies[singleton: .fileManager]

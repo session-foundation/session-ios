@@ -227,14 +227,16 @@ public extension UIContextualAction {
                             indexPath: indexPath,
                             tableView: tableView
                         ) { _, _, completionHandler in
-                            if !isCurrentlyPinned,
-                               !dependencies[cache: .libSession].isSessionPro,
-                               let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
-                                   try SessionThread
-                                       .filter(SessionThread.Columns.pinnedPriority > 0)
-                                       .fetchCount(db)
-                               }),
-                               pinnedConversationsNumber >= LibSession.PinnedConversationLimit
+                            if
+                                dependencies[feature: .sessionProEnabled],
+                                !isCurrentlyPinned,
+                                !dependencies[cache: .libSession].isSessionPro,
+                                let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
+                                    try SessionThread
+                                        .filter(SessionThread.Columns.pinnedPriority > 0)
+                                        .fetchCount(db)
+                                }),
+                                pinnedConversationsNumber >= LibSession.PinnedConversationLimit
                             {
                                 dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                                     .morePinnedConvos(
@@ -264,14 +266,13 @@ public extension UIContextualAction {
                             // Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                                 dependencies[singleton: .storage].writeAsync { db in
-                                    try SessionThread
-                                        .filter(id: threadViewModel.threadId)
-                                        .updateAllAndConfig(
-                                            db,
-                                            SessionThread.Columns.pinnedPriority
-                                                .set(to: (isCurrentlyPinned ? 0 : 1)),
-                                            using: dependencies
-                                        )
+                                    try SessionThread.updateVisibility(
+                                        db,
+                                        threadId: threadViewModel.threadId,
+                                        isVisible: true,
+                                        customPriority: (isCurrentlyPinned ? LibSession.visiblePriority : 1),
+                                        using: dependencies
+                                    )
                                 }
                             }
                         }
