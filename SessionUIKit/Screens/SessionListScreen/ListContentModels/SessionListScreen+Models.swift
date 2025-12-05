@@ -86,7 +86,7 @@ public extension SessionListScreenContent {
             color.hash(into: &hasher)
             accessory.hash(into: &hasher)
             accessibility.hash(into: &hasher)
-            trailingImage?.hash(into: &hasher)
+            inlineTrailingImage?.hash(into: &hasher)
         }
         
         public static func == (lhs: TextInfo, rhs: TextInfo) -> Bool {
@@ -98,7 +98,7 @@ public extension SessionListScreenContent {
                 lhs.color == rhs.color &&
                 lhs.accessory == rhs.accessory &&
                 lhs.accessibility == rhs.accessibility &&
-                lhs.trailingImage == rhs.trailingImage
+                lhs.inlineTrailingImage == rhs.inlineTrailingImage
             )
         }
     }
