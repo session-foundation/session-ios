@@ -107,18 +107,7 @@ public class ExtensionHelper: ExtensionHelperType {
         try? dependencies[singleton: .fileManager].protectFileOrFolder(at: path)
     }
     
-    private func read(from path: String) throws -> Data {
-        /// Load in the data and `encKey` and reset the `encKey` as soon as the function ends
-        guard var encKey: [UInt8] = (try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
-            forKey: .extensionEncryptionKey,
-            length: encryptionKeyLength,
-            cat: .cat
-        )).map({ Array($0) }) else {
-            Log.error(.cat, "Failed to retrieve encryption key")
-            throw ExtensionHelperError.noEncryptionKey
-        }
-        defer { encKey.resetBytes(in: 0..<encKey.count) }
-
+    private func read(from path: String, usingKey encKey: [UInt8]) throws -> Data {
         let ciphertext: Data
         
         do { ciphertext = try dependencies[singleton: .fileManager].contents(atPath: path) }
@@ -190,7 +179,17 @@ public class ExtensionHelper: ExtensionHelperType {
     }
     
     public func loadUserMetadata() -> UserMetadata? {
-        guard let plaintext: Data = try? read(from: metadataPath) else { return nil }
+        /// Load in the data and `encKey` and reset the `encKey` as soon as the function ends
+        guard var encKey: [UInt8] = (try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .extensionEncryptionKey,
+            length: encryptionKeyLength,
+            cat: .cat
+        )).map({ Array($0) }) else {
+            Log.error(.cat, "Failed to retrieve encryption key when loading UserMetadata")
+            return nil
+        }
+        defer { encKey.resetBytes(in: 0..<encKey.count) }
+        guard let plaintext: Data = try? read(from: metadataPath, usingKey: encKey) else { return nil }
         
         do {
             return try JSONDecoder(using: dependencies)
@@ -483,12 +482,22 @@ public class ExtensionHelper: ExtensionHelperType {
         userSessionId: SessionId,
         userEd25519SecretKey: [UInt8]
     ) {
+        guard var encKey: [UInt8] = (try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .extensionEncryptionKey,
+            length: encryptionKeyLength,
+            cat: .cat
+        )).map({ Array($0) }) else {
+            Log.error(.cat, "Failed to retrieve encryption key when loading user config state")
+            return
+        }
+        defer { encKey.resetBytes(in: 0..<encKey.count) }
+        
         ConfigDump.Variant.userVariants
             .sorted { $0.loadOrder < $1.loadOrder }
             .forEach { variant in
                 guard
                     let path: String = dumpFilePath(for: userSessionId, variant: variant),
-                    let dump: Data = try? read(from: path),
+                    let dump: Data = try? read(from: path, usingKey: encKey),
                     let config: LibSession.Config = try? cache.loadState(
                         for: variant,
                         sessionId: userSessionId,
@@ -519,6 +528,15 @@ public class ExtensionHelper: ExtensionHelperType {
             let groupSessionId: SessionId = try? SessionId(from: swarmPublicKey),
             groupSessionId.prefix == .group
         else { return [:] }
+        guard var encKey: [UInt8] = (try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .extensionEncryptionKey,
+            length: encryptionKeyLength,
+            cat: .cat
+        )).map({ Array($0) }) else {
+            Log.error(.cat, "Failed to retrieve encryption key when loading group config state")
+            throw ExtensionHelperError.noEncryptionKey
+        }
+        defer { encKey.resetBytes(in: 0..<encKey.count) }
         
         let groupEd25519SecretKey: [UInt8]? = cache.secretKey(groupSessionId: groupSessionId)
         var results: [ConfigDump.Variant: Bool] = [:]
@@ -530,7 +548,7 @@ public class ExtensionHelper: ExtensionHelperType {
                 /// be able to handle a notification without a valid config anyway)
                 guard
                     let path: String = dumpFilePath(for: groupSessionId, variant: variant),
-                    let dump: Data = try? read(from: path)
+                    let dump: Data = try? read(from: path, usingKey: encKey)
                 else { return results[variant] = false }
                 
                 cache.setConfig(
@@ -590,8 +608,18 @@ public class ExtensionHelper: ExtensionHelperType {
         previewType: Preferences.NotificationPreviewType,
         sound: Preferences.Sound
     ) -> [String: Preferences.NotificationSettings]? {
+        /// Load in the data and `encKey` and reset the `encKey` as soon as the function ends
+        guard var encKey: [UInt8] = (try? dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .extensionEncryptionKey,
+            length: encryptionKeyLength,
+            cat: .cat
+        )).map({ Array($0) }) else {
+            Log.error(.cat, "Failed to retrieve encryption key when loading notification settings")
+            return nil
+        }
+        defer { encKey.resetBytes(in: 0..<encKey.count) }
         guard
-            let plaintext: Data = try? read(from: notificationSettingsPath),
+            let plaintext: Data = try? read(from: notificationSettingsPath, usingKey: encKey),
             let allSettings: [NotificationSettings] = try? JSONDecoder(using: dependencies)
                 .decode([NotificationSettings].self, from: plaintext)
         else { return nil }
@@ -776,6 +804,18 @@ public class ExtensionHelper: ExtensionHelperType {
     
     public func loadMessages() async throws {
         typealias MessageData = (namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)
+        typealias ConversationMessages = (
+            swarmPublicKey: String,
+            configMessages: [MessageData],
+            standardMessages: [MessageData]
+        )
+        
+        var encKey = Array(try dependencies[singleton: .keychain].getOrGenerateEncryptionKey(
+            forKey: .extensionEncryptionKey,
+            length: encryptionKeyLength,
+            cat: .cat
+        ))
+        defer { encKey.resetBytes(in: 0..<encKey.count) }
         
         /// Retrieve all conversation file paths
         ///
@@ -797,34 +837,36 @@ public class ExtensionHelper: ExtensionHelperType {
         var successStandardCount: Int = 0
         var failureStandardCount: Int = 0
         
-        try await dependencies[singleton: .storage].writeAsync { [weak self, dependencies] db in
-            guard let this = self else { return }
-            
-            /// Process each conversation individually
-            conversationHashes.forEach { conversationHash in
-                /// Retrieve and process any config messages
-                ///
-                /// For config message changes we want to load in every config for a conversation and process them all at once
-                /// to ensure that we don't miss any changes and ensure they are processed in the order they were received, if an
-                /// error occurs then we want to just discard all of the config changes as otherwise we could end up in a weird state
-                let configsPath: String = URL(fileURLWithPath: this.conversationsPath)
-                    .appendingPathComponent(conversationHash)
-                    .appendingPathComponent(this.conversationConfigDir)
-                    .path
-                let configMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
-                    .contentsOfDirectory(atPath: configsPath)
-                    .filter { !$0.starts(with: ".") })    // stringlint:ignore
-                    .defaulting(to: [])
-                
+        /// If there are no conversation hashes then we can just early out
+        guard !conversationHashes.isEmpty else {
+            Log.info(.cat, "No messages to load from extensions.")
+            await messagesLoadedStream.send(true)
+            return
+        }
+        
+        /// Process each conversation individually
+        let allConversationMessages: [ConversationMessages] = conversationHashes.compactMap { conversationHash in
+            /// Retrieve any config messages
+            ///
+            /// For config message changes we want to load in every config for a conversation and process them all at once
+            /// to ensure that we don't miss any changes and ensure they are processed in the order they were received, if an
+            /// error occurs then we want to just discard all of the config changes as otherwise we could end up in a weird state
+            let configsPath: String = URL(fileURLWithPath: conversationsPath)
+                .appendingPathComponent(conversationHash)
+                .appendingPathComponent(conversationConfigDir)
+                .path
+            let configMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
+                .contentsOfDirectory(atPath: configsPath)
+                .filter { !$0.starts(with: ".") })    // stringlint:ignore
+                .defaulting(to: [])
+            let sortedConfigMessages: [MessageData]? = {
                 do {
-                    let sortedMessages: [MessageData] = try configMessageHashes
-                        .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [Network.SnodeAPI.Namespace: [SnodeReceivedMessage]], hash: String) in
-                            let path: String = URL(fileURLWithPath: this.conversationsPath)
-                                .appendingPathComponent(conversationHash)
-                                .appendingPathComponent(this.conversationConfigDir)
+                    return try configMessageHashes
+                        .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { result, hash in
+                            let path: String = URL(fileURLWithPath: configsPath)
                                 .appendingPathComponent(hash)
                                 .path
-                            let plaintext: Data = try this.read(from: path)
+                            let plaintext: Data = try read(from: path, usingKey: encKey)
                             let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
                                 .decode(SnodeReceivedMessage.self, from: plaintext)
                             
@@ -832,120 +874,125 @@ public class ExtensionHelper: ExtensionHelperType {
                         }
                         .map { namespace, messages -> MessageData in (namespace, messages, nil) }
                         .sorted { lhs, rhs in lhs.namespace.processingOrder < rhs.namespace.processingOrder }
-                    
-                    /// Process the message (inserting into the database if needed (messages are processed per conversaiton so
-                    /// all have the same `swarmPublicKey`)
-                    switch sortedMessages.first?.messages.first?.swarmPublicKey {
-                        case .none: break
-                        case .some(let swarmPublicKey):
-                            SwarmPoller.processPollResponse(
-                                db,
-                                cat: .cat,
-                                source: .pushNotification,
-                                swarmPublicKey: swarmPublicKey,
-                                shouldStoreMessages: true,
-                                ignoreDedupeFiles: true,
-                                forceSynchronousProcessing: true,
-                                sortedMessages: sortedMessages,
-                                using: dependencies
-                            )
-                    }
-                    
-                    successConfigCount += configMessageHashes.count
                 }
                 catch {
                     failureConfigCount += configMessageHashes.count
                     Log.error(.cat, "Discarding some config message changes due to error: \(error)")
+                    return nil
                 }
-                
-                /// Remove the config message files now that they are processed
-                try? dependencies[singleton: .fileManager].removeItem(atPath: configsPath)
-                
-                /// Retrieve and process any standard messages
-                ///
-                /// Since there is no guarantee that we will have received a push notification for every message, or even that push
-                /// notifications will be received in the correct order, we can just process standard messages individually
-                let readMessagePath: String = URL(fileURLWithPath: this.conversationsPath)
-                    .appendingPathComponent(conversationHash)
-                    .appendingPathComponent(this.conversationReadDir)
-                    .path
-                let unreadMessagePath: String = URL(fileURLWithPath: this.conversationsPath)
-                    .appendingPathComponent(conversationHash)
-                    .appendingPathComponent(this.conversationUnreadDir)
-                    .path
-                let messageRequestStubPath: String? = this.messageRequestStubPath(conversationHash)
-                let readMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
-                    .contentsOfDirectory(atPath: readMessagePath)
-                    .filter { !$0.starts(with: ".") })    // stringlint:ignore
-                    .defaulting(to: [])
-                let unreadMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
-                    .contentsOfDirectory(atPath: unreadMessagePath)
-                    .filter {
-                        !$0.starts(with: ".") &&    // stringlint:ignore
-                        $0 != messageRequestStubPath.map { URL(fileURLWithPath: $0) }?.lastPathComponent
-                    })
-                    .defaulting(to: [])
-                let allMessagePaths: [String] = (
-                    readMessageHashes.map { hash in
-                        URL(fileURLWithPath: this.conversationsPath)
-                            .appendingPathComponent(conversationHash)
-                            .appendingPathComponent(this.conversationReadDir)
-                            .appendingPathComponent(hash)
-                            .path
-                    } +
-                    unreadMessageHashes.map { hash in
-                        URL(fileURLWithPath: this.conversationsPath)
-                            .appendingPathComponent(conversationHash)
-                            .appendingPathComponent(this.conversationUnreadDir)
-                            .appendingPathComponent(hash)
-                            .path
+            }()
+            
+            /// Retrieve any standard messages
+            ///
+            /// Since there is no guarantee that we will have received a push notification for every message, or even that push
+            /// notifications will be received in the correct order, we can just process standard messages individually
+            let readMessagePath: String = URL(fileURLWithPath: conversationsPath)
+                .appendingPathComponent(conversationHash)
+                .appendingPathComponent(conversationReadDir)
+                .path
+            let unreadMessagePath: String = URL(fileURLWithPath: conversationsPath)
+                .appendingPathComponent(conversationHash)
+                .appendingPathComponent(conversationUnreadDir)
+                .path
+            let messageRequestStubPath: String? = messageRequestStubPath(conversationHash)
+            let readMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
+                .contentsOfDirectory(atPath: readMessagePath)
+                .filter { !$0.starts(with: ".") })    // stringlint:ignore
+                .defaulting(to: [])
+            let unreadMessageHashes: [String] = (try? dependencies[singleton: .fileManager]
+                .contentsOfDirectory(atPath: unreadMessagePath)
+                .filter {
+                    !$0.starts(with: ".") &&    // stringlint:ignore
+                    $0 != messageRequestStubPath.map { URL(fileURLWithPath: $0) }?.lastPathComponent
+                })
+                .defaulting(to: [])
+            let allMessagePaths: [String] = (
+                readMessageHashes.map { hash in
+                    URL(fileURLWithPath: conversationsPath)
+                        .appendingPathComponent(conversationHash)
+                        .appendingPathComponent(conversationReadDir)
+                        .appendingPathComponent(hash)
+                        .path
+                } +
+                unreadMessageHashes.map { hash in
+                    URL(fileURLWithPath: conversationsPath)
+                        .appendingPathComponent(conversationHash)
+                        .appendingPathComponent(conversationUnreadDir)
+                        .appendingPathComponent(hash)
+                        .path
+                }
+            )
+            
+            let sortedStandardMessages: [MessageData] = allMessagePaths
+                .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { result, path in
+                    do {
+                        let plaintext: Data = try read(from: path, usingKey: encKey)
+                        let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
+                            .decode(SnodeReceivedMessage.self, from: plaintext)
+                        
+                        return result.appending(message, toArrayOn: message.namespace)
                     }
+                    catch {
+                        failureStandardCount += 1
+                        Log.error(.cat, "Discarding standard message due to error: \(error)")
+                        return result
+                    }
+                }
+                .map { namespace, messages -> MessageData in
+                    (
+                        namespace,
+                        messages.sorted { $0.timestampMs < $1.timestampMs },
+                        nil
+                    )
+                }
+                .sorted { lhs, rhs in lhs.namespace.processingOrder < rhs.namespace.processingOrder }
+            
+            /// Extract `swarmPublicKey` (messages are processed per conversation so all have the same `swarmPublicKey`)
+            guard
+                let swarmPublicKey: String = (
+                    sortedConfigMessages?.first?.messages.first?.swarmPublicKey ??
+                    sortedStandardMessages.first?.messages.first?.swarmPublicKey
                 )
-                
-                let sortedMessages: [MessageData] = allMessagePaths
-                    .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { (result: [Network.SnodeAPI.Namespace: [SnodeReceivedMessage]], path: String) in
-                        do {
-                            let plaintext: Data = try this.read(from: path)
-                            let message: SnodeReceivedMessage = try JSONDecoder(using: dependencies)
-                                .decode(SnodeReceivedMessage.self, from: plaintext)
-                            
-                            return result.appending(message, toArrayOn: message.namespace)
-                        }
-                        catch {
-                            failureStandardCount += 1
-                            Log.error(.cat, "Discarding standard message due to error: \(error)")
-                            return result
-                        }
-                    }
-                    .map { namespace, messages -> MessageData in
-                        /// We need to sort the messages as we don't know what order they were read from disk in and some
-                        /// messages (eg. a `VisibleMessage` and it's corresponding `UnsendRequest`) need to be
-                        /// processed in a particular order or they won't behave correctly, luckily the `SnodeReceivedMessage.timestampMs`
-                        /// is the "network offset" timestamp when the message was sent to the storage server (rather than the
-                        /// "sent timestamp" on the message, which for an `UnsendRequest` will match it's associate message)
-                        /// so we can just sort by that
-                        (
-                            namespace,
-                            messages.sorted { $0.timestampMs < $1.timestampMs },
-                            nil
+            else { return nil }
+            
+            return ConversationMessages(
+                swarmPublicKey: swarmPublicKey,
+                configMessages: (sortedConfigMessages ?? []),
+                standardMessages: sortedStandardMessages
+            )
+        }
+        
+        /// Now that we've done all the File I/O and file decryption we can make any database changes needed
+        if !allConversationMessages.isEmpty {
+            try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+                allConversationMessages.forEach { conversation in
+                    /// Process any config messages
+                    if !conversation.configMessages.isEmpty {
+                        SwarmPoller.processPollResponse(
+                            db,
+                            cat: .cat,
+                            source: .pushNotification,
+                            swarmPublicKey: conversation.swarmPublicKey,
+                            shouldStoreMessages: true,
+                            ignoreDedupeFiles: true,
+                            forceSynchronousProcessing: true,
+                            sortedMessages: conversation.configMessages,
+                            using: dependencies
                         )
+                        successConfigCount += conversation.configMessages.reduce(0) { $0 + $1.messages.count }
                     }
-                    .sorted { lhs, rhs in lhs.namespace.processingOrder < rhs.namespace.processingOrder }
-                
-                /// Process the message (inserting into the database if needed (messages are processed per conversaiton so
-                /// all have the same `swarmPublicKey`)
-                switch sortedMessages.first?.messages.first?.swarmPublicKey {
-                    case .none: break
-                    case .some(let swarmPublicKey):
+                    
+                    /// Process any standard messages
+                    if !conversation.standardMessages.isEmpty {
                         let (_, _, result) = SwarmPoller.processPollResponse(
                             db,
                             cat: .cat,
                             source: .pushNotification,
-                            swarmPublicKey: swarmPublicKey,
+                            swarmPublicKey: conversation.swarmPublicKey,
                             shouldStoreMessages: true,
                             ignoreDedupeFiles: true,
                             forceSynchronousProcessing: true,
-                            sortedMessages: sortedMessages,
+                            sortedMessages: conversation.standardMessages,
                             using: dependencies
                         )
                         successStandardCount += result.validMessageCount
@@ -954,12 +1001,29 @@ public class ExtensionHelper: ExtensionHelperType {
                             failureStandardCount += (result.rawMessageCount - result.validMessageCount)
                             Log.error(.cat, "Discarding some standard messages due to error: \(MessageReceiverError.failedToProcess)")
                         }
+                    }
                 }
-                
-                /// Remove the standard message files now that they are processed
-                try? dependencies[singleton: .fileManager].removeItem(atPath: readMessagePath)
-                try? dependencies[singleton: .fileManager].removeItem(atPath: unreadMessagePath)
             }
+        }
+        
+        /// Messages are processed so we can remove the standard message files
+        conversationHashes.forEach { conversationHash in
+            let configsPath: String = URL(fileURLWithPath: self.conversationsPath)
+                .appendingPathComponent(conversationHash)
+                .appendingPathComponent(self.conversationConfigDir)
+                .path
+            let readMessagePath: String = URL(fileURLWithPath: self.conversationsPath)
+                .appendingPathComponent(conversationHash)
+                .appendingPathComponent(self.conversationReadDir)
+                .path
+            let unreadMessagePath: String = URL(fileURLWithPath: self.conversationsPath)
+                .appendingPathComponent(conversationHash)
+                .appendingPathComponent(self.conversationUnreadDir)
+                .path
+            
+            try? dependencies[singleton: .fileManager].removeItem(atPath: configsPath)
+            try? dependencies[singleton: .fileManager].removeItem(atPath: readMessagePath)
+            try? dependencies[singleton: .fileManager].removeItem(atPath: unreadMessagePath)
         }
         
         Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(failureConfigCount) config messages.")
