@@ -139,11 +139,11 @@ public struct SessionProPaymentScreen: View {
                         NoBillingAccessContent(
                             isRenewingPro: true,
                             originatingPlatform: originatingPlatform,
-                            openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
+                            openPlatformStoreWebsiteAction: { openUrl(Constants.apple_store_subscriptions_url) }
                         )
                     }
                     
-                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform, let isNonOriginatingAccount, _):
+                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform, let isNonOriginatingAccount, let billingAccess):
                     if originatingPlatform != .iOS || isNonOriginatingAccount == true {
                         UpdatePlanNonOriginatingPlatformContent(
                             currentPlan: currentPlan,
@@ -153,19 +153,26 @@ public struct SessionProPaymentScreen: View {
                             openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
                         )
                     } else {
-                        SessionProPlanPurchaseContent(
-                            currentSelection: $currentSelection,
-                            isShowingTooltip: $isShowingTooltip,
-                            suppressUntil: $suppressUntil,
-                            isPendingPurchase: $isPendingPurchase,
-                            currentPlan: currentPlan,
-                            sessionProPlans: viewModel.dataModel.plans,
-                            actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
-                            actionType: "proUpdatingAction".localized(),
-                            activationType: "",
-                            purchaseAction: { updatePlan() },
-                            openTosPrivacyAction: { openTosPrivacy() }
-                        )
+                        if billingAccess {
+                            SessionProPlanPurchaseContent(
+                                currentSelection: $currentSelection,
+                                isShowingTooltip: $isShowingTooltip,
+                                suppressUntil: $suppressUntil,
+                                isPendingPurchase: $isPendingPurchase,
+                                currentPlan: currentPlan,
+                                sessionProPlans: viewModel.dataModel.plans,
+                                actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
+                                actionType: "proUpdatingAction".localized(),
+                                activationType: "",
+                                purchaseAction: { updatePlan() },
+                                openTosPrivacyAction: { openTosPrivacy() }
+                            )
+                        } else {
+                            NoBillingAccessContent(
+                                isRenewingPro: false,
+                                originatingPlatform: originatingPlatform
+                            )
+                        }
                     }
                     
                 case .refund(let originatingPlatform, let isNonOriginatingAccount, let requestedAt):

@@ -48,6 +48,8 @@ public struct ProCTAModal: View {
                             SessionAsyncImage(
                                 source: .url(animatedAvatarImageURL),
                                 dataManager: dataManager,
+                                shouldAnimateImage: true,
+                                grayscale: variant.grayscale,
                                 content: { image in
                                     image
                                         .resizable()
@@ -59,6 +61,7 @@ public struct ProCTAModal: View {
                                         Image(uiImage: UIImage(data: data) ?? UIImage())
                                             .resizable()
                                             .aspectRatio(1, contentMode: .fit)
+                                            .grayscale(variant.grayscale)
                                             .frame(width: size, height: size)
                                     } else {
                                         EmptyView()
@@ -332,6 +335,13 @@ public extension ProCTAModal {
             switch self {
                 case .expiring(let timeLeft): return (timeLeft?.isEmpty == false) ? .primary : .disabled
                 default: return .primary
+            }
+        }
+        
+        public var grayscale: Double {
+            switch self {
+                case .expiring(let timeLeft): return (timeLeft?.isEmpty == false) ? 0.0 : 1.0
+                default: return 0.0
             }
         }
         
