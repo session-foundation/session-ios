@@ -79,13 +79,6 @@ public class ExtensionHelper: ExtensionHelperType {
         else { throw ExtensionHelperError.noEncryptionKey }
         defer { encKey.resetBytes(in: 0..<encKey.count) }
         
-        /// Ensure the directory exists
-        let parentDirectory: String = URL(fileURLWithPath: path)
-            .deletingLastPathComponent()
-            .path
-        try? dependencies[singleton: .fileManager].ensureDirectoryExists(at: parentDirectory)
-        try? dependencies[singleton: .fileManager].protectFileOrFolder(at: parentDirectory)
-        
         /// Generate the `ciphertext`
         let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
             .ciphertextWithXChaCha20(
@@ -96,9 +89,30 @@ public class ExtensionHelper: ExtensionHelperType {
         
         /// Write the data to a temporary file first, then remove any existing file and move the temporary file to the final path
         let tmpPath: String = dependencies[singleton: .fileManager].temporaryFilePath(fileExtension: nil)
+        let parentDirectory: String = URL(fileURLWithPath: path)
+            .deletingLastPathComponent()
+            .path
         
-        do { try dependencies[singleton: .fileManager].write(data: ciphertext, toPath: tmpPath) }
-        catch { throw ExtensionHelperError.failedToWriteToFile(error) }
+        func attemptMove() throws {
+            try dependencies[singleton: .fileManager].ensureDirectoryExists(at: parentDirectory)
+            try dependencies[singleton: .fileManager].protectFileOrFolder(at: parentDirectory)
+            try dependencies[singleton: .fileManager].write(data: ciphertext, toPath: tmpPath)
+        }
+        
+        /// There is a race condition that could occur where the directory gets removed just before we try to write, in order to try to
+        /// prevent that we will try to move the file, and if that fails we will try one more time
+        do { try attemptMove() }
+        catch {
+            do {
+                try attemptMove()
+                Log.warn(.cat, "Attempting to recover from potential directory deletion race condition.")
+            }
+            catch {
+                try? dependencies[singleton: .fileManager].removeItem(atPath: tmpPath)
+                throw ExtensionHelperError.failedToWriteToFile(error)
+            }
+        }
+        
         _ = try dependencies[singleton: .fileManager].replaceItem(atPath: path, withItemAtPath: tmpPath)
         
         /// Need to update the `fileProtectionType` of the written file because as of `iOS 26` it seems to retain the setting
@@ -832,6 +846,7 @@ public class ExtensionHelper: ExtensionHelperType {
             })
             .defaulting(to: [])
             .inserting(currentUserConversationHash, at: 0)
+        var processedFilePaths: Set<String> = []
         var successConfigCount: Int = 0
         var failureConfigCount: Int = 0
         var successStandardCount: Int = 0
@@ -860,6 +875,13 @@ public class ExtensionHelper: ExtensionHelperType {
                 .filter { !$0.starts(with: ".") })    // stringlint:ignore
                 .defaulting(to: [])
             let sortedConfigMessages: [MessageData]? = {
+                for hash in configMessageHashes {
+                    let path: String = URL(fileURLWithPath: configsPath)
+                        .appendingPathComponent(hash)
+                        .path
+                    processedFilePaths.insert(path)
+                }
+                
                 do {
                     return try configMessageHashes
                         .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { result, hash in
@@ -922,6 +944,7 @@ public class ExtensionHelper: ExtensionHelperType {
                         .path
                 }
             )
+            processedFilePaths.insert(contentsOf: Set(allMessagePaths))
             
             let sortedStandardMessages: [MessageData] = allMessagePaths
                 .reduce([Network.SnodeAPI.Namespace: [SnodeReceivedMessage]]()) { result, path in
@@ -1007,6 +1030,11 @@ public class ExtensionHelper: ExtensionHelperType {
         }
         
         /// Messages are processed so we can remove the standard message files
+        for filePath in processedFilePaths {
+            try? dependencies[singleton: .fileManager].removeItem(atPath: filePath)
+        }
+        
+        /// Clean up empty directories
         conversationHashes.forEach { conversationHash in
             let configsPath: String = URL(fileURLWithPath: self.conversationsPath)
                 .appendingPathComponent(conversationHash)
@@ -1020,10 +1048,16 @@ public class ExtensionHelper: ExtensionHelperType {
                 .appendingPathComponent(conversationHash)
                 .appendingPathComponent(self.conversationUnreadDir)
                 .path
+            let paths: [String] = [configsPath, readMessagePath, unreadMessagePath]
             
-            try? dependencies[singleton: .fileManager].removeItem(atPath: configsPath)
-            try? dependencies[singleton: .fileManager].removeItem(atPath: readMessagePath)
-            try? dependencies[singleton: .fileManager].removeItem(atPath: unreadMessagePath)
+            paths.forEach { path in
+                guard
+                    let contents = try? dependencies[singleton: .fileManager].contentsOfDirectory(atPath: path),
+                    contents.filter({ !$0.starts(with: ".") }).isEmpty
+                else { return }
+                
+                try? dependencies[singleton: .fileManager].removeItem(atPath: path)
+            }
         }
         
         Log.info(.cat, "Finished: Successfully processed \(successStandardCount)/\(successStandardCount + failureStandardCount) standard messages, \(successConfigCount)/\(failureConfigCount) config messages.")
