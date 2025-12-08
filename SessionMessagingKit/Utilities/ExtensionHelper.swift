@@ -401,15 +401,15 @@ public class ExtensionHelper: ExtensionHelperType {
                                 dependencies[singleton: .fileManager].fileExists(atPath: $0)
                             }
                             let fileProtectionType: FileProtectionType? = maybePath.map { path in
-                                guard let attributes = try? FileManager.default.attributesOfItem(atPath: path) else {
-                                    return nil
-                                }
-                                
                                 #if targetEnvironment(simulator)
                                 /// The simulator doesn't have a secure enclave so just return the correct type to prevent
                                 /// unneeded re-replication
                                 return .completeUntilFirstUserAuthentication
                                 #else
+                                guard let attributes = try? FileManager.default.attributesOfItem(atPath: path) else {
+                                    return nil
+                                }
+                                
                                 return (attributes[.protectionKey] as? FileProtectionType)
                                 #endif
                             }
@@ -1063,7 +1063,7 @@ public class ExtensionHelper: ExtensionHelperType {
             paths.forEach { path in
                 guard
                     let contents = try? dependencies[singleton: .fileManager].contentsOfDirectory(atPath: path),
-                    contents.filter({ !$0.starts(with: ".") }).isEmpty
+                    contents.filter({ !$0.starts(with: ".") }).isEmpty  // stringlint:ignore
                 else { return }
                 
                 try? dependencies[singleton: .fileManager].removeItem(atPath: path)

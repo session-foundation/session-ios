@@ -47,7 +47,6 @@ public protocol FileManagerType {
     
     func fileExists(atPath: String) -> Bool
     func fileExists(atPath: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool
-    func contents(atPath: String) -> Data?
     func contents(atPath: String) throws -> Data
     func contentsOfDirectory(at url: URL) throws -> [URL]
     func contentsOfDirectory(atPath path: String) throws -> [String]
