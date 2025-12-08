@@ -351,16 +351,19 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 threadViewModel.displayName,
                                 font: .Headings.H4,
                                 alignment: .center,
-                                inlineTrailingImage: {
+                                inlineImage: {
                                     guard !threadViewModel.threadIsNoteToSelf else { return nil }
                                     guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: viewModel.threadId) }) else { return nil }
                                     
-                                    return UIView.image(
-                                        for: .themedKey(
-                                            SessionProBadge.Size.medium.cacheKey,
-                                            themeBackgroundColor: .primary
+                                    return .init(
+                                        image: UIView.image(
+                                            for: .themedKey(
+                                                SessionProBadge.Size.medium.cacheKey,
+                                                themeBackgroundColor: .primary
+                                            ),
+                                            generator: { SessionProBadge(size: .medium) }
                                         ),
-                                        generator: { SessionProBadge(size: .medium) }
+                                        position: .trailing
                                     )
                                 }()
                             )

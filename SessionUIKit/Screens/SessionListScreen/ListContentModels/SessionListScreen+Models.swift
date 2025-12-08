@@ -32,10 +32,9 @@ public extension SessionListScreenContent {
     }
     
     struct TextInfo: Hashable, Equatable {
-        public enum Accessory: Hashable, Equatable {
-            case proBadgeLeading(themeBackgroundColor: ThemeValue)
-            case proBadgeTrailing(themeBackgroundColor: ThemeValue)
-            case none
+        public enum InlineImagePosition: Hashable, Equatable {
+            case leading
+            case trailing
         }
         
         public enum Interaction: Hashable, Equatable {
@@ -44,15 +43,24 @@ public extension SessionListScreenContent {
             case expandable
         }
         
+        public struct InlineImageInfo: Hashable, Equatable {
+            let image: UIImage
+            let position: InlineImagePosition
+            
+            public init(image: UIImage, position: InlineImagePosition) {
+                self.image = image
+                self.position = position
+            }
+        }
+        
         let text: String?
         let font: Font?
         let attributedString: ThemedAttributedString?
         let alignment: TextAlignment
         let color: ThemeValue
-        let accessory: Accessory
         let interaction: Interaction
         let accessibility: Accessibility?
-        let inlineTrailingImage: UIImage?
+        let inlineImage: InlineImageInfo?
         
         public init(
             _ text: String? = nil,
@@ -60,20 +68,18 @@ public extension SessionListScreenContent {
             attributedString: ThemedAttributedString? = nil,
             alignment: TextAlignment = .leading,
             color: ThemeValue = .textPrimary,
-            accessory: Accessory = .none,
             interaction: Interaction = .none,
             accessibility: Accessibility? = nil,
-            inlineTrailingImage: UIImage? = nil
+            inlineImage: InlineImageInfo? = nil
         ) {
             self.text = text
             self.font = font
             self.attributedString = attributedString
             self.alignment = alignment
             self.color = color
-            self.accessory = accessory
             self.interaction = interaction
             self.accessibility = accessibility
-            self.inlineTrailingImage = inlineTrailingImage
+            self.inlineImage = inlineImage
         }
         
         // MARK: - Conformance
@@ -84,9 +90,8 @@ public extension SessionListScreenContent {
             attributedString.hash(into: &hasher)
             alignment.hash(into: &hasher)
             color.hash(into: &hasher)
-            accessory.hash(into: &hasher)
             accessibility.hash(into: &hasher)
-            inlineTrailingImage?.hash(into: &hasher)
+            inlineImage?.hash(into: &hasher)
         }
         
         public static func == (lhs: TextInfo, rhs: TextInfo) -> Bool {
@@ -96,9 +101,8 @@ public extension SessionListScreenContent {
                 lhs.attributedString == rhs.attributedString &&
                 lhs.alignment == rhs.alignment &&
                 lhs.color == rhs.color &&
-                lhs.accessory == rhs.accessory &&
                 lhs.accessibility == rhs.accessibility &&
-                lhs.inlineTrailingImage == rhs.inlineTrailingImage
+                lhs.inlineImage == rhs.inlineImage
             )
         }
     }

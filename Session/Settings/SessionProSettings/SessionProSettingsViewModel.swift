@@ -476,7 +476,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 backgroundSize: .veryLarge,
                                 backgroundCornerRadius: 8
                             ),
-                            title: .init(info.title, font: .Headings.H9, accessory: info.accessory),
+                            title: .init(info.title, font: .Headings.H9, inlineImage: info.inlineImageInfo),
                             description: .init(info.description, font: .Body.smallRegular, color: .textSecondary)
                         )
                     )
@@ -1099,7 +1099,23 @@ extension SessionProSettingsViewModel {
         let backgroundColors: [ThemeValue]
         let title: String
         let description: String
-        let accessory: SessionListScreenContent.TextInfo.Accessory
+        let inlineImageInfo: SessionListScreenContent.TextInfo.InlineImageInfo?
+        
+        public init(
+            id: ListItem,
+            icon: UIImage?,
+            backgroundColors: [ThemeValue],
+            title: String,
+            description: String,
+            inlineImageInfo: SessionListScreenContent.TextInfo.InlineImageInfo? = nil
+        ) {
+            self.id = id
+            self.icon = icon
+            self.backgroundColors = backgroundColors
+            self.title = title
+            self.description = description
+            self.inlineImageInfo = inlineImageInfo
+        }
         
         static func allCases(_ state: SessionProPlanState) -> [ProFeaturesInfo] {
             return [
@@ -1113,8 +1129,7 @@ extension SessionProSettingsViewModel {
                         }
                     }(),
                     title: "proLongerMessages".localized(),
-                    description: "proLongerMessagesDescription".localized(),
-                    accessory: .none
+                    description: "proLongerMessagesDescription".localized()
                 ),
                 ProFeaturesInfo(
                     id: .unlimitedPins,
@@ -1127,7 +1142,6 @@ extension SessionProSettingsViewModel {
                     }(),
                     title: "proUnlimitedPins".localized(),
                     description: "proUnlimitedPinsDescription".localized(),
-                    accessory: .none
                 ),
                 ProFeaturesInfo(
                     id: .animatedDisplayPictures,
@@ -1140,7 +1154,6 @@ extension SessionProSettingsViewModel {
                     }(),
                     title: "proAnimatedDisplayPictures".localized(),
                     description: "proAnimatedDisplayPicturesDescription".localized(),
-                    accessory: .none
                 ),
                 ProFeaturesInfo(
                     id: .badges,
@@ -1153,14 +1166,30 @@ extension SessionProSettingsViewModel {
                     }(),
                     title: "proBadges".localized(),
                     description: "proBadgesDescription".put(key: "app_name", value: Constants.app_name).localized(),
-                    accessory: .proBadgeLeading(
-                        themeBackgroundColor: {
+                    inlineImageInfo: {
+                        let themeBackgroundColor: ThemeValue = {
                             return switch state {
                                 case .expired: .disabled
                                 default: .primary
                             }
                         }()
-                    )
+                        
+                        return .init(
+                            image: UIView.image(
+                                for: .themedKey(
+                                    SessionProBadge.Size.mini.cacheKey,
+                                    themeBackgroundColor: themeBackgroundColor
+                                ),
+                                generator: {
+                                    SessionProBadge(
+                                        size: .mini,
+                                        themeBackgroundColor: themeBackgroundColor
+                                    )
+                                }
+                            ),
+                            position: .leading
+                        )
+                    }()
                 )
             ]
         }

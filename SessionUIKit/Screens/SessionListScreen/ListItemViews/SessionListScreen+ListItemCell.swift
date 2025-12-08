@@ -41,14 +41,15 @@ public struct ListItemCell: View {
                         if case .trailing = info.title?.alignment { Spacer(minLength: 0) }
                         if case .center = info.title?.alignment { Spacer(minLength: 0) }
                         
-                        if case .proBadgeLeading(let themeBackgroundColor) = title.accessory  {
-                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
-                        }
-                        
                         if let text = title.text {
                             ZStack {
-                                if let trailingImage = title.inlineTrailingImage {
-                                    Text(text) + Text(" \(Image(uiImage: trailingImage))")
+                                if let inlineImage = title.inlineImage {
+                                    switch inlineImage.position {
+                                        case .leading:
+                                            Text("\(Image(uiImage: inlineImage.image)) ") + Text(text)
+                                        case .trailing:
+                                        Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
+                                    }
                                 } else {
                                     Text(text)
                                 }
@@ -67,10 +68,6 @@ public struct ListItemCell: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         
-                        if case .proBadgeTrailing(let themeBackgroundColor) = title.accessory  {
-                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
-                        }
-                        
                         if case .center = info.title?.alignment { Spacer(minLength: 0) }
                         if case .leading = info.title?.alignment { Spacer(minLength: 0) }
                     }
@@ -80,10 +77,6 @@ public struct ListItemCell: View {
                     HStack(spacing: Values.verySmallSpacing) {
                         if case .trailing = info.description?.alignment { Spacer(minLength: 0) }
                         if case .center = info.description?.alignment { Spacer(minLength: 0) }
-                        
-                        if case .proBadgeLeading(let themeBackgroundColor) = description.accessory {
-                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
-                        }
                         
                         if let text = description.text {
                             Text(text)
@@ -99,10 +92,6 @@ public struct ListItemCell: View {
                                 .foregroundColor(themeColor: description.color)
                                 .accessibility(description.accessibility)
                                 .fixedSize(horizontal: false, vertical: true)
-                        }
-                        
-                        if case .proBadgeTrailing(let themeBackgroundColor) = description.accessory {
-                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
                         }
                         
                         if case .center = info.description?.alignment { Spacer(minLength: 0) }
