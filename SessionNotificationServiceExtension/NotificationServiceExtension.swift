@@ -546,7 +546,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     case (false, _, _):
                         /// Update the `CallMessage.state` value so the correct notification logic can occur
                         callMessage.state = (areCallsEnabled ? .permissionDeniedMicrophone : .permissionDenied)
-                        
+                    
+                    /// If we receive an `endCall` message while on another call then we can just ignore it
+                    case (_, _, .endCall): break
                     case (true, true, _):
                         guard let sender: String = callMessage.sender else {
                             throw MessageReceiverError.invalidMessage
