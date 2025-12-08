@@ -405,7 +405,13 @@ public class ExtensionHelper: ExtensionHelperType {
                                     return nil
                                 }
                                 
+                                #if targetEnvironment(simulator)
+                                /// The simulator doesn't have a secure enclave so just return the correct type to prevent
+                                /// unneeded re-replication
+                                return .completeUntilFirstUserAuthentication
+                                #else
                                 return (attributes[.protectionKey] as? FileProtectionType)
+                                #endif
                             }
                             
                             return ReplicatedDumpInfo.DumpState(
@@ -440,12 +446,16 @@ public class ExtensionHelper: ExtensionHelperType {
             let missingDumps: [ConfigDump.Variant] = info.states
                 .filter { !$0.fileExists }
                 .map { $0.variant }
-            Log.warn(.cat, "Found missing replicated dumps (\(formatter.string(from: missingDumps) ?? "unknown")) for \(info.sessionId.hexString); triggering replication.")
+            if !missingDumps.isEmpty {
+                Log.warn(.cat, "Found missing replicated dumps (\(formatter.string(from: missingDumps) ?? "unknown")) for \(info.sessionId.hexString); triggering replication.")
+            }
             
             let incorrectProtectionDumps: [ConfigDump.Variant] = info.states
                 .filter { $0.fileExists && !$0.correctFileProtectionType }
                 .map { $0.variant }
-            Log.warn(.cat, "Found dumps with incorrect file protection type (\(formatter.string(from: incorrectProtectionDumps) ?? "unknown")) for \(info.sessionId.hexString); triggering replication.")
+            if !incorrectProtectionDumps.isEmpty {
+                Log.warn(.cat, "Found dumps with incorrect file protection type (\(formatter.string(from: incorrectProtectionDumps) ?? "unknown")) for \(info.sessionId.hexString); triggering replication.")
+            }
         }
         
         /// Load the config dumps from the database
