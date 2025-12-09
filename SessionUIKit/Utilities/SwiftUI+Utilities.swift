@@ -261,6 +261,15 @@ public extension View {
             )
     }
     
+    @ViewBuilder
+    func textSelection(_ condition: Bool) -> some View {
+        if condition {
+            self.textSelection(.enabled)
+        } else {
+            self.textSelection(.disabled)
+        }
+    }
+    
     /// This function triggers a callback when any interaction is performed on a UI element
     ///
     /// **Note:** It looks like there were some bugs in the Gesture Recognizer systens prior to iOS 18.0 (specifically breaking scrolling

@@ -25,8 +25,16 @@ public struct ListItemCell: View {
         }
     }
     
+    @State var isExpanded: Bool
+    
     let info: Info
     let height: CGFloat
+    
+    public init(info: Info, height: CGFloat) {
+        self.info = info
+        self.height = height
+        self.isExpanded = (info.title?.interaction != .expandable)
+    }
     
     public var body: some View {
         HStack(spacing: Values.mediumSpacing) {
@@ -48,17 +56,20 @@ public struct ListItemCell: View {
                                         case .leading:
                                             Text("\(Image(uiImage: inlineImage.image)) ") + Text(text)
                                         case .trailing:
-                                        Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
+                                            Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
                                     }
                                 } else {
                                     Text(text)
                                 }
                             }
+                            .lineLimit(isExpanded ? nil : 3)
                             .font(title.font)
                             .multilineTextAlignment(title.alignment)
                             .foregroundColor(themeColor: title.color)
                             .accessibility(title.accessibility)
                             .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(title.interaction == .copy)
+                            
                         } else if let attributedString = title.attributedString {
                             AttributedText(attributedString)
                                 .font(title.font)
@@ -66,6 +77,7 @@ public struct ListItemCell: View {
                                 .foregroundColor(themeColor: title.color)
                                 .accessibility(title.accessibility)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(title.interaction == .copy)
                         }
                         
                         if case .center = info.title?.alignment { Spacer(minLength: 0) }
@@ -117,5 +129,12 @@ public struct ListItemCell: View {
             alignment: .leading
         )
         .contentShape(Rectangle())
+        .onTapGesture {
+            if info.title?.interaction == .expandable {
+                withAnimation {
+                    isExpanded.toggle()
+                }
+            }
+        }
     }
 }
