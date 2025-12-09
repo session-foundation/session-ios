@@ -345,73 +345,70 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 ),
                 SessionListScreenContent.ListItemInfo(
                     id: .displayName,
-                    variant: .cell(
+                    variant: .tappableText(
                         info: .init(
-                            title: .init(
-                                threadViewModel.displayName,
-                                font: .Headings.H4,
-                                alignment: .center,
-                                inlineImage: {
-                                    guard !threadViewModel.threadIsNoteToSelf else { return nil }
-                                    guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: viewModel.threadId) }) else { return nil }
-                                    
-                                    return .init(
-                                        image: UIView.image(
-                                            for: .themedKey(
-                                                SessionProBadge.Size.medium.cacheKey,
-                                                themeBackgroundColor: .primary
-                                            ),
-                                            generator: { SessionProBadge(size: .medium) }
+                            text: threadViewModel.displayName,
+                            font: Fonts.Headings.H4,
+                            imageAttachmentPosition: .trailing,
+                            imageAttachmentGenerator: {
+                                guard !threadViewModel.threadIsNoteToSelf else { return nil }
+                                guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: viewModel.threadId) }) else { return nil }
+                                
+                                return {
+                                    UIView.image(
+                                        for: .themedKey(
+                                            SessionProBadge.Size.medium.cacheKey,
+                                            themeBackgroundColor: .primary
                                         ),
-                                        position: .trailing
+                                        generator: { SessionProBadge(size: .medium) }
                                     )
+                                }
+                            }(),
+                            onTextTap: {
+                                guard
+                                    let info: ConfirmationModal.Info = viewModel.updateDisplayNameModal(
+                                        threadViewModel: threadViewModel,
+                                        currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
+                                    )
+                                else { return }
+                                
+                                viewModel.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                            },
+                            onImageTap: { [dependencies = viewModel.dependencies] in
+                                guard !dependencies[cache: .libSession].isSessionPro else { return }
+                                
+                                let proCTAModalVariant: ProCTAModal.Variant = {
+                                    switch threadViewModel.threadVariant {
+                                        case .group:
+                                            return .groupLimit(
+                                                isAdmin: currentUserIsClosedGroupAdmin,
+                                                isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadViewModel.threadId) }),
+                                                proBadgeImage: UIView.image(
+                                                    for: .themedKey(
+                                                        SessionProBadge.Size.mini.cacheKey,
+                                                        themeBackgroundColor: .primary
+                                                    ),
+                                                    generator: { SessionProBadge(size: .mini) }
+                                                )
+                                            )
+                                        default: return .generic
+                                    }
                                 }()
-                            )
+                                
+                                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                    proCTAModalVariant,
+                                    onConfirm: {},
+                                    presenting: { modal in
+                                        viewModel.transitionToScreen(modal, transitionType: .present)
+                                    }
+                                )
+                            }
                         )
                     ),
                     accessibility: Accessibility(
                         identifier: "Username",
                         label: threadViewModel.displayName
-                    ),
-                    onTap: { [dependencies = viewModel.dependencies] target in
-                        guard case .proBadge = target, !dependencies[cache: .libSession].isSessionPro else {
-                            guard
-                                let info: ConfirmationModal.Info = viewModel.updateDisplayNameModal(
-                                    threadViewModel: threadViewModel,
-                                    currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
-                                )
-                            else { return }
-                            
-                            viewModel.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
-                            return
-                        }
-                        
-                        let proCTAModalVariant: ProCTAModal.Variant = {
-                            switch threadViewModel.threadVariant {
-                                case .group:
-                                    return .groupLimit(
-                                        isAdmin: currentUserIsClosedGroupAdmin,
-                                        isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadViewModel.threadId) }),
-                                        proBadgeImage: UIView.image(
-                                            for: .themedKey(
-                                                SessionProBadge.Size.mini.cacheKey,
-                                                themeBackgroundColor: .primary
-                                            ),
-                                            generator: { SessionProBadge(size: .mini) }
-                                        )
-                                    )
-                                default: return .generic
-                            }
-                        }()
-                        
-                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                            proCTAModalVariant,
-                            onConfirm: {},
-                            presenting: { modal in
-                                viewModel.transitionToScreen(modal, transitionType: .present)
-                            }
-                        )
-                    }
+                    )
                 ),
                 
                 (threadViewModel.displayName == threadViewModel.contactDisplayName ? nil :

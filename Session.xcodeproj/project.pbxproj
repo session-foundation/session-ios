@@ -147,6 +147,7 @@
 		7BFD1A972747689000FB91B9 /* Session-Turn-Server in Resources */ = {isa = PBXBuildFile; fileRef = 7BFD1A962747689000FB91B9 /* Session-Turn-Server */; };
 		9409433E2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */; };
 		940943402C7ED62300D9D2E0 /* StartupError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9409433F2C7ED62300D9D2E0 /* StartupError.swift */; };
+		940B82D02EE697C70000D142 /* SessionListScreen+ListItemTappableText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940B82CF2EE697A40000D142 /* SessionListScreen+ListItemTappableText.swift */; };
 		941375BB2D5184C20058F244 /* HTTPHeader+SessionNetwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */; };
 		941375BD2D5195F30058F244 /* KeyValueStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941375BC2D5195F30058F244 /* KeyValueStore.swift */; };
 		9420CAC62E584B5800F738F6 /* GroupAdminCTA.webp in Resources */ = {isa = PBXBuildFile; fileRef = 9420CAC42E584B5800F738F6 /* GroupAdminCTA.webp */; };
@@ -1606,6 +1607,7 @@
 		7BFD1A962747689000FB91B9 /* Session-Turn-Server */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Session-Turn-Server"; sourceTree = "<group>"; };
 		9409433D2C7EB81800D9D2E0 /* WebRTCSession+Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebRTCSession+Constants.swift"; sourceTree = "<group>"; };
 		9409433F2C7ED62300D9D2E0 /* StartupError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupError.swift; sourceTree = "<group>"; };
+		940B82CF2EE697A40000D142 /* SessionListScreen+ListItemTappableText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItemTappableText.swift"; sourceTree = "<group>"; };
 		941375BA2D5184B60058F244 /* HTTPHeader+SessionNetwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HTTPHeader+SessionNetwork.swift"; sourceTree = "<group>"; };
 		941375BC2D5195F30058F244 /* KeyValueStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyValueStore.swift; sourceTree = "<group>"; };
 		9420CAC42E584B5800F738F6 /* GroupAdminCTA.webp */ = {isa = PBXFileReference; lastKnownFileType = file; path = GroupAdminCTA.webp; sourceTree = "<group>"; };
@@ -3077,6 +3079,7 @@
 				943B43552EC2AFAB008ABC34 /* SessionListScreen+ListItemDataMatrix.swift */,
 				943B43532EC2AF82008ABC34 /* SessionListScreen+ListItemLogoWithPro.swift */,
 				943B43512EC2AF64008ABC34 /* SessionListScreen+ListItemCell.swift */,
+				940B82CF2EE697A40000D142 /* SessionListScreen+ListItemTappableText.swift */,
 			);
 			path = ListItemViews;
 			sourceTree = "<group>";
@@ -6666,6 +6669,7 @@
 				C33100282559000A00070591 /* UIView+Utilities.swift in Sources */,
 				FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */,
 				9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */,
+				940B82D02EE697C70000D142 /* SessionListScreen+ListItemTappableText.swift in Sources */,
 				FD37E9CA28A1E4BD003AE748 /* Theme+ClassicLight.swift in Sources */,
 				943B43622EC3FD85008ABC34 /* ListItemAccessory+Toggle.swift in Sources */,
 				945E89D42E95D97000D8D907 /* SessionProPaymentScreen+SharedViews.swift in Sources */,

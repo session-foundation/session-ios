@@ -29,6 +29,7 @@ public extension SessionListScreenContent {
             case dataMatrix(info: [[ListItemDataMatrix.Info]])
             case button(title: String)
             case profilePicture(info: ListItemProfilePicture.Info)
+            case tappableText(info: ListItemTappableText.Info)
         }
         
         public enum TapTarget: Equatable, Hashable, Differentiable {
