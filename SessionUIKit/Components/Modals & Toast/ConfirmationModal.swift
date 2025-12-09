@@ -442,6 +442,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 textField.text = (inputInfo.initialValue ?? "")
                 textFieldClearButton.isHidden = !inputInfo.clearButton
                 textField.isAccessibilityElement = true
+                textField.isEnabled = inputInfo.isEnabled
                 textField.accessibilityIdentifier = inputInfo.accessibility?.identifier
                 textField.accessibilityLabel = inputInfo.accessibility?.label ?? textField.text
                 textField.keyboardType = inputInfo.keyboardType
@@ -914,6 +915,7 @@ public extension ConfirmationModal.Info {
         public struct InputInfo: Equatable, Hashable {
             public let placeholder: String
             public let initialValue: String?
+            public let isEnabled: Bool
             public let clearButton: Bool
             public let keyboardType: UIKeyboardType
             public let accessibility: Accessibility?
@@ -922,6 +924,7 @@ public extension ConfirmationModal.Info {
             public init(
                 placeholder: String,
                 initialValue: String? = nil,
+                isEnabled: Bool = true,
                 clearButton: Bool = false,
                 keyboardType: UIKeyboardType = .default,
                 accessibility: Accessibility? = nil,
@@ -929,6 +932,7 @@ public extension ConfirmationModal.Info {
             ) {
                 self.placeholder = placeholder
                 self.initialValue = initialValue
+                self.isEnabled = isEnabled
                 self.clearButton = clearButton
                 self.keyboardType = keyboardType
                 self.accessibility = accessibility
@@ -938,6 +942,7 @@ public extension ConfirmationModal.Info {
             public static func == (lhs: InputInfo, rhs: InputInfo) -> Bool {
                 lhs.placeholder == rhs.placeholder &&
                 lhs.initialValue == rhs.initialValue &&
+                lhs.isEnabled == rhs.isEnabled &&
                 lhs.clearButton == rhs.clearButton &&
                 lhs.keyboardType == rhs.keyboardType &&
                 lhs.accessibility == rhs.accessibility
@@ -946,6 +951,7 @@ public extension ConfirmationModal.Info {
             public func hash(into hasher: inout Hasher) {
                 placeholder.hash(into: &hasher)
                 initialValue?.hash(into: &hasher)
+                isEnabled.hash(into: &hasher)
                 clearButton.hash(into: &hasher)
                 keyboardType.hash(into: &hasher)
                 accessibility?.hash(into: &hasher)
