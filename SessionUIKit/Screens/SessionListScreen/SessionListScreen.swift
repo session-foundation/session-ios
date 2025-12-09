@@ -155,12 +155,14 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         host: host
                                     )
                                     .padding(.vertical, Values.smallSpacing)
+                                    .frame(maxWidth: .infinity)
                                 case .tappableText(let info):
                                     ListItemTappableText(
                                         info: info,
                                         height: section.model.style.cellMinHeight
                                     )
                                     .padding(.vertical, Values.smallSpacing)
+                                    .frame(maxWidth: .infinity)
                             }
                         }
                     }
