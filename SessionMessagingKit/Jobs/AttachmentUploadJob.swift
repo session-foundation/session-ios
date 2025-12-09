@@ -286,7 +286,7 @@ public extension AttachmentUploadJob {
             operations: (shouldEncrypt ? [.encrypt(domain: .attachment)] : []),
             using: dependencies
         )
-        let maybePreparedData: Data? = dependencies[singleton: .fileManager]
+        let maybePreparedData: Data? = try? dependencies[singleton: .fileManager]
             .contents(atPath: preparedAttachment.filePath)
         try Task.checkCancellation()
         
