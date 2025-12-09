@@ -166,7 +166,7 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate, ModalHostIdenti
     
     // MARK: - Interaction
     
-    @objc public func cancel() {
+    @objc open func cancel() {
         close()
     }
     

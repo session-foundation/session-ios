@@ -61,7 +61,7 @@ class MockFileManager: Mock<FileManagerType>, FileManagerType {
         return mock(args: [atPath, isDirectory])
     }
     
-    func contents(atPath: String) -> Data? { return mock(args: [atPath]) }
+    func contents(atPath: String) throws -> Data { return try mockThrowing(args: [atPath]) }
     func contentsOfDirectory(at url: URL) throws -> [URL] { return try mockThrowing(args: [url]) }
     func contentsOfDirectory(atPath path: String) throws -> [String] { return try mockThrowing(args: [path]) }
     func isDirectoryEmpty(at url: URL) -> Bool { return mock(args: [url]) }
@@ -145,7 +145,7 @@ extension Mock where T == FileManagerType {
             )
         }.thenReturn(nil)
         self.when { try $0.removeItem(atPath: .any) }.thenReturn(())
-        self.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+        self.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
         self.when { try $0.contentsOfDirectory(at: .any) }.thenReturn([])
         self.when { try $0.contentsOfDirectory(atPath: .any) }.thenReturn([])
         self.when {
