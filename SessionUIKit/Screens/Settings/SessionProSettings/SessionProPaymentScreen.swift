@@ -116,7 +116,8 @@ public struct SessionProPaymentScreen: View {
                     } else {
                         NoBillingAccessContent(
                             isRenewingPro: false,
-                            originatingPlatform: .iOS
+                            originatingPlatform: .iOS,
+                            openProRoadmapAction: { openUrl(Constants.session_pro_roadmap) }
                         )
                     }
                     
@@ -139,6 +140,7 @@ public struct SessionProPaymentScreen: View {
                         NoBillingAccessContent(
                             isRenewingPro: true,
                             originatingPlatform: originatingPlatform,
+                            openProRoadmapAction: { openUrl(Constants.session_pro_roadmap) },
                             openPlatformStoreWebsiteAction: { openUrl(Constants.apple_store_subscriptions_url) }
                         )
                     }
@@ -170,7 +172,8 @@ public struct SessionProPaymentScreen: View {
                         } else {
                             NoBillingAccessContent(
                                 isRenewingPro: false,
-                                originatingPlatform: originatingPlatform
+                                originatingPlatform: originatingPlatform,
+                                openProRoadmapAction: { openUrl(Constants.session_pro_roadmap) }
                             )
                         }
                     }

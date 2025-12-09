@@ -8,15 +8,18 @@ import Lucide
 struct NoBillingAccessContent: View {
     let isRenewingPro: Bool
     let originatingPlatform: SessionProPaymentScreenContent.ClientPlatform
+    let openProRoadmapAction: (() -> Void)?
     let openPlatformStoreWebsiteAction: (() -> Void)?
     
     public init(
         isRenewingPro: Bool,
         originatingPlatform: SessionProPaymentScreenContent.ClientPlatform,
+        openProRoadmapAction: (() -> Void)?,
         openPlatformStoreWebsiteAction: (() -> Void)? = nil
     ) {
         self.isRenewingPro = isRenewingPro
         self.originatingPlatform = originatingPlatform
+        self.openProRoadmapAction = openProRoadmapAction
         self.openPlatformStoreWebsiteAction = openPlatformStoreWebsiteAction
     }
     
@@ -131,6 +134,9 @@ struct NoBillingAccessContent: View {
                     )
                     .font(.Body.baseRegular)
                     .foregroundColor(themeColor: .textPrimary)
+                    .onTapGesture {
+                        self.openProRoadmapAction?()
+                    }
                 }
                 
                 Text(isRenewingPro ? "proOptionsRenewalSubtitle".localized() : "proUpgradeOptionsTwo".localized())
