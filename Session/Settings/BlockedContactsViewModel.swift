@@ -296,6 +296,7 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                         .map { model -> SessionCell.Info<TableItem> in
                             SessionCell.Info(
                                 id: model,
+                                canReuseCell: true,
                                 leadingAccessory: .profile(id: model.id, profile: model.profile),
                                 title: SessionCell.TextInfo(
                                     (model.profile?.displayName() ?? model.id.truncated()),
@@ -303,12 +304,9 @@ public class BlockedContactsViewModel: SessionTableViewModel, NavigatableStateHo
                                     trailingImage: {
                                         guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateProProof(for: model.profile) }) else { return nil }
                                         
-                                        return (
-                                            .themedKey(
-                                                SessionProBadge.Size.small.cacheKey,
-                                                themeBackgroundColor: .primary
-                                            ),
-                                            { SessionProBadge(size: .small) }
+                                        return SessionProBadge.trailingImage(
+                                            size: .small,
+                                            themeBackgroundColor: .primary
                                         )
                                     }()
                                 ),

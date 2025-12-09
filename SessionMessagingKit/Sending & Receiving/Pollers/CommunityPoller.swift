@@ -597,7 +597,23 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                             MessageReceiver.prepareNotificationsForInsertedInteractions(
                                 db,
                                 insertedInteractionInfo: info,
-                                isMessageRequest: false,    /// Communities can't be message requests
+                                isMessageRequest: {
+                                    switch (info, info?.threadVariant) {
+                                        /// These types received via the `CommunityPoller` can't be message requests
+                                        case (.none, _), (_, .none), (_, .community),
+                                            (_, .group), (_, .legacyGroup):
+                                            return false
+                                        
+                                        case (.some(let info), .contact):
+                                            /// Users can send blinded message requests via Communities so we need to handle that case
+                                            return dependencies.mutate(cache: .libSession) { cache in
+                                                cache.isMessageRequest(
+                                                    threadId: info.threadId,
+                                                    threadVariant: info.threadVariant
+                                                )
+                                            }
+                                    }
+                                }(),
                                 using: dependencies
                             )
                         }

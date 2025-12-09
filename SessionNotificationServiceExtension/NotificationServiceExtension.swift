@@ -546,7 +546,9 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     case (false, _, _):
                         /// Update the `CallMessage.state` value so the correct notification logic can occur
                         callMessage.state = (areCallsEnabled ? .permissionDeniedMicrophone : .permissionDenied)
-                        
+                    
+                    /// If we receive an `endCall` message while on another call then we can just ignore it
+                    case (_, _, .endCall): break
                     case (true, true, _):
                         guard let sender: String = callMessage.sender else {
                             throw MessageReceiverError.invalidMessage
@@ -898,17 +900,21 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 ),
                 isMessageRequest: isMessageRequest
             )
+            
+            /// Since we successfully handled the message we should now create the dedupe file for the message so we don't
+            /// show duplicate PNs
+            ///
+            /// **Note:** If we fail to write the message to disk then we don't want to create the dedupe files as that would mean
+            /// when the main app receives the message it would incorrectly be considered a duplicate (due to the dedupe file) so
+            /// in that case the user may receive duplicate PNs (as the lesser of the two evils)
+            try MessageDeduplication.createDedupeFile(notification.processedMessage, using: dependencies)
+            try MessageDeduplication.createCallDedupeFilesIfNeeded(
+                threadId: threadId,
+                callMessage: messageInfo.message as? CallMessage,
+                using: dependencies
+            )
         }
         catch { Log.error(.cat, "Failed to save message to disk: \(error).") }
-        
-        /// Since we successfully handled the message we should now create the dedupe file for the message so we don't
-        /// show duplicate PNs
-        try MessageDeduplication.createDedupeFile(notification.processedMessage, using: dependencies)
-        try MessageDeduplication.createCallDedupeFilesIfNeeded(
-            threadId: threadId,
-            callMessage: messageInfo.message as? CallMessage,
-            using: dependencies
-        )
     }
     
     private func saveAndNotify(

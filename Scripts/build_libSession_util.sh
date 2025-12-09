@@ -43,14 +43,15 @@ sync_headers() {
     
     for dest in "${destinations[@]}"; do
         if [ -n "$dest" ]; then
-            local temp_dest="${dest}.tmp-$(uuidgen)"
+            local unique_id=$(uuidgen)
+            local temp_dest="${BUILD_DIR}/headers_staging_$(unique_id)"
             rm -rf "$temp_dest"
             mkdir -p "$temp_dest"
             
             rsync -rtc --delete --exclude='.DS_Store' "${source_dir}/" "$temp_dest/"
             
             # Atomically move the old directory out of the way
-            local old_dest="${dest}.old-$(uuidgen)"
+            local old_dest="${BUILD_DIR}/headers_old_$(unique_id)"
             if [ -d "$dest" ]; then
                 mv "$dest" "$old_dest"
             fi

@@ -2,7 +2,7 @@
 
 import UIKit
 
-open class Modal: UIViewController, UIGestureRecognizerDelegate {
+open class Modal: UIViewController, UIGestureRecognizerDelegate, ModalHostIdentifiable {
     private static let cornerRadius: CGFloat = 11
     
     public enum DismissType: Equatable, Hashable {
@@ -14,9 +14,6 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
     private let afterClosed: (() -> ())?
     
     // MARK: - Components
-    
-    internal var contentTopConstraint: NSLayoutConstraint?
-    internal var contentCenterYConstraint: NSLayoutConstraint?
     
     private lazy var dimmingView: UIView = {
         let result = UIVisualEffectView()
@@ -112,10 +109,9 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
         }
         
         containerView.center(.horizontal, in: view)
-        contentCenterYConstraint = containerView.center(.vertical, in: view)
-        contentTopConstraint = containerView
-            .pin(.top, toMargin: .top, of: view, withInset: 10)
-            .setting(isActive: false)
+        containerView.center(.vertical, in: view).setting(priority: .defaultHigh)
+        containerView.pin(.top, greaterThanOrEqualTo: .top, of: view, withInset: 20)
+        containerView.pin(.bottom, lessThanOrEqualTo: .top, of: view.keyboardLayoutGuide, withInset: -20)
         
         // Gestures
         let swipeGestureRecognizer = UISwipeGestureRecognizer(target: self, action: #selector(close))
@@ -170,7 +166,7 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
     
     // MARK: - Interaction
     
-    @objc public func cancel() {
+    @objc open func cancel() {
         close()
     }
     
@@ -183,7 +179,7 @@ open class Modal: UIViewController, UIGestureRecognizerDelegate {
             case .single: break
             
             case .recursive:
-                while targetViewController?.presentingViewController is Modal {
+                while targetViewController?.presentingViewController is ModalHostIdentifiable {
                     targetViewController = targetViewController?.presentingViewController
                 }
         }

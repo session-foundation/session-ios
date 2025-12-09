@@ -33,7 +33,7 @@ public final class ProfilePictureView: UIView {
                 switch self {
                     case .navigation, .message: return 26
                     case .list: return 46
-                    case .hero: return 80
+                    case .hero: return 90
                     case .modal: return 90
                     case .expanded: return 190
                 }

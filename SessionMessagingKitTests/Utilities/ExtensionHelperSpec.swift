@@ -115,13 +115,15 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- writes the encrypted data to the temporary file path
                 it("writes the encrypted data to the temporary file path") {
-                    try? extensionHelper.createDedupeRecord(
-                        threadId: "threadId",
-                        uniqueIdentifier: "uniqueId"
-                    )
+                    expect {
+                        try extensionHelper.createDedupeRecord(
+                            threadId: "threadId",
+                            uniqueIdentifier: "uniqueId"
+                        )
+                    }.toNot(throwError())
                     
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data([4, 5, 6]))
+                        try $0.write(data: Data([4, 5, 6]), toPath: "tmpFile")
                     })
                 }
                 
@@ -183,15 +185,15 @@ class ExtensionHelperSpec: AsyncSpec {
                 // MARK: ---- throws when it fails to write to disk
                 it("throws when it fails to write to disk") {
                     mockFileManager
-                        .when { $0.createFile(atPath: .any, contents: .any) }
-                        .thenReturn(false)
+                        .when { try $0.write(data: .any, toPath: .any) }
+                        .thenThrow(TestError.mock)
                     
                     expect {
                         try extensionHelper.createDedupeRecord(
                             threadId: "threadId",
                             uniqueIdentifier: "uniqueId"
                         )
-                    }.to(throwError(ExtensionHelperError.failedToWriteToFile))
+                    }.to(throwError(ExtensionHelperError.failedToWriteToFile(TestError.mock)))
                 }
                 
                 // MARK: ---- does not throw when attempting to remove an existing item at the destination fails
@@ -238,7 +240,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         )
                     }.toNot(throwError())
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
+                        try $0.write(data: Data(base64Encoded: "BAUG")!, toPath: "tmpFile")
                     })
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                         _ = try $0.replaceItem(
@@ -268,7 +270,7 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when loading user metadata") {
                 // MARK: ---- loads the data correctly
                 it("loads the data correctly") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
@@ -292,7 +294,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if there is no file
                 it("returns null if there is no file") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(nil)
                     
                     let result: ExtensionHelper.UserMetadata? = extensionHelper.loadUserMetadata()
                     
@@ -301,7 +303,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decrypt the file
                 it("returns null if it fails to decrypt the file") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
@@ -313,7 +315,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decode the data
                 it("returns null if it fails to decode the data") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
@@ -566,7 +568,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     }.toNot(throwError())
                     
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data())
+                        try $0.write(data: Data(), toPath: "tmpFile")
                     })
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                         _ = try $0.replaceItem(
@@ -586,7 +588,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     expect(mockFileManager).toNot(call(.exactly(times: 1), matchingParameters: .all) {
                         try? $0.removeItem(atPath: "/test/extensionCache/conversations/010203/dedupe/010203")
                     })
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
@@ -659,7 +661,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: true
                     )
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
+                        try $0.write(data: Data(base64Encoded: "BAUG")!, toPath: "tmpFile")
                     })
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                         _ = try $0.replaceItem(
@@ -673,7 +675,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 it("does nothing when given a null dump") {
                     extensionHelper.replicate(dump: nil, replaceExisting: true)
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
@@ -691,7 +693,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: true
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
@@ -709,7 +711,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: false
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
@@ -794,7 +796,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 ]
                 
                 beforeEach {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(nil)
                     mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
@@ -835,7 +837,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     let allCreateFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { $0.createFile(atPath: .any, contents: .any) })
+                        .allCalls { try $0.write(data: .any, toPath: .any) })
                         .toEventually(haveCount(5))
                         .retrieveValue()
                     let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
@@ -846,11 +848,11 @@ class ExtensionHelperSpec: AsyncSpec {
                     let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
                     expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[tmpFile, Data(base64Encoded: AgME), nil]",
-                            "[tmpFile, Data(base64Encoded: AwQF), nil]",
-                            "[tmpFile, Data(base64Encoded: BAUG), nil]",
-                            "[tmpFile, Data(base64Encoded: BQYH), nil]",
-                            "[tmpFile, Data(base64Encoded: BgcI), nil]"
+                            "[Data(base64Encoded: AgME), tmpFile]",
+                            "[Data(base64Encoded: AwQF), tmpFile]",
+                            "[Data(base64Encoded: BAUG), tmpFile]",
+                            "[Data(base64Encoded: BQYH), tmpFile]",
+                            "[Data(base64Encoded: BgcI), tmpFile]"
                         ]))
                     expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
@@ -872,7 +874,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     let allCreateFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { $0.createFile(atPath: .any, contents: .any) })
+                        .allCalls { try $0.write(data: .any, toPath: .any) })
                         .toEventually(haveCount(5))
                         .retrieveValue()
                     let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
@@ -883,11 +885,11 @@ class ExtensionHelperSpec: AsyncSpec {
                     let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
                     expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[tmpFile, Data(base64Encoded: AgME), nil]",
-                            "[tmpFile, Data(base64Encoded: AwQF), nil]",
-                            "[tmpFile, Data(base64Encoded: BAUG), nil]",
-                            "[tmpFile, Data(base64Encoded: BQYH), nil]",
-                            "[tmpFile, Data(base64Encoded: BgcI), nil]"
+                            "[Data(base64Encoded: AgME), tmpFile]",
+                            "[Data(base64Encoded: AwQF), tmpFile]",
+                            "[Data(base64Encoded: BAUG), tmpFile]",
+                            "[Data(base64Encoded: BQYH), tmpFile]",
+                            "[Data(base64Encoded: BgcI), tmpFile]"
                         ]))
                     expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
@@ -925,7 +927,7 @@ class ExtensionHelperSpec: AsyncSpec {
                     )
                     
                     let allCreateFileCalls: [CallDetails]? = await expect(mockFileManager
-                        .allCalls { $0.createFile(atPath: .any, contents: .any) })
+                        .allCalls { try $0.write(data: .any, toPath: .any) })
                         .toEventually(haveCount(3))
                         .retrieveValue()
                     let allMoveFileCalls: [CallDetails]? = await expect(mockFileManager
@@ -936,9 +938,9 @@ class ExtensionHelperSpec: AsyncSpec {
                     let emptyOptions: String = "Optional(__C.NSFileManagerItemReplacementOptions(rawValue: 0))"
                     expect((allCreateFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
-                            "[tmpFile, Data(base64Encoded: BgUE), nil]",
-                            "[tmpFile, Data(base64Encoded: BwYF), nil]",
-                            "[tmpFile, Data(base64Encoded: CAcG), nil]"
+                            "[Data(base64Encoded: BgUE), tmpFile]",
+                            "[Data(base64Encoded: BwYF), tmpFile]",
+                            "[Data(base64Encoded: CAcG), tmpFile]"
                         ]))
                     expect((allMoveFileCalls?.map { $0.parameterSummary }).map { Set($0) })
                         .to(equal([
@@ -961,13 +963,13 @@ class ExtensionHelperSpec: AsyncSpec {
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
                 // MARK: ---- does nothing if valid dumps already exist
                 it("does nothing if valid dumps already exist") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
@@ -977,7 +979,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
@@ -990,7 +992,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         allDumpSessionIds: []
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
@@ -1007,7 +1009,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
@@ -1025,7 +1027,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         allDumpSessionIds: [SessionId(.standard, hex: "05\(TestConstants.publicKey)")]
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
             }
@@ -1311,7 +1313,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- does nothing if it cannot get a dump for the config
                 it("does nothing if it cannot get a dump for the config") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(nil)
                     
                     expect {
                         try extensionHelper.loadGroupConfigStateIfNeeded(
@@ -1352,7 +1354,7 @@ class ExtensionHelperSpec: AsyncSpec {
             // MARK: -- when replicating notification settings
             context("when replicating notification settings") {
                 beforeEach {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(nil)
                     mockFileManager
                         .when { try $0.attributesOfItem(atPath: .any) }
                         .thenReturn([.modificationDate: Date(timeIntervalSince1970: 1234567800)])
@@ -1378,7 +1380,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: true
                     )
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
-                        $0.createFile(atPath: "tmpFile", contents: Data(base64Encoded: "BAUG"))
+                        try $0.write(data: Data(base64Encoded: "BAUG")!, toPath: "tmpFile")
                     })
                     expect(mockFileManager).to(call(.exactly(times: 1), matchingParameters: .all) {
                         _ = try $0.replaceItem(
@@ -1442,7 +1444,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: false
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
                 
@@ -1467,7 +1469,7 @@ class ExtensionHelperSpec: AsyncSpec {
                         replaceExisting: true
                     )
                     
-                    expect(mockFileManager).toNot(call { $0.createFile(atPath: .any, contents: .any) })
+                    expect(mockFileManager).toNot(call { try $0.write(data: .any, toPath: .any) })
                     expect(mockFileManager).toNot(call { try $0.replaceItem(atPath: .any, withItemAtPath: .any) })
                 }
             }
@@ -1476,7 +1478,7 @@ class ExtensionHelperSpec: AsyncSpec {
             context("when loading notification settings") {
                 // MARK: ---- loads the data correctly
                 it("loads the data correctly") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
@@ -1517,7 +1519,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if there is no file
                 it("returns null if there is no file") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(nil)
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(nil)
                     
                     let result: [String: Preferences.NotificationSettings]? = extensionHelper.loadNotificationSettings(
                         previewType: .nameAndPreview,
@@ -1529,7 +1531,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decrypt the file
                 it("returns null if it fails to decrypt the file") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(nil)
@@ -1544,7 +1546,7 @@ class ExtensionHelperSpec: AsyncSpec {
                 
                 // MARK: ---- returns null if it fails to decode the data
                 it("returns null if it fails to decode the data") {
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(Data([1, 2, 3]))
@@ -2128,7 +2130,7 @@ class ExtensionHelperSpec: AsyncSpec {
                             ))
                         }
                         .thenReturn([1, 2, 3])
-                    mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
+                    mockFileManager.when { try $0.contents(atPath: .any) }.thenReturn(Data([1, 2, 3]))
                     mockCrypto
                         .when { $0.generate(.plaintextWithXChaCha20(ciphertext: .any, encKey: .any)) }
                         .thenReturn(
@@ -2207,75 +2209,46 @@ class ExtensionHelperSpec: AsyncSpec {
                         generics: [],
                         paramCount: 1
                     )
-                    expect(mockFileManager.functionConsumer.calls[key]).to(equal([
+                    let expectedPaths: [String] = [
+                        "/test/extensionCache/conversations/010203/config",
+                        "/test/extensionCache/conversations/010203/read",
+                        "/test/extensionCache/conversations/010203/unread",
+                        "/test/extensionCache/conversations/a/config",
+                        "/test/extensionCache/conversations/a/read",
+                        "/test/extensionCache/conversations/a/unread"
+                    ]
+                    let expectedCalls: [CallDetails] = [
                         CallDetails(
                             parameterSummary: "[/test/extensionCache/conversations]",
                             allParameterSummaryCombinations: [
                                 ParameterCombination(count: 0, summary: "[]"),
                                 ParameterCombination(count: 1, summary: "[/test/extensionCache/conversations]")
                             ]
-                        ),
+                        )
+                    ]
+                    /// Initial call to load messages
+                    .appending(contentsOf: expectedPaths.map {
                         CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/010203/config]",
+                            parameterSummary: "[\($0)]",
                             allParameterSummaryCombinations: [
                                 ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/010203/config]"
-                                )
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/010203/read]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/010203/read]"
-                                )
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/010203/unread]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/010203/unread]"
-                                )
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/a/config]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/a/config]"
-                                )
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/a/read]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/a/read]"
-                                )
-                            ]
-                        ),
-                        CallDetails(
-                            parameterSummary: "[/test/extensionCache/conversations/a/unread]",
-                            allParameterSummaryCombinations: [
-                                ParameterCombination(count: 0, summary: "[]"),
-                                ParameterCombination(
-                                    count: 1,
-                                    summary: "[/test/extensionCache/conversations/a/unread]"
-                                )
+                                ParameterCombination(count: 1, summary: "[\($0)]")
                             ]
                         )
-                    ]))
+                    })
+                    /// Subsequent call to check for empty directory for deletion
+                    .appending(contentsOf: expectedPaths.map {
+                        CallDetails(
+                            parameterSummary: "[\($0)]",
+                            allParameterSummaryCombinations: [
+                                ParameterCombination(count: 0, summary: "[]"),
+                                ParameterCombination(count: 1, summary: "[\($0)]")
+                            ]
+                        )
+                    })
+                    
+                    
+                    expect(mockFileManager.functionConsumer.calls[key]).to(equal(expectedCalls))
                 }
                 
                 // MARK: ---- removes messages from disk
@@ -2292,17 +2265,17 @@ class ExtensionHelperSpec: AsyncSpec {
                     await expect { try await extensionHelper.loadMessages() }.toNot(throwError())
                     expect(mockFileManager).to(call(matchingParameters: .all) {
                         try $0.removeItem(
-                            atPath: "/test/extensionCache/conversations/0000550000/config"
+                            atPath: "/test/extensionCache/conversations/0000550000/config/g"
                         )
                     })
                     expect(mockFileManager).to(call(matchingParameters: .all) {
                         try $0.removeItem(
-                            atPath: "/test/extensionCache/conversations/0000550000/read"
+                            atPath: "/test/extensionCache/conversations/0000550000/read/h"
                         )
                     })
                     expect(mockFileManager).to(call(matchingParameters: .all) {
                         try $0.removeItem(
-                            atPath: "/test/extensionCache/conversations/0000550000/unread"
+                            atPath: "/test/extensionCache/conversations/0000550000/unread/i"
                         )
                     })
                 }

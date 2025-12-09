@@ -35,7 +35,13 @@ extension ConversationVC:
     }
     
     // Handle taps outside of tableview cell to dismiss keyboard
-    @MainActor @objc func dismissKeyboardOnTap() {
+    @MainActor @objc func dismissKeyboardOnMessageListTap(_ recognizer: UITapGestureRecognizer) {
+        /// If the tap was inside the input then we **don't** want to dismiss the keyboard (the user should be able to interact with their
+        /// current text, or tap the buttons without the keyboard being dismissed)
+        let location: CGPoint = recognizer.location(in: self.snInputView)
+        
+        guard !snInputView.bounds.contains(location) else { return }
+        
         _ = self.snInputView.resignFirstResponder()
     }
     
@@ -1045,24 +1051,23 @@ extension ConversationVC:
             
             return newText[newText.index(before: lastCharacterIndex)].isWhitespace
         }()
-        let doubleMentionChar: Bool = {
-            guard newText.count > 1 else { return false } /// Only a single char
-            guard currentStartIndex != nil || lastCharacterIsMentionChar else { return false } /// No mention char
-            
-            let mentionCharIndex: String.Index = (
-                currentStartIndex ??
-                newText.index(before: lastCharacterIndex)
-            )
-            return (String(newText[mentionCharIndex]) == MentionSelectionView.ViewModel.mentionChar)
-        }()
-        let isValidMention: Bool = (
+        let isStartingNewMention: Bool = (
             lastCharacterIsMentionChar &&
-            whitespaceOrNewLineBeforeMentionChar &&
-            !doubleMentionChar
+            whitespaceOrNewLineBeforeMentionChar
         )
+        let isContinuingMention: Bool = {
+            guard let startIndex: String.Index = currentStartIndex else { return false }
+            guard startIndex < newText.endIndex else { return false }
+            
+            /// Make sure there's no whitespace between the mention start and current position
+            let mentionRange: Range<String.Index> = startIndex..<newText.endIndex
+            let textSinceMention: String = String(newText[mentionRange])
+            
+            return !textSinceMention.contains(where: { $0.isWhitespace })
+        }()
         
         /// If it's not a valid mention then we need to reset the state and hide the mentions UI (if visible)
-        guard isValidMention else {
+        guard isStartingNewMention || isContinuingMention else {
             await MainActor.run {
                 currentMentionStartIndex = nil
                 snInputView.hideMentionsUI()
@@ -1070,13 +1075,32 @@ extension ConversationVC:
             return
         }
         
-        let query: String = (lastCharacterIsMentionChar ?
-            "" :
-            String(newText[newText.index(after: currentStartIndex ?? newText.startIndex)...]) /// + 1 to get rid of the @
-        )
+        /// Determine the mention start index and query
+        let mentionStartIndex: String.Index
+        let query: String
+        
+        if isStartingNewMention {
+            mentionStartIndex = lastCharacterIndex
+            query = ""
+        } else if let startIndex: String.Index = currentStartIndex {
+            mentionStartIndex = startIndex
+            
+            /// Get text after the @ symbol
+            let queryStartIndex: String.Index = newText.index(after: startIndex)
+            query = String(newText[queryStartIndex...])
+        } else {
+            /// Shouldn't reach here, but handle gracefully
+            await MainActor.run {
+                currentMentionStartIndex = nil
+                snInputView.hideMentionsUI()
+            }
+            return
+        }
+
         let mentions: [MentionSelectionView.ViewModel] = ((try? await self.viewModel.mentions(for: query)) ?? [])
         
         await MainActor.run {
+            currentMentionStartIndex = mentionStartIndex
             snInputView.showMentionsUI(for: mentions)
         }
     }
@@ -1273,11 +1297,12 @@ extension ConversationVC:
             guard
                 let visibleCell: VisibleMessageCell = cell as? VisibleMessageCell,
                 targetView?.bounds.contains(locationInTargetView) != true,
-                visibleCell.bodyTappableLabel?.containsLinks == true
+                let bodyLabel: LinkHighlightingLabel = visibleCell.bodyLabel,
+                bodyLabel.containsLinks,
+                let tappedUrlString: String = bodyLabel.urlString(at: cell.convert(cellLocation, to: bodyLabel))
             else { return false }
             
-            let tappableLabelPoint: CGPoint = cell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
-            visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+            openUrl(tappedUrlString)
             return true
         }
         
@@ -1442,15 +1467,19 @@ extension ConversationVC:
                 
                 let quotePoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.quoteView)
                 let linkPreviewPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.linkPreviewView?.previewView)
-                let tappableLabelPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.bodyTappableLabel)
-                let containsLinks: Bool = (
-                    // If there is only a single link and it matches the LinkPreview then consider this _just_ a
-                    // LinkPreview
-                    visibleCell.bodyTappableLabel?.containsLinks == true && (
-                        (visibleCell.bodyTappableLabel?.links.count ?? 0) > 1 ||
-                        visibleCell.bodyTappableLabel?.links[cellViewModel.linkPreview?.url ?? ""] == nil
+                let tappableLabelPoint: CGPoint = visibleCell.convert(cellLocation, to: visibleCell.bodyLabel)
+                let containsLinks: Bool = {
+                    guard let bodyLabel: LinkHighlightingLabel = visibleCell.bodyLabel else { return false }
+                    
+                    return (
+                        // If there is only a single link and it matches the LinkPreview then consider this _just_ a
+                        // LinkPreview
+                        bodyLabel.containsLinks == true && (
+                            bodyLabel.links.count > 1 ||
+                            bodyLabel.links[cellViewModel.linkPreview?.url ?? ""] == nil
+                        )
                     )
-                )
+                }()
                 let quoteViewContainsTouch: Bool = (visibleCell.quoteView?.bounds.contains(quotePoint) == true)
                 let linkPreviewViewContainsTouch: Bool = (visibleCell.linkPreviewView?.previewView.bounds.contains(linkPreviewPoint) == true)
                 
@@ -1488,7 +1517,12 @@ extension ConversationVC:
                         }
                     
                     // If the message contained links then interact with them directly
-                    case (true, _, _, _, _): visibleCell.bodyTappableLabel?.handleTouch(at: tappableLabelPoint)
+                    case (true, _, _, _, _):
+                        guard let tappedUrlString: String = visibleCell.bodyLabel?.urlString(at: tappableLabelPoint) else {
+                            return
+                        }
+                        
+                        openUrl(tappedUrlString)
                         
                     default: break
                 }
@@ -1529,11 +1563,11 @@ extension ConversationVC:
                 cancelTitle: "urlCopy".localized(),
                 cancelStyle: .alert_text,
                 hasCloseButton: true,
-                onConfirm:  { [weak self] modal in
+                onConfirm:  { modal in
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     modal.dismiss(animated: true)
                 },
-                onCancel: { [weak self] modal in
+                onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
                 }
             )
@@ -1616,46 +1650,48 @@ extension ConversationVC:
             return cellViewModel.profile?.blocksCommunityMessageRequests != true
         }()
         
-        let userProfileModal: ModalHostingViewController = ModalHostingViewController(
-            modal: UserProfileModal(
-                info: .init(
-                    sessionId: sessionId,
-                    blindedId: blindedId,
-                    qrCodeImage: qrCodeImage,
-                    profileInfo: profileInfo,
-                    displayName: displayName,
-                    contactDisplayName: contactDisplayName,
-                    isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
-                    isMessageRequestsEnabled: isMessasgeRequestsEnabled,
-                    onStartThread: { [weak self] in
-                        self?.startThread(
-                            with: cellViewModel.authorId,
-                            openGroupServer: cellViewModel.threadOpenGroupServer,
-                            openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
-                        )
-                    },
-                    onProBadgeTapped: { [weak self, dependencies] in
-                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                            .generic,
-                            dismissType: .single,
-                            beforePresented: {},
-                            onConfirm: { [weak self] in
-                                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
-                            },
-                            onCancel: { [weak self] in
-                                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
-                            },
-                            afterClosed: {},
-                            presenting: { modal in
-                                dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
-                            }
-                        )
-                    }
-                ),
-                dataManager: dependencies[singleton: .imageDataManager]
+        DispatchQueue.main.async { [weak self] in
+            let userProfileModal: ModalHostingViewController = ModalHostingViewController(
+                modal: UserProfileModal(
+                    info: .init(
+                        sessionId: sessionId,
+                        blindedId: blindedId,
+                        qrCodeImage: qrCodeImage,
+                        profileInfo: profileInfo,
+                        displayName: displayName,
+                        contactDisplayName: contactDisplayName,
+                        isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: cellViewModel.profile) }),
+                        isMessageRequestsEnabled: isMessasgeRequestsEnabled,
+                        onStartThread: { [weak self] in
+                            self?.startThread(
+                                with: cellViewModel.authorId,
+                                openGroupServer: cellViewModel.threadOpenGroupServer,
+                                openGroupPublicKey: cellViewModel.threadOpenGroupPublicKey
+                            )
+                        },
+                        onProBadgeTapped: { [weak self, dependencies] in
+                            dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                .generic,
+                                dismissType: .single,
+                                beforePresented: {},
+                                onConfirm: { [weak self] in
+                                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                                },
+                                onCancel: { [weak self] in
+                                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                                },
+                                afterClosed: {},
+                                presenting: { modal in
+                                    dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
+                                }
+                            )
+                        }
+                    ),
+                    dataManager: dependencies[singleton: .imageDataManager]
+                )
             )
-        )
-        present(userProfileModal, animated: true, completion: nil)
+            self?.present(userProfileModal, animated: true, completion: nil)
+        }
     }
     
     func startThread(
@@ -2412,7 +2448,7 @@ extension ConversationVC:
 
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?) {
         switch cellViewModel.cellType {
-            case .typingIndicator, .dateHeader, .unreadMarker: break
+            case .typingIndicator, .dateHeader, .unreadMarker, .infoMessage, .call: break
             
             case .textOnlyMessage:
                 if cellViewModel.body == nil, let linkPreview: LinkPreview = cellViewModel.linkPreview {

@@ -382,25 +382,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         mainStackView.pin(to: contentView)
         closeButton.pin(.top, to: .top, of: contentView, withInset: 8)
-        closeButton.pin(.right, to: .right, of: contentView, withInset: -8)
-        
-        // Observe keyboard notifications
-        let keyboardNotifications: [Notification.Name] = [
-            UIResponder.keyboardWillShowNotification,
-            UIResponder.keyboardDidShowNotification,
-            UIResponder.keyboardWillChangeFrameNotification,
-            UIResponder.keyboardDidChangeFrameNotification,
-            UIResponder.keyboardWillHideNotification,
-            UIResponder.keyboardDidHideNotification
-        ]
-        keyboardNotifications.forEach { notification in
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(handleKeyboardNotification(_:)),
-                name: notification,
-                object: nil
-            )
-        }
+        closeButton.pin(.right, to: .right, of: contentView, withInset: -8)        
     }
     
     // MARK: - Content
@@ -426,6 +408,12 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         
         // Set the content based on the provided info
         titleLabel.text = info.title
+        titleLabel.isAccessibilityElement = true
+        titleLabel.accessibilityIdentifier = "Modal heading"
+        titleLabel.accessibilityLabel = info.title
+        
+        explanationLabel.isAccessibilityElement = true
+        explanationLabel.accessibilityIdentifier = "Modal description"
         
         switch info.body {
             case .none:
@@ -434,25 +422,30 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             case .text(let text, let scrollMode):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.text = text
+                explanationLabel.accessibilityLabel = text
                 explanationLabel.scrollMode = scrollMode
                 explanationLabel.isHidden = false
                 
             case .attributedText(let attributedText, let scrollMode):
                 mainStackView.spacing = Values.smallSpacing
                 explanationLabel.themeAttributedText = attributedText
+                explanationLabel.accessibilityLabel = attributedText.constructedAccessibilityLabel
                 explanationLabel.scrollMode = scrollMode
                 explanationLabel.isHidden = false
                 
             case .input(let explanation, let inputInfo, let onTextChanged):
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = inputInfo.placeholder
                 textField.text = (inputInfo.initialValue ?? "")
                 textFieldClearButton.isHidden = !inputInfo.clearButton
                 textField.isAccessibilityElement = true
+                textField.isEnabled = inputInfo.isEnabled
                 textField.accessibilityIdentifier = inputInfo.accessibility?.identifier
                 textField.accessibilityLabel = inputInfo.accessibility?.label ?? textField.text
+                textField.keyboardType = inputInfo.keyboardType
                 textFieldContainer.isHidden = false
                 internalOnTextChanged = { [weak textField, weak confirmButton, weak cancelButton] text, _ in
                     onTextChanged(text)
@@ -466,6 +459,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 
             case .dualInput(let explanation, let firstInputInfo, let secondInputInfo, let onTextChanged):
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textField.placeholder = firstInputInfo.placeholder
@@ -498,6 +492,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             case .radio(let explanation, let warning, let options):
                 mainStackView.spacing = 0
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 warningLabel.themeAttributedText = warning
@@ -571,6 +566,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
             
             case .inputConfirmation(let explanation, let textToConfirm):
                 explanationLabel.themeAttributedText = explanation
+                explanationLabel.accessibilityLabel = explanation?.constructedAccessibilityLabel
                 explanationLabel.scrollMode = .never
                 explanationLabel.isHidden = (explanation == nil)
                 textToConfirmLabel.themeAttributedText = textToConfirm
@@ -592,14 +588,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
         cancelButton.setThemeTitleColor(.disabled, for: .disabled)
         cancelButton.isEnabled = info.cancelEnabled.isValid(with: info)
         closeButton.isHidden = !info.hasCloseButton
-        
-        titleLabel.isAccessibilityElement = true
-        titleLabel.accessibilityIdentifier = "Modal heading"
-        titleLabel.accessibilityLabel = titleLabel.text
-        
-        explanationLabel.isAccessibilityElement = true
-        explanationLabel.accessibilityIdentifier = "Modal description"
-        explanationLabel.accessibilityLabel = explanationLabel.text
     }
     
     // MARK: - Error Handling
@@ -731,65 +719,6 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
     @objc internal func textViewClearButtonTapped() {
         textView.text = ""
         textViewDidChange(textView)
-    }
-    
-    // MARK: - Keyboard Avoidance
-
-    @objc func handleKeyboardNotification(_ notification: Notification) {
-        guard
-            let userInfo: [AnyHashable: Any] = notification.userInfo,
-            var keyboardEndFrame: CGRect = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
-        else { return }
-        
-        // If reduce motion+crossfade transitions is on, in iOS 14 UIKit vends out a keyboard end frame
-        // of CGRect zero. This breaks the math below.
-        //
-        // If our keyboard end frame is CGRectZero, build a fake rect that's translated off the bottom edge.
-        if keyboardEndFrame == .zero {
-            keyboardEndFrame = CGRect(
-                x: UIScreen.main.bounds.minX,
-                y: UIScreen.main.bounds.maxY,
-                width: UIScreen.main.bounds.width,
-                height: 0
-            )
-        }
-        
-        // Please refer to https://github.com/mapbox/mapbox-navigation-ios/issues/1600
-        // and https://stackoverflow.com/a/25260930 to better understand what we are
-        // doing with the UIViewAnimationOptions
-        let curveValue: Int = ((userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? Int(UIView.AnimationOptions.curveEaseInOut.rawValue))
-        let options: UIView.AnimationOptions = UIView.AnimationOptions(rawValue: UInt(curveValue << 16))
-        let duration = ((userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval) ?? 0)
-        
-        guard duration > 0, !UIAccessibility.isReduceMotionEnabled else {
-            // UIKit by default (sometimes? never?) animates all changes in response to keyboard events.
-            // We want to suppress those animations if the view isn't visible,
-            // otherwise presentation animations don't work properly.
-            UIView.performWithoutAnimation {
-                self.updateKeyboardAvoidance(keyboardEndFrame: keyboardEndFrame)
-            }
-            return
-        }
-        
-        UIView.animate(
-            withDuration: duration,
-            delay: 0,
-            options: options,
-            animations: { [weak self] in
-                self?.updateKeyboardAvoidance(keyboardEndFrame: keyboardEndFrame)
-                self?.view.layoutIfNeeded()
-            },
-            completion: nil
-        )
-    }
-    
-    private func updateKeyboardAvoidance(keyboardEndFrame: CGRect) {
-        let contentCenteredBottom: CGFloat = (view.center.y + (contentView.bounds.height / 2))
-        contentTopConstraint?.isActive = (
-            ((keyboardEndFrame.minY - contentCenteredBottom) < 10) &&
-            keyboardEndFrame.minY < (view.bounds.height - 100)
-        )
-        contentCenterYConstraint?.isActive = (contentTopConstraint?.isActive != true)
     }
 }
 
@@ -986,20 +915,26 @@ public extension ConfirmationModal.Info {
         public struct InputInfo: Equatable, Hashable {
             public let placeholder: String
             public let initialValue: String?
+            public let isEnabled: Bool
             public let clearButton: Bool
+            public let keyboardType: UIKeyboardType
             public let accessibility: Accessibility?
             public let inputChecker: ((String) -> String?)?
             
             public init(
                 placeholder: String,
                 initialValue: String? = nil,
+                isEnabled: Bool = true,
                 clearButton: Bool = false,
+                keyboardType: UIKeyboardType = .default,
                 accessibility: Accessibility? = nil,
                 inputChecker: ((String) -> String?)? = nil
             ) {
                 self.placeholder = placeholder
                 self.initialValue = initialValue
+                self.isEnabled = isEnabled
                 self.clearButton = clearButton
+                self.keyboardType = keyboardType
                 self.accessibility = accessibility
                 self.inputChecker = inputChecker
             }
@@ -1007,14 +942,18 @@ public extension ConfirmationModal.Info {
             public static func == (lhs: InputInfo, rhs: InputInfo) -> Bool {
                 lhs.placeholder == rhs.placeholder &&
                 lhs.initialValue == rhs.initialValue &&
+                lhs.isEnabled == rhs.isEnabled &&
                 lhs.clearButton == rhs.clearButton &&
+                lhs.keyboardType == rhs.keyboardType &&
                 lhs.accessibility == rhs.accessibility
             }
             
             public func hash(into hasher: inout Hasher) {
                 placeholder.hash(into: &hasher)
                 initialValue?.hash(into: &hasher)
+                isEnabled.hash(into: &hasher)
                 clearButton.hash(into: &hasher)
+                keyboardType.hash(into: &hasher)
                 accessibility?.hash(into: &hasher)
             }
         }

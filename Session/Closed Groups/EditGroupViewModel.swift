@@ -304,12 +304,9 @@ class EditGroupViewModel: SessionTableViewModel, NavigatableStateHolder, Observa
                                 trailingImage: {
                                     guard (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: memberInfo.profile) }) else { return nil }
                                     
-                                    return (
-                                        .themedKey(
-                                            SessionProBadge.Size.small.cacheKey,
-                                            themeBackgroundColor: .primary
-                                        ),
-                                        { SessionProBadge(size: .small) }
+                                    return SessionProBadge.trailingImage(
+                                        size: .small,
+                                        themeBackgroundColor: .primary
                                     )
                                 }()
                             ),

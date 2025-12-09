@@ -671,22 +671,22 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         features.forEach { feature in
             guard dependencies.hasSet(feature: feature) else { return }
             
-            dependencies.set(feature: feature, to: nil)
+            dependencies.reset(feature: feature)
         }
         
         guard dependencies.hasSet(feature: .mockCurrentUserSessionProState) else { return }
-        dependencies.set(feature: .mockCurrentUserSessionProState, to: nil)
+        dependencies.reset(feature: .mockCurrentUserSessionProState)
     }
     
     private func updateSessionProEnabled(current: Bool) {
         dependencies.set(feature: .sessionProEnabled, to: !current)
         
         if dependencies.hasSet(feature: .mockCurrentUserSessionProState) {
-            dependencies.set(feature: .mockCurrentUserSessionProState, to: nil)
+            dependencies.reset(feature: .mockCurrentUserSessionProState)
         }
         
         if dependencies.hasSet(feature: .allUsersSessionPro) {
-            dependencies.set(feature: .allUsersSessionPro, to: nil)
+            dependencies.reset(feature: .allUsersSessionPro)
         }
     }
     

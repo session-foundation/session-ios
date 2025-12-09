@@ -89,11 +89,10 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
 
 protocol ModalHostIdentifiable {}
 
-
 // MARK: - ModalHostingViewController
 
 open class ModalHostingViewController<Content>: UIHostingController<ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>>, ModalHostIdentifiable where Content: View {
-    public init(modal: Content) {
+    @MainActor public init(modal: Content) {
         let container = HostWrapper()
         let modified = modal.environmentObject(container) as! ModifiedContent<Content, _EnvironmentKeyWritingModifier<HostWrapper?>>
         super.init(rootView: modified)

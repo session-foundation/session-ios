@@ -488,15 +488,12 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
+            guard await !linkPreviewManager.allPreviewUrls(forMessageBodyText: text).isEmpty else { return }
             
             let areLinkPreviewsEnabled: Bool = await linkPreviewManager.areLinkPreviewsEnabled
             let hasSeenLinkPreviewSuggestion: Bool = await linkPreviewManager.hasSeenLinkPreviewSuggestion
             
-            if
-                await !linkPreviewManager.allPreviewUrls(forMessageBodyText: text).isEmpty &&
-                !areLinkPreviewsEnabled &&
-                !hasSeenLinkPreviewSuggestion
-            {
+            if !areLinkPreviewsEnabled && !hasSeenLinkPreviewSuggestion {
                 await MainActor.run { [weak self] in
                     self?.delegate?.showLinkPreviewSuggestionModal()
                 }
@@ -627,15 +624,25 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         disabledInputLabel.accessibilityIdentifier = updatedInputState.messageAccessibility?.identifier
         disabledInputLabel.accessibilityLabel = updatedInputState.messageAccessibility?.label
         
-        disabledInputTapGestureRecognizer.isEnabled = (updatedInputState.inputs.isEmpty)
-        attachmentsButtonContainer.isHidden = !updatedInputState.inputs.contains(.attachments)
-        voiceMessageButtonContainer.isHidden = !updatedInputState.inputs.contains(.voiceMessages)
+        disabledInputTapGestureRecognizer.isEnabled = (
+            updatedInputState.inputs.isEmpty ||
+            updatedInputState.inputs == .disabled
+        )
+        attachmentsButtonContainer.isHidden = (
+            !updatedInputState.inputs.contains(.attachments) &&
+            !updatedInputState.inputs.contains(.attachmentsDisabled)
+        )
+        voiceMessageButtonContainer.isHidden = (
+            !updatedInputState.inputs.contains(.voiceMessages) &&
+            !updatedInputState.inputs.contains(.voiceMessagesDisabled)
+        )
         attachmentsButton.isSoftDisabled = updatedInputState.inputs.contains(.attachmentsDisabled)
         voiceMessageButton.isSoftDisabled = updatedInputState.inputs.contains(.voiceMessagesDisabled)
 
         UIView.animate(withDuration: 0.3) { [weak self] in
             self?.bottomStackView.arrangedSubviews.forEach { $0.alpha = updatedInputState.inputs.isEmpty ? 0 : 1 }
-            self?.disabledInputLabel.alpha = (updatedInputState.inputs.isEmpty ? Values.mediumOpacity : 0)
+            self?.disabledInputLabel.alpha = ((self?.disabledInputLabel.text ?? "").isEmpty ? 0 : Values.mediumOpacity)
+            self?.inputTextView.alpha = ((self?.disabledInputLabel.text ?? "").isEmpty ? 1 : 0)
             self?.attachmentsButton.alpha = (updatedInputState.inputs.contains(.attachmentsDisabled) ? 0.4 : 1)
             self?.voiceMessageButton.alpha = (updatedInputState.inputs.contains(.voiceMessagesDisabled) ? 0.4 : 1)
             
@@ -746,12 +753,17 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         
         let mentionCellHeight = (ProfilePictureView.Info.Size.message.viewSize + 2 * Values.smallSpacing)
         mentionsViewHeightConstraint.constant = CGFloat(min(3, candidates.count)) * mentionCellHeight
-        self.mentionsViewContainer.alpha = 0
-        self.mentionsViewContainer.isHidden = false
+        
+        if mentionsViewContainer.isHidden {
+            self.mentionsViewContainer.alpha = 0
+            self.mentionsViewContainer.isHidden = false
+        }
         layoutIfNeeded()
         
-        UIView.animate(withDuration: 0.15) { [weak self] in
-            self?.mentionsViewContainer.alpha = 1
+        if mentionsViewContainer.alpha < 1 {
+            UIView.animate(withDuration: 0.15) { [weak self] in
+                self?.mentionsViewContainer.alpha = 1
+            }
         }
     }
     
@@ -771,10 +783,6 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
 
     @MainActor public func handleMentionSelected(_ viewModel: MentionSelectionView.ViewModel, from view: MentionSelectionView) {
         delegate?.handleMentionSelected(viewModel, from: view)
-    }
-    
-    func tapableLabel(_ label: TappableLabel, didTapUrl url: String, atRange range: NSRange) {
-        // Do nothing
     }
     
     @objc private func disabledInputTapped() {

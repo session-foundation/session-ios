@@ -330,23 +330,13 @@ public final class AttachmentManager: Sendable, ThumbnailManager {
             using: dependencies
         )
         
-        // Process audio attachments
-        if pendingAttachment.utType.isAudio {
-            return (pendingAttachment.duration > 0, pendingAttachment.duration)
+        // Video and Audio attachments should have durations
+        if pendingAttachment.utType.isVideo || pendingAttachment.utType.isAudio {
+            return (pendingAttachment.isValid, pendingAttachment.duration)
         }
         
-        // Process image attachments
-        if pendingAttachment.utType.isImage || pendingAttachment.utType.isAnimated {
-            return (pendingAttachment.isValidVisualMedia, nil)
-        }
-        
-        // Process video attachments
-        if pendingAttachment.utType.isVideo {
-            return (pendingAttachment.isValidVisualMedia, pendingAttachment.duration)
-        }
-        
-        // Any other attachment types are valid and have no duration
-        return (true, nil)
+        // Anything else should just be based on standard validity
+        return (pendingAttachment.isValid, nil)
     }
 }
 
@@ -509,35 +499,30 @@ public extension PendingAttachment {
             return .media(.url(url))
         }
         
-        fileprivate var visualMediaSource: ImageDataManager.DataSource? {
-            switch self {
-                case .media(let source): return source
-                case .file, .voiceMessage, .text: return nil
-            }
-        }
-        
         fileprivate var url: URL? {
-            switch (self, visualMediaSource) {
-                case (.file(let url), _), (.voiceMessage(let url), _), (_, .url(let url)),
-                    (_, .videoUrl(let url, _, _, _)), (_, .urlThumbnail(let url, _, _)):
+            switch self {
+                case .file(let url), .voiceMessage(let url), .media(.url(let url)),
+                        .media(.videoUrl(let url, _, _, _)), .media(.urlThumbnail(let url, _, _)):
                     return url
                     
-                case (_, .none), (_, .data), (_, .image), (_, .placeholderIcon), (_, .asyncSource), (.media, _), (.text, _):
+                case .text, .media(.data), .media(.image), .media(.placeholderIcon), .media(.asyncSource), .media(.icon):
                     return nil
             }
         }
         
         fileprivate func fileSize(using dependencies: Dependencies) -> UInt64? {
-            switch (self, visualMediaSource) {
-                case (.file(let url), _), (.voiceMessage(let url), _), (_, .url(let url)),
-                    (_, .videoUrl(let url, _, _, _)):
+            switch self {
+                case .file(let url), .voiceMessage(let url), .media(.url(let url)),
+                    .media(.videoUrl(let url, _, _, _)):
                     return dependencies[singleton: .fileManager].fileSize(of: url.path)
                     
-                case (_, .data(_, let data)): return UInt64(data.count)
-                case (.text(let content), _):
+                case .media(.data(_, let data)): return UInt64(data.count)
+                case .text(let content):
                     return (content.data(using: .ascii)?.count).map { UInt64($0) }
                     
-                default: return nil
+                case .media(.image), .media(.placeholderIcon), .media(.asyncSource),
+                    .media(.urlThumbnail), .media(.icon):
+                    return nil
             }
         }
     }
@@ -1297,7 +1282,7 @@ public extension PendingAttachment {
             height: imageSize.map { UInt(floor($0.height)) },
             duration: duration,
             isVisualMedia: utType.isVisualMedia,
-            isValid: isValidVisualMedia,
+            isValid: isValid,
             encryptionKey: encryptionKey,
             digest: digest
         )
@@ -1307,7 +1292,12 @@ public extension PendingAttachment {
 // MARK: - Convenience
 
 public extension PendingAttachment {
-    var visualMediaSource: ImageDataManager.DataSource? { source.visualMediaSource }
+    var visualMediaSource: ImageDataManager.DataSource? {
+        guard !utType.isAudio else { return nil }
+        guard case .media(let mediaSource) = self.source else { return nil }
+        
+        return mediaSource
+    }
     
     /// Returns the file extension for this attachment or nil if no file extension can be identified
     var fileExtension: String? {
@@ -1319,14 +1309,24 @@ public extension PendingAttachment {
         return fileExtension.filteredFilename
     }
     
-    var isValidVisualMedia: Bool {
-        guard utType.isImage || utType.isAnimated || utType.isVideo else { return false }
-        guard case .media(let mediaMetadata) = metadata else { return false }
+    var isValid: Bool {
+        // Process audio attachments
+        if utType.isAudio {
+            return (duration > 0)
+        }
         
-        return (
-            mediaMetadata.hasValidPixelSize &&
-            mediaMetadata.hasValidDuration
-        )
+        // Process visual attachments
+        if utType.isImage || utType.isAnimated || utType.isVideo {
+            guard case .media(let mediaMetadata) = metadata else { return false }
+            
+            return (
+                mediaMetadata.hasValidPixelSize &&
+                mediaMetadata.hasValidDuration
+            )
+        }
+        
+        // Any other attachment types are valid and have no duration
+        return true
     }
 }
 
@@ -1338,11 +1338,11 @@ public extension PendingAttachment {
         /// (which is ~40Kb) a 100Kb limit should be sufficiend
         guard (metadata?.fileSize ?? 0) < (1024 * 100) else { return nil }
         
-        switch (source, source.visualMediaSource) {
-            case (.text(let text), _): return text
-            case (.file(let fileUrl), _): return try? String(contentsOf: fileUrl, encoding: .utf8)
-            case (_, .data(_, let data)): return String(data: data, encoding: .utf8)
-            case (.media, _), (.voiceMessage, _): return nil
+        switch source {
+            case .text(let text): return text
+            case .file(let fileUrl): return try? String(contentsOf: fileUrl, encoding: .utf8)
+            case .media(.data(_, let data)): return String(data: data, encoding: .utf8)
+            case .media, .voiceMessage: return nil
         }
     }
     

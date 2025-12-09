@@ -144,6 +144,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                         
                         return SessionCell.Info(
                             id: .user(userInfo.profileId),
+                            canReuseCell: true,
                             leadingAccessory: .profile(
                                 id: userInfo.profileId,
                                 profile: userInfo.profile,
@@ -155,12 +156,9 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                 trailingImage: {
                                     guard (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: userInfo.profile) }) else { return nil }
                                     
-                                    return (
-                                        .themedKey(
-                                            SessionProBadge.Size.small.cacheKey,
-                                            themeBackgroundColor: .primary
-                                        ),
-                                        { SessionProBadge(size: .small) }
+                                    return SessionProBadge.trailingImage(
+                                        size: .small,
+                                        themeBackgroundColor: .primary
                                     )
                                 }()
                             ),
