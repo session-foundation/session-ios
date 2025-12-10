@@ -94,7 +94,7 @@ public struct ListItemTappableText: View {
             alignment: .center,
             maxWidth: (UIScreen.main.bounds.width - Values.mediumSpacing * 2 - Values.largeSpacing * 2),
             onTextTap: info.onTextTap,
-            onImageTap: info.onImageTap,
+            onImageTap: info.onImageTap
         )
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, Values.mediumSpacing)
