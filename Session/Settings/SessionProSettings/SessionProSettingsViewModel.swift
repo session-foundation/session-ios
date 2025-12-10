@@ -1141,7 +1141,7 @@ extension SessionProSettingsViewModel {
                         }
                     }(),
                     title: "proUnlimitedPins".localized(),
-                    description: "proUnlimitedPinsDescription".localized(),
+                    description: "proUnlimitedPinsDescription".localized()
                 ),
                 ProFeaturesInfo(
                     id: .animatedDisplayPictures,
@@ -1153,7 +1153,7 @@ extension SessionProSettingsViewModel {
                         }
                     }(),
                     title: "proAnimatedDisplayPictures".localized(),
-                    description: "proAnimatedDisplayPicturesDescription".localized(),
+                    description: "proAnimatedDisplayPicturesDescription".localized()
                 ),
                 ProFeaturesInfo(
                     id: .badges,

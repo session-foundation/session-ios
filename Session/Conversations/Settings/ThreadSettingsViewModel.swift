@@ -426,7 +426,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     color: .textSecondary
                                 )
                             )
-                        ),
+                        )
                     )
                 ),
                 
