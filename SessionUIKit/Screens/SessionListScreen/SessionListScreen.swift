@@ -25,6 +25,8 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     @State var isProfileImageExpanding: Bool = false
     private var dataManager: ImageDataManagerType
     
+    // MARK:
+    
     private let coordinateSpaceName: String = "SessionListScreen" // stringlint:ignore
     
     public init(viewModel: ViewModel, dataManager: ImageDataManagerType) {
@@ -100,14 +102,15 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                             switch element.variant {
                                 case .cell(let info):
                                     VStack(spacing: 0) {
-                                        ListItemCell(info: info, height: section.model.style.cellMinHeight)
-                                            .contentShape(Rectangle())
-                                            .onTapGesture {
-                                                element.onTap?(.item)
-                                            }
-                                            .padding(.vertical, Values.smallSpacing)
-                                            .padding(.top, (index == 0) ? section.model.extraVerticalPadding : 0)
-                                            .padding(.bottom, isLastElement ? section.model.extraVerticalPadding : 0)
+                                        ListItemCell(
+                                            info: info,
+                                            height: section.model.style.cellMinHeight,
+                                            onTap: element.onTap
+                                        )
+                                        .contentShape(Rectangle())
+                                        .padding(.vertical, Values.smallSpacing)
+                                        .padding(.top, (index == 0) ? section.model.extraVerticalPadding : 0)
+                                        .padding(.bottom, isLastElement ? section.model.extraVerticalPadding : 0)
                                         
                                         if (section.model.divider && !isLastElement) {
                                             Divider()
@@ -122,7 +125,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 case .logoWithPro(let info):
                                     ListItemLogoWithPro(info: info)
                                         .onTapGesture {
-                                            element.onTap?(.item)
+                                            element.onTap?()
                                         }
                                 case .dataMatrix(let info):
                                     ListItemDataMatrix(
@@ -135,7 +138,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         info: info
                                     )
                                     .onTapGesture {
-                                        element.onTap?(.item)
+                                        element.onTap?()
                                     }
                                     .background(
                                         Rectangle()
@@ -144,7 +147,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 case .button(let title):
                                     ListItemButton(title: title)
                                         .onTapGesture {
-                                            element.onTap?(.item)
+                                            element.onTap?()
                                         }
                                 case .profilePicture(let info):
                                     ListItemProfilePicture(

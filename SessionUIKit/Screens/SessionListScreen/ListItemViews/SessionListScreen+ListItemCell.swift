@@ -29,11 +29,13 @@ public struct ListItemCell: View {
     
     let info: Info
     let height: CGFloat
+    let onTap: (() -> Void)?
     
-    public init(info: Info, height: CGFloat) {
+    public init(info: Info, height: CGFloat, onTap: (() -> Void)? = nil) {
         self.info = info
         self.height = height
         self.isExpanded = (info.title?.interaction != .expandable)
+        self.onTap = onTap
     }
     
     public var body: some View {
@@ -135,6 +137,7 @@ public struct ListItemCell: View {
                     isExpanded.toggle()
                 }
             }
+            onTap?()
         }
     }
 }

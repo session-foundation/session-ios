@@ -302,7 +302,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             }()
                         )
                     ),
-                    onTap: { [weak viewModel] _ in
+                    onTap: { [weak viewModel] in
                         switch state.loadingState {
                             case .loading:
                                 viewModel?.showLoadingModal(
@@ -352,7 +352,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         SessionListScreenContent.ListItemInfo(
                             id: .continueButton,
                             variant: .button(title: "theContinue".localized()),
-                            onTap: { [weak viewModel] _ in viewModel?.updateProPlan() }
+                            onTap: { [weak viewModel] in viewModel?.updateProPlan() }
                         )
                 )
             ].compactMap { $0 }
@@ -440,7 +440,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             ]
                         ]
                     ),
-                    onTap: { [weak viewModel] _ in
+                    onTap: { [weak viewModel] in
                         guard state.loadingState == .loading else { return }
                         viewModel?.showLoadingModal(
                             from: .proStats,
@@ -510,7 +510,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] _ in viewModel?.openUrl(Constants.session_pro_roadmap) }
+                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_roadmap) }
                 )
             )
         )
@@ -551,7 +551,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] _ in viewModel?.openUrl(Constants.session_pro_faq_url) }
+                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_faq_url) }
                 ),
                 SessionListScreenContent.ListItemInfo(
                     id: .support,
@@ -579,7 +579,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             )
                         )
                     ),
-                    onTap: { [weak viewModel] _ in viewModel?.openUrl(Constants.session_pro_support_url) }
+                    onTap: { [weak viewModel] in viewModel?.openUrl(Constants.session_pro_support_url) }
                 )
             ]
         )
@@ -655,7 +655,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     trailingAccessory: state.loadingState == .loading ? .loadingIndicator(size: .medium) : .icon(.chevronRight, size: .medium)
                                 )
                             ),
-                            onTap: { [weak viewModel] _ in
+                            onTap: { [weak viewModel] in
                                 switch state.loadingState {
                                     case .loading:
                                         viewModel?.showLoadingModal(
@@ -700,7 +700,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     trailingAccessory: .icon(.circleAlert, size: .medium)
                                 )
                             ),
-                            onTap: { [weak viewModel] _ in
+                            onTap: { [weak viewModel] in
                                 switch state.loadingState {
                                     case .loading:
                                         viewModel?.showLoadingModal(
@@ -742,7 +742,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         )
                     )
                 ),
-                onTap: { [dependencies = viewModel.dependencies] _ in
+                onTap: { [dependencies = viewModel.dependencies] in
                     dependencies.setAsync(.isProBadgeEnabled, !state.isProBadgeEnabled)
                 }
             )
@@ -774,7 +774,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                     trailingAccessory: .icon(.circleX, size: .medium, customTint: .danger)
                                 )
                             ),
-                            onTap: { [weak viewModel] _ in viewModel?.cancelPlan() }
+                            onTap: { [weak viewModel] in viewModel?.cancelPlan() }
                         ),
                     SessionListScreenContent.ListItemInfo(
                         id: .requestRefund,
@@ -784,7 +784,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 trailingAccessory: .icon(.circleAlert, size: .medium, customTint: .danger)
                             )
                         ),
-                        onTap: { [weak viewModel] _ in viewModel?.requestRefund() }
+                        onTap: { [weak viewModel] in viewModel?.requestRefund() }
                     )
                 ].compactMap { $0 }
             case .expired:
@@ -833,7 +833,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                             )
                         ),
-                        onTap: { [weak viewModel] _ in
+                        onTap: { [weak viewModel] in
                             switch state.loadingState {
                                 case .loading:
                                     viewModel?.showLoadingModal(
@@ -879,7 +879,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                             )
                         ),
-                        onTap: { [weak viewModel] _ in viewModel?.recoverProPlan() }
+                        onTap: { [weak viewModel] in viewModel?.recoverProPlan() }
                     ),
                 ]
             case .refunding: []

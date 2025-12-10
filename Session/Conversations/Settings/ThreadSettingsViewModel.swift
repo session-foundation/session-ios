@@ -516,7 +516,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text
                             ),
-                            onTap: { [dependencies = viewModel.dependencies] _ in
+                            onTap: { [dependencies = viewModel.dependencies] in
                                 viewModel.dismissScreen(type: .popToRoot) {
                                     dependencies[singleton: .storage].writeAsync { db in
                                         try SessionThread.deleteOrLeave(
@@ -559,7 +559,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             identifier: "\(ThreadSettingsViewModel.self).copy_thread_id",
                             label: "Copy Session ID"
                         ),
-                        onTap: { _ in
+                        onTap: {
                             switch threadViewModel.threadVariant {
                                 case .contact, .legacyGroup, .group:
                                     UIPasteboard.general.string = threadViewModel.threadId
@@ -599,7 +599,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         identifier: "\(ThreadSettingsViewModel.self).search",
                         label: "Search"
                     ),
-                    onTap: { _ in viewModel.didTriggerSearch() }
+                    onTap: { viewModel.didTriggerSearch() }
                 ),
                 
                 (
@@ -635,7 +635,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             identifier: "Disappearing messages",
                             label: "\(ThreadSettingsViewModel.self).disappearing_messages"
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] _ in
+                        onTap: { [dependencies = viewModel.dependencies] in
                             viewModel.transitionToScreen(
                                 SessionTableViewController(
                                     viewModel: ThreadDisappearingMessagesSettingsViewModel(
@@ -673,7 +673,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             identifier: "\(ThreadSettingsViewModel.self).pin_conversation",
                             label: "Pin Conversation"
                         ),
-                        onTap: { _ in
+                        onTap: {
                             viewModel.toggleConversationPinnedStatus(
                                 currentPinnedPriority: threadViewModel.threadPinnedPriority
                             )
@@ -724,7 +724,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             identifier: "\(ThreadSettingsViewModel.self).notifications",
                             label: "Notifications"
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] _ in
+                        onTap: { [dependencies = viewModel.dependencies] in
                             viewModel.transitionToScreen(
                                 SessionTableViewController(
                                     viewModel: ThreadNotificationSettingsViewModel(
@@ -755,7 +755,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         accessibility: Accessibility(
                             identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
                         ),
-                        onTap: { _ in viewModel.inviteUsersToCommunity(threadViewModel: threadViewModel) }
+                        onTap: { viewModel.inviteUsersToCommunity(threadViewModel: threadViewModel) }
                     )
                 ),
                 
@@ -775,7 +775,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             identifier: "Group members",
                             label: "Group members"
                         ),
-                        onTap: { _ in viewModel.viewMembers() }
+                        onTap: { viewModel.viewMembers() }
                     )
                 ),
                 
@@ -794,7 +794,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         identifier: "\(ThreadSettingsViewModel.self).all_media",
                         label: "All media"
                     ),
-                    onTap: { [dependencies = viewModel.dependencies] _ in
+                    onTap: { [dependencies = viewModel.dependencies] in
                         viewModel.transitionToScreen(
                             MediaGalleryViewModel.createAllMediaViewController(
                                 threadId: threadViewModel.threadId,
@@ -831,7 +831,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 identifier: "Edit group",
                                 label: "Edit group"
                             ),
-                            onTap: { [dependencies = viewModel.dependencies] _ in
+                            onTap: { [dependencies = viewModel.dependencies] in
                                 viewModel.transitionToScreen(
                                     SessionTableViewController(
                                         viewModel: EditGroupViewModel(
@@ -862,7 +862,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     identifier: "Promote admins",
                                     label: "Promote admins"
                                 ),
-                                onTap: { _ in viewModel.promoteAdmins(currentGroupName: threadViewModel.closedGroupName) }
+                                onTap: { viewModel.promoteAdmins(currentGroupName: threadViewModel.closedGroupName) }
                             )
                         ),
                         
@@ -895,7 +895,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 identifier: "Disappearing messages",
                                 label: "\(ThreadSettingsViewModel.self).disappearing_messages"
                             ),
-                            onTap: { [dependencies = viewModel.dependencies] _ in
+                            onTap: { [dependencies = viewModel.dependencies] in
                                 viewModel.transitionToScreen(
                                     SessionTableViewController(
                                         viewModel: ThreadDisappearingMessagesSettingsViewModel(
@@ -974,7 +974,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { _ in
+                        onTap: {
                             let isBlocked: Bool = (threadViewModel.threadIsBlocked == true)
                             
                             viewModel.updateBlockedState(
@@ -1020,7 +1020,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             confirmStyle: isThreadHidden ? .alert_text : .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] _ in
+                        onTap: { [dependencies = viewModel.dependencies] in
                             dependencies[singleton: .storage].writeAsync { db in
                                 if isThreadHidden {
                                     try SessionThread.updateVisibility(
@@ -1225,7 +1225,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] _ in
+                        onTap: { [dependencies = viewModel.dependencies] in
                             viewModel.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
@@ -1279,7 +1279,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] _ in
+                        onTap: { [dependencies = viewModel.dependencies] in
                             viewModel.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
@@ -1326,7 +1326,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] _ in
+                        onTap: { [dependencies = viewModel.dependencies] in
                             viewModel.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
@@ -1374,7 +1374,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] _ in
+                        onTap: { [dependencies = viewModel.dependencies] in
                             viewModel.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
@@ -1415,7 +1415,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { _ in viewModel.deleteAllAttachmentsBeforeNow() }
+                        onTap: { viewModel.deleteAllAttachmentsBeforeNow() }
                     )
                 )
             ].compactMap { $0 }
