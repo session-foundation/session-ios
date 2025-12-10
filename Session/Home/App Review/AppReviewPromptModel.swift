@@ -80,7 +80,7 @@ enum AppReviewPromptState {
     var promptContent: AppReviewPromptModel {
         switch self {
             case .enjoyingSession:
-                return .init(
+                return AppReviewPromptModel(
                     title: "enjoyingSession"
                         .put(key: "app_name", value:  Constants.app_name)
                         .localized(),
@@ -96,22 +96,29 @@ enum AppReviewPromptState {
                         .localized(),
                     secondaryButtonAccessibilityIdentifier: "enjoy-session-negative-button"
                 )
+            
             case .rateSession:
-                return .init(
+                /// In this case the full `platformStore` value was found to be too verbose so remove the leading `Apple `
+                /// to make it more succinct
+                let storeVaraint: String = Constants.platform_store
+                    .replacingOccurrences(of: "Apple ", with: "")   // stringlint:ignore
+                
+                return AppReviewPromptModel(
                     title: "rateSession"
                         .put(key: "app_name", value: Constants.app_name)
                         .localized(),
                     message: "rateSessionModalDescription"
                         .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "storevariant", value: Constants.platform_store)
+                        .put(key: "storevariant", value: storeVaraint)
                         .localized(),
                     primaryButtonTitle: "rateSessionApp".localized(),
                     primaryButtonAccessibilityIdentifier: "rate-app-button",
                     secondaryButtonTitle: "notNow".localized(),
                     secondaryButtonAccessibilityIdentifier: "not-now-button"
                 )
+            
             case .feedback:
-                return .init(
+                return AppReviewPromptModel(
                     title: "giveFeedback".localized(),
                     message: "giveFeedbackDescription"
                         .put(key: "app_name", value: Constants.app_name)
@@ -121,8 +128,9 @@ enum AppReviewPromptState {
                     secondaryButtonTitle: "notNow".localized(),
                     secondaryButtonAccessibilityIdentifier: "not-now-button"
                 )
+            
             case .rateLimit:
-                return .init(
+                return AppReviewPromptModel(
                     title: "reviewLimit".localized(),
                     message: "reviewLimitDescription"
                         .put(key: "app_name", value: Constants.app_name)
