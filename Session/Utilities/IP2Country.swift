@@ -160,15 +160,16 @@ fileprivate class IP2Country: IP2CountryCacheType {
                         /// We found a separator so create a string from the bytes we just passed
                         let length: Int = (i - (lastIndex - contentData.startIndex))
                         
-                        if length > 0 {
-                            let dataChunk: Data = Data(
-                                bytes: baseAddress.advanced(by: lastIndex - contentData.startIndex),
-                                count: length
-                            )
-                            
-                            if let stringValue: String = String(data: dataChunk, encoding: .utf8) {
-                                result.append(stringValue)
-                            }
+                        let dataChunk: Data = Data(
+                            bytes: baseAddress.advanced(by: lastIndex - contentData.startIndex),
+                            count: length
+                        )
+                        
+                        if let stringValue: String = String(data: dataChunk, encoding: .utf8) {
+                            result.append(stringValue)
+                        }
+                        else {
+                            result.append("")   /// Need to insert empty entries as well to ensure the indexes are correct
                         }
                         
                         /// Move past the separator
@@ -214,79 +215,11 @@ fileprivate class IP2Country: IP2CountryCacheType {
     
     init(using dependencies: Dependencies) {
         /// Ensure the lookup tables get loaded in the background
-        DispatchQueue.global(qos: .utility).async { [weak self] in
+        Task.detached(priority: .utility) { [weak self] in
             _ = self?.cache
-            
-            /// Then register for path change callbacks which will be used to update the country name cache
-            self?.registerNetworkObservables(using: dependencies)
+            self?._cacheLoaded.send(true)
+            Log.info(.ip2Country, "IP2Country cache loaded.")
         }
-    }
-    
-    // MARK: - Functions
-    
-    private func registerNetworkObservables(using dependencies: Dependencies) {
-        /// Register for path change callbacks which will be used to update the country name cache
-        dependencies[cache: .libSessionNetwork].paths
-            .subscribe(on: DispatchQueue.global(qos: .utility), using: dependencies)
-            .receive(on: DispatchQueue.global(qos: .utility), using: dependencies)
-            .sink(
-                receiveCompletion: { [weak self] _ in
-                    /// If the stream completes it means the network cache was reset in which case we want to
-                    /// re-register for updates in the next run loop (as the new cache should be created by then)
-                    DispatchQueue.global(qos: .background).async {
-                        self?.registerNetworkObservables(using: dependencies)
-                    }
-                },
-                receiveValue: { [weak self] paths in
-                    dependencies.mutate(cache: .ip2Country) { _ in
-                        self?.populateCacheIfNeeded(paths: paths)
-                    }
-                }
-            )
-            .store(in: &disposables)
-    }
-
-    private func populateCacheIfNeeded(paths: [[LibSession.Snode]]) {
-        guard !paths.isEmpty else { return }
-        
-        paths.forEach { path in
-            path.forEach { snode in
-                self.cacheCountry(for: snode.ip, inCache: &countryNamesCache)
-            }
-        }
-        
-        self._cacheLoaded.send(true)
-        Log.info(.ip2Country, "Update onion request path countries.")
-    }
-    
-    private func cacheCountry(for ip: String, inCache nameCache: inout [String: String]) {
-        let currentLocale: String = self.currentLocale  // Store local copy for efficiency
-        
-        guard nameCache["\(ip)-\(currentLocale)"] == nil else { return }
-        
-        /// Code block checks if IP passed is unknown, not supported or blocked
-        guard
-            let ipAsInt: Int64 = IPv4.toInt(ip),
-            let countryBlockGeonameIdIndex: Int = cache.countryBlocksIPInt.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 })
-        else { return }
-        
-        /// Get local index for the current locale
-        /// When index is not found it should fallback to english
-        var validLocaleStartIndex: Int? {
-            cache.countryLocationsLocaleCode.firstIndex(of: currentLocale)
-            ?? cache.countryLocationsLocaleCode.firstIndex(of: "en")
-        }
-
-        guard
-            let localeStartIndex: Int = validLocaleStartIndex,
-            let countryNameIndex: Int = Array(cache.countryLocationsGeonameId[localeStartIndex...]).firstIndex(where: { geonameId in
-                geonameId == cache.countryBlocksGeonameId[countryBlockGeonameIdIndex]
-            }),
-            (localeStartIndex + countryNameIndex) < cache.countryLocationsCountryName.count
-        else { return }
-        
-        let result: String = cache.countryLocationsCountryName[localeStartIndex + countryNameIndex]
-        nameCache["\(ip)-\(currentLocale)"] = result
     }
     
     // MARK: - Functions
@@ -294,7 +227,31 @@ fileprivate class IP2Country: IP2CountryCacheType {
     public func country(for ip: String) -> String {
         guard _cacheLoaded.value else { return "resolving".localized() }
         
-        return (countryNamesCache["\(ip)-\(currentLocale)"] ?? "onionRoutingPathUnknownCountry".localized())
+        /// Get local index for the current locale (when index is not found it should fallback to english)
+        let validLocaleStartIndex: Int? = (
+            cache.countryLocationsLocaleCode.firstIndex(of: currentLocale) ??
+            cache.countryLocationsLocaleCode.firstIndex(of: "en")
+        )
+        let key: String = "\(ip)-\(currentLocale)"
+        
+        switch countryNamesCache[key] {
+            case .some(let value): return value
+            case .none:
+                guard
+                    let ipAsInt: Int64 = IPv4.toInt(ip),
+                    let countryBlockGeonameIdIndex: Int = cache.countryBlocksIPInt.firstIndex(where: { $0 > ipAsInt }).map({ $0 - 1 }),
+                    let localeStartIndex: Int = validLocaleStartIndex,
+                    let countryNameIndex: Int = Array(cache.countryLocationsGeonameId[localeStartIndex...]).firstIndex(where: { geonameId in
+                        geonameId == cache.countryBlocksGeonameId[countryBlockGeonameIdIndex]
+                    }),
+                    (localeStartIndex + countryNameIndex) < cache.countryLocationsCountryName.count
+                else { return "onionRoutingPathUnknownCountry".localized() }
+                
+                let result: String = cache.countryLocationsCountryName[localeStartIndex + countryNameIndex]
+                countryNamesCache[key] = result
+                
+                return result
+        }
     }
 }
 
