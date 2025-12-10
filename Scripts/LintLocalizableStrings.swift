@@ -826,7 +826,7 @@ extension ProjectState {
                     }
                         
                 case .some(let state):
-                    let trimmedLine: String = targetLine.trimmingCharacters(in: CharacterSet(charactersIn: ","))
+                    let trimmedLine: String = targetLine.trimmingCharacters(in: CharacterSet(charactersIn: ", :"))
                     let localizedMatch = trimmedLine.firstMatch(of: Regex.localizedFunctionCall)
                     let lineEndsInLocalized: Bool? = localizedMatch.map { match in
                         let matchString: String = String(trimmedLine[match.range])

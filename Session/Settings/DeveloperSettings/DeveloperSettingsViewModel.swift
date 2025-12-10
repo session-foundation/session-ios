@@ -843,6 +843,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        
         let sessionNetwork: SectionModel = SectionModel(
             model: .sessionNetwork,
             elements: [
@@ -2152,3 +2153,12 @@ extension Network.PushNotification.Service: Listable {}
 extension Log.Level: @retroactive ContentIdentifiable {}
 extension Log.Level: @retroactive ContentEquatable {}
 extension Log.Level: Listable {}
+extension SessionProStateMock: @retroactive ContentIdentifiable {}
+extension SessionProStateMock: @retroactive ContentEquatable {}
+extension SessionProStateMock: Listable {}
+extension SessionProLoadingState: @retroactive ContentIdentifiable {}
+extension SessionProLoadingState: @retroactive ContentEquatable {}
+extension SessionProLoadingState: Listable {}
+extension SessionProStateExpiryMock: @retroactive ContentIdentifiable {}
+extension SessionProStateExpiryMock: @retroactive ContentEquatable {}
+extension SessionProStateExpiryMock: Listable {}

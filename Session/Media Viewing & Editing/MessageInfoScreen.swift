@@ -25,7 +25,7 @@ struct MessageInfoScreen: View {
     let isCurrentUser: Bool
     let profileInfo: ProfilePictureView.Info?
     var proFeatures: [String] = []
-    var proCTAVariant: ProCTAModal.Variant = .generic
+    var proCTAVariant: ProCTAModal.Variant = .generic(renew: false)
     
     public init(
         actions: [ContextMenuVC.Action],
@@ -306,7 +306,19 @@ struct MessageInfoScreen: View {
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
                                     .onTapGesture {
-                                        showSessionProCTAIfNeeded()
+                                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                            proCTAVariant,
+                                            onConfirm: {
+                                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                                    presenting: { bottomSheet in
+                                                        self.host.controller?.present(bottomSheet, animated: true)
+                                                    }
+                                                )
+                                            },
+                                            presenting: { modal in
+                                                self.host.controller?.present(modal, animated: true)
+                                            }
+                                        )
                                     }
                                     
                                     Text(
@@ -362,6 +374,7 @@ struct MessageInfoScreen: View {
                                     spacing: 10
                                 ) {
                                     let size: ProfilePictureView.Info.Size = .list
+                                    
                                     if let info: ProfilePictureView.Info = self.profileInfo {
                                         ProfilePictureSwiftUI(
                                             size: size,
@@ -395,7 +408,19 @@ struct MessageInfoScreen: View {
                                             if (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: messageViewModel.authorId)}) {
                                                 SessionProBadge_SwiftUI(size: .small)
                                                     .onTapGesture {
-                                                        showSessionProCTAIfNeeded()
+                                                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                                            proCTAVariant,
+                                                            onConfirm: {
+                                                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                                                    presenting: { bottomSheet in
+                                                                        self.host.controller?.present(bottomSheet, animated: true)
+                                                                    }
+                                                                )
+                                                            },
+                                                            presenting: { modal in
+                                                                self.host.controller?.present(modal, animated: true)
+                                                            }
+                                                        )
                                                     }
                                             }
                                         }
@@ -467,6 +492,7 @@ struct MessageInfoScreen: View {
                                                 Image(uiImage: actions[index].icon!.withRenderingMode(.alwaysTemplate))
                                                     .resizable()
                                                     .scaledToFit()
+                                                    .scaleEffect(x: (actions[index].flipIconForRTL ? -1 : 1), y: 1)
                                                     .foregroundColor(themeColor: tintColor)
                                                     .frame(width: 26, height: 26)
                                                 Text(actions[index].title)
@@ -507,7 +533,7 @@ struct MessageInfoScreen: View {
     
     private func getProFeaturesInfo() -> (proFeatures: [String], proCTAVariant: ProCTAModal.Variant) {
         var proFeatures: [String] = []
-        var proCTAVariant: ProCTAModal.Variant = .generic
+        var proCTAVariant: ProCTAModal.Variant = .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
         
         guard dependencies[feature: .sessionProEnabled] else { return (proFeatures, proCTAVariant) }
         
@@ -521,7 +547,11 @@ struct MessageInfoScreen: View {
             dependencies[feature: .messageFeatureLongMessage]
         ) {
             proFeatures.append("proIncreasedMessageLengthFeature".localized())
-            proCTAVariant = (proFeatures.count > 1 ? .generic : .longerMessages)
+            proCTAVariant = (
+                proFeatures.count > 1 ?
+                    .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired) :
+                    .longerMessages(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
+            )
         }
         
         if (
@@ -529,27 +559,17 @@ struct MessageInfoScreen: View {
             dependencies[feature: .messageFeatureAnimatedAvatar]
         ) {
             proFeatures.append("proAnimatedDisplayPictureFeature".localized())
-            proCTAVariant = (proFeatures.count > 1 ? .generic : .animatedProfileImage(isSessionProActivated: false))
+            proCTAVariant = (
+                proFeatures.count > 1 ?
+                    .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired) :
+                    .animatedProfileImage(
+                        isSessionProActivated: false,
+                        renew: dependencies[singleton: .sessionProState].isSessionProExpired
+                    )
+            )
         }
         
         return (proFeatures, proCTAVariant)
-    }
-    
-    private func showSessionProCTAIfNeeded() {
-        guard dependencies[feature: .sessionProEnabled] && (!dependencies[cache: .libSession].isSessionPro) else {
-            return
-        }
-        
-        DispatchQueue.main.async {
-            let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-                modal: ProCTAModal(
-                    delegate: dependencies[singleton: .sessionProState],
-                    variant: proCTAVariant,
-                    dataManager: dependencies[singleton: .imageDataManager]
-                )
-            )
-            self.host.controller?.present(sessionProModal, animated: true)
-        }
     }
     
     func showUserProfileModal() {
@@ -639,7 +659,21 @@ struct MessageInfoScreen: View {
                         isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
                         isMessageRequestsEnabled: isMessasgeRequestsEnabled,
                         onStartThread: self.onStartThread,
-                        onProBadgeTapped: self.showSessionProCTAIfNeeded
+                        onProBadgeTapped: {
+                            dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                proCTAVariant,
+                                onConfirm: {
+                                    dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                        presenting: { bottomSheet in
+                                            self.host.controller?.present(bottomSheet, animated: true)
+                                        }
+                                    )
+                                },
+                                presenting: { modal in
+                                    self.host.controller?.present(modal, animated: true)
+                                }
+                            )
+                        }
                     ),
                     dataManager: dependencies[singleton: .imageDataManager]
                 )

@@ -3,9 +3,25 @@
 import SwiftUI
 
 public extension View {
-    func foregroundColor(themeColor: ThemeValue) -> some View {
-        return ThemeColorResolver(themeValue: themeColor) { color in
-            self.foregroundColor(color)
+    @ViewBuilder
+    func foregroundColor(themeColor: ThemeValue?) -> some View {
+        if let themeColor {
+            ThemeColorResolver(themeValue: themeColor) { color in
+                self.foregroundColor(color)
+            }
+        } else {
+            self
+        }
+    }
+    
+    @ViewBuilder
+    func tint(themeColor: ThemeValue?) -> some View {
+        if let themeColor {
+            ThemeColorResolver(themeValue: themeColor) { color in
+                self.tint(color)
+            }
+        } else {
+            self
         }
     }
     

@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import Combine
+import SessionUtilitiesKit
 
 public class BaseVC: UIViewController {
     private var disposables: Set<AnyCancellable> = Set()
@@ -94,20 +95,30 @@ public class BaseVC: UIViewController {
         headingImageView.set(.height, to: Values.mediumFontSize)
         
         let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
-        sessionProBadge.isHidden = !currentUserSessionProState.isSessionProSubject.value
+        let isPro: Bool = {
+            switch currentUserSessionProState.sessionProStateSubject.value {
+                case .active, .refunding : return true
+                case .none, .expired: return false
+            }
+        }()
+        sessionProBadge.isHidden = !isPro
         
-        let stackView: UIStackView = UIStackView(
-            arrangedSubviews: MainAppContext.determineDeviceRTL() ? [ sessionProBadge, headingImageView ] : [ headingImageView, sessionProBadge ]
-        )
+        let stackView: UIStackView = UIStackView(arrangedSubviews: [ headingImageView, sessionProBadge ])
         stackView.axis = .horizontal
         stackView.alignment = .center
         stackView.spacing = 0
         
-        currentUserSessionProState.isSessionProPublisher
+        currentUserSessionProState.sessionProStatePublisher
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveValue: { [weak sessionProBadge] isPro in
+                receiveValue: { [weak sessionProBadge] sessionProPlanState in
+                    let isPro: Bool = {
+                        switch sessionProPlanState {
+                            case .active, .refunding : return true
+                            case .none, .expired: return false
+                        }
+                    }()
                     sessionProBadge?.isHidden = !isPro
                 }
             )

@@ -1,7 +1,6 @@
 // Copyright © 2024 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
-import SessionUIKit
 
 open class OWSViewController: UIViewController {
     public var shouldUseTheme: Bool = true

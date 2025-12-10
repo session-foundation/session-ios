@@ -1,4 +1,4 @@
-// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 

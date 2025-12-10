@@ -12,7 +12,7 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
     let shadowRadius: CGFloat = 10
     let shadowOpacity: Double = 0.4
 
-    @State private var show: Bool = true
+    @State private var show: Bool = false
 
     public var body: some View {
         ZStack {
@@ -23,33 +23,38 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                 .ignoresSafeArea()
                 .onTapGesture { close() }
             
-            // Modal
-            VStack {
-                Spacer()
-                
-                VStack(spacing: 0) {
-                    content { internalAfterClosed in
-                        close(internalAfterClosed)
+            if show {
+                // Modal
+                VStack {
+                    Spacer()
+                    
+                    VStack(spacing: 0) {
+                        content { internalAfterClosed in
+                            close(internalAfterClosed)
+                        }
                     }
+                    .backgroundColor(themeColor: .alert_background)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .shadow(color: Color.black.opacity(shadowOpacity), radius: shadowRadius)
+                    .frame(
+                        maxWidth: UIDevice.current.isIPad ? Values.iPadModalWidth : .infinity
+                    )
+                    .padding(.horizontal, UIDevice.current.isIPad ? 0 : Values.veryLargeSpacing)
+                    
+                    Spacer()
                 }
-                .backgroundColor(themeColor: .alert_background)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                .shadow(color: Color.black.opacity(shadowOpacity), radius: shadowRadius)
-                .frame(
-                    maxWidth: UIDevice.current.isIPad ? Values.iPadModalWidth : .infinity
-                )
-                .padding(.horizontal, UIDevice.current.isIPad ? 0 : Values.veryLargeSpacing)
-                
-                Spacer()
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(.spring(), value: show)
-            
         }
         .frame(
             maxWidth: .infinity,
             maxHeight: .infinity
         )
+        .onAppear {
+            withAnimation {
+                show.toggle()
+            }
+        }
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .global)
                 .onEnded { value in
@@ -73,6 +78,10 @@ public struct Modal_SwiftUI<Content>: View where Content: View {
                 while targetViewController?.presentingViewController is ModalHostIdentifiable {
                     targetViewController = targetViewController?.presentingViewController
                 }
+        }
+        
+        withAnimation {
+            show.toggle()
         }
         
         targetViewController?.presentingViewController?.dismiss(

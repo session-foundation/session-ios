@@ -21,15 +21,6 @@ public enum PublisherError: Error, CustomStringConvertible {
 }
 
 public extension Publisher {
-    /// Provides a subject that shares a single subscription to the upstream publisher and replays at most
-    /// `bufferSize` items emitted by that publisher
-    /// - Parameter bufferSize: limits the number of items that can be replayed
-    func shareReplay(_ bufferSize: Int) -> AnyPublisher<Output, Failure> {
-        return multicast(subject: ReplaySubject(bufferSize))
-            .autoconnect()
-            .eraseToAnyPublisher()
-    }
-    
     func sink(into subject: PassthroughSubject<Output, Failure>, includeCompletions: Bool = false) -> AnyCancellable {
         return sink(
             receiveCompletion: { completion in
@@ -185,17 +176,6 @@ public extension Publisher {
                 },
                 receiveValue: (receiveValue ?? { _ in })
             )
-    }
-}
-
-public extension Publisher {
-    /// Converts the publisher to output a Result instead of throwing an error, can be used to ensure a subscription never
-    /// closes due to a failure
-    func asResult() -> AnyPublisher<Result<Output, Failure>, Never> {
-        self
-            .map { Result<Output, Failure>.success($0) }
-            .catch { Just(Result<Output, Failure>.failure($0)).eraseToAnyPublisher() }
-            .eraseToAnyPublisher()
     }
 }
 

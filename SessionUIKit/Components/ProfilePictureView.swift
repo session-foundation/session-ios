@@ -4,14 +4,13 @@ import UIKit
 import Combine
 import Lucide
 
+public protocol ProfilePictureAnimationManagerType: AnyObject {
+    var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never> { get }
+    var shouldAnimateImagePublisher: AnyPublisher<Bool, Never> { get }
+}
+
 public final class ProfilePictureView: UIView {
     public struct Info {
-        public enum AnimationBehaviour {
-            case generic(Bool) // For communities and when Pro is not enabled
-            case contact(Bool)
-            case currentUser(SessionProManagerType)
-        }
-        
         public enum Size {
             case navigation
             case message
@@ -42,9 +41,10 @@ public final class ProfilePictureView: UIView {
             
             public var multiImageSize: CGFloat {
                 switch self {
-                    case .navigation, .message, .modal: return 18  // Shouldn't be used
+                    case .navigation, .message: return 18  // Shouldn't be used
                     case .list: return 32
                     case .hero: return 80
+                    case .modal: return 90
                     case .expanded: return 140
                 }
             }
@@ -89,7 +89,7 @@ public final class ProfilePictureView: UIView {
         
         // TODO: [PRO] Should be able to remove the "public" once `MessageInfoScreen.getProFeaturesInfo()` has been updated
         public let source: ImageDataManager.DataSource?
-        let animationBehaviour: AnimationBehaviour
+        let canAnimate: Bool
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
         let inset: UIEdgeInsets
@@ -100,7 +100,7 @@ public final class ProfilePictureView: UIView {
         
         public init(
             source: ImageDataManager.DataSource?,
-            animationBehaviour: AnimationBehaviour,
+            canAnimate: Bool,
             renderingMode: UIImage.RenderingMode? = nil,
             themeTintColor: ThemeValue? = nil,
             inset: UIEdgeInsets = .zero,
@@ -110,7 +110,7 @@ public final class ProfilePictureView: UIView {
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
             self.source = source
-            self.animationBehaviour = animationBehaviour
+            self.canAnimate = canAnimate
             self.renderingMode = renderingMode
             self.themeTintColor = themeTintColor
             self.inset = inset
@@ -122,7 +122,6 @@ public final class ProfilePictureView: UIView {
     }
     
     private var dataManager: ImageDataManagerType?
-    private var disposables: Set<AnyCancellable> = Set()
     public var size: Info.Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)
@@ -479,9 +478,6 @@ public final class ProfilePictureView: UIView {
     // MARK: - Content
     
     private func prepareForReuse() {
-        /// Reset the disposables in case this was called with different data/
-        disposables = Set()
-        
         imageView.image = nil
         imageView.shouldAnimateImage = false
         imageContainerView.themeBackgroundColor = .backgroundSecondary
@@ -534,6 +530,7 @@ public final class ProfilePictureView: UIView {
             default: imageView.image = nil
         }
         
+        imageView.shouldAnimateImage = info.canAnimate
         imageView.themeTintColor = info.themeTintColor
         imageView.layer.contentsRect = contentsRect(for: info.source, cropRect: info.cropRect)
         imageContainerView.themeBackgroundColor = info.backgroundColor
@@ -548,9 +545,6 @@ public final class ProfilePictureView: UIView {
                 default: break
             }
         }
-        
-        // Apply crop transform if needed
-        startAnimationIfNeeded(for: info, with: imageView)
         
         // Check if there is a second image (if not then set the size and finish)
         guard let additionalInfo: Info = additionalInfo else {
@@ -587,6 +581,7 @@ public final class ProfilePictureView: UIView {
                 additionalImageContainerView.isHidden = true
         }
         
+        additionalImageView.shouldAnimateImage = additionalInfo.canAnimate
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
         additionalImageView.layer.contentsRect = contentsRect(for: additionalInfo.source, cropRect: additionalInfo.cropRect)
         
@@ -605,8 +600,6 @@ public final class ProfilePictureView: UIView {
                 default: break
             }
         }
-        
-        startAnimationIfNeeded(for: additionalInfo, with: additionalImageView)
         
         imageViewTopConstraint.isActive = true
         imageViewLeadingConstraint.isActive = true
@@ -688,25 +681,6 @@ public final class ProfilePictureView: UIView {
                 )
             
             @unknown default: return cropRect
-        }
-    }
-    
-    private func startAnimationIfNeeded(for info: Info, with targetImageView: SessionImageView) {
-        switch info.animationBehaviour {
-            case .generic(let enableAnimation), .contact(let enableAnimation):
-                targetImageView.shouldAnimateImage = enableAnimation
-
-            case .currentUser(let currentUserSessionProState):
-                targetImageView.shouldAnimateImage = currentUserSessionProState.isSessionProSubject.value
-                currentUserSessionProState.isSessionProPublisher
-                    .subscribe(on: DispatchQueue.main)
-                    .receive(on: DispatchQueue.main)
-                    .sink(
-                        receiveValue: { [weak targetImageView] isPro in
-                            targetImageView?.shouldAnimateImage = isPro
-                        }
-                    )
-                    .store(in: &disposables)
         }
     }
     

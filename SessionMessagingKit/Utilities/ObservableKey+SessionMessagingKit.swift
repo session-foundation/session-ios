@@ -11,6 +11,8 @@ public extension ObservableKey {
     static func setting(_ key: Setting.BoolKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
     static func setting(_ key: Setting.EnumKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
     
+    static func setting(_ key: KeyValueStore.IntKey) -> ObservableKey { ObservableKey(key.rawValue, .setting) }
+    
     static func loadPage(_ screenType: Any.Type) -> ObservableKey {
         ObservableKey("loadPage-\(screenType)", .loadPage)
     }
@@ -45,6 +47,7 @@ public extension ObservableKey {
     // MARK: - Conversations
     
     static let conversationCreated: ObservableKey = "conversationCreated"
+    static let anyConversationPinnedPriorityChanged: ObservableKey = "anyConversationPinnedPriorityChanged"
     static func conversationUpdated(_ id: String) -> ObservableKey {
         ObservableKey("conversationUpdated-\(id)", .conversationUpdated)
     }
@@ -239,7 +242,11 @@ public extension ObservingDatabase {
         
         switch type {
             case .created: addEvent(ObservedEvent(key: .conversationCreated, value: event))
-            case .updated: addEvent(ObservedEvent(key: .conversationUpdated(id), value: event))
+            case .updated:
+                addEvent(ObservedEvent(key: .conversationUpdated(id), value: event))
+                if case .pinnedPriority = type.change {
+                    addEvent(ObservedEvent(key: .anyConversationPinnedPriorityChanged, value: event))
+                }
             case .deleted: addEvent(ObservedEvent(key: .conversationDeleted(id), value: event))
         }
     }

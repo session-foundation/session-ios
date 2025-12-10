@@ -26,23 +26,8 @@ public extension SessionProBadge {
         return (
             .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
             accessibilityLabel: SessionProBadge.accessibilityLabel,
-            { SessionProBadge(size: size) }
+            { SessionProBadge(size: size, themeBackgroundColor: themeBackgroundColor) }
         )
-    }
-    
-    func toImage(using dependencies: Dependencies) -> UIImage {
-        let themePrimaryColor: Theme.PrimaryColor = dependencies
-            .mutate(cache: .libSession) { $0.get(.themePrimaryColor) }
-            .defaulting(to: .defaultPrimaryColor)
-        let cacheKey: String = "\(self.size.cacheKey).\(themePrimaryColor)" // stringlint:ignore
-        
-        if let cachedImage = dependencies[cache: .generalUI].get(for: cacheKey) {
-            return cachedImage
-        }
-        
-        let renderedImage = self.toImage(isOpaque: self.isOpaque, scale: UIScreen.main.scale)
-        dependencies.mutate(cache: .generalUI) { $0.cache(renderedImage, for: cacheKey) }
-        return renderedImage
     }
 }
 

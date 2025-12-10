@@ -1,0 +1,107 @@
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+
+import SwiftUI
+import Lucide
+
+public struct SessionProPlanUpdatedScreen: View {
+    @EnvironmentObject var host: HostWrapper
+    let flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow
+    let expiredOn: Date?
+    let isFromBottomSheet: Bool
+    var blurSizeWidth: CGFloat { UIScreen.main.bounds.width - 2 * Values.mediumSpacing }
+    var blurSizeHeight: CGFloat { isFromBottomSheet ? 111 : blurSizeWidth }
+    var dismissButtonTitle: String {
+        switch flow {
+            case .purchase, .renew:
+                "proStartUsing".put(key: "pro", value: Constants.pro).localized()
+            case .update:
+                "theReturn".localized()
+            default: 
+                ""
+        }
+    }
+    var desription: ThemedAttributedString {
+        switch flow {
+            case .update:
+                guard let expiredOn else { fallthrough }
+                return "proAllSetDescription"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "pro", value: Constants.pro)
+                    .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                    .localizedFormatted(Fonts.Body.baseRegular)
+            case .renew:
+                return "proPlanRenewSupport"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "network_name", value: Constants.network_name)
+                    .localizedFormatted(Fonts.Body.baseRegular)
+            case .purchase:
+                return "proUpgraded"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "network_name", value: Constants.network_name)
+                    .localizedFormatted(Fonts.Body.baseRegular)
+            default: fatalError("Unexpected case \(flow)")
+        }
+    }
+    
+    public var body: some View {
+        ZStack(alignment: .top) {
+            Ellipse()
+                .fill(themeColor: .settings_glowingBackground)
+                .frame(width: blurSizeWidth, height: blurSizeHeight)
+                .shadow(radius: 20)
+                .opacity(0.15)
+                .blur(radius: 30)
+            
+            VStack(spacing: Values.mediumSpacing) {
+                Image("SessionGreen64")
+                    .resizable()
+                    .renderingMode(.template)
+                    .foregroundColor(themeColor: .primary)
+                    .scaledToFit()
+                    .frame(width: 100, height: 111)
+                
+                HStack(spacing: Values.smallSpacing) {
+                    Image("SessionHeading")
+                        .resizable()
+                        .renderingMode(.template)
+                        .foregroundColor(themeColor: .textPrimary)
+                        .scaledToFit()
+                        .frame(width: 180, height: 24)
+                    
+                    SessionProBadge_SwiftUI(size: .large)
+                }
+                .padding(.bottom, Values.smallSpacing)
+                
+                Text("proAllSet".localized())
+                    .font(.Headings.H6)
+                    .foregroundColor(themeColor: .textPrimary)
+                
+                AttributedText(desription)
+                    .font(.Body.baseRegular)
+                    .foregroundColor(themeColor: .textPrimary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Values.mediumSpacing)
+                
+                Button {
+                    self.host.controller?.dismiss(animated: true)
+                } label: {
+                    Text(dismissButtonTitle)
+                        .font(.Body.largeRegular)
+                        .foregroundColor(themeColor: .sessionButton_primaryFilledText)
+                        .framing(
+                            maxWidth: .infinity,
+                            height: 50,
+                            alignment: .center
+                        )
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(themeColor: .sessionButton_primaryFilledBackground)
+                        )
+                }
+                .padding(.vertical, Values.smallSpacing)
+            }
+            .padding(.horizontal, Values.mediumSpacing)
+            .padding(.vertical, (blurSizeHeight - 111) / 2)
+        }
+    }
+}
