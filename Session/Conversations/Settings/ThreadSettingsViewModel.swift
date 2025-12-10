@@ -355,12 +355,15 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: viewModel.threadId) }) else { return nil }
                                 
                                 return {
-                                    UIView.image(
-                                        for: .themedKey(
-                                            SessionProBadge.Size.medium.cacheKey,
-                                            themeBackgroundColor: .primary
+                                    (
+                                        UIView.image(
+                                            for: .themedKey(
+                                                SessionProBadge.Size.medium.cacheKey,
+                                                themeBackgroundColor: .primary
+                                            ),
+                                            generator: { SessionProBadge(size: .medium) }
                                         ),
-                                        generator: { SessionProBadge(size: .medium) }
+                                        SessionProBadge.accessibilityLabel
                                     )
                                 }
                             }(),

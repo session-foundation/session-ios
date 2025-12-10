@@ -17,7 +17,7 @@ public extension SessionProBadge.Size{
 }
 
 public extension SessionProBadge {
-    fileprivate static let accessibilityLabel: String = Constants.app_pro
+    static let accessibilityLabel: String = Constants.app_pro
     
     static func trailingImage(
         size: SessionProBadge.Size,

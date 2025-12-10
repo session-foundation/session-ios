@@ -11,7 +11,7 @@ public struct ListItemTappableText: View {
         let font: UIFont
         let themeForegroundColor: ThemeValue
         let imageAttachmentPosition: SessionListScreenContent.TextInfo.InlineImagePosition?
-        let imageAttachmentGenerator: (() -> UIImage?)?
+        let imageAttachmentGenerator: (() -> (UIImage, String?)?)?
         let onTextTap: (@MainActor() -> Void)?
         let onImageTap: (@MainActor() -> Void)?
         
@@ -20,7 +20,7 @@ public struct ListItemTappableText: View {
             font: UIFont,
             themeForegroundColor: ThemeValue = .textPrimary,
             imageAttachmentPosition: SessionListScreenContent.TextInfo.InlineImagePosition? = nil,
-            imageAttachmentGenerator: (() -> UIImage?)? = nil,
+            imageAttachmentGenerator: (() -> (UIImage, String?)?)? = nil,
             onTextTap: (@MainActor() -> Void)? = nil,
             onImageTap: (@MainActor() -> Void)? = nil
         ) {
