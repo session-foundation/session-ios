@@ -1052,7 +1052,8 @@ public extension SessionThreadViewModel {
         
         return SQL("""
             (IFNULL(\(thread[.pinnedPriority]), 0) > 0) DESC,
-            IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) DESC
+            IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) DESC,
+            \(thread[.id]) DESC
         """)
     }()
     
@@ -1060,7 +1061,10 @@ public extension SessionThreadViewModel {
         let thread: TypedTableAlias<SessionThread> = TypedTableAlias()
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         
-        return SQL("IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) DESC")
+        return SQL("""
+            IFNULL(\(interaction[.timestampMs]), (\(thread[.creationDateTimestamp]) * 1000)) DESC,
+            \(thread[.id]) DESC
+        """)
     }()
 }
 
