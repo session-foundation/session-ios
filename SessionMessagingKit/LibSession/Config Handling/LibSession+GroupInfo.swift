@@ -132,12 +132,17 @@ internal extension LibSessionCacheType {
         
         // Emit events
         if existingGroup?.name != groupName {
-            db.addConversationEvent(id: groupSessionId.hexString, type: .updated(.displayName(groupName)))
+            db.addConversationEvent(
+                id: groupSessionId.hexString,
+                variant: .group,
+                type: .updated(.displayName(groupName))
+            )
         }
         
         if existingGroup?.groupDescription == groupDesc {
             db.addConversationEvent(
                 id: groupSessionId.hexString,
+                variant: .group,
                 type: .updated(.description(groupDesc))
             )
         }
@@ -283,7 +288,6 @@ internal extension LibSessionCacheType {
         // send a fire-and-forget API call to delete the messages from the swarm
         if isAdmin && !messageHashesToDelete.isEmpty {
             (try? Authentication.with(
-                db,
                 swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
             )).map { authMethod in
@@ -355,12 +359,17 @@ internal extension LibSession {
                     groups_info_set_description(conf, &cGroupDesc)
                     
                     if currentGroupName != group.name {
-                        db.addConversationEvent(id: group.threadId, type: .updated(.displayName(group.name)))
+                        db.addConversationEvent(
+                            id: group.threadId,
+                            variant: .group,
+                            type: .updated(.displayName(group.name))
+                        )
                     }
                     
                     if currentGroupDesc != group.groupDescription {
                         db.addConversationEvent(
                             id: group.threadId,
+                            variant: .group,
                             type: .updated(.description(group.groupDescription))
                         )
                     }

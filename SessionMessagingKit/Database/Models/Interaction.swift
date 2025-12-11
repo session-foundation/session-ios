@@ -590,7 +590,11 @@ public extension Interaction {
             _ = try Interaction
                 .filter(id: interactionId)
                 .updateAll(db, Columns.wasRead.set(to: true))
-            db.addConversationEvent(id: threadId, type: .updated(.unreadCount))
+            db.addConversationEvent(
+                id: threadId,
+                variant: threadVariant,
+                type: .updated(.unreadCount)
+            )
             
             /// Need to trigger an unread message request count update as well
             if dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: threadId, threadVariant: threadVariant) }) {
@@ -649,7 +653,11 @@ public extension Interaction {
         interactionInfoToMarkAsRead.forEach { info in
             db.addMessageEvent(id: info.id, threadId: threadId, type: .updated(.wasRead(true)))
         }
-        db.addConversationEvent(id: threadId, type: .updated(.unreadCount))
+        db.addConversationEvent(
+            id: threadId,
+            variant: threadVariant,
+            type: .updated(.unreadCount)
+        )
         
         /// Need to trigger an unread message request count update as well
         if dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: threadId, threadVariant: threadVariant) }) {
@@ -1068,62 +1076,7 @@ public extension Interaction {
         }
     }
     
-    /// Use the `Interaction.previewText` method directly where possible rather than this one to avoid database queries
-    static func notificationPreviewText(
-        _ db: ObservingDatabase,
-        interaction: Interaction,
-        using dependencies: Dependencies
-    ) -> String {
-        switch interaction.variant {
-            case .standardIncoming, .standardOutgoing:
-                return Interaction.previewText(
-                    variant: interaction.variant,
-                    body: interaction.body,
-                    attachmentDescriptionInfo: try? Interaction.attachmentDescription(
-                        db,
-                        interactionId: interaction.id
-                    ),
-                    attachmentCount: try? {
-                        guard let interactionId = interaction.id else { return 0 }
-                        
-                        return try InteractionAttachment
-                            .filter(InteractionAttachment.Columns.interactionId == interactionId)
-                            .fetchCount(db)
-                    }(),
-                    isOpenGroupInvitation: {
-                        guard
-                            let request: SQLRequest<LinkPreview> = Interaction.linkPreview(
-                                url: interaction.linkPreviewUrl,
-                                timestampMs: interaction.timestampMs,
-                                variants: [.openGroupInvitation]
-                            ),
-                            let count: Int = try? request.fetchCount(db)
-                        else { return false }
-                        
-                        return (count > 0)
-                    }(),
-                    using: dependencies
-                )
-
-            case .infoMediaSavedNotification, .infoScreenshotNotification, .infoCall:
-                // Note: These should only occur in 'contact' threads so the `threadId`
-                // is the contact id
-                return Interaction.previewText(
-                    variant: interaction.variant,
-                    body: interaction.body,
-                    authorDisplayName: Profile.displayName(db, id: interaction.threadId),
-                    using: dependencies
-                )
-
-            default: return Interaction.previewText(
-                variant: interaction.variant,
-                body: interaction.body,
-                using: dependencies
-            )
-        }
-    }
-    
-    /// This menthod generates the preview text for a given transaction
+    /// This function generates the preview text for a given interaction to be displayed in notification content or the conversation list
     static func previewText(
         variant: Variant,
         body: String?,
@@ -1131,8 +1084,7 @@ public extension Interaction {
         authorDisplayName: String = "",
         attachmentDescriptionInfo: Attachment.DescriptionInfo? = nil,
         attachmentCount: Int? = nil,
-        isOpenGroupInvitation: Bool = false,
-        using dependencies: Dependencies
+        isOpenGroupInvitation: Bool = false
     ) -> String {
         switch variant {
             case ._legacyStandardIncomingDeleted, .standardIncomingDeleted, .standardIncomingDeletedLocally,

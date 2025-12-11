@@ -245,6 +245,7 @@ final class JoinOpenGroupVC: BaseVC, UIPageViewControllerDataSource, UIPageViewC
                         roomToken: roomToken,
                         server: server,
                         publicKey: publicKey,
+                        joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                         forceVisible: false
                     )
                 }

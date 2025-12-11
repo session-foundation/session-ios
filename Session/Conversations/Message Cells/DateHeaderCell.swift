@@ -46,7 +46,6 @@ final class DateHeaderCell: MessageCell {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
-        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         guard cellViewModel.cellType == .dateHeader else { return }

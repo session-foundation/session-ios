@@ -91,12 +91,14 @@ public enum ConfigurationSyncJob: JobExecutor {
         let additionalTransientData: AdditionalTransientData? = (job.transientData as? AdditionalTransientData)
         Log.info(.cat, "For \(swarmPublicKey) started with changes: \(pendingPushes.pushData.count), old hashes: \(pendingPushes.obsoleteHashes.count)")
         
-        dependencies[singleton: .storage]
-            .readPublisher { db -> AuthenticationMethod in
-                try Authentication.with(db, swarmPublicKey: swarmPublicKey, using: dependencies)
-            }
-            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Network.BatchResponse), Error> in
-                try Network.SnodeAPI.preparedSequence(
+        AnyPublisher
+            .lazy { () -> Network.PreparedRequest<Network.BatchResponse> in
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: swarmPublicKey,
+                    using: dependencies
+                )
+                
+                return try Network.SnodeAPI.preparedSequence(
                     requests: []
                         .appending(contentsOf: additionalTransientData?.beforeSequenceRequests)
                         .appending(
@@ -134,8 +136,9 @@ public enum ConfigurationSyncJob: JobExecutor {
                     snodeRetrievalRetryCount: 0,    // This job has it's own retry mechanism
                     requestAndPathBuildTimeout: Network.defaultTimeout,
                     using: dependencies
-                ).send(using: dependencies)
+                )
             }
+            .flatMap { request in request.send(using: dependencies) }
             .subscribe(on: scheduler, using: dependencies)
             .receive(on: scheduler, using: dependencies)
             .tryMap { (_: ResponseInfoType, response: Network.BatchResponse) -> [ConfigDump] in

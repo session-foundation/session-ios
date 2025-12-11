@@ -149,24 +149,22 @@ public struct QuoteViewModel: Sendable, Equatable, Hashable {
             }
         }()
         
-        self.attributedText = MentionUtilities.highlightMentions(
-            in: text,
-            currentUserSessionIds: currentUserSessionIds,
-            location: {
-                switch (mode, direction) {
-                    case (.draft, _): return .quoteDraft
-                    case (_, .outgoing): return .outgoingQuote
-                    case (_, .incoming): return .incomingQuote
-                }
-            }(),
-            textColor: targetThemeColor,
-            attributes: [
-                .themeForegroundColor: targetThemeColor,
-                .font: UIFont.systemFont(ofSize: Values.smallFontSize)
-            ],
-            displayNameRetriever: displayNameRetriever,
-            currentUserMentionImage: currentUserMentionImage
-        )
+        self.attributedText = text
+            .formatted(
+                baseFont: .systemFont(ofSize: Values.smallFontSize),
+                attributes: [.themeForegroundColor: targetThemeColor],
+                mentionColor: MentionUtilities.mentionColor(
+                    textColor: targetThemeColor,
+                    location: {
+                        switch (mode, direction) {
+                            case (.draft, _): return .quoteDraft
+                            case (_, .outgoing): return .outgoingQuote
+                            case (_, .incoming): return .incomingQuote
+                        }
+                    }()
+                ),
+                currentUserMentionImage: currentUserMentionImage
+            )
     }
     
     public init(showYouAsAuthor: Bool, previewBody: String) {

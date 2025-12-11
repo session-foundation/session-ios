@@ -89,14 +89,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     // MARK: - Initialization
     
     @MainActor init(
-        threadViewModel: SessionThreadViewModel,
+        threadInfo: ConversationInfoViewModel,
         focusedInteractionInfo: Interaction.TimestampInfo? = nil,
         currentUserMentionImage: UIImage,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
         self.state = State.initialState(
-            threadViewModel: threadViewModel,
+            threadInfo: threadInfo,
             focusedInteractionInfo: focusedInteractionInfo,
             currentUserMentionImage: currentUserMentionImage,
             using: dependencies
@@ -136,10 +136,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         
         let viewState: ViewState
-        let threadId: String
-        let threadVariant: SessionThread.Variant
-        let userSessionId: SessionId
-        let currentUserSessionIds: Set<String>
+        let threadInfo: ConversationInfoViewModel
+        let authMethod: EquatableAuthenticationMethod
         let currentUserMentionImage: UIImage
         let isBlindedContact: Bool
         let wasPreviouslyBlindedContact: Bool
@@ -150,56 +148,52 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let initialUnreadInteractionInfo: Interaction.TimestampInfo?
         
         let loadedPageInfo: PagedData.LoadedInfo<MessageViewModel.ID>
-        let profileCache: [String: Profile]
-        var linkPreviewCache: [String: [LinkPreview]]
-        let interactionCache: [Int64: Interaction]
-        let attachmentCache: [String: Attachment]
-        let reactionCache: [Int64: [Reaction]]
-        let quoteMap: [Int64: MessageViewModel.MaybeUnresolvedQuotedInfo]
-        let attachmentMap: [Int64: Set<InteractionAttachment>]
-        let unblindedIdMap: [String: String]
-        let modAdminCache: Set<String>
-        let itemCache: [Int64: MessageViewModel]
+        let dataCache: ConversationDataCache
+        let itemCache: [MessageViewModel.ID: MessageViewModel]
         
         let titleViewModel: ConversationTitleViewModel
-        let threadViewModel: SessionThreadViewModel
-        let threadContact: Contact?
-        let threadIsTrusted: Bool
         let legacyGroupsBannerIsVisible: Bool
         let reactionsSupported: Bool
+        let recentReactionEmoji: [String]
         let isUserModeratorOrAdmin: Bool
         let shouldShowTypingIndicator: Bool
         
         let optimisticallyInsertedMessages: [Int64: OptimisticMessageData]
         
+        // Convenience
+        
+        var threadId: String { threadInfo.id }
+        var threadVariant: SessionThread.Variant { threadInfo.variant }
+        var userSessionId: SessionId { threadInfo.userSessionId }
+        
         var emptyStateText: String {
-            let blocksCommunityMessageRequests: Bool = (threadViewModel.profile?.blocksCommunityMessageRequests == true)
+            let blocksCommunityMessageRequests: Bool = (threadInfo.profile?.blocksCommunityMessageRequests == true)
             
-            switch (threadViewModel.threadIsNoteToSelf, threadViewModel.threadCanWrite == true, blocksCommunityMessageRequests, threadViewModel.wasKickedFromGroup, threadViewModel.groupIsDestroyed) {
+            switch (threadInfo.isNoteToSelf, threadInfo.canWrite, blocksCommunityMessageRequests, threadInfo.groupInfo?.wasKicked, threadInfo.groupInfo?.isDestroyed) {
                 case (true, _, _, _, _): return "noteToSelfEmpty".localized()
                 case (_, false, true, _, _):
                     return "messageRequestsTurnedOff"
-                        .put(key: "name", value: threadViewModel.displayName)
+                        .put(key: "name", value: threadInfo.displayName.deformatted())
                         .localized()
                 
                 case (_, _, _, _, true):
                     return "groupDeletedMemberDescription"
-                        .put(key: "group_name", value: threadViewModel.displayName)
+                        .put(key: "group_name", value: threadInfo.displayName.deformatted())
                         .localized()
                     
                 case (_, _, _, true, _):
                     return "groupRemovedYou"
-                        .put(key: "group_name", value: threadViewModel.displayName)
+                        .put(key: "group_name", value: threadInfo.displayName.deformatted())
                         .localized()
                     
                 case (_, false, false, _, _):
                     return "conversationsEmpty"
-                        .put(key: "conversation_name", value: threadViewModel.displayName)
+                        .put(key: "conversation_name", value: threadInfo.displayName.deformatted())
                         .localized()
                 
                 default:
                     return "groupNoMessages"
-                        .put(key: "group_name", value: threadViewModel.displayName)
+                        .put(key: "group_name", value: threadInfo.displayName.deformatted())
                         .localized()
             }
         }
@@ -207,7 +201,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         var legacyGroupsBannerMessage: ThemedAttributedString {
             let localizationKey: String
             
-            switch threadViewModel.currentUserIsClosedGroupAdmin == true {
+            switch threadInfo.groupInfo?.currentUserRole == .admin {
                 case false: localizationKey = "legacyGroupAfterDeprecationMember"
                 case true: localizationKey = "legacyGroupAfterDeprecationAdmin"
             }
@@ -225,8 +219,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         
         public var messageInputState: InputView.InputState {
-            guard !threadViewModel.threadIsNoteToSelf else { return InputView.InputState(inputs: .all) }
-            guard threadViewModel.threadIsBlocked != true else {
+            guard !threadInfo.isNoteToSelf else { return InputView.InputState(inputs: .all) }
+            guard !threadInfo.isBlocked else {
                 return InputView.InputState(
                     inputs: .disabled,
                     message: "blockBlockedDescription".localized(),
@@ -236,7 +230,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 )
             }
             
-            if threadViewModel.threadVariant == .community && threadViewModel.threadCanWrite == false {
+            if threadInfo.variant == .community && !threadInfo.canWrite {
                 return InputView.InputState(
                     inputs: .disabled,
                     message: "permissionsWriteCommunity".localized()
@@ -246,7 +240,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             /// Attachments shouldn't be allowed for message requests or if uploads are disabled
             let finalInputs: InputView.Input
             
-            switch (threadViewModel.threadRequiresApproval, threadViewModel.threadIsMessageRequest, threadViewModel.threadCanUpload) {
+            switch (threadInfo.requiresApproval, threadInfo.isMessageRequest, threadInfo.canUpload) {
                 case (false, false, true): finalInputs = .all
                 default: finalInputs = [.text, .attachmentsDisabled, .voiceMessagesDisabled]
             }
@@ -262,76 +256,53 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         
         public var observedKeys: Set<ObservableKey> {
             var result: Set<ObservableKey> = [
+                .appLifecycle(.willEnterForeground),
+                .databaseLifecycle(.resumed),
                 .loadPage(ConversationViewModel.self),
                 .updateScreen(ConversationViewModel.self),
-                .conversationUpdated(threadId),
-                .conversationDeleted(threadId),
-                .profile(userSessionId.hexString),
-                .typingIndicator(threadId),
-                .messageCreated(threadId: threadId)
+                .conversationUpdated(threadInfo.id),
+                .conversationDeleted(threadInfo.id),
+                .profile(threadInfo.userSessionId.hexString),
+                .typingIndicator(threadInfo.id),
+                .messageCreated(threadId: threadInfo.id),
+                .recentReactionsUpdated
             ]
             
-            /// Add thread-variant specific events (eg. ensure the display picture and title change when profiles are updated, initial
-            /// data is loaded, etc.)
-            switch threadViewModel.threadVariant {
-                case .contact:
-                    result.insert(.profile(threadViewModel.threadId))
-                    result.insert(.contact(threadViewModel.threadId))
-                    
-                case .group:
-                    if let frontProfileId: String = threadViewModel.closedGroupProfileFront?.id {
-                        result.insert(.profile(frontProfileId))
-                    }
-                    
-                    if let backProfileId: String = threadViewModel.closedGroupProfileBack?.id {
-                        result.insert(.profile(backProfileId))
-                    }
-                    
-                case .community:
-                    result.insert(.communityUpdated(threadId))
-                    result.insert(.anyContactUnblinded)
-                    
-                default: break
+            if SessionId.Prefix.isCommunityBlinded(threadInfo.id) {
+                result.insert(.anyContactUnblinded)
             }
             
-            /// Observe changes to messages
-            interactionCache.keys.forEach { messageId in
-                result.insert(.messageUpdated(id: messageId, threadId: threadId))
-                result.insert(.messageDeleted(id: messageId, threadId: threadId))
-                result.insert(.reactionsChanged(messageId: messageId))
-                result.insert(.attachmentCreated(messageId: messageId))
-                
-                attachmentMap[messageId]?.forEach { interactionAttachment in
-                    result.insert(.attachmentUpdated(id: interactionAttachment.attachmentId, messageId: messageId))
-                    result.insert(.attachmentDeleted(id: interactionAttachment.attachmentId, messageId: messageId))
-                }
-            }
-            
-            /// Observe changes to profile data
-            profileCache.forEach { profileId, _ in
-                result.insert(.profile(profileId))
-            }
+            result.insert(contentsOf: threadInfo.observedKeys)
+            result.insert(contentsOf: Set(itemCache.values.flatMap { $0.observedKeys }))
             
             return result
         }
         
         static func initialState(
-            threadViewModel: SessionThreadViewModel,
+            threadInfo: ConversationInfoViewModel,
             focusedInteractionInfo: Interaction.TimestampInfo?,
             currentUserMentionImage: UIImage,
             using dependencies: Dependencies
         ) -> State {
-            let userSessionId: SessionId = dependencies[cache: .general].sessionId
+            let dataCache: ConversationDataCache = ConversationDataCache(
+                userSessionId: dependencies[cache: .general].sessionId,
+                context: ConversationDataCache.Context(
+                    source: .messageList(threadId: threadInfo.id),
+                    requireFullRefresh: false,
+                    requireAuthMethodFetch: false,
+                    requiresMessageRequestCountUpdate: false,
+                    requiresInitialUnreadInteractionInfo: false,
+                    requireRecentReactionEmojiUpdate: false
+                )
+            )
             
             return State(
                 viewState: .loading,
-                threadId: threadViewModel.threadId,
-                threadVariant: threadViewModel.threadVariant,
-                userSessionId: userSessionId,
-                currentUserSessionIds: [userSessionId.hexString],
+                threadInfo: threadInfo,
+                authMethod: EquatableAuthenticationMethod(value: Authentication.invalid),
                 currentUserMentionImage: currentUserMentionImage,
-                isBlindedContact: SessionId.Prefix.isCommunityBlinded(threadViewModel.threadId),
-                wasPreviouslyBlindedContact: SessionId.Prefix.isCommunityBlinded(threadViewModel.threadId),
+                isBlindedContact: SessionId.Prefix.isCommunityBlinded(threadInfo.id),
+                wasPreviouslyBlindedContact: SessionId.Prefix.isCommunityBlinded(threadInfo.id),
                 focusedInteractionInfo: focusedInteractionInfo,
                 focusBehaviour: (focusedInteractionInfo == nil ? .none : .highlight),
                 initialUnreadInteractionInfo: nil,
@@ -339,33 +310,23 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     record: Interaction.self,
                     pageSize: ConversationViewModel.pageSize,
                     requiredJoinSQL: nil,
-                    filterSQL: MessageViewModel.interactionFilterSQL(threadId: threadViewModel.threadId),
+                    filterSQL: MessageViewModel.interactionFilterSQL(threadId: threadInfo.id),
                     groupSQL: nil,
                     orderSQL: MessageViewModel.interactionOrderSQL
                 ),
-                profileCache: [:],
-                linkPreviewCache: [:],
-                interactionCache: [:],
-                attachmentCache: [:],
-                reactionCache: [:],
-                quoteMap: [:],
-                attachmentMap: [:],
-                unblindedIdMap: [:],
-                modAdminCache: [],
+                dataCache: dataCache,
                 itemCache: [:],
                 titleViewModel: ConversationTitleViewModel(
-                    threadViewModel: threadViewModel,
-                    profileCache: [:],
+                    threadInfo: threadInfo,
+                    dataCache: dataCache,
                     using: dependencies
                 ),
-                threadViewModel: threadViewModel,
-                threadContact: nil,
-                threadIsTrusted: false,
-                legacyGroupsBannerIsVisible: (threadViewModel.threadVariant == .legacyGroup),
+                legacyGroupsBannerIsVisible: (threadInfo.variant == .legacyGroup),
                 reactionsSupported: (
-                    threadViewModel.threadVariant != .legacyGroup &&
-                    threadViewModel.threadIsMessageRequest != true
+                    threadInfo.variant != .legacyGroup &&
+                    threadInfo.isMessageRequest != true
                 ),
+                recentReactionEmoji: [],
                 isUserModeratorOrAdmin: false,
                 shouldShowTypingIndicator: false,
                 optimisticallyInsertedMessages: [:]
@@ -375,7 +336,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         fileprivate static func orderedIdsIncludingOptimisticMessages(
             loadedPageInfo: PagedData.LoadedInfo<MessageViewModel.ID>,
             optimisticMessages: [Int64: OptimisticMessageData],
-            interactionCache: [Int64: Interaction]
+            dataCache: ConversationDataCache
         ) -> [Int64] {
             guard !optimisticMessages.isEmpty else { return loadedPageInfo.currentIds }
             
@@ -388,7 +349,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             var result: [Int64] = []
             
             while !remainingPagedIds.isEmpty || !remainingSortedOptimisticMessages.isEmpty {
-                let nextPaged: Interaction? = remainingPagedIds.first.map { interactionCache[$0] }
+                let nextPaged: Interaction? = remainingPagedIds.first.map { dataCache.interaction(for: $0) }
                 let nextOptimistic: OptimisticMessageData? = remainingSortedOptimisticMessages.first?.1
                 
                 switch (nextPaged, nextOptimistic) {
@@ -421,7 +382,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             at index: Int,
             orderedIds: [Int64],
             optimisticMessages: [Int64: OptimisticMessageData],
-            interactionCache: [Int64: Interaction]
+            dataCache: ConversationDataCache
         ) -> Interaction? {
             guard index >= 0, index < orderedIds.count else { return nil }
             guard orderedIds[index] >= 0 else {
@@ -429,7 +390,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 return optimisticMessages[orderedIds[index]]?.interaction
             }
             
-            return interactionCache[orderedIds[index]]
+            return dataCache.interaction(for: orderedIds[index])
         }
     }
     
@@ -439,36 +400,24 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         isInitialQuery: Bool,
         using dependencies: Dependencies
     ) async -> State {
-        var threadId: String = previousState.threadId
-        let threadVariant: SessionThread.Variant = previousState.threadVariant
-        var currentUserSessionIds: Set<String> = previousState.currentUserSessionIds
+        var threadId: String = previousState.threadInfo.id
+        var threadInfo: ConversationInfoViewModel = previousState.threadInfo
+        var authMethod: EquatableAuthenticationMethod = previousState.authMethod
         var focusedInteractionInfo: Interaction.TimestampInfo? = previousState.focusedInteractionInfo
         var initialUnreadInteractionInfo: Interaction.TimestampInfo? = previousState.initialUnreadInteractionInfo
         var loadResult: PagedData.LoadResult = previousState.loadedPageInfo.asResult
-        var profileCache: [String: Profile] = previousState.profileCache
-        var linkPreviewCache: [String: [LinkPreview]] = previousState.linkPreviewCache
-        var interactionCache: [Int64: Interaction] = previousState.interactionCache
-        var attachmentCache: [String: Attachment] = previousState.attachmentCache
-        var reactionCache: [Int64: [Reaction]] = previousState.reactionCache
-        var quoteMap: [Int64: MessageViewModel.MaybeUnresolvedQuotedInfo] = previousState.quoteMap
-        var attachmentMap: [Int64: Set<InteractionAttachment>] = previousState.attachmentMap
-        var unblindedIdMap: [String: String] = previousState.unblindedIdMap
-        var modAdminCache: Set<String> = previousState.modAdminCache
-        var itemCache: [Int64: MessageViewModel] = previousState.itemCache
-        var threadViewModel: SessionThreadViewModel = previousState.threadViewModel
-        var threadContact: Contact? = previousState.threadContact
-        var threadIsTrusted: Bool = previousState.threadIsTrusted
+        var dataCache: ConversationDataCache = previousState.dataCache
+        var itemCache: [MessageViewModel.ID: MessageViewModel] = previousState.itemCache
         var reactionsSupported: Bool = previousState.reactionsSupported
+        var recentReactionEmoji: [String] = previousState.recentReactionEmoji
         var isUserModeratorOrAdmin: Bool = previousState.isUserModeratorOrAdmin
-        var threadWasKickedFromGroup: Bool = (threadViewModel.wasKickedFromGroup == true)
-        var threadGroupIsDestroyed: Bool = (threadViewModel.groupIsDestroyed == true)
         var shouldShowTypingIndicator: Bool = false
         var optimisticallyInsertedMessages: [Int64: OptimisticMessageData] = previousState.optimisticallyInsertedMessages
         
         /// Store a local copy of the events so we can manipulate it based on the state changes
         var eventsToProcess: [ObservedEvent] = events
-        var profileIdsNeedingFetch: Set<String> = []
         var shouldFetchInitialUnreadInteractionInfo: Bool = false
+        var shouldFetchInitialRecentReactions: Bool = false
         
         /// If this is the initial query then we need to properly fetch the initial state
         if isInitialQuery {
@@ -482,44 +431,32 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             ))
             
             /// Determine reactions support
-            switch threadVariant {
+            switch threadInfo.variant {
                 case .legacyGroup:
                     reactionsSupported = false
-                    isUserModeratorOrAdmin = (threadViewModel.currentUserIsClosedGroupAdmin == true)
+                    isUserModeratorOrAdmin = (threadInfo.groupInfo?.currentUserRole == .admin)
                 
                 case .contact:
-                    reactionsSupported = (threadViewModel.threadIsMessageRequest != true)
+                    reactionsSupported = !threadInfo.isMessageRequest
                     shouldShowTypingIndicator = await dependencies[singleton: .typingIndicators]
-                        .isRecipientTyping(threadId: threadId)
+                        .isRecipientTyping(threadId: threadInfo.id)
                     
                 case .group:
-                    reactionsSupported = (threadViewModel.threadIsMessageRequest != true)
-                    isUserModeratorOrAdmin = (threadViewModel.currentUserIsClosedGroupAdmin == true)
+                    reactionsSupported = !threadInfo.isMessageRequest
+                    isUserModeratorOrAdmin = (threadInfo.groupInfo?.currentUserRole == .admin)
                 
                 case .community:
                     reactionsSupported = await dependencies[singleton: .communityManager].doesOpenGroupSupport(
                         capability: .reactions,
-                        on: threadViewModel.openGroupServer
+                        on: threadInfo.communityInfo?.server
                     )
-                    
-                    /// Get the session id options for the current user
-                    if
-                        let server: String = threadViewModel.openGroupServer,
-                        let serverInfo: CommunityManager.Server = await dependencies[singleton: .communityManager].server(server)
-                    {
-                        currentUserSessionIds = serverInfo.currentUserSessionIds
-                    }
-                    
-                    modAdminCache = await dependencies[singleton: .communityManager].allModeratorsAndAdmins(
-                        server: threadViewModel.openGroupServer,
-                        roomToken: threadViewModel.openGroupRoomToken,
-                        includingHidden: true
-                    )
-                    isUserModeratorOrAdmin = !modAdminCache.isDisjoint(with: currentUserSessionIds)
             }
             
             /// Determine whether we need to fetch the initial unread interaction info
             shouldFetchInitialUnreadInteractionInfo = (initialUnreadInteractionInfo == nil)
+            
+            /// We need to fetch the recent reactions if they are supported
+            shouldFetchInitialRecentReactions = reactionsSupported
             
             /// Check if the typing indicator should be visible
             shouldShowTypingIndicator = await dependencies[singleton: .typingIndicators].isRecipientTyping(
@@ -528,84 +465,64 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         
         /// If there are no events we want to process then just return the current state
-        guard !eventsToProcess.isEmpty else { return previousState }
+        guard isInitialQuery || !eventsToProcess.isEmpty else { return previousState }
         
         /// Split the events between those that need database access and those that don't
-        let changes: EventChangeset = eventsToProcess.split(by: { $0.dataRequirement })
-        var databaseEvents: Set<ObservedEvent> = changes.databaseEvents
-        var loadPageEvent: LoadPageEvent? = changes.latest(.loadPage, as: LoadPageEvent.self)
+        var changes: EventChangeset = eventsToProcess.split(by: { $0.handlingStrategy })
+        var loadPageEvent: LoadPageEvent? = changes.latestGeneric(.loadPage, as: LoadPageEvent.self)
         
-        // FIXME: We should be able to make this far more efficient by splitting this query up and only fetching diffs
-        var threadNeedsRefresh: Bool = (
-            threadId != previousState.threadId ||
-            events.contains(where: {
-                $0.key.generic == .conversationUpdated ||
-                $0.key.generic == .contact ||
-                $0.key.generic == .profile
-            })
+        /// Need to handle a potential "unblinding" event first since it changes the `threadId` (and then we reload the messages
+        /// based on the initial paged data query just in case - there isn't a perfect solution to capture the current messages plus any
+        /// others that may have been added by the merge so do the best we can)
+        if let event: ContactEvent = changes.latest(.anyContactUnblinded, as: ContactEvent.self) {
+            switch event.change {
+                case .unblinded(let blindedId, let unblindedId):
+                    /// Need to handle a potential "unblinding" event first since it changes the `threadId` (and then
+                    /// we reload the messages based on the initial paged data query just in case - there isn't a perfect
+                    /// solution to capture the current messages plus any others that may have been added by the
+                    /// merge so do the best we can)
+                    guard blindedId == threadId else { break }
+                    
+                    threadId = unblindedId
+                    loadResult = loadResult.info
+                        .with(filterSQL: MessageViewModel.interactionFilterSQL(threadId: unblindedId))
+                        .asResult
+                    loadPageEvent = .initial
+                    eventsToProcess = eventsToProcess
+                        .filter { $0.key.generic != .loadPage }
+                        .appending(
+                            ObservedEvent(
+                                key: .loadPage(ConversationViewModel.self),
+                                value: LoadPageEvent.initial
+                            )
+                        )
+                    changes = eventsToProcess.split(by: { $0.handlingStrategy })
+                    
+                default: break
+            }
+        }
+        
+        /// Update the context
+        dataCache.withContext(
+            source: .messageList(threadId: threadId),
+            requireFullRefresh: (
+                isInitialQuery ||
+                threadInfo.id != threadId ||
+                changes.containsAny(
+                    .appLifecycle(.willEnterForeground),
+                    .databaseLifecycle(.resumed)
+                )
+            ),
+            requireAuthMethodFetch: authMethod.value.isInvalid,
+            requiresInitialUnreadInteractionInfo: shouldFetchInitialUnreadInteractionInfo,
+            requireRecentReactionEmojiUpdate: (
+                shouldFetchInitialRecentReactions ||
+                changes.contains(.recentReactionsUpdated)
+            )
         )
         
         /// Handle thread specific changes first (as this could include a conversation being unblinded)
-        switch threadVariant {
-            case .contact:
-                changes.forEach(.contact, as: ContactEvent.self) { event in
-                    switch event.change {
-                        case .isTrusted(let value):
-                            threadContact = threadContact?.with(
-                                isTrusted: .set(to: value),
-                                currentUserSessionId: previousState.userSessionId
-                            )
-                            
-                        case .isApproved(let value):
-                            threadContact = threadContact?.with(
-                                isApproved: .set(to: value),
-                                currentUserSessionId: previousState.userSessionId
-                            )
-                            
-                        case .isBlocked(let value):
-                            threadContact = threadContact?.with(
-                                isBlocked: .set(to: value),
-                                currentUserSessionId: previousState.userSessionId
-                            )
-                            
-                        case .didApproveMe(let value):
-                            threadContact = threadContact?.with(
-                                didApproveMe: .set(to: value),
-                                currentUserSessionId: previousState.userSessionId
-                            )
-                            
-                        case .unblinded(let blindedId, let unblindedId):
-                            /// Need to handle a potential "unblinding" event first since it changes the `threadId` (and then
-                            /// we reload the messages based on the initial paged data query just in case - there isn't a perfect
-                            /// solution to capture the current messages plus any others that may have been added by the
-                            /// merge so do the best we can)
-                            guard blindedId == threadId else { return }
-                            
-                            threadId = unblindedId
-                            loadResult = loadResult.info
-                                .with(filterSQL: MessageViewModel.interactionFilterSQL(threadId: unblindedId))
-                                .asResult
-                            loadPageEvent = .initial
-                            databaseEvents.insert(
-                                ObservedEvent(
-                                    key: .loadPage(ConversationViewModel.self),
-                                    value: LoadPageEvent.initial
-                                )
-                            )
-                    }
-                }
-                
-            case .legacyGroup, .group:
-                changes.forEach(.groupMemberUpdated, as: GroupMemberEvent.self) { event in
-                    switch event.change {
-                        case .none: break
-                        case .role(let role, _):
-                            guard event.profileId == previousState.userSessionId.hexString else { return }
-                            
-                            isUserModeratorOrAdmin = (role == .admin)
-                    }
-                }
-            
+        switch threadInfo.variant {
             case .community:
                 /// Handle community changes (users could change to mods which would need all of their interaction data updated)
                 changes.forEach(.communityUpdated, as: CommunityEvent.self) { event in
@@ -617,165 +534,61 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                             
                             loadPageEvent = .initial
                         
-                        case .role(let moderator, let admin, let hiddenModerator, let hiddenAdmin):
-                            isUserModeratorOrAdmin = (moderator || admin || hiddenModerator || hiddenAdmin)
-                        
-                        case .moderatorsAndAdmins(let admins, let hiddenAdmins, let moderators, let hiddenModerators):
-                            modAdminCache = Set(admins + hiddenAdmins + moderators + hiddenModerators)
-                            isUserModeratorOrAdmin = !modAdminCache.isDisjoint(with: currentUserSessionIds)
-                            
-                        // FIXME: When we break apart the SessionThreadViewModel these should be handled
-                        case .capabilities, .permissions: break
+                        case .role, .moderatorsAndAdmins, .capabilities, .permissions: break
                     }
                 }
-        }
-        
-        /// Profile events
-        changes.forEach(.profile, as: ProfileEvent.self) { event in
-            guard var profileData: Profile = profileCache[event.id] else {
-                /// This profile (somehow) isn't in the cache, so we need to fetch it
-                profileIdsNeedingFetch.insert(event.id)
-                return
-            }
-            
-            switch event.change {
-                case .name(let name): profileData = profileData.with(name: name)
-                case .nickname(let nickname): profileData = profileData.with(nickname: .set(to: nickname))
-                case .displayPictureUrl(let url): profileData = profileData.with(displayPictureUrl: .set(to: url))
-                case .proStatus(_, let features, let proExpiryUnixTimestampMs, let proGenIndexHashHex):
-                    let finalFeatures: SessionPro.ProfileFeatures = {
-                        guard dependencies[feature: .sessionProEnabled] else { return .none }
-                        
-                        return features
-                            .union(dependencies[feature: .proBadgeEverywhere] ? .proBadge : .none)
-                    }()
-                    
-                    profileData = profileData.with(
-                        proFeatures: .set(to: finalFeatures),
-                        proExpiryUnixTimestampMs: .set(to: proExpiryUnixTimestampMs),
-                        proGenIndexHashHex: .set(to: proGenIndexHashHex)
-                    )
-            }
-            
-            profileCache[event.id] = profileData
-        }
-        
-        /// General unblinding handling
-        changes.forEach(.anyContactUnblinded, as: ContactEvent.self) { event in
-            switch event.change {
-                case .unblinded(let blindedId, let unblindedId): unblindedIdMap[blindedId] = unblindedId
-                default: break
-            }
-        }
-        
-        /// Pull data from libSession
-        if threadNeedsRefresh {
-            let result: (wasKickedFromGroup: Bool, groupIsDestroyed: Bool) = {
-                guard threadVariant == .group else { return (false, false) }
                 
-                let sessionId: SessionId = SessionId(.group, hex: threadId)
-                return dependencies.mutate(cache: .libSession) { cache in
-                    (
-                        cache.wasKickedFromGroup(groupSessionId: sessionId),
-                        cache.groupIsDestroyed(groupSessionId: sessionId)
-                    )
-                }
-            }()
-            threadWasKickedFromGroup = result.wasKickedFromGroup
-            threadGroupIsDestroyed = result.groupIsDestroyed
+            default: break
         }
         
-        /// Then handle database events
-        if !dependencies[singleton: .storage].isSuspended, (threadNeedsRefresh || !databaseEvents.isEmpty) {
+        /// Then process cache updates
+        dataCache = await ConversationDataHelper.applyNonDatabaseEvents(
+            changes,
+            currentCache: dataCache,
+            using: dependencies
+        )
+        
+        /// Then determine the fetch requirements
+        let fetchRequirements: ConversationDataHelper.FetchRequirements = ConversationDataHelper.determineFetchRequirements(
+            for: changes,
+            currentCache: dataCache,
+            itemCache: itemCache,
+            loadPageEvent: loadPageEvent
+        )
+        
+        /// Peform any `libSession` changes
+        if fetchRequirements.needsAnyFetch {
             do {
-                var fetchedInteractions: [Interaction] = []
-                var fetchedProfiles: [Profile] = []
-                var fetchedLinkPreviews: [LinkPreview] = []
-                var fetchedAttachments: [Attachment] = []
-                var fetchedInteractionAttachments: [InteractionAttachment] = []
-                var fetchedReactions: [Int64: [Reaction]] = [:]
-                var fetchedQuoteMap: [Int64: MessageViewModel.MaybeUnresolvedQuotedInfo] = [:]
-                var fetchedBlindedIdLookups: [BlindedIdLookup] = []
-                
-                /// Identify any inserted/deleted records
-                var insertedInteractionIds: Set<Int64> = []
-                var updatedInteractionIds: Set<Int64> = []
-                var deletedInteractionIds: Set<Int64> = []
-                var updatedAttachmentIds: Set<String> = []
-                var interactionIdsNeedingReactionUpdates: Set<Int64> = []
-                
-                databaseEvents.forEach { event in
-                    switch event.value {
-                        case let messageEvent as MessageEvent:
-                            guard let messageId: Int64 = messageEvent.id else { return }
-                            
-                            switch event.key.generic {
-                                case .messageCreated: insertedInteractionIds.insert(messageId)
-                                case .messageUpdated: updatedInteractionIds.insert(messageId)
-                                case .messageDeleted: deletedInteractionIds.insert(messageId)
-                                default: break
-                            }
-                            
-                        case let conversationEvent as ConversationEvent:
-                            switch conversationEvent.change {
-                                /// Since we cache whether a messages disappearing message config can be followed we
-                                /// need to update the value if the disappearing message config on the conversation changes
-                                case .disappearingMessageConfiguration:
-                                    itemCache.forEach { id, item in
-                                        guard item.canFollowDisappearingMessagesSetting else { return }
-                                        
-                                        updatedInteractionIds.insert(id)
-                                    }
-                                    
-                                default: break
-                            }
-                            
-                        case let attachmentEvent as AttachmentEvent:
-                            switch event.key.generic {
-                                case .attachmentUpdated: updatedAttachmentIds.insert(attachmentEvent.id)
-                                default: break
-                            }
-                            
-                        case let reactionEvent as ReactionEvent:
-                            interactionIdsNeedingReactionUpdates.insert(reactionEvent.messageId)
-                        
-                        case let communityEvent as CommunityEvent:
-                            switch communityEvent.change {
-                                case .receivedInitialMessages: break /// This is custom handled above
-                                case .role:
-                                    updatedInteractionIds.insert(
-                                        contentsOf: Set(itemCache
-                                            .filter { currentUserSessionIds.contains($0.value.authorId) }
-                                            .keys)
-                                    )
-                                    
-                                case .moderatorsAndAdmins(let admins, let hiddenAdmins, let moderators, let hiddenModerators):
-                                    let modAdminIds: Set<String> = Set(admins + hiddenAdmins + moderators + hiddenModerators)
-                                    updatedInteractionIds.insert(
-                                        contentsOf: Set(itemCache
-                                            .filter {
-                                                guard modAdminIds.contains($0.value.authorId) else {
-                                                    return $0.value.isSenderModeratorOrAdmin
-                                                }
-                                                
-                                                return !$0.value.isSenderModeratorOrAdmin
-                                            }
-                                            .keys)
-                                    )
-                                    
-                                case .capabilities, .permissions: break /// Shouldn't affect messages
-                            }
-                            
-                        default: break
-                    }
-                }
-                
+                dataCache = try ConversationDataHelper.fetchFromLibSession(
+                    requirements: fetchRequirements,
+                    cache: dataCache,
+                    using: dependencies
+                )
+            }
+            catch {
+                Log.warn(.conversation, "Failed to handle \(changes.libSessionEvents.count) libSession event(s) due to error: \(error).")
+            }
+        }
+        
+        /// Peform any database changes
+        if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
+            do {
                 try await dependencies[singleton: .storage].readAsync { db in
-                    var interactionIdsNeedingFetch: [Int64] = Array(updatedInteractionIds)
-                    var attachmentIdsNeedingFetch: [String] = Array(updatedAttachmentIds)
+                    /// Fetch the `authMethod` if needed
+                    if fetchRequirements.requireAuthMethodFetch {
+                        // TODO: [Database Relocation] Should be able to remove the database requirement now we have the CommunityManager
+                        authMethod = EquatableAuthenticationMethod(
+                            value: try Authentication.with(
+                                db,
+                                threadId: threadInfo.id,
+                                threadVariant: threadInfo.variant,
+                                using: dependencies
+                            )
+                        )
+                    }
                     
-                    /// Separately fetch the `initialUnreadInteractionInfo` if needed
-                    if shouldFetchInitialUnreadInteractionInfo {
+                    /// Fetch the `initialUnreadInteractionInfo` if needed
+                    if fetchRequirements.requiresInitialUnreadInteractionInfo {
                         initialUnreadInteractionInfo = try Interaction
                             .select(.id, .timestampMs)
                             .filter(Interaction.Columns.wasRead == false)
@@ -785,217 +598,38 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                             .fetchOne(db)
                     }
                     
-                    /// If we don't have the `Contact` data and need it then fetch it now
-                    if threadVariant == .contact && threadContact?.id != threadId {
-                        threadContact = try Contact.fetchOne(db, id: threadId)
+                    if fetchRequirements.requireRecentReactionEmojiUpdate {
+                        recentReactionEmoji = try Emoji.getRecent(db, withDefaultEmoji: true)
                     }
                     
-                    /// Update loaded page info as needed
-                    if loadPageEvent != nil || !insertedInteractionIds.isEmpty || !deletedInteractionIds.isEmpty {
-                        let target: PagedData.Target<MessageViewModel.ID>
-                        
-                        switch loadPageEvent?.target {
-                            case .initial:
-                                /// If we don't have an initial `focusedInteractionInfo` then we should default to loading
-                                /// data around the `initialUnreadInteractionInfo` and focus on that
-                                let finalLoadPageEvent: LoadPageEvent = (
-                                    initialUnreadInteractionInfo.map { .initialPageAround(id: $0.id) } ??
-                                    .initial
-                                )
-                                
-                                focusedInteractionInfo = initialUnreadInteractionInfo
-                                target = (
-                                    finalLoadPageEvent.target(with: loadResult) ??
-                                    .newItems(insertedIds: insertedInteractionIds, deletedIds: deletedInteractionIds)
-                                )
-                                
-                            default:
-                                target = (
-                                    loadPageEvent?.target(with: loadResult) ??
-                                    .newItems(insertedIds: insertedInteractionIds, deletedIds: deletedInteractionIds)
-                                )
-                        }
-                        
-                        loadResult = try loadResult.load(
-                            db,
-                            target: target
-                        )
-                        interactionIdsNeedingFetch += loadResult.newIds
-                    }
-                    
-                    /// Get the ids of any quoted interactions
-                    ///
-                    /// **Note:** We may not be able to find the quoted interaction (hence the `Int64?` but would still want to render
-                    /// the message as a quote)
-                    let quoteInteractionIdResults: Set<FetchablePair<Int64, Int64?>> = try MessageViewModel
-                        .quotedInteractionIds(
-                            for: interactionIdsNeedingFetch,
-                            currentUserSessionIds: currentUserSessionIds
-                        )
-                        .fetchSet(db)
-                    quoteInteractionIdResults.forEach { pair in
-                        fetchedQuoteMap[pair.first] = MessageViewModel.MaybeUnresolvedQuotedInfo(
-                            foundQuotedInteractionId: pair.second
-                        )
-                    }
-                    interactionIdsNeedingFetch += Array(fetchedQuoteMap.values.compactMap { $0.foundQuotedInteractionId })
-                    
-                    /// Fetch any records needed
-                    fetchedInteractions = try Interaction.fetchAll(db, ids: interactionIdsNeedingFetch)
-                    
-                    /// Determine if we need to fetch any profile data
-                    let profileIdsForFetchedInteractions: Set<String> = fetchedInteractions.reduce(into: []) { result, next in
-                        result.insert(next.authorId)
-                        result.insert(contentsOf: MentionUtilities.allPubkeys(in: (next.body ?? "")))
-                    }
-                    let missingProfileIds: Set<String> = profileIdsForFetchedInteractions
-                        .subtracting(profileCache.keys)
-                    
-                    if !missingProfileIds.isEmpty {
-                        fetchedProfiles = try Profile.fetchAll(db, ids: Array(missingProfileIds))
-                    }
-                    
-                    fetchedBlindedIdLookups = try BlindedIdLookup
-                        .filter(ids: Set(fetchedProfiles.map { $0.id }))
-                        .filter(BlindedIdLookup.Columns.sessionId != nil)
-                        .fetchAll(db)
-                    
-                    /// Fetch any link previews needed
-                    let linkPreviewLookupInfo: [(url: String, timestamp: Int64)] = fetchedInteractions.compactMap {
-                        guard let url: String = $0.linkPreviewUrl else { return nil }
-                        
-                        return (url, $0.timestampMs)
-                    }
-                    
-                    if !linkPreviewLookupInfo.isEmpty {
-                        let urls: [String] = linkPreviewLookupInfo.map(\.url)
-                        let minTimestampMs: Int64 = (linkPreviewLookupInfo.map(\.timestamp).min() ?? 0)
-                        let maxTimestampMs: Int64 = (linkPreviewLookupInfo.map(\.timestamp).max() ?? Int64.max)
-                        let finalMinTimestamp: TimeInterval = (TimeInterval(minTimestampMs / 1000) - LinkPreview.timstampResolution)
-                        let finalMaxTimestamp: TimeInterval = (TimeInterval(maxTimestampMs / 1000) + LinkPreview.timstampResolution)
-                            
-                        fetchedLinkPreviews = try LinkPreview
-                            .filter(urls.contains(LinkPreview.Columns.url))
-                            .filter(LinkPreview.Columns.timestamp > finalMinTimestamp)
-                            .filter(LinkPreview.Columns.timestamp < finalMaxTimestamp)
-                            .fetchAll(db)
-                        attachmentIdsNeedingFetch += fetchedLinkPreviews.compactMap { $0.attachmentId }
-                    }
-                    
-                    /// Fetch any attachments needed (ensuring we keep the album order)
-                    fetchedInteractionAttachments = try InteractionAttachment
-                        .filter(interactionIdsNeedingFetch.contains(InteractionAttachment.Columns.interactionId))
-                        .order(InteractionAttachment.Columns.albumIndex)
-                        .fetchAll(db)
-                    attachmentIdsNeedingFetch += fetchedInteractionAttachments.map { $0.attachmentId }
-                    
-                    if !attachmentIdsNeedingFetch.isEmpty {
-                        fetchedAttachments = try Attachment.fetchAll(db, ids: attachmentIdsNeedingFetch)
-                    }
-                    
-                    /// Fetch any reactions (just refetch all of them as handling individual reaction events, especially with "pending"
-                    /// reactions in SOGS, will likely result in bugs)
-                    interactionIdsNeedingReactionUpdates.insert(contentsOf: Set(interactionIdsNeedingFetch))
-                    fetchedReactions = try Reaction
-                        .filter(interactionIdsNeedingReactionUpdates.contains(Reaction.Columns.interactionId))
-                        .fetchAll(db)
-                        .grouped(by: \.interactionId)
-                    
-                    /// Fetch any thread data needed
-                    if threadNeedsRefresh {
-                        threadViewModel = try ConversationViewModel.fetchThreadViewModel(
-                            db,
-                            threadId: threadId,
-                            userSessionId: previousState.userSessionId,
-                            currentUserSessionIds: currentUserSessionIds,
-                            threadWasKickedFromGroup: threadWasKickedFromGroup,
-                            threadGroupIsDestroyed: threadGroupIsDestroyed,
-                            using: dependencies
-                        )
-                    }
-                }
-                
-                threadIsTrusted = {
-                    switch threadVariant {
-                        case .legacyGroup, .community, .group: return true /// Default to `true` for non-contact threads
-                        case .contact: return (threadContact?.isTrusted == true)
-                    }
-                }()
-                
-                /// Update the caches with the newly fetched values
-                quoteMap.merge(fetchedQuoteMap, uniquingKeysWith: { _, new in new })
-                fetchedProfiles.forEach { profile in
-                    let finalFeatures: SessionPro.ProfileFeatures = {
-                        guard dependencies[feature: .sessionProEnabled] else { return .none }
-                        
-                        return profile.proFeatures
-                            .union(dependencies[feature: .proBadgeEverywhere] ? .proBadge : .none)
-                    }()
-                    
-                    profileCache[profile.id] = profile.with(proFeatures: .set(to: finalFeatures))
-                }
-                fetchedLinkPreviews.forEach { linkPreviewCache[$0.url, default: []].append($0) }
-                fetchedAttachments.forEach { attachmentCache[$0.id] = $0 }
-                fetchedReactions.forEach { interactionId, reactions in
-                    guard !reactions.isEmpty else {
-                        reactionCache.removeValue(forKey: interactionId)
-                        return
-                    }
-                    
-                    reactionCache[interactionId, default: []] = reactions
-                }
-                fetchedBlindedIdLookups.forEach { unblindedIdMap[$0.blindedId] = $0.sessionId }
-                let groupedInteractionAttachments: [Int64: Set<InteractionAttachment>] = fetchedInteractionAttachments
-                    .grouped(by: \.interactionId)
-                    .mapValues { Set($0) }
-                fetchedInteractions.forEach { interaction in
-                    guard let id: Int64 = interaction.id else { return }
-                    
-                    interactionCache[id] = interaction
-                    
+                    /// If we don't have an initial `focusedInteractionInfo` (as determined by the `loadPageEvent.target`
+                    /// being `initial`) then we should default to loading data around the `initialUnreadInteractionInfo`
+                    /// and focusing on it
                     if
-                        let attachments: Set<InteractionAttachment> = groupedInteractionAttachments[id],
-                        !attachments.isEmpty
+                        loadPageEvent?.target == .initial,
+                        let initialUnreadInteractionInfo: Interaction.TimestampInfo = initialUnreadInteractionInfo
                     {
-                        attachmentMap[id] = attachments
+                        loadPageEvent = .initialPageAround(id: initialUnreadInteractionInfo.id)
+                        focusedInteractionInfo = initialUnreadInteractionInfo
                     }
-                    else {
-                        attachmentMap.removeValue(forKey: id)
-                    }
-                }
-                
-                /// Remove any deleted values
-                deletedInteractionIds.forEach { id in
-                    itemCache.removeValue(forKey: id)
-                    interactionCache.removeValue(forKey: id)
-                    reactionCache.removeValue(forKey: id)
-                    quoteMap.removeValue(forKey: id)
                     
-                    attachmentMap[id]?.forEach { attachmentCache.removeValue(forKey: $0.attachmentId) }
-                    attachmentMap.removeValue(forKey: id)
+                    /// Fetch any required data from the cache
+                    (loadResult, dataCache) = try ConversationDataHelper.fetchFromDatabase(
+                        db,
+                        requirements: fetchRequirements,
+                        currentCache: dataCache,
+                        loadResult: loadResult,
+                        loadPageEvent: loadPageEvent,
+                        using: dependencies
+                    )
                 }
             } catch {
-                let eventList: String = databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
                 Log.critical(.conversation, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
             }
         }
-        else if !databaseEvents.isEmpty {
-            Log.warn(.conversation, "Ignored \(databaseEvents.count) database event(s) sent while storage was suspended.")
-        }
-        
-        /// If we refreshed the thread data then reaction support may have changed, so update it
-        if threadNeedsRefresh {
-            switch threadVariant {
-                case .legacyGroup: reactionsSupported = false
-                case .contact, .group:
-                    reactionsSupported = (threadViewModel.threadIsMessageRequest != true)
-                    
-                case .community:
-                    reactionsSupported = await dependencies[singleton: .communityManager].doesOpenGroupSupport(
-                        capability: .reactions,
-                        on: threadViewModel.openGroupServer
-                    )
-            }
+        else if !changes.databaseEvents.isEmpty {
+            Log.warn(.conversation, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
         }
         
         /// Update the typing indicator state if needed
@@ -1010,25 +644,29 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     optimisticallyInsertedMessages[data.temporaryId] = data
                     
                     if let attachments: [Attachment] = data.attachmentData {
-                        attachments.forEach { attachmentCache[$0.id] = $0 }
-                        attachmentMap[data.temporaryId] = Set(attachments.enumerated().map { index, attachment in
-                            InteractionAttachment(
-                                albumIndex: index,
-                                interactionId: data.temporaryId,
-                                attachmentId: attachment.id
-                            )
-                        })
+                        dataCache.insert(attachments: attachments)
+                        dataCache.insert(
+                            attachmentMap: [
+                                data.temporaryId: Set(attachments.enumerated().map { index, attachment in
+                                    InteractionAttachment(
+                                        albumIndex: index,
+                                        interactionId: data.temporaryId,
+                                        attachmentId: attachment.id
+                                    )
+                                })
+                            ]
+                        )
                     }
                     
                     if let viewModel: LinkPreviewViewModel = data.linkPreviewViewModel {
-                        linkPreviewCache[viewModel.urlString, default: []].append(
+                        dataCache.insert(linkPreviews: [
                             LinkPreview(
                                 url: viewModel.urlString,
                                 title: viewModel.title,
                                 attachmentId: nil,    /// Can't save to db optimistically
                                 using: dependencies
                             )
-                        )
+                        ])
                     }
                     
                 case .failedToStoreMessage(let temporaryId):
@@ -1049,15 +687,35 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     )
                 
                 case .resolveOptimisticMessage(let temporaryId, let databaseId):
-                    guard interactionCache[databaseId] != nil else {
+                    guard dataCache.interaction(for: databaseId) != nil else {
                         Log.warn(.conversation, "Attempted to resolve an optimistic message but it was missing from the cache")
                         return
                     }
                     
                     optimisticallyInsertedMessages.removeValue(forKey: temporaryId)
-                    attachmentMap.removeValue(forKey: temporaryId)
+                    dataCache.removeAttachmentMap(for: temporaryId)
                     itemCache.removeValue(forKey: temporaryId)
             }
+        }
+        
+        /// Update the `threadInfo` with the latest `dataCache`
+        if let thread: SessionThread = dataCache.thread(for: threadId) {
+            threadInfo = ConversationInfoViewModel(
+                thread: thread,
+                dataCache: dataCache,
+                using: dependencies
+            )
+        }
+        
+        /// Update the flag indicating whether reactions are supproted
+        switch threadInfo.variant {
+            case .legacyGroup: reactionsSupported = false
+            case .contact, .group: reactionsSupported = !threadInfo.isMessageRequest
+            case .community:
+                reactionsSupported = (threadInfo.communityInfo?.capabilities.contains(.reactions) == true)
+                isUserModeratorOrAdmin = !dataCache.communityModAdminIds(for: threadId).isDisjoint(
+                    with: dataCache.currentUserSessionIds(for: threadId)
+                )
         }
         
         /// Generating the `MessageViewModel` requires both the "preview" and "next" messages that will appear on
@@ -1067,7 +725,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let orderedIds: [Int64] = State.orderedIdsIncludingOptimisticMessages(
             loadedPageInfo: loadResult.info,
             optimisticMessages: optimisticallyInsertedMessages,
-            interactionCache: interactionCache
+            dataCache: dataCache
         )
         
         orderedIds.enumerated().forEach { index, id in
@@ -1089,66 +747,66 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         
                         return MessageViewModel.MaybeUnresolvedQuotedInfo(
                             foundQuotedInteractionId: interactionId,
-                            resolvedQuotedInteraction: interactionCache[interactionId]
+                            resolvedQuotedInteraction: dataCache.interaction(for: interactionId)
                         )
                     }
                     
                 default:
-                    guard let targetInteraction: Interaction = interactionCache[id] else { return }
+                    guard let targetInteraction: Interaction = dataCache.interaction(for: id) else { return }
                     
                     optimisticMessageId = nil
                     interaction = targetInteraction
-                    reactionInfo = reactionCache[id].map { reactions in
-                        reactions.map { reaction in
+                    
+                    let reactions: [Reaction] = dataCache.reactions(for: id)
+                    
+                    if !reactions.isEmpty {
+                        reactionInfo = reactions.map { reaction in
                             /// If the reactor is the current user then use the proper profile from the cache (instead of a random
                             /// blinded one)
-                            let targetId: String = (currentUserSessionIds.contains(reaction.authorId) ?
+                            let targetId: String = (threadInfo.currentUserSessionIds.contains(reaction.authorId) ?
                                 previousState.userSessionId.hexString :
                                 reaction.authorId
                             )
                             
                             return MessageViewModel.ReactionInfo(
                                 reaction: reaction,
-                                profile: profileCache[targetId]
+                                profile: dataCache.profile(for: targetId)
                             )
                         }
                     }
-                    maybeUnresolvedQuotedInfo = quoteMap[id].map { info in
+                    else {
+                        reactionInfo = nil
+                    }
+                    
+                    maybeUnresolvedQuotedInfo = dataCache.quoteInfo(for: id).map { info in
                         MessageViewModel.MaybeUnresolvedQuotedInfo(
                             foundQuotedInteractionId: info.foundQuotedInteractionId,
-                            resolvedQuotedInteraction: info.foundQuotedInteractionId.map { interactionCache[$0] }
+                            resolvedQuotedInteraction: info.foundQuotedInteractionId.map {
+                                dataCache.interaction(for: $0)
+                            }
                         )
                     }
             }
             
             itemCache[id] = MessageViewModel(
                 optimisticMessageId: optimisticMessageId,
-                threadId: threadId,
-                threadVariant: threadVariant,
-                threadIsTrusted: threadIsTrusted,
-                threadDisappearingConfiguration: threadViewModel.disappearingMessagesConfiguration,
                 interaction: interaction,
                 reactionInfo: reactionInfo,
                 maybeUnresolvedQuotedInfo: maybeUnresolvedQuotedInfo,
-                profileCache: profileCache,
-                attachmentCache: attachmentCache,
-                linkPreviewCache: linkPreviewCache,
-                attachmentMap: attachmentMap,
-                unblindedIdMap: unblindedIdMap,
-                isSenderModeratorOrAdmin: modAdminCache.contains(interaction.authorId),
                 userSessionId: previousState.userSessionId,
-                currentUserSessionIds: currentUserSessionIds,
+                threadInfo: threadInfo,
+                dataCache: dataCache,
                 previousInteraction: State.interaction(
                     at: index + 1,  /// Order is inverted so `previousInteraction` is the next element
                     orderedIds: orderedIds,
                     optimisticMessages: optimisticallyInsertedMessages,
-                    interactionCache: interactionCache
+                    dataCache: dataCache
                 ),
                 nextInteraction: State.interaction(
                     at: index - 1,  /// Order is inverted so `nextInteraction` is the previous element
                     orderedIds: orderedIds,
                     optimisticMessages: optimisticallyInsertedMessages,
-                    interactionCache: interactionCache
+                    dataCache: dataCache
                 ),
                 isLast: (
                     /// Order is inverted so we need to check the start of the list
@@ -1165,10 +823,10 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                                 at: prefixIndex,
                                 orderedIds: orderedIds,
                                 optimisticMessages: optimisticallyInsertedMessages,
-                                interactionCache: interactionCache
+                                dataCache: dataCache
                             )
                         }
-                        .first(where: { currentUserSessionIds.contains($0.authorId) })?
+                        .first(where: { threadInfo.currentUserSessionIds.contains($0.authorId) })?
                         .id
                 ),
                 currentUserMentionImage: previousState.currentUserMentionImage,
@@ -1178,10 +836,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         
         return State(
             viewState: (loadResult.info.totalCount == 0 ? .empty : .loaded),
-            threadId: threadId,
-            threadVariant: threadVariant,
-            userSessionId: previousState.userSessionId,
-            currentUserSessionIds: currentUserSessionIds,
+            threadInfo: threadInfo,
+            authMethod: authMethod,
             currentUserMentionImage: previousState.currentUserMentionImage,
             isBlindedContact: SessionId.Prefix.isCommunityBlinded(threadId),
             wasPreviouslyBlindedContact: SessionId.Prefix.isCommunityBlinded(previousState.threadId),
@@ -1189,26 +845,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             focusBehaviour: previousState.focusBehaviour,
             initialUnreadInteractionInfo: initialUnreadInteractionInfo,
             loadedPageInfo: loadResult.info,
-            profileCache: profileCache,
-            linkPreviewCache: linkPreviewCache,
-            interactionCache: interactionCache,
-            attachmentCache: attachmentCache,
-            reactionCache: reactionCache,
-            quoteMap: quoteMap,
-            attachmentMap: attachmentMap,
-            unblindedIdMap: unblindedIdMap,
-            modAdminCache: modAdminCache,
+            dataCache: dataCache,
             itemCache: itemCache,
             titleViewModel: ConversationTitleViewModel(
-                threadViewModel: threadViewModel,
-                profileCache: profileCache,
+                threadInfo: threadInfo,
+                dataCache: dataCache,
                 using: dependencies
             ),
-            threadViewModel: threadViewModel,
-            threadContact: threadContact,
-            threadIsTrusted: threadIsTrusted,
             legacyGroupsBannerIsVisible: previousState.legacyGroupsBannerIsVisible,
             reactionsSupported: reactionsSupported,
+            recentReactionEmoji: recentReactionEmoji,
             isUserModeratorOrAdmin: isUserModeratorOrAdmin,
             shouldShowTypingIndicator: shouldShowTypingIndicator,
             optimisticallyInsertedMessages: optimisticallyInsertedMessages
@@ -1219,7 +865,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let orderedIds: [Int64] = State.orderedIdsIncludingOptimisticMessages(
             loadedPageInfo: state.loadedPageInfo,
             optimisticMessages: state.optimisticallyInsertedMessages,
-            interactionCache: state.interactionCache
+            dataCache: state.dataCache
         )
         
         /// Messages are fetched in decending order (so the message at index `0` is the most recent message), we then render the
@@ -1313,17 +959,17 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         let interaction: Interaction = Interaction(
             threadId: currentState.threadId,
             threadVariant: currentState.threadVariant,
-            authorId: currentState.currentUserSessionIds
+            authorId: currentState.threadInfo.currentUserSessionIds
                 .first { $0.hasPrefix(SessionId.Prefix.blinded15.rawValue) }
                 .defaulting(to: currentState.userSessionId.hexString),
             variant: .standardOutgoing,
             body: text,
             timestampMs: sentTimestampMs,
             hasMention: Interaction.isUserMentioned(
-                publicKeysToCheck: currentState.currentUserSessionIds,
+                publicKeysToCheck: currentState.threadInfo.currentUserSessionIds,
                 body: text
             ),
-            expiresInSeconds: currentState.threadViewModel.disappearingMessagesConfiguration?.expiresInSeconds(),
+            expiresInSeconds: currentState.threadInfo.disappearingMessagesConfiguration?.expiresInSeconds(),
             linkPreviewUrl: linkPreviewViewModel?.urlString,
             proMessageFeatures: proMessageFeatures,
             proProfileFeatures: proProfileFeatures,
@@ -1387,7 +1033,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     // MARK: - Profiles
     
     @MainActor public func displayName(for sessionId: String, inMessageBody: Bool) -> String? {
-        return state.profileCache[sessionId]?.displayName(
+        return state.dataCache.profile(for: sessionId)?.displayName(
             includeSessionIdSuffix: (state.threadVariant == .community && inMessageBody)
         )
     }
@@ -1399,9 +1045,9 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             for: query,
             threadId: state.threadId,
             threadVariant: state.threadVariant,
-            currentUserSessionIds: state.currentUserSessionIds,
-            communityInfo: state.threadViewModel.openGroupServer.map { server in
-                state.threadViewModel.openGroupRoomToken.map { (server: server, roomToken: $0) }
+            currentUserSessionIds: state.threadInfo.currentUserSessionIds,
+            communityInfo: state.threadInfo.communityInfo.map { info in
+                (server: info.server, roomToken: info.roomToken)
             },
             using: dependencies
         )
@@ -1421,16 +1067,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 authorId: viewModel.authorId,
                 authorName: viewModel.authorName(),
                 timestampMs: viewModel.timestampMs,
-                body: viewModel.body,
+                body: viewModel.bubbleBody,
                 attachmentInfo: targetAttachment?.quoteAttachmentInfo(using: dependencies)
             ),
             showProBadge: viewModel.profile.proFeatures.contains(.proBadge), /// Quote pro badge is profile data
             currentUserSessionIds: viewModel.currentUserSessionIds,
-            displayNameRetriever: { [profileCache = state.profileCache] sessionId, inMessageBody in
-                profileCache[sessionId]?.displayName(
-                    includeSessionIdSuffix: (viewModel.threadVariant == .community && inMessageBody)
-                )
-            },
+            displayNameRetriever: state.dataCache.displayNameRetriever(
+                for: viewModel.threadId,
+                includeSessionIdSuffixWhenInMessageBody: (viewModel.threadVariant == .community)
+            ),
             currentUserMentionImage: viewModel.currentUserMentionImage
         )
     }
@@ -1465,15 +1110,15 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
     @MainActor public func updateDraft(to draft: String) {
         /// Kick off an async process to save the `draft` message to the conversation (don't want to block the UI while doing this,
         /// worst case the `draft` just won't be saved)
-        Task.detached(priority: .userInitiated) { [threadViewModel = state.threadViewModel, dependencies] in
-            do { try await threadViewModel.updateDraft(draft, using: dependencies) }
+        Task.detached(priority: .userInitiated) { [threadInfo = state.threadInfo, dependencies] in
+            do { try await threadInfo.updateDraft(draft, using: dependencies) }
             catch { Log.error(.conversation, "Failed to update draft due to error: \(error)") }
         }
     }
     
     public func markThreadAsRead() async {
-        let threadViewModel: SessionThreadViewModel = await state.threadViewModel
-        try? await threadViewModel.markAsRead(target: .thread, using: dependencies)
+        let threadInfo: ConversationInfoViewModel = await state.threadInfo
+        try? await threadInfo.markAsRead(target: .thread, using: dependencies)
     }
     
     /// This method marks a thread as read and depending on the target may also update the interactions within a thread as read
@@ -1491,8 +1136,8 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         /// The `ThreadViewModel.markAsRead` method also tries to avoid marking as read if a conversation is already fully read
         let needsToMarkAsRead: Bool = await MainActor.run {
             guard
-                (state.threadViewModel.threadUnreadCount ?? 0) > 0 ||
-                state.threadViewModel.threadWasMarkedUnread == true
+                state.threadInfo.unreadCount > 0 ||
+                state.threadInfo.wasMarkedUnread
             else { return false }
             
             /// We want to mark messages as read while we scroll, so grab the "newest" visible message and mark everything older as read
@@ -1548,16 +1193,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         catch { return }
         
         /// Get the latest values
-        let (threadViewModel, pendingInfo): (SessionThreadViewModel, Interaction.TimestampInfo?) = await MainActor.run {
+        let (threadInfo, pendingInfo): (ConversationInfoViewModel, Interaction.TimestampInfo?) = await MainActor.run {
             (
-                state.threadViewModel,
+                state.threadInfo,
                 pendingMarkAsReadInfo
             )
         }
         
         guard let info: Interaction.TimestampInfo = pendingInfo else { return }
         
-        try? await threadViewModel.markAsRead(
+        try? await threadInfo.markAsRead(
             target: .threadAndInteractions(interactionsBeforeInclusive: info.id),
             using: dependencies
         )
@@ -1630,10 +1275,11 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         messageExpandedInteractionIds.insert(interactionId)
     }
     
-    @MainActor public func deletionActions(for cellViewModels: [MessageViewModel]) -> MessageViewModel.DeletionBehaviours? {
-        return MessageViewModel.DeletionBehaviours.deletionActions(
+    @MainActor public func deletionActions(for cellViewModels: [MessageViewModel]) throws -> MessageViewModel.DeletionBehaviours? {
+        return try MessageViewModel.DeletionBehaviours.deletionActions(
             for: cellViewModels,
-            threadData: state.threadViewModel,
+            threadInfo: state.threadInfo,
+            authMethod: state.authMethod.value,
             isUserModeratorOrAdmin: state.isUserModeratorOrAdmin,
             using: dependencies
         )
@@ -1869,129 +1515,112 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
 // MARK: - Convenience
 
 private extension ObservedEvent {
-    var dataRequirement: EventDataRequirement {
-        // FIXME: Should be able to optimise this further
-        switch (key, key.generic) {
-            case (_, .loadPage): return .databaseQuery
-            case (.anyMessageCreatedInAnyConversation, _): return .databaseQuery
-            case (.anyContactBlockedStatusChanged, _): return .databaseQuery
-            case (.anyContactUnblinded, _): return .bothDatabaseQueryAndOther
-            case (_, .typingIndicator): return .databaseQuery
-            case (_, .conversationUpdated), (_, .conversationDeleted): return .databaseQuery
-            case (_, .messageCreated), (_, .messageUpdated), (_, .messageDeleted): return .databaseQuery
-            case (_, .attachmentCreated), (_, .attachmentUpdated), (_, .attachmentDeleted): return .databaseQuery
-            case (_, .reactionsChanged): return .databaseQuery
-            case (_, .communityUpdated): return .bothDatabaseQueryAndOther
-            case (_, .contact): return .bothDatabaseQueryAndOther
-            case (_, .profile): return .bothDatabaseQueryAndOther
-            default: return .other
-        }
+    var handlingStrategy: EventHandlingStrategy {
+        let threadInfoStrategy: EventHandlingStrategy? = ConversationInfoViewModel.handlingStrategy(for: self)
+        let messageStrategy: EventHandlingStrategy? = MessageViewModel.handlingStrategy(for: self)
+        let localStrategy: EventHandlingStrategy = {
+            switch (key, key.generic) {
+                case (_, .loadPage): return .databaseQuery
+                case (.anyMessageCreatedInAnyConversation, _): return .databaseQuery
+                case (.anyContactBlockedStatusChanged, _): return .databaseQuery
+                case (.anyContactUnblinded, _): return [.databaseQuery, .directCacheUpdate]
+                case (.recentReactionsUpdated, _): return .databaseQuery
+                case (_, .conversationUpdated), (_, .conversationDeleted): return .databaseQuery
+                case (_, .messageCreated), (_, .messageUpdated), (_, .messageDeleted): return .databaseQuery
+                case (_, .attachmentCreated), (_, .attachmentUpdated), (_, .attachmentDeleted): return .databaseQuery
+                case (_, .reactionsChanged): return .databaseQuery
+                case (_, .communityUpdated): return [.databaseQuery, .directCacheUpdate]
+                case (_, .contact): return [.databaseQuery, .directCacheUpdate]
+                case (_, .profile): return [.databaseQuery, .directCacheUpdate]
+                case (_, .typingIndicator): return .directCacheUpdate
+                default: return .directCacheUpdate
+            }
+        }()
+        
+        return localStrategy
+            .union(threadInfoStrategy ?? .none)
+            .union(messageStrategy ?? .none)
     }
 }
 
 private extension ConversationTitleViewModel {
     init(
-        threadViewModel: SessionThreadViewModel,
-        profileCache: [String: Profile],
+        threadInfo: ConversationInfoViewModel,
+        dataCache: ConversationDataCache,
         using dependencies: Dependencies
     ) {
-        self.threadVariant = threadViewModel.threadVariant
-        self.displayName = threadViewModel.displayName
-        self.isNoteToSelf = threadViewModel.threadIsNoteToSelf
-        self.isMessageRequest = (threadViewModel.threadIsMessageRequest == true)
-        self.showProBadge = (profileCache[threadViewModel.threadId]?.proFeatures.contains(.proBadge) == true)
-        self.isMuted = (dependencies.dateNow.timeIntervalSince1970 <= (threadViewModel.threadMutedUntilTimestamp ?? 0))
-        self.onlyNotifyForMentions = (threadViewModel.threadOnlyNotifyForMentions == true)
-        self.userCount = threadViewModel.userCount
-        self.disappearingMessagesConfig = threadViewModel.disappearingMessagesConfiguration
+        self.threadVariant = threadInfo.variant
+        self.displayName = threadInfo.displayName.deformatted()
+        self.isNoteToSelf = threadInfo.isNoteToSelf
+        self.isMessageRequest = threadInfo.isMessageRequest
+        self.showProBadge = (dataCache.profile(for: threadInfo.id)?.proFeatures.contains(.proBadge) == true)
+        self.isMuted = (dependencies.dateNow.timeIntervalSince1970 <= (threadInfo.mutedUntilTimestamp ?? 0))
+        self.onlyNotifyForMentions = threadInfo.onlyNotifyForMentions
+        self.userCount = threadInfo.userCount
+        self.disappearingMessagesConfig = threadInfo.disappearingMessagesConfiguration
     }
 }
 
-// MARK: - Convenience
-
 public extension ConversationViewModel {
-    static func fetchThreadViewModel(
+    static func fetchConversationInfo(
         threadId: String,
-        variant: SessionThread.Variant,
         using dependencies: Dependencies
-    ) async throws -> SessionThreadViewModel {
-        let (wasKickedFromGroup, groupIsDestroyed): (Bool, Bool) = {
-            guard variant == .group else { return (false, false) }
-            
-            return dependencies.mutate(cache: .libSession) { cache in
-                (
-                    cache.wasKickedFromGroup(groupSessionId: SessionId(.group, hex: threadId)),
-                    cache.groupIsDestroyed(groupSessionId: SessionId(.group, hex: threadId))
-                )
-            }
-        }()
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let currentUserSessionIds: Set<String> = await {
-            guard
-                variant == .community,
-                let serverInfo: CommunityManager.Server = await dependencies[singleton: .communityManager].server(threadId: threadId)
-            else { return [userSessionId.hexString] }
-            
-            return serverInfo.currentUserSessionIds
-        }()
-        
+    ) async throws -> ConversationInfoViewModel {
         return try await dependencies[singleton: .storage].readAsync { [dependencies] db in
-            try ConversationViewModel.fetchThreadViewModel(
+            try ConversationViewModel.fetchConversationInfo(
                 db,
                 threadId: threadId,
-                userSessionId: userSessionId,
-                currentUserSessionIds: currentUserSessionIds,
-                threadWasKickedFromGroup: wasKickedFromGroup,
-                threadGroupIsDestroyed: groupIsDestroyed,
                 using: dependencies
             )
         }
     }
     
-    static func fetchThreadViewModel(
+    static func fetchConversationInfo(
         _ db: ObservingDatabase,
         threadId: String,
-        userSessionId: SessionId,
-        currentUserSessionIds: Set<String>,
-        threadWasKickedFromGroup: Bool,
-        threadGroupIsDestroyed: Bool,
         using dependencies: Dependencies
-    ) throws -> SessionThreadViewModel {
-        let threadData: SessionThreadViewModel = try SessionThreadViewModel
-            .conversationQuery(
-                threadId: threadId,
-                userSessionId: userSessionId
+    ) throws -> ConversationInfoViewModel {
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        var dataCache: ConversationDataCache = ConversationDataCache(
+            userSessionId: dependencies[cache: .general].sessionId,
+            context: ConversationDataCache.Context(
+                source: .messageList(threadId: threadId),
+                requireFullRefresh: true,
+                requireAuthMethodFetch: false,
+                requiresMessageRequestCountUpdate: false,
+                requiresInitialUnreadInteractionInfo: false,
+                requireRecentReactionEmojiUpdate: false
             )
-            .fetchOne(db) ?? { throw StorageError.objectNotFound }()
-        let threadRecentReactionEmoji: [String]? = try Emoji.getRecent(db, withDefaultEmoji: true)
-        var threadOpenGroupCapabilities: Set<Capability.Variant>?
-        
-        if threadData.threadVariant == .community {
-            threadOpenGroupCapabilities = try Capability
-                .select(.variant)
-                .filter(Capability.Columns.openGroupServer == threadData.openGroupServer?.lowercased())
-                .filter(Capability.Columns.isMissing == false)
-                .asRequest(of: Capability.Variant.self)
-                .fetchSet(db)
-        }
-        
-        return threadData.populatingPostQueryData(
-            recentReactionEmoji: threadRecentReactionEmoji,
-            openGroupCapabilities: threadOpenGroupCapabilities,
-            currentUserSessionIds: currentUserSessionIds,
-            wasKickedFromGroup: threadWasKickedFromGroup,
-            groupIsDestroyed: threadGroupIsDestroyed,
-            threadCanWrite: threadData.determineInitialCanWriteFlag(using: dependencies),
-            threadCanUpload: threadData.determineInitialCanUploadFlag(using: dependencies)
         )
-    }
-}
-
-private extension SessionId.Prefix {
-    static func isCommunityBlinded(_ id: String?) -> Bool {
-        switch try? SessionId.Prefix(from: id) {
-            case .blinded15, .blinded25: return true
-            case .standard, .unblinded, .group, .versionBlinded07, .none: return false
+        let fetchRequirements: ConversationDataHelper.FetchRequirements = ConversationDataHelper.FetchRequirements(
+            requireAuthMethodFetch: false,
+            requiresMessageRequestCountUpdate: false,
+            requiresInitialUnreadInteractionInfo: false,
+            requireRecentReactionEmojiUpdate: false,
+            threadIdsNeedingFetch: [threadId]
+        )
+        
+        dataCache = try ConversationDataHelper.fetchFromLibSession(
+            requirements: fetchRequirements,
+            cache: dataCache,
+            using: dependencies
+        )
+        dataCache = try ConversationDataHelper.fetchFromDatabase(
+            db,
+            requirements: fetchRequirements,
+            currentCache: dataCache,
+            using: dependencies
+        )
+        
+        guard let thread: SessionThread = dataCache.thread(for: threadId) else {
+            Log.error(.conversation, "Unable to fetch conversation info for thread: \(threadId).")
+            throw StorageError.objectNotFound
         }
+        
+        return ConversationInfoViewModel(
+            thread: thread,
+            dataCache: dataCache,
+            using: dependencies
+        )
     }
 }

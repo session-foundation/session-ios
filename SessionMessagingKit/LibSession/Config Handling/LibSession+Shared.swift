@@ -139,6 +139,7 @@ internal extension LibSession {
                                 db.addEvent(
                                     ConversationEvent(
                                         id: thread.id,
+                                        variant: thread.variant,
                                         change: .pinnedPriority(
                                             thread.pinnedPriority
                                                 .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
@@ -509,8 +510,8 @@ public extension LibSession.Cache {
         return SessionThread.displayName(
             threadId: threadId,
             variant: threadVariant,
-            closedGroupName: finalClosedGroupName,
-            openGroupName: finalOpenGroupName,
+            groupName: finalClosedGroupName,
+            communityName: finalOpenGroupName,
             isNoteToSelf: (threadId == userSessionId.hexString),
             ignoreNickname: false,
             profile: finalProfile
@@ -1014,12 +1015,12 @@ public protocol LibSessionRespondingViewController {
     var isConversationList: Bool { get }
     
     func isConversation(in threadIds: [String]) -> Bool
-    func forceRefreshIfNeeded()
+    @MainActor func forceRefreshIfNeeded()
 }
 
 public extension LibSessionRespondingViewController {
     var isConversationList: Bool { false }
     
     func isConversation(in threadIds: [String]) -> Bool { return false }
-    func forceRefreshIfNeeded() {}
+    @MainActor func forceRefreshIfNeeded() {}
 }

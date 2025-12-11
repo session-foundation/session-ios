@@ -248,8 +248,7 @@ public extension NotificationsManagerType {
                                 .defaulting(to: sender.truncated()),
                             attachmentDescriptionInfo: attachmentDescriptionInfo?.first,
                             attachmentCount: (attachmentDescriptionInfo?.count ?? 0),
-                            isOpenGroupInvitation: (visibleMessage.openGroupInvitation != nil),
-                            using: dependencies
+                            isOpenGroupInvitation: (visibleMessage.openGroupInvitation != nil)
                         )
                     }?
                     .filteredForDisplay

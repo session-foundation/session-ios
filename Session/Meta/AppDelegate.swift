@@ -966,25 +966,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func showMissedCallTipsIfNeeded(_ notification: Notification) {
         guard
             dependencies[singleton: .appContext].isValid,
-            !dependencies[defaults: .standard, key: .hasSeenCallMissedTips]
+            !dependencies[defaults: .standard, key: .hasSeenCallMissedTips],
+            let callerId: String = notification.userInfo?[Notification.Key.senderId.rawValue] as? String
         else { return }
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.showMissedCallTipsIfNeeded(notification)
+        
+        Task.detached(priority: .userInitiated) { [dependencies] in
+            let callerDisplayName: String = ((try? await dependencies[singleton: .storage]
+                .readAsync { db in Profile.displayName(db, id: callerId) }) ?? callerId.truncated())
+            
+            await MainActor.run { [dependencies] in
+                guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else {
+                    return
+                }
+                
+                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
+                    caller: callerDisplayName,
+                    presentingViewController: presentingVC,
+                    using: dependencies
+                )
+                presentingVC.present(callMissedTipsModal, animated: true, completion: nil)
+                
+                dependencies[defaults: .standard, key: .hasSeenCallMissedTips] = true
             }
-            return
         }
-        guard let callerId: String = notification.userInfo?[Notification.Key.senderId.rawValue] as? String else { return }
-        guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { preconditionFailure() }
-        
-        let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
-            caller: Profile.displayName(id: callerId, using: dependencies),
-            presentingViewController: presentingVC,
-            using: dependencies
-        )
-        presentingVC.present(callMissedTipsModal, animated: true, completion: nil)
-        
-        dependencies[defaults: .standard, key: .hasSeenCallMissedTips] = true
     }
     
     // MARK: - Polling

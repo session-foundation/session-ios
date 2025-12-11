@@ -46,7 +46,7 @@ public extension MentionSelectionView.ViewModel {
         using dependencies: Dependencies
     ) async throws -> [MentionSelectionView.ViewModel] {
         let profiles: [Profile] = try await dependencies[singleton: .storage].readAsync { db in
-            let pattern: FTS5Pattern? = try? SessionThreadViewModel.pattern(db, searchTerm: query, forTable: Profile.self)
+            let pattern: FTS5Pattern? = try? GlobalSearch.pattern(db, searchTerm: query, forTable: Profile.self)
             let targetPrefixes: [SessionId.Prefix] = {
                 switch threadVariant {
                     case .contact, .legacyGroup, .group: return [.standard]

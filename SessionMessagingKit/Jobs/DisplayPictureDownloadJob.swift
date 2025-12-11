@@ -57,7 +57,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             return try Network.SOGS.preparedDownload(
                                 fileId: fileId,
                                 roomToken: roomToken,
-                                authMethod: Authentication.community(info: info),
+                                authMethod: Authentication.Community(info: info),
                                 skipAuthentication: skipAuthentication,
                                 using: dependencies
                             )
@@ -264,7 +264,11 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 
                 db.addProfileEvent(id: id, change: .displayPictureUrl(url))
-                db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
+                db.addConversationEvent(
+                    id: id,
+                    variant: .contact,
+                    type: .updated(.displayPictureUrl(url))
+                )
                 
             case .group(let id, let url, let encryptionKey):
                 _ = try? ClosedGroup
@@ -275,7 +279,11 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
                         using: dependencies
                     )
-                db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
+                db.addConversationEvent(
+                    id: id,
+                    variant: .group,
+                    type: .updated(.displayPictureUrl(url))
+                )
                 
             case .community(_, let roomToken, let server, _):
                 _ = try? OpenGroup
@@ -287,6 +295,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 db.addConversationEvent(
                     id: OpenGroup.idFor(roomToken: roomToken, server: server),
+                    variant: .community,
                     type: .updated(.displayPictureUrl(downloadUrl))
                 )
         }

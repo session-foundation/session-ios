@@ -411,7 +411,11 @@ public extension Profile {
             let newDisplayName: String = effectiveDisplayName,
             newDisplayName != (isCurrentUser ? profile.name : (profile.nickname ?? profile.name))
         {
-            db.addConversationEvent(id: publicKey, type: .updated(.displayName(newDisplayName)))
+            db.addConversationEvent(
+                id: publicKey,
+                variant: .contact,
+                type: .updated(.displayName(newDisplayName))
+            )
         }
         
         /// If the profile was either updated or matches the current (latest) state then we should check if we have the display picture on

@@ -318,7 +318,6 @@ final class VisibleMessageCell: MessageCell {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
-        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
@@ -375,7 +374,6 @@ final class VisibleMessageCell: MessageCell {
             shouldExpanded: shouldExpanded,
             lastSearchText: lastSearchText,
             tableSize: tableSize,
-            displayNameRetriever: displayNameRetriever,
             using: dependencies
         )
         
@@ -490,7 +488,6 @@ final class VisibleMessageCell: MessageCell {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
-        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         let bodyLabelTextColor: ThemeValue = cellViewModel.bodyTextColor
@@ -574,8 +571,7 @@ final class VisibleMessageCell: MessageCell {
                             for: cellViewModel,
                             with: maxWidth,
                             textColor: bodyLabelTextColor,
-                            searchText: lastSearchText,
-                            displayNameRetriever: displayNameRetriever
+                            searchText: lastSearchText
                         )
                         
                         bodyTappableLabelContainer.addSubview(bodyTappableInfo.label)
@@ -640,8 +636,7 @@ final class VisibleMessageCell: MessageCell {
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
-                    searchText: lastSearchText,
-                    displayNameRetriever: displayNameRetriever
+                    searchText: lastSearchText
                 )
                 self.bodyLabel = bodyTappableLabel
                 self.bodyLabelHeight = height
@@ -701,7 +696,7 @@ final class VisibleMessageCell: MessageCell {
         )
         let lineHeight: CGFloat = UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight
         
-        switch (cellViewModel.quoteViewModel, cellViewModel.body) {
+        switch (cellViewModel.quoteViewModel, cellViewModel.bubbleBody) {
             /// Both quote and body
             case (.some(let quoteViewModel), .some(let body)) where !body.isEmpty:
                 // Stack view
@@ -724,8 +719,7 @@ final class VisibleMessageCell: MessageCell {
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
-                    searchText: lastSearchText,
-                    displayNameRetriever: displayNameRetriever
+                    searchText: lastSearchText
                 )
                 self.bodyLabel = bodyTappableLabel
                 self.bodyLabelHeight = height
@@ -757,8 +751,7 @@ final class VisibleMessageCell: MessageCell {
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
-                    searchText: lastSearchText,
-                    displayNameRetriever: displayNameRetriever
+                    searchText: lastSearchText
                 )
 
                 self.bodyLabel = bodyTappableLabel
@@ -1278,27 +1271,24 @@ final class VisibleMessageCell: MessageCell {
     static func getBodyAttributedText(
         for cellViewModel: MessageViewModel,
         textColor: ThemeValue,
-        searchText: String?,
-        displayNameRetriever: DisplayNameRetriever
+        searchText: String?
     ) -> ThemedAttributedString? {
         guard
-            let body: String = cellViewModel.body,
+            let body: String = cellViewModel.bubbleBody,
             !body.isEmpty
         else { return nil }
         
         let isOutgoing: Bool = (cellViewModel.variant == .standardOutgoing)
-        let attributedText: ThemedAttributedString = MentionUtilities.highlightMentions(
-            in: body,
-            currentUserSessionIds: cellViewModel.currentUserSessionIds,
-            location: (isOutgoing ? .outgoingMessage : .incomingMessage),
-            textColor: textColor,
-            attributes: [
-                .themeForegroundColor: textColor,
-                .font: UIFont.systemFont(ofSize: getFontSize(for: cellViewModel))
-            ],
-            displayNameRetriever: displayNameRetriever,
-            currentUserMentionImage: cellViewModel.currentUserMentionImage
-        )
+        let attributedText: ThemedAttributedString = body
+            .formatted(
+                baseFont: .systemFont(ofSize: getFontSize(for: cellViewModel)),
+                attributes: [.themeForegroundColor: textColor],
+                mentionColor: MentionUtilities.mentionColor(
+                    textColor: textColor,
+                    location: (isOutgoing ? .outgoingMessage : .incomingMessage)
+                ),
+                currentUserMentionImage: cellViewModel.currentUserMentionImage
+            )
         
         // Custom handle links
         let links: [URL: NSRange] = {
@@ -1358,46 +1348,15 @@ final class VisibleMessageCell: MessageCell {
         
         // If there is a valid search term then highlight each part that matched
         if let searchText = searchText, searchText.count >= ConversationSearchController.minimumSearchTextLength {
-            let normalizedBody: String = attributedText.string.lowercased()
+            let ranges: [NSRange] = GlobalSearch.ranges(
+                for: searchText,
+                in: attributedText.string
+            )
             
-            SessionThreadViewModel.searchTermParts(searchText)
-                .map { part -> String in
-                    guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part }
-                    
-                    let partRange = (part.index(after: part.startIndex)..<part.index(before: part.endIndex))
-                    return String(part[partRange])
-                }
-                .forEach { part in
-                    // Highlight all ranges of the text (Note: The search logic only finds
-                    // results that start with the term so we use the regex below to ensure
-                    // we only highlight those cases)
-                    normalizedBody
-                        .ranges(
-                            of: (Dependencies.isRTL ?
-                                 "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :
-                                 "(^|[^a-zA-Z0-9])(\(part.lowercased()))"
-                            ),
-                            options: [.regularExpression]
-                        )
-                        .forEach { range in
-                            let targetRange: Range<String.Index> = {
-                                let term: String = String(normalizedBody[range])
-                                
-                                // If the matched term doesn't actually match the "part" value then it means
-                                // we've matched a term after a non-alphanumeric character so need to shift
-                                // the range over by 1
-                                guard term.starts(with: part.lowercased()) else {
-                                    return (normalizedBody.index(after: range.lowerBound)..<range.upperBound)
-                                }
-                                
-                                return range
-                            }()
-                            
-                            let legacyRange: NSRange = NSRange(targetRange, in: normalizedBody)
-                            attributedText.addAttribute(.themeBackgroundColor, value: ThemeValue.backgroundPrimary, range: legacyRange)
-                            attributedText.addAttribute(.themeForegroundColor, value: ThemeValue.textPrimary, range: legacyRange)
-                        }
-                }
+            for range in ranges {
+                attributedText.addAttribute(.themeBackgroundColor, value: ThemeValue.backgroundPrimary, range: range)
+                attributedText.addAttribute(.themeForegroundColor, value: ThemeValue.textPrimary, range: range)
+            }
         }
         
         return attributedText
@@ -1407,14 +1366,12 @@ final class VisibleMessageCell: MessageCell {
         for cellViewModel: MessageViewModel,
         with availableWidth: CGFloat,
         textColor: ThemeValue,
-        searchText: String?,
-        displayNameRetriever: DisplayNameRetriever
+        searchText: String?
     ) -> (label: LinkHighlightingLabel, height: CGFloat) {
         let attributedText: ThemedAttributedString? = VisibleMessageCell.getBodyAttributedText(
             for: cellViewModel,
             textColor: textColor,
-            searchText: searchText,
-            displayNameRetriever: displayNameRetriever
+            searchText: searchText
         )
         let result: LinkHighlightingLabel = LinkHighlightingLabel()
         result.setContentHugging(.vertical, to: .required)

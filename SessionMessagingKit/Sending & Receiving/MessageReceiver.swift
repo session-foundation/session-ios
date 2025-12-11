@@ -415,6 +415,7 @@ public enum MessageReceiver {
         try SessionThread.updateVisibility(
             db,
             threadId: threadId,
+            threadVariant: threadVariant,
             isVisible: true,
             additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
             using: dependencies

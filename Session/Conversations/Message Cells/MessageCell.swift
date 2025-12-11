@@ -82,7 +82,6 @@ public class MessageCell: UITableViewCell {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
-        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         preconditionFailure("Must be overridden by subclasses.")

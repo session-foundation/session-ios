@@ -123,7 +123,6 @@ public class SwarmPoller: SwarmPollerType & PollerType {
             .tryFlatMapWithRandomSnode(drainBehaviour: _pollerDrainBehaviour, using: dependencies) { [pollerDestination, customAuthMethod, namespaces, dependencies] snode -> AnyPublisher<(LibSession.Snode, Network.PreparedRequest<Network.SnodeAPI.PollResponse>), Error> in
                 dependencies[singleton: .storage].readPublisher { db -> (LibSession.Snode, Network.PreparedRequest<Network.SnodeAPI.PollResponse>) in
                     let authMethod: AuthenticationMethod = try (customAuthMethod ?? Authentication.with(
-                        db,
                         swarmPublicKey: pollerDestination.target,
                         using: dependencies
                     ))

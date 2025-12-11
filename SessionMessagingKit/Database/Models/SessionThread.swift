@@ -5,7 +5,8 @@ import GRDB
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
-public struct SessionThread: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, IdentifiableTableRecord {
+public struct SessionThread: Sendable, Codable, Identifiable, Equatable, Hashable, PagableRecord, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, IdentifiableTableRecord {
+    public typealias PagedDataType = SessionThread
     public static var databaseTableName: String { "thread" }
     public static let idColumn: ColumnExpression = Columns.id
     
@@ -111,7 +112,11 @@ public struct SessionThread: Codable, Identifiable, Equatable, Hashable, Fetchab
             case .none: Log.error("[SessionThread] Could not process 'aroundInsert' due to missing observingDb.")
             case .some(let observingDb):
                 observingDb.dependencies.setAsync(.hasSavedThread, true)
-                observingDb.addConversationEvent(id: id, type: .created)
+                observingDb.addConversationEvent(
+                    id: id,
+                    variant: variant,
+                    type: .created
+                )
         }
     }
 }
@@ -357,6 +362,7 @@ public extension SessionThread {
                 /// Notify of update
                 db.addConversationEvent(
                     id: id,
+                    variant: variant,
                     type: .updated(.disappearingMessageConfiguration(config))
                 )
             
@@ -374,6 +380,7 @@ public extension SessionThread {
                 /// Notify of update
                 db.addConversationEvent(
                     id: id,
+                    variant: variant,
                     type: .updated(.disappearingMessageConfiguration(config))
                 )
             
@@ -389,10 +396,18 @@ public extension SessionThread {
         if case .setTo(let value) = values.shouldBeVisible, value != result.shouldBeVisible {
             requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: value))
             finalShouldBeVisible = value
-            db.addConversationEvent(id: id, type: .updated(.shouldBeVisible(value)))
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .updated(.shouldBeVisible(value))
+            )
             
             /// Toggling visibility is the same as "creating"/"deleting" a conversation so send those events as well
-            db.addConversationEvent(id: id, type: (value ? .created : .deleted))
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: (value ? .created : .deleted)
+            )
             
             /// Need an explicit event for deleting a message request to trigger a home screen update
             if !value && dependencies.mutate(cache: .libSession, { $0.isMessageRequest(threadId: id, threadVariant: variant) }) {
@@ -403,7 +418,11 @@ public extension SessionThread {
         if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
             requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: value))
             finalPinnedPriority = value
-            db.addConversationEvent(id: id, type: .updated(.pinnedPriority(value)))
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .updated(.pinnedPriority(value))
+            )
         }
         
         if case .setTo(let value) = values.isDraft, value != result.isDraft {
@@ -414,13 +433,21 @@ public extension SessionThread {
         if case .setTo(let value) = values.mutedUntilTimestamp, value != result.mutedUntilTimestamp {
             requiredChanges.append(SessionThread.Columns.mutedUntilTimestamp.set(to: value))
             finalMutedUntilTimestamp = value
-            db.addConversationEvent(id: id, type: .updated(.mutedUntilTimestamp(value)))
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .updated(.mutedUntilTimestamp(value))
+            )
         }
         
         if case .setTo(let value) = values.onlyNotifyForMentions, value != result.onlyNotifyForMentions {
             requiredChanges.append(SessionThread.Columns.onlyNotifyForMentions.set(to: value))
             finalOnlyNotifyForMentions = value
-            db.addConversationEvent(id: id, type: .updated(.onlyNotifyForMentions(value)))
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .updated(.onlyNotifyForMentions(value))
+            )
         }
         
         /// If no changes were needed we can just return the existing/default thread
@@ -578,6 +605,7 @@ public extension SessionThread {
                 try SessionThread.updateVisibility(
                     db,
                     threadIds: threadIds,
+                    threadVariant: threadVariant,
                     isVisible: false,
                     using: dependencies
                 )
@@ -593,6 +621,7 @@ public extension SessionThread {
                 try SessionThread.updateVisibility(
                     db,
                     threadIds: threadIds,
+                    threadVariant: threadVariant,
                     isVisible: false,
                     using: dependencies
                 )
@@ -617,7 +646,11 @@ public extension SessionThread {
                         .reduce(into: [:]) { result, next in result[next.0] = next.1 }
                 }
                 remainingThreadIds.forEach { id in
-                    db.addConversationEvent(id: id, type: .deleted)
+                    db.addConversationEvent(
+                        id: id,
+                        variant: threadVariant,
+                        type: .deleted
+                    )
                     
                     /// Need an explicit event for deleting a message request to trigger a home screen update
                     if messageRequestMap[id] == true {
@@ -637,6 +670,7 @@ public extension SessionThread {
                     try SessionThread.updateVisibility(
                         db,
                         threadIds: threadIds,
+                        threadVariant: threadVariant,
                         isVisible: false,
                         using: dependencies
                     )
@@ -676,7 +710,11 @@ public extension SessionThread {
                         .reduce(into: [:]) { result, next in result[next.0] = next.1 }
                 }
                 remainingThreadIds.forEach { id in
-                    db.addConversationEvent(id: id, type: .deleted)
+                    db.addConversationEvent(
+                        id: id,
+                        variant: threadVariant,
+                        type: .deleted
+                    )
                     
                     /// Need an explicit event for deleting a message request to trigger a home screen update
                     if messageRequestMap[id] == true {
@@ -715,9 +753,32 @@ public extension SessionThread {
 // MARK: - Convenience
 
 public extension SessionThread {
+    func with(
+        shouldBeVisible: Update<Bool> = .useExisting,
+        messageDraft: Update<String?> = .useExisting,
+        mutedUntilTimestamp: Update<TimeInterval?> = .useExisting,
+        onlyNotifyForMentions: Update<Bool> = .useExisting,
+        markedAsUnread: Update<Bool?> = .useExisting,
+        pinnedPriority: Update<Int32?> = .useExisting
+    ) -> SessionThread {
+        return SessionThread(
+            id: id,
+            variant: variant,
+            creationDateTimestamp: creationDateTimestamp,
+            shouldBeVisible: shouldBeVisible.or(self.shouldBeVisible),
+            messageDraft: messageDraft.or(self.messageDraft),
+            mutedUntilTimestamp: mutedUntilTimestamp.or(self.mutedUntilTimestamp),
+            onlyNotifyForMentions: onlyNotifyForMentions.or(self.onlyNotifyForMentions),
+            markedAsUnread: markedAsUnread.or(self.markedAsUnread),
+            pinnedPriority: pinnedPriority.or(self.pinnedPriority),
+            isDraft: isDraft
+        )
+    }
+    
     static func updateVisibility(
         _ db: ObservingDatabase,
         threadId: String,
+        threadVariant: SessionThread.Variant,
         isVisible: Bool,
         customPriority: Int32? = nil,
         additionalChanges: [ConfigColumnAssignment] = [],
@@ -726,6 +787,7 @@ public extension SessionThread {
         try updateVisibility(
             db,
             threadIds: [threadId],
+            threadVariant: threadVariant,
             isVisible: isVisible,
             customPriority: customPriority,
             additionalChanges: additionalChanges,
@@ -736,6 +798,7 @@ public extension SessionThread {
     static func updateVisibility(
         _ db: ObservingDatabase,
         threadIds: [String],
+        threadVariant: SessionThread.Variant,
         isVisible: Bool,
         customPriority: Int32? = nil,
         additionalChanges: [ConfigColumnAssignment] = [],
@@ -778,14 +841,26 @@ public extension SessionThread {
         /// Emit events for any changes
         threadIds.forEach { id in
             if currentInfo[id]?.shouldBeVisible != isVisible {
-                db.addConversationEvent(id: id, type: .updated(.shouldBeVisible(isVisible)))
+                db.addConversationEvent(
+                    id: id,
+                    variant: threadVariant,
+                    type: .updated(.shouldBeVisible(isVisible))
+                )
                 
                 /// Toggling visibility is the same as "creating"/"deleting" a conversation
-                db.addConversationEvent(id: id, type: (isVisible ? .created : .deleted))
+                db.addConversationEvent(
+                    id: id,
+                    variant: threadVariant,
+                    type: (isVisible ? .created : .deleted)
+                )
             }
             
             if currentInfo[id]?.pinnedPriority != targetPriority {
-                db.addConversationEvent(id: id, type: .updated(.pinnedPriority(targetPriority)))
+                db.addConversationEvent(
+                    id: id,
+                    variant: threadVariant,
+                    type: .updated(.pinnedPriority(targetPriority))
+                )
             }
         }
     }
@@ -816,15 +891,15 @@ public extension SessionThread {
     static func displayName(
         threadId: String,
         variant: Variant,
-        closedGroupName: String?,
-        openGroupName: String?,
+        groupName: String?,
+        communityName: String?,
         isNoteToSelf: Bool,
         ignoreNickname: Bool,
         profile: Profile?
     ) -> String {
         switch variant {
-            case .legacyGroup, .group: return (closedGroupName ?? "groupUnknown".localized())
-            case .community: return (openGroupName ?? "communityUnknown".localized())
+            case .legacyGroup, .group: return (groupName ?? "groupUnknown".localized())
+            case .community: return (communityName ?? "communityUnknown".localized())
             case .contact:
                 guard !isNoteToSelf else { return "noteToSelf".localized() }
                 guard let profile: Profile = profile else { return threadId.truncated() }
@@ -845,18 +920,29 @@ public extension SessionThread {
             let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = openGroupCapabilityInfo
         else { return nil }
         
-        // Check the capabilities to ensure the SOGS is blinded (or whether we have no capabilities)
-        guard
-            openGroupCapabilityInfo.capabilities.isEmpty ||
-            openGroupCapabilityInfo.capabilities.contains(.blind)
-        else { return nil }
+        return getCurrentUserBlindedSessionId(
+            publicKey: openGroupCapabilityInfo.publicKey,
+            blindingPrefix: blindingPrefix,
+            capabilities: openGroupCapabilityInfo.capabilities,
+            using: dependencies
+        )
+    }
+    
+    static func getCurrentUserBlindedSessionId(
+        publicKey: String,
+        blindingPrefix: SessionId.Prefix,
+        capabilities: Set<Capability.Variant>,
+        using dependencies: Dependencies
+    ) -> SessionId? {
+        /// Check the capabilities to ensure the SOGS is blinded (or whether we have no capabilities)
+        guard capabilities.isEmpty || capabilities.contains(.blind) else { return nil }
         
         switch blindingPrefix {
             case .blinded15:
                 return dependencies[singleton: .crypto]
                     .generate(
                         .blinded15KeyPair(
-                            serverPublicKey: openGroupCapabilityInfo.publicKey,
+                            serverPublicKey: publicKey,
                             ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                         )
                     )
@@ -866,7 +952,7 @@ public extension SessionThread {
                 return dependencies[singleton: .crypto]
                     .generate(
                         .blinded25KeyPair(
-                            serverPublicKey: openGroupCapabilityInfo.publicKey,
+                            serverPublicKey: publicKey,
                             ed25519SecretKey: dependencies[cache: .general].ed25519SecretKey
                         )
                     )

@@ -1,6 +1,7 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SessionMessagingKit
 import SessionUtilitiesKit
@@ -147,13 +148,10 @@ final class ConversationTitleView: UIView {
         
         if viewModel.isMuted {
             let notificationSettingsLabelString = ThemedAttributedString(
-                string: FullConversationCell.mutePrefix,
-                attributes: [
-                    .font: UIFont(name: "ElegantIcons", size: 8) as Any,
-                    .themeForegroundColor: ThemeValue.textPrimary
-                ]
+                string: NotificationsUI.mutePrefix.rawValue
             )
             .appending(string: "notificationsMuted".localized())
+            .stylingNotificationPrefixesIfNeeded(fontSize: Values.miniFontSize)
             
             labelInfos.append(
                 SessionLabelCarouselView.LabelInfo(
@@ -164,19 +162,12 @@ final class ConversationTitleView: UIView {
             )
         }
         else if viewModel.onlyNotifyForMentions {
-            let imageAttachment = NSTextAttachment()
-            imageAttachment.image = UIImage(named: "NotifyMentions.png")?
-                .withRenderingMode(.alwaysTemplate)
-            imageAttachment.bounds = CGRect(
-                x: 0,
-                y: -2,
-                width: Values.miniFontSize,
-                height: Values.miniFontSize
+            let notificationSettingsLabelString = ThemedAttributedString(
+                string: NotificationsUI.mentionPrefix.rawValue
             )
-            
-            let notificationSettingsLabelString = ThemedAttributedString(attachment: imageAttachment)
-                .appending(string: "  ")
-                .appending(string: "notificationsMentionsOnly".localized())
+            .appending(string: "  ")
+            .appending(string: "notificationsMentionsOnly".localized())
+            .stylingNotificationPrefixesIfNeeded(fontSize: Values.miniFontSize)
             
             labelInfos.append(
                 SessionLabelCarouselView.LabelInfo(

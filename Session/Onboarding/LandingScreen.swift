@@ -188,6 +188,7 @@ struct LandingScreen: View {
                 cancelStyle: .textPrimary,
                 hasCloseButton: true,
                 onConfirm: { _ in
+                    // TODO: [PRO] Update this to use the double url modal
                     if let url: URL = URL(string: Constants.urls.termsOfService) {
                         UIApplication.shared.open(url)
                     }

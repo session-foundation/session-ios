@@ -87,7 +87,6 @@ final class InfoMessageCell: MessageCell {
         shouldExpanded: Bool,
         lastSearchText: String?,
         tableSize: CGSize,
-        displayNameRetriever: DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         guard cellViewModel.variant.isInfoMessage else { return }
@@ -119,7 +118,7 @@ final class InfoMessageCell: MessageCell {
             iconImageView.themeTintColor = .textSecondary
         }
         
-        self.label.themeAttributedText = cellViewModel.body?.formatted(in: self.label)
+        self.label.themeAttributedText = cellViewModel.bubbleBody?.formatted(in: self.label)
         
         if cellViewModel.canFollowDisappearingMessagesSetting {
             self.actionLabel.isHidden = false

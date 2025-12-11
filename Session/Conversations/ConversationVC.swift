@@ -186,7 +186,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             info: InfoBanner.Info(
                 font: .systemFont(ofSize: Values.verySmallFontSize),
                 message: "disappearingMessagesLegacy"
-                    .put(key: "name", value: self.viewModel.state.threadViewModel.displayName)
+                    .put(key: "name", value: self.viewModel.state.threadInfo.displayName.deformatted())
                     .localizedFormatted(baseFont: .systemFont(ofSize: Values.verySmallFontSize)),
                 icon: .close,
                 tintColor: .messageBubble_outgoingText,
@@ -234,7 +234,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         )
         result.isHidden = (
             viewModel.state.threadVariant != .group ||
-            viewModel.state.threadViewModel.closedGroupExpired != true
+            viewModel.state.threadInfo.groupInfo?.expired != true
         )
         
         return result
@@ -304,10 +304,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     
     lazy var messageRequestFooterView: MessageRequestFooterView = MessageRequestFooterView(
         threadVariant: self.viewModel.state.threadVariant,
-        canWrite: (self.viewModel.state.threadViewModel.threadCanWrite == true),
-        threadIsMessageRequest: (self.viewModel.state.threadViewModel.threadIsMessageRequest == true),
-        threadRequiresApproval: (self.viewModel.state.threadViewModel.threadRequiresApproval == true),
-        closedGroupAdminProfile: self.viewModel.state.threadViewModel.closedGroupAdminProfile,
+        canWrite: self.viewModel.state.threadInfo.canWrite,
+        threadIsMessageRequest: self.viewModel.state.threadInfo.isMessageRequest,
+        threadRequiresApproval: self.viewModel.state.threadInfo.requiresApproval,
+        closedGroupAdminProfile: self.viewModel.state.threadInfo.groupInfo?.adminProfile,
         onBlock: { [weak self] in self?.blockMessageRequest() },
         onAccept: { [weak self] in self?.acceptMessageRequest() },
         onDecline: { [weak self] in self?.declineMessageRequest() }
@@ -317,7 +317,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let result: UIView = UIView()
         result.isHidden = (
             viewModel.state.threadVariant != .legacyGroup ||
-            viewModel.state.threadViewModel.currentUserIsClosedGroupAdmin != true
+            viewModel.state.threadInfo.groupInfo?.currentUserRole != .admin
         )
         
         result.addSubview(legacyGroupsFooterButton)
@@ -476,12 +476,12 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     // MARK: - Initialization
     
     init(
-        threadViewModel: SessionThreadViewModel,
+        threadInfo: ConversationInfoViewModel,
         focusedInteractionInfo: Interaction.TimestampInfo? = nil,
         using dependencies: Dependencies
     ) {
         self.viewModel = ConversationViewModel(
-            threadViewModel: threadViewModel,
+            threadInfo: threadInfo,
             focusedInteractionInfo: focusedInteractionInfo,
             currentUserMentionImage: MentionUtilities.generateCurrentUserMentionImage(
                 textColor: MessageViewModel.bodyTextColor(isOutgoing: false)    /// Outgoing messages don't use the image
@@ -507,12 +507,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         // nav will be offset incorrectly during the push animation (unfortunately the profile icon still
         // doesn't appear until after the animation, I assume it's taking a snapshot or something, but
         // there isn't much we can do about that unfortunately)
-        updateNavBarButtons(
-            threadData: nil,
-            initialVariant: self.viewModel.state.threadVariant,
-            initialIsNoteToSelf: self.viewModel.state.threadViewModel.threadIsNoteToSelf,
-            initialIsBlocked: (self.viewModel.state.threadViewModel.threadIsBlocked == true)
-        )
+        updateNavBarButtons(threadInfo: self.viewModel.state.threadInfo)
         titleView.update(with: self.viewModel.state.titleViewModel)
         
         // Constraints
@@ -665,8 +660,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 self.navigationController == nil ||
                 self.navigationController?.viewControllers.contains(self) == false
             ) &&
-            viewModel.state.threadViewModel.threadIsNoteToSelf == false &&
-            viewModel.state.threadViewModel.threadIsDraft == true
+            !viewModel.state.threadInfo.isNoteToSelf &&
+            viewModel.state.threadInfo.isDraft
         {
             viewModel.dependencies[singleton: .storage].writeAsync { db in
                 _ = try SessionThread   // Intentionally use `deleteAll` here instead of `deleteOrLeave`
@@ -701,47 +696,41 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         // Update general conversation UI
         titleView.update(with: state.titleViewModel)
-        updateNavBarButtons(
-            threadData: state.threadViewModel,
-            initialVariant: state.threadVariant,
-            initialIsNoteToSelf: state.threadViewModel.threadIsNoteToSelf,
-            initialIsBlocked: (state.threadViewModel.threadIsBlocked == true)
-        )
+        updateNavBarButtons(threadInfo: state.threadInfo)
         
         addOrRemoveOutdatedClientBanner(
-            outdatedMemberId: state.threadViewModel.outdatedMemberId,
-            disappearingMessagesConfiguration: state.threadViewModel.disappearingMessagesConfiguration
+            contactInfo: state.threadInfo.contactInfo,
+            disappearingMessagesConfiguration: state.threadInfo.disappearingMessagesConfiguration
         )
         
         legacyGroupsBanner.isHidden = (state.threadVariant != .legacyGroup)
         expiredGroupBanner.isHidden = (
             state.threadVariant != .group ||
-            state.threadViewModel.closedGroupExpired != true
+            state.threadInfo.groupInfo?.expired != true
         )
-        updateUnreadCountView(unreadCount: state.threadViewModel.threadUnreadCount)
+        updateUnreadCountView(unreadCount: state.threadInfo.unreadCount)
         snInputView.setMessageInputState(state.messageInputState)
 
         messageRequestFooterView.update(
             threadVariant: state.threadVariant,
-            canWrite: (state.threadViewModel.threadCanWrite == true),
-            threadIsMessageRequest: (state.threadViewModel.threadIsMessageRequest == true),
-            threadRequiresApproval: (state.threadViewModel.threadRequiresApproval == true),
-            closedGroupAdminProfile: state.threadViewModel.closedGroupAdminProfile
+            canWrite: state.threadInfo.canWrite,
+            threadIsMessageRequest: state.threadInfo.isMessageRequest,
+            threadRequiresApproval: state.threadInfo.requiresApproval,
+            closedGroupAdminProfile: state.threadInfo.groupInfo?.adminProfile
         )
         
         // Only set the draft content on the initial load (once we have data)
-        if !initialLoadComplete, let draft: String = state.threadViewModel.threadMessageDraft, !draft.isEmpty {
+        if !initialLoadComplete, !state.threadInfo.messageDraft.isEmpty {
             let (string, _) = MentionUtilities.getMentions(
-                in: draft,
-                currentUserSessionIds: state.currentUserSessionIds,
+                in: state.threadInfo.messageDraft,
+                currentUserSessionIds: state.threadInfo.currentUserSessionIds,
                 displayNameRetriever: { [weak self] sessionId, inMessageBody in
-                    // TODO: [PRO] Replicate this behaviour everywhere
                     self?.viewModel.displayName(for: sessionId, inMessageBody: inMessageBody)
                 }
             )
             
             snInputView.text = string
-            snInputView.updateNumberOfCharactersLeft(draft)
+            snInputView.updateNumberOfCharactersLeft(state.threadInfo.messageDraft)
         }
         
         // Update the table content
@@ -1161,12 +1150,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
     }
     
-    func updateNavBarButtons(
-        threadData: SessionThreadViewModel?,
-        initialVariant: SessionThread.Variant,
-        initialIsNoteToSelf: Bool,
-        initialIsBlocked: Bool
-    ) {
+    func updateNavBarButtons(threadInfo: ConversationInfoViewModel) {
         navigationItem.hidesBackButton = isShowingSearchUI
 
         if isShowingSearchUI {
@@ -1175,14 +1159,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         else {
             let shouldHaveCallButton: Bool = (
-                (threadData?.threadVariant ?? initialVariant) == .contact &&
-                (threadData?.threadIsNoteToSelf ?? initialIsNoteToSelf) == false
+                threadInfo.variant == .contact &&
+                !threadInfo.isNoteToSelf
             )
             
-            guard
-                let threadData: SessionThreadViewModel = threadData,
-                threadData.canAccessSettings(using: viewModel.dependencies)
-            else {
+            guard threadInfo.canAccessSettings else {
                 // Note: Adding empty buttons because without it the title alignment is busted (Note: The size was
                 // taken from the layout inspector for the back button in Xcode
                 navigationItem.rightBarButtonItems = [
@@ -1211,11 +1192,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                 dataManager: viewModel.dependencies[singleton: .imageDataManager]
             )
             profilePictureView.update(
-                publicKey: threadData.threadId,  // Contact thread uses the contactId
-                threadVariant: threadData.threadVariant,
-                displayPictureUrl: threadData.threadDisplayPictureUrl,
-                profile: threadData.profile,
-                additionalProfile: threadData.additionalProfile,
+                publicKey: threadInfo.id,  // Contact thread uses the contactId
+                threadVariant: threadInfo.variant,
+                displayPictureUrl: threadInfo.displayPictureUrl,
+                profile: threadInfo.profile,
+                additionalProfile: threadInfo.additionalProfile,
                 using: viewModel.dependencies
             )
             profilePictureView.customWidth = (44 - 16)   // Width of the standard back button
@@ -1248,10 +1229,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     // MARK: - General
     
     func addOrRemoveOutdatedClientBanner(
-        outdatedMemberId: String?,
+        contactInfo: ConversationInfoViewModel.ContactInfo?,
         disappearingMessagesConfiguration: DisappearingMessagesConfiguration?
     ) {
-        let currentDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = disappearingMessagesConfiguration ?? self.viewModel.state.threadViewModel.disappearingMessagesConfiguration
+        let currentDisappearingMessagesConfiguration: DisappearingMessagesConfiguration? = disappearingMessagesConfiguration ?? self.viewModel.state.threadInfo.disappearingMessagesConfiguration
         // Do not show the banner until the new disappearing messages is enabled
         guard currentDisappearingMessagesConfiguration?.isEnabled == true else {
             self.outdatedClientBanner.isHidden = true
@@ -1262,7 +1243,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             return
         }
         
-        guard let outdatedMemberId: String = outdatedMemberId else {
+        guard
+            let contactInfo: ConversationInfoViewModel.ContactInfo = contactInfo,
+            !contactInfo.isCurrentUser,
+            contactInfo.lastKnownClientVersion == FeatureVersion.legacyDisappearingMessages
+        else {
             UIView.animate(
                 withDuration: 0.25,
                 animations: { [weak self] in
@@ -1283,7 +1268,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         
         self.outdatedClientBanner.update(
             message: "disappearingMessagesLegacy"
-                .put(key: "name", value: (viewModel.displayName(for: outdatedMemberId, inMessageBody: true) ?? outdatedMemberId.truncated()))
+                .put(key: "name", value: contactInfo.displayNameInMessageBody)
                 .localizedFormatted(baseFont: self.outdatedClientBanner.font),
             onTap: { [weak self] in self?.removeOutdatedClientBanner() }
         )
@@ -1296,11 +1281,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     }
     
     private func removeOutdatedClientBanner() {
-        guard let outdatedMemberId: String = self.viewModel.state.threadViewModel.outdatedMemberId else { return }
+        guard let contactInfo: ConversationInfoViewModel.ContactInfo = self.viewModel.state.threadInfo.contactInfo else { return }
         
         viewModel.dependencies[singleton: .storage].writeAsync { db in
             try Contact
-                .filter(id: outdatedMemberId)
+                .filter(id: contactInfo.id)
                 .updateAll(db, Contact.Columns.lastKnownClientVersion.set(to: nil))
         }
     }
@@ -1358,9 +1343,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
                         .contains(cellViewModel.id),
                     lastSearchText: viewModel.lastSearchedText,
                     tableSize: tableView.bounds.size,
-                    displayNameRetriever: { [weak self] sessionId, inMessageBody in
-                        self?.viewModel.displayName(for: sessionId, inMessageBody: inMessageBody)
-                    },
                     using: viewModel.dependencies
                 )
                 cell.delegate = self
@@ -1439,8 +1421,8 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let messages: [MessageViewModel] = self.sections[messagesSectionIndex].elements
         let lastInteractionInfo: Interaction.TimestampInfo = {
             guard
-                let interactionId: Int64 = self.viewModel.state.threadViewModel.interactionId,
-                let timestampMs: Int64 = self.viewModel.state.threadViewModel.interactionTimestampMs
+                let interactionId: Int64 = self.viewModel.state.threadInfo.lastInteraction?.id,
+                let timestampMs: Int64 = self.viewModel.state.threadInfo.lastInteraction?.timestampMs
             else {
                 return Interaction.TimestampInfo(
                     id: messages[messages.count - 1].id,
@@ -1507,12 +1489,11 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
     }
 
-    func updateUnreadCountView(unreadCount: UInt?) {
-        let unreadCount: Int = Int(unreadCount ?? 0)
+    func updateUnreadCountView(unreadCount: Int) {
         let fontSize: CGFloat = (unreadCount < 10000 ? Values.verySmallFontSize : 8)
         unreadCountLabel.text = (unreadCount < 10000 ? "\(unreadCount)" : "9999+") // stringlint:ignore
         unreadCountLabel.font = .boldSystemFont(ofSize: fontSize)
-        unreadCountView.isHidden = (unreadCount == 0)
+        unreadCountView.isHidden = (unreadCount <= 0)
     }
     
     public func updateScrollToBottom(force: Bool = false) {
@@ -1595,12 +1576,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
         
         // Nav bar buttons
-        updateNavBarButtons(
-            threadData: viewModel.state.threadViewModel,
-            initialVariant: viewModel.state.threadVariant,
-            initialIsNoteToSelf: viewModel.state.threadViewModel.threadIsNoteToSelf,
-            initialIsBlocked: (viewModel.state.threadViewModel.threadIsBlocked == true)
-        )
+        updateNavBarButtons(threadInfo: viewModel.state.threadInfo)
         
         // Hack so that the ResultsBar stays on the screen when dismissing the search field
         // keyboard.
@@ -1635,12 +1611,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
     @objc func hideSearchUI() {
         isShowingSearchUI = false
         navigationItem.titleView = titleView
-        updateNavBarButtons(
-            threadData: viewModel.state.threadViewModel,
-            initialVariant: viewModel.state.threadVariant,
-            initialIsNoteToSelf: viewModel.state.threadViewModel.threadIsNoteToSelf,
-            initialIsBlocked: (viewModel.state.threadViewModel.threadIsBlocked == true)
-        )
+        updateNavBarButtons(threadInfo: viewModel.state.threadInfo)
         
         searchController.uiSearchController.stubbableSearchBar.stubbedNextResponder = nil
         UIView.animate(withDuration: 0.3) {

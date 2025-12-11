@@ -258,12 +258,17 @@ extension MessageSender {
                         
                         if name != closedGroup.name {
                             groupChanges.append(ClosedGroup.Columns.name.set(to: name))
-                            db.addConversationEvent(id: groupSessionId, type: .updated(.displayName(name)))
+                            db.addConversationEvent(
+                                id: groupSessionId,
+                                variant: .group,
+                                type: .updated(.displayName(name))
+                            )
                         }
                         if groupDescription != closedGroup.groupDescription {
                             groupChanges.append(ClosedGroup.Columns.groupDescription.set(to: groupDescription))
                             db.addConversationEvent(
                                 id: groupSessionId,
+                                variant: .group,
                                 type: .updated(.description(groupDescription))
                             )
                         }

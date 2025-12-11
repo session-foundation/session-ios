@@ -483,7 +483,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     using: viewModel.dependencies
                 )
                 
-            case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<SessionThreadViewModel>):
+            case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<ConversationInfoViewModel>):
                 cell.accessibilityIdentifier = info.accessibility?.identifier
                 cell.isAccessibilityElement = (info.accessibility != nil)
                 cell.update(with: threadInfo.id, using: viewModel.dependencies)

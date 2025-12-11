@@ -7,7 +7,7 @@ import GRDB
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
-public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct OpenGroup: Sendable, Codable, Equatable, Hashable, Identifiable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "openGroup" }
     
     public typealias Columns = CodingKeys
@@ -31,7 +31,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         case displayPictureOriginalUrl
     }
     
-    public struct Permissions: OptionSet, Codable, DatabaseValueConvertible, Hashable {
+    public struct Permissions: OptionSet, Sendable, Codable, DatabaseValueConvertible, Hashable {
         public let rawValue: UInt16
         
         public init(rawValue: UInt16) {
@@ -69,6 +69,7 @@ public struct OpenGroup: Codable, Equatable, Hashable, Identifiable, FetchableRe
         static let write: Permissions = Permissions(rawValue: 1 << 1)
         static let upload: Permissions = Permissions(rawValue: 1 << 2)
         
+        static let noPermissions: Permissions = []
         static let all: Permissions = [ .read, .write, .upload ]
     }
     
@@ -230,23 +231,30 @@ public extension OpenGroup {
         return "\(server.lowercased()).\(roomToken)"
     }
     
-    func with(shouldPoll: Bool, sequenceNumber: Int64) -> OpenGroup {
+    func with(
+        name: Update<String> = .useExisting,
+        roomDescription: Update<String?> = .useExisting,
+        shouldPoll: Update<Bool> = .useExisting,
+        sequenceNumber: Update<Int64> = .useExisting,
+        permissions: Update<Permissions?> = .useExisting,
+        displayPictureOriginalUrl: Update<String?> = .useExisting
+    ) -> OpenGroup {
         return OpenGroup(
             server: server,
             roomToken: roomToken,
             publicKey: publicKey,
-            shouldPoll: shouldPoll,
-            name: name,
-            roomDescription: roomDescription,
+            shouldPoll: shouldPoll.or(self.shouldPoll),
+            name: name.or(self.name),
+            roomDescription: roomDescription.or(self.roomDescription),
             imageId: imageId,
             userCount: userCount,
             infoUpdates: infoUpdates,
-            sequenceNumber: sequenceNumber,
+            sequenceNumber: sequenceNumber.or(self.sequenceNumber),
             inboxLatestMessageId: inboxLatestMessageId,
             outboxLatestMessageId: outboxLatestMessageId,
             pollFailureCount: pollFailureCount,
-            permissions: permissions,
-            displayPictureOriginalUrl: displayPictureOriginalUrl
+            permissions: permissions.or(self.permissions),
+            displayPictureOriginalUrl: displayPictureOriginalUrl.or(self.displayPictureOriginalUrl)
         )
     }
 }

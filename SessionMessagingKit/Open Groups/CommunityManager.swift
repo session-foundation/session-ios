@@ -119,10 +119,7 @@ public actor CommunityManager: CommunityManagerType {
         let members: [String: [GroupMember]] = data.members.grouped(by: \.groupId)
         
         _servers = rooms.reduce(into: [:]) { result, next in
-            guard
-                let threadId: String = next.value.first?.threadId,
-                let publicKey: String = next.value.first?.publicKey
-            else { return }
+            guard let publicKey: String = next.value.first?.publicKey else { return }
             
             let server: String = next.key.lowercased()
             result[server] = CommunityManager.Server(
@@ -130,7 +127,9 @@ public actor CommunityManager: CommunityManagerType {
                 publicKey: publicKey,
                 openGroups: next.value,
                 capabilities: capabilities[server].map { Set($0) },
-                members: members[threadId],
+                roomMembers: next.value.reduce(into: [:]) { result, next in
+                    result[next.roomToken] = members[next.threadId]
+                },
                 using: dependencies
             )
         }
@@ -145,6 +144,14 @@ public actor CommunityManager: CommunityManagerType {
         return _servers.values.first { server in
             return server.rooms.values.contains {
                 OpenGroup.idFor(roomToken: $0.token, server: server.server) == threadId
+            }
+        }
+    }
+    
+    public func serversByThreadId() async -> [String: CommunityManager.Server] {
+        return _servers.values.reduce(into: [:]) { result, server in
+            server.rooms.forEach { roomToken, _ in
+                result[OpenGroup.idFor(roomToken: roomToken, server: server.server)] = server
             }
         }
     }
@@ -165,7 +172,7 @@ public actor CommunityManager: CommunityManagerType {
                     publicKey: publicKey,
                     openGroups: [],
                     capabilities: capabilities,
-                    members: nil,
+                    roomMembers: nil,
                     using: dependencies
                 )
                 
@@ -198,7 +205,7 @@ public actor CommunityManager: CommunityManagerType {
                 publicKey: publicKey,
                 openGroups: [],
                 capabilities: nil,
-                members: nil,
+                roomMembers: nil,
                 using: dependencies
             )
         )
@@ -309,6 +316,7 @@ public actor CommunityManager: CommunityManagerType {
         roomToken: String,
         server: String,
         publicKey: String,
+        joinedAt: TimeInterval,
         forceVisible: Bool
     ) -> Bool {
         /// No need to do anything if the community is already in the cache
@@ -334,6 +342,7 @@ public actor CommunityManager: CommunityManagerType {
             id: threadId,
             variant: .community,
             values: SessionThread.TargetValues(
+                creationDateTimestamp: .useExistingOrSetTo(joinedAt),
                 /// When adding an open group via config handling then we want to force it to be visible (if it did come via config
                 /// handling then we want to wait until it actually has messages before making it visible)
                 shouldBeVisible: (forceVisible ? .setTo(true) :  .useExisting)
@@ -344,7 +353,7 @@ public actor CommunityManager: CommunityManagerType {
         /// Update the state to allow polling and reset the `sequenceNumber`
         let openGroup: OpenGroup = OpenGroup
             .fetchOrCreate(db, server: targetServer, roomToken: roomToken, publicKey: publicKey)
-            .with(shouldPoll: true, sequenceNumber: 0)
+            .with(shouldPoll: .set(to: true), sequenceNumber: .set(to: 0))
         try? openGroup.upsert(db)
         
         /// Update the cache to have a record of the new room
@@ -405,7 +414,7 @@ public actor CommunityManager: CommunityManagerType {
             try Network.SOGS
                 .preparedCapabilitiesAndRoom(
                     roomToken: roomToken,
-                    authMethod: Authentication.community(
+                    authMethod: Authentication.Community(
                         info: LibSession.OpenGroupCapabilityInfo(
                             roomToken: roomToken,
                             server: server,
@@ -506,7 +515,11 @@ public actor CommunityManager: CommunityManagerType {
             .filter(id: openGroupId)
             .deleteAll(db)
         
-        db.addConversationEvent(id: openGroupId, type: .deleted)
+        db.addConversationEvent(
+            id: openGroupId,
+            variant: .community,
+            type: .deleted
+        )
         
         // Remove any dedupe records (we will want to reprocess all OpenGroup messages if they get re-added)
         try MessageDeduplication.deleteIfNeeded(db, threadIds: [openGroupId], using: syncState.dependencies)
@@ -766,6 +779,7 @@ public actor CommunityManager: CommunityManagerType {
             if openGroup.name != pollInfo.details?.name {
                 db.addConversationEvent(
                     id: openGroup.id,
+                    variant: .community,
                     type: .updated(.displayName(pollInfo.details?.name ?? openGroup.name))
                 )
             }
@@ -773,12 +787,17 @@ public actor CommunityManager: CommunityManagerType {
             if openGroup.roomDescription == pollInfo.details?.roomDescription {
                 db.addConversationEvent(
                     id: openGroup.id,
+                    variant: .community,
                     type: .updated(.description(pollInfo.details?.roomDescription))
                 )
             }
             
             if pollInfo.details?.imageId == nil {
-                db.addConversationEvent(id: openGroup.id, type: .updated(.displayPictureUrl(nil)))
+                db.addConversationEvent(
+                    id: openGroup.id,
+                    variant: .community,
+                    type: .updated(.displayPictureUrl(nil))
+                )
             }
         }
     }
@@ -1204,14 +1223,7 @@ public actor CommunityManager: CommunityManagerType {
             let room: Network.SOGS.Room = cachedServer.rooms[roomToken]
         else { return [] }
         
-        var result: Set<String> = Set(room.admins + room.moderators)
-        
-        if includingHidden {
-            result.insert(contentsOf: Set(room.hiddenAdmins ?? []))
-            result.insert(contentsOf: Set(room.hiddenModerators ?? []))
-        }
-        
-        return result
+        return CommunityManager.allModeratorsAndAdmins(room: room, includingHidden: includingHidden)
     }
     
     /// This method specifies if the given publicKey is a moderator or an admin within a specified Open Group
@@ -1250,6 +1262,22 @@ public actor CommunityManager: CommunityManagerType {
             !possibleKeys.isDisjoint(with: Set(room.hiddenAdmins ?? [])) &&
             !possibleKeys.isDisjoint(with: Set(room.hiddenModerators ?? []))
         )
+    }
+}
+
+public extension CommunityManagerType {
+    static func allModeratorsAndAdmins(
+        room: Network.SOGS.Room,
+        includingHidden: Bool
+    ) -> Set<String> {
+        var result: Set<String> = Set(room.admins + room.moderators)
+        
+        if includingHidden {
+            result.insert(contentsOf: Set(room.hiddenAdmins ?? []))
+            result.insert(contentsOf: Set(room.hiddenModerators ?? []))
+        }
+        
+        return result
     }
 }
 
@@ -1310,6 +1338,7 @@ public protocol CommunityManagerType {
     
     func server(_ server: String) async -> CommunityManager.Server?
     func server(threadId: String) async -> CommunityManager.Server?
+    func serversByThreadId() async -> [String: CommunityManager.Server]
     func updateServer(server: CommunityManager.Server) async
     func updateCapabilities(
         capabilities: Set<Capability.Variant>,
@@ -1332,6 +1361,7 @@ public protocol CommunityManagerType {
         roomToken: String,
         server: String,
         publicKey: String,
+        joinedAt: TimeInterval,
         forceVisible: Bool
     ) -> Bool
     nonisolated func performInitialRequestsAfterAdd(

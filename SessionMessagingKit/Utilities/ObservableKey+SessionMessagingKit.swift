@@ -84,6 +84,8 @@ public extension ObservableKey {
     static func attachmentDeleted(id: String, messageId: Int64?) -> ObservableKey {
         ObservableKey("attachmentDeleted-\(id)-\(messageId.map { "\($0)" } ?? "NULL")", .attachmentDeleted)
     }
+    
+    static let recentReactionsUpdated: ObservableKey = "recentReactionsUpdated"
     static func reactionsChanged(messageId: Int64) -> ObservableKey {
         ObservableKey("reactionsChanged-\(messageId)", .reactionsChanged)
     }
@@ -96,6 +98,10 @@ public extension ObservableKey {
     static let messageRequestUnreadMessageReceived: ObservableKey = "messageRequestUnreadMessageReceived"
     
     // MARK: - Groups
+    
+    static func groupInfo(groupId: String) -> ObservableKey {
+        ObservableKey("groupInfo-\(groupId)", .groupInfo)
+    }
     
     static func groupMemberCreated(threadId: String) -> ObservableKey {
         ObservableKey("groupMemberCreated-\(threadId)", .groupMemberCreated)
@@ -132,6 +138,7 @@ public extension GenericObservableKey {
     static let attachmentDeleted: GenericObservableKey = "attachmentDeleted"
     static let reactionsChanged: GenericObservableKey = "reactionsChanged"
     
+    static let groupInfo: GenericObservableKey = "groupInfo"
     static let groupMemberCreated: GenericObservableKey = "groupMemberCreated"
     static let groupMemberUpdated: GenericObservableKey = "groupMemberUpdated"
     static let groupMemberDeleted: GenericObservableKey = "groupMemberDeleted"
@@ -260,6 +267,7 @@ public extension ObservingDatabase {
 
 public struct ConversationEvent: Hashable {
     public let id: String
+    public let variant: SessionThread.Variant
     public let change: Change?
     
     public enum Change: Hashable {
@@ -271,15 +279,15 @@ public struct ConversationEvent: Hashable {
         case mutedUntilTimestamp(TimeInterval?)
         case onlyNotifyForMentions(Bool)
         case markedAsUnread(Bool)
-        case unreadCount
-        case disappearingMessageConfiguration(DisappearingMessagesConfiguration?)
         case draft(String?)
+        case disappearingMessageConfiguration(DisappearingMessagesConfiguration?)
+        case unreadCount
     }
 }
 
 public extension ObservingDatabase {
-    func addConversationEvent(id: String, type: CRUDEvent<ConversationEvent.Change>) {
-        let event: ConversationEvent = ConversationEvent(id: id, change: type.change)
+    func addConversationEvent(id: String, variant: SessionThread.Variant, type: CRUDEvent<ConversationEvent.Change>) {
+        let event: ConversationEvent = ConversationEvent(id: id, variant: variant, change: type.change)
         
         switch type {
             case .created: addEvent(ObservedEvent(key: .conversationCreated, value: event))

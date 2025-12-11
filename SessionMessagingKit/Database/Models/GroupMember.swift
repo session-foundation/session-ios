@@ -5,7 +5,7 @@ import GRDB
 import SessionUIKit
 import SessionUtilitiesKit
 
-public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct GroupMember: Sendable, Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "groupMember" }
     
     public typealias Columns = CodingKeys
@@ -17,7 +17,7 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
         case isHidden
     }
     
-    public enum Role: Int, Codable, Comparable, CaseIterable, DatabaseValueConvertible {
+    public enum Role: Int, Sendable, Codable, Comparable, CaseIterable, DatabaseValueConvertible {
         case standard
         case zombie
         case moderator
@@ -26,7 +26,7 @@ public struct GroupMember: Codable, Equatable, Hashable, FetchableRecord, Persis
         public static func < (lhs: Role, rhs: Role) -> Bool { lhs.rawValue < rhs.rawValue }
     }
     
-    public enum RoleStatus: Int, Codable, CaseIterable, DatabaseValueConvertible {
+    public enum RoleStatus: Int, Sendable, Codable, CaseIterable, DatabaseValueConvertible {
         case accepted
         case pending
         case failed

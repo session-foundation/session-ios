@@ -298,11 +298,19 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return mock(args: [groupSessionId])
     }
     
+    func groupInfo(for groupIds: Set<String>) -> [LibSession.GroupInfo?] {
+        return mock(args: [groupIds])
+    }
+    
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval? {
         return mock(args: [groupSessionId])
     }
     
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval? {
+        return mock(args: [groupSessionId])
+    }
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData {
         return mock(args: [groupSessionId])
     }
 }

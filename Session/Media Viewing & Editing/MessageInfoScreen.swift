@@ -13,6 +13,8 @@ struct MessageInfoScreen: View {
         let actions: [ContextMenuVC.Action]
         let messageViewModel: MessageViewModel
         let threadCanWrite: Bool
+        let openGroupServer: String?
+        let openGroupPublicKey: String?
         let onStartThread: (@MainActor () -> Void)?
         let isMessageFailed: Bool
         let isCurrentUser: Bool
@@ -24,8 +26,6 @@ struct MessageInfoScreen: View {
         /// This flag is separate to the `proFeatures` because it should be based on the _current_ pro state of the user rather than
         /// the state the user was in when the message was sent
         let shouldShowProBadge: Bool
-        
-        let displayNameRetriever: DisplayNameRetriever
         
         func ctaVariant(currentUserIsPro: Bool) -> ProCTAModal.Variant {
             guard let firstFeature: ProFeature = proFeatures.first, proFeatures.count > 1 else {
@@ -93,8 +93,9 @@ struct MessageInfoScreen: View {
         actions: [ContextMenuVC.Action],
         messageViewModel: MessageViewModel,
         threadCanWrite: Bool,
+        openGroupServer: String?,
+        openGroupPublicKey: String?,
         onStartThread: (@MainActor () -> Void)?,
-        displayNameRetriever: @escaping DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         self.viewModel = ViewModel(
@@ -102,6 +103,8 @@ struct MessageInfoScreen: View {
             actions: actions.filter { $0.actionType != .emoji },    // Exclude emoji actions
             messageViewModel: messageViewModel,
             threadCanWrite: threadCanWrite,
+            openGroupServer: openGroupServer,
+            openGroupPublicKey: openGroupPublicKey,
             onStartThread: onStartThread,
             isMessageFailed: [.failed, .failedToSync].contains(messageViewModel.state),
             isCurrentUser: messageViewModel.currentUserSessionIds.contains(messageViewModel.authorId),
@@ -118,8 +121,7 @@ struct MessageInfoScreen: View {
                 messageFeatures: messageViewModel.proMessageFeatures,
                 profileFeatures: messageViewModel.proProfileFeatures
             ),
-            shouldShowProBadge: messageViewModel.profile.proFeatures.contains(.proBadge),
-            displayNameRetriever: displayNameRetriever
+            shouldShowProBadge: messageViewModel.profile.proFeatures.contains(.proBadge)
         )
     }
     
@@ -138,7 +140,6 @@ struct MessageInfoScreen: View {
                         MessageBubble(
                             messageViewModel: viewModel.messageViewModel,
                             attachmentOnly: false,
-                            displayNameRetriever: viewModel.displayNameRetriever,
                             dependencies: viewModel.dependencies
                         )
                         .clipShape(
@@ -251,7 +252,6 @@ struct MessageInfoScreen: View {
                                     MessageBubble(
                                         messageViewModel: viewModel.messageViewModel,
                                         attachmentOnly: true,
-                                        displayNameRetriever: viewModel.displayNameRetriever,
                                         dependencies: viewModel.dependencies
                                     )
                                     .clipShape(
@@ -605,22 +605,29 @@ struct MessageInfoScreen: View {
     }
     
     func showUserProfileModal() {
-        guard
-            viewModel.threadCanWrite,
-            let info: UserProfileModal.Info = viewModel.messageViewModel.createUserProfileModalInfo(
-                onStartThread: viewModel.onStartThread,
-                onProBadgeTapped: self.showSessionProCTAIfNeeded,
-                using: viewModel.dependencies
-            )
-        else { return }
+        guard viewModel.threadCanWrite else { return }
         
-        let userProfileModal: ModalHostingViewController = ModalHostingViewController(
-            modal: UserProfileModal(
-                info: info,
-                dataManager: viewModel.dependencies[singleton: .imageDataManager]
-            )
-        )
-        self.host.controller?.present(userProfileModal, animated: true, completion: nil)
+        Task.detached(priority: .userInitiated) {
+            guard
+                let info: UserProfileModal.Info = await viewModel.messageViewModel.createUserProfileModalInfo(
+                    openGroupServer: viewModel.openGroupServer,
+                    openGroupPublicKey: viewModel.openGroupPublicKey,
+                    onStartThread: viewModel.onStartThread,
+                    onProBadgeTapped: showSessionProCTAIfNeeded,
+                    using: viewModel.dependencies
+                )
+            else { return }
+            
+            await MainActor.run {
+                let userProfileModal: ModalHostingViewController = ModalHostingViewController(
+                    modal: UserProfileModal(
+                        info: info,
+                        dataManager: viewModel.dependencies[singleton: .imageDataManager]
+                    )
+                )
+                self.host.controller?.present(userProfileModal, animated: true, completion: nil)
+            }
+        }
     }
     
     private func showMediaFullScreen(attachment: Attachment) {
@@ -653,7 +660,6 @@ struct MessageBubble: View {
     
     let messageViewModel: MessageViewModel
     let attachmentOnly: Bool
-    let displayNameRetriever: DisplayNameRetriever
     let dependencies: Dependencies
     
     var bodyLabelTextColor: ThemeValue {
@@ -675,8 +681,7 @@ struct MessageBubble: View {
                 for: messageViewModel,
                 with: maxWidth,
                 textColor: bodyLabelTextColor,
-                searchText: nil,
-                displayNameRetriever: displayNameRetriever
+                searchText: nil
             ).height
             
             VStack(
@@ -718,7 +723,7 @@ struct MessageBubble: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, Self.inset)
                             .padding(.horizontal, Self.inset)
-                            .padding(.bottom, (messageViewModel.body?.isEmpty == false ?
+                            .padding(.bottom, (messageViewModel.bubbleBody?.isEmpty == false ?
                                 -Values.smallSpacing :
                                 Self.inset
                             ))
@@ -728,8 +733,7 @@ struct MessageBubble: View {
                     if let bodyText: ThemedAttributedString = VisibleMessageCell.getBodyAttributedText(
                         for: messageViewModel,
                         textColor: bodyLabelTextColor,
-                        searchText: nil,
-                        displayNameRetriever: displayNameRetriever
+                        searchText: nil
                     ) {
                         AttributedLabel(bodyText, maxWidth: maxWidth)
                             .padding(.horizontal, Self.inset)
@@ -813,16 +817,18 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
         actions: [ContextMenuVC.Action],
         messageViewModel: MessageViewModel,
         threadCanWrite: Bool,
+        openGroupServer: String?,
+        openGroupPublicKey: String?,
         onStartThread: (() -> Void)?,
-        displayNameRetriever: @escaping DisplayNameRetriever,
         using dependencies: Dependencies
     ) {
         let messageInfoView = MessageInfoScreen(
             actions: actions,
             messageViewModel: messageViewModel,
             threadCanWrite: threadCanWrite,
+            openGroupServer: openGroupServer,
+            openGroupPublicKey: openGroupPublicKey,
             onStartThread: onStartThread,
-            displayNameRetriever: displayNameRetriever,
             using: dependencies
         )
         
@@ -846,12 +852,34 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
 struct MessageInfoView_Previews: PreviewProvider {
     static var messageViewModel: MessageViewModel {
         let dependencies: Dependencies = .createEmpty()
+        let threadId: String = "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg"
+        var dataCache: ConversationDataCache = ConversationDataCache(
+            userSessionId: SessionId(
+                .standard,
+                hex: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a961111"
+            ),
+            context: ConversationDataCache.Context(
+                source: .messageList(threadId: threadId),
+                requireFullRefresh: false,
+                requireAuthMethodFetch: false,
+                requiresMessageRequestCountUpdate: false,
+                requiresInitialUnreadInteractionInfo: false,
+                requireRecentReactionEmojiUpdate: false
+            )
+        )
+        dataCache.insert(
+            Profile.with(
+                id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
+                name: "TestUser",
+                proFeatures: .proBadge
+            )
+        )
+        dataCache.setCurrentUserSessionIds([
+            threadId: ["0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a961111"]
+        ])
+        
         let result = MessageViewModel(
             optimisticMessageId: 0,
-            threadId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
-            threadVariant: .contact,
-            threadIsTrusted: true,
-            threadDisappearingConfiguration: nil,
             interaction: Interaction(
                 threadId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
                 threadVariant: .contact,
@@ -865,20 +893,20 @@ struct MessageInfoView_Previews: PreviewProvider {
             ),
             reactionInfo: nil,
             maybeUnresolvedQuotedInfo: nil,
-            profileCache: [
-                "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg": Profile.with(
-                    id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
-                    name: "TestUser",
-                    proFeatures: .proBadge
-                )
-            ],
-            attachmentCache: [:],
-            linkPreviewCache: [:],
-            attachmentMap: [:],
-            unblindedIdMap: [:],
-            isSenderModeratorOrAdmin: false,
-            userSessionId: SessionId(.standard, hex: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a961111"),
-            currentUserSessionIds: ["d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg"],
+            userSessionId: SessionId(
+                .standard,
+                hex: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a961111"
+            ),
+            threadInfo: ConversationInfoViewModel(
+                thread: SessionThread(
+                    id: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
+                    variant: .contact,
+                    creationDateTimestamp: 0
+                ),
+                dataCache: dataCache,
+                using: dependencies
+            ),
+            dataCache: dataCache,
             previousInteraction: nil,
             nextInteraction: nil,
             isLast: true,
@@ -903,8 +931,9 @@ struct MessageInfoView_Previews: PreviewProvider {
             actions: actions,
             messageViewModel: messageViewModel,
             threadCanWrite: true,
+            openGroupServer: nil,
+            openGroupPublicKey: nil,
             onStartThread: nil,
-            displayNameRetriever: { _, _ in nil },
             using: Dependencies.createEmpty()
         )
     }

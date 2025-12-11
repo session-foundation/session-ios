@@ -74,8 +74,9 @@ public struct MessageViewModel: Sendable, Equatable, Hashable, Identifiable, Dif
     
     /// The value will be populated if the sender has a blinded id and we have resolved it to an unblinded id
     public let authorUnblindedId: String?
-    public let body: String?
+    public let bubbleBody: String?
     public let rawBody: String?
+    public let bodyForCopying: String?
     public let timestampMs: Int64
     public let receivedAtTimestampMs: Int64
     public let expiresStartedAtMs: Double?
@@ -164,7 +165,9 @@ public extension MessageViewModel {
         self.cellType = cellType
         self.timestampMs = timestampMs
         self.variant = variant
-        self.body = body
+        self.bubbleBody = body
+        self.rawBody = body
+        self.bodyForCopying = body
         self.quoteViewModel = quoteViewModel
         
         /// These values shouldn't be used for the custom types
@@ -176,7 +179,6 @@ public extension MessageViewModel {
         self.openGroupServerMessageId = nil
         self.authorId = ""
         self.authorUnblindedId = nil
-        self.rawBody = nil
         self.receivedAtTimestampMs = 0
         self.expiresStartedAtMs = nil
         self.expiresInSeconds = nil
@@ -212,21 +214,12 @@ public extension MessageViewModel {
     
     init?(
         optimisticMessageId: Int64? = nil,
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        threadIsTrusted: Bool,
-        threadDisappearingConfiguration: DisappearingMessagesConfiguration?,
         interaction: Interaction,
-        reactionInfo: [ReactionInfo]?,
+        reactionInfo: [MessageViewModel.ReactionInfo]?,
         maybeUnresolvedQuotedInfo: MaybeUnresolvedQuotedInfo?,
-        profileCache: [String: Profile],
-        attachmentCache: [String: Attachment],
-        linkPreviewCache: [String: [LinkPreview]],
-        attachmentMap: [Int64: Set<InteractionAttachment>],
-        unblindedIdMap: [String: String],
-        isSenderModeratorOrAdmin: Bool,
         userSessionId: SessionId,
-        currentUserSessionIds: Set<String>,
+        threadInfo: ConversationInfoViewModel,
+        dataCache: ConversationDataCache,
         previousInteraction: Interaction?,
         nextInteraction: Interaction?,
         isLast: Bool,
@@ -242,91 +235,81 @@ public extension MessageViewModel {
             case (.none, .none): return nil
         }
         
+        let currentUserSessionIds: Set<String> = dataCache.currentUserSessionIds(for: threadInfo.id)
         let targetProfile: Profile = {
             /// If the sender is the current user then use the proper profile from the cache (instead of a random blinded one)
             guard !currentUserSessionIds.contains(interaction.authorId) else {
-                return (profileCache[userSessionId.hexString] ?? Profile.defaultFor(userSessionId.hexString))
+                return (dataCache.profile(for: userSessionId.hexString) ?? Profile.defaultFor(userSessionId.hexString))
             }
             
-            switch (profileCache[unblindedIdMap[interaction.authorId]], profileCache[interaction.authorId]) {
-                case (.some(let profile), _): return profile
-                case (_, .some(let profile)): return profile
-                case (.none, .none): return Profile.defaultFor(interaction.authorId)
+            if let unblindedProfile: Profile = dataCache.unblindedId(for: interaction.authorId).map({ dataCache.profile(for: $0) }) {
+                return unblindedProfile
             }
+            
+            return (dataCache.profile(for: interaction.authorId) ?? Profile.defaultFor(interaction.authorId))
         }()
-        let threadContactDisplayName: String? = {
-            switch threadVariant {
-                case .contact:
-                    return Profile.displayName(
-                        id: threadId,
-                        name: profileCache[threadId]?.name,
-                        nickname: profileCache[threadId]?.nickname
-                    )
-                
-                default: return nil
-            }
-        }()
-        let linkPreviewInfo: (preview: LinkPreview, attachment: Attachment?)? = interaction.linkPreview(
-            linkPreviewCache: linkPreviewCache,
-            attachmentCache: attachmentCache
-        )
-        let attachments: [Attachment] = (attachmentMap[targetId]?
-            .sorted { $0.albumIndex < $1.albumIndex }
-            .compactMap { attachmentCache[$0.attachmentId] } ?? [])
-        let body: String? = interaction.body(
-            threadId: threadId,
-            threadVariant: threadVariant,
-            threadContactDisplayName: threadContactDisplayName,
-            authorDisplayName: (currentUserSessionIds.contains(targetProfile.id) ?
-                "you".localized() :
-                targetProfile.displayName(
-                    includeSessionIdSuffix: (threadVariant == .community)
-                )
-            ),
-            attachments: attachments,
-            linkPreview: linkPreviewInfo?.preview,
-            using: dependencies
+        let contentBuilder: Interaction.ContentBuilder = Interaction.ContentBuilder(
+            interaction: interaction,
+            threadVariant: threadInfo.variant,
+            dataCache: dataCache
         )
         let proMessageFeatures: SessionPro.MessageFeatures = {
             guard dependencies[feature: .sessionProEnabled] else { return .none }
             
+            if dependencies[feature: .forceMessageFeatureLongMessage] {
+                return interaction.proMessageFeatures.union(.largerCharacterLimit)
+            }
+            
             return interaction.proMessageFeatures
-                .union(dependencies[feature: .forceMessageFeatureLongMessage] ? .largerCharacterLimit : .none)
         }()
         let proProfileFeatures: SessionPro.ProfileFeatures = {
             guard dependencies[feature: .sessionProEnabled] else { return .none }
+            // TODO: [PRO] Need to check if the pro status on the profile has expired
+            var result: SessionPro.ProfileFeatures = interaction.proProfileFeatures
             
-            return interaction.proProfileFeatures
-                .union(dependencies[feature: .forceMessageFeatureProBadge] ? .proBadge : .none)
-                .union(dependencies[feature: .forceMessageFeatureAnimatedAvatar] ? .animatedAvatar : .none)
+            if dependencies[feature: .forceMessageFeatureProBadge] {
+                result.insert(.proBadge)
+            }
+            
+            if dependencies[feature: .forceMessageFeatureAnimatedAvatar] {
+                result.insert(.animatedAvatar)
+            }
+            
+            return result
         }()
         
         self.cellType = MessageViewModel.cellType(
             interaction: interaction,
-            attachments: attachments
+            attachments: contentBuilder.attachments
         )
         self.optimisticMessageId = optimisticMessageId
-        self.threadId = threadId
-        self.threadVariant = threadVariant
-        self.threadIsTrusted = threadIsTrusted
+        self.threadId = threadInfo.id
+        self.threadVariant = threadInfo.variant
+        self.threadIsTrusted = {
+            switch threadInfo.variant {
+                case .legacyGroup, .community, .group: return true /// Default to `true` for non-contact threads
+                case .contact: return (dataCache.contact(for: threadInfo.id)?.isTrusted == true)
+            }
+        }()
         self.id = targetId
         self.variant = interaction.variant
         self.serverHash = interaction.serverHash
         self.openGroupServerMessageId = interaction.openGroupServerMessageId
         self.authorId = interaction.authorId
-        self.authorUnblindedId = unblindedIdMap[authorId]
-        self.body = body
+        self.authorUnblindedId = dataCache.unblindedId(for: authorId)
+        self.bubbleBody = contentBuilder.makeBubbleBody()
         self.rawBody = interaction.body
+        self.bodyForCopying = contentBuilder.makeBodyForCopying()
         self.timestampMs = interaction.timestampMs
         self.receivedAtTimestampMs = interaction.receivedAtTimestampMs
         self.expiresStartedAtMs = interaction.expiresStartedAtMs
         self.expiresInSeconds = interaction.expiresInSeconds
-        self.attachments = attachments
+        self.attachments = contentBuilder.attachments
         self.reactionInfo = (reactionInfo ?? [])
         self.profile = targetProfile.with(
             proFeatures: .set(to: {
                 guard dependencies[feature: .sessionProEnabled] else { return .none }
-                
+                // TODO: [PRO] Need to check if the pro status on the profile has expired - maybe add a function to SessionProManager to determine if the badge should show?
                 var result: SessionPro.ProfileFeatures = targetProfile.proFeatures
                 
                 if dependencies[feature: .proBadgeEverywhere] {
@@ -363,26 +346,27 @@ public extension MessageViewModel {
             let quotedAuthorProfile: Profile = {
                 /// If the sender is the current user then use the proper profile from the cache (instead of a random blinded one)
                 guard !currentUserSessionIds.contains(quotedInteraction.authorId) else {
-                    return (profileCache[userSessionId.hexString] ?? Profile.defaultFor(userSessionId.hexString))
+                    return (dataCache.profile(for: userSessionId.hexString) ?? Profile.defaultFor(userSessionId.hexString))
                 }
                 
-                switch (profileCache[unblindedIdMap[quotedInteraction.authorId]], profileCache[quotedInteraction.authorId]) {
-                    case (.some(let profile), _): return profile
-                    case (_, .some(let profile)): return profile
-                    case (.none, .none): return Profile.defaultFor(quotedInteraction.authorId)
+                if let unblindedProfile: Profile = dataCache.unblindedId(for: quotedInteraction.authorId).map({ dataCache.profile(for: $0) }) {
+                    return unblindedProfile
                 }
+                
+                return (
+                    dataCache.profile(for: quotedInteraction.authorId) ??
+                    Profile.defaultFor(quotedInteraction.authorId)
+                )
             }()
-            let quotedAuthorDisplayName: String = quotedAuthorProfile.displayName(
-                includeSessionIdSuffix: (threadVariant == .community)
+            let quotedContentBuilder: Interaction.ContentBuilder = Interaction.ContentBuilder(
+                interaction: quotedInteraction,
+                threadVariant: threadInfo.variant,
+                dataCache: dataCache
             )
-            let quotedAttachments: [Attachment]? = (attachmentMap[quotedInteractionId]?
-                .sorted { $0.albumIndex < $1.albumIndex }
-                .compactMap { attachmentCache[$0.attachmentId] } ?? [])
-            let quotedLinkPreviewInfo: (preview: LinkPreview, attachment: Attachment?)? = quotedInteraction.linkPreview(
-                linkPreviewCache: linkPreviewCache,
-                attachmentCache: attachmentCache
+            let targetQuotedAttachment: Attachment? = (
+                quotedContentBuilder.attachments.first ??
+                quotedContentBuilder.linkPreviewAttachment
             )
-            let targetQuotedAttachment: Attachment? = (quotedAttachments?.first ?? quotedLinkPreviewInfo?.attachment)
             
             return QuoteViewModel(
                 mode: .regular,
@@ -390,17 +374,9 @@ public extension MessageViewModel {
                 quotedInfo: QuoteViewModel.QuotedInfo(
                     interactionId: quotedInteractionId,
                     authorId: quotedInteraction.authorId,
-                    authorName: quotedAuthorDisplayName,
+                    authorName: quotedContentBuilder.authorDisplayName,
                     timestampMs: quotedInteraction.timestampMs,
-                    body: quotedInteraction.body(
-                        threadId: threadId,
-                        threadVariant: threadVariant,
-                        threadContactDisplayName: threadContactDisplayName,
-                        authorDisplayName: quotedAuthorDisplayName,
-                        attachments: quotedAttachments,
-                        linkPreview: quotedLinkPreviewInfo?.preview,
-                        using: dependencies
-                    ),
+                    body: quotedContentBuilder.makeBubbleBody(),
                     attachmentInfo: targetQuotedAttachment.map { quotedAttachment in
                         let utType: UTType = (UTType(sessionMimeType: quotedAttachment.contentType) ?? .invalid)
                         
@@ -429,42 +405,41 @@ public extension MessageViewModel {
                 ),
                 showProBadge: {
                     guard dependencies[feature: .sessionProEnabled] else { return false }
-                    
+                    // TODO: [PRO] Need to check if the pro status on the profile has expired
                     return (
                         quotedAuthorProfile.proFeatures.contains(.proBadge) ||
                         dependencies[feature: .proBadgeEverywhere]
                     )
                 }(),
                 currentUserSessionIds: currentUserSessionIds,
-                displayNameRetriever: { sessionId, _ in
-                    guard !currentUserSessionIds.contains(targetProfile.id) else { return "you".localized() }
-                    
-                    return profileCache[sessionId]?.displayName(
-                        includeSessionIdSuffix: (threadVariant == .community)
-                    )
-                },
+                displayNameRetriever: dataCache.displayNameRetriever(
+                    for: threadInfo.id,
+                    includeSessionIdSuffixWhenInMessageBody: (threadInfo.variant == .community)
+                ),
                 currentUserMentionImage: currentUserMentionImage
             )
         }
-        self.linkPreview = linkPreviewInfo?.preview
-        self.linkPreviewAttachment = linkPreviewInfo?.attachment
+        self.linkPreview = contentBuilder.linkPreview
+        self.linkPreviewAttachment = contentBuilder.linkPreviewAttachment
         self.proMessageFeatures = proMessageFeatures
         self.proProfileFeatures = proProfileFeatures
         
         self.state = interaction.state
         self.hasBeenReadByRecipient = (interaction.recipientReadTimestampMs != nil)
         self.mostRecentFailureText = interaction.mostRecentFailureText
-        self.isSenderModeratorOrAdmin = isSenderModeratorOrAdmin
+        self.isSenderModeratorOrAdmin = dataCache
+            .communityModAdminIds(for: threadInfo.id)
+            .contains(interaction.authorId)
         self.canFollowDisappearingMessagesSetting = {
             guard
-                threadVariant == .contact &&
+                threadInfo.variant == .contact &&
                 interaction.variant == .infoDisappearingMessagesUpdate &&
                 !currentUserSessionIds.contains(interaction.authorId)
             else { return false }
             
             return (
-                threadDisappearingConfiguration != DisappearingMessagesConfiguration
-                    .defaultWith(threadId)
+                dataCache.disappearingMessageConfiguration(for: threadInfo.id) != DisappearingMessagesConfiguration
+                    .defaultWith(threadInfo.id)
                     .with(
                         isEnabled: (interaction.expiresInSeconds ?? 0) > 0,
                         durationSeconds: interaction.expiresInSeconds,
@@ -536,8 +511,8 @@ public extension MessageViewModel {
             )
         )
         self.shouldShowDateHeader = shouldShowDateBeforeThisModel
-        self.containsOnlyEmoji = (body?.containsOnlyEmoji == true)
-        self.glyphCount = (body?.glyphCount ?? 0)
+        self.containsOnlyEmoji = contentBuilder.containsOnlyEmoji
+        self.glyphCount = contentBuilder.glyphCount
         self.previousVariant = previousInteraction?.variant
         
         let (positionInCluster, isOnlyMessageInCluster): (Position, Bool) = {
@@ -599,8 +574,9 @@ public extension MessageViewModel {
             openGroupServerMessageId: openGroupServerMessageId,
             authorId: authorId,
             authorUnblindedId: authorUnblindedId,
-            body: body,
+            bubbleBody: bubbleBody,
             rawBody: rawBody,
+            bodyForCopying: bodyForCopying,
             timestampMs: timestampMs,
             receivedAtTimestampMs: receivedAtTimestampMs,
             expiresStartedAtMs: expiresStartedAtMs,
@@ -645,6 +621,49 @@ public extension MessageViewModel {
     }
 }
 
+// MARK: - Observations
+
+extension MessageViewModel: ObservableKeyProvider {
+    public var observedKeys: Set<ObservableKey> {
+        var result: Set<ObservableKey> = [
+            .messageUpdated(id: id, threadId: threadId),
+            .messageDeleted(id: id, threadId: threadId),
+            .reactionsChanged(messageId: id),
+            .attachmentCreated(messageId: id),
+            .profile(authorId)
+        ]
+        
+        if SessionId.Prefix.isCommunityBlinded(threadId) {
+            result.insert(.anyContactUnblinded) /// Author/Profile info could change
+        }
+        
+        attachments.forEach { attachment in
+            result.insert(.attachmentUpdated(id: attachment.id, messageId: id))
+            result.insert(.attachmentDeleted(id: attachment.id, messageId: id))
+        }
+        
+        if
+            let quoteViewModel: QuoteViewModel = quoteViewModel,
+            let quotedInfo: QuoteViewModel.QuotedInfo = quoteViewModel.quotedInfo
+        {
+            result.insert(.profile(quotedInfo.authorId))
+            result.insert(.messageUpdated(id: quotedInfo.interactionId, threadId: threadId))
+            result.insert(.messageDeleted(id: quotedInfo.interactionId, threadId: threadId))
+            
+            if let attachmentInfo: QuoteViewModel.AttachmentInfo = quotedInfo.attachmentInfo {
+                result.insert(.attachmentUpdated(id: attachmentInfo.id, messageId: quotedInfo.interactionId))
+                result.insert(.attachmentDeleted(id: attachmentInfo.id, messageId: quotedInfo.interactionId))
+            }
+        }
+        
+        return result
+    }
+    
+    public static func handlingStrategy(for event: ObservedEvent) -> EventHandlingStrategy? {
+        return event.handlingStrategy
+    }
+}
+
 // MARK: - DisappeaingMessagesUpdateControlMessage
 
 public extension MessageViewModel {
@@ -686,7 +705,7 @@ public extension MessageViewModel {
 }
 
 // MARK: - TypingIndicatorInfo
-
+// TODO: [PRO] Is this needed????
 public extension MessageViewModel {
     struct TypingIndicatorInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, ColumnExpressible {
         public typealias Columns = CodingKeys
@@ -725,9 +744,23 @@ public extension MessageViewModel {
 
 // MARK: - Convenience
 
+private extension ObservedEvent {
+    var handlingStrategy: EventHandlingStrategy? {
+        switch (key, key.generic) {
+            case (.anyContactUnblinded, _): return [.databaseQuery, .directCacheUpdate]
+            case (_, .messageUpdated), (_, .messageDeleted): return .databaseQuery
+            case (_, .attachmentUpdated), (_, .attachmentDeleted): return .databaseQuery
+            case (_, .reactionsChanged): return .databaseQuery
+            case (_, .communityUpdated): return [.directCacheUpdate]
+            case (_, .contact): return [.directCacheUpdate]
+            case (_, .profile): return [.directCacheUpdate]
+            case (_, .typingIndicator): return .directCacheUpdate
+            default: return nil
+        }
+    }
+}
+
 extension MessageViewModel {
-    private static let maxMinutesBetweenTwoDateBreaks: Int = 5
-    
     public static func bodyTextColor(isOutgoing: Bool) -> ThemeValue {
         return (isOutgoing ?
             .messageBubble_outgoingText :
@@ -735,36 +768,24 @@ extension MessageViewModel {
         )
     }
     
-    /// Returns the difference in minutes, ignoring seconds
-    ///
-    /// If both dates are the same date, returns 0
-    /// If firstDate is one minute before secondDate, returns 1
-    ///
-    /// **Note:** Assumes both dates use the "current" calendar
-    private static func minutesFrom(_ firstDate: Date, to secondDate: Date) -> Int? {
-        let calendar: Calendar = Calendar.current
-        let components1: DateComponents = calendar.dateComponents(
-            [.era, .year, .month, .day, .hour, .minute],
-            from: firstDate
-        )
-        let components2: DateComponents = calendar.dateComponents(
-            [.era, .year, .month, .day, .hour, .minute],
-            from: secondDate
-        )
-        
-        guard
-            let date1: Date = calendar.date(from: components1),
-            let date2: Date = calendar.date(from: components2)
-        else { return nil }
-        
-        return calendar.dateComponents([.minute], from: date1, to: date2).minute
-    }
-    
     fileprivate static func shouldShowDateBreak(between timestamp1: Int64, and timestamp2: Int64) -> Bool {
-        let date1: Date = Date(timeIntervalSince1970: TimeInterval(Double(timestamp1) / 1000))
-        let date2: Date = Date(timeIntervalSince1970: TimeInterval(Double(timestamp2) / 1000))
+        let diff: Int64 = abs(timestamp2 - timestamp1)
+        let fiveMinutesInMs: Int64 = (5 * 60 * 1000)
         
-        return ((minutesFrom(date1, to: date2) ?? 0) > maxMinutesBetweenTwoDateBreaks)
+        /// If there is more than 5 minutes between the timestamps then we should show a date break
+        if diff > fiveMinutesInMs {
+            return true
+        }
+        
+        /// If we crossed midnight then we want to show a date break regardless of how much time has passed - do this by shifting the
+        /// timestamps to local time (using the current timezone) and getting a "day number" to check if they are the same dat
+        let seconds1: Int = Int(timestamp1 / 1000)
+        let seconds2: Int = Int(timestamp2 / 1000)
+        let offset: Int = TimeZone.current.secondsFromGMT()
+        let day1: Int = ((seconds1 + offset) / 86400)
+        let day2: Int = ((seconds2 + offset) / 86400)
+        
+        return (day1 != day2)
     }
 }
 
@@ -782,7 +803,7 @@ public extension MessageViewModel {
     }()
     
     static func quotedInteractionIds(
-        for originalInteractionIds: [Int64],
+        for originalInteractionIds: Set<Int64>,
         currentUserSessionIds: Set<String>
     ) -> SQLRequest<FetchablePair<Int64, Int64?>> {
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
@@ -812,10 +833,12 @@ public extension MessageViewModel {
 
 extension MessageViewModel {
     public func createUserProfileModalInfo(
+        openGroupServer: String?,
+        openGroupPublicKey: String?,
         onStartThread: (@MainActor () -> Void)?,
         onProBadgeTapped: (@MainActor () -> Void)?,
         using dependencies: Dependencies
-    ) -> UserProfileModal.Info? {
+    ) async -> UserProfileModal.Info? {
         let (info, _) = ProfilePictureView.Info.generateInfoFrom(
             size: .hero,
             publicKey: authorId,
@@ -827,27 +850,31 @@ extension MessageViewModel {
         
         guard let profileInfo: ProfilePictureView.Info = info else { return nil }
         
-        let qrCodeImage: UIImage? = {
-            let targetId: String = (authorUnblindedId ?? authorId)
-            
-            switch try? SessionId.Prefix(from: targetId) {
-                case .none, .blinded15, .blinded25, .versionBlinded07, .group, .unblinded: return nil
-                case .standard:
-                    return QRCode.generate(
-                        for: targetId,
-                        hasBackground: false,
-                        iconName: "SessionWhite40" // stringlint:ignore
-                    )
-            }
-        }()
-        let sessionId: String? = {
+        let sessionId: String? = await {
             if let unblindedId: String = authorUnblindedId {
                 return unblindedId
             }
             
             switch try? SessionId.Prefix(from: authorId) {
-                case .none, .blinded15, .blinded25, .versionBlinded07, .group, .unblinded: return nil
                 case .standard: return authorId
+                case .none, .versionBlinded07, .group, .unblinded: return nil
+                case .blinded15, .blinded25:
+                    /// If the sessionId is blinded then check if there is an existing un-blinded thread with the contact and use that,
+                    /// otherwise just use the blinded id
+                    guard let openGroupServer, let openGroupPublicKey else { return nil }
+                    
+                    let maybeLookup: BlindedIdLookup? = try? await dependencies[singleton: .storage].writeAsync { db in
+                        try BlindedIdLookup.fetchOrCreate(
+                            db,
+                            blindedId: authorId,
+                            openGroupServer: openGroupServer,
+                            openGroupPublicKey: openGroupPublicKey,
+                            isCheckingForOutbox: false,
+                            using: dependencies
+                        )
+                    }
+                    
+                    return maybeLookup?.sessionId
             }
         }()
         let blindedId: String? = {
@@ -855,6 +882,15 @@ extension MessageViewModel {
                 case .none, .standard, .versionBlinded07, .group, .unblinded: return nil
                 case .blinded15, .blinded25: return authorId
             }
+        }()
+        let qrCodeImage: UIImage? = {
+            guard let sessionId else { return nil }
+                
+            return QRCode.generate(
+                for: sessionId,
+                hasBackground: false,
+                iconName: "SessionWhite40" // stringlint:ignore
+            )
         }()
         
         return UserProfileModal.Info(
@@ -925,70 +961,272 @@ private extension MessageViewModel {
     }
 }
 
-private extension Interaction {
-    func body(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        threadContactDisplayName: String?,
-        authorDisplayName: String,
-        attachments: [Attachment]?,
-        linkPreview: LinkPreview?,
-        using dependencies: Dependencies
-    ) -> String? {
-        guard variant.isInfoMessage else { return body }
+internal extension Interaction {
+    struct ContentBuilder {
+        private let interaction: Interaction
+        private let searchText: String?
+        private let dataCache: ConversationDataCache
         
-        /// Info messages might not have a body so we should use the 'previewText' value instead
-        return Interaction.previewText(
-            variant: variant,
-            body: body,
-            threadContactDisplayName: (threadContactDisplayName ?? ""),
-            authorDisplayName: authorDisplayName,
-            attachmentDescriptionInfo: attachments?.first.map { firstAttachment in
-                Attachment.DescriptionInfo(
-                    id: firstAttachment.id,
-                    variant: firstAttachment.variant,
-                    contentType: firstAttachment.contentType,
-                    sourceFilename: firstAttachment.sourceFilename
+        private let threadVariant: SessionThread.Variant
+        private let currentUserSessionIds: Set<String>
+        public let attachments: [Attachment]
+        public let linkPreview: LinkPreview?
+        public let linkPreviewAttachment: Attachment?
+        
+        public var rawBody: String? { interaction.body }
+        public let authorDisplayName: String
+        public let authorDisplayNameNoSuffix: String
+        public let threadContactDisplayName: String
+        public var containsOnlyEmoji: Bool { interaction.body?.containsOnlyEmoji == true }
+        public var glyphCount: Int { interaction.body?.glyphCount ?? 0 }
+        
+        init(
+            interaction: Interaction,
+            threadVariant: SessionThread.Variant,
+            searchText: String? = nil,
+            dataCache: ConversationDataCache
+        ) {
+            self.interaction = interaction
+            self.searchText = searchText
+            self.dataCache = dataCache
+            
+            let currentUserSessionIds: Set<String> = dataCache.currentUserSessionIds(for: interaction.threadId)
+            let linkPreviewInfo = ContentBuilder.resolveBestLinkPreview(
+                for: interaction,
+                dataCache: dataCache
+            )
+            self.threadVariant = threadVariant
+            self.currentUserSessionIds = currentUserSessionIds
+            self.attachments = (interaction.id.map { dataCache.attachments(for: $0) } ?? [])
+            self.linkPreview = linkPreviewInfo?.preview
+            self.linkPreviewAttachment = linkPreviewInfo?.attachment
+            
+            if currentUserSessionIds.contains(interaction.authorId) {
+                self.authorDisplayName = "you".localized()
+                self.authorDisplayNameNoSuffix = "you".localized()
+            }
+            else {
+                let profile: Profile = (
+                    dataCache.profile(for: interaction.authorId) ??
+                    Profile.defaultFor(interaction.authorId)
                 )
-            },
-            attachmentCount: attachments?.count,
-            isOpenGroupInvitation: (linkPreview?.variant == .openGroupInvitation),
-            using: dependencies
-        )
-    }
-    
-    func linkPreview(
-        linkPreviewCache: [String: [LinkPreview]],
-        attachmentCache: [String: Attachment],
-    ) -> (preview: LinkPreview, attachment: Attachment?)? {
-        let preview: LinkPreview? = linkPreviewUrl.map { url -> LinkPreview? in
+                
+                self.authorDisplayName = profile.displayName(
+                    includeSessionIdSuffix: (threadVariant == .community)
+                )
+                self.authorDisplayNameNoSuffix = profile.displayName(includeSessionIdSuffix: false)
+            }
+            
+            self.threadContactDisplayName = dataCache.contactDisplayName(for: interaction.threadId)
+        }
+        
+        func makeBubbleBody() -> String? {
+            if interaction.variant.isInfoMessage {
+                return makePreviewText()
+            }
+            
+            guard let rawBody: String = interaction.body, !rawBody.isEmpty else {
+                return nil
+            }
+            
+            /// No need to process mentions if the preview doesn't contain the mention prefix
+            guard rawBody.contains("@") else { return rawBody }
+            
+            let isOutgoing: Bool = (interaction.variant == .standardOutgoing)
+            
+            return MentionUtilities.taggingMentions(
+                in: rawBody,
+                location: (isOutgoing ? .outgoingMessage : .incomingMessage),
+                currentUserSessionIds: currentUserSessionIds,
+                displayNameRetriever: dataCache.displayNameRetriever(
+                    for: interaction.threadId,
+                    includeSessionIdSuffixWhenInMessageBody: (threadVariant == .community)
+                )
+            )
+        }
+        
+        func makeBodyForCopying() -> String? {
+            if interaction.variant.isInfoMessage {
+                return makePreviewText()
+            }
+            
+            return rawBody
+        }
+        
+        func makePreviewText() -> String? {
+            return Interaction.previewText(
+                variant: interaction.variant,
+                body: interaction.body,
+                threadContactDisplayName: threadContactDisplayName,
+                authorDisplayName: authorDisplayName,
+                attachmentDescriptionInfo: attachments.first.map { firstAttachment in
+                    Attachment.DescriptionInfo(
+                        id: firstAttachment.id,
+                        variant: firstAttachment.variant,
+                        contentType: firstAttachment.contentType,
+                        sourceFilename: firstAttachment.sourceFilename
+                    )
+                },
+                attachmentCount: attachments.count,
+                isOpenGroupInvitation: (linkPreview?.variant == .openGroupInvitation)
+            )
+        }
+        
+        func makeSnippet(dateNow: Date) -> String? {
+            var result: String = ""
+            let isSearchResult: Bool = (searchText != nil)
+            let groupInfo: LibSession.GroupInfo? = dataCache.groupInfo(for: interaction.threadId)
+            let groupKicked: Bool = (groupInfo?.wasKickedFromGroup == true)
+            let groupDestroyed: Bool = (groupInfo?.wasGroupDestroyed == true)
+            let groupThreadTypes: Set<SessionThread.Variant> = [.legacyGroup, .group, .community]
+            let groupSourceTypes: Set<ConversationDataCache.Context.Source> = [.conversationList, .searchResults]
+            let shouldIncludeAuthorPrefix: Bool = (
+                !interaction.variant.isInfoMessage &&
+                groupSourceTypes.contains(dataCache.context.source) &&
+                groupThreadTypes.contains(threadVariant)
+            )
+            
+            /// Add status icon prefixes (these are only needed in the conversation list)
+            if dataCache.context.isConversationList && !isSearchResult && !groupKicked && !groupDestroyed {
+                if let thread = dataCache.thread(for: interaction.threadId) {
+                    let now: TimeInterval = dateNow.timeIntervalSince1970
+                    let mutedUntil: TimeInterval = (thread.mutedUntilTimestamp ?? 0)
+                    
+                    if now < mutedUntil {
+                        result.append(NotificationsUI.mutePrefix.rawValue)
+                        result.append(" ")
+                    }
+                    else if thread.onlyNotifyForMentions {
+                        result.append(NotificationsUI.mentionPrefix.rawValue)
+                        result.append("  ") /// Need a double space here
+                    }
+                }
+            }
+            
+            /// If it's a group conversation then it might have a specia status
+            switch (groupInfo, groupDestroyed, groupKicked, interaction.variant) {
+                case (.some(let groupInfo), true, _, _):
+                    result.append(
+                        "groupDeletedMemberDescription"
+                            .put(key: "group_name", value: groupInfo.name)
+                            .localizedDeformatted()
+                    )
+                    
+                case (.some(let groupInfo), _, true, _):
+                    result.append(
+                        "groupRemovedYou"
+                            .put(key: "group_name", value: groupInfo.name)
+                            .localizedDeformatted()
+                    )
+                    
+                case (.some(let groupInfo), _, _, .infoGroupCurrentUserErrorLeaving):
+                    result.append(
+                        "groupLeaveErrorFailed"
+                            .put(key: "group_name", value: groupInfo.name)
+                            .localizedDeformatted()
+                    )
+                    
+                default:
+                    if let previewText: String = makePreviewText() {
+                        let finalPreviewText: String = (!previewText.contains("@") ?
+                            previewText :
+                            MentionUtilities.resolveMentions(
+                                in: previewText,
+                                currentUserSessionIds: currentUserSessionIds,
+                                displayNameRetriever: dataCache.displayNameRetriever(
+                                    for: interaction.threadId,
+                                    includeSessionIdSuffixWhenInMessageBody: (threadVariant == .community)
+                                )
+                            )
+                        )
+                        
+                        /// The search term highlighting logic will add the author directly (so it doesn't get highlighted)
+                        if !isSearchResult && shouldIncludeAuthorPrefix {
+                            result.append(
+                                "messageSnippetGroup"
+                                    .put(key: "author", value: authorDisplayName)
+                                    .put(key: "message_snippet", value: finalPreviewText)
+                                    .localizedDeformatted()
+                            )
+                        }
+                        else {
+                            result.append(finalPreviewText)
+                        }
+                    }
+            }
+            
+            guard !result.isEmpty else { return nil }
+            
+            /// If we don't have a search term then return the value, otherwise highlight the search term tokens
+            guard let searchText: String = searchText else {
+                return result
+            }
+            
+            return GlobalSearch.highlightSearchText(
+                searchText: searchText,
+                content: result,
+                authorName: (shouldIncludeAuthorPrefix ? authorDisplayName : nil)
+            )
+        }
+        
+        private static func resolveBestLinkPreview(
+            for interaction: Interaction,
+            dataCache: ConversationDataCache
+        ) -> (preview: LinkPreview, attachment: Attachment?)? {
+            guard let url: String = interaction.linkPreviewUrl else { return nil }
+            
             /// Find all previews for the given url and sort by newest to oldest
-            guard let possiblePreviews: [LinkPreview] = linkPreviewCache[url]?.sorted(by: { lhs, rhs in
-                guard lhs.timestamp != rhs.timestamp else {
+            let possiblePreviews: Set<LinkPreview> = dataCache.linkPreviews(for: url)
+            
+            guard !possiblePreviews.isEmpty else { return nil }
+            
+            /// Try get the link preview for the time the message was sent
+            let sentTimestamp: TimeInterval = (TimeInterval(interaction.timestampMs) / 1000)
+            let minTimestamp: TimeInterval = (sentTimestamp - LinkPreview.timstampResolution)
+            let maxTimestamp: TimeInterval = (sentTimestamp + LinkPreview.timstampResolution)
+            var bestFallback: LinkPreview? = nil
+            var bestInWindow: LinkPreview? = nil
+            
+            for preview in possiblePreviews {
+                /// Evaluate the `bestFallback` (used if we can't find a `bestInWindow`)
+                if let currentFallback: LinkPreview = bestFallback {
                     /// If the timestamps match then it's likely there is an optimistic link preview in the cache, so if one of the options
                     /// has an `attachmentId` then we should prioritise that one
-                    switch (lhs.attachmentId, rhs.attachmentId) {
-                        case (.some, .none): return true
-                        case (.none, .some): return false
-                        case (.some, .some), (.none, .none): return true    /// Whatever was added to the cache first wins
+                    switch (preview.attachmentId, currentFallback.attachmentId) {
+                        case (.some, .none): bestFallback = preview
+                        case (.none, .some): break
+                        case (.some, .some), (.none, .none):
+                            /// If this preview is newer than the `currentFallback` then use it instead
+                            if preview.timestamp > currentFallback.timestamp {
+                                bestFallback = preview
+                            }
                     }
                 }
                 
-                return lhs.timestamp > rhs.timestamp
-            }) else { return nil }
-            
-            /// Try get the link preview for the time the message was sent
-            let minTimestamp: TimeInterval = (TimeInterval(timestampMs / 1000) - LinkPreview.timstampResolution)
-            let maxTimestamp: TimeInterval = (TimeInterval(timestampMs / 1000) + LinkPreview.timstampResolution)
-            let targetPreview: LinkPreview? = possiblePreviews.first {
-                $0.timestamp > minTimestamp &&
-                $0.timestamp < maxTimestamp
+                /// Evaluate the `bestInWindow`
+                if preview.timestamp > minTimestamp && preview.timestamp < maxTimestamp {
+                    if let currentInWindow: LinkPreview = bestInWindow {
+                        /// If the timestamps match then it's likely there is an optimistic link preview in the cache, so if one of the options
+                        /// has an `attachmentId` then we should prioritise that one
+                        switch (preview.attachmentId, currentInWindow.attachmentId) {
+                            case (.some, .none): bestInWindow = preview
+                            case (.none, .some): break
+                            case (.some, .some), (.none, .none):
+                                /// If this preview is newer than the `currentInWindow` then use it instead
+                                if preview.timestamp > currentInWindow.timestamp {
+                                    bestInWindow = preview
+                                }
+                        }
+                    }
+                    else {
+                        bestInWindow = preview
+                    }
+                }
             }
             
-            /// Fallback to the newest preview
-            return (targetPreview ?? possiblePreviews.first)
+            guard let finalPreview: LinkPreview = (bestInWindow ?? bestFallback) else { return nil }
+            
+            return (finalPreview, finalPreview.attachmentId.map { dataCache.attachment(for: $0) })
         }
-        
-        return preview.map { ($0, $0.attachmentId.map { attachmentCache[$0] }) }
     }
 }

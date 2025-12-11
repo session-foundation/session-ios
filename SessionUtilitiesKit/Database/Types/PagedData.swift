@@ -88,6 +88,26 @@ public extension PagedData {
             self.info = info
             self.newIds = newIds
         }
+        
+        public static func createInvalid() -> LoadResult<ID> {
+            LoadResult(
+                info: PagedData.LoadedInfo(
+                    queryInfo: PagedData.QueryInfo(
+                        tableName: "",
+                        idColumnName: "",
+                        requiredJoinSQL: nil,
+                        filterSQL: "",
+                        groupSQL: nil,
+                        orderSQL: ""
+                    ),
+                    pageSize: 0,
+                    totalCount: 0,
+                    firstPageOffset: 0,
+                    currentIds: []
+                ),
+                newIds: []
+            )
+        }
     }
     
     @available(*, deprecated, message: "This type was used with the PagedDatabaseObserver but that is deprecated, use the ObservationBuilder instead and PagedData.LoadedInfo")

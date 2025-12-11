@@ -8,6 +8,7 @@ public typealias DisplayNameRetriever = (_ sessionId: String, _ inMessageBody: B
 public enum MentionUtilities {
     private static let currentUserCacheKey: String = "Mention.CurrentUser" // stringlint:ignore
     private static let pubkeyRegex: NSRegularExpression = try! NSRegularExpression(pattern: "@[0-9a-fA-F]{66}", options: [])
+    private static let mentionCharacterSet: CharacterSet = CharacterSet(["@"]) // stringlint:ignore
     private static let mentionFont: UIFont = .boldSystemFont(ofSize: Values.smallFontSize)
     private static let currentUserMentionImageSizeDiff: CGFloat = (Values.smallFontSize / Values.mediumFontSize)
     
@@ -25,7 +26,12 @@ public enum MentionUtilities {
         
         return Set(pubkeyRegex
             .matches(in: string, range: NSRange(string.startIndex..., in: string))
-            .compactMap { match in Range(match.range, in: string).map { String(string[$0]) } })
+            .compactMap { match in
+                Range(match.range, in: string).map { range in
+                    /// Need to remove the leading `@` as this should just retrieve the pubkeys
+                    String(string[range]).trimmingCharacters(in: mentionCharacterSet)
+                }
+            })
     }
     
     @MainActor public static func generateCurrentUserMentionImage(textColor: ThemeValue) -> UIImage {
@@ -56,7 +62,7 @@ public enum MentionUtilities {
         var workingString: String = string
         let hasRLIPrefix: Bool = workingString.hasPrefix("\u{2067}")
         let hasPDISuffix: Bool = workingString.hasSuffix("\u{2069}")
-            
+        
         if hasRLIPrefix {
             workingString = String(workingString.dropFirst())
         }
@@ -65,130 +71,150 @@ public enum MentionUtilities {
             workingString = String(workingString.dropLast())
         }
 
-        var string: String = workingString
-        var lastMatchEnd: Int = 0
-        var mentions: [(range: NSRange, profileId: String, isCurrentUser: Bool)] = []
+        var nsString: NSString = (workingString as NSString)
+        let fullRange = NSRange(location: 0, length: nsString.length)
         
-        while let match: NSTextCheckingResult = pubkeyRegex.firstMatch(
-            in: string,
-            options: .withoutAnchoringBounds,
-            range: NSRange(location: lastMatchEnd, length: string.utf16.count - lastMatchEnd)
-        ) {
-            guard let range: Range = Range(match.range, in: string) else { break }
+        let resultString: NSMutableString = NSMutableString()
+        var mentions: [(range: NSRange, profileId: String, isCurrentUser: Bool)] = []
+        var lastSearchLocation: Int = 0
+        
+        pubkeyRegex.enumerateMatches(in: workingString, options: [], range: fullRange) { match, _, _ in
+            guard let match else { return }
             
-            let sessionId: String = String(string[range].dropFirst()) // Drop the @
+            /// Append everything before this match
+            let rangeBefore: NSRange = NSRange(
+                location: lastSearchLocation,
+                length: (match.range.location - lastSearchLocation)
+            )
+            resultString.append(nsString.substring(with: rangeBefore))
+            
+            let sessionId: String = String(nsString.substring(with: match.range).dropFirst()) /// Drop the @
             let isCurrentUser: Bool = currentUserSessionIds.contains(sessionId)
-            let maybeTargetString: String? = {
-                guard !isCurrentUser else { return "you".localized() }
-                guard let displayName: String = displayNameRetriever(sessionId, true) else {
-                    lastMatchEnd = (match.range.location + match.range.length)
-                    return nil
-                }
-                
-                return displayName
-            }()
+            let displayName: String
             
-            guard let targetString: String = maybeTargetString else { continue }
+            if isCurrentUser {
+                displayName = "you".localized()
+            }
+            else if let retrievedName: String = displayNameRetriever(sessionId, true) {
+                displayName = retrievedName
+            } else {
+                /// If we can't get a proper display name then we should just truncate the pubkey
+                displayName = sessionId.truncated()
+            }
             
-            string = string.replacingCharacters(in: range, with: "@\(targetString)")    // stringlint:ignore
-            lastMatchEnd = (match.range.location + targetString.utf16.count)
+            /// Append the resolved mame
+            let replacement: String = "@\(displayName)" // stringlint:ignore
+            let startLocation: Int = resultString.length
+            resultString.append(replacement)
             
+            /// Record the mention
             mentions.append((
-                // + 1 to include the @
-                range: NSRange(location: match.range.location, length: targetString.utf16.count + 1),
+                range: NSRange(location: startLocation, length: (replacement as NSString).length),
                 profileId: sessionId,
                 isCurrentUser: isCurrentUser
             ))
+            
+            lastSearchLocation = (match.range.location + match.range.length)
+        }
+        
+        /// Append any remaining string
+        if lastSearchLocation < nsString.length {
+            let remainingRange = NSRange(location: lastSearchLocation, length: nsString.length - lastSearchLocation)
+            resultString.append(nsString.substring(with: remainingRange))
         }
         
         /// Need to add the RTL isolate markers back if we had them
+        let finalStringRaw: String = (resultString as String)
         let finalString: String = (string.containsRTL ?
-            "\(LocalizationHelper.forceRTLLeading)\(string)\(LocalizationHelper.forceRTLTrailing)" :
-            string
+            "\(LocalizationHelper.forceRTLLeading)\(finalStringRaw)\(LocalizationHelper.forceRTLTrailing)" :
+            finalStringRaw
         )
         
         return (finalString, mentions)
     }
     
-    public static func highlightMentionsNoAttributes(
+    // stringlint:ignore_contents
+    public static func taggingMentions(
+        in string: String,
+        location: MentionLocation,
+        currentUserSessionIds: Set<String>,
+        displayNameRetriever: DisplayNameRetriever
+    ) -> String {
+        let (mentionReplacedString, mentions) = getMentions(
+            in: string,
+            currentUserSessionIds: currentUserSessionIds,
+            displayNameRetriever: displayNameRetriever
+        )
+        
+        guard !mentions.isEmpty else { return mentionReplacedString }
+        
+        let result: NSMutableString = NSMutableString(string: mentionReplacedString)
+        
+        /// Iterate in reverse so index ranges remain valid while replacing
+        for mention in mentions.sorted(by: { $0.range.location > $1.range.location }) {
+            let mentionText: String = (result as NSString).substring(with: mention.range)
+            let tag: String = (mention.isCurrentUser && location == .incomingMessage ?
+                ThemedAttributedString.HTMLTag.userMention.rawValue :   /// Only use for incoming
+                ThemedAttributedString.HTMLTag.mention.rawValue
+            )
+            
+            result.replaceCharacters(
+                in: mention.range,
+                with: "<\(tag)>\(mentionText)</\(tag)>"
+            )
+        }
+        
+        return (result as String)
+    }
+    
+    public static func mentionColor(
+        textColor: ThemeValue,
+        location: MentionLocation
+    ) -> ThemeValue {
+        switch location {
+            case .incomingMessage: return .dynamicForInterfaceStyle(light: textColor, dark: .primary)
+            case .outgoingMessage: return .dynamicForInterfaceStyle(light: textColor, dark: .black)
+            case .outgoingQuote: return .dynamicForInterfaceStyle(light: textColor, dark: .black)
+            case .incomingQuote: return .dynamicForInterfaceStyle(light: textColor, dark: .primary)
+            case .quoteDraft, .styleFree: return .dynamicForInterfaceStyle(light: textColor, dark: textColor)
+        }
+    }
+    
+    public static func currentUserMentionImageString(
+        substring: String,
+        currentUserMentionImage: UIImage?
+    ) -> NSAttributedString {
+        guard let currentUserMentionImage else { return NSAttributedString(string: substring) }
+        
+        /// Set the `accessibilityLabel` to ensure it's still visible to accessibility inspectors
+        let attachment: NSTextAttachment = NSTextAttachment()
+        attachment.accessibilityLabel = substring
+        
+        let offsetY: CGFloat = ((mentionFont.capHeight - currentUserMentionImage.size.height) / 2)
+        attachment.image = currentUserMentionImage
+        attachment.bounds = CGRect(
+            x: 0,
+            y: offsetY,
+            width: currentUserMentionImage.size.width,
+            height: currentUserMentionImage.size.height
+        )
+
+        return NSMutableAttributedString(attachment: attachment)
+    }
+}
+
+public extension MentionUtilities {
+    static func resolveMentions(
         in string: String,
         currentUserSessionIds: Set<String>,
         displayNameRetriever: DisplayNameRetriever
     ) -> String {
-        let (string, _) = getMentions(
+        return MentionUtilities.taggingMentions(
             in: string,
+            location: .outgoingMessage, /// If we are replacing then we don't want to use the image
             currentUserSessionIds: currentUserSessionIds,
             displayNameRetriever: displayNameRetriever
-        )
-        
-        return string
-    }
-    
-    public static func highlightMentions(
-        in string: String,
-        currentUserSessionIds: Set<String>,
-        location: MentionLocation,
-        textColor: ThemeValue,
-        attributes: [NSAttributedString.Key: Any],
-        displayNameRetriever: DisplayNameRetriever,
-        currentUserMentionImage: UIImage?
-    ) -> ThemedAttributedString {
-        let (string, mentions) = getMentions(
-            in: string,
-            currentUserSessionIds: currentUserSessionIds,
-            displayNameRetriever: displayNameRetriever
-        )
-        
-        let result = ThemedAttributedString(string: string, attributes: attributes)
-        
-        // Iterate in reverse so index ranges remain valid while replacing
-        for mention in mentions.sorted(by: { $0.range.location > $1.range.location }) {
-            if mention.isCurrentUser && location == .incomingMessage, let currentUserMentionImage {
-                /// Set the `accessibilityLabel` to ensure it's still visible to accessibility inspectors
-                let attachment: NSTextAttachment = NSTextAttachment()
-                attachment.accessibilityLabel = (result.attributedString.string as NSString).substring(with: mention.range)
-                
-                let offsetY: CGFloat = (mentionFont.capHeight - currentUserMentionImage.size.height) / 2
-                attachment.image = currentUserMentionImage
-                attachment.bounds = CGRect(
-                    x: 0,
-                    y: offsetY,
-                    width: currentUserMentionImage.size.width,
-                    height: currentUserMentionImage.size.height
-                )
-
-                let attachmentString = NSMutableAttributedString(attachment: attachment)
-
-                // Replace the mention text with the image attachment
-                result.replaceCharacters(in: mention.range, with: attachmentString)
-
-                let insertIndex = mention.range.location + attachmentString.length
-                if insertIndex < result.attributedString.length {
-                    result.addAttribute(.kern, value: (3 * currentUserMentionImageSizeDiff), range: NSRange(location: insertIndex, length: 1))
-                }
-                continue
-            }
-            
-            result.addAttribute(.font, value: mentionFont, range: mention.range)
-
-            var targetColor: ThemeValue = textColor
-            switch location {
-                case .incomingMessage:
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .primary)
-                case .outgoingMessage:
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                case .outgoingQuote:
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .black)
-                case .incomingQuote:
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: .primary)
-                case .quoteDraft, .styleFree:
-                    targetColor = .dynamicForInterfaceStyle(light: textColor, dark: textColor)
-            }
-            
-            result.addAttribute(.themeForegroundColor, value: targetColor, range: mention.range)
-        }
-        
-        return result
+        ).deformatted()
     }
 }
 
@@ -197,7 +223,7 @@ public extension String {
         currentUserSessionIds: Set<String>,
         displayNameRetriever: DisplayNameRetriever
     ) -> String {
-        return MentionUtilities.highlightMentionsNoAttributes(
+        return MentionUtilities.resolveMentions(
             in: self,
             currentUserSessionIds: currentUserSessionIds,
             displayNameRetriever: displayNameRetriever

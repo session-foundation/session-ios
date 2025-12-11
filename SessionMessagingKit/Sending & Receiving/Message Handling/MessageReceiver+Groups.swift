@@ -754,7 +754,6 @@ extension MessageReceiver {
                 cache.isAdmin(groupSessionId: groupSessionId)
             }),
             let authMethod: AuthenticationMethod = try? Authentication.with(
-                db,
                 swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
             )
@@ -925,20 +924,17 @@ extension MessageReceiver {
             case .none: break
             case .some(let serverHash):
                 db.afterCommit {
-                    dependencies[singleton: .storage]
-                        .readPublisher { db in
-                            try Network.SnodeAPI.preparedDeleteMessages(
-                                serverHashes: [serverHash],
-                                requireSuccessfulDeletion: false,
-                                authMethod: try Authentication.with(
-                                    db,
-                                    swarmPublicKey: userSessionId.hexString,
-                                    using: dependencies
-                                ),
+                    try? Network.SnodeAPI
+                        .preparedDeleteMessages(
+                            serverHashes: [serverHash],
+                            requireSuccessfulDeletion: false,
+                            authMethod: try Authentication.with(
+                                swarmPublicKey: userSessionId.hexString,
                                 using: dependencies
-                            )
-                        }
-                        .flatMap { $0.send(using: dependencies) }
+                            ),
+                            using: dependencies
+                        )
+                        .send(using: dependencies)
                         .subscribe(on: DispatchQueue.global(qos: .background), using: dependencies)
                         .sinkUntilComplete()
                 }

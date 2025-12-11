@@ -103,20 +103,19 @@ public class SessionApp: SessionAppType {
             }
         }
         
-        let maybeThreadViewModel: SessionThreadViewModel? = try? await ConversationViewModel.fetchThreadViewModel(
+        let maybeThreadInfo: ConversationInfoViewModel? = try? await ConversationViewModel.fetchConversationInfo(
             threadId: threadId,
-            variant: variant,
             using: dependencies
         )
         
-        guard let threadViewModel: SessionThreadViewModel = maybeThreadViewModel else {
+        guard let threadInfo: ConversationInfoViewModel = maybeThreadInfo else {
             Log.error("Failed to present \(variant) conversation \(threadId) due to failure to fetch threadViewModel")
             return
         }
         
         await MainActor.run { [weak self] in
             self?.showConversation(
-                threadViewModel: threadViewModel,
+                threadInfo: threadInfo,
                 action: action,
                 dismissing: presentingViewController,
                 homeViewController: homeViewController,
@@ -194,7 +193,7 @@ public class SessionApp: SessionAppType {
     // MARK: - Internal Functions
     
     @MainActor private func showConversation(
-        threadViewModel: SessionThreadViewModel,
+        threadInfo: ConversationInfoViewModel,
         action: ConversationViewModel.Action,
         dismissing presentingViewController: UIViewController?,
         homeViewController: HomeVC,
@@ -205,12 +204,12 @@ public class SessionApp: SessionAppType {
         homeViewController.navigationController?.setViewControllers(
             [
                 homeViewController,
-                (threadViewModel.threadIsMessageRequest == true && action != .compose ?
+                (threadInfo.isMessageRequest && action != .compose ?
                     SessionTableViewController(viewModel: MessageRequestsViewModel(using: dependencies)) :
                     nil
                 ),
                 ConversationVC(
-                    threadViewModel: threadViewModel,
+                    threadInfo: threadInfo,
                     focusedInteractionInfo: nil,
                     using: dependencies
                 )

@@ -48,7 +48,7 @@ public extension CommunityManager.Server {
         publicKey: String,
         openGroups: [OpenGroup] = [],
         capabilities: Set<Capability.Variant>? = nil,
-        members: [GroupMember]? = nil,
+        roomMembers: [String: [GroupMember]]? = nil,
         using dependencies: Dependencies
     ) {
         let currentUserSessionIds: Set<String> = CommunityManager.Server.generateCurrentUserSessionIds(
@@ -69,7 +69,7 @@ public extension CommunityManager.Server {
         self.rooms = openGroups.reduce(into: [:]) { result, next in
             result[next.roomToken] = Network.SOGS.Room(
                 openGroup: next,
-                members: members,
+                members: (roomMembers?[next.roomToken] ?? []),
                 currentUserSessionIds: currentUserSessionIds
             )
         }

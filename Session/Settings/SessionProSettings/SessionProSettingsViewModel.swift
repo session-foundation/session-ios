@@ -210,10 +210,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         /// Split the events between those that need database access and those that don't
-        let changes: EventChangeset = eventsToProcess.split(by: { $0.dataRequirement })
+        let changes: EventChangeset = eventsToProcess.split(by: { $0.handlingStrategy })
         
         /// Process any general event changes
-        if let value = changes.latest(.currentUserProState, as: SessionPro.State.self) {
+        if let value = changes.latestGeneric(.currentUserProState, as: SessionPro.State.self) {
             proState = value
         }
         
@@ -1271,10 +1271,10 @@ extension SessionProSettingsViewModel {
 // MARK: - Convenience
 
 private extension ObservedEvent {
-    var dataRequirement: EventDataRequirement {
+    var handlingStrategy: EventHandlingStrategy {
         switch (key, key.generic) {
             case (.anyConversationPinnedPriorityChanged, _): return .databaseQuery
-            default: return .other
+            default: return .directCacheUpdate
         }
     }
 }

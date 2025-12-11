@@ -187,8 +187,10 @@ extension ContextMenuVC {
 
     static func actions(
         for cellViewModel: MessageViewModel,
-        in threadViewModel: SessionThreadViewModel,
+        threadInfo: ConversationInfoViewModel,
+        authMethod: AuthenticationMethod,
         reactionsSupported: Bool,
+        recentReactionEmoji: [String],
         isUserModeratorOrAdmin: Bool,
         forMessageInfoScreen: Bool,
         delegate: ContextMenuActionDelegate?,
@@ -260,12 +262,13 @@ extension ContextMenuVC {
             cellViewModel.threadVariant != .community &&
             !forMessageInfoScreen
         )
-        let canDelete: Bool = (MessageViewModel.DeletionBehaviours.deletionActions(
+        let canDelete: Bool = ((try? MessageViewModel.DeletionBehaviours.deletionActions(
             for: [cellViewModel],
-            threadData: threadViewModel,
+            threadInfo: threadInfo,
+            authMethod: authMethod,
             isUserModeratorOrAdmin: isUserModeratorOrAdmin,
             using: dependencies
-        ) != nil)
+        )) != nil)
         let canBan: Bool = (
             cellViewModel.threadVariant == .community &&
             isUserModeratorOrAdmin
@@ -274,8 +277,7 @@ extension ContextMenuVC {
         let recentEmojis: [EmojiWithSkinTones] = {
             guard reactionsSupported else { return [] }
             
-            return (threadViewModel.recentReactionEmoji ?? [])
-                .compactMap { EmojiWithSkinTones(rawValue: $0) }
+            return recentReactionEmoji.compactMap { EmojiWithSkinTones(rawValue: $0) }
         }()
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),

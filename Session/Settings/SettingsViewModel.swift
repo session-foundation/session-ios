@@ -291,7 +291,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             }
         }
         
-        if let value = changes.latest(.currentUserProState, as: SessionPro.State.self) {
+        if let value = changes.latestGeneric(.currentUserProState, as: SessionPro.State.self) {
             proState = value
         }
         

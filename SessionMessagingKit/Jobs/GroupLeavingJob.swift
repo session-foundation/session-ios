@@ -69,7 +69,7 @@ public enum GroupLeavingJob: JobExecutor {
                 switch (finalBehaviour, isAdminUser, (isAdminUser && numAdminUsers == 1)) {
                     case (.leave, _, false):
                         let disappearingConfig: DisappearingMessagesConfiguration? = try? DisappearingMessagesConfiguration.fetchOne(db, id: threadId)
-                        let authMethod: AuthenticationMethod = try Authentication.with(db, swarmPublicKey: threadId, using: dependencies)
+                        let authMethod: AuthenticationMethod = try Authentication.with(swarmPublicKey: threadId, using: dependencies)
                         
                         return .sendLeaveMessage(authMethod, disappearingConfig)
                         

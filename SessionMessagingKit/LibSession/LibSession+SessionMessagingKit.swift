@@ -778,6 +778,16 @@ public extension LibSession {
                             result[.profile(next.key)] = next.value.profile
                         }
                         
+                    case .userGroups(let conf):
+                        let extractedUserGroups: ExtractedUserGroups = try extractUserGroups(from: conf, using: dependencies)
+                        var userGroupEvents: [ObservableKey: Any] = [:]
+                        
+                        extractedUserGroups.groups.forEach { info in
+                            userGroupEvents[.groupInfo(groupId: info.groupSessionId)] = info
+                        }
+                        
+                        result[variant] = userGroupEvents
+                        
                     default: break
                 }
             }
@@ -860,7 +870,8 @@ public extension LibSession {
                         case .userGroups:
                             try handleUserGroupsUpdate(
                                 db,
-                                in: config
+                                in: config,
+                                oldState: oldState
                             )
                             
                         case .groupInfo:
@@ -1137,8 +1148,11 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool
     func groupName(groupSessionId: SessionId) -> String?
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool
+    func groupInfo(for groupIds: Set<String>) -> [LibSession.GroupInfo?]
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval?
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval?
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData
 }
 
 public extension LibSessionCacheType {
@@ -1416,8 +1430,13 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool { return false }
     func groupName(groupSessionId: SessionId) -> String? { return nil }
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool { return false }
+    func groupInfo(for groupIds: Set<String>) -> [LibSession.GroupInfo?] { return [] }
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval? { return nil }
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval? { return nil }
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData {
+        return GroupAuthData(groupIdentityPrivateKey: nil, authData: nil)
+    }
 }
 
 // MARK: - Convenience

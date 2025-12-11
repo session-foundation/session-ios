@@ -61,7 +61,7 @@ public enum GroupPromoteMemberJob: JobExecutor {
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .writePublisher { db -> AuthenticationMethod in
+            .writePublisher { db in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -72,10 +72,15 @@ public enum GroupPromoteMemberJob: JobExecutor {
                         using: dependencies
                     )
                 
-                return try Authentication.with(db, swarmPublicKey: details.memberSessionIdHexString, using: dependencies)
+                return try Authentication.with(swarmPublicKey: details.memberSessionIdHexString, using: dependencies)
             }
-            .tryFlatMap { authMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                try MessageSender.preparedSend(
+            .tryFlatMap { _ -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                let authMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: details.memberSessionIdHexString,
+                    using: dependencies
+                )
+                
+                return try MessageSender.preparedSend(
                     message: message,
                     to: .contact(publicKey: details.memberSessionIdHexString),
                     namespace: .default,

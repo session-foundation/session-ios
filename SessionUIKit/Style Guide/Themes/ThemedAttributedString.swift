@@ -6,7 +6,12 @@ import UIKit
 
 public extension NSAttributedString.Key {
     internal static let themedKeys: Set<NSAttributedString.Key> = [
-        .themeForegroundColor, .themeBackgroundColor, .themeStrokeColor, .themeUnderlineColor, .themeStrikethroughColor
+        .themeForegroundColor, .themeBackgroundColor, .themeStrokeColor, .themeUnderlineColor,
+        .themeStrikethroughColor
+    ]
+    
+    internal static let specialKeys: Set<NSAttributedString.Key> = [
+        .themeAlphaMultiplier, .themeCurrentUserMentionImage
     ]
     
     static let themeForegroundColor = NSAttributedString.Key("org.getsession.themeForegroundColor")
@@ -14,6 +19,8 @@ public extension NSAttributedString.Key {
     static let themeStrokeColor = NSAttributedString.Key("org.getsession.themeStrokeColor")
     static let themeUnderlineColor = NSAttributedString.Key("org.getsession.themeUnderlineColor")
     static let themeStrikethroughColor = NSAttributedString.Key("org.getsession.themeStrikethroughColor")
+    static let themeAlphaMultiplier = NSAttributedString.Key("org.getsession.themeAlphaMultiplier")
+    static let themeCurrentUserMentionImage = NSAttributedString.Key("org.getsession.themeCurrentUserMentionImage")
     
     internal var originalKey: NSAttributedString.Key? {
         switch self {
@@ -42,6 +49,17 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
     }
     
     public var string: String { attributedString.string }
+    public var allAttributes: [(attributes: [NSAttributedString.Key: Any], range: NSRange)] {
+        var result: [(attributes: [NSAttributedString.Key: Any], range: NSRange)] = []
+        let attrString: NSAttributedString = attributedString
+        let fullRange: NSRange = NSRange(location: 0, length: attrString.length)
+        
+        attrString.enumerateAttributes(in: fullRange) { attributes, range, _ in
+            result.append((attributes, range))
+        }
+        
+        return result
+    }
     
     /// It seems that a number of UI elements don't properly check the `NSTextAttachment.accessibilityLabel` when
     /// constructing their accessibility label, as such we need to construct our own which includes that content
@@ -231,6 +249,13 @@ public final class ThemedAttributedString: @unchecked Sendable, Equatable, Hasha
         lock.lock()
         defer { lock.unlock() }
         self._attributedString.replaceCharacters(in: range, with: attributedString)
+    }
+    
+    public func replacingCharacters(in range: NSRange, with attributedString: NSAttributedString) -> ThemedAttributedString {
+        lock.lock()
+        defer { lock.unlock() }
+        self._attributedString.replaceCharacters(in: range, with: attributedString)
+        return self
     }
     
     // MARK: - Convenience

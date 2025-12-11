@@ -170,7 +170,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         dataChangeObservable = nil
     }
     
-    private func handleUpdates(_ updatedViewData: [SessionThreadViewModel]) {
+    private func handleUpdates(_ updatedViewData: [ConversationInfoViewModel]) {
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialData else {
@@ -224,12 +224,12 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
                 mode: .modal,
                 delegate: self,
-                threadId: viewModel.viewData[indexPath.row].threadId,
-                threadVariant: viewModel.viewData[indexPath.row].threadVariant,
+                threadId: viewModel.viewData[indexPath.row].id,
+                threadVariant: viewModel.viewData[indexPath.row].variant,
                 attachments: attachments,
                 messageText: nil,
                 quoteViewModel: nil,
-                disableLinkPreviewImageDownload: (viewModel.viewData[indexPath.row].threadCanUpload != true),
+                disableLinkPreviewImageDownload: !viewModel.viewData[indexPath.row].canUpload,
                 didLoadLinkPreview: { [weak self] result in
                     self?.viewModel.didLoadLinkPreview(result: result)
                 },
@@ -350,6 +350,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                         try SessionThread.updateVisibility(
                             db,
                             threadId: threadId,
+                            threadVariant: thread.variant,
                             isVisible: true,
                             additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
                             using: dependencies
