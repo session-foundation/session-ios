@@ -548,7 +548,7 @@ final class VisibleMessageCell: MessageCell {
             if let linkPreview: LinkPreview = cellViewModel.linkPreview {
                 switch linkPreview.variant {
                     case .standard:
-                        let stackView = UIStackView(arrangedSubviews: [])
+                        let stackView: UIStackView = UIStackView()
                         stackView.axis = .vertical
                         stackView.spacing = 2
                         bubbleView.addSubview(stackView)
@@ -566,7 +566,6 @@ final class VisibleMessageCell: MessageCell {
                         )
                         stackView.addArrangedSubview(linkPreviewView)
                         self.linkPreviewView = linkPreviewView
-                        self.readMoreButton.themeTextColor = bodyLabelTextColor
                         
                         let bodyTappableLabelContainer: UIView = UIView()
                         let bodyTappableInfo: (label: LinkHighlightingLabel, height: CGFloat) = VisibleMessageCell.getBodyLabel(
@@ -591,8 +590,10 @@ final class VisibleMessageCell: MessageCell {
                                 min(bodyTappableInfo.height, maxHeight)
                             )
                         )
+                        
                         if ((bodyTappableInfo.height - maxHeight >= lineHeight) && !shouldExpanded) {
                             stackView.addArrangedSubview(readMoreButton)
+                            readMoreButton.themeTextColor = bodyLabelTextColor
                             readMoreButton.isHidden = false
                             readMoreButton.transform = CGAffineTransform(translationX: inset, y: 0)
                         }

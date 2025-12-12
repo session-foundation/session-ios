@@ -563,7 +563,10 @@ extension ConversationVC:
     @MainActor func handleCharacterLimitLabelTapped() {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
-            afterClosed: { [weak self] in
+            onConfirm: { [weak self] in
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
             presenting: { [weak self] modal in
@@ -698,7 +701,10 @@ extension ConversationVC:
     @MainActor func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
             .longerMessages,
-            afterClosed: { [weak self] in
+            onConfirm: { [weak self] in
+                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            },
+            onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
             presenting: { [weak self] modal in
@@ -1555,11 +1561,11 @@ extension ConversationVC:
                 cancelTitle: "urlCopy".localized(),
                 cancelStyle: .alert_text,
                 hasCloseButton: true,
-                onConfirm:  { [weak self] modal in
+                onConfirm:  { modal in
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     modal.dismiss(animated: true)
                 },
-                onCancel: { [weak self] modal in
+                onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
                 }
             )
@@ -1665,9 +1671,14 @@ extension ConversationVC:
                             dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                                 .generic,
                                 dismissType: .single,
-                                afterClosed: { [weak self] in
+                                beforePresented: {},
+                                onConfirm: { [weak self] in
                                     self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                                 },
+                                onCancel: { [weak self] in
+                                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                                },
+                                afterClosed: {},
                                 presenting: { modal in
                                     dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
                                 }

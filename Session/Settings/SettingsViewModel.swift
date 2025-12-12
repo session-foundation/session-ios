@@ -37,7 +37,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         self.dependencies = dependencies
         self.internalState = State.initialState(
             userSessionId: dependencies[cache: .general].sessionId,
-            isSessionPro: dependencies[cache: .libSession].isSessionPro
+            sessionProPlanState: dependencies[singleton: .sessionProState].sessionProStateSubject.value
         )
         
         bindState()
@@ -156,7 +156,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public struct State: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
-        let isSessionPro: Bool
+        let sessionProPlanState: SessionProPlanState
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let developerModeEnabled: Bool
@@ -171,18 +171,18 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 .profile(userSessionId.hexString),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
-                .feature(.mockCurrentUserSessionPro),
+                .feature(.mockCurrentUserSessionProState),
                 .setting(.developerModeEnabled),
                 .setting(.hideRecoveryPasswordPermanently)
                 // TODO: [PRO] Need to observe changes to the users pro status
             ]
         }
         
-        static func initialState(userSessionId: SessionId, isSessionPro: Bool) -> State {
+        static func initialState(userSessionId: SessionId, sessionProPlanState: SessionProPlanState) -> State {
             return State(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
-                isSessionPro: isSessionPro,
+                sessionProPlanState: sessionProPlanState,
                 serviceNetwork: .mainnet,
                 forceOffline: false,
                 developerModeEnabled: false,
@@ -216,7 +216,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     ) async -> State {
         /// Store mutable copies of the data to update
         var profile: Profile = previousState.profile
-        var isSessionPro: Bool = previousState.isSessionPro
+        var sessionProPlanState: SessionProPlanState = previousState.sessionProPlanState
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
         var developerModeEnabled: Bool = previousState.developerModeEnabled
@@ -225,6 +225,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         if isInitialFetch {
             serviceNetwork = dependencies[feature: .serviceNetwork]
             forceOffline = dependencies[feature: .forceOffline]
+            sessionProPlanState = dependencies[singleton: .sessionProState].sessionProStateSubject.value
             
             dependencies.mutate(cache: .libSession) { libSession in
                 profile = libSession.profile
@@ -277,10 +278,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 
                 forceOffline = updatedValue
             }
-            else if event.key == .feature(.mockCurrentUserSessionPro) {
-                guard let updatedValue: Bool = event.value as? Bool else { return }
+            else if event.key == .feature(.mockCurrentUserSessionProState) {
+                guard let updatedValue: SessionProStateMock = event.value as? SessionProStateMock else { return }
                 
-                isSessionPro = updatedValue
+                sessionProPlanState = dependencies[singleton: .sessionProState].sessionProStateSubject.value
             }
         }
         
@@ -288,7 +289,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return State(
             userSessionId: previousState.userSessionId,
             profile: profile,
-            isSessionPro: isSessionPro,
+            sessionProPlanState: sessionProPlanState,
             serviceNetwork: serviceNetwork,
             forceOffline: forceOffline,
             developerModeEnabled: developerModeEnabled,
@@ -338,12 +339,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         font: .titleLarge,
                         alignment: .center,
                         trailingImage: {
-                            guard state.isSessionPro else { return nil }
-                            
-                            return SessionProBadge.trailingImage(
-                                size: .medium,
-                                themeBackgroundColor: .primary
-                            )
+                            switch state.sessionProPlanState {
+                                case .none: return nil
+                                case .active, .refunding:
+                                    return SessionProBadge.trailingImage(
+                                        size: .medium,
+                                        themeBackgroundColor: .primary
+                                    )
+                                
+                                case .expired:
+                                    return SessionProBadge.trailingImage(
+                                        size: .medium,
+                                        themeBackgroundColor: .disabled
+                                    )
+                            }
                         }()
                     ),
                     styling: SessionCell.StyleInfo(
@@ -432,11 +441,33 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                     SessionCell.Info(
                         id: .sessionPro,
                         leadingAccessory: .proBadge(size: .small),
-                        title: Constants.app_pro,
-                        onTap: { [weak viewModel] in
-                            // TODO: Implement
+                        title: {
+                            switch state.sessionProPlanState {
+                                case .none:
+                                    return "upgradeSession"
+                                        .put(key: "app_name", value: Constants.app_name)
+                                        .localized()
+                                case .active, .refunding:
+                                    return "sessionProBeta"
+                                        .put(key: "app_pro", value: Constants.app_pro)
+                                        .localized()
+                                case .expired:
+                                    return "proRenewBeta"
+                                        .put(key: "pro", value: Constants.pro)
+                                        .localized()
+                            }
+                        }(),
+                        styling: SessionCell.StyleInfo(
+                            tintColor: .primary
+                        ),
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            let viewController: SessionListHostingViewController = SessionListHostingViewController(
+                                viewModel: SessionProSettingsViewModel(using: dependencies),
+                                customizedNavigationBackground: .clear
+                            )
+                            viewModel?.transitionToScreen(viewController)
                         }
-                    ),//
+                    ),
                     SessionCell.Info(
                         id: .inviteAFriend,
                         leadingAccessory: .icon(.userRoundPlus),
@@ -839,6 +870,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         .animatedProfileImage(
                             isSessionProActivated: dependencies[cache: .libSession].isSessionPro
                         ),
+                        onConfirm: {},
                         presenting: { modal in
                             self?.transitionToScreen(modal, transitionType: .present)
                         }
@@ -894,6 +926,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                             .animatedProfileImage(
                                                 isSessionProActivated: dependencies[cache: .libSession].isSessionPro
                                             ),
+                                            onConfirm: {},
                                             presenting: { modal in
                                                 self?.transitionToScreen(modal, transitionType: .present)
                                             }
@@ -1075,7 +1108,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     @MainActor private func openDonationsUrl() {
-        guard let modal: ConfirmationModal = dependencies[singleton: .donationsManager].openDonationsUrlModal() else { return }
+        guard let modal: ConfirmationModal = dependencies[singleton: .donationsManager].openDonationsUrlModal() else {
+            return
+        }
         
         self.transitionToScreen(modal, transitionType: .present)
         
@@ -1107,7 +1142,6 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 },
                 onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
-                    
                     modal.dismiss(animated: true)
                 }
             )

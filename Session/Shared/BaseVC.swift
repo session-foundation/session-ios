@@ -3,6 +3,7 @@
 import UIKit
 import SessionUIKit
 import Combine
+import SessionUtilitiesKit
 
 public class BaseVC: UIViewController {
     private var disposables: Set<AnyCancellable> = Set()
@@ -94,7 +95,14 @@ public class BaseVC: UIViewController {
         headingImageView.set(.height, to: Values.mediumFontSize)
         
         let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
-        sessionProBadge.isHidden = !currentUserSessionProState.isSessionProSubject.value
+        let isPro: Bool = {
+            if case .active = currentUserSessionProState.sessionProStateSubject.value {
+                return true
+            } else {
+                return false
+            }
+        }()
+        sessionProBadge.isHidden = !isPro
         
         let stackView: UIStackView = UIStackView(
             arrangedSubviews: MainAppContext.determineDeviceRTL() ? [ sessionProBadge, headingImageView ] : [ headingImageView, sessionProBadge ]
@@ -103,11 +111,18 @@ public class BaseVC: UIViewController {
         stackView.alignment = .center
         stackView.spacing = 0
         
-        currentUserSessionProState.isSessionProPublisher
+        currentUserSessionProState.sessionProStatePublisher
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveValue: { [weak sessionProBadge] isPro in
+                receiveValue: { [weak sessionProBadge] sessionProPlanState in
+                    let isPro: Bool = {
+                        if case .active = sessionProPlanState {
+                            return true
+                        } else {
+                            return false
+                        }
+                    }()
                     sessionProBadge?.isHidden = !isPro
                 }
             )

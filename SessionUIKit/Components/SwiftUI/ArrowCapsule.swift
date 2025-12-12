@@ -28,6 +28,7 @@ public enum ViewPosition: String, Sendable {
 struct ArrowCapsule: Shape {
     let arrowPosition: ViewPosition
     let arrowLength: CGFloat
+    let arrowOffset: CGFloat
 
     func path(in rect: CGRect) -> Path {
         let height = rect.size.height
@@ -38,7 +39,7 @@ struct ArrowCapsule: Shape {
 
         let triangleSideLength : CGFloat = arrowLength / CGFloat(sqrt(0.75))
         let actualArrowPosition: ViewPosition = self.arrowLength > 0  ? self.arrowPosition : .none
-        let arrowOffSet: CGFloat = 30 - triangleSideLength + height / 2
+        let arrowOffSet: CGFloat = arrowOffset - triangleSideLength + height / 2
 
         var path = Path()
         // 1. Start at top-left arc start point
@@ -69,13 +70,13 @@ struct ArrowCapsule: Shape {
         // 4. Bottom edge (arrow if needed)
         if actualArrowPosition == .bottomRight {
             path.addLine(to: CGPoint(x: maxX - arrowOffSet, y: maxY))
-            path = self.makeArrow(path: &path, rect: rect, triangleSideLength: triangleSideLength, offset: arrowOffSet,position: .bottomRight)
+            path = self.makeArrow(path: &path, rect: rect, triangleSideLength: triangleSideLength, offset: arrowOffSet, position: .bottomRight)
         } else if actualArrowPosition == .bottomLeft {
             path.addLine(to: CGPoint(x: minX + arrowOffSet + triangleSideLength, y: maxY))
-            path = self.makeArrow(path: &path, rect: rect, triangleSideLength: triangleSideLength, offset: arrowOffSet,position: .bottomLeft)
+            path = self.makeArrow(path: &path, rect: rect, triangleSideLength: triangleSideLength, offset: arrowOffSet, position: .bottomLeft)
         } else if actualArrowPosition == .bottom {
             path.addLine(to: CGPoint(x: rect.midX + triangleSideLength / 2, y: maxY))
-            path = self.makeArrow(path: &path, rect: rect, triangleSideLength: triangleSideLength, offset: arrowOffSet,position: .bottom)
+            path = self.makeArrow(path: &path, rect: rect, triangleSideLength: triangleSideLength, offset: arrowOffSet, position: .bottom)
         }
         path.addLine(to: CGPoint(x: minX + height / 2, y: maxY))
 
@@ -119,9 +120,9 @@ struct ArrowCapsule: Shape {
                 )
             case .bottomLeft:
                 return (
-                    CGPoint(x: rect.minX - offset - triangleSideLength, y: rect.maxY),
-                    CGPoint(x: rect.minX - offset - triangleSideLength / 2, y: rect.maxY + arrowLength),
-                    CGPoint(x: rect.minX - offset, y: rect.maxY)
+                    CGPoint(x: rect.minX + offset + triangleSideLength, y: rect.maxY),
+                    CGPoint(x: rect.minX + offset + triangleSideLength / 2, y: rect.maxY + arrowLength),
+                    CGPoint(x: rect.minX + offset, y: rect.maxY)
                 )
             case .bottomRight:
                 return (

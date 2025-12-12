@@ -20,6 +20,7 @@ extension ContextMenuVC {
         let themeColor: ThemeValue
         let actionType: ActionType
         let shouldDismissInfoScreen: Bool
+        let flipIconForRTL: Bool
         let accessibilityLabel: String?
         let work: @MainActor ((@MainActor () -> Void)?) -> Void
         
@@ -40,6 +41,7 @@ extension ContextMenuVC {
             themeColor: ThemeValue = .textPrimary,
             actionType: ActionType = .generic,
             shouldDismissInfoScreen: Bool = false,
+            flipIconForRTL: Bool = false,
             accessibilityLabel: String? = nil,
             work: @escaping @MainActor ((@MainActor () -> Void)?) -> Void
         ) {
@@ -50,6 +52,7 @@ extension ContextMenuVC {
             self.themeColor = themeColor
             self.actionType = actionType
             self.shouldDismissInfoScreen = shouldDismissInfoScreen
+            self.flipIconForRTL = flipIconForRTL
             self.accessibilityLabel = accessibilityLabel
             self.work = work
         }
@@ -77,9 +80,10 @@ extension ContextMenuVC {
 
         static func reply(_ cellViewModel: MessageViewModel, _ delegate: ContextMenuActionDelegate?) -> Action {
             return Action(
-                icon: Dependencies.isRTL ? Lucide.image(icon: .reply, size: 24)?.flippedHorizontally() : Lucide.image(icon: .reply, size: 24),
+                icon: Lucide.image(icon: .reply, size: 24),
                 title: "reply".localized(),
                 shouldDismissInfoScreen: true,
+                flipIconForRTL: Dependencies.isRTL,
                 accessibilityLabel: "Reply to message"
             ) { completion in delegate?.reply(cellViewModel, completion: completion) }
         }

@@ -369,6 +369,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         
                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                             proCTAModalVariant,
+                            onConfirm: {},
                             presenting: { modal in
                                 self?.transitionToScreen(modal, transitionType: .present)
                             }
@@ -2042,11 +2043,17 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     DispatchQueue.main.async {
                         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                             modal: ProCTAModal(
-                                delegate: dependencies[singleton: .sessionProState],
                                 variant: .morePinnedConvos(
                                     isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit)
                                 ),
-                                dataManager: dependencies[singleton: .imageDataManager]
+                                dataManager: dependencies[singleton: .imageDataManager],
+                                onConfirm: { [dependencies] in
+                                    dependencies[singleton: .sessionProState].upgradeToPro(
+                                        plan: SessionProPlan(variant: .threeMonths),
+                                        originatingPlatform: .iOS,
+                                        completion: nil
+                                    )
+                                }
                             )
                         )
                         self?.transitionToScreen(sessionProModal, transitionType: .present)

@@ -177,8 +177,36 @@
 		942BA9C12E4EA5CB007C4595 /* SessionLabelWithProBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */; };
 		942BA9C22E53F694007C4595 /* SRCopyableLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3DAB3232480CB2A00725F25 /* SRCopyableLabel.swift */; };
 		942BA9C42E55AB54007C4595 /* UILabel+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9C32E55AB51007C4595 /* UILabel+Utilities.swift */; };
+		94363E5B2E6002750004EE43 /* SessionListScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E5A2E60026F0004EE43 /* SessionListScreen.swift */; };
+		94363E5E2E6002960004EE43 /* SessionListScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E5D2E6002940004EE43 /* SessionListScreen+Models.swift */; };
+		94363E622E60148A0004EE43 /* SessionProSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E612E6014880004EE43 /* SessionProSettingsViewModel.swift */; };
+		94363E642E6017F50004EE43 /* SessionListScreen+ListItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E632E6017E70004EE43 /* SessionListScreen+ListItem.swift */; };
+		94363E662E60186A0004EE43 /* SessionListScreen+Section.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E652E60185D0004EE43 /* SessionListScreen+Section.swift */; };
+		94363E682E6024A40004EE43 /* SessionListScreen+AccessoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */; };
+		94363E6A2E613AF80004EE43 /* SessionProSettingsViewModel+Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */; };
+		9438658F2EAB380700DB989A /* MutipleLinksModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438658E2EAB37F600DB989A /* MutipleLinksModal.swift */; };
+		9438D4862E67B015008C7FFE /* CocoaLumberjackSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 940978602E655C2F00925B36 /* CocoaLumberjackSwift */; };
+		9438D4882E67B704008C7FFE /* SessionListHostingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D4872E67B6F5008C7FFE /* SessionListHostingViewController.swift */; };
+		9438D51A2E6951B3008C7FFE /* AnimatedToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */; };
+		9438D5572E6A6869008C7FFE /* SessionProPaymentScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D5562E6A6862008C7FFE /* SessionProPaymentScreen.swift */; };
+		9438D55D2E6FEF44008C7FFE /* SessionProPlanUpdatedScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9438D55C2E6FEF3B008C7FFE /* SessionProPlanUpdatedScreen.swift */; };
+		943B43522EC2AF68008ABC34 /* SessionListScreen+ListItemCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43512EC2AF64008ABC34 /* SessionListScreen+ListItemCell.swift */; };
+		943B43542EC2AF86008ABC34 /* SessionListScreen+ListItemLogoWithPro.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43532EC2AF82008ABC34 /* SessionListScreen+ListItemLogoWithPro.swift */; };
+		943B43562EC2AFAC008ABC34 /* SessionListScreen+ListItemDataMatrix.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43552EC2AFAB008ABC34 /* SessionListScreen+ListItemDataMatrix.swift */; };
+		943B43582EC2AFD0008ABC34 /* SessionListScreen+ListItemButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43572EC2AFCF008ABC34 /* SessionListScreen+ListItemButton.swift */; };
+		943B43602EC3FCD6008ABC34 /* ListItemAccessory+Icon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B435F2EC3FCD5008ABC34 /* ListItemAccessory+Icon.swift */; };
+		943B43622EC3FD85008ABC34 /* ListItemAccessory+Toggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43612EC3FD80008ABC34 /* ListItemAccessory+Toggle.swift */; };
+		943B43642EC3FDC0008ABC34 /* ListItemAccessory+LoadingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943B43632EC3FDB8008ABC34 /* ListItemAccessory+LoadingIndicator.swift */; };
 		943C6D822B75E061004ACE64 /* Message+DisappearingMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */; };
 		94519A932E84C20700F02723 /* _045_LastProfileUpdateTimestamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942BA9BE2E4ABB9F007C4595 /* _045_LastProfileUpdateTimestamp.swift */; };
+		94519A952E851BF500F02723 /* SessionProPaymentScreen+UpdatePlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */; };
+		94519A972E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */; };
+		94519A992E8A1A4200F02723 /* SessionProPaymentScreen+CancelPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */; };
+		945E89D22E95D54700D8D907 /* SessionProPaymentScreen+Renew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */; };
+		945E89D42E95D97000D8D907 /* SessionProPaymentScreen+SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */; };
+		945E89D62E9602AB00D8D907 /* SessionProPaymentScreen+Purchase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */; };
+		9463794A2E7131070017A014 /* SessionProManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946379492E71308B0017A014 /* SessionProManagerType.swift */; };
+		9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
 		9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */; };
 		9479981C2DD44ADC008F5CD5 /* ThreadNotificationSettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */; };
@@ -222,6 +250,7 @@
 		94D716802E8F6363008294EE /* HighlightMentionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D7167F2E8F6362008294EE /* HighlightMentionView.swift */; };
 		94D716822E8FA1A0008294EE /* AttributedLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D716812E8FA19D008294EE /* AttributedLabel.swift */; };
 		94D716862E933958008294EE /* SessionProBadge+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D716852E93394B008294EE /* SessionProBadge+Utilities.swift */; };
+		94D955EB2E9CA5E000DEE66E /* SessionProPaymentScreen+ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D955EA2E9CA5DA00DEE66E /* SessionProPaymentScreen+ViewModel.swift */; };
 		94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */; };
 		A11CD70D17FA230600A2D1B1 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */; };
 		A163E8AB16F3F6AA0094D68B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A163E8AA16F3F6A90094D68B /* Security.framework */; };
@@ -1609,10 +1638,37 @@
 		942BA9BE2E4ABB9F007C4595 /* _045_LastProfileUpdateTimestamp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _045_LastProfileUpdateTimestamp.swift; sourceTree = "<group>"; };
 		942BA9C02E4EA5BE007C4595 /* SessionLabelWithProBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionLabelWithProBadge.swift; sourceTree = "<group>"; };
 		942BA9C32E55AB51007C4595 /* UILabel+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UILabel+Utilities.swift"; sourceTree = "<group>"; };
+		94363E5A2E60026F0004EE43 /* SessionListScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListScreen.swift; sourceTree = "<group>"; };
+		94363E5D2E6002940004EE43 /* SessionListScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+Models.swift"; sourceTree = "<group>"; };
+		94363E612E6014880004EE43 /* SessionProSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProSettingsViewModel.swift; sourceTree = "<group>"; };
+		94363E632E6017E70004EE43 /* SessionListScreen+ListItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItem.swift"; sourceTree = "<group>"; };
+		94363E652E60185D0004EE43 /* SessionListScreen+Section.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+Section.swift"; sourceTree = "<group>"; };
+		94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+AccessoryViews.swift"; sourceTree = "<group>"; };
+		94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProSettingsViewModel+Database.swift"; sourceTree = "<group>"; };
 		94367C422C6C828500814252 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		9438658E2EAB37F600DB989A /* MutipleLinksModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MutipleLinksModal.swift; sourceTree = "<group>"; };
+		9438D4872E67B6F5008C7FFE /* SessionListHostingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListHostingViewController.swift; sourceTree = "<group>"; };
+		9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimatedToggle.swift; sourceTree = "<group>"; };
+		9438D5562E6A6862008C7FFE /* SessionProPaymentScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProPaymentScreen.swift; sourceTree = "<group>"; };
+		9438D55C2E6FEF3B008C7FFE /* SessionProPlanUpdatedScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProPlanUpdatedScreen.swift; sourceTree = "<group>"; };
+		943B43512EC2AF64008ABC34 /* SessionListScreen+ListItemCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItemCell.swift"; sourceTree = "<group>"; };
+		943B43532EC2AF82008ABC34 /* SessionListScreen+ListItemLogoWithPro.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItemLogoWithPro.swift"; sourceTree = "<group>"; };
+		943B43552EC2AFAB008ABC34 /* SessionListScreen+ListItemDataMatrix.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItemDataMatrix.swift"; sourceTree = "<group>"; };
+		943B43572EC2AFCF008ABC34 /* SessionListScreen+ListItemButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionListScreen+ListItemButton.swift"; sourceTree = "<group>"; };
+		943B435F2EC3FCD5008ABC34 /* ListItemAccessory+Icon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListItemAccessory+Icon.swift"; sourceTree = "<group>"; };
+		943B43612EC3FD80008ABC34 /* ListItemAccessory+Toggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListItemAccessory+Toggle.swift"; sourceTree = "<group>"; };
+		943B43632EC3FDB8008ABC34 /* ListItemAccessory+LoadingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ListItemAccessory+LoadingIndicator.swift"; sourceTree = "<group>"; };
 		943C6D812B75E061004ACE64 /* Message+DisappearingMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Message+DisappearingMessages.swift"; sourceTree = "<group>"; };
 		943C6D832B86B5F1004ACE64 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+UpdatePlan.swift"; sourceTree = "<group>"; };
+		94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+RequestRefund.swift"; sourceTree = "<group>"; };
+		94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+CancelPlan.swift"; sourceTree = "<group>"; };
 		945D9C572D6FDBE7003C4C0C /* _020_AddJobUniqueHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _020_AddJobUniqueHash.swift; sourceTree = "<group>"; };
+		945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Renew.swift"; sourceTree = "<group>"; };
+		945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+SharedViews.swift"; sourceTree = "<group>"; };
+		945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Purchase.swift"; sourceTree = "<group>"; };
+		946379492E71308B0017A014 /* SessionProManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProManagerType.swift; sourceTree = "<group>"; };
+		9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Models.swift"; sourceTree = "<group>"; };
 		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		9479981B2DD44AC5008F5CD5 /* ThreadNotificationSettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationSettingsViewModel.swift; sourceTree = "<group>"; };
@@ -1656,6 +1712,7 @@
 		94D7167F2E8F6362008294EE /* HighlightMentionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlightMentionView.swift; sourceTree = "<group>"; };
 		94D716812E8FA19D008294EE /* AttributedLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttributedLabel.swift; sourceTree = "<group>"; };
 		94D716852E93394B008294EE /* SessionProBadge+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProBadge+Utilities.swift"; sourceTree = "<group>"; };
+		94D955EA2E9CA5DA00DEE66E /* SessionProPaymentScreen+ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+ViewModel.swift"; sourceTree = "<group>"; };
 		94E9BC0C2C7BFBDA006984EA /* Localization+Style.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Localization+Style.swift"; sourceTree = "<group>"; };
 		A11CD70C17FA230600A2D1B1 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		A163E8AA16F3F6A90094D68B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -2555,6 +2612,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9438D4862E67B015008C7FFE /* CocoaLumberjackSwift in Frameworks */,
 				FD756BF22D06687800BD7199 /* Lucide in Frameworks */,
 				FD2286712C38D43000BC06F7 /* DifferenceKit in Frameworks */,
 				FDAA36B22EB2D2F60040603E /* NVActivityIndicatorView in Frameworks */,
@@ -2949,6 +3007,7 @@
 		942256932C23F8DD00C0FDBF /* SwiftUI */ = {
 			isa = PBXGroup;
 			children = (
+				9438D5192E6951AD008C7FFE /* AnimatedToggle.swift */,
 				FD360EC82ECD3EAE0050CAF4 /* DonationCTAModal.swift */,
 				94D716812E8FA19D008294EE /* AttributedLabel.swift */,
 				942BA9402E4487EE007C4595 /* LightBox.swift */,
@@ -2959,6 +3018,7 @@
 				94AAB14E2E1F6CB300A6FA18 /* SessionProBadge+SwiftUI.swift */,
 				94AAB14C2E1F39AB00A6FA18 /* ProCTAModal.swift */,
 				94B6BAFD2E39F50E00E718BB /* UserProfileModal.swift */,
+				9438658E2EAB37F600DB989A /* MutipleLinksModal.swift */,
 				94AAB14A2E1E197800A6FA18 /* Modal+SwiftUI.swift */,
 				FD8A5B1F2DC03332004C689B /* AdaptiveText.swift */,
 				FD8A5B212DC0489B004C689B /* AdaptiveHStack.swift */,
@@ -2979,6 +3039,75 @@
 				94B3DC162AF8592200C88531 /* QuoteView_SwiftUI.swift */,
 			);
 			path = SwiftUI;
+			sourceTree = "<group>";
+		};
+		94363E5C2E60027D0004EE43 /* SessionListScreen */ = {
+			isa = PBXGroup;
+			children = (
+				943B435E2EC3F9D2008ABC34 /* ListContentModels */,
+				943B435D2EC3F9A7008ABC34 /* AccessoryViews */,
+				943B43502EC2AF3D008ABC34 /* ListItemViews */,
+				94363E5A2E60026F0004EE43 /* SessionListScreen.swift */,
+			);
+			path = SessionListScreen;
+			sourceTree = "<group>";
+		};
+		94363E602E6014630004EE43 /* SessionProSettings */ = {
+			isa = PBXGroup;
+			children = (
+				94D955EA2E9CA5DA00DEE66E /* SessionProPaymentScreen+ViewModel.swift */,
+				94363E612E6014880004EE43 /* SessionProSettingsViewModel.swift */,
+				94363E692E613AEE0004EE43 /* SessionProSettingsViewModel+Database.swift */,
+			);
+			path = SessionProSettings;
+			sourceTree = "<group>";
+		};
+		9438D5542E6A6843008C7FFE /* SessionProSettings */ = {
+			isa = PBXGroup;
+			children = (
+				9438D5562E6A6862008C7FFE /* SessionProPaymentScreen.swift */,
+				945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */,
+				945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */,
+				945E89D12E95D54000D8D907 /* SessionProPaymentScreen+Renew.swift */,
+				94519A942E851BF300F02723 /* SessionProPaymentScreen+UpdatePlan.swift */,
+				94519A962E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift */,
+				94519A982E8A1A3200F02723 /* SessionProPaymentScreen+CancelPlan.swift */,
+				9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */,
+				9438D55C2E6FEF3B008C7FFE /* SessionProPlanUpdatedScreen.swift */,
+			);
+			path = SessionProSettings;
+			sourceTree = "<group>";
+		};
+		943B43502EC2AF3D008ABC34 /* ListItemViews */ = {
+			isa = PBXGroup;
+			children = (
+				943B43572EC2AFCF008ABC34 /* SessionListScreen+ListItemButton.swift */,
+				943B43552EC2AFAB008ABC34 /* SessionListScreen+ListItemDataMatrix.swift */,
+				943B43532EC2AF82008ABC34 /* SessionListScreen+ListItemLogoWithPro.swift */,
+				943B43512EC2AF64008ABC34 /* SessionListScreen+ListItemCell.swift */,
+			);
+			path = ListItemViews;
+			sourceTree = "<group>";
+		};
+		943B435D2EC3F9A7008ABC34 /* AccessoryViews */ = {
+			isa = PBXGroup;
+			children = (
+				94363E672E6024960004EE43 /* SessionListScreen+AccessoryViews.swift */,
+				943B435F2EC3FCD5008ABC34 /* ListItemAccessory+Icon.swift */,
+				943B43612EC3FD80008ABC34 /* ListItemAccessory+Toggle.swift */,
+				943B43632EC3FDB8008ABC34 /* ListItemAccessory+LoadingIndicator.swift */,
+			);
+			path = AccessoryViews;
+			sourceTree = "<group>";
+		};
+		943B435E2EC3F9D2008ABC34 /* ListContentModels */ = {
+			isa = PBXGroup;
+			children = (
+				94363E5D2E6002940004EE43 /* SessionListScreen+Models.swift */,
+				94363E632E6017E70004EE43 /* SessionListScreen+ListItem.swift */,
+				94363E652E60185D0004EE43 /* SessionListScreen+Section.swift */,
+			);
+			path = ListContentModels;
 			sourceTree = "<group>";
 		};
 		947D7FD32D509FC900E8E413 /* SessionNetwork */ = {
@@ -3200,6 +3329,7 @@
 				B893063E2383961A005EAA8E /* ScanQRCodeWrapperVC.swift */,
 				FD52090828B59411006098F6 /* ScreenLockWindow.swift */,
 				FD37EA0828AA2D27003AE748 /* SessionTableViewModel.swift */,
+				9438D4872E67B6F5008C7FFE /* SessionListHostingViewController.swift */,
 				FD10AF0B2AF32B9A007709E5 /* SessionListViewModel.swift */,
 				FD37EA0628AA2CCA003AE748 /* SessionTableViewController.swift */,
 				7BE2701D2A64C11500CEB71A /* SessionCarouselView+SwiftUI.swift */,
@@ -3564,6 +3694,7 @@
 		C360969125AD1765008B62B2 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				94363E602E6014630004EE43 /* SessionProSettings */,
 				FDE71B092E7934DC0023F5F9 /* DeveloperSettings */,
 				FD8A5B002DBEFBF9004C689B /* SessionNetworkScreen */,
 				FD37E9CD28A1E682003AE748 /* Views */,
@@ -4263,6 +4394,7 @@
 		FD2272D22C34ECBB004D8A6C /* Types */ = {
 			isa = PBXGroup;
 			children = (
+				946379492E71308B0017A014 /* SessionProManagerType.swift */,
 				FD39370B2E4D7BBE00571F17 /* DocumentPickerHandler.swift */,
 				FD0E353A2AB98773006A81F7 /* AppVersion.swift */,
 				FDB3486D2BE8457F00B716C2 /* BackgroundTaskManager.swift */,
@@ -4910,6 +5042,7 @@
 			isa = PBXGroup;
 			children = (
 				FD8A5AFF2DBEFB21004C689B /* Settings */,
+				94363E5C2E60027D0004EE43 /* SessionListScreen */,
 			);
 			path = Screens;
 			sourceTree = "<group>";
@@ -4917,6 +5050,7 @@
 		FD8A5AFF2DBEFB21004C689B /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				9438D5542E6A6843008C7FFE /* SessionProSettings */,
 				947D7FDC2D5180F200E8E413 /* SessionNetworkScreen */,
 			);
 			path = Settings;
@@ -5533,6 +5667,7 @@
 			packageProductDependencies = (
 				FD2286702C38D43000BC06F7 /* DifferenceKit */,
 				FD756BF12D06687800BD7199 /* Lucide */,
+				940978602E655C2F00925B36 /* CocoaLumberjackSwift */,
 				FDAA36B12EB2D2F60040603E /* NVActivityIndicatorView */,
 			);
 			productName = SessionUIKit;
@@ -6434,6 +6569,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				942BA9C22E53F694007C4595 /* SRCopyableLabel.swift in Sources */,
+				9438D51A2E6951B3008C7FFE /* AnimatedToggle.swift in Sources */,
+				FDAA36AC2EB2C5840040603E /* VoiceMessageRecordingView.swift in Sources */,
+				FD9E26CE2EA72EFF00404C7F /* QuoteView_SwiftUI.swift in Sources */,
+				FDAA36B92EB3FBC80040603E /* LinkPreviewManagerType.swift in Sources */,
 				FDAA36AC2EB2C5840040603E /* VoiceMessageRecordingView.swift in Sources */,
 				FD9E26CE2EA72EFF00404C7F /* QuoteView_SwiftUI.swift in Sources */,
 				FDAA36B92EB3FBC80040603E /* LinkPreviewManagerType.swift in Sources */,
@@ -6441,10 +6581,14 @@
 				942256952C23F8DD00C0FDBF /* AttributedText.swift in Sources */,
 				942256992C23F8DD00C0FDBF /* Toast.swift in Sources */,
 				C331FF972558FA6B00070591 /* Fonts.swift in Sources */,
+				9438D5572E6A6869008C7FFE /* SessionProPaymentScreen.swift in Sources */,
+				943B43642EC3FDC0008ABC34 /* ListItemAccessory+LoadingIndicator.swift in Sources */,
 				FD8A5B022DBEFF73004C689B /* SessionNetworkScreen+Models.swift in Sources */,
+				94519A992E8A1A4200F02723 /* SessionProPaymentScreen+CancelPlan.swift in Sources */,
 				FD71165828E436E800B47552 /* Modal.swift in Sources */,
 				FD42ECCE2E287CD4002D03EA /* ThemeColor.swift in Sources */,
 				FD0150582CA27DF3005B08A1 /* ScrollableLabel.swift in Sources */,
+				943B43522EC2AF68008ABC34 /* SessionListScreen+ListItemCell.swift in Sources */,
 				FDAA36B72EB2E55C0040603E /* InputView.swift in Sources */,
 				FD37E9D328A1FCDB003AE748 /* Theme+OceanDark.swift in Sources */,
 				FD8A5B102DBF2F17004C689B /* NavBarSessionIcon.swift in Sources */,
@@ -6454,9 +6598,12 @@
 				94CD95BB2E08D9E00097754D /* SessionProBadge.swift in Sources */,
 				942256972C23F8DD00C0FDBF /* SessionSearchBar.swift in Sources */,
 				FD71165928E436E800B47552 /* ConfirmationModal.swift in Sources */,
+				945E89D22E95D54700D8D907 /* SessionProPaymentScreen+Renew.swift in Sources */,
 				FD981BD32DC9770E00564172 /* MentionUtilities.swift in Sources */,
 				7BBBDC44286EAD2D00747E59 /* LinkHighlightingLabel.swift in Sources */,
 				FD8A5B252DC05B16004C689B /* Number+Utilities.swift in Sources */,
+				943B43582EC2AFD0008ABC34 /* SessionListScreen+ListItemButton.swift in Sources */,
+				9438D55D2E6FEF44008C7FFE /* SessionProPlanUpdatedScreen.swift in Sources */,
 				FDE5219C2E08E76C00061B8E /* SessionAsyncImage.swift in Sources */,
 				FD3FAB632AEB9A1500DC5421 /* ToastController.swift in Sources */,
 				C331FFE72558FB0000070591 /* SNTextField.swift in Sources */,
@@ -6465,9 +6612,12 @@
 				C331FFE32558FB0000070591 /* TabBar.swift in Sources */,
 				FD37E9D528A1FCE8003AE748 /* Theme+OceanLight.swift in Sources */,
 				FDF848F129406A30007DCAE5 /* Format.swift in Sources */,
+				94519A952E851BF500F02723 /* SessionProPaymentScreen+UpdatePlan.swift in Sources */,
 				942BA9C42E55AB54007C4595 /* UILabel+Utilities.swift in Sources */,
 				FD8A5B112DBF34BD004C689B /* Date+Utilities.swift in Sources */,
 				FDB348632BE3774000B716C2 /* BezierPathView.swift in Sources */,
+				9438658F2EAB380700DB989A /* MutipleLinksModal.swift in Sources */,
+				94363E5E2E6002960004EE43 /* SessionListScreen+Models.swift in Sources */,
 				94D716802E8F6363008294EE /* HighlightMentionView.swift in Sources */,
 				FD8A5B292DC060E2004C689B /* Double+Utilities.swift in Sources */,
 				FD8A5B0E2DBF2DB1004C689B /* SessionHostingViewController.swift in Sources */,
@@ -6489,15 +6639,20 @@
 				FD0B77B029B69A65009169BA /* TopBannerController.swift in Sources */,
 				94E9BC0D2C7BFBDA006984EA /* Localization+Style.swift in Sources */,
 				FDA335F52D91157A007E0EB6 /* SessionImageView.swift in Sources */,
+				94519A972E851F1400F02723 /* SessionProPaymentScreen+RequestRefund.swift in Sources */,
 				FD9E26B32EA72CC500404C7F /* UIEdgeInsets+Utilities.swift in Sources */,
 				FD8A5B0D2DBF2CA1004C689B /* Localization.swift in Sources */,
+				945E89D62E9602AB00D8D907 /* SessionProPaymentScreen+Purchase.swift in Sources */,
 				FD37E9F628A5F106003AE748 /* Configuration.swift in Sources */,
+				943B43602EC3FCD6008ABC34 /* ListItemAccessory+Icon.swift in Sources */,
 				94AAB1512E1F753500A6FA18 /* CyclicGradientView.swift in Sources */,
+				943B43562EC2AFAC008ABC34 /* SessionListScreen+ListItemDataMatrix.swift in Sources */,
 				FD8A5B1E2DBF4BBC004C689B /* ScreenLock+Errors.swift in Sources */,
 				FDAA36AD2EB2C61D0040603E /* TimeUnit.swift in Sources */,
 				942BA9412E4487F7007C4595 /* LightBox.swift in Sources */,
 				942BA9C12E4EA5CB007C4595 /* SessionLabelWithProBadge.swift in Sources */,
 				7BF8D1FB2A70AF57005F1D6E /* SwiftUI+Theme.swift in Sources */,
+				94363E662E60186A0004EE43 /* SessionListScreen+Section.swift in Sources */,
 				FDB11A612DD5BDCC00BEF49F /* ImageDataManager.swift in Sources */,
 				FD6673FD2D77F54600041530 /* ScreenLockViewController.swift in Sources */,
 				FDAA36A92EB2C3E50040603E /* UITableView+ReusableView.swift in Sources */,
@@ -6506,6 +6661,7 @@
 				FD42ECD02E289261002D03EA /* ThemeLinearGradient.swift in Sources */,
 				FDE754BE2C9BA16C002A2623 /* UIButtonConfiguration+Utilities.swift in Sources */,
 				FD3F2EF22DF273D900FD6849 /* ThemedAttributedString.swift in Sources */,
+				94363E642E6017F50004EE43 /* SessionListScreen+ListItem.swift in Sources */,
 				FDBB25E72988BBBE00F1508E /* UIContextualAction+Theming.swift in Sources */,
 				C331FFE02558FB0000070591 /* SearchBar.swift in Sources */,
 				FD16AB5B2A1DD7CA0083D849 /* PlaceholderIcon.swift in Sources */,
@@ -6523,9 +6679,12 @@
 				FD8A5B202DC03337004C689B /* AdaptiveText.swift in Sources */,
 				947D7FE92D51837200E8E413 /* Text+CopyButton.swift in Sources */,
 				FD71162A28DA83DF00B47552 /* GradientView.swift in Sources */,
+				94363E682E6024A40004EE43 /* SessionListScreen+AccessoryViews.swift in Sources */,
 				94AAB14F2E1F6CC100A6FA18 /* SessionProBadge+SwiftUI.swift in Sources */,
 				94AAB14B2E1E198200A6FA18 /* Modal+SwiftUI.swift in Sources */,
 				94AAB1532E1F8AE200A6FA18 /* ShineButton.swift in Sources */,
+				94D716822E8FA1A0008294EE /* AttributedLabel.swift in Sources */,
+				FDAA36AE2EB2C6420040603E /* TimeInterval+Utilities.swift in Sources */,
 				FDAA36AE2EB2C6420040603E /* TimeInterval+Utilities.swift in Sources */,
 				94D716822E8FA1A0008294EE /* AttributedLabel.swift in Sources */,
 				FD37E9D728A20B5D003AE748 /* UIColor+Utilities.swift in Sources */,
@@ -6537,6 +6696,7 @@
 				FD8A5B0A2DBF246A004C689B /* Constants.swift in Sources */,
 				C331FF9A2558FA6B00070591 /* Values.swift in Sources */,
 				FD8A5B012DBEFF6D004C689B /* SessionNetworkScreen.swift in Sources */,
+				943B43542EC2AF86008ABC34 /* SessionListScreen+ListItemLogoWithPro.swift in Sources */,
 				FD37E9C628A1D4EC003AE748 /* Theme+ClassicDark.swift in Sources */,
 				FD16AB5F2A1DD98F0083D849 /* ProfilePictureView.swift in Sources */,
 				C331FFE42558FB0000070591 /* SessionButton.swift in Sources */,
@@ -6544,7 +6704,11 @@
 				FD71163228E2C42A00B47552 /* IconSize.swift in Sources */,
 				C33100282559000A00070591 /* UIView+Utilities.swift in Sources */,
 				FDE6E99829F8E63A00F93C5D /* Accessibility.swift in Sources */,
+				9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */,
 				FD37E9CA28A1E4BD003AE748 /* Theme+ClassicLight.swift in Sources */,
+				943B43622EC3FD85008ABC34 /* ListItemAccessory+Toggle.swift in Sources */,
+				945E89D42E95D97000D8D907 /* SessionProPaymentScreen+SharedViews.swift in Sources */,
+				94363E5B2E6002750004EE43 /* SessionListScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6771,6 +6935,7 @@
 				FD2272E02C3502BE004D8A6C /* Setting+Theme.swift in Sources */,
 				FDE519F72AB7CDC700450C53 /* Result+Utilities.swift in Sources */,
 				FD5931A72A8DA5DA0040147D /* SQLInterpolation+Utilities.swift in Sources */,
+				9463794A2E7131070017A014 /* SessionProManagerType.swift in Sources */,
 				FD9004152818B46300ABAAF6 /* JobRunner.swift in Sources */,
 				FD3765EA2ADE37B400DC1489 /* Authentication.swift in Sources */,
 				FDE755202C9BC1A6002A2623 /* CacheConfig.swift in Sources */,
@@ -7108,11 +7273,13 @@
 				FD3FAB5F2AE9BC2200DC5421 /* EditGroupViewModel.swift in Sources */,
 				7BA37AFB2AEB64CA002438F8 /* DisappearingMessageTimerView.swift in Sources */,
 				FD12A8492AD63C4700EEBA0D /* SessionNavItem.swift in Sources */,
+				9438D4882E67B704008C7FFE /* SessionListHostingViewController.swift in Sources */,
 				FDE287572E94D7B800442E03 /* DeveloperSettingsFileServerViewModel.swift in Sources */,
 				FD37EA0528AA00C1003AE748 /* NotificationSettingsViewModel.swift in Sources */,
 				C328255225CA64470062D0A7 /* ContextMenuVC+ActionView.swift in Sources */,
 				C3548F0824456AB6009433A8 /* UIView+Wrapping.swift in Sources */,
 				B83524A525C3BA4B0089A44F /* InfoMessageCell.swift in Sources */,
+				94363E6A2E613AF80004EE43 /* SessionProSettingsViewModel+Database.swift in Sources */,
 				7B9F71D82853100A006DFE7B /* EmojiWithSkinTones.swift in Sources */,
 				FD71164E28E3F8CC00B47552 /* SessionCell+Info.swift in Sources */,
 				B84A89BC25DE328A0040017D /* ProfilePictureVC.swift in Sources */,
@@ -7151,6 +7318,7 @@
 				FDB7400D28EBEC240094D718 /* DateHeaderCell.swift in Sources */,
 				B8D0A26925E4A2C200C1835E /* Onboarding.swift in Sources */,
 				4CC613362227A00400E21A3A /* ConversationSearch.swift in Sources */,
+				94363E622E60148A0004EE43 /* SessionProSettingsViewModel.swift in Sources */,
 				FD87DCFE28B7582C00AF0F98 /* BlockedContactsViewModel.swift in Sources */,
 				FD37E9DD28A384EB003AE748 /* PrimaryColorSelectionView.swift in Sources */,
 				942256812C23F8BB00C0FDBF /* NewMessageScreen.swift in Sources */,
@@ -7170,6 +7338,7 @@
 				45C0DC1E1E69011F00E04C47 /* UIStoryboard+OWS.swift in Sources */,
 				FDE754B02C9B96B4002A2623 /* WebRTCSession.swift in Sources */,
 				B835246E25C38ABF0089A44F /* ConversationVC.swift in Sources */,
+				94D955EB2E9CA5E000DEE66E /* SessionProPaymentScreen+ViewModel.swift in Sources */,
 				7B7037432834B81F000DCF35 /* ReactionContainerView.swift in Sources */,
 				7BBBDC462875600700747E59 /* DocumentTitleViewController.swift in Sources */,
 				FD71163F28E2C82C00B47552 /* SessionHeaderView.swift in Sources */,
@@ -11003,6 +11172,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		940978602E655C2F00925B36 /* CocoaLumberjackSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FD6A38E72C2A630E00762359 /* XCRemoteSwiftPackageReference "CocoaLumberjack" */;
+			productName = CocoaLumberjackSwift;
+		};
 		946F5A722D5DA3AC00A5ADCE /* Punycode */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 946F5A712D5DA3AC00A5ADCE /* XCRemoteSwiftPackageReference "PunycodeSwift" */;

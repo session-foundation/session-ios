@@ -80,6 +80,9 @@ public extension Setting.BoolKey {
     /// There is no native api to get local network permission, so we need to modify the state and store in database to update UI accordingly.
     /// Remove this in the future if Apple provides native api
     static let lastSeenHasLocalNetworkPermission: Setting.BoolKey = "lastSeenHasLocalNetworkPermission"
+    
+    /// Controls whether sending pro badges bitmask
+    static let isProBadgeEnabled: Setting.BoolKey = "isProBagesEnabled"
 }
 
 // stringlint:ignore_contents

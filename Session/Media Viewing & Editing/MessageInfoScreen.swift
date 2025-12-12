@@ -362,6 +362,7 @@ struct MessageInfoScreen: View {
                                     spacing: 10
                                 ) {
                                     let size: ProfilePictureView.Info.Size = .list
+                                    
                                     if let info: ProfilePictureView.Info = self.profileInfo {
                                         ProfilePictureSwiftUI(
                                             size: size,
@@ -467,6 +468,7 @@ struct MessageInfoScreen: View {
                                                 Image(uiImage: actions[index].icon!.withRenderingMode(.alwaysTemplate))
                                                     .resizable()
                                                     .scaledToFit()
+                                                    .scaleEffect(x: (actions[index].flipIconForRTL ? -1 : 1), y: 1)
                                                     .foregroundColor(themeColor: tintColor)
                                                     .frame(width: 26, height: 26)
                                                 Text(actions[index].title)
@@ -543,9 +545,15 @@ struct MessageInfoScreen: View {
         DispatchQueue.main.async {
             let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                 modal: ProCTAModal(
-                    delegate: dependencies[singleton: .sessionProState],
                     variant: proCTAVariant,
-                    dataManager: dependencies[singleton: .imageDataManager]
+                    dataManager: dependencies[singleton: .imageDataManager],
+                    onConfirm: { [dependencies] in
+                        dependencies[singleton: .sessionProState].upgradeToPro(
+                            plan: SessionProPlan(variant: .threeMonths),
+                            originatingPlatform: .iOS,
+                            completion: nil
+                        )
+                    }
                 )
             )
             self.host.controller?.present(sessionProModal, animated: true)
