@@ -13,7 +13,7 @@ import SessionUtilitiesKit
 @testable import Session
 
 class ThreadSettingsViewModelSpec: AsyncSpec {
-    private typealias Item = SessionCell.Info<ThreadSettingsViewModel.TableItem>
+    private typealias Item = SessionListScreenContent.ListItemInfo<ThreadSettingsViewModel.ListItem>
     
     override class func spec() {
         // MARK: Configuration
@@ -90,25 +90,18 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
         @TestState var disposables: [AnyCancellable]! = []
         @TestState var screenTransitions: [(destination: UIViewController, transition: TransitionType)]! = []
         
-        func item(section: ThreadSettingsViewModel.Section, id: ThreadSettingsViewModel.TableItem) -> Item? {
-            return viewModel.tableData
+        func item(section: ThreadSettingsViewModel.Section, id: ThreadSettingsViewModel.ListItem) -> Item? {
+            return viewModel.state.listItemData
                 .first(where: { (sectionModel: ThreadSettingsViewModel.SectionModel) -> Bool in
                     sectionModel.model == section
                 })?
                 .elements
-                .first(where: { (item: SessionCell.Info<ThreadSettingsViewModel.TableItem>) -> Bool in
+                .first(where: { (item: SessionListScreenContent.ListItemInfo<ThreadSettingsViewModel.ListItem>) -> Bool in
                     item.id == id
                 })
         }
         
         func setupTestSubscriptions() {
-            viewModel.tableDataPublisher
-                .receive(on: ImmediateScheduler.shared)
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { viewModel.updateTableData($0) }
-                )
-                .store(in: &disposables)
             viewModel.navigatableState.transitionToScreen
                 .receive(on: ImmediateScheduler.shared)
                 .sink(
@@ -129,7 +122,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     ).insert(db)
                 }
                 
-                viewModel = ThreadSettingsViewModel(
+                viewModel = await ThreadSettingsViewModel(
                     threadId: user2Pubkey,
                     threadVariant: .contact,
                     didTriggerSearch: {
@@ -164,7 +157,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
+                    viewModel = await ThreadSettingsViewModel(
                         threadId: userPubkey,
                         threadVariant: .contact,
                         didTriggerSearch: {
@@ -185,15 +178,13 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    expect(item?.title?.text).to(equal("noteToSelf".localized()))
-                }
-                
-                // MARK: ---- has no edit icon
-                it("has no edit icon") {
-                    let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                        .toEventuallyNot(beNil())
-                        .retrieveValue()
-                    expect(item?.leadingAccessory).to(beNil())
+                    
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            expect(info.text).to(equal("noteToSelf".localized()))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- does nothing when tapped
@@ -217,7 +208,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
+                    viewModel = await ThreadSettingsViewModel(
                         threadId: user2Pubkey,
                         threadVariant: .contact,
                         didTriggerSearch: {
@@ -238,7 +229,13 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    expect(item?.title?.text).to(equal("TestUser"))
+                    
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            expect(info.text).to(equal("TestUser"))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- presents a confirmation modal when tapped
@@ -246,10 +243,15 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    await item?.onTapView?(UIView())
-                    await expect(screenTransitions.first?.destination)
-                        .toEventually(beAKindOf(ConfirmationModal.self))
-                    expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            await info.onTextTap?()
+                            await expect(screenTransitions.first?.destination)
+                                .toEventually(beAKindOf(ConfirmationModal.self))
+                            expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- when updating the nickname
@@ -262,15 +264,21 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        await item?.onTapView?(UIView())
-                        await expect(screenTransitions.first?.destination)
-                            .toEventually(beAKindOf(ConfirmationModal.self))
-                        
-                        modal = (screenTransitions.first?.destination as? ConfirmationModal)
-                        modalInfo = await modal?.info
-                        switch await modal?.info.body {
-                            case .input(_, _, let onChange_): onChange = onChange_
-                            default: break
+                        switch item?.variant {
+                            case .tappableText(let info):
+                                await info.onTextTap?()
+                                await expect(screenTransitions.first?.destination)
+                                    .toEventually(beAKindOf(ConfirmationModal.self))
+                                expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                            
+                                modal = (screenTransitions.first?.destination as? ConfirmationModal)
+                                modalInfo = await modal?.info
+                                switch await modal?.info.body {
+                                    case .input(_, _, let onChange_): onChange = onChange_
+                                    default: break
+                                }
+                            default:
+                                fail("Expected .tappableText variant for displayName")
                         }
                     }
                     
@@ -377,7 +385,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
+                    viewModel = await ThreadSettingsViewModel(
                         threadId: legacyGroupPubkey,
                         threadVariant: .legacyGroup,
                         didTriggerSearch: {
@@ -398,26 +406,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    expect(item?.title?.text).to(equal("TestGroup"))
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            expect(info.text).to(equal("TestGroup"))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- when the user is a standard member
                 context("when the user is a standard member") {
-                    // MARK: ------ has no edit icon
-                    it("has no edit icon") {
-                        let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                            .toEventuallyNot(beNil())
-                            .retrieveValue()
-                        expect(item?.leadingAccessory).to(beNil())
-                    }
-                    
                     // MARK: ------ does nothing when tapped
                     it("does nothing when tapped") {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        await item?.onTap?()
-                        await expect(screenTransitions).toEventually(beEmpty())
+                        switch item?.variant {
+                            case .tappableText(let info):
+                                await info.onTextTap?()
+                                await expect(screenTransitions).toEventually(beEmpty())
+                            default:
+                                fail("Expected .tappableText variant for displayName")
+                        }
                     }
                 }
                 
@@ -436,7 +446,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             ).insert(db)
                         }
                         
-                        viewModel = ThreadSettingsViewModel(
+                        viewModel = await ThreadSettingsViewModel(
                             threadId: legacyGroupPubkey,
                             threadVariant: .legacyGroup,
                             didTriggerSearch: {
@@ -452,10 +462,15 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        await item?.onTapView?(UIView())
-                        await expect(screenTransitions.first?.destination)
-                            .toEventually(beAKindOf(ConfirmationModal.self))
-                        expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                        switch item?.variant {
+                            case .tappableText(let info):
+                                await info.onTextTap?()
+                                await expect(screenTransitions.first?.destination)
+                                    .toEventually(beAKindOf(ConfirmationModal.self))
+                                expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                            default:
+                                fail("Expected .tappableText variant for displayName")
+                        }
                     }
                 }
             }
@@ -492,7 +507,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
+                    viewModel = await ThreadSettingsViewModel(
                         threadId: groupPubkey,
                         threadVariant: .group,
                         didTriggerSearch: {
@@ -513,26 +528,29 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    expect(item?.title?.text).to(equal("TestGroup"))
+                    
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            expect(info.text).to(equal("TestGroup"))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- when the user is a standard member
                 context("when the user is a standard member") {
-                    // MARK: ------ has no edit icon
-                    it("has no edit icon") {
-                        let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                            .toEventuallyNot(beNil())
-                            .retrieveValue()
-                        expect(item?.leadingAccessory).to(beNil())
-                    }
-                    
                     // MARK: ------ does nothing when tapped
                     it("does nothing when tapped") {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        await item?.onTap?()
-                        await expect(screenTransitions).toEventually(beEmpty())
+                        switch item?.variant {
+                            case .tappableText(let info):
+                                await info.onTextTap?()
+                                await expect(screenTransitions).toEventually(beEmpty())
+                            default:
+                                fail("Expected .tappableText variant for displayName")
+                        }
                     }
                 }
                 
@@ -556,7 +574,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             ).insert(db)
                         }
                         
-                        viewModel = ThreadSettingsViewModel(
+                        viewModel = await ThreadSettingsViewModel(
                             threadId: groupPubkey,
                             threadVariant: .group,
                             didTriggerSearch: {
@@ -572,10 +590,16 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                             .toEventuallyNot(beNil())
                             .retrieveValue()
-                        await item?.onTapView?(UIView())
-                        await expect(screenTransitions.first?.destination)
-                            .toEventually(beAKindOf(ConfirmationModal.self))
-                        expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                        
+                        switch item?.variant {
+                            case .tappableText(let info):
+                                await info.onTextTap?()
+                                await expect(screenTransitions.first?.destination)
+                                    .toEventually(beAKindOf(ConfirmationModal.self))
+                                expect(screenTransitions.first?.transition).to(equal(TransitionType.present))
+                            default:
+                                fail("Expected .tappableText variant for displayName")
+                        }
                     }
                     
                     // MARK: ------ when updating the group info
@@ -587,7 +611,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         
                         beforeEach {
                             dependencies[feature: .updatedGroupsAllowDescriptionEditing] = true
-                            viewModel = ThreadSettingsViewModel(
+                            viewModel = await ThreadSettingsViewModel(
                                 threadId: groupPubkey,
                                 threadVariant: .group,
                                 didTriggerSearch: {
@@ -600,16 +624,21 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                                 .toEventuallyNot(beNil())
                                 .retrieveValue()
-                            await item?.onTapView?(UIView())
-                            await expect(screenTransitions.first?.destination)
-                                .toEventually(beAKindOf(ConfirmationModal.self))
-                            
-                            modal = (screenTransitions.first?.destination as? ConfirmationModal)
-                            modalInfo = await modal?.info
-                            switch modalInfo?.body {
-                                case .input(_, _, let onChange_): onChange = onChange_
-                                case .dualInput(_, _, _, let onChange2_): onChange2 = onChange2_
-                                default: break
+                            switch item?.variant {
+                                case .tappableText(let info):
+                                    await info.onTextTap?()
+                                    await expect(screenTransitions.first?.destination)
+                                        .toEventually(beAKindOf(ConfirmationModal.self))
+                                    
+                                    modal = (screenTransitions.first?.destination as? ConfirmationModal)
+                                    modalInfo = await modal?.info
+                                    switch modalInfo?.body {
+                                        case .input(_, _, let onChange_): onChange = onChange_
+                                        case .dualInput(_, _, _, let onChange2_): onChange2 = onChange2_
+                                        default: break
+                                    }
+                                default:
+                                    fail("Expected .tappableText variant for displayName")
                             }
                         }
                         
@@ -800,7 +829,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
+                    viewModel = await ThreadSettingsViewModel(
                         threadId: communityId,
                         threadVariant: .community,
                         didTriggerSearch: {
@@ -821,15 +850,13 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    expect(item?.title?.text).to(equal("TestCommunity"))
-                }
-                
-                // MARK: ---- has no edit icon
-                it("has no edit icon") {
-                    let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
-                        .toEventuallyNot(beNil())
-                        .retrieveValue()
-                    expect(item?.leadingAccessory).to(beNil())
+                    
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            expect(info.text).to(equal("TestCommunity"))
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
                 
                 // MARK: ---- does nothing when tapped
@@ -837,8 +864,13 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     let item: Item? = await expect(item(section: .conversationInfo, id: .displayName))
                         .toEventuallyNot(beNil())
                         .retrieveValue()
-                    await item?.onTap?()
-                    await expect(screenTransitions).toEventually(beEmpty())
+                    switch item?.variant {
+                        case .tappableText(let info):
+                            await info.onTextTap?()
+                            await expect(screenTransitions).toEventually(beEmpty())
+                        default:
+                            fail("Expected .tappableText variant for displayName")
+                    }
                 }
             }
         }
