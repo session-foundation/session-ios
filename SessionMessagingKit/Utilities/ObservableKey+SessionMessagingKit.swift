@@ -109,6 +109,10 @@ public extension ObservableKey {
     static func groupMemberUpdated(profileId: String, threadId: String) -> ObservableKey {
         ObservableKey("groupMemberUpdated-\(threadId)-\(profileId)", .groupMemberUpdated)
     }
+    
+    static func anyGroupMemberDeleted(threadId: String) -> ObservableKey {
+        ObservableKey("anyGroupMemberDeleted-\(threadId)", .anyGroupMemberDeleted)
+    }
     static func groupMemberDeleted(profileId: String, threadId: String) -> ObservableKey {
         ObservableKey("groupMemberDeleted-\(threadId)-\(profileId)", .groupMemberDeleted)
     }
@@ -141,6 +145,7 @@ public extension GenericObservableKey {
     static let groupInfo: GenericObservableKey = "groupInfo"
     static let groupMemberCreated: GenericObservableKey = "groupMemberCreated"
     static let groupMemberUpdated: GenericObservableKey = "groupMemberUpdated"
+    static let anyGroupMemberDeleted: GenericObservableKey = "anyGroupMemberDeleted"
     static let groupMemberDeleted: GenericObservableKey = "groupMemberDeleted"
 }
 
@@ -392,7 +397,11 @@ public extension ObservingDatabase {
         switch type {
             case .created: addEvent(ObservedEvent(key: .groupMemberCreated(threadId: threadId), value: event))
             case .updated: addEvent(ObservedEvent(key: .groupMemberUpdated(profileId: profileId, threadId: threadId), value: event))
-            case .deleted: addEvent(ObservedEvent(key: .groupMemberDeleted(profileId: profileId, threadId: threadId), value: event))
+            case .deleted:
+                /// When a group member is deleted we need to emit both a profile+thread-specific event and a thread-specific event
+                /// as the message list screen will only observe the thread-specific one to update user count metadata
+                addEvent(ObservedEvent(key: .anyGroupMemberDeleted(threadId: threadId), value: event))
+                addEvent(ObservedEvent(key: .groupMemberDeleted(profileId: profileId, threadId: threadId), value: event))
         }
     }
 }

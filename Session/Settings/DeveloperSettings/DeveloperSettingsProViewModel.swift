@@ -864,7 +864,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
     private func purchaseSubscription(currentProduct: Product?) async {
         do {
             let products: [Product] = try await Product.products(for: [
-                "com.getsession.org.pro_sub",
                 "com.getsession.org.pro_sub_1_month",
                 "com.getsession.org.pro_sub_3_months",
                 "com.getsession.org.pro_sub_12_months"

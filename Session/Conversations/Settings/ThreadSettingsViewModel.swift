@@ -212,7 +212,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             let dataCache: ConversationDataCache = ConversationDataCache(
                 userSessionId: dependencies[cache: .general].sessionId,
                 context: ConversationDataCache.Context(
-                    source: .conversationList,
+                    source: .conversationSettings(threadId: threadInfo.id),
                     requireFullRefresh: false,
                     requireAuthMethodFetch: false,
                     requiresMessageRequestCountUpdate: false,
@@ -287,7 +287,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         
         /// Update the context
         dataCache.withContext(
-            source: .conversationList,
+            source: .conversationSettings(threadId: threadInfo.id),
             requireFullRefresh: (
                 isInitialQuery ||
                 changes.containsAny(
@@ -990,31 +990,29 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 ) :
                                 .attributedText(
                                     "blockDescription"
-                                        .put(key: "name", value: threadViewModel.displayName)
+                                        .put(key: "name", value: threadDisplayName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 )
                             ),
-                            confirmTitle: (threadViewModel.threadIsBlocked == true ?
+                            confirmTitle: (state.threadInfo.isBlocked ?
                                 "blockUnblock".localized() :
                                 "block".localized()
                             ),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [weak self] in
-                            let isBlocked: Bool = (threadViewModel.threadIsBlocked == true)
-                            
-                            self?.updateBlockedState(
-                                from: isBlocked,
-                                isBlocked: !isBlocked,
-                                threadId: threadViewModel.threadId,
-                                displayName: threadViewModel.displayName
+                        onTap: { [weak viewModel] in
+                            viewModel?.updateBlockedState(
+                                from: state.threadInfo.isBlocked,
+                                isBlocked: !state.threadInfo.isBlocked,
+                                threadId: state.threadInfo.id,
+                                displayName: threadDisplayName
                             )
                         }
                     )
                 ),
                 
-                (threadViewModel.threadIsNoteToSelf != true ? nil :
+                (!state.threadInfo.isNoteToSelf ? nil :
                     SessionCell.Info(
                         id: .hideNoteToSelf,
                         leadingAccessory: .icon(isThreadHidden ? .eye : .eyeOff),
@@ -1037,12 +1035,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             confirmStyle: isThreadHidden ? .alert_text : .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies] in
+                        onTap: { [dependencies = viewModel.dependencies] in
                             dependencies[singleton: .storage].writeAsync { db in
                                 if isThreadHidden {
                                     try SessionThread.updateVisibility(
                                         db,
-                                        threadId: threadViewModel.threadId,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         isVisible: true,
                                         using: dependencies
                                     )
@@ -1050,8 +1049,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .hideContactConversation,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         using: dependencies
                                     )
                                 }
@@ -1074,36 +1073,37 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     confirmationInfo: ConfirmationModal.Info(
                         title: "clearMessages".localized(),
                         body: {
-                            guard threadViewModel.threadIsNoteToSelf != true else {
+                            guard !state.threadInfo.isNoteToSelf else {
                                 return .attributedText(
                                     "clearMessagesNoteToSelfDescriptionUpdated"
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 )
                             }
-                            switch threadVariant {
+                            
+                            switch state.threadInfo.variant {
                                 case .contact:
                                     return .attributedText(
                                         "clearMessagesChatDescriptionUpdated"
-                                            .put(key: "name", value: threadViewModel.displayName)
+                                            .put(key: "name", value: threadDisplayName)
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     )
                                 case .legacyGroup:
                                     return .attributedText(
                                         "clearMessagesGroupDescriptionUpdated"
-                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .put(key: "group_name", value: threadDisplayName)
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     )
                                 case .community:
                                     return .attributedText(
                                         "clearMessagesCommunityUpdated"
-                                            .put(key: "community_name", value: threadViewModel.displayName)
+                                            .put(key: "community_name", value: threadDisplayName)
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     )
                                 case .group:
-                                    if currentUserIsClosedGroupAdmin {
+                                    if state.threadInfo.groupInfo?.currentUserRole == .admin {
                                         return .radio(
                                             explanation: "clearMessagesGroupAdminDescriptionUpdated"
-                                                .put(key: "group_name", value: threadViewModel.displayName)
+                                                .put(key: "group_name", value: threadDisplayName)
                                                 .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
                                             warning: nil,
                                             options: [
@@ -1130,7 +1130,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     } else {
                                         return .attributedText(
                                             "clearMessagesGroupDescriptionUpdated"
-                                                .put(key: "group_name", value: threadViewModel.displayName)
+                                                .put(key: "group_name", value: threadDisplayName)
                                                 .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                         )
                                     }
@@ -1140,8 +1140,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         confirmStyle: .danger,
                         cancelStyle: .alert_text,
                         dismissOnConfirm: false,
-                        onConfirm: { [weak self, threadVariant, dependencies] modal in
-                            if threadVariant == .group && currentUserIsClosedGroupAdmin {
+                        onConfirm: { [weak viewModel, dependencies = viewModel.dependencies] modal in
+                            if state.threadInfo.variant == .group && state.threadInfo.groupInfo?.currentUserRole == .admin {
                                 /// Determine the selected action index
                                 let selectedIndex: Int = {
                                     switch modal.info.body {
@@ -1156,26 +1156,29 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     }
                                 }()
                                 
-                                // Return if the selected option is `Clear on this device`
-                                guard selectedIndex != 0 else { return }
-                                self?.deleteAllMessagesBeforeNow()
+                                // Don't update the group if the selected option is `Clear on this device`
+                                if selectedIndex != 0 {
+                                    viewModel?.deleteAllMessagesBeforeNow(state: state)
+                                }
                             }
+                            
                             dependencies[singleton: .storage].writeAsync(
                                 updates: { db in
                                     try Interaction.markAllAsDeleted(
                                         db,
-                                        threadId: threadViewModel.id,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         options: [.local, .noArtifacts],
                                         using: dependencies
                                     )
-                                }, completion: { [weak self] result in
+                                },
+                                completion: { [weak viewModel] result in
                                     switch result {
                                         case .failure(let error):
                                             Log.error("Failed to clear messages due to error: \(error)")
                                             DispatchQueue.main.async {
                                                 modal.dismiss(animated: true) {
-                                                    self?.showToast(
+                                                    viewModel?.showToast(
                                                         text: "deleteMessageFailed"
                                                             .putNumber(0)
                                                             .localized(),
@@ -1187,7 +1190,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         case .success:
                                             DispatchQueue.main.async {
                                                 modal.dismiss(animated: true) {
-                                                    self?.showToast(
+                                                    viewModel?.showToast(
                                                         text: "deleteMessageDeleted"
                                                             .putNumber(0)
                                                             .localized(),
@@ -1203,7 +1206,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     )
                 ),
                 
-                (threadViewModel.threadVariant != .community ? nil :
+                (state.threadInfo.variant != .community ? nil :
                     SessionCell.Info(
                         id: .leaveCommunity,
                         leadingAccessory: .icon(.logOut),
@@ -1217,21 +1220,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             title: "communityLeave".localized(),
                             body: .attributedText(
                                 "groupLeaveDescription"
-                                    .put(key: "group_name", value: threadViewModel.displayName)
+                                    .put(key: "group_name", value: threadDisplayName)
                                     .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                             ),
                             confirmTitle: "leave".localized(),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [weak self, dependencies] in
-                            self?.dismissScreen(type: .popToRoot) {
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .deleteCommunityAndContent,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         using: dependencies
                                     )
                                 }
@@ -1240,42 +1243,54 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     )
                 ),
                 
-                (!currentUserIsClosedGroupMember ? nil :
+                (state.threadInfo.groupInfo?.currentUserRole == nil ? nil :
                     SessionCell.Info(
                         id: .leaveGroup,
-                        leadingAccessory: .icon(currentUserIsClosedGroupAdmin ? .trash2 : .logOut),
-                        title: currentUserIsClosedGroupAdmin ? "groupDelete".localized() : "groupLeave".localized(),
+                        leadingAccessory: .icon(state.threadInfo.groupInfo?.currentUserRole == .admin ?
+                            .trash2 :
+                            .logOut
+                        ),
+                        title: (state.threadInfo.groupInfo?.currentUserRole == .admin ?
+                            "groupDelete".localized() :
+                            "groupLeave".localized()
+                        ),
                         styling: SessionCell.StyleInfo(tintColor: .danger),
                         accessibility: Accessibility(
                             identifier: "Leave group",
                             label: "Leave group"
                         ),
                         confirmationInfo: ConfirmationModal.Info(
-                            title: currentUserIsClosedGroupAdmin ? "groupDelete".localized() : "groupLeave".localized(),
-                            body: (currentUserIsClosedGroupAdmin ?
+                            title: (state.threadInfo.groupInfo?.currentUserRole == .admin ?
+                                "groupDelete".localized() :
+                                "groupLeave".localized()
+                            ),
+                            body: (state.threadInfo.groupInfo?.currentUserRole == .admin ?
                                 .attributedText(
                                     "groupDeleteDescription"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .put(key: "group_name", value: threadDisplayName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 ) :
                                 .attributedText(
                                     "groupLeaveDescription"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .put(key: "group_name", value: threadDisplayName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 )
                             ),
-                            confirmTitle: currentUserIsClosedGroupAdmin ? "delete".localized() : "leave".localized(),
+                            confirmTitle: (state.threadInfo.groupInfo?.currentUserRole == .admin ?
+                                "delete".localized() :
+                                "leave".localized()
+                            ),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [weak self, dependencies] in
-                            self?.dismissScreen(type: .popToRoot) {
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .leaveGroupAsync,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         using: dependencies
                                     )
                                 }
@@ -1284,7 +1299,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     )
                 ),
                 
-                (threadVariant != .contact || threadViewModel.threadIsNoteToSelf == true ? nil :
+                (state.threadInfo.variant != .contact || state.threadInfo.isNoteToSelf ? nil :
                     SessionCell.Info(
                         id: .deleteConversation,
                         leadingAccessory: .icon(.trash2),
@@ -1298,21 +1313,21 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             title: "conversationsDelete".localized(),
                             body: .attributedText(
                                 "deleteConversationDescription"
-                                    .put(key: "name", value: threadViewModel.displayName)
+                                    .put(key: "name", value: threadDisplayName)
                                     .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                             ),
                             confirmTitle: "delete".localized(),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [weak self, dependencies] in
-                            self?.dismissScreen(type: .popToRoot) {
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .deleteContactConversationAndMarkHidden,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         using: dependencies
                                     )
                                 }
@@ -1321,7 +1336,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     )
                  ),
                 
-                (threadVariant != .contact || threadViewModel.threadIsNoteToSelf == true ? nil :
+                (state.threadInfo.variant != .contact || state.threadInfo.isNoteToSelf ? nil :
                     SessionCell.Info(
                         id: .deleteContact,
                         leadingAccessory: .icon(
@@ -1337,7 +1352,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             title: "contactDelete".localized(),
                             body: .attributedText(
                                 "deleteContactDescription"
-                                    .put(key: "name", value: threadViewModel.displayName)
+                                    .put(key: "name", value: threadDisplayName)
                                     .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
                                 scrollMode: .never
                             ),
@@ -1345,14 +1360,14 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [weak self, dependencies] in
-                            self?.dismissScreen(type: .popToRoot) {
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .deleteContactConversationAndContact,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         using: dependencies
                                     )
                                 }
@@ -1362,7 +1377,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 ),
                 
                 // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
-                (!dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] || threadViewModel.threadVariant != .group ? nil :
+                (!viewModel.dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] || state.threadInfo.variant != .group ? nil :
                     SessionCell.Info(
                         id: .debugDeleteAttachmentsBeforeNow,
                         leadingAccessory: .icon(
@@ -1381,7 +1396,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [weak self] in self?.deleteAllAttachmentsBeforeNow() }
+                        onTap: { [weak viewModel] in viewModel?.deleteAllAttachmentsBeforeNow(state: state) }
                     )
                 )
             ].compactMap { $0 }
@@ -1398,42 +1413,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
     // MARK: - Functions
     
-    private func inviteUsersToCommunity(threadViewModel: SessionThreadViewModel) {
+    private func inviteUsersToCommunity(threadInfo: ConversationInfoViewModel) {
         guard
-            let name: String = threadViewModel.openGroupName,
-            let server: String = threadViewModel.openGroupServer,
-            let roomToken: String = threadViewModel.openGroupRoomToken,
-            let publicKey: String = threadViewModel.openGroupPublicKey,
+            let communityInfo: ConversationInfoViewModel.CommunityInfo = threadInfo.communityInfo,
             let communityUrl: String = LibSession.communityUrlFor(
-                server: threadViewModel.openGroupServer,
-                roomToken: threadViewModel.openGroupRoomToken,
-                publicKey: threadViewModel.openGroupPublicKey
+                server: communityInfo.server,
+                roomToken: communityInfo.roomToken,
+                publicKey: communityInfo.publicKey
             )
         else { return }
         
-        let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = LibSession.OpenGroupCapabilityInfo(
-            roomToken: roomToken,
-            server: server,
-            publicKey: publicKey,
-            capabilities: (threadViewModel.openGroupCapabilities ?? [])
-        )
-        let currentUserSessionIds: Set<String> = Set([
-            dependencies[cache: .general].sessionId.hexString,
-            SessionThread.getCurrentUserBlindedSessionId(
-                threadId: threadId,
-                threadVariant: threadVariant,
-                blindingPrefix: .blinded15,
-                openGroupCapabilityInfo: openGroupCapabilityInfo,
-                using: dependencies
-            )?.hexString,
-            SessionThread.getCurrentUserBlindedSessionId(
-                threadId: threadId,
-                threadVariant: threadVariant,
-                blindingPrefix: .blinded25,
-                openGroupCapabilityInfo: openGroupCapabilityInfo,
-                using: dependencies
-            )?.hexString
-        ].compactMap { $0 })
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         
@@ -1447,7 +1436,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         SELECT \(contact.allColumns)
                         FROM \(contact)
                         LEFT JOIN \(groupMember) ON (
-                            \(groupMember[.groupId]) = \(threadId) AND
+                            \(groupMember[.groupId]) = \(threadInfo.id) AND
                             \(groupMember[.profileId]) = \(contact[.id])
                         )
                         WHERE (
@@ -1455,7 +1444,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             \(contact[.isApproved]) = TRUE AND
                             \(contact[.didApproveMe]) = TRUE AND
                             \(contact[.isBlocked]) = FALSE AND
-                            \(contact[.id]) NOT IN \(currentUserSessionIds)
+                            \(contact[.id]) NOT IN \(threadInfo.currentUserSessionIds)
                         )
                     """),
                     footerTitle: "membersInviteTitle".localized(),
@@ -1486,7 +1475,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 try LinkPreview(
                                     url: communityUrl,
                                     variant: .openGroupInvitation,
-                                    title: name,
+                                    title: communityInfo.name,
                                     using: dependencies
                                 )
                                 .upsert(db)
@@ -1498,7 +1487,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 let interaction: Interaction = try Interaction(
                                     threadId: thread.id,
                                     threadVariant: thread.variant,
-                                    authorId: threadViewModel.currentUserSessionId,
+                                    authorId: threadInfo.userSessionId.hexString,
                                     variant: .standardOutgoing,
                                     timestampMs: sentTimestampMs,
                                     expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
@@ -1590,12 +1579,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         )
     }
     
-    private func viewMembers() {
+    private func viewMembers(state: State) {
         self.transitionToScreen(
             ThreadSettingsViewModel.createMemberListViewController(
-                threadId: threadId,
-                transitionToConversation: { [weak self, dependencies] maybeThreadViewModel in
-                    guard let threadViewModel: SessionThreadViewModel = maybeThreadViewModel else {
+                threadId: state.threadInfo.id,
+                transitionToConversation: { [weak self, dependencies] maybeThreadInfo in
+                    guard let threadInfo: ConversationInfoViewModel = maybeThreadInfo else {
                         self?.transitionToScreen(
                             ConfirmationModal(
                                 info: ConfirmationModal.Info(
@@ -1612,7 +1601,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     
                     self?.transitionToScreen(
                         ConversationVC(
-                            threadViewModel: threadViewModel,
+                            threadInfo: threadInfo,
                             focusedInteractionInfo: nil,
                             using: dependencies
                         ),
@@ -1624,7 +1613,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         )
     }
     
-    private func promoteAdmins(currentGroupName: String?) {
+    private func promoteAdmins(state: State) {
         guard dependencies[feature: .updatedGroupsAllowPromotions] else { return }
         
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
@@ -1646,7 +1635,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             /// Actually trigger the sending process
             MessageSender
                 .promoteGroupMembers(
-                    groupSessionId: SessionId(.group, hex: threadId),
+                    groupSessionId: SessionId(.group, hex: state.threadInfo.id),
                     members: memberInfo,
                     isResend: isResend,
                     using: dependencies
@@ -1654,7 +1643,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .receive(on: DispatchQueue.main, using: dependencies)
                 .sinkUntilComplete(
-                    receiveCompletion: { [threadId, dependencies] result in
+                    receiveCompletion: { [dependencies] result in
                         switch result {
                             case .finished: break
                             case .failure:
@@ -1663,7 +1652,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 /// Flag the members as failed
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try? GroupMember
-                                        .filter(GroupMember.Columns.groupId == threadId)
+                                        .filter(GroupMember.Columns.groupId == state.threadInfo.id)
                                         .filter(memberIds.contains(GroupMember.Columns.profileId))
                                         .updateAllAndConfig(
                                             db,
@@ -1675,7 +1664,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 /// Show a toast that the promotions failed to send
                                 viewModel?.showToast(
                                     text: GroupPromoteMemberJob.failureMessage(
-                                        groupName: (currentGroupName ?? "groupUnknown".localized()),
+                                        groupName: (state.threadInfo.groupInfo?.name ?? "groupUnknown".localized()),
                                         memberIds: memberIds,
                                         profileInfo: memberInfo.reduce(into: [:]) { result, next in
                                             result[next.id] = next.profile
@@ -1700,7 +1689,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         SELECT \(groupMember.allColumns)
                         FROM \(groupMember)
                         WHERE (
-                            \(groupMember[.groupId]) == \(threadId) AND (
+                            \(groupMember[.groupId]) == \(state.threadInfo.id) AND (
                                 \(groupMember[.role]) == \(GroupMember.Role.admin) OR
                                 (
                                     \(groupMember[.role]) != \(GroupMember.Role.admin) AND
@@ -1744,6 +1733,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     }
     
     private func updateNickname(
+        state: State,
         current: String?,
         displayName: String
     ) -> ConfirmationModal.Info {
@@ -1786,7 +1776,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             cancelEnabled: .bool(current?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
             hasCloseButton: true,
             dismissOnConfirm: false,
-            onConfirm: { [weak self, dependencies, threadId] modal in
+            onConfirm: { [weak self, dependencies] modal in
                 guard
                     let finalNickname: String = (self?.updatedName ?? "")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1804,7 +1794,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     updates: { db in
                         try Profile.updateIfNeeded(
                             db,
-                            publicKey: threadId,
+                            publicKey: state.threadInfo.id,
                             nicknameUpdate: .set(to: finalNickname),
                             profileUpdateTimestamp: nil,                              /// Not set for `nickname`
                             currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
@@ -1818,13 +1808,13 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     }
                 )
             },
-            onCancel: { [dependencies, threadId] modal in
+            onCancel: { [dependencies] modal in
                 /// Remove the nickname
                 dependencies[singleton: .storage].writeAsync(
                     updates: { db in
                         try Profile.updateIfNeeded(
                             db,
-                            publicKey: threadId,
+                            publicKey: state.threadInfo.id,
                             nicknameUpdate: .set(to: nil),
                             profileUpdateTimestamp: nil,                              /// Not set for `nickname`
                             currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
@@ -1842,6 +1832,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     }
     
     private func updateGroupNameAndDescription(
+        state: State,
         currentName: String,
         currentDescription: String?,
         isUpdatedGroup: Bool
@@ -1901,7 +1892,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             },
             cancelStyle: .danger,
             dismissOnConfirm: false,
-            onConfirm: { [weak self, dependencies, threadId] modal in
+            onConfirm: { [weak self, dependencies] modal in
                 guard
                     let finalName: String = (self?.updatedName ?? "")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1925,7 +1916,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 /// Update the group appropriately
                 MessageSender
                     .updateGroup(
-                        groupSessionId: threadId,
+                        groupSessionId: state.threadInfo.id,
                         name: finalName,
                         groupDescription: finalDescription,
                         using: dependencies
@@ -1939,7 +1930,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         )
     }
     
-    private func updateGroupDisplayPicture(currentUrl: String?) {
+    private func updateGroupDisplayPicture(state: State, currentUrl: String?) {
         guard dependencies[feature: .updatedGroupsAllowDisplayPicture] else { return }
         
         let iconName: String = "profile_placeholder" // stringlint:ignore
@@ -2013,6 +2004,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             case .image(.some(let source), _, _, let style, _, _, _, _, _):
                                 // FIXME: Need to add Group Pro display pic CTA
                                 self?.updateGroupDisplayPicture(
+                                    state: state,
                                     displayPictureUpdate: .groupUploadImage(
                                         source: source,
                                         cropRect: style.cropRect
@@ -2036,6 +2028,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             hasSetNewProfilePicture = false
                         } else {
                             self?.updateGroupDisplayPicture(
+                                state: state,
                                 displayPictureUpdate: .groupRemove,
                                 onUploadComplete: { [weak modal] in
                                     Task { @MainActor in modal?.close() }
@@ -2065,6 +2058,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     }
     
     private func updateGroupDisplayPicture(
+        state: State,
         displayPictureUpdate: DisplayPictureManager.Update,
         onUploadComplete: @escaping () -> ()
     ) {
@@ -2073,7 +2067,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             default: break
         }
         
-        Task.detached(priority: .userInitiated) { [weak self, threadId, dependencies] in
+        Task.detached(priority: .userInitiated) { [weak self, dependencies] in
             var targetUpdate: DisplayPictureManager.Update = displayPictureUpdate
             var indicator: ModalActivityIndicatorViewController?
             
@@ -2142,7 +2136,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             
             let existingDownloadUrl: String? = try? await dependencies[singleton: .storage].readAsync { db in
                 try? ClosedGroup
-                    .filter(id: threadId)
+                    .filter(id: state.threadInfo.id)
                     .select(.displayPictureUrl)
                     .asRequest(of: String.self)
                     .fetchOne(db)
@@ -2150,7 +2144,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
             
             do {
                 try await MessageSender.updateGroup(
-                    groupSessionId: threadId,
+                    groupSessionId: state.threadInfo.id,
                     displayPictureUpdate: targetUpdate,
                     using: dependencies
                 )
@@ -2195,8 +2189,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         }
     }
     
-    private func toggleConversationPinnedStatus(currentPinnedPriority: Int32) async {
-        let isCurrentlyPinned: Bool = (currentPinnedPriority > LibSession.visiblePriority)
+    private func toggleConversationPinnedStatus(threadInfo: ConversationInfoViewModel) async {
+        let isCurrentlyPinned: Bool = (threadInfo.pinnedPriority > LibSession.visiblePriority)
         let isSessionPro: Bool = await dependencies[singleton: .sessionProManager]
             .currentUserIsPro
             .first(defaultValue: false)
@@ -2204,7 +2198,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         if !isCurrentlyPinned && !isSessionPro {
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
             do {
-                let numPinnedConversations: Int = try await dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+                let numPinnedConversations: Int = try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
                     let numPinnedConversations: Int = try SessionThread
                         .filter(SessionThread.Columns.pinnedPriority > LibSession.visiblePriority)
                         .fetchCount(db)
@@ -2216,9 +2210,10 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     /// We have the space to pin the conversation, so do so
                     try SessionThread.updateVisibility(
                         db,
-                        threadId: threadId,
+                        threadId: threadInfo.id,
+                        threadVariant: threadInfo.variant,
                         isVisible: true,
-                        customPriority: (currentPinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
+                        customPriority: (threadInfo.pinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
                         using: dependencies
                     )
                     
@@ -2254,37 +2249,38 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         }
         
         // If we are unpinning then no need to check the current count, just unpin immediately
-        try? await dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try SessionThread.updateVisibility(
                 db,
-                threadId: threadId,
+                threadId: threadInfo.id,
+                threadVariant: threadInfo.variant,
                 isVisible: true,
-                customPriority: (currentPinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
+                customPriority: (threadInfo.pinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
                 using: dependencies
             )
         }
     }
     
-    private func deleteAllMessagesBeforeNow() {
-        guard threadVariant == .group else { return }
+    private func deleteAllMessagesBeforeNow(state: State) {
+        guard state.threadInfo.variant == .group else { return }
         
-        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+        dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try LibSession.deleteMessagesBefore(
                 db,
-                groupSessionId: SessionId(.group, hex: threadId),
+                groupSessionId: SessionId(.group, hex: state.threadInfo.id),
                 timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                 using: dependencies
             )
         }
     }
     
-    private func deleteAllAttachmentsBeforeNow() {
-        guard threadVariant == .group else { return }
+    private func deleteAllAttachmentsBeforeNow(state: State) {
+        guard state.threadInfo.variant == .group else { return }
         
-        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+        dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try LibSession.deleteAttachmentsBefore(
                 db,
-                groupSessionId: SessionId(.group, hex: threadId),
+                groupSessionId: SessionId(.group, hex: state.threadInfo.id),
                 timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                 using: dependencies
             )
@@ -2293,38 +2289,37 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
     // MARK: - Confirmation Modals
     
-    private func updateDisplayNameModal(
-        threadViewModel: SessionThreadViewModel,
-        currentUserIsClosedGroupAdmin: Bool
-    ) -> ConfirmationModal.Info? {
-        guard !threadViewModel.threadIsNoteToSelf else { return nil }
+    private func updateDisplayNameModal(state: State) -> ConfirmationModal.Info? {
+        guard !state.threadInfo.isNoteToSelf else { return nil }
         
-        switch (threadViewModel.threadVariant, currentUserIsClosedGroupAdmin) {
+        switch (state.threadInfo.variant, state.threadInfo.groupInfo?.currentUserRole) {
             case (.contact, _):
                 return self.updateNickname(
-                    current: threadViewModel.profile?.nickname,
+                    state: state,
+                    current: state.threadInfo.profile?.nickname,
                     displayName: (
                         /// **Note:** We want to use the `profile` directly rather than `threadViewModel.displayName`
                         /// as the latter would use the `nickname` here which is incorrect
-                        threadViewModel.profile?.displayName(ignoreNickname: true) ??
-                        threadViewModel.threadId.truncated()
+                        state.threadInfo.profile?.displayName(ignoreNickname: true) ??
+                        state.threadInfo.displayName.deformatted()
                     )
                 )
             
-            case (.group, true), (.legacyGroup, true):
+            case (.group, .admin), (.legacyGroup, .admin):
                 return self.updateGroupNameAndDescription(
-                    currentName: threadViewModel.displayName,
-                    currentDescription: threadViewModel.threadDescription,
-                    isUpdatedGroup: (threadViewModel.threadVariant == .group)
+                    state: state,
+                    currentName: state.threadInfo.displayName.deformatted(),
+                    currentDescription: state.threadInfo.conversationDescription,
+                    isUpdatedGroup: (state.threadInfo.variant == .group)
                 )
             
-            case (.community, _), (.legacyGroup, false), (.group, false): return nil
+            case (.community, _), (.legacyGroup, _), (.group, _): return nil
         }
     }
     
-    private func showQRCodeLightBox(for threadViewModel: SessionThreadViewModel) {
+    private func showQRCodeLightBox(for threadInfo: ConversationInfoViewModel) {
         let qrCodeImage: UIImage = QRCode.generate(
-            for: threadViewModel.getQRCodeString(),
+            for: threadInfo.qrCodeString,
             hasBackground: false,
             iconName: "SessionWhite40" // stringlint:ignore
         )
@@ -2361,5 +2356,42 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         )
         viewController.modalPresentationStyle = .fullScreen
         self.transitionToScreen(viewController, transitionType: .present)
+    }
+}
+
+// MARK: - Convenience
+
+private extension ObservedEvent {
+    var handlingStrategy: EventHandlingStrategy {
+        let threadInfoStrategy: EventHandlingStrategy? = ConversationInfoViewModel.handlingStrategy(for: self)
+        let localStrategy: EventHandlingStrategy = {
+            switch (key, key.generic) {
+                case (.appLifecycle(.willEnterForeground), _): return .databaseQuery
+                case (.databaseLifecycle(.resumed), _): return .databaseQuery
+                
+                default: return .directCacheUpdate
+            }
+        }()
+        
+        return localStrategy.union(threadInfoStrategy ?? .none)
+    }
+}
+
+private extension ConversationInfoViewModel {
+    var qrCodeString: String {
+        switch self.variant {
+            case .contact, .legacyGroup, .group: return id
+            case .community:
+                guard
+                    let communityInfo: CommunityInfo = self.communityInfo,
+                    let urlString: String = LibSession.communityUrlFor(
+                        server: communityInfo.server,
+                        roomToken: communityInfo.roomToken,
+                        publicKey: communityInfo.publicKey
+                    )
+                else { return "" }
+
+                return urlString
+        }
     }
 }

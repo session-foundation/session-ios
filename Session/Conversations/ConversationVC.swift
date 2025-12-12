@@ -741,7 +741,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         emptyStateLabelContainer.isHidden = (state.viewState != .empty)
         
         // If this is the initial load then just do a full table refresh
-        guard state.viewState == .loaded && initialLoadComplete else {
+        guard state.viewState != .loading && initialLoadComplete else {
             if state.viewState == .loaded {
                 sections = updatedSections
                 tableView.reloadData()

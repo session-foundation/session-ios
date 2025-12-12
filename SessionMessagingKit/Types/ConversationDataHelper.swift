@@ -12,6 +12,7 @@ public extension ConversationDataCache {
         public enum Source: Sendable, Equatable, Hashable {
             case conversationList
             case messageList(threadId: String)
+            case conversationSettings(threadId: String)
             case searchResults
         }
         
@@ -21,20 +22,6 @@ public extension ConversationDataCache {
         let requiresMessageRequestCountUpdate: Bool
         let requiresInitialUnreadInteractionInfo: Bool
         let requireRecentReactionEmojiUpdate: Bool
-        
-        var isConversationList: Bool {
-            switch source {
-                case .conversationList: return true
-                default: return false
-            }
-        }
-        
-        var isMessageList: Bool {
-            switch source {
-                case .messageList: return true
-                default: return false
-            }
-        }
         
         // MARK: - Initialization
         
@@ -58,7 +45,7 @@ public extension ConversationDataCache {
         
         func insertedItemIds<ID>(_ requirements: ConversationDataHelper.FetchRequirements, as: ID.Type) -> Set<ID> {
             switch source {
-                case .searchResults: return []
+                case .searchResults, .conversationSettings: return []
                 case .conversationList: return (requirements.insertedThreadIds as? Set<ID> ?? [])
                 case .messageList: return (requirements.insertedInteractionIds as? Set<ID> ?? [])
             }
@@ -66,7 +53,7 @@ public extension ConversationDataCache {
         
         func deletedItemIds<ID>(_ requirements: ConversationDataHelper.FetchRequirements, as: ID.Type) -> Set<ID> {
             switch source {
-                case .searchResults: return []
+                case .searchResults, .conversationSettings: return []
                 case .conversationList: return (requirements.deletedThreadIds as? Set<ID> ?? [])
                 case .messageList: return (requirements.deletedInteractionIds as? Set<ID> ?? [])
             }
@@ -94,8 +81,8 @@ public extension ConversationDataHelper {
         /// Validate we have the bear minimum data for the source
         switch currentCache.context.source {
             case .conversationList, .searchResults: break
-            case .messageList(let threadId):
-                /// On the message list if we don't currently have the thread cached then we need to fetch it
+            case .messageList(let threadId), .conversationSettings(let threadId):
+                /// On the message list and conversation settings if we don't currently have the thread cached then we need to fetch it
                 guard currentCache.thread(for: threadId) == nil else { break }
                 
                 requirements.threadIdsNeedingFetch.insert(threadId)
@@ -111,8 +98,12 @@ public extension ConversationDataHelper {
                 case .conversationList:
                     requirements.threadIdsNeedingFetch.insert(contentsOf: Set(itemCache.keys) as? Set<String>)
                     
-                case .messageList:
+                case .messageList(let threadId):
+                    requirements.threadIdsNeedingFetch.insert(threadId)
                     requirements.interactionIdsNeedingFetch.insert(contentsOf: Set(itemCache.keys) as? Set<Int64>)
+                    
+                case .conversationSettings(let threadId):
+                    requirements.threadIdsNeedingFetch.insert(threadId)
             }
         }
         
@@ -180,27 +171,49 @@ public extension ConversationDataHelper {
         
         /// Handle page loading events based on view context
         requirements.needsPageLoad = {
-            guard !currentCache.context.requireFullRefresh else {
-                return true   /// Need to refetch the paged data in case the sorting changed
+            /// If we need a full refresh then we also need to refetch the paged data in case the sorting changed
+            if currentCache.context.requireFullRefresh {
+                return true
             }
             
+            /// If we had an event that directly impacted the paged data then we need a page load
             let hasDirectPagedDataChange: Bool = (
                 loadPageEvent != nil ||
                 !currentCache.context.insertedItemIds(requirements, as: Item.ID.self).isEmpty ||
                 !currentCache.context.deletedItemIds(requirements, as: Item.ID.self).isEmpty
             )
             
-            guard !hasDirectPagedDataChange else { return true }
+            if hasDirectPagedDataChange {
+                return true
+            }
             
             switch currentCache.context.source {
-                case .messageList, .searchResults: return false
+                case .messageList, .searchResults, .conversationSettings: return false
                 case .conversationList:
                     /// On the conversation list if a new message is created in any conversation then we need to reload the paged
                     /// data as it means the conversation order likely changed
-                    guard changes.contains(.anyMessageCreatedInAnyConversation) else { return false }
+                    if changes.contains(.anyMessageCreatedInAnyConversation) {
+                        return true
+                    }
                     
-                    return true
+                    /// On the conversation list if the last message was deleted then we need to reload the paged data as it means
+                    /// the conversation order likely changed
+                    for key in itemCache.keys {
+                        guard
+                            let threadId: String = key as? String,
+                            let stats: ConversationInfoViewModel.InteractionStats = currentCache.interactionStats(
+                                for: threadId
+                            ),
+                            changes.contains(.messageDeleted(id: stats.latestInteractionId, threadId: threadId))
+                        else { continue }
+                        
+                        return true
+                    }
+                    
+                    break
             }
+            
+            return false
         }()
         
         return requirements
@@ -484,7 +497,7 @@ public extension ConversationDataHelper {
             
             switch (loadPageEvent?.target(with: loadResult), currentCache.context.source) {
                 case (.some(let explicitTarget), _): target = explicitTarget
-                case (.none, .searchResults): target = .newItems(insertedIds: [], deletedIds: [])
+                case (.none, .searchResults), (.none, .conversationSettings): target = .newItems(insertedIds: [], deletedIds: [])
                 case (.none, .conversationList):
                     target = .reloadCurrent(
                         insertedIds: currentCache.context.insertedItemIds(updatedRequirements, as: ID.self),
@@ -503,7 +516,7 @@ public extension ConversationDataHelper {
         }
         
         switch currentCache.context.source {
-            case .searchResults: break
+            case .searchResults, .conversationSettings: break
             case .conversationList:
                 if let newIds: [String] = updatedLoadResult.newIds as? [String], !newIds.isEmpty {
                     updatedRequirements.threadIdsNeedingFetch.insert(contentsOf: Set(newIds))
@@ -572,10 +585,15 @@ public extension ConversationDataHelper {
             }
             
             if !updatedRequirements.threadIdsNeedingInteractionStats.isEmpty {
+                /// If we can't get the stats then it means the conversation has no more interactions which means we need to clear
+                /// out any old stats for that conversation (otherwise it'll show the wrong unread count)
                 let stats: [ConversationInfoViewModel.InteractionStats] = try ConversationInfoViewModel.InteractionStats
                     .request(for: updatedRequirements.threadIdsNeedingInteractionStats)
                     .fetchAll(db)
                 updatedCache.insert(interactionStats: stats)
+                updatedCache.remove(interactionStatsForThreadIds: updatedRequirements.threadIdsNeedingInteractionStats
+                    .subtracting(Set(stats.map { $0.threadId })))
+                
                 updatedRequirements.interactionIdsNeedingFetch.insert(
                     contentsOf: Set(stats.map { $0.latestInteractionId })
                 )
@@ -588,7 +606,7 @@ public extension ConversationDataHelper {
                 /// **Note:** We may not be able to find the quoted interaction (hence the `Int64?` but would still want to render
                 /// the message as a quote)
                 switch currentCache.context.source {
-                    case .conversationList, .searchResults: break
+                    case .conversationList, .conversationSettings, .searchResults: break
                     case .messageList(let threadId):
                         let quoteInteractionIdResults: Set<FetchablePair<Int64, Int64?>> = try MessageViewModel
                             .quotedInteractionIds(
@@ -635,6 +653,7 @@ public extension ConversationDataHelper {
                         switch currentCache.context.source {
                             case .conversationList, .searchResults: return (interactionAttachment.albumIndex == 0)
                             case .messageList: return true
+                            case .conversationSettings: return false
                         }
                     }
                     .map { $0.attachmentId })
@@ -768,15 +787,15 @@ public extension ConversationDataHelper {
                 updatedCache.insert(profiles: profiles)
                 updatedRequirements.profileIdsNeedingFetch.removeAll()
                 
-                /// If the source is `messageList` and we have blinded ids then we want to update the `unblindedIdMap` so
-                /// that we can show a users unblinded profile in the profile modal if possible
+                /// If the source is `messageList` or `conversationSettings` and we have blinded ids then we want to
+                /// update the `unblindedIdMap` so that we can show a users unblinded profile information if possible
                 let blindedIds: Set<String> = Set(profiles.map { $0.id }
                     .filter { SessionId.Prefix.isCommunityBlinded($0) })
                 
                 if !blindedIds.isEmpty {
                     switch currentCache.context.source {
                         case .conversationList, .searchResults: break
-                        case .messageList:
+                        case .messageList, .conversationSettings:
                             let blindedIdMap: [String: String] = try BlindedIdLookup
                                 .filter(ids: blindedIds)
                                 .filter(BlindedIdLookup.Columns.sessionId != nil)
@@ -857,13 +876,11 @@ private extension ConversationDataHelper {
     ) {
         guard let conversationEvent: ConversationEvent = event.value as? ConversationEvent else { return }
         
-        switch (event.key.generic, conversationEvent.change) {
-            case (.conversationCreated, _): requirements.insertedThreadIds.insert(conversationEvent.id)
-            case (.conversationDeleted, _): requirements.deletedThreadIds.insert(conversationEvent.id)
+        switch (event.key.generic, conversationEvent.change, cache.context.source) {
+            case (.conversationCreated, _, _): requirements.insertedThreadIds.insert(conversationEvent.id)
+            case (.conversationDeleted, _, _): requirements.deletedThreadIds.insert(conversationEvent.id)
                 
-            case (_, .disappearingMessageConfiguration):
-                guard cache.context.isMessageList else { return }
-                
+            case (_, .disappearingMessageConfiguration, .messageList):
                 /// Since we cache whether a messages disappearing message config can be followed we
                 /// need to update the value if the disappearing message config on the conversation changes
                 itemCache.forEach { _, item in
@@ -893,6 +910,7 @@ private extension ConversationDataHelper {
             case .messageCreated: requirements.insertedInteractionIds.insert(interactionId)
             case .messageUpdated: requirements.interactionIdsNeedingFetch.insert(interactionId)
             case .messageDeleted: requirements.deletedInteractionIds.insert(interactionId)
+                
             case GenericObservableKey(.anyMessageCreatedInAnyConversation):
                 requirements.insertedInteractionIds.insert(interactionId)
                 
@@ -905,9 +923,11 @@ private extension ConversationDataHelper {
             default: break
         }
         
-        if cache.context.isConversationList {
-            /// Any message event means we need to refetch interaction stats and latest message
-            requirements.threadIdsNeedingInteractionStats.insert(messageEvent.threadId)
+        switch cache.context.source {
+            case .messageList, .conversationSettings, .searchResults: break
+            case .conversationList:
+                /// Any message event means we need to refetch interaction stats and latest message
+                requirements.threadIdsNeedingInteractionStats.insert(messageEvent.threadId)
         }
     }
 }

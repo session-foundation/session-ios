@@ -631,6 +631,12 @@ extension MessageSender {
                                 roleStatus: .sending,
                                 isHidden: false
                             ).upsert(db)
+                            
+                            db.addGroupMemberEvent(
+                                profileId: id,
+                                threadId: sessionId.hexString,
+                                type: .created
+                            )
                         }
                     }
                 }
@@ -1142,6 +1148,14 @@ extension MessageSender {
                                 GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
                                 using: dependencies
                             )
+                        
+                        memberIds.forEach { id in
+                            db.addGroupMemberEvent(
+                                profileId: id,
+                                threadId: groupSessionId.hexString,
+                                type: .updated(.role(role: .admin, status: .sending))
+                            )
+                        }
                     }
                 }
                 

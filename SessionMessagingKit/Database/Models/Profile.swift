@@ -303,14 +303,14 @@ public extension Profile {
         
         // stringlint:ignore_contents
         switch (nickname, name, customFallback, includeSessionIdSuffix) {
-            case (.some(let value), _, _, false) where !value.isEmpty,
-                (_, .some(let value), _, false) where !value.isEmpty,
-                (_, _, .some(let value), false) where !value.isEmpty:
+            case (.some(let value), _, _, false) where !value.isEmpty && value != id,
+                (_, .some(let value), _, false) where !value.isEmpty && value != id,
+                (_, _, .some(let value), false) where !value.isEmpty && value != id:
                 return value
                 
-            case (.some(let value), _, _, true) where !value.isEmpty,
-                (_, .some(let value), _, true) where !value.isEmpty,
-                (_, _, .some(let value), true) where !value.isEmpty:
+            case (.some(let value), _, _, true) where !value.isEmpty && value != id,
+                (_, .some(let value), _, true) where !value.isEmpty && value != id,
+                (_, _, .some(let value), true) where !value.isEmpty && value != id:
                 return (Dependencies.isRTL ?
                     "(\(id.truncated(prefix: 4, suffix: 4))) \(value)" :
                     "​\(value) (\(id.truncated(prefix: 4, suffix: 4)))"

@@ -1085,9 +1085,18 @@ internal extension Interaction {
                 groupSourceTypes.contains(dataCache.context.source) &&
                 groupThreadTypes.contains(threadVariant)
             )
+            let shouldHaveStatusIcon: Bool = {
+                guard !isSearchResult && !groupKicked && !groupDestroyed else { return false }
+                
+                /// Only the standard conversation list should have a status icon prefix
+                switch dataCache.context.source {
+                    case .messageList, .conversationSettings, .searchResults: return false
+                    case .conversationList: return true
+                }
+            }()
             
-            /// Add status icon prefixes (these are only needed in the conversation list)
-            if dataCache.context.isConversationList && !isSearchResult && !groupKicked && !groupDestroyed {
+            /// Add status icon prefixes
+            if shouldHaveStatusIcon {
                 if let thread = dataCache.thread(for: interaction.threadId) {
                     let now: TimeInterval = dateNow.timeIntervalSince1970
                     let mutedUntil: TimeInterval = (thread.mutedUntilTimestamp ?? 0)
@@ -1157,9 +1166,9 @@ internal extension Interaction {
             
             guard !result.isEmpty else { return nil }
             
-            /// If we don't have a search term then return the value, otherwise highlight the search term tokens
+            /// If we don't have a search term then return the value (deformatted), otherwise highlight the search term tokens
             guard let searchText: String = searchText else {
-                return result
+                return result.deformatted()
             }
             
             return GlobalSearch.highlightSearchText(

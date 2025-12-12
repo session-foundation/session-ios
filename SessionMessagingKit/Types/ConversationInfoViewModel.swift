@@ -414,6 +414,8 @@ extension ConversationInfoViewModel: ObservableKeyProvider {
         
         if self.groupInfo != nil {
             result.insert(.groupInfo(groupId: id))
+            result.insert(.groupMemberCreated(threadId: id))
+            result.insert(.anyGroupMemberDeleted(threadId: id))
         }
         
         if self.communityInfo != nil {

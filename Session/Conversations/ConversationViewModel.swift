@@ -728,16 +728,18 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             dataCache: dataCache
         )
         
-        orderedIds.enumerated().forEach { index, id in
+        itemCache = orderedIds.enumerated().reduce(into: [:]) { result, next in
             let optimisticMessageId: Int64?
             let interaction: Interaction
             let reactionInfo: [MessageViewModel.ReactionInfo]?
             let maybeUnresolvedQuotedInfo: MessageViewModel.MaybeUnresolvedQuotedInfo?
             
             /// Source the interaction data from the appropriate location
-            switch id {
+            switch next.element {
                 case ..<0:  /// If the `id` is less than `0` then it's an optimistic message
-                    guard let data: OptimisticMessageData = optimisticallyInsertedMessages[id] else { return }
+                    guard let data: OptimisticMessageData = optimisticallyInsertedMessages[next.element] else {
+                        return
+                    }
                     
                     optimisticMessageId = data.temporaryId
                     interaction = data.interaction
@@ -752,12 +754,14 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     }
                     
                 default:
-                    guard let targetInteraction: Interaction = dataCache.interaction(for: id) else { return }
+                    guard let targetInteraction: Interaction = dataCache.interaction(for: next.element) else {
+                        return
+                    }
                     
                     optimisticMessageId = nil
                     interaction = targetInteraction
                     
-                    let reactions: [Reaction] = dataCache.reactions(for: id)
+                    let reactions: [Reaction] = dataCache.reactions(for: next.element)
                     
                     if !reactions.isEmpty {
                         reactionInfo = reactions.map { reaction in
@@ -778,7 +782,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                         reactionInfo = nil
                     }
                     
-                    maybeUnresolvedQuotedInfo = dataCache.quoteInfo(for: id).map { info in
+                    maybeUnresolvedQuotedInfo = dataCache.quoteInfo(for: next.element).map { info in
                         MessageViewModel.MaybeUnresolvedQuotedInfo(
                             foundQuotedInteractionId: info.foundQuotedInteractionId,
                             resolvedQuotedInteraction: info.foundQuotedInteractionId.map {
@@ -788,7 +792,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                     }
             }
             
-            itemCache[id] = MessageViewModel(
+            result[next.element] = MessageViewModel(
                 optimisticMessageId: optimisticMessageId,
                 interaction: interaction,
                 reactionInfo: reactionInfo,
@@ -797,26 +801,26 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 threadInfo: threadInfo,
                 dataCache: dataCache,
                 previousInteraction: State.interaction(
-                    at: index + 1,  /// Order is inverted so `previousInteraction` is the next element
+                    at: next.offset + 1,  /// Order is inverted so `previousInteraction` is the next element
                     orderedIds: orderedIds,
                     optimisticMessages: optimisticallyInsertedMessages,
                     dataCache: dataCache
                 ),
                 nextInteraction: State.interaction(
-                    at: index - 1,  /// Order is inverted so `nextInteraction` is the previous element
+                    at: next.offset - 1,  /// Order is inverted so `nextInteraction` is the previous element
                     orderedIds: orderedIds,
                     optimisticMessages: optimisticallyInsertedMessages,
                     dataCache: dataCache
                 ),
                 isLast: (
                     /// Order is inverted so we need to check the start of the list
-                    index == 0 &&
+                    next.offset == 0 &&
                     !loadResult.info.hasPrevPage
                 ),
                 isLastOutgoing: (
                     /// Order is inverted so we need to check the start of the list
-                    id == orderedIds
-                        .prefix(index + 1)  /// Want to include the value for `index` in the result
+                    next.element == orderedIds
+                        .prefix(next.offset + 1)  /// Want to include the value for `index` in the result
                         .enumerated()
                         .compactMap { prefixIndex, _ in
                             State.interaction(
@@ -1580,7 +1584,6 @@ public extension ConversationViewModel {
         threadId: String,
         using dependencies: Dependencies
     ) throws -> ConversationInfoViewModel {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
         var dataCache: ConversationDataCache = ConversationDataCache(
             userSessionId: dependencies[cache: .general].sessionId,
             context: ConversationDataCache.Context(

@@ -235,6 +235,14 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                             .filter(pendingRemovals.keys.contains(GroupMember.Columns.profileId))
                                             .deleteAll(db)
                                         
+                                        pendingRemovals.keys.forEach { id in
+                                            db.addGroupMemberEvent(
+                                                profileId: id,
+                                                threadId: groupSessionId.hexString,
+                                                type: .deleted
+                                            )
+                                        }
+                                        
                                         /// If we want to remove the messages sent by the removed members then do so and remove
                                         /// them from the swarm as well
                                         if !memberIdsToRemoveContent.isEmpty {

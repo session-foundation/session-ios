@@ -1453,9 +1453,19 @@ public extension Interaction {
         }
         
         /// Delete the reactions from the database
+        let reactionInfo: Set<FetchableTriple<Int64, Int64, String>> = try Reaction
+            .select(Column.rowID, Reaction.Columns.interactionId, Reaction.Columns.emoji)
+            .filter(interactionIds.contains(Reaction.Columns.interactionId))
+            .asRequest(of: FetchableTriple<Int64, Int64, String>.self)
+            .fetchSet(db)
         _ = try Reaction
             .filter(interactionIds.contains(Reaction.Columns.interactionId))
             .deleteAll(db)
+        
+        /// Notify about the reaction deletion
+        reactionInfo.forEach { info in
+            db.addReactionEvent(id: info.first, messageId: info.second, change: .removed(info.third))
+        }
         
         /// Flag the `SnodeReceivedMessageInfo` records as invalid (otherwise we might try to poll for a hash which no longer
         /// exists, resulting in fetching the last 14 days of messages)

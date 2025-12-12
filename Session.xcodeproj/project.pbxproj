@@ -1147,6 +1147,7 @@
 		FDD250722837234B00198BDA /* MediaGalleryNavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD250712837234B00198BDA /* MediaGalleryNavigationController.swift */; };
 		FDD42F462EE7B12100771A4C /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FDD42F452EE7B12100771A4C /* Lucide */; };
 		FDD42F482EE8D8ED00771A4C /* Notifications+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD42F472EE8D8E600771A4C /* Notifications+Utilities.swift */; };
+		FDD42F4A2EEB790900771A4C /* FetchableTriple.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD42F492EEB790500771A4C /* FetchableTriple.swift */; };
 		FDDD554E2C1FCB77006CBF03 /* _033_ScheduleAppUpdateCheckJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDD554D2C1FCB77006CBF03 /* _033_ScheduleAppUpdateCheckJob.swift */; };
 		FDDF074429C3E3D000E5E8B5 /* FetchRequest+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */; };
 		FDDF074A29DAB36900E5E8B5 /* JobRunnerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDDF074929DAB36900E5E8B5 /* JobRunnerSpec.swift */; };
@@ -2519,6 +2520,7 @@
 		FDD383702AFDD0E1001367F2 /* BencodeResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BencodeResponse.swift; sourceTree = "<group>"; };
 		FDD383722AFDD6D7001367F2 /* BencodeResponseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BencodeResponseSpec.swift; sourceTree = "<group>"; };
 		FDD42F472EE8D8E600771A4C /* Notifications+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Notifications+Utilities.swift"; sourceTree = "<group>"; };
+		FDD42F492EEB790500771A4C /* FetchableTriple.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchableTriple.swift; sourceTree = "<group>"; };
 		FDD82C3E2A205D0A00425F05 /* ProcessResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResult.swift; sourceTree = "<group>"; };
 		FDDD554D2C1FCB77006CBF03 /* _033_ScheduleAppUpdateCheckJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _033_ScheduleAppUpdateCheckJob.swift; sourceTree = "<group>"; };
 		FDDF074329C3E3D000E5E8B5 /* FetchRequest+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FetchRequest+Utilities.swift"; sourceTree = "<group>"; };
@@ -4473,6 +4475,7 @@
 			children = (
 				FD17D7BE27F51F8200122BE0 /* ColumnExpressible.swift */,
 				FD99A3AF2EBD4EDB00E59F94 /* FetchablePair.swift */,
+				FDD42F492EEB790500771A4C /* FetchableTriple.swift */,
 				FD17D7B727F51ECA00122BE0 /* Migration.swift */,
 				FD4BB22A2D63F20600D0DC3D /* MigrationHelper.swift */,
 				FD7162DA281B6C440060647B /* TypedTableAlias.swift */,
@@ -7111,6 +7114,7 @@
 				7B1D74B027C365960030B423 /* Timer+MainThread.swift in Sources */,
 				FD428B192B4B576F006D0888 /* AppContext.swift in Sources */,
 				FD2272D42C34ECE1004D8A6C /* BencodeEncoder.swift in Sources */,
+				FDD42F4A2EEB790900771A4C /* FetchableTriple.swift in Sources */,
 				FDE755052C9BB4EE002A2623 /* BencodeDecoder.swift in Sources */,
 				FD360EC72ECD38750050CAF4 /* OptionSet+Utilities.swift in Sources */,
 				FD559DF52A7368CB00C7C62A /* DispatchQueue+Utilities.swift in Sources */,

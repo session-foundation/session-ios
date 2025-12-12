@@ -10,6 +10,7 @@ import SessionUtilitiesKit
 public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticCell {
     public static let unreadCountViewSize: CGFloat = 20
     private static let statusIndicatorSize: CGFloat = 14
+    private static let displayNameFont: UIFont = .boldSystemFont(ofSize: Values.mediumFontSize)
     private static let snippetFont: UIFont = .systemFont(ofSize: Values.smallFontSize)
     
     // MARK: - UI
@@ -32,7 +33,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             proBadgeSize: .small,
             withStretchingSpacer: false
         )
-        result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
+        result.font = FullConversationCell.displayNameFont
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
         result.isProBadgeHidden = true
@@ -282,6 +283,14 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     
     // MARK: - Content
     
+    public override func prepareForReuse() {
+        super.prepareForReuse()
+        
+        /// Need to reset the fonts as it seems that the `.font` values can end up using a styled font from the attributed text
+        displayNameLabel.font = FullConversationCell.displayNameFont
+        snippetLabel.font = FullConversationCell.snippetFont
+    }
+    
     // MARK: --Search Results
     public func updateForDefaultContacts(with cellViewModel: ConversationInfoViewModel, using dependencies: Dependencies) {
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
@@ -432,7 +441,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             typingIndicatorView.stopAnimation()
             snippetLabel.themeAttributedText = cellViewModel.lastInteraction?.messageSnippet?
                 .formatted(baseFont: snippetLabel.font)
-                .stylingNotificationPrefixesIfNeeded(fontSize: Values.smallFontSize)
+                .stylingNotificationPrefixesIfNeeded(fontSize: Values.verySmallFontSize)
         }
         
         let stateInfo = cellViewModel.lastInteraction?.state.statusIconInfo(
@@ -465,19 +474,19 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             
             switch (isMuted, hasMutePrefix) {
                 case (true, false):
-                    self.snippetLabel.themeAttributedText = ThemedAttributedString(
+                    snippetLabel.themeAttributedText = ThemedAttributedString(
                         string: NotificationsUI.mutePrefix.rawValue,
-                        attributes: Lucide.attributes(for: .systemFont(ofSize: Values.smallFontSize))
+                        attributes: Lucide.attributes(for: .systemFont(ofSize: Values.verySmallFontSize))
                     )
-                    .appending(attrString)
+                    .appending(NSAttributedString(string: " "))
+                    .appending(attrString.adding(attributes: [.font: FullConversationCell.snippetFont]))
                     
                 case (false, true):
-                    self.snippetLabel.attributedText = attrString
+                    /// Need to remove the space as well
+                    let location: Int = (NotificationsUI.mutePrefix.rawValue.count + 1)
+                    snippetLabel.attributedText = attrString
                         .attributedSubstring(
-                            from: NSRange(
-                                location: NotificationsUI.mutePrefix.rawValue.count,
-                                length: (attrString.length - NotificationsUI.mutePrefix.rawValue.count)
-                            )
+                            from: NSRange(location: location, length: (attrString.length - location))
                         )
                     
                 default: break

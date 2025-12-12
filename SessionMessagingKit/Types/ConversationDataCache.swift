@@ -51,9 +51,6 @@ public struct ConversationDataCache: Sendable, Equatable, Hashable {
     /// Stores `threadId -> interactionStats`
     public fileprivate(set) var interactionStats: [String: ConversationInfoViewModel.InteractionStats] = [:]
     
-    /// Stores `threadId -> InteractionInfo` (the last interaction info for the thread)
-    public fileprivate(set) var lastInteractions: [String: ConversationInfoViewModel.InteractionInfo] = [:]
-    
     /// Stores `threadId -> currentUserSessionIds`
     public fileprivate(set) var currentUserSessionIds: [String: Set<String>] = [:]
     
@@ -113,9 +110,6 @@ public extension ConversationDataCache {
     }
     func interactionStats(for threadId: String) -> ConversationInfoViewModel.InteractionStats? {
         interactionStats[threadId]
-    }
-    func lastInteraction(for threadId: String) -> ConversationInfoViewModel.InteractionInfo? {
-        lastInteractions[threadId]
     }
     func currentUserSessionIds(for threadId: String) -> Set<String> {
         return (currentUserSessionIds[threadId] ?? [userSessionId.hexString])
@@ -259,14 +253,6 @@ public extension ConversationDataCache {
         interactionStats.forEach { self.interactionStats[$0.threadId] = $0 }
     }
     
-    mutating func insert(_ lastInteraction: ConversationInfoViewModel.InteractionInfo) {
-        self.lastInteractions[lastInteraction.threadId] = lastInteraction
-    }
-    
-    mutating func insert(lastInteractions: [String: ConversationInfoViewModel.InteractionInfo]) {
-        self.lastInteractions.merge(lastInteractions) { _, new in new }
-    }
-    
     mutating func setCurrentUserSessionIds(_ currentUserSessionIds: [String: Set<String>]) {
         self.currentUserSessionIds = currentUserSessionIds
     }
@@ -353,7 +339,6 @@ public extension ConversationDataCache {
             self.disappearingMessagesConfigurations.removeValue(forKey: threadId)
             self.interactionStats.removeValue(forKey: threadId)
             self.incomingTyping.remove(threadId)
-            self.lastInteractions.removeValue(forKey: threadId)
             
             let interactions: [Interaction] = Array(self.interactions.values)
             interactions.forEach { interaction in
@@ -377,6 +362,19 @@ public extension ConversationDataCache {
                 self.attachments.removeValue(forKey: $0.attachmentId)
             }
             self.attachmentMap.removeValue(forKey: id)
+        }
+    }
+    
+    mutating func remove(interactionStatsForThreadIds: Set<String>) {
+        interactionStatsForThreadIds.forEach { id in
+            guard let stats: ConversationInfoViewModel.InteractionStats = self.interactionStats[id] else {
+                return
+            }
+            
+            self.interactionStats.removeValue(forKey: id)
+            self.interactions.removeValue(forKey: stats.latestInteractionId)
+            self.attachmentMap[stats.latestInteractionId]?.forEach { attachments.removeValue(forKey: $0.attachmentId) }
+            self.attachmentMap.removeValue(forKey: stats.latestInteractionId)
         }
     }
     
