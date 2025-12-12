@@ -171,6 +171,11 @@ public extension ConversationDataHelper {
         
         /// Handle page loading events based on view context
         requirements.needsPageLoad = {
+            switch currentCache.context.source {
+                case .conversationSettings, .searchResults: return false    /// No paging
+                case .messageList, .conversationList: break
+            }
+            
             /// If we need a full refresh then we also need to refetch the paged data in case the sorting changed
             if currentCache.context.requireFullRefresh {
                 return true

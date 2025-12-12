@@ -371,7 +371,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     private static func sections(state: State, viewModel: ThreadSettingsViewModel) -> [SectionModel] {
         let threadDisplayName: String = state.threadInfo.displayName.deformatted()
         let isThreadHidden: Bool = (
-            !state.threadInfo.shouldBeVisible &&
+            !state.threadInfo.shouldBeVisible ||
             state.threadInfo.pinnedPriority == LibSession.hiddenPriority
         )
         let showThreadPubkey: Bool = (

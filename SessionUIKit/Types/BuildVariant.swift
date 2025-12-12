@@ -13,6 +13,7 @@ public enum BuildVariant: Sendable, Equatable, CaseIterable, CustomStringConvert
     case fDroid
     case huawei
     
+    // stringlint:ignore_contents
     public static var current: BuildVariant {
 #if DEBUG
         return .development

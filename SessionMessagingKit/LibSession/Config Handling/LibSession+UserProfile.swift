@@ -61,13 +61,7 @@ internal extension LibSessionCacheType {
                 )
             }(),
             proUpdate: {
-                guard
-                    let proConfig: SessionPro.ProConfig = self.proConfig,
-                    proConfig.rotatingPrivateKey.count >= 32,
-                    let rotatingKeyPair: KeyPair = try? dependencies[singleton: .crypto].tryGenerate(
-                        .ed25519KeyPair(seed: proConfig.rotatingPrivateKey.prefix(upTo: 32))
-                    )
-                else { return .none }
+                guard let proConfig: SessionPro.ProConfig = self.proConfig else { return .none }
                 
                 let profileFeatures: SessionPro.ProfileFeatures = SessionPro.ProfileFeatures(user_profile_get_pro_features(conf))
                 

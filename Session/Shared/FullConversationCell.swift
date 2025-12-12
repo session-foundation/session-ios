@@ -394,7 +394,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         self.selectedBackgroundView?.themeBackgroundColor = .highlighted(themeBackgroundColor)
         
         accentLineView.alpha = (unreadCount > 0 ? 1 : 0)
-        isPinnedIcon.isHidden = (cellViewModel.pinnedPriority == 0)
+        isPinnedIcon.isHidden = (cellViewModel.pinnedPriority <= LibSession.visiblePriority)
         unreadCountView.isHidden = (unreadCount <= 0)
         unreadImageView.isHidden = (!unreadCountView.isHidden || !threadIsUnread)
         unreadCountLabel.text = (unreadCount <= 0 ?
