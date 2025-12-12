@@ -323,7 +323,6 @@
 		C328254025CA55880062D0A7 /* ContextMenuVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = C328253F25CA55880062D0A7 /* ContextMenuVC.swift */; };
 		C328254925CA60E60062D0A7 /* ContextMenuVC+Action.swift in Sources */ = {isa = PBXBuildFile; fileRef = C328254825CA60E60062D0A7 /* ContextMenuVC+Action.swift */; };
 		C328255225CA64470062D0A7 /* ContextMenuVC+ActionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C328255125CA64470062D0A7 /* ContextMenuVC+ActionView.swift */; };
-		C32C598A256D0664003C73A2 /* SNProtoEnvelope+Conversion.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38EEF09255B49A8007E1867 /* SNProtoEnvelope+Conversion.swift */; };
 		C32C599E256DB02B003C73A2 /* TypingIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDA87255A57FC00E217F9 /* TypingIndicators.swift */; };
 		C32C5DD2256DD9E5003C73A2 /* LRUCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDAFD255A580600E217F9 /* LRUCache.swift */; };
 		C32C5E0C256DDAFA003C73A2 /* NSRegularExpression+SSK.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33FDA7A255A57FB00E217F9 /* NSRegularExpression+SSK.swift */; };
@@ -1242,6 +1241,7 @@
 		FDFE75B42ABD46B600655640 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9D127D59495005E1583 /* MockUserDefaults.swift */; };
 		FDFE75B52ABD46B700655640 /* MockUserDefaults.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD83B9D127D59495005E1583 /* MockUserDefaults.swift */; };
 		FDFF9FDF2A787F57005E0628 /* JSONEncoder+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDFF9FDE2A787F57005E0628 /* JSONEncoder+Utilities.swift */; };
+		FDFFD9172EEBC05C0084F85B /* DeviceKit in Frameworks */ = {isa = PBXBuildFile; productRef = FDFFD9162EEBC05C0084F85B /* DeviceKit */; };
 		FED288F32E4C28CF00C31171 /* AppReviewPromptDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F22E4C28CF00C31171 /* AppReviewPromptDialog.swift */; };
 		FED288F82E4C3BE100C31171 /* AppReviewPromptModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED288F72E4C3BE100C31171 /* AppReviewPromptModel.swift */; };
 /* End PBXBuildFile section */
@@ -1813,7 +1813,6 @@
 		C374EEEA25DA3CA70073A857 /* ConversationTitleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationTitleView.swift; sourceTree = "<group>"; };
 		C374EEF325DB31D40073A857 /* VoiceMessageRecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceMessageRecordingView.swift; sourceTree = "<group>"; };
 		C379DCF3256735770002D4EB /* VisibleMessage+Attachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VisibleMessage+Attachment.swift"; sourceTree = "<group>"; };
-		C38EEF09255B49A8007E1867 /* SNProtoEnvelope+Conversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SNProtoEnvelope+Conversion.swift"; sourceTree = "<group>"; };
 		C38EF237255B6D65007E1867 /* UIDevice+featureSupport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "UIDevice+featureSupport.swift"; path = "SessionUtilitiesKit/General/UIDevice+featureSupport.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF240255B6D67007E1867 /* UIView+OWS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "UIView+OWS.swift"; path = "SignalUtilitiesKit/Utilities/UIView+OWS.swift"; sourceTree = SOURCE_ROOT; };
 		C38EF241255B6D67007E1867 /* Collection+OWS.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Collection+OWS.swift"; path = "SignalUtilitiesKit/Utilities/Collection+OWS.swift"; sourceTree = SOURCE_ROOT; };
@@ -2682,6 +2681,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FDFFD9172EEBC05C0084F85B /* DeviceKit in Frameworks */,
 				FD11E22E2CA4D12C001BAF58 /* WebRTC in Frameworks */,
 				FD11E22D2CA4D12C001BAF58 /* DifferenceKit in Frameworks */,
 				B8FF8DAE25C0D00F004D1F22 /* SessionMessagingKit.framework in Frameworks */,
@@ -3908,7 +3908,6 @@
 				FD16AB602A1DD9B60083D849 /* ProfilePictureView+Convenience.swift */,
 				C38EF2EC255B6DBA007E1867 /* ProximityMonitoringManager.swift */,
 				FDE754FF2C9BB0FA002A2623 /* SessionEnvironment.swift */,
-				C38EEF09255B49A8007E1867 /* SNProtoEnvelope+Conversion.swift */,
 				FDE754FD2C9BB0D0002A2623 /* Threading+SessionMessagingKit.swift */,
 				FD72BDA02BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift */,
 			);
@@ -5825,6 +5824,7 @@
 				FD360EA32ECAA97D0050CAF4 /* SDWebImageWebPCoder */,
 				FD360EA52ECAA98B0050CAF4 /* NVActivityIndicatorView */,
 				FD360EAA2ECAB0E70050CAF4 /* SDWebImage */,
+				FDFFD9162EEBC05C0084F85B /* DeviceKit */,
 			);
 			productName = RedPhone;
 			productReference = D221A089169C9E5E00537ABF /* Session.app */;
@@ -6078,6 +6078,7 @@
 				FD6673F42D7021E700041530 /* XCRemoteSwiftPackageReference "libsession-util-spm" */,
 				FDEFDC712E8B9F3300EBCD81 /* XCRemoteSwiftPackageReference "SDWebImageWebPCoder" */,
 				FD360EA72ECAB0D20050CAF4 /* XCRemoteSwiftPackageReference "SDWebImage" */,
+				FDFFD9152EEBC05C0084F85B /* XCRemoteSwiftPackageReference "DeviceKit" */,
 			);
 			productRefGroup = D221A08A169C9E5E00537ABF /* Products */;
 			projectDirPath = "";
@@ -7185,7 +7186,6 @@
 				FDBA8A842D597975007C19C0 /* FailedGroupInvitesAndPromotionsJob.swift in Sources */,
 				FD778B6429B189FF001BAC6B /* _028_GenerateInitialUserConfigDumps.swift in Sources */,
 				FD1A55432E179AED003761E4 /* ObservableKeyEvent+Utilities.swift in Sources */,
-				C32C598A256D0664003C73A2 /* SNProtoEnvelope+Conversion.swift in Sources */,
 				FDD23AE92E458E020057E853 /* _003_SUK_YDBToGRDBMigration.swift in Sources */,
 				FD8ECF7F2934298100C0D1BB /* ConfigDump.swift in Sources */,
 				FD22727F2C32911C004D8A6C /* GetExpirationJob.swift in Sources */,
@@ -11169,6 +11169,14 @@
 				minimumVersion = 0.14.6;
 			};
 		};
+		FDFFD9152EEBC05C0084F85B /* XCRemoteSwiftPackageReference "DeviceKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/devicekit/DeviceKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.7.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -11439,6 +11447,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FDEFDC712E8B9F3300EBCD81 /* XCRemoteSwiftPackageReference "SDWebImageWebPCoder" */;
 			productName = SDWebImageWebPCoder;
+		};
+		FDFFD9162EEBC05C0084F85B /* DeviceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FDFFD9152EEBC05C0084F85B /* XCRemoteSwiftPackageReference "DeviceKit" */;
+			productName = DeviceKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

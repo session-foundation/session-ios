@@ -94,13 +94,16 @@ public enum MessageReceiver {
                 
                 switch namespace {
                     case .default:
-                        guard
-                            let envelope: SNProtoEnvelope = try? MessageWrapper.unwrap(data: data),
-                            let ciphertext: Data = envelope.content
-                        else {
-                            Log.warn(.messageReceiver, "Failed to unwrap data for message from 'default' namespace.")
-                            throw MessageReceiverError.invalidMessage
-                        }
+                        let envelope: SNProtoEnvelope = try Result(
+                            catching: { try MessageWrapper.unwrap(data: data, namespace: namespace) })
+                            .onFailure { error in Log.warn(.messageReceiver, "\(error)") }
+                            .mapError { _ in MessageReceiverError.invalidMessage }
+                            .successOrThrow()
+                        let ciphertext: Data = try Result(
+                            catching: { try envelope.content ?? { throw MessageReceiverError.noData }() })
+                            .onFailure { error in Log.warn(.messageReceiver, "Failed to unwrap message from '\(namespace)' namespace due to error: \(error).") }
+                            .mapError { _ in MessageReceiverError.invalidMessage }
+                            .successOrThrow()
                         
                         (plaintext, sender) = try dependencies[singleton: .crypto].tryGenerate(
                             .plaintextWithSessionProtocol(ciphertext: ciphertext)
@@ -125,16 +128,22 @@ public enum MessageReceiver {
                             )
                         )
                         
-                        guard
-                            let envelope: SNProtoEnvelope = try? MessageWrapper.unwrap(
+                        let envelope: SNProtoEnvelope = try Result(catching: {
+                            try MessageWrapper.unwrap(
                                 data: plaintextEnvelope,
+                                namespace: namespace,
                                 includesWebSocketMessage: false
-                            ),
-                            let envelopeContent: Data = envelope.content
-                        else {
-                            Log.warn(.messageReceiver, "Failed to unwrap data for message from 'default' namespace.")
-                            throw MessageReceiverError.invalidMessage
-                        }
+                            )
+                        })
+                        .onFailure { error in Log.warn(.messageReceiver, "\(error)") }
+                        .mapError { _ in MessageReceiverError.invalidMessage }
+                        .successOrThrow()
+                        let envelopeContent: Data = try Result(
+                            catching: { try envelope.content ?? { throw MessageReceiverError.noData }() })
+                            .onFailure { error in Log.warn(.messageReceiver, "Failed to unwrap message from '\(namespace)' namespace due to error: \(error).") }
+                            .mapError { _ in MessageReceiverError.invalidMessage }
+                            .successOrThrow()
+                        
                         plaintext = envelopeContent // Padding already removed for updated groups
                         sentTimestampMs = envelope.timestamp
                         openGroupServerMessageId = nil

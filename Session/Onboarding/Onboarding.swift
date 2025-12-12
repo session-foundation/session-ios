@@ -255,12 +255,12 @@ extension Onboarding {
                 using: dependencies
             )
             
-            typealias PollResult = (configMessage: ProcessedMessage, displayName: String?)
+            typealias Response = (configMessage: ProcessedMessage, displayName: String?)
             let publisher: AnyPublisher<String?, Error> = poller
                 .poll(forceSynchronousProcessing: true)
-                .tryMap { [userSessionId, dependencies] messages, _, _, _ -> PollResult? in
+                .tryMap { [userSessionId, dependencies] result -> Response? in
                     guard
-                        let targetMessage: ProcessedMessage = messages.last, /// Just in case there are multiple
+                        let targetMessage: ProcessedMessage = result.response.last, /// Just in case there are multiple
                         case let .config(_, _, serverHash, serverTimestampMs, data, _) = targetMessage
                     else { return nil }
                     
@@ -292,7 +292,7 @@ extension Onboarding {
                 }
                 .handleEvents(
                     receiveOutput: { [weak self] result in
-                        guard let result: PollResult = result else { return }
+                        guard let result: Response = result else { return }
                         
                         /// Only store the `displayName` returned from the swarm if the user hasn't provided one in the display
                         /// name step (otherwise the user could enter a display name and have it immediately overwritten due to the
