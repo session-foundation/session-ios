@@ -1180,16 +1180,27 @@ extension ConversationVC:
                 let messageInfo: CallMessage.MessageInfo = try? JSONDecoder().decode(
                     CallMessage.MessageInfo.self,
                     from: infoMessageData
-                ),
-                messageInfo.state == .permissionDeniedMicrophone
-            else {
-                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
-                    caller: cellViewModel.authorName,
-                    presentingViewController: self,
-                    using: viewModel.dependencies
                 )
-                present(callMissedTipsModal, animated: true, completion: nil)
-                return
+            else { return }
+            
+            switch messageInfo.state {
+                case .permissionDenied:
+                    let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
+                        caller: cellViewModel.authorName,
+                        presentingViewController: self,
+                        using: viewModel.dependencies
+                    )
+                    present(callMissedTipsModal, animated: true, completion: nil)
+                    return
+                    
+                case .permissionDeniedMicrophone:
+                    Permissions.requestMicrophonePermissionIfNeeded(
+                        presentingViewController: self,
+                        using: viewModel.dependencies
+                    )
+                    return
+                    
+                case .incoming, .outgoing, .missed, .unknown: break
             }
             return
         }
@@ -2237,6 +2248,7 @@ extension ConversationVC:
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
+                                joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                                 forceVisible: false
                             )
                         }

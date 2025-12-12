@@ -4,23 +4,24 @@ import Foundation
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
-public enum MessageWrapper {
+public enum MessageWrapperError: Error, CustomStringConvertible {
+    case failedToWrapData
+    case failedToWrapMessageInEnvelope
+    case failedToWrapEnvelopeInWebSocketMessage
+    case failedToUnwrapData(Error, Network.SnodeAPI.Namespace)
 
-    public enum Error : LocalizedError {
-        case failedToWrapData
-        case failedToWrapMessageInEnvelope
-        case failedToWrapEnvelopeInWebSocketMessage
-        case failedToUnwrapData
-
-        public var errorDescription: String? {
-            switch self {
+    public var description: String {
+        switch self {
             case .failedToWrapData: return "Failed to wrap data."
             case .failedToWrapMessageInEnvelope: return "Failed to wrap message in envelope."
             case .failedToWrapEnvelopeInWebSocketMessage: return "Failed to wrap envelope in web socket message."
-            case .failedToUnwrapData: return "Failed to unwrap data."
-            }
+            case .failedToUnwrapData(let error, let namespace):
+                return "Failed to unwrap data from '\(namespace)' namespace due to error: \(error)."
         }
     }
+}
+
+public enum MessageWrapper {
 
     /// Wraps the given parameters in an `SNProtoEnvelope` and then a `WebSocketProtoWebSocketMessage` to match the desktop application.
     public static func wrap(
@@ -46,7 +47,7 @@ public enum MessageWrapper {
             let webSocketMessage = try createWebSocketMessage(around: envelope)
             return try webSocketMessage.serializedData()
         } catch let error {
-            throw error as? Error ?? Error.failedToWrapData
+            throw error as? MessageWrapperError ?? MessageWrapperError.failedToWrapData
         }
     }
 
@@ -59,7 +60,7 @@ public enum MessageWrapper {
             return try builder.build()
         } catch let error {
             Log.error(.messageSender, "Failed to wrap message in envelope: \(error).")
-            throw Error.failedToWrapMessageInEnvelope
+            throw MessageWrapperError.failedToWrapMessageInEnvelope
         }
     }
 
@@ -72,13 +73,14 @@ public enum MessageWrapper {
             return try messageBuilder.build()
         } catch let error {
             Log.error(.messageSender, "Failed to wrap envelope in web socket message: \(error).")
-            throw Error.failedToWrapEnvelopeInWebSocketMessage
+            throw MessageWrapperError.failedToWrapEnvelopeInWebSocketMessage
         }
     }
 
     /// - Note: `data` shouldn't be base 64 encoded.
     public static func unwrap(
         data: Data,
+        namespace: Network.SnodeAPI.Namespace,
         includesWebSocketMessage: Bool = true
     ) throws -> SNProtoEnvelope {
         do {
@@ -90,8 +92,7 @@ public enum MessageWrapper {
             }()
             return try SNProtoEnvelope.parseData(envelopeData)
         } catch let error {
-            Log.error(.messageSender, "Failed to unwrap data: \(error).")
-            throw Error.failedToUnwrapData
+            throw MessageWrapperError.failedToUnwrapData(error, namespace)
         }
     }
 }

@@ -76,6 +76,7 @@ internal extension LibSessionCacheType {
                 roomToken: community.roomToken,
                 server: community.server,
                 publicKey: community.publicKey,
+                joinedAt: community.joinedAt,
                 forceVisible: true
             )
             
@@ -1079,7 +1080,8 @@ public extension LibSession {
                         server: server,
                         roomToken: roomToken,
                         publicKey: community.getHex(\.pubkey),
-                        priority: community.priority
+                        priority: community.priority,
+                        joinedAt: TimeInterval(community.joined_at)
                     )
                 )
             }
@@ -1148,6 +1150,7 @@ public extension LibSession {
         let roomToken: String
         let publicKey: String
         let priority: Int32
+        let joinedAt: TimeInterval
     }
 }
 

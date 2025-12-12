@@ -147,6 +147,7 @@ public final class OpenGroupManager {
         roomToken: String,
         server: String,
         publicKey: String,
+        joinedAt: TimeInterval,
         forceVisible: Bool
     ) -> Bool {
         // If we are currently polling for this server and already have a TSGroupThread for this room the do nothing
@@ -172,6 +173,7 @@ public final class OpenGroupManager {
             id: threadId,
             variant: .community,
             values: SessionThread.TargetValues(
+                creationDateTimestamp: .useExistingOrSetTo(joinedAt),
                 /// When adding an open group via config handling then we want to force it to be visible (if it did come via config
                 /// handling then we want to wait until it actually has messages before making it visible)
                 shouldBeVisible: (forceVisible ? .setTo(true) :  .useExisting)

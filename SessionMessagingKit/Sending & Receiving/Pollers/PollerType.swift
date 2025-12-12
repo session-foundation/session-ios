@@ -35,17 +35,20 @@ public enum PollerErrorResponse {
     case continuePollingInfo(String)
 }
 
+// MARK: - PollResult
+
+public struct PollResult<PollResponse> {
+    public let response: PollResponse
+    public let rawMessageCount: Int
+    public let validMessageCount: Int
+    public let invalidMessageCount: Int
+    public let hadValidHashUpdate: Bool
+}
+
 // MARK: - PollerType
 
 public protocol PollerType: AnyObject {
     associatedtype PollResponse
-    
-    typealias PollResult = (
-        response: PollResponse,
-        rawMessageCount: Int,
-        validMessageCount: Int,
-        hadValidHashUpdate: Bool
-    )
     
     var dependencies: Dependencies { get }
     var pollerQueue: DispatchQueue { get }
@@ -78,7 +81,7 @@ public protocol PollerType: AnyObject {
     func stop()
     
     func pollerDidStart()
-    func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error>
+    func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult<PollResponse>, Error>
     func nextPollDelay() -> AnyPublisher<TimeInterval, Error>
     func handlePollError(_ error: Error, _ lastError: Error?) -> PollerErrorResponse
 }
@@ -181,15 +184,27 @@ public extension PollerType {
                             // Reset the failure count
                             self?.failureCount = 0
                             
-                            switch (response.rawMessageCount, response.validMessageCount, response.hadValidHashUpdate) {
-                                case (0, _, _):
-                                    Log.info(.poller, "Received no new messages in \(pollerName) after \(duration, unit: .s). Next poll in \(nextPollInterval, unit: .s).")
-                                    
-                                case (_, 0, false):
-                                    Log.info(.poller, "Received \(response.rawMessageCount) new message(s) in \(pollerName) after \(duration, unit: .s), all duplicates - marked the hash we polled with as invalid. Next poll in \(nextPollInterval, unit: .s).")
-                                    
-                                default:
-                                    Log.info(.poller, "Received \(response.validMessageCount) new message(s) in \(pollerName) after \(duration, unit: .s) (duplicates: \(response.rawMessageCount - response.validMessageCount)). Next poll in \(nextPollInterval, unit: .s).")
+                            if response.rawMessageCount == 0 {
+                                Log.info(.poller, "Received no new messages in \(pollerName) after \(duration, unit: .s). Next poll in \(nextPollInterval, unit: .s).")
+                            }
+                            else {
+                                let duplicateCount: Int = (response.rawMessageCount - response.validMessageCount - response.invalidMessageCount)
+                                var details: [String] = []
+                                
+                                if response.validMessageCount > 0 {
+                                    details.append("valid: \(response.validMessageCount)")
+                                }
+                                if response.invalidMessageCount > 0 {
+                                    details.append("invalid: \(response.invalidMessageCount)")
+                                }
+                                if duplicateCount > 0 {
+                                    details.append("duplicates: \(duplicateCount)")
+                                }
+                                
+                                let detailsString: String = (details.isEmpty ? "" : " (\(details.joined(separator: ", ")))")
+                                let hashNote: String = (response.validMessageCount == 0 && response.invalidMessageCount == 0 && !response.hadValidHashUpdate ? " - marked the hash we polled with as invalid" : "")
+                                
+                                Log.info(.poller, "Received \(response.rawMessageCount) new message(s) in \(pollerName) after \(duration, unit: .s)\(detailsString)\(hashNote). Next poll in \(nextPollInterval, unit: .s).")
                             }
                     }
                     
@@ -203,7 +218,7 @@ public extension PollerType {
     
     /// This doesn't do anything functional _but_ does mean if we get a crash from the `BackgroundPoller` we can better distinguish
     /// it from a crash from a foreground poll
-    func pollFromBackground() -> AnyPublisher<PollResult, Error> {
+    func pollFromBackground() -> AnyPublisher<PollResult<PollResponse>, Error> {
         return poll(forceSynchronousProcessing: true)
     }
 }
