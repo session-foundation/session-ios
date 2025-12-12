@@ -79,15 +79,12 @@ public extension String.StringInterpolation {
 }
 
 public extension String {
-    static func formattedDuration(_ duration: TimeInterval, format: TimeInterval.DurationFormat = .short, minimumUnit: NSCalendar.Unit = .second) -> String {
+    static func formattedDuration(
+        _ duration: TimeInterval,
+        format: TimeInterval.DurationFormat = .short,
+        allowedUnits: NSCalendar.Unit = [.weekOfMonth, .day, .hour, .minute, .second]
+    ) -> String {
         let dateComponentsFormatter = DateComponentsFormatter()
-        var allowedUnits: NSCalendar.Unit = [.weekOfMonth, .day, .hour, .minute, .second]
-        switch minimumUnit {
-            case .minute:
-                allowedUnits.remove(.second)
-            default:
-                break
-        }
         dateComponentsFormatter.allowedUnits = allowedUnits
         var calendar = Calendar.current
         
@@ -138,7 +135,14 @@ public extension String {
     }
     
     static func formattedRelativeTime(_ timestampMs: Int64, minimumUnit: NSCalendar.Unit) -> String {
-        let relativeTimestamp: TimeInterval = Date().timeIntervalSince1970 - TimeInterval(timestampMs) / 1000
-        return relativeTimestamp.formatted(format: .short, minimumUnit: minimumUnit)
+        let relativeTimestamp: TimeInterval = (Date().timeIntervalSince1970 - TimeInterval(timestampMs) / 1000)
+        var allowedUnits: NSCalendar.Unit = [.weekOfMonth, .day, .hour, .minute, .second]
+        
+        switch minimumUnit {
+            case .minute: allowedUnits.remove(.second)
+            default: break
+        }
+        
+        return relativeTimestamp.formatted(format: .short, allowedUnits: allowedUnits)
     }
 }

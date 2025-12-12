@@ -626,6 +626,7 @@ public class HomeViewModel: NavigatableStateHolder {
         dependencies[singleton: .donationsManager].conversationListDidAppear()
         
         if state.pendingAppReviewPromptState != nil {
+            // Handle App review
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
                 guard let updatedState: AppReviewPromptState = self?.state.pendingAppReviewPromptState else { return }
                 
@@ -637,12 +638,61 @@ public class HomeViewModel: NavigatableStateHolder {
         
         // Camera reminder
         willShowCameraPermissionReminder()
+        
+        // Pro expiring/expired CTA
+        showSessionProCTAIfNeeded()
     }
 
     func scheduleAppReviewRetry() {
         /// Wait 2 weeks before trying again
         dependencies[defaults: .standard, key: .rateAppRetryDate] = dependencies.dateNow
             .addingTimeInterval(2 * 7 * 24 * 60 * 60)
+    }
+    
+    func showSessionProCTAIfNeeded() {
+        switch dependencies[singleton: .sessionProState].sessionProStateSubject.value {
+            case .none, .refunding:
+                return
+            case .active(_, let expiredOn, _ , _):
+                guard !dependencies[defaults: .standard, key: .hasShownProExpiringCTA] else { return }
+                let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
+                guard expiryInSeconds <= 7 * 24 * 60 * 60 else { return }
+
+                scheduleExpiringSessionProCTA(expiryInSeconds.ceilingFormatted(format: .long, allowedUnits: [ .day, .hour, .minute ]))
+                dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = true
+            case .expired(let expiredOn, _):
+                guard !dependencies[defaults: .standard, key: .hasShownProExpiredCTA] else { return }
+                let expiryInSeconds: TimeInterval = expiredOn.timeIntervalSinceNow
+                guard expiryInSeconds <= 30 * 24 * 60 * 60 && !dependencies[feature: .mockExpiredOverThirtyDays] else { return }
+
+                scheduleExpiringSessionProCTA(nil)
+                dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = true
+        }
+    }
+
+    private func scheduleExpiringSessionProCTA(_ timeLeft: String?) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, dependencies] in
+            dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                .expiring(timeLeft: timeLeft),
+                onConfirm: {
+                    let viewController: SessionHostingViewController = SessionHostingViewController(
+                        rootView: SessionProPaymentScreen(
+                            viewModel: SessionProPaymentScreenContent.ViewModel(
+                                dependencies: dependencies,
+                                dataModel: .init(
+                                    flow: dependencies[singleton: .sessionProState].sessionProStateSubject.value.toPaymentFlow(using: dependencies),
+                                    plans: dependencies[singleton: .sessionProState].sessionProPlans.map { $0.info() }
+                                )
+                            )
+                        )
+                    )
+                    self?.transitionToScreen(viewController)
+                },
+                presenting: { modal in
+                    self?.transitionToScreen(modal, transitionType: .present)
+                }
+            )
+        }
     }
     
     func handlePromptChangeState(_ state: AppReviewPromptState?) {

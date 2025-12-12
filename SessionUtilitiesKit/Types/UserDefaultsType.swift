@@ -183,6 +183,12 @@ public extension UserDefaults.BoolKey {
     
     /// Indicates wheter the user should be reminded to grant camera permission for calls
     static let shouldRemindGrantingCameraPermissionForCalls: UserDefaults.BoolKey = "shouldRemindGrantingCameraPermissionForCalls"
+    
+    /// Indicates wheter the app has shown the Pro expiring CTA
+    static let hasShownProExpiringCTA: UserDefaults.BoolKey = "hasShownProExpiringCTA"
+    
+    /// Indicates wheter the app has shown the Pro expired CTA
+    static let hasShownProExpiredCTA: UserDefaults.BoolKey = "hasShownProExpiredCTA"
 }
 
 public extension UserDefaults.DateKey {

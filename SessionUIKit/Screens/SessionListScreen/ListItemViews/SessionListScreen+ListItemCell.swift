@@ -1,0 +1,143 @@
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+
+import SwiftUI
+import DifferenceKit
+
+// MARK: - ListItemCell
+
+public struct ListItemCell: View {
+    public struct Info: Equatable, Hashable, Differentiable {
+        let leadingAccessory: SessionListScreenContent.ListItemAccessory?
+        let title: SessionListScreenContent.TextInfo?
+        let description: SessionListScreenContent.TextInfo?
+        let trailingAccessory: SessionListScreenContent.ListItemAccessory?
+        
+        public init(
+            leadingAccessory: SessionListScreenContent.ListItemAccessory? = nil,
+            title: SessionListScreenContent.TextInfo? = nil,
+            description: SessionListScreenContent.TextInfo? = nil,
+            trailingAccessory: SessionListScreenContent.ListItemAccessory? = nil
+        ) {
+            self.leadingAccessory = leadingAccessory
+            self.title = title
+            self.description = description
+            self.trailingAccessory = trailingAccessory
+        }
+    }
+    
+    @State var isExpanded: Bool
+    
+    let info: Info
+    let height: CGFloat
+    let onTap: (() -> Void)?
+    
+    public init(info: Info, height: CGFloat, onTap: (() -> Void)? = nil) {
+        self.info = info
+        self.height = height
+        self.isExpanded = (info.title?.interaction != .expandable)
+        self.onTap = onTap
+    }
+    
+    public var body: some View {
+        HStack(spacing: Values.mediumSpacing) {
+            if let leadingAccessory = info.leadingAccessory {
+                leadingAccessory.accessoryView()
+                    .padding(.horizontal, leadingAccessory.padding)
+            }
+            
+            VStack(alignment: .center, spacing: 0) {
+                if let title = info.title {
+                    HStack(spacing: Values.verySmallSpacing) {
+                        if case .trailing = info.title?.alignment { Spacer(minLength: 0) }
+                        if case .center = info.title?.alignment { Spacer(minLength: 0) }
+                        
+                        if let text = title.text {
+                            ZStack {
+                                if let inlineImage = title.inlineImage {
+                                    switch inlineImage.position {
+                                        case .leading:
+                                            Text("\(Image(uiImage: inlineImage.image)) ") + Text(text)
+                                        case .trailing:
+                                            Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
+                                    }
+                                } else {
+                                    Text(text)
+                                }
+                            }
+                            .lineLimit(isExpanded ? nil : 3)
+                            .font(title.font)
+                            .multilineTextAlignment(title.alignment)
+                            .foregroundColor(themeColor: title.color)
+                            .accessibility(title.accessibility)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(title.interaction == .copy)
+                            
+                        } else if let attributedString = title.attributedString {
+                            AttributedText(attributedString)
+                                .font(title.font)
+                                .multilineTextAlignment(title.alignment)
+                                .foregroundColor(themeColor: title.color)
+                                .accessibility(title.accessibility)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(title.interaction == .copy)
+                        }
+                        
+                        if case .center = info.title?.alignment { Spacer(minLength: 0) }
+                        if case .leading = info.title?.alignment { Spacer(minLength: 0) }
+                    }
+                }
+                
+                if let description = info.description {
+                    HStack(spacing: Values.verySmallSpacing) {
+                        if case .trailing = info.description?.alignment { Spacer(minLength: 0) }
+                        if case .center = info.description?.alignment { Spacer(minLength: 0) }
+                        
+                        if let text = description.text {
+                            Text(text)
+                                .font(description.font)
+                                .multilineTextAlignment(description.alignment)
+                                .foregroundColor(themeColor: description.color)
+                                .accessibility(description.accessibility)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else if let attributedString = description.attributedString {
+                            AttributedText(attributedString)
+                                .font(description.font)
+                                .multilineTextAlignment(description.alignment)
+                                .foregroundColor(themeColor: description.color)
+                                .accessibility(description.accessibility)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        
+                        if case .center = info.description?.alignment { Spacer(minLength: 0) }
+                        if case .leading = info.description?.alignment { Spacer(minLength: 0) }
+                    }
+                }
+            }
+            .frame(
+                maxWidth: .infinity,
+                maxHeight: .infinity,
+                alignment: .leading
+            )
+            
+            if let trailingAccessory = info.trailingAccessory {
+                trailingAccessory.accessoryView()
+                    .padding(.horizontal, trailingAccessory.padding)
+            }
+        }
+        .padding(.horizontal, Values.mediumSpacing)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: height,
+            alignment: .leading
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if info.title?.interaction == .expandable {
+                withAnimation {
+                    isExpanded.toggle()
+                }
+            }
+            onTap?()
+        }
+    }
+}

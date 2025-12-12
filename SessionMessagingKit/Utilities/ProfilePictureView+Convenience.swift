@@ -57,7 +57,7 @@ public extension ProfilePictureView.Info {
                 /// If we are given an explicit `displayPictureUrl` then only use that
                 return (ProfilePictureView.Info(
                     source: .url(URL(fileURLWithPath: path)),
-                    animationBehaviour: .generic(true),
+                    canAnimate: true,
                     icon: profileIcon
                 ), nil)
             
@@ -66,7 +66,7 @@ public extension ProfilePictureView.Info {
                 return (
                     ProfilePictureView.Info(
                         source: .url(URL(fileURLWithPath: path)),
-                        animationBehaviour: ProfilePictureView.animationBehaviour(from: profile, using: dependencies),
+                        canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
                         icon: profileIcon
                     ),
                     nil
@@ -82,7 +82,7 @@ public extension ProfilePictureView.Info {
                                 case .hero, .modal, .expanded: return .image("SessionWhite40", #imageLiteral(resourceName: "SessionWhite40"))
                             }
                         }(),
-                        animationBehaviour: .generic(true),
+                        canAnimate: true,
                         inset: UIEdgeInsets(
                             top: 12,
                             left: 12,
@@ -121,7 +121,7 @@ public extension ProfilePictureView.Info {
                 return (
                     ProfilePictureView.Info(
                         source: source,
-                        animationBehaviour: ProfilePictureView.animationBehaviour(from: profile, using: dependencies),
+                        canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
                         icon: profileIcon
                     ),
                     additionalProfile
@@ -144,14 +144,14 @@ public extension ProfilePictureView.Info {
                             
                             return ProfilePictureView.Info(
                                 source: source,
-                                animationBehaviour: ProfilePictureView.animationBehaviour(from: other, using: dependencies),
+                                canAnimate: ProfilePictureView.canProfileAnimate(other, using: dependencies),
                                 icon: additionalProfileIcon
                             )
                         }
                         .defaulting(
                             to: ProfilePictureView.Info(
                                 source: .image("ic_user_round_fill", UIImage(named: "ic_user_round_fill")),
-                                animationBehaviour: .generic(false),
+                                canAnimate: false,
                                 renderingMode: .alwaysTemplate,
                                 themeTintColor: .white,
                                 inset: UIEdgeInsets(
@@ -186,7 +186,7 @@ public extension ProfilePictureView.Info {
                 return (
                     ProfilePictureView.Info(
                         source: source,
-                        animationBehaviour: ProfilePictureView.animationBehaviour(from: profile, using: dependencies),
+                        canAnimate: ProfilePictureView.canProfileAnimate(profile, using: dependencies),
                         icon: profileIcon),
                     nil
                 )
@@ -195,17 +195,22 @@ public extension ProfilePictureView.Info {
 }
 
 public extension ProfilePictureView {
-    static func animationBehaviour(from profile: Profile?, using dependencies: Dependencies) -> Info.AnimationBehaviour {
-        guard dependencies[feature: .sessionProEnabled] else { return .generic(true) }
+    // TODO: [PRO] Need to properly wire this up (it won't observe the changes, the parent screen will be responsible for updating the profile data and reloading the UI if the pro state changes)
+    static func canProfileAnimate(_ profile: Profile?, using dependencies: Dependencies) -> Bool {
+        guard dependencies[feature: .sessionProEnabled] else { return true }
 
         switch profile {
-            case .none: return .generic(false)
+            case .none: return false
             
             case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
-                return .currentUser(dependencies[singleton: .sessionProState])
+                if case .active = dependencies[singleton: .sessionProState].sessionProStateSubject.value {
+                    return true
+                } else {
+                    return false
+                }
                 
             case .some(let profile):
-                return .contact(dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) }))
+                return dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) })
         }
     }
 }

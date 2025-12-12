@@ -98,8 +98,39 @@ public extension FeatureStorage {
         identifier: "sessionPro"
     )
     
-    static let mockCurrentUserSessionPro: FeatureConfig<Bool> = Dependencies.create(
-        identifier: "mockCurrentUserSessionPro"
+    static let mockCurrentUserSessionProState: FeatureConfig<SessionProStateMock> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProState"
+    )
+    
+    static let mockCurrentUserSessionProExpiry: FeatureConfig<SessionProStateExpiryMock> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProExpiry"
+    )
+    
+    static let mockCurrentUserSessionProLoadingState: FeatureConfig<SessionProLoadingState> = Dependencies.create(
+        identifier: "mockCurrentUserSessionProLoadingState"
+    )
+    
+    static let proPlanOriginatingPlatform: FeatureConfig<ClientPlatform> = Dependencies.create(
+        identifier: "proPlanOriginatingPlatform"
+    )
+    
+    static let mockNonOriginatingAccount: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "mockNonOriginatingAccount",
+        defaultOption: false
+    )
+    
+    static let mockExpiredOverThirtyDays: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "mockExpiredOverThirtyDays",
+        defaultOption: false
+    )
+    
+    static let mockInstalledFromIPA: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "mockInstalledFromIPA",
+        defaultOption: false
+    )
+    
+    static let proPlanToRecover: FeatureConfig<Bool> = Dependencies.create(
+        identifier: "proPlanToRecover"
     )
     
     static let allUsersSessionPro: FeatureConfig<Bool> = Dependencies.create(
