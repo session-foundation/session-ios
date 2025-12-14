@@ -854,7 +854,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 }
 
 extension MediaGalleryViewModel.Item: GalleryRailItem {
-    public func buildRailItemView(using dependencies: Dependencies) -> UIView {
+    @MainActor public func buildRailItemView(using dependencies: Dependencies) -> UIView {
         let imageView: SessionImageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
         imageView.contentMode = .scaleAspectFill
         

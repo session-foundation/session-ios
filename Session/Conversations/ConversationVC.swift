@@ -1411,7 +1411,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
     }
     
-    func updateNavBarButtons(
+    @MainActor func updateNavBarButtons(
         threadData: SessionThreadViewModel?,
         initialVariant: SessionThread.Variant,
         initialIsNoteToSelf: Bool,

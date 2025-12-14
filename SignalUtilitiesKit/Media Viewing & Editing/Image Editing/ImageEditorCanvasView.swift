@@ -569,7 +569,7 @@ public class ImageEditorCanvasView: UIView {
         layer.string = attributedString.string
         layer.font = item.font
         layer.fontSize = fontSize
-        layer.themeForegroundColorForced = .color(item.color.color)
+        layer.foregroundColor = item.color.color.cgColor   /// Intentionally avoid theme system to avoid threading issues
         layer.isWrapped = true
         layer.alignmentMode = CATextLayerAlignmentMode.center
         // I don't think we need to enable allowsFontSubpixelQuantization

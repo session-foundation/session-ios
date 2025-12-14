@@ -1,4 +1,6 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import UIKit
 import CryptoKit
@@ -76,7 +78,7 @@ public enum PlaceholderIcon {
         
         let layer = CATextLayer()
         layer.frame = frame
-        layer.themeForegroundColorForced = .color(.white)
+        layer.foregroundColor = UIColor.white.cgColor   /// Intentionally avoid theme system to avoid threading issues
         layer.contentsScale = UIScreen.main.scale
         
         let fontName = font.fontName
@@ -89,7 +91,7 @@ public enum PlaceholderIcon {
         let base = CALayer()
         base.frame = CGRect(x: 0, y: 0, width: diameter, height: diameter)
         base.masksToBounds = true
-        base.themeBackgroundColorForced = .color(color)
+        base.backgroundColor = color.cgColor            /// Intentionally avoid theme system to avoid threading issues
         base.addSublayer(layer)
         
         return base
