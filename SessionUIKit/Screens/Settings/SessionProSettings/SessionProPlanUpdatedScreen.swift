@@ -6,12 +6,14 @@ import Lucide
 public struct SessionProPlanUpdatedScreen: View {
     @EnvironmentObject var host: HostWrapper
     let flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow
-    let expiredOn: Date
-    var blurSize: CGFloat { UIScreen.main.bounds.width - 2 * Values.mediumSpacing }
+    let expiredOn: Date?
+    let isFromBottomSheet: Bool
+    var blurSizeWidth: CGFloat { UIScreen.main.bounds.width - 2 * Values.mediumSpacing }
+    var blurSizeHeight: CGFloat { isFromBottomSheet ? 111 : blurSizeWidth }
     var dismissButtonTitle: String {
         switch flow {
             case .purchase, .renew:
-                "Start Using Pro"
+                "proStartUsing".put(key: "pro", value: Constants.pro).localized()
             case .update:
                 "theReturn".localized()
             default: 
@@ -20,14 +22,20 @@ public struct SessionProPlanUpdatedScreen: View {
     }
     var desription: ThemedAttributedString {
         switch flow {
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform):
-                "proAllSetDescription"
+            case .update:
+                guard let expiredOn else { fallthrough }
+                return "proAllSetDescription"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "pro", value: Constants.pro)
                     .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                     .localizedFormatted(Fonts.Body.baseRegular)
             case .renew:
-                "proPlanRenewSupport"
+                return "proPlanRenewSupport"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "network_name", value: Constants.network_name)
+                    .localizedFormatted(Fonts.Body.baseRegular)
+            case .purchase:
+                return "proUpgraded"
                     .put(key: "app_pro", value: Constants.app_pro)
                     .put(key: "network_name", value: Constants.network_name)
                     .localizedFormatted(Fonts.Body.baseRegular)
@@ -39,9 +47,9 @@ public struct SessionProPlanUpdatedScreen: View {
         ZStack(alignment: .top) {
             Ellipse()
                 .fill(themeColor: .settings_glowingBackground)
-                .frame(width: blurSize, height: blurSize)
+                .frame(width: blurSizeWidth, height: blurSizeHeight)
                 .shadow(radius: 20)
-                .opacity(0.17)
+                .opacity(0.15)
                 .blur(radius: 30)
             
             VStack(spacing: Values.mediumSpacing) {
@@ -93,7 +101,7 @@ public struct SessionProPlanUpdatedScreen: View {
                 .padding(.vertical, Values.smallSpacing)
             }
             .padding(.horizontal, Values.mediumSpacing)
-            .padding(.vertical, (blurSize - 111) / 2)
+            .padding(.vertical, (blurSizeHeight - 111) / 2)
         }
     }
 }

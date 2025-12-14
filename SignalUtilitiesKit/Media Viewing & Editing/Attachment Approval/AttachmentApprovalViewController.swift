@@ -233,7 +233,7 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             ),
             imageDataManager: dependencies[singleton: .imageDataManager],
             linkPreviewManager: dependencies[singleton: .linkPreviewManager],
-            sessionProState: dependencies[singleton: .sessionProState],
+            sessionProStatePublisher: dependencies[singleton: .sessionProState].isSessionProActivePublisher,
             onQuoteCancelled: onQuoteCancelled,
             didLoadLinkPreview: { [weak self] result in
                 self?.didLoadLinkPreview?(result)
@@ -702,9 +702,16 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     
     @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
         guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-            .longerMessages,
-            onConfirm: { [weak self] in
-                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            .longerMessages(renew: dependencies[singleton: .sessionProState].isSessionProExpired),
+            onConfirm: { [weak self, dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    afterClosed: {
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
@@ -749,9 +756,16 @@ extension AttachmentApprovalViewController: InputViewDelegate {
     
     public func handleCharacterLimitLabelTapped() {
         guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-            .longerMessages,
-            onConfirm: { [weak self] in
-                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            .longerMessages(renew: dependencies[singleton: .sessionProState].isSessionProExpired),
+            onConfirm: { [weak self, dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    afterClosed: {
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")

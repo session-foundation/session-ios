@@ -96,17 +96,14 @@ public class BaseVC: UIViewController {
         
         let sessionProBadge: SessionProBadge = SessionProBadge(size: .medium)
         let isPro: Bool = {
-            if case .active = currentUserSessionProState.sessionProStateSubject.value {
-                return true
-            } else {
-                return false
+            switch currentUserSessionProState.sessionProStateSubject.value {
+                case .active, .refunding : return true
+                case .none, .expired: return false
             }
         }()
         sessionProBadge.isHidden = !isPro
         
-        let stackView: UIStackView = UIStackView(
-            arrangedSubviews: MainAppContext.determineDeviceRTL() ? [ sessionProBadge, headingImageView ] : [ headingImageView, sessionProBadge ]
-        )
+        let stackView: UIStackView = UIStackView(arrangedSubviews: [ headingImageView, sessionProBadge ])
         stackView.axis = .horizontal
         stackView.alignment = .center
         stackView.spacing = 0
@@ -117,10 +114,9 @@ public class BaseVC: UIViewController {
             .sink(
                 receiveValue: { [weak sessionProBadge] sessionProPlanState in
                     let isPro: Bool = {
-                        if case .active = sessionProPlanState {
-                            return true
-                        } else {
-                            return false
+                        switch sessionProPlanState {
+                            case .active, .refunding : return true
+                            case .none, .expired: return false
                         }
                     }()
                     sessionProBadge?.isHidden = !isPro
