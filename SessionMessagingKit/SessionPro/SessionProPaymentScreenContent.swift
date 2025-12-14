@@ -10,17 +10,19 @@ extension SessionProPaymentScreenContent {
         public var dataModel: DataModel
         public var isRefreshing: Bool = false
         public var errorString: String?
+        public var isFromBottomSheet: Bool
         
         private var dependencies: Dependencies
         
-        init(dependencies: Dependencies, dataModel: DataModel) {
+        public init(dependencies: Dependencies, dataModel: DataModel, isFromBottomSheet: Bool) {
             self.dependencies = dependencies
             self.dataModel = dataModel
+            self.isFromBottomSheet = isFromBottomSheet
         }
         
-        public func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?) {
+        public func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?) async {
             let plan: SessionProPlan = SessionProPlan.from(planInfo)
-            dependencies[singleton: .sessionProState].upgradeToPro(
+            await dependencies[singleton: .sessionProState].upgradeToPro(
                 plan: plan,
                 originatingPlatform: .iOS
             ) { result in
@@ -32,8 +34,8 @@ extension SessionProPaymentScreenContent {
             }
         }
         
-        public func cancelPro(success: (() -> Void)?, failure: (() -> Void)?) {
-            dependencies[singleton: .sessionProState].cancelPro { result in
+        public func cancelPro(success: (() -> Void)?, failure: (() -> Void)?) async {
+            await dependencies[singleton: .sessionProState].cancelPro { result in
                 if result {
                     success?()
                 } else {
@@ -42,18 +44,14 @@ extension SessionProPaymentScreenContent {
             }
         }
         
-        public func requestRefund(success: (() -> Void)?, failure: (() -> Void)?) {
-            dependencies[singleton: .sessionProState].requestRefund { result in
+        public func requestRefund(success: (() -> Void)?, failure: (() -> Void)?) async {
+            await dependencies[singleton: .sessionProState].requestRefund { result in
                 if result {
                     success?()
                 } else {
                     failure?()
                 }
             }
-        }
-        
-        public func openURL(_ url: URL) {
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }
     }
 }

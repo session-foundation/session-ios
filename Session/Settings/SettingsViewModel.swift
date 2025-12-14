@@ -458,7 +458,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                             }
                         }(),
                         styling: SessionCell.StyleInfo(
-                            tintColor: .primary
+                            tintColor: .sessionButton_text
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             let viewController: SessionListHostingViewController = SessionListHostingViewController(
@@ -868,9 +868,16 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 Task { @MainActor in
                     dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                         .animatedProfileImage(
-                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro,
+                            renew: dependencies[singleton: .sessionProState].isSessionProExpired
                         ),
-                        onConfirm: {},
+                        onConfirm: {
+                            dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                presenting: { bottomSheet in
+                                    self?.transitionToScreen(bottomSheet, transitionType: .present)
+                                }
+                            )
+                        },
                         presenting: { modal in
                             self?.transitionToScreen(modal, transitionType: .present)
                         }
@@ -924,9 +931,16 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                                     Task { @MainActor in
                                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                                             .animatedProfileImage(
-                                                isSessionProActivated: dependencies[cache: .libSession].isSessionPro
+                                                isSessionProActivated: dependencies[cache: .libSession].isSessionPro,
+                                                renew: dependencies[singleton: .sessionProState].isSessionProExpired
                                             ),
-                                            onConfirm: {},
+                                            onConfirm: {
+                                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                                    presenting: { bottomSheet in
+                                                        self?.transitionToScreen(bottomSheet, transitionType: .present)
+                                                    }
+                                                )
+                                            },
                                             presenting: { modal in
                                                 self?.transitionToScreen(modal, transitionType: .present)
                                             }

@@ -27,7 +27,7 @@ public extension SessionListScreenContent {
             case cell(info: ListItemCell.Info)
             case logoWithPro(info: ListItemLogoWithPro.Info)
             case dataMatrix(info: [[ListItemDataMatrix.Info]])
-            case button(title: String)
+            case button(title: String, enabled: Bool)
         }
         
         let id: ID

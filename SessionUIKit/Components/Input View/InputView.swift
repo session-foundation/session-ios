@@ -63,7 +63,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     private let displayNameRetriever: (String, Bool) -> String?
     private let onQuoteCancelled: (() -> Void)?
     private weak var delegate: InputViewDelegate?
-    private var sessionProState: SessionProCTAManagerType?
+    private var sessionProStatePublisher: AnyPublisher<Bool, Never>
     
     public var quoteViewModel: QuoteViewModel? { didSet { handleQuoteDraftChanged() } }
     public var linkPreviewViewModel: LinkPreviewViewModel?
@@ -359,7 +359,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         displayNameRetriever: @escaping (String, Bool) -> String?,
         imageDataManager: ImageDataManagerType,
         linkPreviewManager: LinkPreviewManagerType,
-        sessionProState: SessionProCTAManagerType?,
+        sessionProStatePublisher: AnyPublisher<Bool, Never>,
         onQuoteCancelled: (() -> Void)? = nil,
         didLoadLinkPreview: (@MainActor (LinkPreviewViewModel.LoadResult) -> Void)?
     ) {
@@ -367,7 +367,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         self.linkPreviewManager = linkPreviewManager
         self.delegate = delegate
         self.displayNameRetriever = displayNameRetriever
-        self.sessionProState = sessionProState
+        self.sessionProStatePublisher = sessionProStatePublisher
         self.didLoadLinkPreview = didLoadLinkPreview
         self.onQuoteCancelled = onQuoteCancelled
         
@@ -375,7 +375,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
         
         setUpViewHierarchy()
         
-        self.sessionProState?.isSessionProPublisher
+        self.sessionProStatePublisher
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(

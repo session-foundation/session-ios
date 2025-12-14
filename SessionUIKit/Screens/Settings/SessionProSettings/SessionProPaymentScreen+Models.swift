@@ -6,15 +6,20 @@ public enum SessionProPaymentScreenContent {}
 
 public extension SessionProPaymentScreenContent {
     enum SessionProPlanPaymentFlow: Equatable {
-        case purchase
+        case purchase(
+            billingAccess: Bool
+        )
         case update(
             currentPlan: SessionProPlanInfo,
             expiredOn: Date,
             isAutoRenewing: Bool,
-            originatingPlatform: ClientPlatform
+            originatingPlatform: ClientPlatform,
+            isNonOriginatingAccount: Bool?,
+            billingAccess: Bool
         )
         case renew(
-            originatingPlatform: ClientPlatform
+            originatingPlatform: ClientPlatform,
+            billingAccess: Bool
         )
         case refund(
             originatingPlatform: ClientPlatform,
@@ -27,11 +32,15 @@ public extension SessionProPaymentScreenContent {
         
         var description: ThemedAttributedString {
             switch self {
-                case .purchase:
-                    "proChooseAccess"
-                        .put(key: "pro", value: Constants.pro)
-                        .localizedFormatted(Fonts.Body.baseRegular)
-                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform):
+                case .purchase(let billingAccess):
+                    billingAccess ?
+                        "proChooseAccess"
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(Fonts.Body.baseRegular) :
+                        "proUpgradeAccess"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .localizedFormatted(Fonts.Body.baseRegular)
+                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform, _, _):
                     switch (originatingPlatform, isAutoRenewing) {
                         case (.Android, true):
                             "proAccessActivatedAutoShort"
@@ -56,11 +65,15 @@ public extension SessionProPaymentScreenContent {
                                 .put(key: "pro", value: Constants.pro)
                                 .localizedFormatted(Fonts.Body.baseRegular)
                     }
-                case .renew:
-                    "proAccessRenewStart"
-                        .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "pro", value: Constants.pro)
-                        .localizedFormatted(baseFont: Fonts.Body.baseRegular)
+                case .renew(_, let billingAccess):
+                    billingAccess ?
+                        "proChooseAccess"
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(Fonts.Body.baseRegular) :
+                        "proAccessRenewStart"
+                            .put(key: "app_pro", value: Constants.app_pro)
+                            .put(key: "pro", value: Constants.pro)
+                            .localizedFormatted(baseFont: Fonts.Body.baseRegular)
                 case .refund:
                     "proRefundDescription"
                         .localizedFormatted(baseFont: Fonts.Body.baseRegular)
@@ -159,11 +172,11 @@ public extension SessionProPaymentScreenContent {
         var dataModel: DataModel { get set }
         var isRefreshing: Bool { get set }
         var errorString: String? { get set }
+        var isFromBottomSheet: Bool { get }
         
-        func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?)
-        func cancelPro(success: (() -> Void)?, failure: (() -> Void)?)
-        func requestRefund(success: (() -> Void)?, failure: (() -> Void)?)
-        func openURL(_ url: URL)
+        func purchase(planInfo: SessionProPlanInfo, success: (() -> Void)?, failure: (() -> Void)?) async
+        func cancelPro(success: (() -> Void)?, failure: (() -> Void)?) async
+        func requestRefund(success: (() -> Void)?, failure: (() -> Void)?) async
     }
 }
 

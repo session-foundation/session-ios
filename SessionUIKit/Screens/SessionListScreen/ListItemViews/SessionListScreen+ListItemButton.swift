@@ -7,7 +7,8 @@ import DifferenceKit
 
 struct ListItemButton: View {
     let title: String
-    
+    let enabled: Bool
+
     var body: some View {
         Text(title)
             .font(.Body.largeRegular)
@@ -19,8 +20,8 @@ struct ListItemButton: View {
             )
             .background(
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(themeColor: .sessionButton_primaryFilledBackground)
+                    .fill(themeColor: enabled ? .sessionButton_primaryFilledBackground : .disabled)
             )
-            .padding(.vertical, Values.smallSpacing)
     }
 }
+

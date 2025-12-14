@@ -363,13 +363,20 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                             generator: { SessionProBadge(size: .mini) }
                                         )
                                     )
-                                default: return .generic
+                                default:
+                                    return .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
                             }
                         }()
                         
                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                             proCTAModalVariant,
-                            onConfirm: {},
+                            onConfirm: {
+                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                    presenting: { bottomSheet in
+                                        self?.transitionToScreen(bottomSheet, transitionType: .present)
+                                    }
+                                )
+                            },
                             presenting: { modal in
                                 self?.transitionToScreen(modal, transitionType: .present)
                             }
@@ -1564,8 +1571,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         current: String?,
         displayName: String
     ) -> ConfirmationModal.Info {
-        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry
-        /// about retrieving them in the confirmation closure
+        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry about retrieving them in the confirmation closure
         self.updatedName = current
         return ConfirmationModal.Info(
             title: "nicknameSet".localized(),
@@ -2044,15 +2050,18 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                             modal: ProCTAModal(
                                 variant: .morePinnedConvos(
-                                    isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit)
+                                    isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit),
+                                    renew: dependencies[singleton: .sessionProState].isSessionProExpired
                                 ),
                                 dataManager: dependencies[singleton: .imageDataManager],
                                 onConfirm: { [dependencies] in
-                                    dependencies[singleton: .sessionProState].upgradeToPro(
-                                        plan: SessionProPlan(variant: .threeMonths),
-                                        originatingPlatform: .iOS,
-                                        completion: nil
-                                    )
+                                    Task {
+                                        await dependencies[singleton: .sessionProState].upgradeToPro(
+                                            plan: SessionProPlan(variant: .threeMonths),
+                                            originatingPlatform: .iOS,
+                                            completion: nil
+                                        )
+                                    }
                                 }
                             )
                         )
