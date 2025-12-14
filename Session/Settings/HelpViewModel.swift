@@ -249,6 +249,14 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
             let accountSize: String = dependencies.mutate(cache: .libSession) { cache in
                 cache.stateDescriptionForLogs()
             }
+            let regionCode: String = {
+                if #available(iOS 16.0, *) {
+                    return (Locale.current.region?.identifier ?? "Unknown")
+                }
+                else {
+                    return (Locale.current.regionCode ?? "Unknown")
+                }
+            }()
             
             let debugInfo: String = """
               Device: \(Device.current)
@@ -256,9 +264,10 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
               Memory Usage: \(memoryInfo)
               Notification State: \(pushNotificationInfo)
               Permissions:
-              \(permissionsSummary.description.replacingOccurrences(of: "\n", with: "\n    "))
+                \(permissionsSummary.description.replacingOccurrences(of: "\n", with: "\n    "))
               Size:
-              \(accountSize.replacingOccurrences(of: "\n", with: "\n    "))
+                \(accountSize.replacingOccurrences(of: "\n", with: "\n    "))
+              Time: \(regionCode)
             """
             Log.info(.debugInfo, "\(debugInfo)")
             Log.flush()
