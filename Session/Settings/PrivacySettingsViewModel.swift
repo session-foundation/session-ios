@@ -265,24 +265,49 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         accessibility: Accessibility(
                             label: "Grant microphone permission"
                         ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: (
-                                state.localNetworkPermission ?
-                                "permissionChange".localized() :
-                                    "permissionsRequired".localized()
-                            ),
-                            body: .text(
-                                (
-                                    state.localNetworkPermission ?
-                                    "permissionsMicrophoneChangeDescriptionIos".localized() :
-                                        "permissionsMicrophoneAccessRequiredCallsIos".localized()
-                                )
-                            ),
-                            confirmTitle: "sessionSettings".localized(),
-                            onConfirm: { _ in
-                                UIApplication.shared.openSystemSettings()
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            switch Permissions.microphone {
+                                case .granted, .restricted:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionChange".localized(),
+                                                body: .text(
+                                                    "permissionsMicrophoneChangeDescriptionIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .denied:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionsRequired".localized(),
+                                                body: .text(
+                                                    "permissionsMicrophoneAccessRequiredCallsIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .undetermined, .unknown:
+                                    Permissions.requestMicrophonePermissionIfNeeded(using: dependencies)
+                                    return
                             }
-                        )
+                        }
                     )
                 )
                 callsSection.elements.append(
@@ -300,24 +325,49 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         accessibility: Accessibility(
                             label: "Grant camera permission"
                         ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: (
-                                state.localNetworkPermission ?
-                                "permissionChange".localized() :
-                                "permissionsRequired".localized()
-                            ),
-                            body: .text(
-                                (
-                                    state.localNetworkPermission ?
-                                    "permissionsCameraChangeDescriptionIos".localized() :
-                                    "permissionsCameraAccessRequiredCallsIos".localized()
-                                )
-                            ),
-                            confirmTitle: "sessionSettings".localized(),
-                            onConfirm: { _ in
-                                UIApplication.shared.openSystemSettings()
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            switch Permissions.camera {
+                                case .granted, .restricted:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionChange".localized(),
+                                                body: .text(
+                                                    "permissionsCameraChangeDescriptionIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .denied:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionsRequired".localized(),
+                                                body: .text(
+                                                    "permissionsCameraAccessRequiredCallsIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .undetermined, .unknown:
+                                    Permissions.requestCameraPermissionIfNeeded(using: dependencies)
+                                    return
                             }
-                        )
+                        }
                     )
                 )
                 callsSection.elements.append(
@@ -335,24 +385,49 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         accessibility: Accessibility(
                             label: "Grant local network permission"
                         ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: (
-                                state.localNetworkPermission ?
-                                "permissionChange".localized() :
-                                "permissionsRequired".localized()
-                            ),
-                            body: .text(
-                                (
-                                    state.localNetworkPermission ?
-                                    "permissionsLocalNetworkChangeDescriptionIos".localized() :
-                                    "permissionsLocalNetworkAccessRequiredCallsIos".localized()
-                                )
-                            ),
-                            confirmTitle: "sessionSettings".localized(),
-                            onConfirm: { _ in
-                                UIApplication.shared.openSystemSettings()
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            switch Permissions.localNetwork(using: dependencies) {
+                                case .granted, .restricted:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionChange".localized(),
+                                                body: .text(
+                                                    "permissionsLocalNetworkChangeDescriptionIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .denied:
+                                    viewModel?.transitionToScreen(
+                                        ConfirmationModal(
+                                            info: ConfirmationModal.Info(
+                                                title: "permissionsRequired".localized(),
+                                                body: .text(
+                                                    "permissionsLocalNetworkAccessRequiredCallsIos".localized()
+                                                ),
+                                                confirmTitle: "sessionSettings".localized(),
+                                                onConfirm: { _ in
+                                                    UIApplication.shared.openSystemSettings()
+                                                }
+                                            )
+                                        ),
+                                        transitionType: .present
+                                    )
+                                    return
+                                    
+                                case .undetermined, .unknown:
+                                    Permissions.requestLocalNetworkPermissionIfNeeded(using: dependencies)
+                                    return
                             }
-                        )
+                        }
                     )
                 )
             }

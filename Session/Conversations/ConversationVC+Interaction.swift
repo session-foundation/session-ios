@@ -2909,7 +2909,9 @@ extension ConversationVC:
         // Request permission if needed
         Permissions.requestMicrophonePermissionIfNeeded(
             using: viewModel.dependencies,
-            onNotGranted: { [weak self] in
+            onComplete: { [weak self] granted in
+                guard !granted else { return }
+                
                 DispatchQueue.main.async {
                     self?.cancelVoiceMessageRecording()
                 }

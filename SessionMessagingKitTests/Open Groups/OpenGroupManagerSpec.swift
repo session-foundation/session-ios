@@ -704,6 +704,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
+                                joinedAt: 1234567890,
                                 forceVisible: false
                             )
                         }
@@ -738,6 +739,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                 roomToken: "testRoom",
                                 server: "http://127.0.0.1",
                                 publicKey: TestConstants.serverPublicKey,
+                                joinedAt: 1234567890,
                                 forceVisible: false
                             )
                         }
@@ -784,6 +786,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     publicKey: TestConstants.serverPublicKey
                                         .replacingOccurrences(of: "c3", with: "00")
                                         .replacingOccurrences(of: "b3", with: "00"),
+                                    joinedAt: 1234567890,
                                     forceVisible: false
                                 )
                             }
@@ -852,6 +855,7 @@ class OpenGroupManagerSpec: QuickSpec {
                                     roomToken: "testRoom",
                                     server: "http://127.0.0.1",
                                     publicKey: TestConstants.serverPublicKey,
+                                    joinedAt: 1234567890,
                                     forceVisible: false
                                 )
                             }

@@ -22,11 +22,11 @@ extension Permissions {
         presentingViewController: UIViewController? = nil,
         useCustomDeniedAlert: Bool = false,
         using dependencies: Dependencies,
-        onAuthorized: ((Bool) -> Void)? = nil
+        onComplete: ((Bool) -> Void)? = nil
     ) -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
             case .authorized:
-                onAuthorized?(true)
+                onComplete?(true)
                 return true
             
             case .denied, .restricted:
@@ -34,7 +34,7 @@ extension Permissions {
                     let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController),
                     !useCustomDeniedAlert
                 else {
-                    onAuthorized?(false)
+                    onComplete?(false)
                     return false
                 }
                 
@@ -59,7 +59,7 @@ extension Permissions {
                 
             case .notDetermined:
                 AVCaptureDevice.requestAccess(for: .video, completionHandler: { granted in
-                    onAuthorized?(granted)
+                    onComplete?(granted)
                 })
                 return false
                 
@@ -70,14 +70,13 @@ extension Permissions {
     @MainActor public static func requestMicrophonePermissionIfNeeded(
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,
-        onAuthorized: ((Bool) -> Void)? = nil,
-        onNotGranted: (() -> Void)? = nil
+        onComplete: ((Bool) -> Void)? = nil
     ) {
         let handlePermissionDenied: () -> Void = {
             guard
                 let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
             else { return }
-            onNotGranted?()
+            onComplete?(false)
             
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -94,7 +93,7 @@ extension Permissions {
                             UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
                         })
                     },
-                    afterClosed: { onNotGranted?() }
+                    afterClosed: { onComplete?(false) }
                 )
             )
             presentingViewController.present(confirmationModal, animated: true, completion: nil)
@@ -105,10 +104,9 @@ extension Permissions {
                 case .granted: break
                 case .denied: handlePermissionDenied()
                 case .undetermined:
-                    onNotGranted?()
                     AVAudioApplication.requestRecordPermission { granted in
                         dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = granted
-                        onAuthorized?(granted)
+                        onComplete?(granted)
                     }
                 default: break
             }
@@ -117,10 +115,9 @@ extension Permissions {
                 case .granted: break
                 case .denied: handlePermissionDenied()
                 case .undetermined:
-                    onNotGranted?()
                     AVAudioSession.sharedInstance().requestRecordPermission { granted in
                         dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = granted
-                        onAuthorized?(granted)
+                        onComplete?(granted)
                     }
                 default: break
             }
@@ -190,23 +187,32 @@ extension Permissions {
         return status ? .granted : .denied
     }
     
-    public static func requestLocalNetworkPermissionIfNeeded(using dependencies: Dependencies) {
+    public static func requestLocalNetworkPermissionIfNeeded(
+        using dependencies: Dependencies,
+        onComplete: ((Bool) -> Void)? = nil
+    ) {
         dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] = true
-        checkLocalNetworkPermission(using: dependencies)
+        checkLocalNetworkPermission(using: dependencies, onComplete: onComplete)
     }
     
-    public static func checkLocalNetworkPermission(using dependencies: Dependencies) {
+    public static func checkLocalNetworkPermission(
+        using dependencies: Dependencies,
+        onComplete: ((Bool) -> Void)? = nil
+    ) {
         Task {
             do {
                 if try await checkLocalNetworkPermissionWithBonjour() {
                     // Permission is granted, continue to next onboarding step
                     dependencies.setAsync(.lastSeenHasLocalNetworkPermission, true)
+                    onComplete?(true)
                 } else {
                     // Permission denied, explain why we need it and show button to open Settings
                     dependencies.setAsync(.lastSeenHasLocalNetworkPermission, false)
+                    onComplete?(false)
                 }
             } catch {
                 // Networking failure, handle error
+                onComplete?(false)
             }
         }
     }
@@ -328,20 +334,26 @@ extension Permissions {
     
     public static func requestPermissionsForCalls(
         presentingViewController: UIViewController? = nil,
-        using dependencies: Dependencies
+        using dependencies: Dependencies,
+        onComplete: ((Bool, Bool, Bool) -> Void)? = nil
     ) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
             requestMicrophonePermissionIfNeeded(
                 presentingViewController: presentingViewController,
                 using: dependencies,
-                onAuthorized: { _ in
+                onComplete: { microphoneResult in
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                         requestCameraPermissionIfNeeded(
                             presentingViewController: presentingViewController,
                             using: dependencies,
-                            onAuthorized: { _ in
+                            onComplete: { cameraResult in
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                                    requestLocalNetworkPermissionIfNeeded(using: dependencies)
+                                    requestLocalNetworkPermissionIfNeeded(
+                                        using: dependencies,
+                                        onComplete: { localNetworkResult in
+                                            onComplete?(microphoneResult, cameraResult, localNetworkResult)
+                                        }
+                                    )
                                 }
                             }
                         )

@@ -63,6 +63,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return try mockThrowing(args: [config, variant, sessionId, timestampMs])
     }
     
+    func stateDescriptionForLogs() -> String { return mock() }
+    
     // MARK: - Pushes
     
     func syncAllPendingPushes(_ db: ObservingDatabase) {
