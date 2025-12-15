@@ -289,7 +289,7 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Info.Size, dataManager: ImageDataManagerType?) {
+    @MainActor public init(size: Info.Size, dataManager: ImageDataManagerType?) {
         self.dataManager = dataManager
         self.size = size
         
