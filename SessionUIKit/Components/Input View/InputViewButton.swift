@@ -165,7 +165,10 @@ public final class InputViewButton: UIView {
         invalidateLongPressIfNeeded()
         longPressTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false, block: { [weak self] _ in
             self?.isLongPress = true
-            self?.delegate?.handleInputViewButtonLongPressBegan(self)
+            
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.handleInputViewButtonLongPressBegan(self)
+            }
         })
     }
 

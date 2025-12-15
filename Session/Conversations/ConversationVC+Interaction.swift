@@ -2957,8 +2957,10 @@ extension ConversationVC:
         
         // Limit voice messages to a minute
         audioTimer = Timer.scheduledTimer(withTimeInterval: 180, repeats: false, block: { [weak self] _ in
-            self?.snInputView.hideVoiceMessageUI()
-            self?.endVoiceMessageRecording()
+            DispatchQueue.main.async { [weak self] in
+                self?.snInputView.hideVoiceMessageUI()
+                self?.endVoiceMessageRecording()
+            }
         })
         
         // Prepare audio recorder and start recording

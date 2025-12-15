@@ -218,7 +218,7 @@ final class ShareNavController: UINavigationController {
         present(indicator, animated: false)
         
         processPendingAttachmentsTask?.cancel()
-        processPendingAttachmentsTask = Task.detached(priority: .userInitiated) { [weak self, indicator] in
+        processPendingAttachmentsTask = Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies] in
             guard let self = self else { return }
             
             do {
@@ -229,7 +229,7 @@ final class ShareNavController: UINavigationController {
                     try attachment.ensureExpectedEncryptedSize(
                         domain: .attachment,
                         maxFileSize: Network.maxFileSize,
-                        using: self.dependencies
+                        using: dependencies
                     )
                 }
                 
