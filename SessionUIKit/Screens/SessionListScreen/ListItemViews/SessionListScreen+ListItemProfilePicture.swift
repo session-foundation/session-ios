@@ -33,8 +33,7 @@ public struct ListItemProfilePicture: View {
     
     public var body: some View {
         let scale: CGFloat = isProfileImageExpanding ? (190.0 / 90) : 1
-        switch content {
-        case .profilePicture:
+        ZStack(alignment: .top) {
             ZStack(alignment: .topTrailing) {
                 if let profileInfo = info.profileInfo {
                     ZStack {
@@ -57,7 +56,7 @@ public struct ListItemProfilePicture: View {
                     )
                 }
                 
-                if info.sessionId != nil {
+                if info.qrCodeImage != nil {
                     let (buttonSize, iconSize): (CGFloat, CGFloat) = isProfileImageExpanding ? (33, 20) : (24, 14)
                     ZStack {
                         Circle()
@@ -81,10 +80,10 @@ public struct ListItemProfilePicture: View {
                     }
                 }
             }
-            .padding(.top, 12)
             .padding(.vertical, 5)
             .padding(.horizontal, 10)
-        case .qrCode:
+            .opacity((content == .profilePicture ? 1 : 0))
+            
             ZStack(alignment: .topTrailing) {
                 if let qrCodeImage = info.qrCodeImage {
                     QRCodeView(
@@ -98,7 +97,7 @@ public struct ListItemProfilePicture: View {
                         )
                     )
                     .aspectRatio(1, contentMode: .fit)
-                    .frame(width: 190, height: 190)
+                    .frame(width: 190, height: 190, alignment: .top)
                     .padding(.vertical, 5)
                     .padding(.horizontal, 10)
                     .onTapGesture {
@@ -123,8 +122,15 @@ public struct ListItemProfilePicture: View {
                         }
                 }
             }
-            .padding(.top, 12)
+            .opacity((content == .qrCode ? 1 : 0))
         }
+        .frame(
+            width: 210,
+            height: content == .qrCode ? 200 : (ProfilePictureView.Info.Size.modal.viewSize * scale + 10),
+            alignment: .top
+        )
+        .border(Color.red)
+        .padding(.top, 12)
     }
     
     private func showQRCodeLightBox() {
