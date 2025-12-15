@@ -78,7 +78,7 @@ public enum PlaceholderIcon {
         let layer = CATextLayer()
         layer.frame = frame
         layer.foregroundColor = UIColor.white.cgColor   /// Intentionally avoid theme system to avoid threading issues
-        layer.contentsScale = UIScreen.main.scale
+        layer.contentsScale = (SNUIKit.initialMainScreenScale ?? 1) /// Avoid requiring main thread
         
         let fontName = font.fontName
         let fontRef = CGFont(fontName as CFString)
