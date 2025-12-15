@@ -20,8 +20,7 @@ class SessionListHostingViewController<ViewModel>: SessionHostingViewController<
         self.viewModel = viewModel
         super.init(
             rootView: SessionListScreen(
-                viewModel: viewModel,
-                dataManager: dependencies[singleton: .imageDataManager]
+                viewModel: viewModel
             ),
             customizedNavigationBackground: customizedNavigationBackground,
             shouldHideNavigationBar: shouldHideNavigationBar

@@ -17,6 +17,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
     public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
     
     /// This value is the current state of the view
     @MainActor @Published private(set) var internalState: ViewModelState
@@ -394,13 +395,20 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                                     generator: { SessionProBadge(size: .mini) }
                                                 )
                                             )
-                                        default: return .generic
+                                        default:
+                                            return .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
                                     }
                                 }()
                                 
                                 dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                                     proCTAModalVariant,
-                                    onConfirm: {},
+                                    onConfirm: {
+                                        dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                            presenting: { bottomSheet in
+                                                viewModel.transitionToScreen(bottomSheet, transitionType: .present)
+                                            }
+                                        )
+                                    },
                                     presenting: { modal in
                                         viewModel.transitionToScreen(modal, transitionType: .present)
                                     }
@@ -1763,8 +1771,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         current: String?,
         displayName: String
     ) -> ConfirmationModal.Info {
-        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry
-        /// about retrieving them in the confirmation closure
+        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry about retrieving them in the confirmation closure
         self.updatedName = current
         return ConfirmationModal.Info(
             title: "nicknameSet".localized(),
@@ -2243,15 +2250,18 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                             modal: ProCTAModal(
                                 variant: .morePinnedConvos(
-                                    isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit)
+                                    isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit),
+                                    renew: dependencies[singleton: .sessionProState].isSessionProExpired
                                 ),
                                 dataManager: dependencies[singleton: .imageDataManager],
                                 onConfirm: { [dependencies] in
-                                    dependencies[singleton: .sessionProState].upgradeToPro(
-                                        plan: SessionProPlan(variant: .threeMonths),
-                                        originatingPlatform: .iOS,
-                                        completion: nil
-                                    )
+                                    Task {
+                                        await dependencies[singleton: .sessionProState].upgradeToPro(
+                                            plan: SessionProPlan(variant: .threeMonths),
+                                            originatingPlatform: .iOS,
+                                            completion: nil
+                                        )
+                                    }
                                 }
                             )
                         )

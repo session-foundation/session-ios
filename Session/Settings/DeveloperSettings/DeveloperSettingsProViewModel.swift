@@ -437,33 +437,30 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                         )
                     }
                 ),
-                (
-                    state.mockCurrentUserSessionPro == .none ? nil :
-                        SessionCell.Info(
-                            id: .loadingState,
-                            title: "Loading State",
-                            trailingAccessory: .dropDown { state.loadingState.title },
-                            onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
-                                viewModel?.transitionToScreen(
-                                    SessionTableViewController(
-                                        viewModel: SessionListViewModel<SessionProLoadingState>(
-                                            title: "Session Pro Loading State",
-                                            options: SessionProLoadingState.allCases,
-                                            behaviour: .autoDismiss(
-                                                initialSelection: state.loadingState,
-                                                onOptionSelected: { [dependencies] selected in
-                                                    dependencies.set(
-                                                        feature: .mockCurrentUserSessionProLoadingState,
-                                                        to: selected
-                                                    )
-                                                }
-                                            ),
-                                            using: dependencies
-                                        )
-                                    )
+                SessionCell.Info(
+                    id: .loadingState,
+                    title: "Loading State",
+                    trailingAccessory: .dropDown { state.loadingState.title },
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        viewModel?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: SessionListViewModel<SessionProLoadingState>(
+                                    title: "Session Pro Loading State",
+                                    options: SessionProLoadingState.allCases,
+                                    behaviour: .autoDismiss(
+                                        initialSelection: state.loadingState,
+                                        onOptionSelected: { [dependencies] selected in
+                                            dependencies.set(
+                                                feature: .mockCurrentUserSessionProLoadingState,
+                                                to: selected
+                                            )
+                                        }
+                                    ),
+                                    using: dependencies
                                 )
-                            }
+                            )
                         )
+                    }
                 ),
                 SessionCell.Info(
                     id: .allUsersSessionPro,
@@ -694,24 +691,33 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         dependencies.set(feature: .mockCurrentUserSessionProState, to: state)
         switch state {
             case .none:
-                dependencies[singleton: .sessionProState].cancelPro(completion: nil)
+                dependencies[singleton: .sessionProState].sessionProStateSubject.send(.none)
+                dependencies[singleton: .sessionProState].shouldAnimateImageSubject.send(false)
             case .active:
-                dependencies[singleton: .sessionProState].upgradeToPro(
-                    plan: SessionProPlan(variant: .threeMonths),
-                    originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
-                    completion: nil
-                )
+                Task {
+                    await dependencies[singleton: .sessionProState].upgradeToPro(
+                        plan: SessionProPlan(variant: .threeMonths),
+                        originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
+                        completion: nil
+                    )
+                }
             case .expiring:
-                dependencies[singleton: .sessionProState].upgradeToPro(
-                    plan: SessionProPlan(variant: .threeMonths),
-                    originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
-                    completion: nil
-                )
-                dependencies[singleton: .sessionProState].cancelPro(completion: nil)
+                Task {
+                    await dependencies[singleton: .sessionProState].upgradeToPro(
+                        plan: SessionProPlan(variant: .threeMonths),
+                        originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
+                        completion: nil
+                    )
+                    await dependencies[singleton: .sessionProState].cancelPro(completion: nil)
+                }
             case .expired:
-                dependencies[singleton: .sessionProState].expirePro(completion: nil)
+                Task {
+                    await dependencies[singleton: .sessionProState].expirePro(completion: nil)
+                }
             case .refunding:
-                dependencies[singleton: .sessionProState].requestRefund(completion: nil)
+                Task {
+                    await dependencies[singleton: .sessionProState].requestRefund(completion: nil)
+                }
         }
     }
     

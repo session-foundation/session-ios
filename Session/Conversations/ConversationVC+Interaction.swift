@@ -564,9 +564,16 @@ extension ConversationVC:
     
     @MainActor func handleCharacterLimitLabelTapped() {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-            .longerMessages,
-            onConfirm: { [weak self] in
-                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            .longerMessages(renew: viewModel.dependencies[singleton: .sessionProState].isSessionProExpired),
+            onConfirm: { [weak self, dependencies = viewModel.dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    afterClosed: { [weak self] in
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
@@ -702,9 +709,16 @@ extension ConversationVC:
     
     @MainActor func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-            .longerMessages,
-            onConfirm: { [weak self] in
-                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+            .longerMessages(renew: viewModel.dependencies[singleton: .sessionProState].isSessionProExpired),
+            onConfirm: { [weak self, dependencies = viewModel.dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    afterClosed: { [weak self] in
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
@@ -1671,16 +1685,22 @@ extension ConversationVC:
                         },
                         onProBadgeTapped: { [weak self, dependencies] in
                             dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                                .generic,
+                                .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired),
                                 dismissType: .single,
-                                beforePresented: {},
-                                onConfirm: { [weak self] in
-                                    self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                                onConfirm: {
+                                    dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                        afterClosed: { [weak self] in
+                                            self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                                        },
+                                        presenting: { bottomSheet in
+                                            dependencies[singleton: .appContext].frontMostViewController?.present(bottomSheet, animated: true)
+                                        }
+                                    )
                                 },
                                 onCancel: { [weak self] in
                                     self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                                 },
-                                afterClosed: {},
+                                afterClosed: nil,
                                 presenting: { modal in
                                     dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
                                 }

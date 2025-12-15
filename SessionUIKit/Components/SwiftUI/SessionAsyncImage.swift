@@ -17,6 +17,7 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
     private let dataManager: ImageDataManagerType
     private let shouldAnimateImage: Bool
     
+    private let grayscale: Double
     private let content: (Image) -> Content
     private let placeholder: () -> Placeholder
     
@@ -24,12 +25,14 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
         source: ImageDataManager.DataSource,
         dataManager: ImageDataManagerType,
         shouldAnimateImage: Bool = true,
+        grayscale: Double = 0.0,
         @ViewBuilder content: @escaping (Image) -> Content,
         @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
         self.source = source
         self.dataManager = dataManager
         self.shouldAnimateImage = shouldAnimateImage
+        self.grayscale = grayscale
         self.content = content
         self.placeholder = placeholder
     }
@@ -42,6 +45,7 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
                 if isAnimating {
                     TimelineView(.animation) { context in
                         imageView
+                            .grayscale(grayscale)
                             .onChange(of: context.date) { newDate in
                                 updateAnimationFrame(at: newDate)
                             }
@@ -97,8 +101,8 @@ public struct SessionAsyncImage<Content: View, Placeholder: View>: View {
             
             await MainActor.run {
                 switch event {
-                    case .frameLoaded, .completed: break
-                    case .readyToAnimate:
+                    case .frameLoaded: break
+                    case .readyToAnimate, .completed:
                         guard self.shouldAnimateImage else { return }
                         
                         self.isAnimating = true

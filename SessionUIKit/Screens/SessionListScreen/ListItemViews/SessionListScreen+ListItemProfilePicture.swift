@@ -129,7 +129,6 @@ public struct ListItemProfilePicture: View {
             height: content == .qrCode ? 200 : (ProfilePictureView.Info.Size.modal.viewSize * scale + 10),
             alignment: .top
         )
-        .border(Color.red)
         .padding(.top, 12)
     }
     

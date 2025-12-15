@@ -1,14 +1,19 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import UIKit
 import SwiftUI
+import Combine
 
 public enum SessionListScreenContent {}
+
+// MARK: - ViewModelType
 
 public extension SessionListScreenContent {
     protocol ViewModelType: ObservableObject, SectionedListItemData {
         var title: String { get }
         var state: ListItemDataState<Section, ListItem> { get }
+        var imageDataManager: ImageDataManagerType { get }
     }
     
     struct TooltipInfo: Hashable, Equatable {

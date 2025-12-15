@@ -15,7 +15,7 @@ public extension Singleton {
 
 // MARK: - SessionProState
 
-public class SessionProState: SessionProManagerType, ProfilePictureAnimationManagerType, SessionProCTAManagerType {
+public class SessionProState: SessionProManagerType, ProfilePictureAnimationManagerType {
     public let dependencies: Dependencies
     public var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never>
     public var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> {
@@ -23,13 +23,24 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
             .compactMap { $0 }
             .eraseToAnyPublisher()
     }
+    public var isSessionProActivePublisher: AnyPublisher<Bool, Never> {
+        sessionProStateSubject
+            .compactMap {
+                switch $0 {
+                    case .active, .refunding: return true
+                    case .none, .expired: return false
+                }
+            }
+            .eraseToAnyPublisher()
+    }
+    public var isSessionProExpired: Bool {
+        switch sessionProStateSubject.value {
+            case .expired: return true
+            default: return false
+        }
+    }
     public var sessionProPlans: [SessionProPlan] {
-        (
-            dependencies[feature: .mockInstalledFromIPA] ||
-            dependencies[feature: .mockNonOriginatingAccount]
-        ) ?
-        [] :
-        SessionProPlan.Variant.allCases.map { SessionProPlan(variant: $0) }
+        dependencies[feature: .mockInstalledFromIPA] ? [] : SessionProPlan.Variant.allCases.map { SessionProPlan(variant: $0) }
     }
     
     public var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never>
@@ -41,6 +52,7 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
     
     public init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        // TODO: [PRO] Get the pro state of current user
         let originatingPlatform: ClientPlatform = dependencies[feature: .proPlanOriginatingPlatform]
         let expiryInSeconds = dependencies[feature: .mockCurrentUserSessionProExpiry].durationInSeconds ?? 3 * 30 * 24 * 60 * 60
         switch dependencies[feature: .mockCurrentUserSessionProState] {
@@ -85,25 +97,30 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         )
     }
     
-    public func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) {
-        dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
-        dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
-        dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
-        let expiryInSeconds = dependencies[feature: .mockCurrentUserSessionProExpiry].durationInSeconds ?? TimeInterval(plan.variant.duration) * 30 * 24 * 60 * 60
-        self.sessionProStateSubject.send(
-            SessionProPlanState.active(
-                currentPlan: plan,
-                expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
-                isAutoRenewing: true,
-                originatingPlatform: originatingPlatform
+    public func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Upgrade to Pro
+        Task {
+            try await Task.sleep(for: .seconds(5))
+            dependencies[defaults: .standard, key: .hasShownProExpiringCTA] = false
+            dependencies[defaults: .standard, key: .hasShownProExpiredCTA] = false
+            dependencies.set(feature: .mockCurrentUserSessionProState, to: .active)
+            let expiryInSeconds = dependencies[feature: .mockCurrentUserSessionProExpiry].durationInSeconds ?? TimeInterval(plan.variant.duration) * 30 * 24 * 60 * 60
+            self.sessionProStateSubject.send(
+                SessionProPlanState.active(
+                    currentPlan: plan,
+                    expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
+                    isAutoRenewing: true,
+                    originatingPlatform: originatingPlatform
+                )
             )
-        )
-        self.shouldAnimateImageSubject.send(true)
-        dependencies.setAsync(.isProBadgeEnabled, true)
-        completion?(true)
+            self.shouldAnimateImageSubject.send(true)
+            dependencies.setAsync(.isProBadgeEnabled, true)
+            completion?(true)
+        }
     }
     
-    public func cancelPro(completion: ((_ result: Bool) -> Void)?) {
+    public func cancelPro(completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Cancel Pro: This is more like just cancel subscription
         guard case .active(let currentPlan, let expiredOn, _, let originatingPlatform) = self.sessionProStateSubject.value else {
             return
         }
@@ -120,7 +137,8 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         completion?(true)
     }
     
-    public func requestRefund(completion: ((_ result: Bool) -> Void)?) {
+    public func requestRefund(completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Request refund
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .refunding)
         self.sessionProStateSubject.send(
             SessionProPlanState.refunding(
@@ -132,7 +150,8 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         completion?(true)
     }
     
-    public func expirePro(completion: ((_ result: Bool) -> Void)?) {
+    public func expirePro(completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Mannualy expire pro state, maybe just for QA as we have backend to determine if pro is expired
         dependencies.set(feature: .mockCurrentUserSessionProState, to: .expired)
         self.sessionProStateSubject.send(
             SessionProPlanState.expired(
@@ -144,22 +163,50 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         completion?(true)
     }
     
-    public func recoverPro(completion: ((_ result: Bool) -> Void)?) {
+    public func recoverPro(completion: ((_ result: Bool) -> Void)?) async {
+        // TODO: [PRO] Recover from an existing pro plan
         guard dependencies[feature: .proPlanToRecover] == true && dependencies[feature: .mockCurrentUserSessionProLoadingState] == .success else {
             completion?(false)
             return
         }
-        upgradeToPro(
+        await upgradeToPro(
             plan: SessionProPlan(variant: .threeMonths),
             originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
             completion: completion
         )
     }
     
+    // These functions are only for QA purpose
+    public func updateOriginatingPlatform(_ newValue: ClientPlatform) {
+        self.sessionProStateSubject.send(
+            self.sessionProStateSubject.value
+                .with(originatingPlatform: newValue)
+        )
+    }
+    
+    public func updateProExpiry(_ expiryInSeconds: TimeInterval?) {
+        guard case .active(let currentPlan, _, let isAutoRenewing, let originatingPlatform) = self.sessionProStateSubject.value else {
+            return
+        }
+        let expiryInSeconds = expiryInSeconds ?? TimeInterval(currentPlan.variant.duration * 30 * 24 * 60 * 60)
+        
+        self.sessionProStateSubject.send(
+            SessionProPlanState.active(
+                currentPlan: currentPlan,
+                expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
+                isAutoRenewing: isAutoRenewing,
+                originatingPlatform: originatingPlatform
+            )
+        )
+    }
+}
+
+// MARK: - SessionProCTAManagerType
+
+extension SessionProState: SessionProCTAManagerType {
     @discardableResult @MainActor public func showSessionProCTAIfNeeded(
         _ variant: ProCTAModal.Variant,
         dismissType: Modal.DismissType,
-        beforePresented: (() -> Void)?,
         onConfirm: (() -> Void)?,
         onCancel: (() -> Void)?,
         afterClosed: (() -> Void)?,
@@ -187,7 +234,8 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
                 dataManager: dependencies[singleton: .imageDataManager],
                 dismissType: dismissType,
                 afterClosed: afterClosed,
-                onConfirm: onConfirm
+                onConfirm: onConfirm,
+                onCancel: onCancel
             )
         )
         presenting?(sessionProModal)
@@ -195,27 +243,19 @@ public class SessionProState: SessionProManagerType, ProfilePictureAnimationMana
         return true
     }
     
-    // These functions are only for QA purpose
-    public func updateOriginatingPlatform(_ newValue: ClientPlatform) {
-        self.sessionProStateSubject.send(
-            self.sessionProStateSubject.value
-                .with(originatingPlatform: newValue)
+    @MainActor public func showSessionProBottomSheetIfNeeded(
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) {
+        let viewModel = SessionProSettingsViewModel(isInBottomSheet: true, using: dependencies)
+        let sessionProBottomSheet: BottomSheetHostingViewController = BottomSheetHostingViewController(
+            bottomSheet: BottomSheet(
+                hasCloseButton: true,
+                afterClosed: afterClosed
+            ) {
+                SessionListScreen(viewModel: viewModel)
+            }
         )
-    }
-    
-    public func updateProExpiry(_ expiryInSeconds: TimeInterval?) {
-        guard case .active(let currentPlan, _, let isAutoRenewing, let originatingPlatform) = self.sessionProStateSubject.value else {
-            return
-        }
-        let expiryInSeconds = expiryInSeconds ?? TimeInterval(currentPlan.variant.duration * 30 * 24 * 60 * 60)
-        
-        self.sessionProStateSubject.send(
-            SessionProPlanState.active(
-                currentPlan: currentPlan,
-                expiredOn: Calendar.current.date(byAdding: .second, value: Int(expiryInSeconds), to: Date())!,
-                isAutoRenewing: isAutoRenewing,
-                originatingPlatform: originatingPlatform
-            )
-        )
+        presenting?(sessionProBottomSheet)
     }
 }

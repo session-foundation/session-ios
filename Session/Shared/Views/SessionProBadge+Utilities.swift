@@ -4,18 +4,6 @@ import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
 
-public extension SessionProBadge.Size{
-    // stringlint:ignore_contents
-    var cacheKey: String {
-        switch self {
-            case .mini: return "SessionProBadge.Mini"
-            case .small: return "SessionProBadge.Small"
-            case .medium: return "SessionProBadge.Medium"
-            case .large: return "SessionProBadge.Large"
-        }
-    }
-}
-
 public extension SessionProBadge {
     static let accessibilityLabel: String = Constants.app_pro
     
@@ -26,7 +14,7 @@ public extension SessionProBadge {
         return (
             .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
             accessibilityLabel: SessionProBadge.accessibilityLabel,
-            { SessionProBadge(size: size) }
+            { SessionProBadge(size: size, themeBackgroundColor: themeBackgroundColor) }
         )
     }
 }

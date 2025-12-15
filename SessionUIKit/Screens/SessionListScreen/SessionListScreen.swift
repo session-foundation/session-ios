@@ -1,9 +1,11 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import SwiftUI
+import Combine
 
 public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelType>: View {
     @EnvironmentObject var host: HostWrapper
+    @EnvironmentObject var toolbarManager: ToolbarManager
     @StateObject private var viewModel: ViewModel
     @ObservedObject private var state: SessionListScreenContent.ListItemDataState<ViewModel.Section, ViewModel.ListItem>
     
@@ -23,21 +25,87 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
     
     @State var profilePictureContent: ListItemProfilePicture.Content = .profilePicture
     @State var isProfileImageExpanding: Bool = false
-    private var dataManager: ImageDataManagerType
     
     // MARK:
     
     private let coordinateSpaceName: String = "SessionListScreen" // stringlint:ignore
     
-    public init(viewModel: ViewModel, dataManager: ImageDataManagerType) {
+    // MARK: - init
+    
+    public init(viewModel: ViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
         _state = ObservedObject(wrappedValue: viewModel.state)
-        self.dataManager = dataManager
+        
+        if let navigatableStateHolder = viewModel as? any NavigatableStateHolder_SwiftUI {
+            navigatableState = navigatableStateHolder.navigatableStateSwiftUI
+        } else {
+            navigatableState = nil
+        }
     }
     
+    // MARK: - Navigatable
+    
+    @State private var disposables: Set<AnyCancellable> = []
+    @State private var navigationDestination: NavigationDestination? = nil
+    @State private var isNavigationActive: Bool = false
+    private let navigatableState: NavigatableState_SwiftUI?
+    private var navigationPublisher: AnyPublisher<(NavigationDestination, TransitionType), Never> {
+        navigatableState?.transitionToScreen ?? Empty().eraseToAnyPublisher()
+    }
+    
+    @ViewBuilder
+    private var destinationView: some View {
+        if let destination = navigationDestination {
+            destination
+                .view
+                .backgroundColor(themeColor: .backgroundPrimary)
+                .persistentCloseToolbar()
+                .environmentObject(toolbarManager)
+        } else {
+            EmptyView()
+        }
+    }
+    
+    // MARK: - Body
+    
     public var body: some View {
+        ZStack {
+            listContent
+                    
+            // Hidden NavigationLink for publisher-driven navigation
+            NavigationLink(
+                destination: destinationView,
+                isActive: $isNavigationActive
+            ) {
+                EmptyView()
+            }
+            .hidden()
+        }
+        .onReceive(navigationPublisher) { destination, transitionType in
+            // Only handle push transitions in SwiftUI
+            // Present transitions are handled by UIKit in setupBindings
+            if transitionType == .push {
+                navigationDestination = destination
+                isNavigationActive = true
+            }
+        }
+        .onAppear {
+            if
+                let navigatableStateHolder = viewModel as? NavigatableStateHolder,
+                let viewController: UIViewController = self.host.controller,
+                viewController is BottomSheetIdentifiable
+            {
+                navigatableStateHolder.navigatableState.setupBindings(
+                    viewController: viewController,
+                    disposables: &disposables
+                )
+            }
+        }
+    }
+    
+    private var listContent: some View {
         List {
-            ForEach(state.listItemData, id: \.model) { section in 
+            ForEach(state.listItemData, id: \.model) { section in
                 Section {
                     // MARK: - Header
                     
@@ -144,8 +212,8 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         Rectangle()
                                             .foregroundColor(themeColor: .backgroundSecondary)
                                     )
-                                case .button(let title):
-                                    ListItemButton(title: title)
+                                case .button(let title, let enabled):
+                                    ListItemButton(title: title, enabled: enabled)
                                         .onTapGesture {
                                             element.onTap?()
                                         }
@@ -154,7 +222,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         content: $profilePictureContent,
                                         isProfileImageExpanding: $isProfileImageExpanding,
                                         info: info,
-                                        dataManager: dataManager,
+                                        dataManager: viewModel.imageDataManager,
                                         host: host
                                     )
                                     .padding(.vertical, Values.smallSpacing)
@@ -176,6 +244,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                 }
                 .listRowSeparator(.hidden)
                 .listSectionSeparator(.hidden)
+                .padding(0)
             }
         }
         .listStyle(.plain)
@@ -209,4 +278,3 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
         )
     }
 }
-
