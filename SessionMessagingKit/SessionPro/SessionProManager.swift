@@ -29,6 +29,7 @@ public enum SessionPro {
 public actor SessionProManager: SessionProManagerType {
     private let dependencies: Dependencies
     nonisolated private let syncState: SessionProManagerSyncState
+    private var revocationListTask: Task<Void, Never>?
     private var transactionObservingTask: Task<Void, Never>?
     private var proMockingObservationTask: Task<Void, Never>?
     
@@ -61,6 +62,7 @@ public actor SessionProManager: SessionProManagerType {
         
         Task {
             await updateWithLatestFromUserConfig()
+            await startRevocationListTask()
             await startTransactionObservation()
             await startProMockingObservations()
             
@@ -72,6 +74,7 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     deinit {
+        revocationListTask?.cancel()
         transactionObservingTask?.cancel()
         proMockingObservationTask?.cancel()
     }
@@ -436,7 +439,7 @@ public actor SessionProManager: SessionProManagerType {
     
     // MARK: - Pro State Management
     
-    public func refreshProState() async throws {
+    public func refreshProState(forceLoadingState: Bool) async throws {
         /// No point refreshing the state if there is a refresh in progress
         guard !isRefreshingState else { return }
         
@@ -447,7 +450,7 @@ public actor SessionProManager: SessionProManagerType {
         var oldState: SessionPro.State = await stateStream.getCurrent()
         var updatedState: SessionPro.State = oldState
         
-        if oldState.loadingState == .error {
+        if forceLoadingState || oldState.loadingState == .error {
             updatedState = oldState.with(
                 loadingState: .set(to: .loading),
                 using: dependencies
@@ -687,10 +690,26 @@ public actor SessionProManager: SessionProManagerType {
     }
     
     public func cancelPro(scene: UIWindowScene) async throws {
-        // TODO: [PRO] Need to add this
+        do {
+            try await AppStore.showManageSubscriptions(in: scene)
+            
+            // TODO: [PRO] Is there anything else we need to do here? Can we detect what the user did? (eg. via the transaction observation or something similar)
+            /// Need to refresh the pro state in case the user cancelled their pro (force the UI into the "loading" state just to be sure)
+            try await refreshProState(forceLoadingState: true)
+        }
+        catch {
+            // TODO: [PRO] Better errors?
+            throw NetworkError.explicit("Unable to show manage subscriptions: \(error)")
+        }
     }
         
     // MARK: - Internal Functions
+    
+    private func startRevocationListTask() {
+        revocationListTask = Task {
+            // TODO: [PRO] Need to add in the logic for fetching, storing and updating the revocation list
+        }
+    }
     
     private func startTransactionObservation() {
         transactionObservingTask = Task {
@@ -779,9 +798,15 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     
     func purchasePro(productId: String) async throws
     func addProPayment(transactionId: String) async throws
-    func refreshProState() async throws
+    func refreshProState(forceLoadingState: Bool) async throws
     func requestRefund(scene: UIWindowScene) async throws
     func cancelPro(scene: UIWindowScene) async throws
+}
+
+public extension SessionProManagerType {
+    func refreshProState() async throws {
+        try await refreshProState(forceLoadingState: false)
+    }
 }
 
 // MARK: - Observations
