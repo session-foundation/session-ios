@@ -526,13 +526,35 @@ public final class ProfilePictureView: UIView {
             case (.image(_, let image), .some(let renderingMode)):
                 imageView.image = image?.withRenderingMode(renderingMode)
                 
-            case (.some(let source), _): imageView.loadImage(source)
+            case (.some(let source), _):
+                let originalOrientation: UIImage.Orientation? = source.knownOrientation
+                
+                imageView.loadImage(source) { [weak self] buffer in
+                    /// Now that the image has loaded the "proper" orientation information will have been loaded which may be
+                    /// different from the initial value set (because we took a fast path), in that case we need to re-apply the
+                    /// `contentsRect` to ensure it renders correctly
+                    guard
+                        let self,
+                        originalOrientation != self.imageView.imageOrientationMetadata
+                    else { return }
+                    
+                    self.imageView.layer.contentsRect = self.contentsRect(
+                        for: info.source,
+                        cropRect: info.cropRect,
+                        orientationMetadata: self.imageView.imageOrientationMetadata
+                    )
+                }
+                
             default: imageView.image = nil
         }
         
         imageView.shouldAnimateImage = info.canAnimate
         imageView.themeTintColor = info.themeTintColor
-        imageView.layer.contentsRect = contentsRect(for: info.source, cropRect: info.cropRect)
+        imageView.layer.contentsRect = contentsRect(
+            for: info.source,
+            cropRect: info.cropRect,
+            orientationMetadata: imageView.imageOrientationMetadata
+        )
         imageContainerView.themeBackgroundColor = info.backgroundColor
         imageContainerView.themeBackgroundColorForced = info.forcedBackgroundColor
         profileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
@@ -569,21 +591,41 @@ public final class ProfilePictureView: UIView {
         // Set the additional image content and reposition the image views correctly
         switch (additionalInfo.source, additionalInfo.renderingMode) {
             case (.image(_, let image), .some(let renderingMode)):
-                additionalImageView.image = image?.withRenderingMode(renderingMode)
                 additionalImageContainerView.isHidden = false
+                additionalImageView.image = image?.withRenderingMode(renderingMode)
                 
             case (.some(let source), _):
-                additionalImageView.loadImage(source)
+                let originalOrientation: UIImage.Orientation? = source.knownOrientation
+                
                 additionalImageContainerView.isHidden = false
+                additionalImageView.loadImage(source) { [weak self] buffer in
+                    /// Now that the image has loaded the "proper" orientation information will have been loaded which may be
+                    /// different from the initial value set (because we took a fast path), in that case we need to re-apply the
+                    /// `contentsRect` to ensure it renders correctly
+                    guard
+                        let self,
+                        originalOrientation != self.additionalImageView.imageOrientationMetadata
+                    else { return }
+                    
+                    self.additionalImageView.layer.contentsRect = self.contentsRect(
+                        for: info.source,
+                        cropRect: info.cropRect,
+                        orientationMetadata: self.additionalImageView.imageOrientationMetadata
+                    )
+                }
                 
             default:
-                additionalImageView.image = nil
                 additionalImageContainerView.isHidden = true
+                additionalImageView.image = nil
         }
         
         additionalImageView.shouldAnimateImage = additionalInfo.canAnimate
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
-        additionalImageView.layer.contentsRect = contentsRect(for: additionalInfo.source, cropRect: additionalInfo.cropRect)
+        additionalImageView.layer.contentsRect = contentsRect(
+            for: additionalInfo.source,
+            cropRect: additionalInfo.cropRect,
+            orientationMetadata: imageView.imageOrientationMetadata
+        )
         
         switch (info.backgroundColor, info.forcedBackgroundColor) {
             case (_, .some(let color)): additionalImageContainerView.themeBackgroundColorForced = color
@@ -615,13 +657,21 @@ public final class ProfilePictureView: UIView {
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
     }
     
-    private func contentsRect(for source: ImageDataManager.DataSource?, cropRect: CGRect?) -> CGRect {
+    private func contentsRect(
+        for source: ImageDataManager.DataSource?,
+        cropRect: CGRect?,
+        orientationMetadata: UIImage.Orientation?
+    ) -> CGRect {
         guard
             let source: ImageDataManager.DataSource = source,
             let cropRect: CGRect = cropRect
         else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
         
-        switch source.orientationFromMetadata {
+        /// Try to use the `orientationMetadata` stored on the `imageView` if present, falling back to the fast `knownOrientation`
+        /// in the DataSource and lastly `up` if neither are present
+        let targetOrientation: UIImage.Orientation = ((orientationMetadata ?? source.knownOrientation) ?? .up)
+        
+        switch targetOrientation {
             case .up: return cropRect
                 
             case .upMirrored:

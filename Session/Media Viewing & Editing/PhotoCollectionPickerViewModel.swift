@@ -21,7 +21,6 @@ class PhotoCollectionPickerViewModel: SessionTableViewModel, ObservableTableSour
 
     // MARK: - Initialization
 
-    @MainActor
     init(
         library: PhotoLibrary,
         using dependencies: Dependencies,
