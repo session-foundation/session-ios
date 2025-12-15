@@ -209,6 +209,10 @@ private actor QueryRunner<Output: ObservableKeyProvider> {
         
         /// Keep the `QueryRunner` alive until it's parent task is cancelled
         await TaskCancellation.wait()
+        
+        /// Cleanup resources immediately upon cancellation
+        listenerTask?.cancel()
+        await debouncer.reset()
     }
     
     private func process(events: [ObservedEvent], isInitialQuery: Bool) async {
