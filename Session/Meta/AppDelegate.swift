@@ -184,11 +184,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         dependencies[singleton: .notificationsManager].setDelegate(self)
         
         NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(showMissedCallTipsIfNeededNotification(_:)),
-            name: .missedCall,
-            object: nil
-        )
+            forName: .missedCall,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            DispatchQueue.main.async { [weak self] in
+                self?.showMissedCallTipsIfNeeded(notification)
+            }
+        }
         
         Log.info(.cat, "didFinishLaunchingWithOptions completed.")
         return true
@@ -840,10 +843,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     }
     
     // MARK: - Notification Handling
-    
-    @objc public func showMissedCallTipsIfNeededNotification(_ notification: Notification) {
-        showMissedCallTipsIfNeeded(notification)
-    }
     
     @MainActor private func showMissedCallTipsIfNeeded(_ notification: Notification) {
         guard
