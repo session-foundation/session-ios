@@ -35,7 +35,6 @@ public enum PlaceholderIcon {
                     .map { String(format: "%02x", $0) }.joined()
             }
             
-            
             return (Int(String(hash.prefix(12)), radix: 16) ?? 0)
         }()
         
