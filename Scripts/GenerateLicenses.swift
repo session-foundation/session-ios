@@ -67,6 +67,7 @@ func findLicenses(in packagesPath: String) -> [(package: String, library: String
             // Exclude licences for test and doc libs (not included in prod build)
             guard
                 !filePath.lowercased().contains(".gitignore") &&
+                !filePath.lowercased().contains(".licenseignore") &&
                 !filePath.lowercased().contains("test") &&
                 !filePath.lowercased().contains("docs")
             else { return }

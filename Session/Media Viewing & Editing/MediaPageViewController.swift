@@ -859,9 +859,7 @@ extension MediaGalleryViewModel.Item: GalleryRailItem {
         imageView.contentMode = .scaleAspectFill
         
         if attachment.downloadUrl != nil {
-            Task(priority: .userInitiated) {
-                await imageView.loadThumbnail(size: .small, attachment: attachment, using: dependencies)
-            }
+            imageView.loadThumbnail(size: .small, attachment: attachment, using: dependencies)
         }
 
         return imageView

@@ -398,7 +398,7 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Content
     
-    private func updateIconView(
+    @MainActor private func updateIconView(
         icon: Info.ProfileIcon,
         imageView: UIImageView,
         label: UILabel,
@@ -503,7 +503,7 @@ public final class ProfilePictureView: UIView {
         additionalImageEdgeConstraints.forEach { $0.constant = 0 }
     }
     
-    public func update(
+    @MainActor public func update(
         _ info: Info,
         additionalInfo: Info? = nil
     ) {
@@ -771,7 +771,7 @@ public struct ProfilePictureSwiftUI: UIViewRepresentable {
         )
     }
     
-    public func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {
+    @MainActor public func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {
         profilePictureView.update(
             info,
             additionalInfo: additionalInfo
