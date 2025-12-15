@@ -28,12 +28,10 @@ public struct ListItemCell: View {
     @State var isExpanded: Bool
     
     let info: Info
-    let height: CGFloat
     let onTap: (() -> Void)?
     
-    public init(info: Info, height: CGFloat, onTap: (() -> Void)? = nil) {
+    public init(info: Info, onTap: (() -> Void)? = nil) {
         self.info = info
-        self.height = height
         self.isExpanded = (info.title?.interaction != .expandable)
         self.onTap = onTap
     }
@@ -52,26 +50,34 @@ public struct ListItemCell: View {
                         if case .center = info.title?.alignment { Spacer(minLength: 0) }
                         
                         if let text = title.text {
-                            ZStack {
-                                if let inlineImage = title.inlineImage {
-                                    switch inlineImage.position {
-                                        case .leading:
-                                            Text("\(Image(uiImage: inlineImage.image)) ") + Text(text)
-                                        case .trailing:
-                                            Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
+                            VStack(spacing: Values.smallSpacing) {
+                                ZStack {
+                                    if let inlineImage = title.inlineImage {
+                                        switch inlineImage.position {
+                                            case .leading:
+                                                Text("\(Image(uiImage: inlineImage.image)) ") + Text(text)
+                                            case .trailing:
+                                                Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
+                                        }
+                                    } else {
+                                        Text(text)
                                     }
-                                } else {
-                                    Text(text)
+                                }
+                                .lineLimit(isExpanded ? nil : 2)
+                                .font(title.font)
+                                .multilineTextAlignment(title.alignment)
+                                .foregroundColor(themeColor: title.color)
+                                .accessibility(title.accessibility)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(title.interaction == .copy)
+                                
+                                if info.title?.interaction == .expandable {
+                                    Text(isExpanded ? "viewLess".localized() : "viewMore".localized())
+                                        .bold()
+                                        .font(title.font)
+                                        .foregroundColor(themeColor: .textPrimary)
                                 }
                             }
-                            .lineLimit(isExpanded ? nil : 3)
-                            .font(title.font)
-                            .multilineTextAlignment(title.alignment)
-                            .foregroundColor(themeColor: title.color)
-                            .accessibility(title.accessibility)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .textSelection(title.interaction == .copy)
-                            
                         } else if let attributedString = title.attributedString {
                             AttributedText(attributedString)
                                 .font(title.font)
@@ -115,7 +121,6 @@ public struct ListItemCell: View {
             }
             .frame(
                 maxWidth: .infinity,
-                maxHeight: .infinity,
                 alignment: .leading
             )
             
@@ -125,11 +130,6 @@ public struct ListItemCell: View {
             }
         }
         .padding(.horizontal, Values.mediumSpacing)
-        .frame(
-            maxWidth: .infinity,
-            minHeight: height,
-            alignment: .leading
-        )
         .contentShape(Rectangle())
         .onTapGesture {
             if info.title?.interaction == .expandable {

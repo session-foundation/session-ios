@@ -98,6 +98,5 @@ public struct ListItemTappableText: View {
         )
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, Values.mediumSpacing)
-        .frame(maxHeight: .infinity)
     }
 }

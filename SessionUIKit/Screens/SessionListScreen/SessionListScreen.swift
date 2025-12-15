@@ -172,10 +172,12 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     VStack(spacing: 0) {
                                         ListItemCell(
                                             info: info,
-                                            height: section.model.style.cellMinHeight,
                                             onTap: element.onTap
                                         )
-                                        .contentShape(Rectangle())
+                                        .frame(
+                                            maxWidth: .infinity,
+                                            minHeight: section.model.style.cellMinHeight
+                                        )
                                         .padding(.vertical, Values.smallSpacing)
                                         .padding(.top, (index == 0) ? section.model.extraVerticalPadding : 0)
                                         .padding(.bottom, isLastElement ? section.model.extraVerticalPadding : 0)
