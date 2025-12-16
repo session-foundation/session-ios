@@ -27,6 +27,7 @@ extension Permissions {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
             case .authorized:
                 onComplete?(true)
+                dependencies.notifyAsync(key: .permission(.camera), value: Permissions.Status.granted)
                 return true
             
             case .denied, .restricted:
@@ -35,6 +36,7 @@ extension Permissions {
                     !useCustomDeniedAlert
                 else {
                     onComplete?(false)
+                    dependencies.notifyAsync(key: .permission(.camera), value: Permissions.Status.denied)
                     return false
                 }
                 
@@ -60,6 +62,10 @@ extension Permissions {
             case .notDetermined:
                 AVCaptureDevice.requestAccess(for: .video, completionHandler: { granted in
                     onComplete?(granted)
+                    dependencies.notifyAsync(
+                        key: .permission(.camera),
+                        value: (granted ? Permissions.Status.granted : Permissions.Status.denied)
+                    )
                 })
                 return false
                 
@@ -76,7 +82,6 @@ extension Permissions {
             guard
                 let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
             else { return }
-            onComplete?(false)
             
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -93,7 +98,13 @@ extension Permissions {
                             UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
                         })
                     },
-                    afterClosed: { onComplete?(false) }
+                    afterClosed: {
+                        onComplete?(false)
+                        dependencies.notifyAsync(
+                            key: .permission(.microphone),
+                            value: Permissions.Status.denied
+                        )
+                    }
                 )
             )
             presentingViewController.present(confirmationModal, animated: true, completion: nil)
@@ -101,23 +112,36 @@ extension Permissions {
         
         if #available(iOS 17.0, *) {
             switch AVAudioApplication.shared.recordPermission {
-                case .granted: break
+                case .granted:
+                    onComplete?(true)
+                    dependencies.notifyAsync(key: .permission(.microphone), value: Permissions.Status.granted)
+                    
                 case .denied: handlePermissionDenied()
                 case .undetermined:
                     AVAudioApplication.requestRecordPermission { granted in
                         dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = granted
                         onComplete?(granted)
+                        dependencies.notifyAsync(
+                            key: .permission(.microphone),
+                            value: (granted ? Permissions.Status.granted : Permissions.Status.denied)
+                        )
                     }
                 default: break
             }
         } else {
             switch AVAudioSession.sharedInstance().recordPermission {
-                case .granted: break
+                case .granted:
+                    onComplete?(true)
+                    dependencies.notifyAsync(key: .permission(.microphone), value: Permissions.Status.granted)
                 case .denied: handlePermissionDenied()
                 case .undetermined:
                     AVAudioSession.sharedInstance().requestRecordPermission { granted in
                         dependencies[defaults: .appGroup, key: .lastSeenHasMicrophonePermission] = granted
                         onComplete?(granted)
+                        dependencies.notifyAsync(
+                            key: .permission(.microphone),
+                            value: (granted ? Permissions.Status.granted : Permissions.Status.denied)
+                        )
                     }
                 default: break
             }
@@ -147,12 +171,21 @@ extension Permissions {
                 SessionEnvironment.shared?.isRequestingPermission = false
                 if [ PHAuthorizationStatus.authorized, PHAuthorizationStatus.limited ].contains(status) {
                     onAuthorized()
+                    dependencies.notifyAsync(
+                        key: .permission(.photoLibrary),
+                        value: Permissions.Status.granted
+                    )
                 }
             }
         }
         
         switch authorizationStatus {
-            case .authorized, .limited: onAuthorized()
+            case .authorized, .limited:
+                onAuthorized()
+                dependencies.notifyAsync(
+                    key: .permission(.photoLibrary),
+                    value: Permissions.Status.granted
+                )
             case .denied, .restricted:
                 guard
                     let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
@@ -167,12 +200,19 @@ extension Permissions {
                                 .localized()
                         ),
                         confirmTitle: "sessionSettings".localized(),
-                        dismissOnConfirm: false
-                    ) { [weak presentingViewController] _ in
-                        presentingViewController?.dismiss(animated: true, completion: {
-                            UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
-                        })
-                    }
+                        dismissOnConfirm: false,
+                        onConfirm: { [weak presentingViewController] _ in
+                            presentingViewController?.dismiss(animated: true, completion: {
+                                UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
+                            })
+                        },
+                        afterClosed: {
+                            dependencies.notifyAsync(
+                                key: .permission(.photoLibrary),
+                                value: Permissions.Status.denied
+                            )
+                        }
+                    )
                 )
                 presentingViewController.present(confirmationModal, animated: true, completion: nil)
                 
@@ -183,8 +223,13 @@ extension Permissions {
     // MARK: - Local Network Premission
     
     public static func localNetwork(using dependencies: Dependencies) -> Status {
-        let status: Bool = dependencies.mutate(cache: .libSession, { $0.get(.lastSeenHasLocalNetworkPermission) })
-        return status ? .granted : .denied
+        return dependencies.mutate(cache: .libSession) { cache in
+            guard cache.has(.lastSeenHasLocalNetworkPermission) else {
+                return .undetermined
+            }
+            
+            return (cache.get(.lastSeenHasLocalNetworkPermission) ? .granted : .denied)
+        }
     }
     
     public static func requestLocalNetworkPermissionIfNeeded(
@@ -204,14 +249,17 @@ extension Permissions {
                 if try await checkLocalNetworkPermissionWithBonjour() {
                     // Permission is granted, continue to next onboarding step
                     dependencies.setAsync(.lastSeenHasLocalNetworkPermission, true)
+                    dependencies.notifyAsync(key: .permission(.localNetwork), value: Permissions.Status.granted)
                     onComplete?(true)
                 } else {
                     // Permission denied, explain why we need it and show button to open Settings
                     dependencies.setAsync(.lastSeenHasLocalNetworkPermission, false)
+                    dependencies.notifyAsync(key: .permission(.localNetwork), value: Permissions.Status.denied)
                     onComplete?(false)
                 }
             } catch {
                 // Networking failure, handle error
+                dependencies.notifyAsync(key: .permission(.localNetwork), value: Permissions.Status.unknown)
                 onComplete?(false)
             }
         }
@@ -419,4 +467,3 @@ extension Permissions {
         }
     }
 }
-

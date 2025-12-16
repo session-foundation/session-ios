@@ -5,8 +5,15 @@ import Photos
 import UserNotifications
 
 public enum Permissions {
+    public enum Variant: String {
+        case microphone
+        case camera
+        case photoLibrary
+        case notifications
+        case localNetwork
+    }
     
-    public enum Status: CustomStringConvertible {
+    public enum Status: Sendable, Equatable, CustomStringConvertible {
         case denied
         case granted
         case undetermined
@@ -104,4 +111,16 @@ public enum Permissions {
             notifications: await notifications()
         )
     }
+}
+
+// MARK: - Observations
+
+public extension ObservableKey {
+    static func permission(_ key: Permissions.Variant) -> ObservableKey {
+        ObservableKey("permission-\(key.rawValue)", .permission)
+    }
+}
+
+public extension GenericObservableKey {
+    static let permission: GenericObservableKey = "permission"
 }
