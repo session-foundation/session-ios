@@ -363,12 +363,20 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                             generator: { SessionProBadge(size: .mini) }
                                         )
                                     )
-                                default: return .generic
+                                default:
+                                    return .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
                             }
                         }()
                         
                         dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
                             proCTAModalVariant,
+                            onConfirm: {
+                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                    presenting: { bottomSheet in
+                                        self?.transitionToScreen(bottomSheet, transitionType: .present)
+                                    }
+                                )
+                            },
                             presenting: { modal in
                                 self?.transitionToScreen(modal, transitionType: .present)
                             }
@@ -990,10 +998,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     }
                                 }()
                                 
-                                // Return if the selected option is `Clear on this device`
-                                guard selectedIndex != 0 else { return }
-                                self?.deleteAllMessagesBeforeNow()
+                                // Don't update the group if the selected option is `Clear on this device`
+                                if selectedIndex != 0 {
+                                    self?.deleteAllMessagesBeforeNow()
+                                }
                             }
+                            
                             dependencies[singleton: .storage].writeAsync(
                                 updates: { db in
                                     try Interaction.markAllAsDeleted(
@@ -1563,8 +1573,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         current: String?,
         displayName: String
     ) -> ConfirmationModal.Info {
-        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry
-        /// about retrieving them in the confirmation closure
+        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry about retrieving them in the confirmation closure
         self.updatedName = current
         return ConfirmationModal.Info(
             title: "nicknameSet".localized(),
@@ -1862,7 +1871,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     }
     
     @MainActor private func showPhotoLibraryForAvatar() {
-        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] granted in
+            guard granted else { return }
+            
             DispatchQueue.main.async {
                 var configuration: PHPickerConfiguration = PHPickerConfiguration()
                 configuration.selectionLimit = 1
@@ -2042,11 +2053,20 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     DispatchQueue.main.async {
                         let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                             modal: ProCTAModal(
-                                delegate: dependencies[singleton: .sessionProState],
                                 variant: .morePinnedConvos(
-                                    isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit)
+                                    isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit),
+                                    renew: dependencies[singleton: .sessionProState].isSessionProExpired
                                 ),
-                                dataManager: dependencies[singleton: .imageDataManager]
+                                dataManager: dependencies[singleton: .imageDataManager],
+                                onConfirm: { [dependencies] in
+                                    Task {
+                                        await dependencies[singleton: .sessionProState].upgradeToPro(
+                                            plan: SessionProPlan(variant: .threeMonths),
+                                            originatingPlatform: .iOS,
+                                            completion: nil
+                                        )
+                                    }
+                                }
                             )
                         )
                         self?.transitionToScreen(sessionProModal, transitionType: .present)

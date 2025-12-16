@@ -9,9 +9,11 @@ struct AppReviewPromptModel {
     let message: String
     
     var primaryButtonTitle: String?
+    var primaryButtonColor: ThemeValue?
     var primaryButtonAccessibilityIdentifier: String?
     
     var secondaryButtonTitle: String?
+    var secondaryButtonColor: ThemeValue?
     var secondaryButtonAccessibilityIdentifier: String?
 }
 
@@ -80,49 +82,63 @@ enum AppReviewPromptState {
     var promptContent: AppReviewPromptModel {
         switch self {
             case .enjoyingSession:
-                return .init(
+                return AppReviewPromptModel(
                     title: "enjoyingSession"
                         .put(key: "app_name", value:  Constants.app_name)
                         .localized(),
                     message: "enjoyingSessionDescription"
                         .put(key: "app_name", value:  Constants.app_name)
                         .localized(),
-                    primaryButtonTitle: "enjoyingSessionButtonPositive"
-                        .put(key: "emoji", value: "❤️")
-                        .localized(),
-                    primaryButtonAccessibilityIdentifier: "enjoy-session-positive-button",
-                    secondaryButtonTitle: "enjoyingSessionButtonNegative"
+                    primaryButtonTitle: "enjoyingSessionButtonNegative"
                         .put(key: "emoji", value: "😕")
                         .localized(),
-                    secondaryButtonAccessibilityIdentifier: "enjoy-session-negative-button"
+                    primaryButtonColor: .textPrimary,
+                    primaryButtonAccessibilityIdentifier: "enjoy-session-negative-button",
+                    secondaryButtonTitle: "enjoyingSessionButtonPositive"
+                        .put(key: "emoji", value: "❤️")
+                        .localized(),
+                    secondaryButtonColor: .sessionButton_text,
+                    secondaryButtonAccessibilityIdentifier: "enjoy-session-positive-button"
                 )
+            
             case .rateSession:
-                return .init(
+                /// In this case the full `platformStore` value was found to be too verbose so remove the leading `Apple `
+                /// to make it more succinct
+                let storeVaraint: String = Constants.platform_store
+                    .replacingOccurrences(of: "Apple ", with: "")   // stringlint:ignore
+                
+                return AppReviewPromptModel(
                     title: "rateSession"
                         .put(key: "app_name", value: Constants.app_name)
                         .localized(),
-                    message: "rateSessionModalDescription"
+                    message: "rateSessionModalDescriptionUpdated"
                         .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "storevariant", value: Constants.store_name)
+                        .put(key: "storevariant", value: storeVaraint)
                         .localized(),
-                    primaryButtonTitle: "rateSessionApp".localized(),
+                    primaryButtonTitle: "rateUs".localized(),
+                    primaryButtonColor: .sessionButton_text,
                     primaryButtonAccessibilityIdentifier: "rate-app-button",
-                    secondaryButtonTitle: "notNow".localized(),
-                    secondaryButtonAccessibilityIdentifier: "not-now-button"
+                    secondaryButtonTitle: nil,
+                    secondaryButtonColor: nil,
+                    secondaryButtonAccessibilityIdentifier: nil
                 )
+            
             case .feedback:
-                return .init(
+                return AppReviewPromptModel(
                     title: "giveFeedback".localized(),
                     message: "giveFeedbackDescription"
                         .put(key: "app_name", value: Constants.app_name)
                         .localized(),
                     primaryButtonTitle: "openSurvey".localized(),
+                    primaryButtonColor: .sessionButton_text,
                     primaryButtonAccessibilityIdentifier: "open-survey-button",
                     secondaryButtonTitle: "notNow".localized(),
+                    secondaryButtonColor: .textPrimary,
                     secondaryButtonAccessibilityIdentifier: "not-now-button"
                 )
+            
             case .rateLimit:
-                return .init(
+                return AppReviewPromptModel(
                     title: "reviewLimit".localized(),
                     message: "reviewLimitDescription"
                         .put(key: "app_name", value: Constants.app_name)

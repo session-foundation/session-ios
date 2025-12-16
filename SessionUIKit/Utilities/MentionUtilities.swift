@@ -92,7 +92,7 @@ public enum MentionUtilities {
         
         return string
     }
-
+    
     public static func highlightMentions(
         in string: String,
         currentUserSessionIds: Set<String>,

@@ -352,7 +352,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         ),
         imageDataManager: self.viewModel.dependencies[singleton: .imageDataManager],
         linkPreviewManager: self.viewModel.dependencies[singleton: .linkPreviewManager],
-        sessionProState: self.viewModel.dependencies[singleton: .sessionProState],
+        sessionProStatePublisher: self.viewModel.dependencies[singleton: .sessionProState].isSessionProActivePublisher,
         didLoadLinkPreview: nil
     )
     
@@ -1411,7 +1411,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
     }
     
-    func updateNavBarButtons(
+    @MainActor func updateNavBarButtons(
         threadData: SessionThreadViewModel?,
         initialVariant: SessionThread.Variant,
         initialIsNoteToSelf: Bool,

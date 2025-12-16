@@ -528,6 +528,66 @@ public extension LibSession {
             )
         }
         
+        // stringlint:ignore_contents
+        public func stateDescriptionForLogs() -> String {
+            var info: [String] = []
+            
+            /// Count the contacts
+            switch configStore[userSessionId, .contacts]?.count {
+                case .some(..<20): info.append("Contacts: Small")
+                case .some(20..<100): info.append("Contacts: Medium")
+                case .some(_): info.append("Contacts: Large")
+                case .none: info.append("Contacts: Unknown")
+            }
+            
+            /// Count the OneToOne conversations (visible contacts)
+            if
+                case .contacts(let conf) = configStore[userSessionId, .contacts],
+                let contactData: [String: ContactData] = try? LibSession.extractContacts(from: conf, using: dependencies)
+            {
+                let visibleContacts: [ContactData] = contactData.values
+                    .filter { $0.priority >= LibSession.visiblePriority }
+                
+                switch visibleContacts.count {
+                    case ..<20: info.append("OneToOne: Small")
+                    case 20..<100: info.append("OneToOne: Medium")
+                    case _: info.append("OneToOne: Large")
+                }
+            }
+            else {
+                info.append("OneToOne: Unknown")
+            }
+            
+            /// Count the Group & Community conversations
+            if
+                case .userGroups(let conf) = configStore[userSessionId, .userGroups],
+                let groupInfo: LibSession.ExtractedUserGroups = try? LibSession.extractUserGroups(from: conf, using: dependencies)
+            {
+                let visibleGroups: [LibSession.GroupInfo] = groupInfo.groups
+                    .filter { $0.priority >= LibSession.visiblePriority }
+                let visibleCommunities: [LibSession.CommunityInfo] = groupInfo.communities
+                    .filter { $0.priority >= LibSession.visiblePriority }
+                
+                switch visibleGroups.count {
+                    case ..<5: info.append("Groups: Small")
+                    case 5..<20: info.append("Groups: Medium")
+                    case _: info.append("Groups: Large")
+                }
+                
+                switch visibleCommunities.count {
+                    case ..<5: info.append("Communities: Small")
+                    case 5..<20: info.append("Communities: Medium")
+                    case _: info.append("Communities: Large")
+                }
+            }
+            else {
+                info.append("Groups: Unknown")
+                info.append("Communities: Unknown")
+            }
+            
+            return info.joined(separator: "\n")
+        }
+        
         // MARK: - Pushes
         
         public func syncAllPendingPushes(_ db: ObservingDatabase) {
@@ -1011,6 +1071,8 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         timestampMs: Int64
     ) throws -> ConfigDump?
     
+    func stateDescriptionForLogs() -> String
+    
     // MARK: - Pushes
     
     func syncAllPendingPushes(_ db: ObservingDatabase)
@@ -1066,7 +1128,6 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - SettingFetcher
     
-    func has(_ key: Setting.BoolKey) -> Bool
     func has(_ key: Setting.EnumKey) -> Bool
     func get(_ key: Setting.BoolKey) -> Bool
     func get<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey) -> T?
@@ -1283,6 +1344,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     ) throws -> ConfigDump? {
         return nil
     }
+    func stateDescriptionForLogs() -> String { return "" }
     
     // MARK: - Pushes
     
@@ -1348,7 +1410,6 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     // MARK: - SettingFetcher
     
-    func has(_ key: Setting.BoolKey) -> Bool { return false }
     func has(_ key: Setting.EnumKey) -> Bool { return false }
     func get(_ key: Setting.BoolKey) -> Bool { return false }
     func get<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey) -> T? { return nil }

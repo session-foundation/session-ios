@@ -4,14 +4,13 @@ import UIKit
 import Combine
 import Lucide
 
+public protocol ProfilePictureAnimationManagerType: AnyObject {
+    var shouldAnimateImageSubject: CurrentValueSubject<Bool, Never> { get }
+    var shouldAnimateImagePublisher: AnyPublisher<Bool, Never> { get }
+}
+
 public final class ProfilePictureView: UIView {
     public struct Info {
-        public enum AnimationBehaviour {
-            case generic(Bool) // For communities and when Pro is not enabled
-            case contact(Bool)
-            case currentUser(SessionProManagerType)
-        }
-        
         public enum Size {
             case navigation
             case message
@@ -42,9 +41,10 @@ public final class ProfilePictureView: UIView {
             
             public var multiImageSize: CGFloat {
                 switch self {
-                    case .navigation, .message, .modal: return 18  // Shouldn't be used
+                    case .navigation, .message: return 18  // Shouldn't be used
                     case .list: return 32
                     case .hero: return 80
+                    case .modal: return 90
                     case .expanded: return 140
                 }
             }
@@ -89,7 +89,7 @@ public final class ProfilePictureView: UIView {
         
         // TODO: [PRO] Should be able to remove the "public" once `MessageInfoScreen.getProFeaturesInfo()` has been updated
         public let source: ImageDataManager.DataSource?
-        let animationBehaviour: AnimationBehaviour
+        let canAnimate: Bool
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
         let inset: UIEdgeInsets
@@ -100,7 +100,7 @@ public final class ProfilePictureView: UIView {
         
         public init(
             source: ImageDataManager.DataSource?,
-            animationBehaviour: AnimationBehaviour,
+            canAnimate: Bool,
             renderingMode: UIImage.RenderingMode? = nil,
             themeTintColor: ThemeValue? = nil,
             inset: UIEdgeInsets = .zero,
@@ -110,7 +110,7 @@ public final class ProfilePictureView: UIView {
             forcedBackgroundColor: ForcedThemeValue? = nil
         ) {
             self.source = source
-            self.animationBehaviour = animationBehaviour
+            self.canAnimate = canAnimate
             self.renderingMode = renderingMode
             self.themeTintColor = themeTintColor
             self.inset = inset
@@ -122,7 +122,6 @@ public final class ProfilePictureView: UIView {
     }
     
     private var dataManager: ImageDataManagerType?
-    private var disposables: Set<AnyCancellable> = Set()
     public var size: Info.Size {
         didSet {
             widthConstraint.constant = (customWidth ?? size.viewSize)
@@ -290,7 +289,7 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Lifecycle
     
-    public init(size: Info.Size, dataManager: ImageDataManagerType?) {
+    @MainActor public init(size: Info.Size, dataManager: ImageDataManagerType?) {
         self.dataManager = dataManager
         self.size = size
         
@@ -399,7 +398,7 @@ public final class ProfilePictureView: UIView {
     
     // MARK: - Content
     
-    private func updateIconView(
+    @MainActor private func updateIconView(
         icon: Info.ProfileIcon,
         imageView: UIImageView,
         label: UILabel,
@@ -479,9 +478,6 @@ public final class ProfilePictureView: UIView {
     // MARK: - Content
     
     private func prepareForReuse() {
-        /// Reset the disposables in case this was called with different data/
-        disposables = Set()
-        
         imageView.image = nil
         imageView.shouldAnimateImage = false
         imageContainerView.themeBackgroundColor = .backgroundSecondary
@@ -507,7 +503,7 @@ public final class ProfilePictureView: UIView {
         additionalImageEdgeConstraints.forEach { $0.constant = 0 }
     }
     
-    public func update(
+    @MainActor public func update(
         _ info: Info,
         additionalInfo: Info? = nil
     ) {
@@ -530,12 +526,35 @@ public final class ProfilePictureView: UIView {
             case (.image(_, let image), .some(let renderingMode)):
                 imageView.image = image?.withRenderingMode(renderingMode)
                 
-            case (.some(let source), _): imageView.loadImage(source)
+            case (.some(let source), _):
+                let originalOrientation: UIImage.Orientation? = source.knownOrientation
+                
+                imageView.loadImage(source) { [weak self] buffer in
+                    /// Now that the image has loaded the "proper" orientation information will have been loaded which may be
+                    /// different from the initial value set (because we took a fast path), in that case we need to re-apply the
+                    /// `contentsRect` to ensure it renders correctly
+                    guard
+                        let self,
+                        originalOrientation != self.imageView.imageOrientationMetadata
+                    else { return }
+                    
+                    self.imageView.layer.contentsRect = self.contentsRect(
+                        for: info.source,
+                        cropRect: info.cropRect,
+                        orientationMetadata: self.imageView.imageOrientationMetadata
+                    )
+                }
+                
             default: imageView.image = nil
         }
         
+        imageView.shouldAnimateImage = info.canAnimate
         imageView.themeTintColor = info.themeTintColor
-        imageView.layer.contentsRect = contentsRect(for: info.source, cropRect: info.cropRect)
+        imageView.layer.contentsRect = contentsRect(
+            for: info.source,
+            cropRect: info.cropRect,
+            orientationMetadata: imageView.imageOrientationMetadata
+        )
         imageContainerView.themeBackgroundColor = info.backgroundColor
         imageContainerView.themeBackgroundColorForced = info.forcedBackgroundColor
         profileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
@@ -548,9 +567,6 @@ public final class ProfilePictureView: UIView {
                 default: break
             }
         }
-        
-        // Apply crop transform if needed
-        startAnimationIfNeeded(for: info, with: imageView)
         
         // Check if there is a second image (if not then set the size and finish)
         guard let additionalInfo: Info = additionalInfo else {
@@ -575,20 +591,41 @@ public final class ProfilePictureView: UIView {
         // Set the additional image content and reposition the image views correctly
         switch (additionalInfo.source, additionalInfo.renderingMode) {
             case (.image(_, let image), .some(let renderingMode)):
-                additionalImageView.image = image?.withRenderingMode(renderingMode)
                 additionalImageContainerView.isHidden = false
+                additionalImageView.image = image?.withRenderingMode(renderingMode)
                 
             case (.some(let source), _):
-                additionalImageView.loadImage(source)
+                let originalOrientation: UIImage.Orientation? = source.knownOrientation
+                
                 additionalImageContainerView.isHidden = false
+                additionalImageView.loadImage(source) { [weak self] buffer in
+                    /// Now that the image has loaded the "proper" orientation information will have been loaded which may be
+                    /// different from the initial value set (because we took a fast path), in that case we need to re-apply the
+                    /// `contentsRect` to ensure it renders correctly
+                    guard
+                        let self,
+                        originalOrientation != self.additionalImageView.imageOrientationMetadata
+                    else { return }
+                    
+                    self.additionalImageView.layer.contentsRect = self.contentsRect(
+                        for: info.source,
+                        cropRect: info.cropRect,
+                        orientationMetadata: self.additionalImageView.imageOrientationMetadata
+                    )
+                }
                 
             default:
-                additionalImageView.image = nil
                 additionalImageContainerView.isHidden = true
+                additionalImageView.image = nil
         }
         
+        additionalImageView.shouldAnimateImage = additionalInfo.canAnimate
         additionalImageView.themeTintColor = additionalInfo.themeTintColor
-        additionalImageView.layer.contentsRect = contentsRect(for: additionalInfo.source, cropRect: additionalInfo.cropRect)
+        additionalImageView.layer.contentsRect = contentsRect(
+            for: additionalInfo.source,
+            cropRect: additionalInfo.cropRect,
+            orientationMetadata: imageView.imageOrientationMetadata
+        )
         
         switch (info.backgroundColor, info.forcedBackgroundColor) {
             case (_, .some(let color)): additionalImageContainerView.themeBackgroundColorForced = color
@@ -606,8 +643,6 @@ public final class ProfilePictureView: UIView {
             }
         }
         
-        startAnimationIfNeeded(for: additionalInfo, with: additionalImageView)
-        
         imageViewTopConstraint.isActive = true
         imageViewLeadingConstraint.isActive = true
         imageViewCenterXConstraint.isActive = false
@@ -622,13 +657,21 @@ public final class ProfilePictureView: UIView {
         additionalProfileIconBackgroundView.layer.cornerRadius = (size.iconSize / 2)
     }
     
-    private func contentsRect(for source: ImageDataManager.DataSource?, cropRect: CGRect?) -> CGRect {
+    private func contentsRect(
+        for source: ImageDataManager.DataSource?,
+        cropRect: CGRect?,
+        orientationMetadata: UIImage.Orientation?
+    ) -> CGRect {
         guard
             let source: ImageDataManager.DataSource = source,
             let cropRect: CGRect = cropRect
         else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
         
-        switch source.orientationFromMetadata {
+        /// Try to use the `orientationMetadata` stored on the `imageView` if present, falling back to the fast `knownOrientation`
+        /// in the DataSource and lastly `up` if neither are present
+        let targetOrientation: UIImage.Orientation = ((orientationMetadata ?? source.knownOrientation) ?? .up)
+        
+        switch targetOrientation {
             case .up: return cropRect
                 
             case .upMirrored:
@@ -691,25 +734,6 @@ public final class ProfilePictureView: UIView {
         }
     }
     
-    private func startAnimationIfNeeded(for info: Info, with targetImageView: SessionImageView) {
-        switch info.animationBehaviour {
-            case .generic(let enableAnimation), .contact(let enableAnimation):
-                targetImageView.shouldAnimateImage = enableAnimation
-
-            case .currentUser(let currentUserSessionProState):
-                targetImageView.shouldAnimateImage = currentUserSessionProState.isSessionProSubject.value
-                currentUserSessionProState.isSessionProPublisher
-                    .subscribe(on: DispatchQueue.main)
-                    .receive(on: DispatchQueue.main)
-                    .sink(
-                        receiveValue: { [weak targetImageView] isPro in
-                            targetImageView?.shouldAnimateImage = isPro
-                        }
-                    )
-                    .store(in: &disposables)
-        }
-    }
-    
     public func getTouchedView(from localPoint: CGPoint) -> UIView {
         if profileIconBackgroundView.frame.contains(localPoint) {
             return profileIconBackgroundView
@@ -747,7 +771,7 @@ public struct ProfilePictureSwiftUI: UIViewRepresentable {
         )
     }
     
-    public func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {
+    @MainActor public func updateUIView(_ profilePictureView: ProfilePictureView, context: Context) {
         profilePictureView.update(
             info,
             additionalInfo: additionalInfo

@@ -16,6 +16,7 @@ public class SessionImageView: UIImageView {
     public private(set) var accumulatedTime: TimeInterval = 0
     
     public var imageDisplaySizeMetadata: CGSize?
+    public var imageOrientationMetadata: UIImage.Orientation?
     
     public override var image: UIImage? {
         didSet {
@@ -28,6 +29,7 @@ public class SessionImageView: UIImageView {
             currentFrameIndex = 0
             accumulatedTime = 0
             imageDisplaySizeMetadata = nil
+            imageOrientationMetadata = nil
         }
     }
     
@@ -149,7 +151,7 @@ public class SessionImageView: UIImageView {
         imageLoadTask?.cancel()
         resetState(identifier: source.identifier)
         
-        /// No need to kick of an async task if we were given an image directly
+        /// No need to kick off an async task if we were given an image directly
         switch source {
             case .image(_, .some(let image)):
                 let buffer: ImageDataManager.FrameBuffer = ImageDataManager.FrameBuffer(image: image)
@@ -160,10 +162,6 @@ public class SessionImageView: UIImageView {
             default: break
         }
         
-        /// Otherwise read the size of the image from the metadata (so we can layout prior to the image being loaded) and schedule the
-        /// background task for loading
-        imageDisplaySizeMetadata = source.displaySizeFromMetadata
-        
         guard let dataManager: ImageDataManagerType = self.dataManager else {
             #if DEBUG
             preconditionFailure("Error! No `ImageDataManager` configured for `SessionImageView")
@@ -172,7 +170,27 @@ public class SessionImageView: UIImageView {
             #endif
         }
         
+        /// Otherwise read the size of the image from the metadata (so we can layout prior to the image being loaded) and schedule the
+        /// background task for loading
+        imageDisplaySizeMetadata = source.knownDisplaySize
+        imageOrientationMetadata = source.knownOrientation
+        let needsDisplaySize: Bool = (imageDisplaySizeMetadata == nil)
+        let needsOrientation: Bool = (imageOrientationMetadata == nil)
+        
         imageLoadTask = Task.detached(priority: .userInitiated) { [weak self, dataManager] in
+            /// Retrieve the image metadata via the "slow" method if needed
+            if needsDisplaySize || needsOrientation {
+                if let metadata: (displaySize: CGSize, orientation: UIImage.Orientation) = source.extractDisplayMetadataFromData() {
+                    await MainActor.run { [weak self] in
+                        guard self?.currentLoadIdentifier == source.identifier else { return }
+                        
+                        self?.imageDisplaySizeMetadata = metadata.displaySize
+                        self?.imageOrientationMetadata = metadata.orientation
+                    }
+                }
+            }
+            
+            /// Load the actual image data
             let buffer: ImageDataManager.FrameBuffer? = await dataManager.load(source)
             
             await MainActor.run { [weak self] in
@@ -218,6 +236,7 @@ public class SessionImageView: UIImageView {
         self.currentFrameIndex = other.currentFrameIndex
         self.accumulatedTime = other.accumulatedTime
         self.imageDisplaySizeMetadata = other.imageDisplaySizeMetadata
+        self.imageOrientationMetadata = other.imageOrientationMetadata
         self.shouldAnimateImage = other.shouldAnimateImage
         
         if other.isAnimating {
@@ -260,6 +279,7 @@ public class SessionImageView: UIImageView {
         currentFrameIndex = 0
         accumulatedTime = 0
         imageDisplaySizeMetadata = nil
+        imageOrientationMetadata = nil
     }
     
     @MainActor
@@ -275,6 +295,7 @@ public class SessionImageView: UIImageView {
         self.image = buffer.firstFrame
         self.frameBuffer = buffer
         self.imageDisplaySizeMetadata = buffer.firstFrame.size
+        self.imageOrientationMetadata = buffer.firstFrame.imageOrientation
         
         guard buffer.durations.count > 1 && self.shouldAnimateImage else { return }
         

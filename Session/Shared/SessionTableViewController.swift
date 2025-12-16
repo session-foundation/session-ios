@@ -355,10 +355,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             guard shouldLoadMore else { return }
             
             self?.isLoadingMore = true
-            
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
-            }
+            (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
         }
     }
     
@@ -539,10 +536,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         switch section.model.style {
             case .loadMore:
                 self.isLoadingMore = true
-                
-                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                    (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
-                }
+                (self.viewModel as? (any PagedObservationSource))?.loadPageAfter()
                 
             default: break
         }

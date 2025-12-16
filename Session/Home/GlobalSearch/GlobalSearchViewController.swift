@@ -216,7 +216,7 @@ class GlobalSearchViewController: BaseVC, LibSessionRespondingViewController, UI
 
     // MARK: - Update Search Results
     
-    private static func processDefaultSearchResults(_ contacts: [SessionThreadViewModel]) -> SearchResultData {
+    nonisolated private static func processDefaultSearchResults(_ contacts: [SessionThreadViewModel]) -> SearchResultData {
         let nonalphabeticNameTitle: String = "#" // stringlint:ignore
         
         return SearchResultData(

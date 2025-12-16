@@ -854,14 +854,12 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
 }
 
 extension MediaGalleryViewModel.Item: GalleryRailItem {
-    public func buildRailItemView(using dependencies: Dependencies) -> UIView {
+    @MainActor public func buildRailItemView(using dependencies: Dependencies) -> UIView {
         let imageView: SessionImageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
         imageView.contentMode = .scaleAspectFill
         
         if attachment.downloadUrl != nil {
-            Task(priority: .userInitiated) {
-                await imageView.loadThumbnail(size: .small, attachment: attachment, using: dependencies)
-            }
+            imageView.loadThumbnail(size: .small, attachment: attachment, using: dependencies)
         }
 
         return imageView

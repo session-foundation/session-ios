@@ -238,19 +238,24 @@ public extension UIContextualAction {
                                 }),
                                 pinnedConversationsNumber >= LibSession.PinnedConversationLimit
                             {
-                                let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-                                    modal: ProCTAModal(
-                                        delegate: dependencies[singleton: .sessionProState],
-                                        variant: .morePinnedConvos(
-                                            isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit)
-                                        ),
-                                        dataManager: dependencies[singleton: .imageDataManager],
-                                        afterClosed: { [completionHandler] in
-                                            completionHandler(true)
-                                        }
-                                    )
+                                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                    .morePinnedConvos(
+                                        isGrandfathered: (pinnedConversationsNumber > LibSession.PinnedConversationLimit),
+                                        renew: dependencies[singleton: .sessionProState].isSessionProExpired
+                                    ),
+                                    onConfirm: { [dependencies] in
+                                        dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                            afterClosed: nil,
+                                            presenting: { bottomSheet in
+                                                viewController?.present(bottomSheet, animated: true)
+                                            }
+                                        )
+                                    },
+                                    presenting: { sessionProModal in
+                                        viewController?.present(sessionProModal, animated: true, completion: nil)
+                                    }
                                 )
-                                viewController?.present(sessionProModal, animated: true, completion: nil)
+                                
                                 return
                             }
                             

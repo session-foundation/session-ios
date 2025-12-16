@@ -481,7 +481,9 @@ extension ConversationVC:
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let quoteViewModel: QuoteViewModel? = self.snInputView.quoteViewModel
         
-        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] granted in
+            guard granted else { return }
+            
             DispatchQueue.main.async {
                 let sendMediaNavController = SendMediaNavigationController.showingMediaLibraryFirst(
                     threadId: threadId,
@@ -562,8 +564,18 @@ extension ConversationVC:
     
     @MainActor func handleCharacterLimitLabelTapped() {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-            .longerMessages,
-            afterClosed: { [weak self] in
+            .longerMessages(renew: viewModel.dependencies[singleton: .sessionProState].isSessionProExpired),
+            onConfirm: { [weak self, dependencies = viewModel.dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    afterClosed: { [weak self] in
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
+            },
+            onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
             presenting: { [weak self] modal in
@@ -697,8 +709,18 @@ extension ConversationVC:
     
     @MainActor func showModalForMessagesExceedingCharacterLimit(_ isSessionPro: Bool) {
         guard !viewModel.dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-            .longerMessages,
-            afterClosed: { [weak self] in
+            .longerMessages(renew: viewModel.dependencies[singleton: .sessionProState].isSessionProExpired),
+            onConfirm: { [weak self, dependencies = viewModel.dependencies] in
+                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                    afterClosed: { [weak self] in
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
+            },
+            onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
             },
             presenting: { [weak self] modal in
@@ -1174,16 +1196,27 @@ extension ConversationVC:
                 let messageInfo: CallMessage.MessageInfo = try? JSONDecoder().decode(
                     CallMessage.MessageInfo.self,
                     from: infoMessageData
-                ),
-                messageInfo.state == .permissionDeniedMicrophone
-            else {
-                let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
-                    caller: cellViewModel.authorName,
-                    presentingViewController: self,
-                    using: viewModel.dependencies
                 )
-                present(callMissedTipsModal, animated: true, completion: nil)
-                return
+            else { return }
+            
+            switch messageInfo.state {
+                case .permissionDenied:
+                    let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
+                        caller: cellViewModel.authorName,
+                        presentingViewController: self,
+                        using: viewModel.dependencies
+                    )
+                    present(callMissedTipsModal, animated: true, completion: nil)
+                    return
+                    
+                case .permissionDeniedMicrophone:
+                    Permissions.requestMicrophonePermissionIfNeeded(
+                        presentingViewController: self,
+                        using: viewModel.dependencies
+                    )
+                    return
+                    
+                case .incoming, .outgoing, .missed, .unknown: break
             }
             return
         }
@@ -1555,11 +1588,11 @@ extension ConversationVC:
                 cancelTitle: "urlCopy".localized(),
                 cancelStyle: .alert_text,
                 hasCloseButton: true,
-                onConfirm:  { [weak self] modal in
+                onConfirm:  { modal in
                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
                     modal.dismiss(animated: true)
                 },
-                onCancel: { [weak self] modal in
+                onCancel: { modal in
                     UIPasteboard.general.string = url.absoluteString
                 }
             )
@@ -1663,11 +1696,22 @@ extension ConversationVC:
                         },
                         onProBadgeTapped: { [weak self, dependencies] in
                             dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                                .generic,
+                                .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired),
                                 dismissType: .single,
-                                afterClosed: { [weak self] in
+                                onConfirm: {
+                                    dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                                        afterClosed: { [weak self] in
+                                            self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                                        },
+                                        presenting: { bottomSheet in
+                                            dependencies[singleton: .appContext].frontMostViewController?.present(bottomSheet, animated: true)
+                                        }
+                                    )
+                                },
+                                onCancel: { [weak self] in
                                     self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                                 },
+                                afterClosed: nil,
                                 presenting: { modal in
                                     dependencies[singleton: .appContext].frontMostViewController?.present(modal, animated: true)
                                 }
@@ -2226,6 +2270,7 @@ extension ConversationVC:
                                 roomToken: room,
                                 server: server,
                                 publicKey: publicKey,
+                                joinedAt: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                                 forceVisible: false
                             )
                         }
@@ -2663,7 +2708,9 @@ extension ConversationVC:
                     isSavingMedia: true,
                     presentingViewController: self,
                     using: viewModel.dependencies
-                ) { [weak self, dependencies = viewModel.dependencies] in
+                ) { [weak self, dependencies = viewModel.dependencies] granted in
+                    guard granted else { return }
+                    
                     PHPhotoLibrary.shared().performChanges(
                         {
                             validAttachments.forEach { attachment, path in
@@ -2866,7 +2913,9 @@ extension ConversationVC:
         // Request permission if needed
         Permissions.requestMicrophonePermissionIfNeeded(
             using: viewModel.dependencies,
-            onNotGranted: { [weak self] in
+            onComplete: { [weak self] granted in
+                guard !granted else { return }
+                
                 DispatchQueue.main.async {
                     self?.cancelVoiceMessageRecording()
                 }
@@ -2914,8 +2963,10 @@ extension ConversationVC:
         
         // Limit voice messages to a minute
         audioTimer = Timer.scheduledTimer(withTimeInterval: 180, repeats: false, block: { [weak self] _ in
-            self?.snInputView.hideVoiceMessageUI()
-            self?.endVoiceMessageRecording()
+            DispatchQueue.main.async { [weak self] in
+                self?.snInputView.hideVoiceMessageUI()
+                self?.endVoiceMessageRecording()
+            }
         })
         
         // Prepare audio recorder and start recording

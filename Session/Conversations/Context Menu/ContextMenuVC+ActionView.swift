@@ -90,6 +90,12 @@ extension ContextMenuVC {
             themeBackgroundColor = .clear
             
             iconImageView.image = action.icon?.withRenderingMode(.alwaysTemplate)
+            // Flip horizontally for RTL languages
+            iconImageView.transform = CGAffineTransform.identity
+                .scaledBy(
+                    x: (action.flipIconForRTL ? -1 : 1),
+                    y: 1
+                )
             iconContainerView.addSubview(iconImageView)
             iconImageView.center(in: iconContainerView)
             
@@ -136,7 +142,7 @@ extension ContextMenuVC {
             let timeToExpireInSeconds = max(0, (expiresStartedAtMs + expiresInSeconds * 1000 - dependencies[cache: .snodeAPI].currentOffsetTimestampMs()) / 1000)
             
             subtitleLabel.text = "disappearingMessagesCountdownBigMobile"
-                .put(key: "time_large", value: timeToExpireInSeconds.formatted(format: .twoUnits, minimumUnit: .second))
+                .put(key: "time_large", value: timeToExpireInSeconds.formatted(format: .twoUnits))
                 .localized()
             
             timer = Timer.scheduledTimerOnMainThread(withTimeInterval: 1, repeats: true, using: dependencies, block: { [weak self, dependencies] _ in

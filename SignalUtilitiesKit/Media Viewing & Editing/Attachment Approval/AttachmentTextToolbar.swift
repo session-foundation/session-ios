@@ -107,11 +107,17 @@ class AttachmentTextToolbar: UIView, UITextViewDelegate {
         
         setUpViewHierarchy()
         
-        self.sessionProState?.isSessionProPublisher
+        self.sessionProState?.sessionProStatePublisher
             .subscribe(on: DispatchQueue.main)
             .receive(on: DispatchQueue.main)
             .sink(
-                receiveValue: { [weak self] isPro in
+                receiveValue: { [weak self] sessionProPlanState in
+                    let isPro: Bool = {
+                        switch sessionProPlanState {
+                            case .active, .refunding : return true
+                            case .none, .expired: return false
+                        }
+                    }()
                     self?.sessionProBadge.isHidden = isPro
                     self?.updateNumberOfCharactersLeft((self?.inputTextView.text ?? ""))
                 }

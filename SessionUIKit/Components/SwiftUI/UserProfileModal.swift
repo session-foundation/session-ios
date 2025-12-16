@@ -10,7 +10,6 @@ public struct UserProfileModal: View {
     @State private var isProfileImageExpanding: Bool = false
     @State private var isSessionIdCopied: Bool = false
     @State private var isShowingTooltip: Bool = false
-    @State private var tooltipContentFrame: CGRect = CGRect.zero
     
     private let tooltipViewId: String = "UserProfileModalToolTip" // stringlint:ignore
     private let coordinateSpaceName: String = "UserProfileModal" // stringlint:ignore
@@ -171,7 +170,7 @@ public struct UserProfileModal: View {
                             }
                             
                             if let contactDisplayName: String = info.contactDisplayName, contactDisplayName != displayName {
-                                Text("(\(contactDisplayName))") // stringlint:ignroe
+                                Text("(\(contactDisplayName))") // stringlint:ignore
                                     .font(.Body.smallRegular)
                                     .foregroundColor(themeColor: .textSecondary)
                                     .multilineTextAlignment(.center)
@@ -315,18 +314,9 @@ public struct UserProfileModal: View {
                         .padding(.vertical, Values.smallSpacing)
                         .frame(maxWidth: 260)
                 }
-                .overlay(
-                    GeometryReader { geometry in
-                        Color.clear // Invisible overlay
-                            .onAppear {
-                                self.tooltipContentFrame = geometry.frame(in: .global)
-                            }
-                    }
-                )
             },
             backgroundThemeColor: .toast_background,
             isPresented: $isShowingTooltip,
-            frame: $tooltipContentFrame,
             position: .topLeft,
             viewId: tooltipViewId
         )
