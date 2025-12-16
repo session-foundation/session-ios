@@ -693,8 +693,8 @@ class OnboardingSpec: AsyncSpec {
                     try ConfigDump.fetchAll(db)
                 }
                 
-                try require(result).to(haveCount(2))
-                try require(Set((result?.map { $0.variant })!)).to(equal([.userProfile, .local]))
+                try require(result).to(haveCount(1))
+                try require(Set((result?.map { $0.variant })!)).to(equal([.userProfile]))
                 expect(result![0].variant).to(equal(.userProfile))
                 let userProfileDump: ConfigDump = (result?.first(where: { $0.variant == .userProfile }))!
                 expect(userProfileDump.variant).to(equal(.userProfile))

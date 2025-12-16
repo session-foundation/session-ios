@@ -19,6 +19,11 @@ public protocol SessionProUIManagerType: Actor {
         presenting: ((UIViewController) -> Void)?
     ) -> Bool
     
+    @MainActor func showSessionProBottomSheetIfNeeded(
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    )
+    
     func purchasePro(productId: String) async throws
 }
 
@@ -39,6 +44,13 @@ public extension SessionProUIManagerType {
             onConfirm: onConfirm,
             onCancel: onCancel,
             afterClosed: afterClosed,
+            presenting: presenting
+        )
+    }
+    
+    @MainActor func showSessionProBottomSheetIfNeeded(presenting: ((UIViewController) -> Void)?) {
+        showSessionProBottomSheetIfNeeded(
+            afterClosed: nil,
             presenting: presenting
         )
     }
@@ -76,6 +88,11 @@ internal actor NoopSessionProUIManager: SessionProUIManagerType {
     ) -> Bool {
         return false
     }
+    
+    @MainActor func showSessionProBottomSheetIfNeeded(
+        afterClosed: (() -> Void)?,
+        presenting: ((UIViewController) -> Void)?
+    ) {}
     
     public func purchasePro(productId: String) async throws {}
 }

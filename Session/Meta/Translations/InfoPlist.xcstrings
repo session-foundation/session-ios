@@ -1558,6 +1558,12 @@
             "value" : "Session necesita acceso a la red local para realizar llamadas de voz y video."
           }
         },
+        "fi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session tarvitsee pääsyn paikalliseen verkkoon soittaakseen ääni- ja videopuheluja."
+          }
+        },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",

@@ -8,17 +8,25 @@ public enum StringProvider {}
 
 public extension StringProvider {
     protocol Url {
-        var proRoadmap: String { get }
-        var proPrivacyPolicy: String { get }
-        var proTermsOfService: String { get }
-        var proAccessNotFound: String { get }
-        var support: String { get }
-        var network: String { get }
-        var staking: String { get }
-        var token: String { get }
         var donations: String { get }
         var donationsApp: String { get }
+        var download: String { get }
+        var faq: String { get }
         var feedback: String { get }
+        var network: String { get }
+        var privacyPolicy: String { get }
+        var proAccessNotFound: String { get }
+        var proFaq: String { get }
+        var proPrivacyPolicy: String { get }
+        var proRoadmap: String { get }
+        var proSupport: String { get }
+        var proTermsOfService: String { get }
+        var staking: String { get }
+        var support: String { get }
+        var survey: String { get }
+        var termsOfService: String { get }
+        var token: String { get }
+        var translate: String { get }
     }
     
     protocol BuildVariant {
@@ -51,17 +59,25 @@ public extension StringProvider {
 internal extension StringProvider {
     /// This type should not be used where possible as it's values aren't maintained (proper values are sourced from `libSession`)
     struct FallbackUrlStringProvider: StringProvider.Url {
-        let proRoadmap: String = "https://getsession.org/pro-roadmap"
-        let proPrivacyPolicy: String = "https://getsession.org/pro/privacy"
-        let proTermsOfService: String = "https://getsession.org/pro/terms"
-        let proAccessNotFound: String = "https://sessionapp.zendesk.com/hc/sections/4416517450649-Support"
-        let support: String = "https://getsession.org/pro-form"
-        let network: String = "https://docs.getsession.org/session-network"
-        let staking: String = "https://docs.getsession.org/session-network/staking"
-        let token: String = "https://token.getsession.org"
         let donations: String = "https://getsession.org/donate"
         let donationsApp: String = "https://getsession.org/donate#app"
+        let download: String = "https://getsession.org/download"
+        let faq: String = "https://getsession.org/faq"
         let feedback: String = "https://getsession.org/feedback"
+        let network: String = "https://docs.getsession.org/session-network"
+        let privacyPolicy: String = "https://getsession.org/privacy-policy"
+        let proAccessNotFound: String = "https://sessionapp.zendesk.com/hc/sections/4416517450649-Support"
+        let proFaq: String = "https://getsession.org/faq#pro"
+        let proPrivacyPolicy: String = "https://getsession.org/pro/privacy"
+        let proRoadmap: String = "https://getsession.org/pro-roadmap"
+        let proSupport: String = "https://getsession.org/pro-form"
+        let proTermsOfService: String = "https://getsession.org/pro/terms"
+        let staking: String = "https://docs.getsession.org/session-network/staking"
+        let support: String = "https://getsession.org/support"
+        let survey: String = "https://getsession.org/survey"
+        let termsOfService: String = "https://getsession.org/terms-of-service"
+        let token: String = "https://token.getsession.org"
+        let translate: String = "https://getsession.org/translate"
     }
     
     /// This type should not be used where possible as it's values aren't maintained (proper values are sourced from `libSession`)

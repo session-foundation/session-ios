@@ -6,15 +6,20 @@ public enum SessionProPaymentScreenContent {}
 
 public extension SessionProPaymentScreenContent {
     enum SessionProPlanPaymentFlow: Equatable {
-        case purchase
+        case purchase(
+            billingAccess: Bool
+        )
         case update(
             currentPlan: SessionProPlanInfo,
             expiredOn: Date,
             originatingPlatform: SessionProUI.ClientPlatform,
-            isAutoRenewing: Bool
+            isAutoRenewing: Bool,
+            isNonOriginatingAccount: Bool?,
+            billingAccess: Bool
         )
         case renew(
-            originatingPlatform: SessionProUI.ClientPlatform
+            originatingPlatform: SessionProUI.ClientPlatform,
+            billingAccess: Bool
         )
         case refund(
             originatingPlatform: SessionProUI.ClientPlatform,
@@ -27,38 +32,48 @@ public extension SessionProPaymentScreenContent {
         
         var description: ThemedAttributedString {
             switch self {
-                case .purchase:
+                case .purchase(billingAccess: true):
                     return "proChooseAccess"
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
+                    
+                case .purchase(billingAccess: false):
+                    return "proUpgradeAccess"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .localizedFormatted(Fonts.Body.baseRegular)
                 
-                case .update(let currentPlan, let expiredOn, .android, true):
+                case .update(let currentPlan, let expiredOn, .android, true, _, _):
                     return "proAccessActivatedAutoShort"
                         .put(key: "current_plan_length", value: currentPlan.durationString)
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                     
-                case .update(_, let expiredOn, .android, false):
+                case .update(_, let expiredOn, .android, false, _, _):
                     return "proAccessExpireDate"
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 
-                case .update(let currentPlan, let expiredOn, .iOS, true):
+                case .update(let currentPlan, let expiredOn, .iOS, true, _, _):
                     return "proAccessActivatesAuto"
                         .put(key: "current_plan_length", value: currentPlan.durationString)
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                     
-                case .update(_, let expiredOn, .iOS, false):
+                case .update(_, let expiredOn, .iOS, false, _, _):
                     return "proAccessActivatedNotAuto"
                         .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular)
                 
-                case .renew:
+                case .renew(_, billingAccess: true):
+                    return "proChooseAccess"
+                        .put(key: "pro", value: Constants.pro)
+                        .localizedFormatted(Fonts.Body.baseRegular)
+                    
+                case .renew(_, billingAccess: false):
                     return "proAccessRenewStart"
                         .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "pro", value: Constants.pro)
@@ -145,6 +160,7 @@ public extension SessionProPaymentScreenContent {
         var dateNow: Date { get }
         var isRefreshing: Bool { get set }
         var errorString: String? { get set }
+        var isFromBottomSheet: Bool { get }
         
         @MainActor func purchase(planInfo: SessionProPlanInfo, success: (@MainActor () -> Void)?, failure: (@MainActor () -> Void)?)
         @MainActor func cancelPro(success: (@MainActor () -> Void)?, failure: (@MainActor () -> Void)?)

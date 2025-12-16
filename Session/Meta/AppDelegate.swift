@@ -20,7 +20,7 @@ private extension Log.Category {
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
-    private static let maxRootViewControllerInitialQueryDuration: TimeInterval = 10
+    fileprivate static let maxRootViewControllerInitialQueryDuration: Int = 10
     
     /// The AppDelete is initialised by the OS so we should init an instance of `Dependencies` to be used throughout
     let dependencies: Dependencies = Dependencies.createEmpty()
@@ -28,7 +28,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     var backgroundSnapshotBlockerWindow: UIWindow?
     var appStartupWindow: UIWindow?
     var initialLaunchFailed: Bool = false
-    var hasInitialRootViewController: Bool = false
+    @MainActor var hasInitialRootViewController: Bool = false
+    private let rootViewControllerCoordinator: RootViewControllerCoordinator = RootViewControllerCoordinator()
     var startTime: CFTimeInterval = 0
     private var loadingViewController: LoadingViewController?
     
@@ -544,7 +545,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         dependencies[singleton: .audioSession].setup()
     }
     
-    private func showFailedStartupAlert(
+    fileprivate func showFailedStartupAlert(
         calledFrom lifecycleMethod: LifecycleMethod,
         error: StartupError,
         animated: Bool = true,
@@ -697,7 +698,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
-    private func handleActivation() {
+    fileprivate func handleActivation() {
         /// There is a _fun_ behaviour here where if the user launches the app, sends it to the background at the right time and then
         /// opens it again the `AppReadiness` closures can be triggered before `applicationDidBecomeActive` has been
         /// called again - this can result in odd behaviours so hold off on running this logic until it's properly called again
@@ -728,130 +729,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         calledFrom lifecycleMethod: LifecycleMethod,
         onComplete: @escaping ((Bool) -> Void) = { _ in }
     ) {
-        let hasInitialRootViewController: Bool = self.hasInitialRootViewController
-        
-        // Always call the completion block and indicate whether we successfully created the UI
-        guard
-            dependencies[singleton: .storage].isValid &&
-            (
-                dependencies[singleton: .appReadiness].isAppReady ||
-                lifecycleMethod == .finishLaunching ||
-                lifecycleMethod == .enterForeground(initialLaunchFailed: true)
-            ) &&
-            !hasInitialRootViewController
-        else { return DispatchQueue.main.async { onComplete(hasInitialRootViewController) } }
-        
-        /// Start a timeout for the creation of the rootViewController setup process (if it takes too long then we want to give the user
-        /// the option to export their logs)
-        let longRunningStartupTimoutCancellable: AnyCancellable = Just(())
-            .delay(for: .seconds(AppDelegate.maxRootViewControllerInitialQueryDuration), scheduler: DispatchQueue.main)
-            .sink(
-                receiveCompletion: { _ in },
-                receiveValue: { [weak self] _ in
-                    self?.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .startupTimeout)
-                }
+        Task {
+            await rootViewControllerCoordinator.ensureSetup(
+                calledFrom: lifecycleMethod,
+                appDelegate: self,
+                using: dependencies,
+                onComplete: onComplete
             )
-        
-        // All logic which needs to run after the 'rootViewController' is created
-        let rootViewControllerSetupComplete: (UIViewController) -> Void = { [weak self, dependencies] rootViewController in
-            /// `MainAppContext.determineDeviceRTL` uses UIKit to retrime `isRTL` so must be run on the main thread to prevent
-            /// lag/crashes on background threads
-            Dependencies.setIsRTLRetriever(requiresMainThread: true) { MainAppContext.determineDeviceRTL() }
-            
-            /// Setup the `TopBannerController`
-            let presentedViewController: UIViewController? = self?.window?.rootViewController?.presentedViewController
-            let targetRootViewController: UIViewController = TopBannerController(
-                child: StyledNavigationController(rootViewController: rootViewController),
-                cachedWarning: dependencies[defaults: .appGroup, key: .topBannerWarningToShow]
-                    .map { rawValue in TopBannerController.Warning(rawValue: rawValue) }
-            )
-            
-            /// Insert the `targetRootViewController` below the current view and trigger a layout without animation before properly
-            /// swapping the `rootViewController` over so we can avoid any weird initial layout behaviours
-            UIView.performWithoutAnimation {
-                self?.window?.rootViewController = targetRootViewController
-            }
-            
-            self?.hasInitialRootViewController = true
-            UIViewController.attemptRotationToDeviceOrientation()
-            
-            /// **Note:** There is an annoying case when starting the app by interacting with a push notification where
-            /// the `HomeVC` won't have completed loading it's view which means the `SessionApp.homeViewController`
-            /// won't have been set - we set the value directly here to resolve this edge case
-            if let homeViewController: HomeVC = rootViewController as? HomeVC {
-                dependencies[singleton: .app].setHomeViewController(homeViewController)
-            }
-            
-            /// If we were previously presenting a viewController but are no longer preseting it then present it again
-            ///
-            /// **Note:** Looks like the OS will throw an exception if we try to present a screen which is already (or
-            /// was previously?) presented, even if it's not attached to the screen it seems...
-            switch presentedViewController {
-                case is UIAlertController, is ConfirmationModal:
-                    /// If the viewController we were presenting happened to be the "failed startup" modal then we can dismiss it
-                    /// automatically (while this seems redundant it's less jarring for the user than just instantly having it disappear)
-                    self?.showFailedStartupAlert(
-                        calledFrom: lifecycleMethod,
-                        error: .startupTimeout,
-                        animated: false
-                    ) {
-                        self?.window?.rootViewController?.dismiss(animated: true)
-                    }
-                
-                case is UIActivityViewController: HelpViewModel.shareLogs(animated: false, using: dependencies)
-                default: break
-            }
-            
-            // Setup is completed so run any post-setup tasks
-            onComplete(true)
-        }
-        
-        // Navigate to the approriate screen depending on the onboarding state
-        dependencies.warm(cache: .onboarding)
-        
-        switch dependencies[cache: .onboarding].state {
-            case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
-                if dependencies[cache: .onboarding].state == .noUserInvalidKeyPair {
-                    Log.critical(.cat, "Failed to load credentials for existing user, generated a new identity.")
-                }
-                else if dependencies[cache: .onboarding].state == .noUserInvalidSeedGeneration {
-                    Log.critical(.cat, "Failed to create an initial identity for a potentially new user.")
-                }
-                
-                DispatchQueue.main.async { [dependencies] in
-                    /// Once the onboarding process is complete we need to call `handleActivation`
-                    let viewController = SessionHostingViewController(rootView: LandingScreen(using: dependencies) { [weak self] in
-                        self?.handleActivation()
-                    })
-                    viewController.setUpNavBarSessionIcon()
-                    longRunningStartupTimoutCancellable.cancel()
-                    rootViewControllerSetupComplete(viewController)
-                }
-                
-            case .missingName:
-                DispatchQueue.main.async { [dependencies] in
-                    let viewController = SessionHostingViewController(rootView: DisplayNameScreen(using: dependencies))
-                    viewController.setUpNavBarSessionIcon()
-                    longRunningStartupTimoutCancellable.cancel()
-                    rootViewControllerSetupComplete(viewController)
-                    
-                    /// Once the onboarding process is complete we need to call `handleActivation`
-                    dependencies[cache: .onboarding].onboardingCompletePublisher
-                        .subscribe(on: DispatchQueue.main, using: dependencies)
-                        .receive(on: DispatchQueue.main, using: dependencies)
-                        .sinkUntilComplete(receiveCompletion: { [weak self] _ in self?.handleActivation() })
-                }
-                
-            case .completed:
-                DispatchQueue.main.async { [dependencies] in
-                    /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
-                    /// continue as we don't want to show a blank home screen
-                    let viewController: HomeVC = HomeVC(using: dependencies)
-                    viewController.afterInitialConversationsLoaded {
-                        longRunningStartupTimoutCancellable.cancel()
-                        rootViewControllerSetupComplete(viewController)
-                    }
-                }
         }
     }
     
@@ -1072,6 +956,195 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         
         let callVC: CallVC = CallVC(for: call, using: dependencies)
         presentingVC.present(callVC, animated: true, completion: nil)
+    }
+}
+
+// MARK: - RootViewControllerCoordinator
+
+private actor RootViewControllerCoordinator {
+    private var isRunning: Bool = false
+    private var isComplete: Bool = false
+    private var pendingCompletions: [(Bool) -> Void] = []
+    
+    func ensureSetup(
+        calledFrom lifecycleMethod: LifecycleMethod,
+        appDelegate: AppDelegate,
+        using dependencies: Dependencies,
+        onComplete: @escaping (Bool) -> Void
+    ) async {
+        guard !isComplete else {
+            return await MainActor.run {
+                onComplete(true)
+            }
+        }
+        
+        pendingCompletions.append(onComplete)
+        
+        guard !isRunning else { return }
+        
+        isRunning = true
+        await performSetup(
+            calledFrom: lifecycleMethod,
+            appDelegate: appDelegate,
+            using: dependencies
+        )
+    }
+    
+    private func performSetup(
+        calledFrom lifecycleMethod: LifecycleMethod,
+        appDelegate: AppDelegate,
+        using dependencies: Dependencies
+    ) async {
+        let hasInitialRootViewController = await MainActor.run { appDelegate.hasInitialRootViewController }
+        
+        guard
+            dependencies[singleton: .storage].isValid &&
+            (
+                dependencies[singleton: .appReadiness].isAppReady ||
+                lifecycleMethod == .finishLaunching ||
+                lifecycleMethod == .enterForeground(initialLaunchFailed: true)
+            ) &&
+            !hasInitialRootViewController
+        else {
+            markFailed()
+            return
+        }
+
+        /// Start a timeout for the creation of the rootViewController setup process (if it takes too long then we want to give the user
+        /// the option to export their logs)
+        let timeoutTask: Task<Void, Error> = Task { @MainActor in
+            try await Task.sleep(for: .seconds(AppDelegate.maxRootViewControllerInitialQueryDuration))
+            appDelegate.showFailedStartupAlert(calledFrom: lifecycleMethod, error: .startupTimeout)
+            await self.markFailed()
+        }
+        
+        // All logic which needs to run after the 'rootViewController' is created
+        let setupComplete: @MainActor (UIViewController) -> Void = { @MainActor [weak appDelegate] rootViewController in
+            guard let appDelegate else { return }
+            
+            /// `MainAppContext.determineDeviceRTL` uses UIKit to retrime `isRTL` so must be run on the main thread to prevent
+            /// lag/crashes on background threads
+            Dependencies.setIsRTLRetriever(requiresMainThread: true) { MainAppContext.determineDeviceRTL() }
+            
+            /// Setup the `TopBannerController`
+            let presentedViewController: UIViewController? = appDelegate.window?.rootViewController?.presentedViewController
+            let targetRootViewController: UIViewController = TopBannerController(
+                child: StyledNavigationController(rootViewController: rootViewController),
+                cachedWarning: dependencies[defaults: .appGroup, key: .topBannerWarningToShow]
+                    .map { rawValue in TopBannerController.Warning(rawValue: rawValue) }
+            )
+            
+            /// Insert the `targetRootViewController` below the current view and trigger a layout without animation before properly
+            /// swapping the `rootViewController` over so we can avoid any weird initial layout behaviours
+            UIView.performWithoutAnimation {
+                appDelegate.window?.rootViewController = targetRootViewController
+            }
+            
+            appDelegate.hasInitialRootViewController = true
+            UIViewController.attemptRotationToDeviceOrientation()
+            
+            /// **Note:** There is an annoying case when starting the app by interacting with a push notification where
+            /// the `HomeVC` won't have completed loading it's view which means the `SessionApp.homeViewController`
+            /// won't have been set - we set the value directly here to resolve this edge case
+            if let homeViewController: HomeVC = rootViewController as? HomeVC {
+                dependencies[singleton: .app].setHomeViewController(homeViewController)
+            }
+            
+            /// If we were previously presenting a viewController but are no longer preseting it then present it again
+            ///
+            /// **Note:** Looks like the OS will throw an exception if we try to present a screen which is already (or
+            /// was previously?) presented, even if it's not attached to the screen it seems...
+            switch presentedViewController {
+                case is UIAlertController, is ConfirmationModal:
+                    /// If the viewController we were presenting happened to be the "failed startup" modal then we can dismiss it
+                    /// automatically (while this seems redundant it's less jarring for the user than just instantly having it disappear)
+                    appDelegate.showFailedStartupAlert(
+                        calledFrom: lifecycleMethod,
+                        error: .startupTimeout,
+                        animated: false
+                    ) {
+                        appDelegate.window?.rootViewController?.dismiss(animated: true)
+                    }
+                
+                case is UIActivityViewController: HelpViewModel.shareLogs(animated: false, using: dependencies)
+                default: break
+            }
+            
+            timeoutTask.cancel()
+            Task {
+                await self.markComplete()
+            }
+        }
+        
+        // Navigate to the approriate screen depending on the onboarding state
+        dependencies.warm(cache: .onboarding)
+        
+        switch dependencies[cache: .onboarding].state {
+            case .noUser, .noUserInvalidKeyPair, .noUserInvalidSeedGeneration:
+                if dependencies[cache: .onboarding].state == .noUserInvalidKeyPair {
+                    Log.critical(.cat, "Failed to load credentials for existing user, generated a new identity.")
+                }
+                else if dependencies[cache: .onboarding].state == .noUserInvalidSeedGeneration {
+                    Log.critical(.cat, "Failed to create an initial identity for a potentially new user.")
+                }
+                
+                await MainActor.run {
+                    /// Once the onboarding process is complete we need to call `handleActivation`
+                    let viewController = SessionHostingViewController(rootView: LandingScreen(using: dependencies) { [weak appDelegate] in
+                        appDelegate?.handleActivation()
+                    })
+                    viewController.setUpNavBarSessionIcon()
+                    setupComplete(viewController)
+                }
+                
+            case .missingName:
+                await MainActor.run {
+                    let viewController = SessionHostingViewController(rootView: DisplayNameScreen(using: dependencies))
+                    viewController.setUpNavBarSessionIcon()
+                    setupComplete(viewController)
+                    
+                    /// Once the onboarding process is complete we need to call `handleActivation`
+                    dependencies[cache: .onboarding].onboardingCompletePublisher
+                        .subscribe(on: DispatchQueue.main, using: dependencies)
+                        .receive(on: DispatchQueue.main, using: dependencies)
+                        .sinkUntilComplete(receiveCompletion: { [weak appDelegate] _ in
+                            appDelegate?.handleActivation()
+                        })
+                }
+                
+            case .completed:
+                await MainActor.run {
+                    /// We want to start observing the changes for the 'HomeVC' and want to wait until we actually get data back before we
+                    /// continue as we don't want to show a blank home screen
+                    let viewController: HomeVC = HomeVC(using: dependencies)
+                    viewController.afterInitialConversationsLoaded {
+                        setupComplete(viewController)
+                    }
+                }
+        }
+    }
+    
+    private func markComplete() {
+        isComplete = true
+        isRunning = false
+        
+        let completions: [(Bool) -> Void] = pendingCompletions
+        pendingCompletions = []
+        
+        Task { @MainActor in
+            completions.forEach { $0(true) }
+        }
+    }
+    
+    private func markFailed() {
+        isRunning = false
+        
+        let completions: [(Bool) -> Void] = pendingCompletions
+        pendingCompletions = []
+        
+        Task { @MainActor in
+            completions.forEach { $0(false) }
+        }
     }
 }
 

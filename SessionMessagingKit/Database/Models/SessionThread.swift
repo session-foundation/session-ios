@@ -108,15 +108,19 @@ public struct SessionThread: Sendable, Codable, Identifiable, Equatable, Hashabl
     public func aroundInsert(_ db: Database, insert: () throws -> InsertionSuccess) throws {
         _ = try insert()
         
-        switch ObservationContext.observingDb {
-            case .none: Log.error("[SessionThread] Could not process 'aroundInsert' due to missing observingDb.")
-            case .some(let observingDb):
-                observingDb.dependencies.setAsync(.hasSavedThread, true)
-                observingDb.addConversationEvent(
-                    id: id,
-                    variant: variant,
-                    type: .created
-                )
+        /// If this thread was created during onboarding then we don't want to set `hasSavedThread` or send a conversation
+        /// event (as this is likely the "Note to Self" thread or some future "initial" state which wasn't a user-driven change)
+        if ThreadCreationContext.isOnboarding != true {
+            switch ObservationContext.observingDb {
+                case .none: Log.error("[SessionThread] Could not process 'aroundInsert' due to missing observingDb.")
+                case .some(let observingDb):
+                    observingDb.dependencies.setAsync(.hasSavedThread, true)
+                    observingDb.addConversationEvent(
+                        id: id,
+                        variant: variant,
+                        type: .created
+                    )
+            }
         }
     }
 }
@@ -961,4 +965,22 @@ public extension SessionThread {
             default: return nil
         }
     }
+}
+
+// MARK: - Truncation
+
+public extension String {
+    /// A standardised mechanism for truncating a user id for a given thread
+    func truncated(threadVariant: SessionThread.Variant) -> String {
+        return truncated(prefix: 4, suffix: 4)
+    }
+}
+
+// MARK: - ThreadCreationContext
+
+public enum ThreadCreationContext {
+    /// This `TaskLocal` variable is set and accessible within the context of a single `Task` and allows any code running within
+    /// the task to access the isntance without running into threading issues or needing to manage multiple instances
+    @TaskLocal
+    public static var isOnboarding: Bool?
 }

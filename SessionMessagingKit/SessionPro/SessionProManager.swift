@@ -618,7 +618,21 @@ public actor SessionProManager: SessionProManagerType {
         await self.stateStream.send(updatedState)
     }
     
-    public func requestRefund(scene: UIWindowScene) async throws {
+    @MainActor public func cancelPro(scene: UIWindowScene) async throws {
+        do {
+            try await AppStore.showManageSubscriptions(in: scene)
+            
+            // TODO: [PRO] Is there anything else we need to do here? Can we detect what the user did? (eg. via the transaction observation or something similar)
+            /// Need to refresh the pro state in case the user cancelled their pro (force the UI into the "loading" state just to be sure)
+            try await refreshProState(forceLoadingState: true)
+        }
+        catch {
+            // TODO: [PRO] Better errors?
+            throw NetworkError.explicit("Unable to show manage subscriptions: \(error)")
+        }
+    }
+    
+    @MainActor public func requestRefund(scene: UIWindowScene) async throws {
         guard let latestPaymentItem: Network.SessionPro.PaymentItem = await stateStream.getCurrent().latestPaymentItem else {
             throw NetworkError.explicit("No latest payment item")
         }
@@ -687,20 +701,6 @@ public actor SessionProManager: SessionProManagerType {
         
         /// Need to refresh the pro state to get the updated payment item (which should now include a `refundRequestedTimestampMs`)
         try await refreshProState()
-    }
-    
-    public func cancelPro(scene: UIWindowScene) async throws {
-        do {
-            try await AppStore.showManageSubscriptions(in: scene)
-            
-            // TODO: [PRO] Is there anything else we need to do here? Can we detect what the user did? (eg. via the transaction observation or something similar)
-            /// Need to refresh the pro state in case the user cancelled their pro (force the UI into the "loading" state just to be sure)
-            try await refreshProState(forceLoadingState: true)
-        }
-        catch {
-            // TODO: [PRO] Better errors?
-            throw NetworkError.explicit("Unable to show manage subscriptions: \(error)")
-        }
     }
         
     // MARK: - Internal Functions
@@ -799,8 +799,8 @@ public protocol SessionProManagerType: SessionProUIManagerType {
     func purchasePro(productId: String) async throws
     func addProPayment(transactionId: String) async throws
     func refreshProState(forceLoadingState: Bool) async throws
-    func requestRefund(scene: UIWindowScene) async throws
-    func cancelPro(scene: UIWindowScene) async throws
+    @MainActor func requestRefund(scene: UIWindowScene) async throws
+    @MainActor func cancelPro(scene: UIWindowScene) async throws
 }
 
 public extension SessionProManagerType {

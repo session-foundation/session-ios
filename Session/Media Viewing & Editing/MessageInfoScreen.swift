@@ -27,15 +27,19 @@ struct MessageInfoScreen: View {
         /// the state the user was in when the message was sent
         let shouldShowProBadge: Bool
         
-        func ctaVariant(currentUserIsPro: Bool) -> ProCTAModal.Variant {
+        func ctaVariant(currentUserProStatus: Network.SessionPro.BackendUserProStatus) -> ProCTAModal.Variant {
             guard let firstFeature: ProFeature = proFeatures.first, proFeatures.count > 1 else {
-                return .generic
+                return .generic(renew: (currentUserProStatus == .expired))
             }
             
             switch firstFeature {
-                case .proBadge: return .generic
-                case .increasedMessageLength: return .longerMessages
-                case .animatedDisplayPicture: return .animatedProfileImage(isSessionProActivated: currentUserIsPro)
+                case .proBadge: return .generic(renew: (currentUserProStatus == .expired))
+                case .increasedMessageLength: return .longerMessages(renew: (currentUserProStatus == .expired))
+                case .animatedDisplayPicture:
+                    return .animatedProfileImage(
+                        isSessionProActivated: currentUserIsPro,
+                        renew: (currentUserProStatus == .expired)
+                    )
             }
         }
     }
@@ -373,9 +377,7 @@ struct MessageInfoScreen: View {
                                             .font(.Body.extraLargeBold)
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
-                                    .onTapGesture {
-                                        showSessionProCTAIfNeeded()
-                                    }
+                                    .onTapGesture { showSessionProCTAIfNeeded() }
                                     
                                     Text(
                                         "proMessageInfoFeatures"
@@ -463,9 +465,7 @@ struct MessageInfoScreen: View {
                                             
                                             if viewModel.shouldShowProBadge {
                                                 SessionProBadge_SwiftUI(size: .small)
-                                                    .onTapGesture {
-                                                        showSessionProCTAIfNeeded()
-                                                    }
+                                                    .onTapGesture { showSessionProCTAIfNeeded }
                                             }
                                         }
                                         
@@ -579,29 +579,23 @@ struct MessageInfoScreen: View {
     }
     
     private func showSessionProCTAIfNeeded() {
-        guard
-            viewModel.dependencies[feature: .sessionProEnabled] &&
-            !viewModel.dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
-        else { return }
-        
-        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-            modal: ProCTAModal(
-                variant: viewModel.ctaVariant(
-                    currentUserIsPro: viewModel.dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
-                ),
-                dataManager: viewModel.dependencies[singleton: .imageDataManager],
-                sessionProUIManager: viewModel.dependencies[singleton: .sessionProManager],
-                onConfirm: { [dependencies = viewModel.dependencies] in
-                    // TODO: [PRO] Need to sort this out
-                    dependencies[singleton: .sessionProState].upgradeToPro(
-                        plan: SessionProPlan(variant: .threeMonths),
-                        originatingPlatform: .iOS,
-                        completion: nil
-                    )
-                }
-            )
+        dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+            viewModel.ctaVariant(
+                currentUserProStatus: viewModel.dependencies[singleton: .sessionProManager]
+                    .currentUserCurrentProState
+                    .status
+            ),
+            onConfirm: {
+                dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                    presenting: { bottomSheet in
+                        self.host.controller?.present(bottomSheet, animated: true)
+                    }
+                )
+            },
+            presenting: { modal in
+                self.host.controller?.present(modal, animated: true)
+            }
         )
-        self.host.controller?.present(sessionProModal, animated: true)
     }
     
     func showUserProfileModal() {

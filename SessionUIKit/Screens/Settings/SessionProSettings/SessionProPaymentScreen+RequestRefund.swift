@@ -6,7 +6,7 @@ import Lucide
 // MARK: - Request Refund Originating Platform Content
 
 struct RequestRefundOriginatingPlatformContent: View {
-    let requestRefundAction: () -> Void
+    let requestRefundAction: @MainActor () -> Void
     
     var body: some View {
         VStack(spacing: Values.mediumSmallSpacing) {
@@ -210,29 +210,33 @@ struct RequestRefundNonOriginatorContent: View {
                         .foregroundColor(themeColor: .textSecondary)
                     
                     ApproachCell(
-                        title: "onDevice"
-                            .put(key: "device_type", value: originatingPlatform.device)
-                            .localized(),
-                        description: "onDeviceDescription"
-                            .put(key: "app_name", value: Constants.app_name)
-                            .put(key: "device_type", value: originatingPlatform.device)
-                            .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .put(key: "pro", value: Constants.pro)
-                            .localizedFormatted(),
-                        variant: .device
+                        info: ApproachCell.Info(
+                            title: "onDevice"
+                                .put(key: "device_type", value: originatingPlatform.device)
+                                .localized(),
+                            description: "onDeviceDescription"
+                                .put(key: "app_name", value: Constants.app_name)
+                                .put(key: "device_type", value: originatingPlatform.device)
+                                .put(key: "platform_account", value: originatingPlatform.platformAccount)
+                                .put(key: "app_pro", value: Constants.app_pro)
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(),
+                            variant: .device
+                        )
                     )
                     
                     ApproachCell(
-                        title: "onPlatformWebsite"
-                            .put(key: "platform", value: originatingPlatform.platform)
-                            .localized(),
-                        description: "viaStoreWebsiteDescription"
-                            .put(key: "platform_account", value: originatingPlatform.platformAccount)
-                            .put(key: "platform_store", value: originatingPlatform.store)
-                            .put(key: "pro", value: Constants.pro)
-                            .localizedFormatted(Fonts.Body.baseRegular),
-                        variant: .website
+                        info: ApproachCell.Info(
+                            title: "onPlatformWebsite"
+                                .put(key: "platform", value: originatingPlatform.platform)
+                                .localized(),
+                            description: "viaStoreWebsiteDescription"
+                                .put(key: "platform_account", value: originatingPlatform.platformAccount)
+                                .put(key: "platform_store", value: originatingPlatform.store)
+                                .put(key: "pro", value: Constants.pro)
+                                .localizedFormatted(Fonts.Body.baseRegular),
+                            variant: .website
+                        )
                     )
                 } else {
                     VStack(

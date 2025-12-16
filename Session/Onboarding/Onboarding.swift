@@ -396,13 +396,15 @@ extension Onboarding {
                             
                             /// If we don't have the `Note to Self` thread then create it (not visible by default)
                             if (try? SessionThread.exists(db, id: userSessionId.hexString)) != nil {
-                                try SessionThread.upsert(
-                                    db,
-                                    id: userSessionId.hexString,
-                                    variant: .contact,
-                                    values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
-                                    using: dependencies
-                                )
+                                try ThreadCreationContext.$isOnboarding.withValue(true) {
+                                    try SessionThread.upsert(
+                                        db,
+                                        id: userSessionId.hexString,
+                                        variant: .contact,
+                                        values: SessionThread.TargetValues(shouldBeVisible: .setTo(false)),
+                                        using: dependencies
+                                    )
+                                }
                             }
                             
                             /// Update the `displayName` if changed
@@ -443,8 +445,11 @@ extension Onboarding {
                         }
                     },
                     completion: { _ in
-                        /// No need to show the seed again if the user is restoring
-                        dependencies.setAsync(.hasViewedSeed, (initialFlow == .restore))
+                        /// No need to show the seed again if the user is restoring (just in case only set the value if it hasn't already
+                        /// been set - this will prevent us from unintentionally re-showing the seed banner)
+                        if !dependencies.mutate(cache: .libSession, { $0.has(.hasViewedSeed) }) {
+                            dependencies.setAsync(.hasViewedSeed, (initialFlow == .restore))
+                        }
                         
                         /// Now that the onboarding process is completed we can store the `UserMetadata` for the Share and Notification
                         /// extensions (prior to this point the account is in an invalid state so they can't be used)

@@ -92,6 +92,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         case forceOffline
         case resetSnodeCache
         case pushNotificationService
+        case pushNotificationsEnabled
+        case pushNotificationToken
         
         case debugDisappearingMessageDurations
         
@@ -134,6 +136,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .forceOffline: return "forceOffline"
                 case .resetSnodeCache: return "resetSnodeCache"
                 case .pushNotificationService: return "pushNotificationService"
+                case .pushNotificationsEnabled: return "pushNotificationsEnabled"
+                case .pushNotificationToken: return "pushNotificationToken"
                 
                 case .debugDisappearingMessageDurations: return "debugDisappearingMessageDurations"
                     
@@ -180,6 +184,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 case .forceOffline: result.append(.forceOffline); fallthrough
                 case .resetSnodeCache: result.append(.resetSnodeCache); fallthrough
                 case .pushNotificationService: result.append(.pushNotificationService); fallthrough
+                case .pushNotificationsEnabled: result.append(.pushNotificationsEnabled); fallthrough
+                case .pushNotificationToken: result.append(.pushNotificationToken); fallthrough
                 
                 case .debugDisappearingMessageDurations: result.append(.debugDisappearingMessageDurations); fallthrough
                 
@@ -217,6 +223,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let pushNotificationService: Network.PushNotification.Service
+        let pushNotificationsEnabled: Bool
+        let pushNotificationToken: String?
         
         let debugDisappearingMessageDurations: Bool
         
@@ -243,7 +251,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 return SessionId(.versionBlinded07, publicKey: blinded07KeyPair.publicKey).hexString
             }()
             
-
+            let pushNotificationsEnabled: Bool = dependencies[defaults: .standard, key: .isUsingFullAPNs]
+            
             return State(
                 developerMode: dependencies.mutate(cache: .libSession) { cache in
                     cache.get(.developerModeEnabled)
@@ -262,6 +271,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 serviceNetwork: dependencies[feature: .serviceNetwork],
                 forceOffline: dependencies[feature: .forceOffline],
                 pushNotificationService: dependencies[feature: .pushNotificationService],
+                pushNotificationsEnabled: pushNotificationsEnabled,
+                pushNotificationToken: {
+                    guard pushNotificationsEnabled else { return nil }
+                    
+                    return dependencies[singleton: .storage].read { db in db[.lastRecordedPushToken] }
+                }(),
                 
                 debugDisappearingMessageDurations: dependencies[feature: .debugDisappearingMessageDurations],
                 
@@ -590,6 +605,12 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     }
             )
         )
+        let pushNotificationRegistrationStatus: String = {
+            switch (current.pushNotificationsEnabled, current.pushNotificationToken) {
+                case (false, _), (true, nil): return "<disabled>Unsubscribed</disabled>"
+                case (true, .some): return "<span>Subscribed</span>"
+            }
+        }()
         let network: SectionModel = SectionModel(
             model: .network,
             elements: [
@@ -663,6 +684,52 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                     using: dependencies
                                 )
                             )
+                        )
+                    }
+                ),
+                SessionCell.Info(
+                    id: .pushNotificationToken,
+                    title: "Push Notification Token",
+                    subtitle: """
+                    View the push notification token this device is currently registered with. 
+                    
+                    <b>Status:</b> \(pushNotificationRegistrationStatus)
+                    """,
+                    trailingAccessory: .icon(
+                        .eye,
+                        customTint: (current.pushNotificationsEnabled && current.pushNotificationToken != nil ?
+                            nil :
+                            .disabled
+                        )
+                    ),
+                    isEnabled: (current.pushNotificationsEnabled && current.pushNotificationToken != nil),
+                    onTap: { [weak self] in
+                        self?.transitionToScreen(
+                            ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "Push Notification Token",
+                                    body: .attributedText(
+                                        ThemedAttributedString(string: "This devices current push token:\n\n")
+                                            .appending(
+                                                NSAttributedString(
+                                                    string: (current.pushNotificationToken ?? ""),
+                                                    attributes: [
+                                                        .font: SessionCell.FontStyle.monoSmall.font,
+                                                        .themeForegroundColor: ThemeValue.primary
+                                                    ]
+                                                )
+                                            ),
+                                        scrollMode: .never
+                                    ),
+                                    confirmTitle: "Copy",
+                                    cancelStyle: .alert_text,
+                                    dismissOnConfirm: true,
+                                    onConfirm: { _ in
+                                        UIPasteboard.general.string = current.pushNotificationToken
+                                    }
+                                )
+                            ),
+                            transitionType: .present
                         )
                     }
                 )
@@ -845,7 +912,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
             switch item {
                 case .developerMode, .versionBlindedID, .customDateTime, .scheduleLocalNotification,
                     .copyDocumentsPath, .copyAppGroupPath, .resetSnodeCache, .createMockContacts,
-                    .exportDatabase, .importDatabase, .advancedLogging:
+                    .exportDatabase, .importDatabase, .advancedLogging, .pushNotificationsEnabled,
+                    .pushNotificationToken:
                     break   /// These are actions rather than values stored as "features" so no need to do anything
                 
                 case .groupConfig: DeveloperSettingsGroupsViewModel.disableDeveloperMode(using: dependencies)

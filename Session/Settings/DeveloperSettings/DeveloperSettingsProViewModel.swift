@@ -85,8 +85,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         case forceMessageFeatureLongMessage
         case forceMessageFeatureAnimatedAvatar
         
-        case proPlanToRecover
-        
         case purchaseProSubscription
         case manageProSubscriptions
         case restoreProSubscription
@@ -116,9 +114,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .forceMessageFeatureProBadge: return "forceMessageFeatureProBadge"
                 case .forceMessageFeatureLongMessage: return "forceMessageFeatureLongMessage"
                 case .forceMessageFeatureAnimatedAvatar: return "forceMessageFeatureAnimatedAvatar"
-                    
-                case .proPlanToRecover: return "proPlanToRecover"
-                    
+                
                 case .purchaseProSubscription: return "purchaseProSubscription"
                 case .manageProSubscriptions: return "manageProSubscriptions"
                 case .restoreProSubscription: return "restoreProSubscription"
@@ -152,8 +148,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 case .forceMessageFeatureLongMessage: result.append(.forceMessageFeatureLongMessage); fallthrough
                 case .forceMessageFeatureAnimatedAvatar: result.append(.forceMessageFeatureAnimatedAvatar); fallthrough
                 
-                case .proPlanToRecover: result.append(.proPlanToRecover); fallthrough
-                    
                 case .purchaseProSubscription: result.append(.purchaseProSubscription); fallthrough
                 case .manageProSubscriptions: result.append(.manageProSubscriptions); fallthrough
                 case .restoreProSubscription: result.append(.restoreProSubscription); fallthrough
@@ -226,10 +220,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.mockCurrentUserAccessExpiryTimestamp),
             .feature(.proBadgeEverywhere),
             .feature(.fakeAppleSubscriptionForDev),
-            //            .feature(.proPlanToRecover),
-            //            .feature(.mockCurrentUserSessionProExpiry),
-            //            .feature(.mockInstalledFromIPA),
-//                .feature(.mockExpiredOverThirtyDays),
             .feature(.forceMessageFeatureProBadge),
             .feature(.forceMessageFeatureLongMessage),
             .feature(.forceMessageFeatureAnimatedAvatar),
@@ -249,8 +239,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
                 fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
                 
-//                proPlanToRecover: dependencies[feature: .proPlanToRecover],
-
                 forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
                 forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
                 forceMessageFeatureAnimatedAvatar: dependencies[feature: .forceMessageFeatureAnimatedAvatar],
@@ -325,7 +313,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             mockCurrentUserAccessExpiryTimestamp: dependencies[feature: .mockCurrentUserAccessExpiryTimestamp],
             proBadgeEverywhere: dependencies[feature: .proBadgeEverywhere],
             fakeAppleSubscriptionForDev: dependencies[feature: .fakeAppleSubscriptionForDev],
-//            proPlanToRecover: dependencies[feature: .proPlanToRecover],
             forceMessageFeatureProBadge: dependencies[feature: .forceMessageFeatureProBadge],
             forceMessageFeatureLongMessage: dependencies[feature: .forceMessageFeatureLongMessage],
             forceMessageFeatureAnimatedAvatar: dependencies[feature: .forceMessageFeatureAnimatedAvatar],
@@ -819,6 +806,12 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         if dependencies.hasSet(feature: .mockCurrentUserSessionProBackendStatus) {
             dependencies.reset(feature: .mockCurrentUserSessionProBackendStatus)
+        }
+    }
+    
+    private func purchaseSubscription() async {
+        do {
+            let products: [Product] = try await Product.products(for: ["com.getsession.org.pro_sub"])
             
             Task.detached(priority: .userInitiated) { [dependencies] in
                 try? await dependencies[singleton: .sessionProManager].refreshProState()
@@ -833,31 +826,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             }
         }
     }
-//
-//    private func updateSessionProState(to state: SessionProStateMock) {
-//        dependencies.set(feature: .mockCurrentUserSessionProState, to: state)
-//        switch state {
-//            case .none:
-//                dependencies[singleton: .sessionProState].cancelPro(completion: nil)
-//            case .active:
-//                dependencies[singleton: .sessionProState].upgradeToPro(
-//                    plan: SessionProPlan(variant: .threeMonths),
-//                    originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
-//                    completion: nil
-//                )
-//            case .expiring:
-//                dependencies[singleton: .sessionProState].upgradeToPro(
-//                    plan: SessionProPlan(variant: .threeMonths),
-//                    originatingPlatform: dependencies[feature: .proPlanOriginatingPlatform],
-//                    completion: nil
-//                )
-//                dependencies[singleton: .sessionProState].cancelPro(completion: nil)
-//            case .expired:
-//                dependencies[singleton: .sessionProState].expirePro(completion: nil)
-//            case .refunding:
-//                dependencies[singleton: .sessionProState].requestRefund(completion: nil)
-//        }
-//    }
     
     // MARK: - Pro Requests
     

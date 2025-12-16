@@ -6,28 +6,17 @@ import Combine
 public protocol SessionProManagerType: AnyObject {
     var sessionProStateSubject: CurrentValueSubject<SessionProPlanState, Never> { get }
     var sessionProStatePublisher: AnyPublisher<SessionProPlanState, Never> { get }
+    var isSessionProActivePublisher: AnyPublisher<Bool, Never> { get }
+    var isSessionProExpired: Bool { get }
     var sessionProPlans: [SessionProPlan] { get }
-    func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?)
-    func cancelPro(completion: ((_ result: Bool) -> Void)?)
-    func requestRefund(completion: ((_ result: Bool) -> Void)?)
-    func expirePro(completion: ((_ result: Bool) -> Void)?)
-    func recoverPro(completion: ((_ result: Bool) -> Void)?)
+    func upgradeToPro(plan: SessionProPlan, originatingPlatform: ClientPlatform, completion: ((_ result: Bool) -> Void)?) async
+    func cancelPro(completion: ((_ result: Bool) -> Void)?) async
+    func requestRefund(completion: ((_ result: Bool) -> Void)?) async
+    func expirePro(completion: ((_ result: Bool) -> Void)?) async
+    func recoverPro(completion: ((_ result: Bool) -> Void)?) async
     // These functions are only for QA purpose
     func updateOriginatingPlatform(_ newValue: ClientPlatform)
     func updateProExpiry(_ expiryInSeconds: TimeInterval?)
-}
-
-public extension SessionProManagerType {
-    var isSessionProPublisher: AnyPublisher<Bool, Never> {
-        sessionProStatePublisher
-            .map {
-                switch $0 {
-                    case .active: return true
-                    default: return false
-                }
-            }
-            .eraseToAnyPublisher()
-    }
 }
 
 public enum SessionProPlanState: Equatable, Sendable {

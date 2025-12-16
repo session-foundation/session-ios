@@ -35,12 +35,12 @@ extension ConversationVC:
     }
     
     // Handle taps outside of tableview cell to dismiss keyboard
-    @MainActor @objc func dismissKeyboardOnTap(_ recognizer: UITapGestureRecognizer) {
-        /// If the tap was inside the "Send" button on the input then we **don't** want to dismiss the keyboard (the user should be
-        /// able to send multiple messages in a row)
-        let location: CGPoint = recognizer.location(in: self.snInputView.sendButton)
+    @MainActor @objc func dismissKeyboardOnMessageListTap(_ recognizer: UITapGestureRecognizer) {
+        /// If the tap was inside the input then we **don't** want to dismiss the keyboard (the user should be able to interact with their
+        /// current text, or tap the buttons without the keyboard being dismissed)
+        let location: CGPoint = recognizer.location(in: self.snInputView)
         
-        guard !snInputView.sendButton.bounds.contains(location) else { return }
+        guard !snInputView.bounds.contains(location) else { return }
         
         _ = self.snInputView.resignFirstResponder()
     }
@@ -574,10 +574,18 @@ extension ConversationVC:
     }
     
     @MainActor func handleCharacterLimitLabelTapped() {
-        let didShowCTAModal: Bool = viewModel.dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-            .longerMessages,
-            onConfirm: { [weak self] in
-                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+        let manager: SessionProManagerType = viewModel.dependencies[singleton: .sessionProManager]
+        let didShowCTAModal: Bool = manager.showSessionProCTAIfNeeded(
+            .longerMessages(renew: (manager.currentUserCurrentProState.status == .expired)),
+            onConfirm: { [weak self, manager] in
+                manager.showSessionProBottomSheetIfNeeded(
+                    afterClosed: { [weak self] in
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
@@ -706,10 +714,18 @@ extension ConversationVC:
     }
     
     @MainActor func showModalForMessagesExceedingCharacterLimit() {
-        let didShowCTAModal: Bool = viewModel.dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-            .longerMessages,
-            onConfirm: { [weak self] in
-                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+        let manager: SessionProManagerType = viewModel.dependencies[singleton: .sessionProManager]
+        let didShowCTAModal: Bool = manager.showSessionProCTAIfNeeded(
+            .longerMessages(renew: (manager.currentUserCurrentProState.status == .expired)),
+            onConfirm: { [weak self, manager] in
+                manager.showSessionProBottomSheetIfNeeded(
+                    afterClosed: { [weak self] in
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
@@ -1604,7 +1620,7 @@ extension ConversationVC:
                     },
                     onProBadgeTapped: { [weak self, dependencies] in
                         dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-                            .generic,
+                            .generic(renew: (dependencies[singleton: .sessionProManager].currentUserCurrentProState.status == .expired)),
                             dismissType: .single,
                             afterClosed: { [weak self] in
                                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")

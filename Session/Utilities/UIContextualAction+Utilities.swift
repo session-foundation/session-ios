@@ -229,30 +229,37 @@ public extension UIContextualAction {
                             indexPath: indexPath,
                             tableView: tableView
                         ) { _, _, completionHandler in
-                            if !isCurrentlyPinned,
-                               !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro,
-                               let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
-                                   try SessionThread
-                                       .filter(SessionThread.Columns.pinnedPriority > 0)
-                                       .fetchCount(db)
-                               }),
-                               pinnedConversationsNumber >= SessionPro.PinnedConversationLimit
+                            if
+                                dependencies[feature: .sessionProEnabled],
+                                !isCurrentlyPinned,
+                                !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro,
+                                let pinnedConversationsNumber: Int = dependencies[singleton: .storage].read({ db in
+                                    try SessionThread
+                                        .filter(SessionThread.Columns.pinnedPriority > 0)
+                                        .fetchCount(db)
+                                }),
+                                pinnedConversationsNumber >= SessionPro.PinnedConversationLimit
                             {
-                                let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-                                    modal: ProCTAModal(
-                                        variant: .morePinnedConvos(
-                                            isGrandfathered: (pinnedConversationsNumber > SessionPro.PinnedConversationLimit)
-                                        ),
-                                        dataManager: dependencies[singleton: .imageDataManager],
-                                        sessionProUIManager: dependencies[singleton: .sessionProManager],
-                                        onConfirm: { [dependencies] in
-                                        },
-                                        afterClosed: { [completionHandler] in
-                                            completionHandler(true)
-                                        }
-                                    )
+                                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                    .morePinnedConvos(
+                                        isGrandfathered: (pinnedConversationsNumber >= SessionPro.PinnedConversationLimit),
+                                        renew: (dependencies[singleton: .sessionProManager]
+                                            .currentUserCurrentProState
+                                            .status == .expired)
+                                    ),
+                                    onConfirm: { [dependencies] in
+                                        dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                                            afterClosed: nil,
+                                            presenting: { bottomSheet in
+                                                viewController?.present(bottomSheet, animated: true)
+                                            }
+                                        )
+                                    },
+                                    presenting: { sessionProModal in
+                                        viewController?.present(sessionProModal, animated: true, completion: nil)
+                                    }
                                 )
-                                viewController?.present(sessionProModal, animated: true, completion: nil)
+                                
                                 return
                             }
                             
@@ -263,14 +270,13 @@ public extension UIContextualAction {
                             // Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                                 dependencies[singleton: .storage].writeAsync { db in
-                                    try SessionThread
-                                        .filter(id: threadInfo.id)
-                                        .updateAllAndConfig(
-                                            db,
-                                            SessionThread.Columns.pinnedPriority
-                                                .set(to: (isCurrentlyPinned ? 0 : 1)),
-                                            using: dependencies
-                                        )
+                                    try SessionThread.updateVisibility(
+                                        db,
+                                        threadId: threadInfo.id,
+                                        isVisible: true,
+                                        customPriority: (isCurrentlyPinned ? LibSession.visiblePriority : 1),
+                                        using: dependencies
+                                    )
                                 }
                             }
                         }

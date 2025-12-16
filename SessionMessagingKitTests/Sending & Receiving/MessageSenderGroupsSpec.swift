@@ -673,7 +673,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 )
                             }
                             .thenReturn(MockNetwork.response(with: FileUploadResponse(id: "1", uploaded: nil, expires: nil)))
-                        mockFileManager.when { $0.contents(atPath: .any) }.thenReturn(TestConstants.validImageData)
+                        mockFileManager.when { try? $0.contents(atPath: .any) }.thenReturn(TestConstants.validImageData)
                         
                         let result = await Result {
                             try await MessageSender.createGroup(

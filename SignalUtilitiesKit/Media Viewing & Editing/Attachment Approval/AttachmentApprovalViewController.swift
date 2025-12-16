@@ -695,9 +695,16 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     
     @MainActor func showModalForMessagesExceedingCharacterLimit() {
         let didShowCTAModal: Bool = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-            .longerMessages,
+            .longerMessages(renew: (dependencies[singleton: .sessionProManager].currentUserCurrentProState.status == .expired)),
             onConfirm: { [weak self] in
-                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                    afterClosed: {
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
@@ -742,9 +749,16 @@ extension AttachmentApprovalViewController: InputViewDelegate {
     
     public func handleCharacterLimitLabelTapped() {
         let didShowCTAModal: Bool = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-            .longerMessages,
+            .longerMessages(renew: (dependencies[singleton: .sessionProManager].currentUserCurrentProState.status == .expired)),
             onConfirm: { [weak self] in
-                self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                    afterClosed: {
+                        self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
+                    },
+                    presenting: { bottomSheet in
+                        self?.present(bottomSheet, animated: true)
+                    }
+                )
             },
             onCancel: { [weak self] in
                 self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")

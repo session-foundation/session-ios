@@ -524,13 +524,20 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                             generator: { SessionProBadge(size: .mini) }
                                         )
                                     )
-                                default: return .generic
+                                default:
+                                    return .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
                             }
                         }()
                         
                         dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                             proCTAModalVariant,
-                            onConfirm: {},
+                            onConfirm: {
+                                dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                                    presenting: { bottomSheet in
+                                        self?.transitionToScreen(bottomSheet, transitionType: .present)
+                                    }
+                                )
+                            },
                             presenting: { [weak viewModel] modal in
                                 viewModel?.transitionToScreen(modal, transitionType: .present)
                             }
@@ -1737,8 +1744,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         current: String?,
         displayName: String
     ) -> ConfirmationModal.Info {
-        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry
-        /// about retrieving them in the confirmation closure
+        /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry about retrieving them in the confirmation closure
         self.updatedName = current
         let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
         
@@ -2191,11 +2197,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     
     private func toggleConversationPinnedStatus(threadInfo: ConversationInfoViewModel) async {
         let isCurrentlyPinned: Bool = (threadInfo.pinnedPriority > LibSession.visiblePriority)
-        let isSessionPro: Bool = await dependencies[singleton: .sessionProManager]
-            .currentUserIsPro
-            .first(defaultValue: false)
+        let sessionProState: SessionPro.State = await dependencies[singleton: .sessionProManager]
+            .state
+            .first(defaultValue: .invalid)
         
-        if !isCurrentlyPinned && !isSessionPro {
+        if sessionProState.sessionProEnabled && !isCurrentlyPinned && sessionProState.status != .active {
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
             do {
                 let numPinnedConversations: Int = try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
@@ -2227,7 +2233,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     let sessionProModal: ModalHostingViewController = ModalHostingViewController(
                         modal: ProCTAModal(
                             variant: .morePinnedConvos(
-                                isGrandfathered: (numPinnedConversations > SessionPro.PinnedConversationLimit)
+                                isGrandfathered: (numPinnedConversations > SessionPro.PinnedConversationLimit),
+                                renew: (sessionProState.status == .expired)
                             ),
                             dataManager: dependencies[singleton: .imageDataManager],
                             sessionProUIManager: dependencies[singleton: .sessionProManager],
