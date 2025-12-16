@@ -227,6 +227,16 @@ public extension SessionCell.Accessory {
         )
     }
     
+    static func activityIndicator(
+        themeColor: ThemeValue,
+        accessibility: Accessibility? = nil
+    ) -> SessionCell.Accessory {
+        return SessionCell.AccessoryConfig.ActivityIndicator(
+            themeColor: themeColor,
+            accessibility: accessibility
+        )
+    }
+    
     static func custom<T: SessionCell.Accessory.CustomViewInfo>(
         info: T,
         accessibility: Accessibility? = nil
@@ -797,6 +807,36 @@ public extension SessionCell.AccessoryConfig {
                 style == (other as? Button)?.style &&
                 title == (other as? Button)?.title &&
                 accessibility == (other as? Button)?.accessibility
+            )
+        }
+    }
+    
+    class ActivityIndicator: SessionCell.Accessory {
+        override public var viewIdentifier: String { "activityIndicator" }
+        
+        public let themeColor: ThemeValue
+        
+        fileprivate init(
+            themeColor: ThemeValue,
+            accessibility: Accessibility?
+        ) {
+            self.themeColor = themeColor
+            
+            super.init(accessibility: accessibility)
+        }
+        
+        // MARK: - Conformance
+        
+        override public func hash(into hasher: inout Hasher) {
+            themeColor.hash(into: &hasher)
+            accessibility.hash(into: &hasher)
+        }
+        
+        override fileprivate func isEqual(to other: SessionCell.Accessory) -> Bool {
+            return (
+                other is ActivityIndicator &&
+                themeColor == (other as? ActivityIndicator)?.themeColor &&
+                accessibility == (other as? ActivityIndicator)?.accessibility
             )
         }
     }

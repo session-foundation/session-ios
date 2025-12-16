@@ -998,10 +998,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                     }
                                 }()
                                 
-                                // Return if the selected option is `Clear on this device`
-                                guard selectedIndex != 0 else { return }
-                                self?.deleteAllMessagesBeforeNow()
+                                // Don't update the group if the selected option is `Clear on this device`
+                                if selectedIndex != 0 {
+                                    self?.deleteAllMessagesBeforeNow()
+                                }
                             }
+                            
                             dependencies[singleton: .storage].writeAsync(
                                 updates: { db in
                                     try Interaction.markAllAsDeleted(
@@ -1869,7 +1871,9 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
     }
     
     @MainActor private func showPhotoLibraryForAvatar() {
-        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] granted in
+            guard granted else { return }
+            
             DispatchQueue.main.async {
                 var configuration: PHPickerConfiguration = PHPickerConfiguration()
                 configuration.selectionLimit = 1

@@ -67,16 +67,16 @@ open class Storage {
     // MARK: - Database State Variables
     
     private var startupError: Error?
-    public private(set) var isValid: Bool = false
-    public private(set) var isSuspended: Bool = false
+    @ThreadSafe public private(set) var isValid: Bool = false
+    @ThreadSafe public private(set) var isSuspended: Bool = false
     public var isDatabasePasswordAccessible: Bool { ((try? getDatabaseCipherKeySpec()) != nil) }
     public private(set) var hasCompletedMigrations: Bool = false
     
     /// This property gets set the first time we successfully read from the database
-    public private(set) var hasSuccessfullyRead: Bool = false
+    @ThreadSafe public private(set) var hasSuccessfullyRead: Bool = false
     
     /// This property gets set the first time we successfully write to the database
-    public private(set) var hasSuccessfullyWritten: Bool = false
+    @ThreadSafe public private(set) var hasSuccessfullyWritten: Bool = false
     
     /// This property keeps track of all current database calls and can be used when suspending the database to explicitly
     /// cancel any currently running tasks
@@ -1079,7 +1079,7 @@ private extension Storage {
         var task: Task<(), Never>?
         
         private var timer: DispatchSourceTimer?
-        private var startTime: CFTimeInterval?
+        @ThreadSafe private var startTime: CFTimeInterval?
         private(set) var wasSlowTransaction: Bool = false
         
         var isWrite: Bool {

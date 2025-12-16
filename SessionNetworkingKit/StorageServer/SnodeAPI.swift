@@ -794,7 +794,7 @@ public extension Network.SnodeAPI {
         private let dependencies: Dependencies
         public var hardfork: Int
         public var softfork: Int
-        public var clockOffsetMs: Int64 = 0
+        @ThreadSafe public var clockOffsetMs: Int64 = 0
         
         init(using dependencies: Dependencies) {
             self.dependencies = dependencies

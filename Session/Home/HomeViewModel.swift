@@ -802,16 +802,11 @@ public class HomeViewModel: NavigatableStateHolder {
         self.transitionToScreen(modal, transitionType: .present)
     }
     
-    @MainActor
-    func handlePrimaryTappedForState(_ state: AppReviewPromptState) {
+    @MainActor func handlePrimaryTappedForState(_ state: AppReviewPromptState) {
         dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true
         
         switch state {
-            case .enjoyingSession:
-                handlePromptChangeState(.rateSession)
-                scheduleAppReviewRetry()
-                dependencies[singleton: .donationsManager].positiveReviewChosen()
-                
+            case .enjoyingSession: handlePromptChangeState(.feedback)
             case .feedback:
                 // Close prompt before showing survery
                 handlePromptChangeState(nil)
@@ -824,12 +819,16 @@ public class HomeViewModel: NavigatableStateHolder {
         }
     }
     
-    func handleSecondayTappedForState(_ state: AppReviewPromptState) {
+    @MainActor func handleSecondayTappedForState(_ state: AppReviewPromptState) {
         dependencies[defaults: .standard, key: .didActionAppReviewPrompt] = true
         
         switch state {
             case .feedback, .rateSession: handlePromptChangeState(nil)
-            case .enjoyingSession: handlePromptChangeState(.feedback)
+            case .enjoyingSession:
+                handlePromptChangeState(.rateSession)
+                scheduleAppReviewRetry()
+                dependencies[singleton: .donationsManager].positiveReviewChosen()
+                
             default: break
         }
     }
