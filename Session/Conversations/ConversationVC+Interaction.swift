@@ -481,7 +481,9 @@ extension ConversationVC:
         let threadVariant: SessionThread.Variant = self.viewModel.threadData.threadVariant
         let quoteViewModel: QuoteViewModel? = self.snInputView.quoteViewModel
         
-        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: viewModel.dependencies) { [weak self, dependencies = viewModel.dependencies] granted in
+            guard granted else { return }
+            
             DispatchQueue.main.async {
                 let sendMediaNavController = SendMediaNavigationController.showingMediaLibraryFirst(
                     threadId: threadId,
@@ -2706,7 +2708,9 @@ extension ConversationVC:
                     isSavingMedia: true,
                     presentingViewController: self,
                     using: viewModel.dependencies
-                ) { [weak self, dependencies = viewModel.dependencies] in
+                ) { [weak self, dependencies = viewModel.dependencies] granted in
+                    guard granted else { return }
+                    
                     PHPhotoLibrary.shared().performChanges(
                         {
                             validAttachments.forEach { attachment, path in

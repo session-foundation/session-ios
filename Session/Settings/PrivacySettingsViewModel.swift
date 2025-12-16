@@ -265,7 +265,8 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                         confirmTitle: "theContinue".localized(),
                         confirmStyle: .danger,
                         cancelStyle: .alert_text,
-                        onConfirm: { [dependencies = viewModel.dependencies] _ in
+                        dismissOnConfirm: false,
+                        onConfirm: { [dependencies = viewModel.dependencies] modal in
                             /// Notify that we are awaiting the outcome of the calls permission chain
                             dependencies.notifyAsync(
                                 priority: .immediate,
@@ -275,16 +276,20 @@ class PrivacySettingsViewModel: SessionTableViewModel, NavigationItemSource, Nav
                                 )
                             )
                             
-                            /// Kick off the permission chain
-                            Permissions.requestPermissionsForCalls(using: dependencies) { _, _, _ in
-                                /// Notify that we are no longer awaiting the result of the permission chain
-                                dependencies.notifyAsync(
-                                    priority: .immediate,
-                                    key: .updateScreen(PrivacySettingsViewModel.self),
-                                    value: PrivacySettingsViewModelEvent(
-                                        isAwaitingCallPermissionChainResult: false
+                            /// Wait until after the modal has been dismissed to kick off the permission chain to ensure we
+                            /// don't try to present a subsequent modal from the one being dismissed (this would result in
+                            /// no modal being shown)
+                            modal.dismiss(animated: true) {
+                                Permissions.requestPermissionsForCalls(using: dependencies) { _, _, _ in
+                                    /// Notify that we are no longer awaiting the result of the permission chain
+                                    dependencies.notifyAsync(
+                                        priority: .immediate,
+                                        key: .updateScreen(PrivacySettingsViewModel.self),
+                                        value: PrivacySettingsViewModelEvent(
+                                            isAwaitingCallPermissionChainResult: false
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
                     ),

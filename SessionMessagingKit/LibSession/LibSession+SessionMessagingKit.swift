@@ -1128,7 +1128,6 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     // MARK: - SettingFetcher
     
-    func has(_ key: Setting.BoolKey) -> Bool
     func has(_ key: Setting.EnumKey) -> Bool
     func get(_ key: Setting.BoolKey) -> Bool
     func get<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey) -> T?
@@ -1411,7 +1410,6 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     // MARK: - SettingFetcher
     
-    func has(_ key: Setting.BoolKey) -> Bool { return false }
     func has(_ key: Setting.EnumKey) -> Bool { return false }
     func get(_ key: Setting.BoolKey) -> Bool { return false }
     func get<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey) -> T? { return nil }

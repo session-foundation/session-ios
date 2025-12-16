@@ -81,7 +81,15 @@ extension Permissions {
         let handlePermissionDenied: () -> Void = {
             guard
                 let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
-            else { return }
+            else {
+                /// Should always trigger the callback even if the UI is in an invalid state
+                onComplete?(false)
+                dependencies.notifyAsync(
+                    key: .permission(.microphone),
+                    value: Permissions.Status.denied
+                )
+                return
+            }
             
             let confirmationModal: ConfirmationModal = ConfirmationModal(
                 info: ConfirmationModal.Info(
@@ -152,7 +160,7 @@ extension Permissions {
         isSavingMedia: Bool,
         presentingViewController: UIViewController? = nil,
         using dependencies: Dependencies,
-        onAuthorized: @escaping () -> Void
+        onComplete: @escaping (Bool) -> Void
     ) {
         let targetPermission: PHAccessLevel = (isSavingMedia ? .addOnly : .readWrite)
         let authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
@@ -170,7 +178,7 @@ extension Permissions {
             PHPhotoLibrary.requestAuthorization(for: targetPermission) { status in
                 SessionEnvironment.shared?.isRequestingPermission = false
                 if [ PHAuthorizationStatus.authorized, PHAuthorizationStatus.limited ].contains(status) {
-                    onAuthorized()
+                    onComplete(true)
                     dependencies.notifyAsync(
                         key: .permission(.photoLibrary),
                         value: Permissions.Status.granted
@@ -181,7 +189,7 @@ extension Permissions {
         
         switch authorizationStatus {
             case .authorized, .limited:
-                onAuthorized()
+                onComplete(true)
                 dependencies.notifyAsync(
                     key: .permission(.photoLibrary),
                     value: Permissions.Status.granted
@@ -189,7 +197,15 @@ extension Permissions {
             case .denied, .restricted:
                 guard
                     let presentingViewController: UIViewController = (presentingViewController ?? dependencies[singleton: .appContext].frontMostViewController)
-                else { return }
+                else {
+                    /// Should always trigger the callback even if the UI is in an invalid state
+                    onComplete(false)
+                    dependencies.notifyAsync(
+                        key: .permission(.photoLibrary),
+                        value: Permissions.Status.denied
+                    )
+                    return
+                }
                 
                 let confirmationModal: ConfirmationModal = ConfirmationModal(
                     info: ConfirmationModal.Info(
@@ -207,6 +223,7 @@ extension Permissions {
                             })
                         },
                         afterClosed: {
+                            onComplete(false)
                             dependencies.notifyAsync(
                                 key: .permission(.photoLibrary),
                                 value: Permissions.Status.denied
@@ -224,7 +241,7 @@ extension Permissions {
     
     public static func localNetwork(using dependencies: Dependencies) -> Status {
         return dependencies.mutate(cache: .libSession) { cache in
-            guard cache.has(.lastSeenHasLocalNetworkPermission) else {
+            guard dependencies[defaults: .standard, key: .hasRequestedLocalNetworkPermission] else {
                 return .undetermined
             }
             
@@ -248,12 +265,12 @@ extension Permissions {
             do {
                 if try await checkLocalNetworkPermissionWithBonjour() {
                     // Permission is granted, continue to next onboarding step
-                    dependencies.setAsync(.lastSeenHasLocalNetworkPermission, true)
+                    await dependencies.set(.lastSeenHasLocalNetworkPermission, true)
                     dependencies.notifyAsync(key: .permission(.localNetwork), value: Permissions.Status.granted)
                     onComplete?(true)
                 } else {
                     // Permission denied, explain why we need it and show button to open Settings
-                    dependencies.setAsync(.lastSeenHasLocalNetworkPermission, false)
+                    await dependencies.set(.lastSeenHasLocalNetworkPermission, false)
                     dependencies.notifyAsync(key: .permission(.localNetwork), value: Permissions.Status.denied)
                     onComplete?(false)
                 }
