@@ -778,6 +778,8 @@ public actor SessionProManager: SessionProManagerType {
                 do {
                     switch result {
                         case .verified(let transaction):
+                            // let transaction: Transaction = try result.payloadValue
+                            // await transaction.finish()
                             // TODO: [PRO] Need to actually handle this case (send to backend)
                             break
                             
