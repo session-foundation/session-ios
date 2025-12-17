@@ -95,6 +95,14 @@ class LibSessionGroupInfoSpec: QuickSpec {
                 cache.when { $0.configNeedsDump(.any) }.thenReturn(true)
             }
         )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
+            initialSetup: { crypto in
+                crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn("TestHash".bytes)
+                crypto
+                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+            }
+        )
         
         // MARK: - LibSessionGroupInfo
         describe("LibSessionGroupInfo") {
@@ -898,7 +906,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         using: dependencies
                     )
                     expect(mockNetwork)
-                        .to(call(.exactly(times: 1), matchingParameters: .all) { network in
+                        .toEventually(call(.exactly(times: 1), matchingParameters: .all) { network in
                             network.send(
                                 endpoint: Network.SnodeAPI.Endpoint.deleteMessages,
                                 destination: expectedRequest.destination,

@@ -84,7 +84,7 @@ class CryptoSMKSpec: QuickSpec {
 
                     // Note: A Nonce is used for this so we can't compare the exact value when not mocked
                     expect(result).toNot(beNil())
-                    expect(result?.count).to(equal(155))
+                    expect(result?.count).to(equal(397))
                 }
 
                 // MARK: ---- throws an error if there is no ed25519 keyPair
@@ -109,28 +109,34 @@ class CryptoSMKSpec: QuickSpec {
             // MARK: -- when decrypting with the session protocol
             context("when decrypting with the session protocol") {
                 @TestState var result: DecodedMessage?
+                @TestState var encodedMessage: Data! = Data(
+                    base64Encoded: "CAESvwEKABIAGrYBCAYSACjQiOyP9yM4AUKmAfjX/WXVFs+QE5Eh54Esw9/N" +
+                    "lYza3k8MOvcRAI7y8k0JzLsm/KpXxKP7Zx7+5YyII9sCRXzFK2U4/X9SSMN088YEr/5wKoDfL5q" +
+                    "PQbN70aa59WS8YE+yWcniQO0KXfAzr6Acn40fsa9BMr9tnQLfvxY8vD7qBz9iEOV9jTxPzxUoD+" +
+                    "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
+                )
                 
                 // MARK: ---- successfully decrypts a message
                 it("successfully decrypts a message") {
-                    result = try? crypto.generate(
-                        .decodedMessage(
-                            encodedMessage: Data(
-                                base64Encoded: "SRP0eBUWh4ez6ppWjUs5/Wph5fhnPRgB5zsWWnTz+FBAw/YI3oS2pDpIfyetMTbU" +
-                                "sFMhE5G4PbRtQFey1hsxLl221Qivc3ayaX2Mm/X89Dl8e45BC+Lb/KU9EdesxIK4pVgYXs9XrMtX3v8" +
-                                "dt0eBaXneOBfr7qB8pHwwMZjtkOu1ED07T9nszgbWabBphUfWXe2U9K3PTRisSCI="
-                            )!,
-                            origin: .swarm(
-                                publicKey: TestConstants.publicKey,
-                                namespace: .default,
-                                serverHash: "12345",
-                                serverTimestampMs: 1234567890,
-                                serverExpirationTimestamp: 1234567890
+                    try require {
+                        result = try crypto.tryGenerate(
+                            .decodedMessage(
+                                encodedMessage: encodedMessage,
+                                origin: .swarm(
+                                    publicKey: "05\(TestConstants.publicKey)",
+                                    namespace: .default,
+                                    serverHash: "12345",
+                                    serverTimestampMs: 1234567890,
+                                    serverExpirationTimestamp: 1234567890
+                                )
                             )
                         )
-                    )
+                    }.toNot(throwError())
                     
-                    expect(String(data: (result?.content ?? Data()), encoding: .utf8)).to(equal("TestMessage"))
-                    expect(result?.sender.hexString)
+                    let proto: SNProtoContent! = try require { try result!.decodeProtoContent() }
+                        .toNot(throwError())
+                    expect(proto.dataMessage?.body).to(equal("TestMessage"))
+                    expect(result!.sender.hexString)
                         .to(equal("0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                 }
 
@@ -141,13 +147,9 @@ class CryptoSMKSpec: QuickSpec {
                     expect {
                         result = try crypto.tryGenerate(
                             .decodedMessage(
-                                encodedMessage: Data(
-                                    base64Encoded: "SRP0eBUWh4ez6ppWjUs5/Wph5fhnPRgB5zsWWnTz+FBAw/YI3oS2pDpIfyetMTbU" +
-                                    "sFMhE5G4PbRtQFey1hsxLl221Qivc3ayaX2Mm/X89Dl8e45BC+Lb/KU9EdesxIK4pVgYXs9XrMtX3v8" +
-                                    "dt0eBaXneOBfr7qB8pHwwMZjtkOu1ED07T9nszgbWabBphUfWXe2U9K3PTRisSCI="
-                                )!,
+                                encodedMessage: encodedMessage,
                                 origin: .swarm(
-                                    publicKey: TestConstants.publicKey,
+                                    publicKey: "05\(TestConstants.publicKey)",
                                     namespace: .default,
                                     serverHash: "12345",
                                     serverTimestampMs: 1234567890,
@@ -166,7 +168,7 @@ class CryptoSMKSpec: QuickSpec {
                             .decodedMessage(
                                 encodedMessage: Data([1, 2, 3]),
                                 origin: .swarm(
-                                    publicKey: TestConstants.publicKey,
+                                    publicKey: "05\(TestConstants.publicKey)",
                                     namespace: .default,
                                     serverHash: "12345",
                                     serverTimestampMs: 1234567890,

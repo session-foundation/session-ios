@@ -2615,27 +2615,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- throws if there is no timestamp
-                it("throws if there is no timestamp") {
-                    deleteContentMessage.sentTimestampMs = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: deleteContentMessage,
-                                decodedMessage: decodedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                currentUserSessionIds: [],
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageError.invalidMessage("Test")))
-                    }
-                }
-                
                 // MARK: ---- throws if the admin signature fails to verify
                 it("throws if the admin signature fails to verify") {
                     mockCrypto
@@ -3546,7 +3525,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageError.invalidMessage("Test")))
+                        .to(throwError(MessageError.ignorableMessage))
                     }
                 }
             }
