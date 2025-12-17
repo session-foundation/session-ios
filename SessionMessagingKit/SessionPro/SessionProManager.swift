@@ -62,10 +62,14 @@ public actor SessionProManager: SessionProManagerType {
         self.syncState = SessionProManagerSyncState(using: dependencies)
         
         Task.detached(priority: .medium) { [weak self] in
+            await self?.startProMockingObservations()
+            
+            // TODO: [PRO] Probably need to kick of the below tasks within 'startProMockingObservations' if Session Pro gets enabled (will need to check that they aren't already running though)
+            guard dependencies[feature: .sessionProEnabled] else { return }
+            
             await self?.updateWithLatestFromUserConfig()
             await self?.startRevocationListTask()
             await self?.startStoreKitObservations()
-            await self?.startProMockingObservations()
             
             /// Kick off a refresh so we know we have the latest state (if it's the main app)
             if dependencies[singleton: .appContext].isMainApp {

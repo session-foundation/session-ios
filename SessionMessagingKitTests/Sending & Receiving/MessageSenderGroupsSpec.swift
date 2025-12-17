@@ -172,6 +172,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 crypto
                     .when { $0.generate(.hash(message: .any)) }
                     .thenReturn(Array(Data(hex: "01010101010101010101010101010101")))
+                crypto
+                    .when { $0.generate(.signatureSubaccount(config: .any, verificationBytes: .any, memberAuthData: .any)) }
+                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
             }
         )
         @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
@@ -252,6 +255,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 cache
                     .when { try $0.pendingPushes(swarmPublicKey: .any) }
                     .thenReturn(LibSession.PendingPushes(obsoleteHashes: ["testHash"]))
+                cache
+                    .when { $0.authData(groupSessionId: .any) }
+                    .thenReturn(GroupAuthData(groupIdentityPrivateKey: nil, authData: Data([1, 2, 3])))
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
@@ -479,7 +485,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 ]
                             )
                         )
-                    let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = mockStorage.write { db in
+                    let expectedRequest: Network.PreparedRequest<Network.BatchResponse>? = mockStorage.write { db in
                         // Need the auth data to exist in the database to prepare the request
                         _ = try SessionThread.upsert(
                             db,
@@ -530,7 +536,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         try SessionThread.filter(id: groupId.hexString).deleteAll(db)
                         
                         return preparedRequest
-                    }!
+                    }
+                    try require(expectedRequest).toNot(beNil())
                     
                     let result = await Result {
                         try await MessageSender.createGroup(
@@ -550,10 +557,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                             network.send(
                                 endpoint: Network.SnodeAPI.Endpoint.sequence,
-                                destination: expectedRequest.destination,
-                                body: expectedRequest.body,
-                                requestTimeout: expectedRequest.requestTimeout,
-                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                                destination: expectedRequest!.destination,
+                                body: expectedRequest!.body,
+                                requestTimeout: expectedRequest!.requestTimeout,
+                                requestAndPathBuildTimeout: expectedRequest!.requestAndPathBuildTimeout
                             )
                         })
                 }

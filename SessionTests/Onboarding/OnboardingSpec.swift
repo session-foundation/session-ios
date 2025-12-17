@@ -697,7 +697,7 @@ class OnboardingSpec: AsyncSpec {
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
                         profileLastUpdated: profile.profileLastUpdated,
-                        blocksCommunityMessageRequests: nil,
+                        blocksCommunityMessageRequests: true,
                         proFeatures: .none,
                         proExpiryUnixTimestampMs: 0,
                         proGenIndexHashHex: nil

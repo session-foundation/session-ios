@@ -312,7 +312,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                                     count: DisplayPictureManager.encryptionKeySize
                                                 )
                                             ),
-                                            timestamp: 1234567891
+                                            timestamp: 1234567890
                                         )
                                     ),
                                     canStartJob: true
@@ -873,6 +873,10 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             proProfileFeatures: .none
                         ).inserted(db)
                     }
+                    mockLibSessionCache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
+                    mockLibSessionCache
+                        .when { $0.authData(groupSessionId: .any) }
+                        .thenReturn(GroupAuthData(groupIdentityPrivateKey: Data([1, 2, 3]), authData: nil))
                     
                     createGroupOutput.groupState[.groupInfo]?.conf.map { groups_info_set_delete_before($0, 123456) }
                     

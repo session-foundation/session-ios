@@ -96,6 +96,9 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 manager
                     .when { await $0.updateRooms(rooms: .any, server: .any, publicKey: .any, areDefaultRooms: .any) }
                     .thenReturn(())
+                manager
+                    .when { $0.handleCapabilities(.any, capabilities: .any, server: .any, publicKey: .any) }
+                    .thenReturn(())
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(

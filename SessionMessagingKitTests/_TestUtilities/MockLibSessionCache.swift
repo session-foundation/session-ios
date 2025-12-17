@@ -463,6 +463,7 @@ extension Mock where T == LibSessionCacheType {
         self.when { $0.wasKickedFromGroup(groupSessionId: .any) }.thenReturn(false)
         self.when { $0.groupName(groupSessionId: .any) }.thenReturn("TestGroupName")
         self.when { $0.groupIsDestroyed(groupSessionId: .any) }.thenReturn(false)
+        self.when { $0.groupInfo(for: .any) }.thenReturn([])
         self.when { $0.groupDeleteBefore(groupSessionId: .any) }.thenReturn(nil)
         self.when { $0.groupDeleteAttachmentsBefore(groupSessionId: .any) }.thenReturn(nil)
         self.when { $0.authData(groupSessionId: .any) }.thenReturn(GroupAuthData(groupIdentityPrivateKey: nil, authData: nil))

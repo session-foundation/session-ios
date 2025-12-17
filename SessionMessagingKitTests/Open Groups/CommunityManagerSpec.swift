@@ -1656,6 +1656,31 @@ class CommunityManagerSpec: AsyncSpec {
             // MARK: -- when handling messages
             context("when handling messages") {
                 beforeEach {
+                    mockCrypto
+                        .when {
+                            try $0.generate(
+                                .decodedMessage(
+                                    encodedMessage: Data.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .default,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
+                                )
+                            )
+                        }
+                        .thenReturn(
+                            DecodedMessage(
+                                content: Data(base64Encoded:"Cg0KC1Rlc3RNZXNzYWdlcNCI7I/3Iw==")! +
+                                Data([0x80]) +
+                                Data([UInt8](repeating: 0, count: 32)),
+                                sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                decodedEnvelope: nil,
+                                sentTimestampMs: 1234567890
+                            )
+                        )
                     mockStorage.write { db in
                         try testGroupThread.insert(db)
                         try testOpenGroup.insert(db)
@@ -1916,21 +1941,29 @@ class CommunityManagerSpec: AsyncSpec {
                 beforeEach {
                     mockCrypto
                         .when {
-                            $0.generate(
-                                .plaintextWithSessionBlindingProtocol(
-                                    ciphertext: Array<UInt8>.any,
-                                    senderId: .any,
-                                    recipientId: .any,
-                                    serverPublicKey: .any
+                            try $0.generate(
+                                .decodedMessage(
+                                    encodedMessage: Data.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .default,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
                                 )
                             )
                         }
-                        .thenReturn((
-                            plaintext: Data(base64Encoded:"Cg0KC1Rlc3RNZXNzYWdlcNCI7I/3Iw==")! +
-                            Data([0x80]) +
-                            Data([UInt8](repeating: 0, count: 32)),
-                            senderSessionIdHex: "05\(TestConstants.publicKey)"
-                        ))
+                        .thenReturn(
+                            DecodedMessage(
+                                content: Data(base64Encoded:"Cg0KC1Rlc3RNZXNzYWdlcNCI7I/3Iw==")! +
+                                Data([0x80]) +
+                                Data([UInt8](repeating: 0, count: 32)),
+                                sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                decodedEnvelope: nil,
+                                sentTimestampMs: 1234567890
+                            )
+                        )
                     mockCrypto
                         .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
                         .thenReturn(Data(hex: TestConstants.publicKey).bytes)
@@ -2058,19 +2091,27 @@ class CommunityManagerSpec: AsyncSpec {
                     it("ignores a message with invalid data") {
                         mockCrypto
                             .when {
-                                $0.generate(
-                                    .plaintextWithSessionBlindingProtocol(
-                                        ciphertext: Array<UInt8>.any,
-                                        senderId: .any,
-                                        recipientId: .any,
-                                        serverPublicKey: .any
+                                try $0.generate(
+                                    .decodedMessage(
+                                        encodedMessage: Data.any,
+                                        origin: .swarm(
+                                            publicKey: .any,
+                                            namespace: .default,
+                                            serverHash: .any,
+                                            serverTimestampMs: .any,
+                                            serverExpirationTimestamp: .any
+                                        )
                                     )
                                 )
                             }
-                            .thenReturn((
-                                plaintext: Data("TestInvalid".bytes),
-                                senderSessionIdHex: "05\(TestConstants.publicKey)"
-                            ))
+                            .thenReturn(
+                                DecodedMessage(
+                                    content: Data("TestInvalid".bytes),
+                                    sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                    decodedEnvelope: nil,
+                                    sentTimestampMs: 1234567890
+                                )
+                            )
                         
                         mockStorage.write { db in
                             communityManager.handleDirectMessages(
