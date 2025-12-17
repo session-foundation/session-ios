@@ -68,7 +68,14 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
     
     private lazy var imageView: SessionImageView = {
         let result: SessionImageView = SessionImageView(dataManager: dataManager)
-        result.loadImage(source)
+        result.loadImage(source) { [weak self] buffer in
+            guard let self, srcImageSizePoints == .zero else { return }
+            
+            self.srcImageSizePoints = (buffer?.firstFrame.size ?? .zero)
+            self.imageView.set(.width, to: self.srcImageSizePoints.width)
+            self.imageView.set(.height, to: self.srcImageSizePoints.height)
+            self.configureScrollView()
+        }
         
         return result
     }()
@@ -158,8 +165,6 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
         self.successCompletion = successCompletion
         
         super.init(nibName: nil, bundle: nil)
-
-        srcImageSizePoints = (source.displaySizeFromMetadata ?? .zero)
     }
 
     // MARK: View Lifecycle
@@ -199,8 +204,6 @@ class CropScaleImageViewController: OWSViewController, UIScrollViewDelegate {
         
         imageContainerView.pin(to: scrollView)
         imageView.pin(to: imageContainerView)
-        imageView.set(.width, to: srcImageSizePoints.width)
-        imageView.set(.height, to: srcImageSizePoints.height)
         
         buttonStackView.pin(.leading, to: .leading, of: view)
         buttonStackView.pin(.trailing, to: .trailing, of: view)

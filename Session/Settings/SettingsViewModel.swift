@@ -998,7 +998,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     @MainActor private func showPhotoLibraryForAvatar() {
-        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] granted in
+            guard granted else { return }
+            
             DispatchQueue.main.async {
                 var configuration: PHPickerConfiguration = PHPickerConfiguration()
                 configuration.selectionLimit = 1

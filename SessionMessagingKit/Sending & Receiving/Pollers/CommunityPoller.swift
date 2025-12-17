@@ -275,7 +275,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
     ///
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
-    public func poll(forceSynchronousProcessing: Bool = false) -> AnyPublisher<PollResult, Error> {
+    public func poll(forceSynchronousProcessing: Bool = false) -> AnyPublisher<PollResult<PollResponse>, Error> {
         typealias PollInfo = (
             roomInfo: [Network.SOGS.PollRoomInfo],
             lastInboxMessageId: Int64,
@@ -370,8 +370,9 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         publicKey: String,
         failureCount: Int,
         using dependencies: Dependencies
-    ) -> AnyPublisher<PollResult, Error> {
+    ) -> AnyPublisher<PollResult<PollResponse>, Error> {
         var rawMessageCount: Int = 0
+        var invalidMessageCount: Int = 0
         let validResponses: [Network.SOGS.Endpoint: Any] = response.data
             .filter { endpoint, data in
                 switch endpoint {
@@ -411,6 +412,7 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                         
                         if successfulMessages.count != responseBody.count {
                             let droppedCount: Int = (responseBody.count - successfulMessages.count)
+                            invalidMessageCount += droppedCount
                             
                             Log.info(.poller, "\(pollerName) dropped \(droppedCount) invalid open group message(s).")
                         }
@@ -439,9 +441,17 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
         // If there are no remaining 'validResponses' and there hasn't been a failure then there is
         // no need to do anything else
         guard !validResponses.isEmpty || failureCount != 0 else {
-            return Just(((info, response), rawMessageCount, 0, true))
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
+            return Just(
+                PollResult(
+                    response: (info, response),
+                    rawMessageCount: rawMessageCount,
+                    validMessageCount: 0,
+                    invalidMessageCount: invalidMessageCount,
+                    hadValidHashUpdate: false
+                )
+            )
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
         }
 
         // Retrieve the current capability & group info to check if anything changed
@@ -515,9 +525,17 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                 // If there are no 'changedResponses' and there hasn't been a failure then there is
                 // no need to do anything else
                 guard !changedResponses.isEmpty || failureCount != 0 else {
-                    return Just(((info, response), rawMessageCount, 0, true))
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
+                    return Just(
+                        PollResult(
+                            response: (info, response),
+                            rawMessageCount: rawMessageCount,
+                            validMessageCount: 0,
+                            invalidMessageCount: invalidMessageCount,
+                            hadValidHashUpdate: true
+                        )
+                    )
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
                 }
                 
                 return dependencies[singleton: .storage]
@@ -637,7 +655,13 @@ public final class CommunityPoller: CommunityPollerType & PollerType {
                         }
                         
                         /// Assume all messages were handled
-                        return ((info, response), rawMessageCount, rawMessageCount, true)
+                        return PollResult(
+                            response: (info, response),
+                            rawMessageCount: rawMessageCount,
+                            validMessageCount: rawMessageCount,
+                            invalidMessageCount: invalidMessageCount,
+                            hadValidHashUpdate: true
+                        )
                     }
                     .eraseToAnyPublisher()
             }

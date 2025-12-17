@@ -83,12 +83,24 @@ public extension ProfilePictureView.Info {
                             }
                         }(),
                         canAnimate: true,
-                        inset: UIEdgeInsets(
-                            top: 12,
-                            left: 12,
-                            bottom: 12,
-                            right: 12
-                        ),
+                        inset: {
+                            let padding: CGFloat
+                            
+                            switch size {
+                                case .navigation, .message: padding = 7
+                                case .list: padding = 12
+                                case .hero: padding = 28
+                                case .modal: padding = 24
+                                case .expanded: padding = 50
+                            }
+                            
+                            return UIEdgeInsets(
+                                top: padding,
+                                left: padding,
+                                bottom: padding,
+                                right: padding
+                            )
+                        }(),
                         icon: profileIcon,
                         forcedBackgroundColor: .theme(.classicDark, color: .borderSeparator)
                     ),

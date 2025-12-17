@@ -219,7 +219,7 @@ final class ShareNavController: UINavigationController {
         present(indicator, animated: false)
         
         processPendingAttachmentsTask?.cancel()
-        processPendingAttachmentsTask = Task.detached(priority: .userInitiated) { [weak self, indicator] in
+        processPendingAttachmentsTask = Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies] in
             guard let self = self else { return }
             
             do {
@@ -230,7 +230,7 @@ final class ShareNavController: UINavigationController {
                     try attachment.ensureExpectedEncryptedSize(
                         domain: .attachment,
                         maxFileSize: Network.maxFileSize,
-                        using: self.dependencies
+                        using: dependencies
                     )
                 }
                 
@@ -683,11 +683,15 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     var maxFileSize: UInt { Network.maxFileSize }
     var isStorageValid: Bool { dependencies[singleton: .storage].isValid }
     var isRTL: Bool { Dependencies.isRTL }
+    let initialMainScreenScale: CGFloat
+    let initialMainScreenMaxDimension: CGFloat
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.initialMainScreenScale = UIScreen.main.scale
+        self.initialMainScreenMaxDimension = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
     }
     
     // MARK: - Functions

@@ -11,6 +11,8 @@ public actor SNUIKit {
         var maxFileSize: UInt { get }
         var isStorageValid: Bool { get }
         var isRTL: Bool { get }
+        var initialMainScreenScale: CGFloat { get }
+        var initialMainScreenMaxDimension: CGFloat { get }
         
         func themeChanged(_ theme: Theme, _ primaryColor: Theme.PrimaryColor, _ matchSystemNightModeSetting: Bool)
         func navBarSessionIcon() -> NavBarSessionIcon
@@ -59,6 +61,20 @@ public actor SNUIKit {
         defer { configLock.unlock() }
         
         return config?.isRTL == true
+    }
+    
+    public static var initialMainScreenScale: CGFloat? {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
+        return config?.initialMainScreenScale
+    }
+    
+    public static var initialMainScreenMaxDimension: CGFloat? {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
+        return config?.initialMainScreenMaxDimension
     }
     
     internal static func themeSettingsChanged(

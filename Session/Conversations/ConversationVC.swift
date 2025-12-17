@@ -1150,7 +1150,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         }
     }
     
-    func updateNavBarButtons(threadInfo: ConversationInfoViewModel) {
+    @MainActor func updateNavBarButtons(threadInfo: ConversationInfoViewModel) {
         navigationItem.hidesBackButton = isShowingSearchUI
 
         if isShowingSearchUI {

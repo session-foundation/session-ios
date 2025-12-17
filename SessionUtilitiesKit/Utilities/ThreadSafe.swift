@@ -81,10 +81,20 @@ public final class ThreadSafeObject<Value> {
     private var value: Value
     private let lock: ReadWriteLock = ReadWriteLock()
     
-    /// Since this value is a `UInt32` it aligns with the size of a memory address and can't result in a "Torn Read" (which is where
-    /// a crash occurs when one thread reads while another thread is writing), this is because the data change is atomic at the hardware
-    /// level so the reader would always get either the value from before or after the write, and never a partial value
-    private var mutationThreadId: UInt32? = nil
+    private let threadIdLock: NSLock = NSLock()
+    private var _mutationThreadId: UInt32? = nil
+    private var mutationThreadId: UInt32? {
+        get {
+            threadIdLock.lock()
+            defer { threadIdLock.unlock() }
+            return _mutationThreadId
+        }
+        set {
+            threadIdLock.lock()
+            defer { threadIdLock.unlock() }
+            _mutationThreadId = newValue
+        }
+    }
 
     public var wrappedValue: Value {
         #if DEBUG
@@ -201,25 +211,34 @@ public final class ThreadSafeObject<Value> {
 // MARK: - ReadWriteLock
 
 class ReadWriteLock {
-    private var rwlock: pthread_rwlock_t
+    /// The thread sanitiser (TSan) can give (known) false positive warnings when using pthread rwlocks, in order to suppress these we
+    /// store the lock as a pointer and use that directly
+    private var rwlock: UnsafeMutablePointer<pthread_rwlock_t>
     
     // Need to do this in a proper init function instead of a lazy variable or it can indefinitely
     // hang on XCode 15 when trying to retrieve a lock (potentially due to optimisations?)
     init() {
-        rwlock = pthread_rwlock_t()
-        pthread_rwlock_init(&rwlock, nil)
+        rwlock = UnsafeMutablePointer<pthread_rwlock_t>.allocate(capacity: 1)
+        rwlock.initialize(to: pthread_rwlock_t())
+        pthread_rwlock_init(rwlock, nil)
+    }
+    
+    deinit {
+        pthread_rwlock_destroy(rwlock)
+        rwlock.deinitialize(count: 1)
+        rwlock.deallocate()
     }
     
     func writeLock() {
-        pthread_rwlock_wrlock(&rwlock)
+        pthread_rwlock_wrlock(rwlock)
     }
     
     func readLock() {
-        pthread_rwlock_rdlock(&rwlock)
+        pthread_rwlock_rdlock(rwlock)
     }
     
     func unlock() {
-        pthread_rwlock_unlock(&rwlock)
+        pthread_rwlock_unlock(rwlock)
     }
 }
 

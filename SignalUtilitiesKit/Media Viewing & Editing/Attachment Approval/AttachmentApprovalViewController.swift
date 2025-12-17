@@ -829,7 +829,7 @@ extension AttachmentApprovalViewController: AttachmentPrepViewControllerDelegate
 // MARK: GalleryRail
 
 extension PendingAttachmentRailItem: GalleryRailItem {
-    func buildRailItemView(using dependencies: Dependencies) -> UIView {
+    @MainActor func buildRailItemView(using dependencies: Dependencies) -> UIView {
         let imageView: SessionImageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
         imageView.contentMode = .scaleAspectFill
         imageView.themeBackgroundColor = .backgroundSecondary

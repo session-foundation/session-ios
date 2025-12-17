@@ -951,7 +951,7 @@ public extension Dependencies {
         }
     }
     
-    private func set(_ key: Setting.BoolKey, _ value: Bool?) async {
+    func set(_ key: Setting.BoolKey, _ value: Bool?) async {
         let targetVariant: ConfigDump.Variant
         
         switch key {
@@ -970,7 +970,7 @@ public extension Dependencies {
         }
     }
     
-    private func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {
+    func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {
         let mutation: LibSession.Mutation? = try? await self.mutateAsyncAware(cache: .libSession) { cache in
             try cache.perform(for: .local) {
                 cache.set(key, value)

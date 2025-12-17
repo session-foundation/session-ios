@@ -4,21 +4,23 @@ import Foundation
 import SessionNetworkingKit
 import SessionUtilitiesKit
 
-public enum MessageWrapper {
+public enum MessageWrapperError: Error, CustomStringConvertible {
+    case failedToUnwrapData(Error, Network.SnodeAPI.Namespace)
 
-    public enum Error : LocalizedError {
-        case failedToUnwrapData
-
-        public var errorDescription: String? {
-            switch self {
-            case .failedToUnwrapData: return "Failed to unwrap data."
-            }
+    public var description: String {
+        switch self {
+            case .failedToUnwrapData(let error, let namespace):
+                return "Failed to unwrap data from '\(namespace)' namespace due to error: \(error)."
         }
     }
+}
+
+public enum MessageWrapper {
 
     /// - Note: `data` shouldn't be base 64 encoded.
     public static func unwrap(
         data: Data,
+        namespace: Network.SnodeAPI.Namespace,
         includesWebSocketMessage: Bool = true
     ) throws -> SNProtoEnvelope {
         do {
@@ -30,8 +32,7 @@ public enum MessageWrapper {
             }()
             return try SNProtoEnvelope.parseData(envelopeData)
         } catch let error {
-            Log.error(.messageSender, "Failed to unwrap data: \(error).")
-            throw Error.failedToUnwrapData
+            throw MessageWrapperError.failedToUnwrapData(error, namespace)
         }
     }
 }

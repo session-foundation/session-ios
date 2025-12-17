@@ -131,10 +131,10 @@ public final class BackgroundPoller {
         return poller
             .pollFromBackground()
             .handleEvents(
-                receiveOutput: { [pollerName = poller.pollerName] _, _, validMessageCount, _ in
+                receiveOutput: { [pollerName = poller.pollerName] result in
                     let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                     let duration: TimeUnit = .seconds(endTime - pollStart)
-                    Log.info(.backgroundPoller, "\(pollerName) received \(validMessageCount) valid message(s) after \(duration, unit: .s).")
+                    Log.info(.backgroundPoller, "\(pollerName) received \(result.validMessageCount) valid message(s) after \(duration, unit: .s).")
                 },
                 receiveCompletion: { [pollerName = poller.pollerName] result in
                     switch result {
@@ -163,10 +163,10 @@ public final class BackgroundPoller {
             return poller
                 .pollFromBackground()
                 .handleEvents(
-                    receiveOutput: { [pollerName = poller.pollerName] _, _, validMessageCount, _ in
+                    receiveOutput: { [pollerName = poller.pollerName] result in
                         let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                         let duration: TimeUnit = .seconds(endTime - pollStart)
-                        Log.info(.backgroundPoller, "\(pollerName) received \(validMessageCount) valid message(s) after \(duration, unit: .s).")
+                        Log.info(.backgroundPoller, "\(pollerName) received \(result.validMessageCount) valid message(s) after \(duration, unit: .s).")
                     },
                     receiveCompletion: { [pollerName = poller.pollerName] result in
                         switch result {
@@ -194,10 +194,10 @@ public final class BackgroundPoller {
             return poller
                 .pollFromBackground()
                 .handleEvents(
-                    receiveOutput: { [pollerName = poller.pollerName] _, _, rawMessageCount, _ in
+                    receiveOutput: { [pollerName = poller.pollerName] result in
                         let endTime: TimeInterval = dependencies.dateNow.timeIntervalSince1970
                         let duration: TimeUnit = .seconds(endTime - pollStart)
-                        Log.info(.backgroundPoller, "\(pollerName) received \(rawMessageCount) message(s) succeeded after \(duration, unit: .s).")
+                        Log.info(.backgroundPoller, "\(pollerName) received \(result.rawMessageCount) message(s) succeeded after \(duration, unit: .s).")
                     },
                     receiveCompletion: { [pollerName = poller.pollerName] result in
                         switch result {

@@ -16,11 +16,15 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     var maxFileSize: UInt { Network.maxFileSize }
     var isStorageValid: Bool { dependencies[singleton: .storage].isValid }
     var isRTL: Bool { Dependencies.isRTL }
+    let initialMainScreenScale: CGFloat
+    let initialMainScreenMaxDimension: CGFloat
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.initialMainScreenScale = UIScreen.main.scale
+        self.initialMainScreenMaxDimension = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
     }
     
     // MARK: - Functions

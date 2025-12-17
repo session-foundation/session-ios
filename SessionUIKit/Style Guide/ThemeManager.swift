@@ -14,7 +14,7 @@ public enum ThemeManager {
     /// itself (ie. until a new UI element is registered to the table)
     ///
     /// Unfortunately if we don't do this the `ThemeApplier` is immediately deallocated and we can't use it to update the theme
-    private static var uiRegistry: NSMapTable<AnyObject, ThemeApplier> = NSMapTable.weakToStrongObjects()
+    @MainActor private static var uiRegistry: NSMapTable<AnyObject, ThemeApplier> = NSMapTable.weakToStrongObjects()
     fileprivate static let syncState: ThemeManagerSyncState = ThemeManagerSyncState(
         theme: Theme.defaultTheme,
         primaryColor: Theme.PrimaryColor.defaultPrimaryColor,
@@ -350,7 +350,7 @@ public enum ThemeManager {
         }
     }
     
-    internal static func remove<T: AnyObject>(
+    @MainActor internal static func remove<T: AnyObject>(
         _ view: T,
         keyPath: ReferenceWritableKeyPath<T, UIColor?>
     ) {
@@ -385,7 +385,7 @@ public enum ThemeManager {
         }
     }
     
-    internal static func remove<T: AnyObject>(
+    @MainActor internal static func remove<T: AnyObject>(
         _ view: T,
         keyPath: ReferenceWritableKeyPath<T, CGColor?>
     ) {
@@ -486,7 +486,7 @@ public enum ThemeManager {
         }
     }
     
-    internal static func set<T: AnyObject>(
+    @MainActor internal static func set<T: AnyObject>(
         _ view: T,
         to applier: ThemeApplier?
     ) {
@@ -500,7 +500,7 @@ public enum ThemeManager {
         return color?.resolvedColor(with: UITraitCollection())
     }
     
-    internal static func get(for view: AnyObject) -> ThemeApplier? {
+    @MainActor internal static func get(for view: AnyObject) -> ThemeApplier? {
         return ThemeManager.uiRegistry.object(forKey: view)
     }
 }

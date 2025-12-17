@@ -20,6 +20,18 @@ public protocol SwarmPollerType {
 // MARK: - SwarmPoller
 
 public class SwarmPoller: SwarmPollerType & PollerType {
+    private static let emptyResult: ([Job], [Job], PollResult<PollResponse>) = (
+        [],
+        [],
+        PollResult(
+            response: [],
+            rawMessageCount: 0,
+            validMessageCount: 0,
+            invalidMessageCount: 0,
+            hadValidHashUpdate: false
+        )
+    )
+    
     public enum PollSource: Equatable {
         case snode(LibSession.Snode)
         case pushNotification
@@ -106,7 +118,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
     ///
     /// **Note:** The returned messages will have already been processed by the `Poller`, they are only returned
     /// for cases where we need explicit/custom behaviours to occur (eg. Onboarding)
-    public func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult, Error> {
+    public func poll(forceSynchronousProcessing: Bool) -> AnyPublisher<PollResult<PollResponse>, Error> {
         let pollerQueue: DispatchQueue = self.pollerQueue
         let activeHashes: [String] = {
             /// If we don't have an account then there won't be any active hashes so don't bother trying to get them
@@ -144,7 +156,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 request.send(using: dependencies)
                     .map { _, response in (snode, response) }
             }
-            .flatMapStorageWritePublisher(using: dependencies, updates: { [pollerDestination, shouldStoreMessages, forceSynchronousProcessing, dependencies] db, info -> ([Job], [Job], PollResult) in
+            .flatMapStorageWritePublisher(using: dependencies, updates: { [pollerDestination, shouldStoreMessages, forceSynchronousProcessing, dependencies] db, info -> ([Job], [Job], PollResult<PollResponse>) in
                 let (snode, namespacedResults): (LibSession.Snode, Network.SnodeAPI.PollResponse) = info
                 
                 /// Get all of the messages and sort them by their required `processingOrder`
@@ -158,7 +170,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 
                 /// No need to do anything if there are no messages
                 guard rawMessageCount > 0 else {
-                    return ([], [], ([], 0, 0, false))
+                    return SwarmPoller.emptyResult
                 }
                 
                 return SwarmPoller.processPollResponse(
@@ -252,12 +264,12 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         forceSynchronousProcessing: Bool,
         sortedMessages: [(namespace: Network.SnodeAPI.Namespace, messages: [SnodeReceivedMessage], lastHash: String?)],
         using dependencies: Dependencies
-    ) -> ([Job], [Job], PollResult) {
+    ) -> ([Job], [Job], PollResult<PollResponse>) {
         /// No need to do anything if there are no messages
         let rawMessageCount: Int = sortedMessages.map { $0.messages.count }.reduce(0, +)
         
         guard rawMessageCount > 0 else {
-            return ([], [], ([], 0, 0, false))
+            return SwarmPoller.emptyResult
         }
         
         /// Otherwise process the messages and add them to the queue for handling
@@ -267,6 +279,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
             .compactMap { $0.messages.map { $0.hash } }
             .reduce([], +)
         var messageCount: Int = 0
+        var invalidMessageCount: Int = 0
         var finalProcessedMessages: [ProcessedMessage] = []
         var hadValidHashUpdate: Bool = false
         
@@ -292,7 +305,7 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         }()
         
         guard lastHashes.isEmpty || Set(lastHashes) == lastHashesAfterFetch else {
-            return ([], [], ([], 0, 0, false))
+            return SwarmPoller.emptyResult
         }
         
         /// Since the hashes are still accurate we can now process the messages
@@ -342,7 +355,9 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                             case DatabaseError.SQLITE_ABORT:
                                 Log.warn(cat, "Failed to the database being suspended (running in background with no background task).")
                                 
-                            default: Log.error(cat, "Failed to deserialize envelope due to error: \(error).")
+                            default:
+                                invalidMessageCount += 1
+                                Log.error(cat, "Failed to deserialize envelope due to error: \(error).")
                         }
                         
                         return nil
@@ -369,7 +384,10 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                             )
                         }
                     }
-                    catch { Log.error(cat, "Failed to handle processed config message in \(swarmPublicKey) due to error: \(error).") }
+                    catch {
+                        invalidMessageCount += 1
+                        Log.error(cat, "Failed to handle processed config message in \(swarmPublicKey) due to error: \(error).")
+                    }
                 }
                 else {
                     /// Individually process non-config messages
@@ -401,7 +419,10 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                                 using: dependencies
                             )
                         }
-                        catch { Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).") }
+                        catch {
+                            invalidMessageCount += 1
+                            Log.error(cat, "Failed to handle processed message in \(threadId) due to error: \(error).")
+                        }
                     }
                 }
                 
@@ -417,7 +438,17 @@ public class SwarmPoller: SwarmPollerType & PollerType {
         /// If we don't want to store the messages then no need to continue (don't want to create message receive jobs or mess with cached hashes)
         guard shouldStoreMessages && !forceSynchronousProcessing else {
             finalProcessedMessages += allProcessedMessages
-            return ([], [], (finalProcessedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
+            return (
+                [],
+                [],
+                PollResult(
+                    response: finalProcessedMessages,
+                    rawMessageCount: rawMessageCount,
+                    validMessageCount: messageCount,
+                    invalidMessageCount: invalidMessageCount,
+                    hadValidHashUpdate: hadValidHashUpdate
+                )
+            )
         }
         
         /// Add a job to process the config messages first
@@ -510,6 +541,16 @@ public class SwarmPoller: SwarmPollerType & PollerType {
                 catch { Log.error(cat, "Failed to handle potential invalid/deleted hashes due to error: \(error).") }
         }
         
-        return (configMessageJobs, standardMessageJobs, (finalProcessedMessages, rawMessageCount, messageCount, hadValidHashUpdate))
+        return (
+            configMessageJobs,
+            standardMessageJobs,
+            PollResult(
+                response: finalProcessedMessages,
+                rawMessageCount: rawMessageCount,
+                validMessageCount: messageCount,
+                invalidMessageCount: invalidMessageCount,
+                hadValidHashUpdate: hadValidHashUpdate
+            )
+        )
     }
 }

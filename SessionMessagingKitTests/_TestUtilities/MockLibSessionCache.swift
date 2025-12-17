@@ -63,6 +63,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return try mockThrowing(args: [config, variant, sessionId, timestampMs])
     }
     
+    func stateDescriptionForLogs() -> String { return mock() }
+    
     // MARK: - Pushes
     
     func syncAllPendingPushes(_ db: ObservingDatabase) {
@@ -134,10 +136,6 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     // MARK: - State Access
     
     var displayName: String? { mock() }
-    
-    func has(_ key: Setting.BoolKey) -> Bool {
-        return mock(generics: [Bool.self], args: [key])
-    }
     
     func has(_ key: Setting.EnumKey) -> Bool {
         return mock(generics: [Setting.EnumKey.self], args: [key])
