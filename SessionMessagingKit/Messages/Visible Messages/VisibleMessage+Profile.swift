@@ -15,7 +15,7 @@ public extension VisibleMessage {
         
         // MARK: - Initialization
 
-        private init(
+        internal init(
             displayName: String,
             profileKey: Data? = nil,
             profilePictureUrl: String? = nil,

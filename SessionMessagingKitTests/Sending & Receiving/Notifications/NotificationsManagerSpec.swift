@@ -380,7 +380,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageError.invalidMessage))
+                    }.to(throwError(MessageError.invalidMessage("Test")))
                     expect {
                         try mockNotificationsManager.ensureWeShouldShowNotification(
                             message: message,
@@ -394,7 +394,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageError.invalidMessage))
+                    }.to(throwError(MessageError.invalidMessage("Test")))
                     expect {
                         try mockNotificationsManager.ensureWeShouldShowNotification(
                             message: message,
@@ -408,7 +408,7 @@ class NotificationsManagerSpec: QuickSpec {
                             shouldShowForMessageRequest: { true },
                             using: dependencies
                         )
-                    }.to(throwError(MessageError.invalidMessage))
+                    }.to(throwError(MessageError.invalidMessage("Test")))
                 }
                 
                 // MARK: ---- throws if the message is not a preOffer

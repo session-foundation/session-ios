@@ -46,7 +46,15 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 
                 try Profile(
                     id: "05\(TestConstants.publicKey)",
-                    name: "TestCurrentUser"
+                    name: "TestCurrentUser",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
                 ).insert(db)
             }
         )
@@ -114,7 +122,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         )
                     )
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data(hex: groupId.hexString).bytes,
@@ -149,7 +157,17 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     .when { $0.generate(.legacyEncryptedDisplayPicture(data: .any, key: .any)) }
                     .thenReturn(TestConstants.validImageData)
                 crypto
-                    .when { $0.generate(.ciphertextForGroupMessage(groupSessionId: .any, message: .any)) }
+                    .when {
+                        try $0.generate(
+                            .encodedMessage(
+                                plaintext: Array<UInt8>.any,
+                                proMessageFeatures: .any,
+                                proProfileFeatures: .any,
+                                destination: .any,
+                                sentTimestampMs: .any
+                            )
+                        )
+                    }
                     .thenReturn("TestGroupMessageCiphertext".data(using: .utf8)!)
                 crypto
                     .when { $0.generate(.hash(message: .any)) }
@@ -494,7 +512,6 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                         ),
                                         in: ConfigDump.Variant.groupInfo.namespace,
                                         authMethod: try Authentication.with(
-                                            db,
                                             swarmPublicKey: groupId.hexString,
                                             using: dependencies
                                         ),

@@ -39,7 +39,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 try Profile(
                     id: "05\(TestConstants.publicKey)",
-                    name: "TestCurrentUser"
+                    name: "TestCurrentUser",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
                 ).insert(db)
             }
         )
@@ -113,7 +121,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 crypto
                     .when { $0.verify(.signature(message: .any, publicKey: .any, signature: .any)) }
                     .thenReturn(true)
-                crypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(groupKeyPair)
+                crypto.when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }.thenReturn(groupKeyPair)
                 crypto
                     .when { $0.verify(.memberAuthData(groupSessionId: .any, ed25519SecretKey: .any, memberAuthData: .any)) }
                     .thenReturn(true)
@@ -248,6 +256,12 @@ class MessageReceiverGroupsSpec: QuickSpec {
         )
         
         // MARK: -- Messages
+        @TestState var decodedMessage: DecodedMessage! = DecodedMessage(
+            content: Data([1, 2, 3]),
+            sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111111"),
+            decodedEnvelope: nil,
+            sentTimestampMs: 1234567890000
+        )
         @TestState var inviteMessage: GroupUpdateInviteMessage! = {
             let result: GroupUpdateInviteMessage = GroupUpdateInviteMessage(
                 inviteeSessionIdHexString: "TestId",
@@ -370,8 +384,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -392,8 +408,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -422,8 +440,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadId: groupId.hexString,
                                     threadVariant: .group,
                                     message: inviteMessage,
+                                    decodedMessage: decodedMessage,
                                     serverExpirationTimestamp: 1234567890,
                                     suppressNotifications: false,
+                                    currentUserSessionIds: [],
                                     using: dependencies
                                 )
                             }
@@ -466,8 +486,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadId: groupId.hexString,
                                     threadVariant: .group,
                                     message: inviteMessage,
+                                    decodedMessage: decodedMessage,
                                     serverExpirationTimestamp: 1234567890,
                                     suppressNotifications: false,
+                                    currentUserSessionIds: [],
                                     using: dependencies
                                 )
                             }
@@ -504,8 +526,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -523,8 +547,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -543,8 +569,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -575,8 +603,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -595,8 +625,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -616,8 +648,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -642,8 +676,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -697,8 +733,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -720,8 +758,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -748,8 +788,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -769,8 +811,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -794,8 +838,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -898,8 +944,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadId: groupId.hexString,
                                     threadVariant: .group,
                                     message: inviteMessage,
+                                    decodedMessage: decodedMessage,
                                     serverExpirationTimestamp: 1234567890,
                                     suppressNotifications: false,
+                                    currentUserSessionIds: [],
                                     using: dependencies
                                 )
                             }
@@ -976,8 +1024,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                     threadId: groupId.hexString,
                                     threadVariant: .group,
                                     message: inviteMessage,
+                                    decodedMessage: decodedMessage,
                                     serverExpirationTimestamp: 1234567890,
                                     suppressNotifications: false,
+                                    currentUserSessionIds: [],
                                     using: dependencies
                                 )
                             }
@@ -1004,8 +1054,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1037,8 +1089,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1095,29 +1149,29 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- fails if it cannot convert the group seed to a groupIdentityKeyPair
                 it("fails if it cannot convert the group seed to a groupIdentityKeyPair") {
-                    mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
+                    mockCrypto.when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }.thenReturn(nil)
                     
                     mockStorage.write { db in
-                        result = Result(catching: {
+                        expect {
                             try MessageReceiver.handleGroupUpdateMessage(
                                 db,
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: promoteMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        })
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
-                    
-                    expect(result.failure).to(matchError(MessageError.invalidMessage))
                 }
                 
                 // MARK: ---- updates the GROUP_KEYS state correctly
                 it("updates the GROUP_KEYS state correctly") {
                     mockCrypto
-                        .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                        .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                         .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                     
                     mockStorage.write { db in
@@ -1126,8 +1180,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: promoteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1160,8 +1216,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: promoteMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1201,11 +1259,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: infoChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1220,11 +1280,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: infoChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1241,11 +1303,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: infoChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1259,8 +1323,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: infoChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1296,8 +1362,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: infoChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1333,8 +1401,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: infoChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1386,11 +1456,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1405,11 +1477,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1426,11 +1500,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1439,7 +1515,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     mockStorage.write { db in
                         try Profile(
                             id: "051111111111111111111111111111111111111111111111111111111111111112",
-                            name: "TestOtherProfile"
+                            name: "TestOtherProfile",
+                            nickname: nil,
+                            displayPictureUrl: nil,
+                            displayPictureEncryptionKey: nil,
+                            profileLastUpdated: nil,
+                            blocksCommunityMessageRequests: nil,
+                            proFeatures: .none,
+                            proExpiryUnixTimestampMs: 0,
+                            proGenIndexHashHex: nil
                         ).insert(db)
                     }
                     
@@ -1449,8 +1533,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: memberChangedMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1485,8 +1571,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1524,8 +1612,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1564,8 +1654,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1605,8 +1697,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1640,8 +1734,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1676,8 +1772,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1713,8 +1811,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1748,8 +1848,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1784,8 +1886,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberChangedMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1826,8 +1930,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: memberLeftMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -1847,11 +1953,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1866,11 +1974,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1913,8 +2023,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1933,8 +2045,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1952,8 +2066,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -1982,8 +2098,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: memberLeftMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2045,8 +2163,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: memberLeftNotificationMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -2065,7 +2185,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     mockStorage.write { db in
                         try Profile(
                             id: "051111111111111111111111111111111111111111111111111111111111111112",
-                            name: "TestOtherProfile"
+                            name: "TestOtherProfile",
+                            nickname: nil,
+                            displayPictureUrl: nil,
+                            displayPictureEncryptionKey: nil,
+                            profileLastUpdated: nil,
+                            blocksCommunityMessageRequests: nil,
+                            proFeatures: .none,
+                            proExpiryUnixTimestampMs: 0,
+                            proGenIndexHashHex: nil
                         ).insert(db)
                     }
                     
@@ -2075,8 +2203,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: memberLeftNotificationMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -2119,11 +2249,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -2138,11 +2270,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -2154,8 +2288,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: inviteResponseMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: 1234567890,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -2210,8 +2346,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2254,8 +2392,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2286,8 +2426,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2310,8 +2452,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: inviteResponseMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2361,7 +2505,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2386,7 +2531,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2411,7 +2557,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                         
                         _ = try Interaction(
@@ -2436,7 +2583,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                     }
                 }
@@ -2457,11 +2605,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -2476,11 +2626,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -2497,11 +2649,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage))
+                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -2523,8 +2677,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2552,8 +2708,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2579,8 +2737,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2626,8 +2786,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2676,8 +2838,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2705,8 +2869,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2732,8 +2898,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2761,8 +2929,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2791,8 +2961,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2866,8 +3038,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2903,8 +3077,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 threadId: groupId.hexString,
                                 threadVariant: .group,
                                 message: deleteContentMessage,
+                                decodedMessage: decodedMessage,
                                 serverExpirationTimestamp: 1234567890,
                                 suppressNotifications: false,
+                                currentUserSessionIds: [],
                                 using: dependencies
                             )
                         }
@@ -2994,7 +3170,8 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                         
                         try ConfigDump(
@@ -3329,7 +3506,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageError.invalidMessage))
+                        .to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -3349,7 +3526,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageError.invalidMessage))
+                        .to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -3369,7 +3546,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageError.invalidMessage))
+                        .to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
             }
@@ -3427,9 +3604,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: visibleMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: nil,
-                            associatedWithProto: visibleMessageProto,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -3472,9 +3650,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: visibleMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: nil,
-                            associatedWithProto: visibleMessageProto,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }
@@ -3505,9 +3684,10 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             threadId: groupId.hexString,
                             threadVariant: .group,
                             message: visibleMessage,
+                            decodedMessage: decodedMessage,
                             serverExpirationTimestamp: nil,
-                            associatedWithProto: visibleMessageProto,
                             suppressNotifications: false,
+                            currentUserSessionIds: [],
                             using: dependencies
                         )
                     }

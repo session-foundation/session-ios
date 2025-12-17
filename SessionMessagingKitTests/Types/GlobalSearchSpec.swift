@@ -1,4 +1,4 @@
-// Copyright © 2023 Rangeproof Pty Ltd. All rights reserved.
+// Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
 import GRDB
@@ -8,7 +8,7 @@ import SessionUtilitiesKit
 
 @testable import SessionMessagingKit
 
-class SessionThreadViewModelSpec: QuickSpec {
+class GlobalSearchSpec: QuickSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -30,25 +30,25 @@ class SessionThreadViewModelSpec: QuickSpec {
             }
         )
         
-        // MARK: - a SessionThreadViewModel
-        describe("a SessionThreadViewModel") {
+        // MARK: - GlobalSearch
+        describe("GlobalSearch") {
             // MARK: -- when processing a search term
             context("when processing a search term") {
                 // MARK: ---- correctly generates a safe search term
                 it("correctly generates a safe search term") {
-                    expect(SessionThreadViewModel.searchSafeTerm("Test")).to(equal("\"Test\""))
+                    expect(GlobalSearch.searchSafeTerm("Test")).to(equal("\"Test\""))
                 }
                 
                 // MARK: ---- standardises odd quote characters
                 it("standardises odd quote characters") {
-                    expect(SessionThreadViewModel.standardQuotes("\"")).to(equal("\""))
-                    expect(SessionThreadViewModel.standardQuotes("”")).to(equal("\""))
-                    expect(SessionThreadViewModel.standardQuotes("“")).to(equal("\""))
+                    expect(GlobalSearch.standardQuotes("\"")).to(equal("\""))
+                    expect(GlobalSearch.standardQuotes("”")).to(equal("\""))
+                    expect(GlobalSearch.standardQuotes("“")).to(equal("\""))
                 }
                 
                 // MARK: ---- splits on the space character
                 it("splits on the space character") {
-                    expect(SessionThreadViewModel.searchTermParts("Test Message"))
+                    expect(GlobalSearch.searchTermParts("Test Message"))
                         .to(equal([
                             "\"Test\"",
                             "\"Message\""
@@ -57,7 +57,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 
                 // MARK: ---- surrounds each split term with quotes
                 it("surrounds each split term with quotes") {
-                    expect(SessionThreadViewModel.searchTermParts("Test Message"))
+                    expect(GlobalSearch.searchTermParts("Test Message"))
                         .to(equal([
                             "\"Test\"",
                             "\"Message\""
@@ -66,32 +66,32 @@ class SessionThreadViewModelSpec: QuickSpec {
                 
                 // MARK: ---- keeps words within quotes together
                 it("keeps words within quotes together") {
-                    expect(SessionThreadViewModel.searchTermParts("This ”is a Test“ Message"))
+                    expect(GlobalSearch.searchTermParts("This ”is a Test“ Message"))
                         .to(equal([
                             "\"This\"",
                             "\"is a Test\"",
                             "\"Message\""
                         ]))
-                    expect(SessionThreadViewModel.searchTermParts("\"This is\" a Test Message"))
+                    expect(GlobalSearch.searchTermParts("\"This is\" a Test Message"))
                         .to(equal([
                             "\"This is\"",
                             "\"a\"",
                             "\"Test\"",
                             "\"Message\""
                         ]))
-                    expect(SessionThreadViewModel.searchTermParts("\"This is\" \"a Test\" Message"))
+                    expect(GlobalSearch.searchTermParts("\"This is\" \"a Test\" Message"))
                         .to(equal([
                             "\"This is\"",
                             "\"a Test\"",
                             "\"Message\""
                         ]))
-                    expect(SessionThreadViewModel.searchTermParts("\"This is\" a \"Test Message\""))
+                    expect(GlobalSearch.searchTermParts("\"This is\" a \"Test Message\""))
                         .to(equal([
                             "\"This is\"",
                             "\"a\"",
                             "\"Test Message\""
                         ]))
-                    expect(SessionThreadViewModel.searchTermParts("\"This is\"\" a \"Test Message"))
+                    expect(GlobalSearch.searchTermParts("\"This is\"\" a \"Test Message"))
                         .to(equal([
                             "\"This is\"",
                             "\" a \"",
@@ -102,7 +102,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 
                 // MARK: ---- keeps words within weird quotes together
                 it("keeps words within weird quotes together") {
-                    expect(SessionThreadViewModel.searchTermParts("This \"is a Test\" Message"))
+                    expect(GlobalSearch.searchTermParts("This \"is a Test\" Message"))
                         .to(equal([
                             "\"This\"",
                             "\"is a Test\"",
@@ -112,7 +112,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 
                 // MARK: ---- removes extra whitespace
                 it("removes extra whitespace") {
-                    expect(SessionThreadViewModel.searchTermParts("  Test         Message     "))
+                    expect(GlobalSearch.searchTermParts("  Test         Message     "))
                         .to(equal([
                             "\"Test\"",
                             "\"Message\""
@@ -146,7 +146,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 // MARK: ---- returns results
                 it("returns results") {
                     let results = mockStorage.read { db in
-                        let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
+                        let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "Message",
                             forTable: TestMessage.self
@@ -176,7 +176,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 // MARK: ---- adds a wildcard to the final part
                 it("adds a wildcard to the final part") {
                     let results = mockStorage.read { db in
-                        let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
+                        let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "This mes",
                             forTable: TestMessage.self
@@ -206,7 +206,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 // MARK: ---- does not add a wildcard to other parts
                 it("does not add a wildcard to other parts") {
                     let results = mockStorage.read { db in
-                        let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
+                        let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "mes Random",
                             forTable: TestMessage.self
@@ -229,7 +229,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 // MARK: ---- finds similar words without the wildcard due to the porter tokenizer
                 it("finds similar words without the wildcard due to the porter tokenizer") {
                     let results = mockStorage.read { db in
-                        let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
+                        let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "message z",
                             forTable: TestMessage.self
@@ -261,7 +261,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 // MARK: ---- finds results containing the words regardless of the order
                 it("finds results containing the words regardless of the order") {
                     let results = mockStorage.read { db in
-                        let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
+                        let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "is a message",
                             forTable: TestMessage.self
@@ -293,7 +293,7 @@ class SessionThreadViewModelSpec: QuickSpec {
                 // MARK: ---- does not find quoted parts out of order
                 it("does not find quoted parts out of order") {
                     let results = mockStorage.read { db in
-                        let pattern: FTS5Pattern = try SessionThreadViewModel.pattern(
+                        let pattern: FTS5Pattern = try GlobalSearch.pattern(
                             db,
                             searchTerm: "\"this is a\" \"test message\"",
                             forTable: TestMessage.self

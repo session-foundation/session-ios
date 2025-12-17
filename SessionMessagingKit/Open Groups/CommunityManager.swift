@@ -1228,7 +1228,7 @@ public actor CommunityManager: CommunityManagerType {
     
     /// This method specifies if the given publicKey is a moderator or an admin within a specified Open Group
     public func isUserModeratorOrAdmin(
-        publicKey: String,
+        targetUserPublicKey: String,
         server maybeServer: String?,
         roomToken: String?,
         includingHidden: Bool
@@ -1241,9 +1241,9 @@ public actor CommunityManager: CommunityManagerType {
         else { return false }
         
         /// If the `publicKey` belongs to the current user then we should check against any of their pubkey possibilities
-        let possibleKeys: Set<String> = (cachedServer.currentUserSessionIds.contains(publicKey) ?
+        let possibleKeys: Set<String> = (cachedServer.currentUserSessionIds.contains(targetUserPublicKey) ?
             cachedServer.currentUserSessionIds :
-            [publicKey]
+            [targetUserPublicKey]
         )
         
         /// Check if the `publicKey` matches a visible admin or moderator
@@ -1430,7 +1430,7 @@ public protocol CommunityManagerType {
         includingHidden: Bool
     ) async -> Set<String>
     func isUserModeratorOrAdmin(
-        publicKey: String,
+        targetUserPublicKey: String,
         server maybeServer: String?,
         roomToken: String?,
         includingHidden: Bool

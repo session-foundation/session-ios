@@ -1211,7 +1211,7 @@ extension ConversationVC:
             switch messageInfo.state {
                 case .permissionDenied:
                     let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
-                        caller: cellViewModel.authorName,
+                        caller: cellViewModel.authorName(),
                         presentingViewController: self,
                         using: viewModel.dependencies
                     )

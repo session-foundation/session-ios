@@ -455,7 +455,7 @@
 		FD05594E2E012D2700DC48CE /* _043_RenameAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD05594D2E012D1A00DC48CE /* _043_RenameAttachments.swift */; };
 		FD0559562E026E1B00DC48CE /* ObservingDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0559542E026CC900DC48CE /* ObservingDatabase.swift */; };
 		FD0606C32BCE13ED00C3816E /* MessageRequestFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0606C22BCE13ED00C3816E /* MessageRequestFooterView.swift */; };
-		FD078E5427E197CA000769AF /* OpenGroupManagerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2909D27D85751005DAE71 /* OpenGroupManagerSpec.swift */; };
+		FD078E5427E197CA000769AF /* CommunityManagerSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC2909D27D85751005DAE71 /* CommunityManagerSpec.swift */; };
 		FD0969F92A69FFE700C5C365 /* Mocked.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0969F82A69FFE700C5C365 /* Mocked.swift */; };
 		FD0969FA2A6A00B000C5C365 /* Mocked.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0969F82A69FFE700C5C365 /* Mocked.swift */; };
 		FD0969FB2A6A00B100C5C365 /* Mocked.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0969F82A69FFE700C5C365 /* Mocked.swift */; };
@@ -648,7 +648,7 @@
 		FD336F602CAA28CF00C0B51B /* CommonSMKMockExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */; };
 		FD336F612CAA28CF00C0B51B /* MockNotificationsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */; };
 		FD336F622CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift */; };
-		FD336F632CAA28CF00C0B51B /* MockOGMCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5D2CAA28CF00C0B51B /* MockOGMCache.swift */; };
+		FD336F632CAA28CF00C0B51B /* MockCommunityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5D2CAA28CF00C0B51B /* MockCommunityManager.swift */; };
 		FD336F642CAA28CF00C0B51B /* MockCommunityPollerCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */; };
 		FD336F652CAA28CF00C0B51B /* MockDisplayPictureCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F592CAA28CF00C0B51B /* MockDisplayPictureCache.swift */; };
 		FD336F662CAA28CF00C0B51B /* MockSwarmPoller.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD336F5F2CAA28CF00C0B51B /* MockSwarmPoller.swift */; };
@@ -931,6 +931,7 @@
 		FD716E6C28505E1C00C96BF4 /* MessageRequestsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD716E6B28505E1C00C96BF4 /* MessageRequestsViewModel.swift */; };
 		FD716E7128505E5200C96BF4 /* MessageRequestsCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD716E7028505E5100C96BF4 /* MessageRequestsCell.swift */; };
 		FD716E722850647600C96BF4 /* Data+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD859EF127BF6BA200510D0C /* Data+Utilities.swift */; };
+		FD71B9B02EF25A1200379A99 /* GlobalSearchSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD71B9AF2EF25A0E00379A99 /* GlobalSearchSpec.swift */; };
 		FD72BDA12BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD72BDA02BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift */; };
 		FD72BDA42BE3690B00CF6CF6 /* CryptoSMKSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD72BDA32BE3690B00CF6CF6 /* CryptoSMKSpec.swift */; };
 		FD72BDA72BE369DC00CF6CF6 /* CryptoOpenGroupSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD72BDA62BE369DC00CF6CF6 /* CryptoOpenGroupSpec.swift */; };
@@ -944,7 +945,6 @@
 		FD756BEB2D0181D700BD7199 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FD756BEA2D0181D700BD7199 /* GRDB */; };
 		FD756BF02D06686500BD7199 /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD756BEF2D06686500BD7199 /* Lucide */; };
 		FD756BF22D06687800BD7199 /* Lucide in Frameworks */ = {isa = PBXBuildFile; productRef = FD756BF12D06687800BD7199 /* Lucide */; };
-		FD7692F72A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7692F62A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift */; };
 		FD7728962849E7E90018502F /* String+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD7728952849E7E90018502F /* String+Utilities.swift */; };
 		FD778B6429B189FF001BAC6B /* _028_GenerateInitialUserConfigDumps.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD778B6329B189FF001BAC6B /* _028_GenerateInitialUserConfigDumps.swift */; };
 		FD78E9EE2DD6D32500D55B50 /* ImageDataManager+Singleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB11A622DD5BDDD00BEF49F /* ImageDataManager+Singleton.swift */; };
@@ -2149,7 +2149,7 @@
 		FD336F5A2CAA28CF00C0B51B /* MockGroupPollerCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockGroupPollerCache.swift; sourceTree = "<group>"; };
 		FD336F5B2CAA28CF00C0B51B /* MockLibSessionCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockLibSessionCache.swift; sourceTree = "<group>"; };
 		FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockNotificationsManager.swift; sourceTree = "<group>"; };
-		FD336F5D2CAA28CF00C0B51B /* MockOGMCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockOGMCache.swift; sourceTree = "<group>"; };
+		FD336F5D2CAA28CF00C0B51B /* MockCommunityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCommunityManager.swift; sourceTree = "<group>"; };
 		FD336F5E2CAA28CF00C0B51B /* MockPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPoller.swift; sourceTree = "<group>"; };
 		FD336F5F2CAA28CF00C0B51B /* MockSwarmPoller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSwarmPoller.swift; sourceTree = "<group>"; };
 		FD336F6B2CAA29C200C0B51B /* CommunityPollerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityPollerSpec.swift; sourceTree = "<group>"; };
@@ -2324,6 +2324,7 @@
 		FD716E6528502EE200C96BF4 /* CurrentCallProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentCallProtocol.swift; sourceTree = "<group>"; };
 		FD716E6B28505E1C00C96BF4 /* MessageRequestsViewModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageRequestsViewModel.swift; sourceTree = "<group>"; };
 		FD716E7028505E5100C96BF4 /* MessageRequestsCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MessageRequestsCell.swift; sourceTree = "<group>"; };
+		FD71B9AF2EF25A0E00379A99 /* GlobalSearchSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalSearchSpec.swift; sourceTree = "<group>"; };
 		FD72BDA02BE368C800CF6CF6 /* UIWindowLevel+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIWindowLevel+Utilities.swift"; sourceTree = "<group>"; };
 		FD72BDA32BE3690B00CF6CF6 /* CryptoSMKSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoSMKSpec.swift; sourceTree = "<group>"; };
 		FD72BDA62BE369DC00CF6CF6 /* CryptoOpenGroupSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoOpenGroupSpec.swift; sourceTree = "<group>"; };
@@ -2334,7 +2335,6 @@
 		FD7443472D07CA9F00862443 /* CGRect+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGRect+Utilities.swift"; sourceTree = "<group>"; };
 		FD7443482D07CA9F00862443 /* CGSize+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGSize+Utilities.swift"; sourceTree = "<group>"; };
 		FD7443492D07CA9F00862443 /* Codable+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Codable+Utilities.swift"; sourceTree = "<group>"; };
-		FD7692F62A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionThreadViewModelSpec.swift; sourceTree = "<group>"; };
 		FD7728952849E7E90018502F /* String+Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Utilities.swift"; sourceTree = "<group>"; };
 		FD7728972849E8110018502F /* UITableView+ReusableView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "UITableView+ReusableView.swift"; sourceTree = "<group>"; };
 		FD778B6329B189FF001BAC6B /* _028_GenerateInitialUserConfigDumps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _028_GenerateInitialUserConfigDumps.swift; sourceTree = "<group>"; };
@@ -2495,7 +2495,7 @@
 		FDC2909327D710B4005DAE71 /* SOGSEndpointSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSEndpointSpec.swift; sourceTree = "<group>"; };
 		FDC2909527D71252005DAE71 /* SOGSErrorSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSErrorSpec.swift; sourceTree = "<group>"; };
 		FDC2909727D7129B005DAE71 /* PersonalizationSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationSpec.swift; sourceTree = "<group>"; };
-		FDC2909D27D85751005DAE71 /* OpenGroupManagerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenGroupManagerSpec.swift; sourceTree = "<group>"; };
+		FDC2909D27D85751005DAE71 /* CommunityManagerSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityManagerSpec.swift; sourceTree = "<group>"; };
 		FDC290A727D9B46D005DAE71 /* NimbleExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbleExtensions.swift; sourceTree = "<group>"; };
 		FDC4380827B31D4E00C60D73 /* SOGSError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOGSError.swift; sourceTree = "<group>"; };
 		FDC4381627B32EC700C60D73 /* Personalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Personalization.swift; sourceTree = "<group>"; };
@@ -5050,6 +5050,14 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
+		FD71B9AE2EF251AF00379A99 /* Types */ = {
+			isa = PBXGroup;
+			children = (
+				FD71B9AF2EF25A0E00379A99 /* GlobalSearchSpec.swift */,
+			);
+			path = Types;
+			sourceTree = "<group>";
+		};
 		FD72BDA22BE368FA00CF6CF6 /* Crypto */ = {
 			isa = PBXGroup;
 			children = (
@@ -5064,14 +5072,6 @@
 				FD72BDA62BE369DC00CF6CF6 /* CryptoOpenGroupSpec.swift */,
 			);
 			path = Crypto;
-			sourceTree = "<group>";
-		};
-		FD7692F52A53A2C7000E4B70 /* Shared Models */ = {
-			isa = PBXGroup;
-			children = (
-				FD7692F62A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift */,
-			);
-			path = "Shared Models";
 			sourceTree = "<group>";
 		};
 		FD7728A1284F0DF50018502F /* Message Handling */ = {
@@ -5472,8 +5472,8 @@
 				FD96F3A229DBC3BA00401309 /* Jobs */,
 				FDC4389827BA001800C60D73 /* Open Groups */,
 				FDE754A72C9B964D002A2623 /* Sending & Receiving */,
-				FD7692F52A53A2C7000E4B70 /* Shared Models */,
 				FD8ECF802934385900C0D1BB /* LibSession */,
+				FD71B9AE2EF251AF00379A99 /* Types */,
 				FD981BC72DC4640100564172 /* Utilities */,
 			);
 			path = SessionMessagingKitTests;
@@ -5484,7 +5484,7 @@
 			children = (
 				FD72BDA52BE369B600CF6CF6 /* Crypto */,
 				FD83B9C127CF33EE005E1583 /* Models */,
-				FDC2909D27D85751005DAE71 /* OpenGroupManagerSpec.swift */,
+				FDC2909D27D85751005DAE71 /* CommunityManagerSpec.swift */,
 			);
 			path = "Open Groups";
 			sourceTree = "<group>";
@@ -5494,6 +5494,7 @@
 			children = (
 				FD336F562CAA28CF00C0B51B /* CommonSMKMockExtensions.swift */,
 				FD336F572CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift */,
+				FD336F5D2CAA28CF00C0B51B /* MockCommunityManager.swift */,
 				FD336F6E2CAA37CB00C0B51B /* MockCommunityPoller.swift */,
 				FD336F582CAA28CF00C0B51B /* MockCommunityPollerCache.swift */,
 				FD336F592CAA28CF00C0B51B /* MockDisplayPictureCache.swift */,
@@ -5502,7 +5503,6 @@
 				FD78E9F12DDA9E9B00D55B50 /* MockImageDataManager.swift */,
 				FD336F5B2CAA28CF00C0B51B /* MockLibSessionCache.swift */,
 				FD336F5C2CAA28CF00C0B51B /* MockNotificationsManager.swift */,
-				FD336F5D2CAA28CF00C0B51B /* MockOGMCache.swift */,
 				FD336F5E2CAA28CF00C0B51B /* MockPoller.swift */,
 				FD336F5F2CAA28CF00C0B51B /* MockSwarmPoller.swift */,
 			);
@@ -7901,8 +7901,9 @@
 				FD981BCD2DC81ABF00564172 /* MockExtensionHelper.swift in Sources */,
 				FD336F602CAA28CF00C0B51B /* CommonSMKMockExtensions.swift in Sources */,
 				FD336F612CAA28CF00C0B51B /* MockNotificationsManager.swift in Sources */,
+				FD71B9B02EF25A1200379A99 /* GlobalSearchSpec.swift in Sources */,
 				FD336F622CAA28CF00C0B51B /* CustomArgSummaryDescribable+SessionMessagingKit.swift in Sources */,
-				FD336F632CAA28CF00C0B51B /* MockOGMCache.swift in Sources */,
+				FD336F632CAA28CF00C0B51B /* MockCommunityManager.swift in Sources */,
 				FD481A922CAD17DE00ECC4CF /* LibSessionGroupMembersSpec.swift in Sources */,
 				FD336F642CAA28CF00C0B51B /* MockCommunityPollerCache.swift in Sources */,
 				FD336F652CAA28CF00C0B51B /* MockDisplayPictureCache.swift in Sources */,
@@ -7923,7 +7924,6 @@
 				FD23CE342A67C4D90000B97C /* MockNetwork.swift in Sources */,
 				FD61FCF92D308CC9005752DE /* GroupMemberSpec.swift in Sources */,
 				FDC290A827D9B46D005DAE71 /* NimbleExtensions.swift in Sources */,
-				FD7692F72A53A2ED000E4B70 /* SessionThreadViewModelSpec.swift in Sources */,
 				FD0969F92A69FFE700C5C365 /* Mocked.swift in Sources */,
 				FD481A902CAD16F100ECC4CF /* LibSessionGroupInfoSpec.swift in Sources */,
 				FDE754A92C9B964D002A2623 /* MessageSenderGroupsSpec.swift in Sources */,
@@ -7935,7 +7935,7 @@
 				FD01502A2CA23DB7005B08A1 /* GRDBExtensions.swift in Sources */,
 				FD01503B2CA24328005B08A1 /* MockJobRunner.swift in Sources */,
 				FD3F2EE72DE6CC4100FD6849 /* NotificationsManagerSpec.swift in Sources */,
-				FD078E5427E197CA000769AF /* OpenGroupManagerSpec.swift in Sources */,
+				FD078E5427E197CA000769AF /* CommunityManagerSpec.swift in Sources */,
 				FD3C906727E416AF00CD579F /* BlindedIdLookupSpec.swift in Sources */,
 				FD83B9D227D59495005E1583 /* MockUserDefaults.swift in Sources */,
 				FDE287612E970D5C00442E03 /* Async+Utilities.swift in Sources */,

@@ -543,7 +543,7 @@ public extension LibSession {
             /// Count the OneToOne conversations (visible contacts)
             if
                 case .contacts(let conf) = configStore[userSessionId, .contacts],
-                let contactData: [String: ContactData] = try? LibSession.extractContacts(from: conf, using: dependencies)
+                let contactData: [String: ContactData] = try? extractContacts(from: conf)
             {
                 let visibleContacts: [ContactData] = contactData.values
                     .filter { $0.priority >= LibSession.visiblePriority }

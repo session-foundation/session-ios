@@ -91,9 +91,11 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                     .thenReturn([:])
             }
         )
-        @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
-            initialSetup: { cache in
-                cache.when { $0.setDefaultRoomInfo(.any) }.thenReturn(())
+        @TestState(singleton: .communityManager, in: dependencies) var mockCommunityManager: MockCommunityManager! = MockCommunityManager(
+            initialSetup: { manager in
+                manager
+                    .when { await $0.updateRooms(rooms: .any, server: .any, publicKey: .any, areDefaultRooms: .any) }
+                    .thenReturn(())
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
@@ -215,7 +217,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 expect(openGroups?.map { $0.server }).to(equal([Network.SOGS.defaultServer]))
                 expect(openGroups?.map { $0.roomToken }).to(equal([""]))
                 expect(openGroups?.map { $0.publicKey }).to(equal([Network.SOGS.defaultServerPublicKey]))
-                expect(openGroups?.map { $0.isActive }).to(equal([false]))
+                expect(openGroups?.map { $0.shouldPoll }).to(equal([false]))
                 expect(openGroups?.map { $0.name }).to(equal([""]))
             }
             
@@ -238,7 +240,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                         server: Network.SOGS.defaultServer,
                         roomToken: "",
                         publicKey: Network.SOGS.defaultServerPublicKey,
-                        isActive: false,
+                        shouldPoll: false,
                         name: "TestExisting",
                         userCount: 0,
                         infoUpdates: 0
@@ -260,7 +262,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 expect(openGroups?.map { $0.server }).to(equal([Network.SOGS.defaultServer]))
                 expect(openGroups?.map { $0.roomToken }).to(equal([""]))
                 expect(openGroups?.map { $0.publicKey }).to(equal([Network.SOGS.defaultServerPublicKey]))
-                expect(openGroups?.map { $0.isActive }).to(equal([false]))
+                expect(openGroups?.map { $0.shouldPoll }).to(equal([false]))
                 expect(openGroups?.map { $0.name }).to(equal(["TestExisting"]))
             }
             
@@ -271,7 +273,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                         server: Network.SOGS.defaultServer,
                         roomToken: "",
                         publicKey: Network.SOGS.defaultServerPublicKey,
-                        isActive: false,
+                        shouldPoll: false,
                         name: "TestExisting",
                         userCount: 0,
                         infoUpdates: 0
@@ -280,7 +282,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 }
                 let expectedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
                     try Network.SOGS.preparedCapabilitiesAndRooms(
-                        authMethod: Authentication.community(
+                        authMethod: Authentication.Community(
                             info: LibSession.OpenGroupCapabilityInfo(
                                 roomToken: "",
                                 server: Network.SOGS.defaultServer,
@@ -396,7 +398,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                         Network.SOGS.defaultServerPublicKey,
                         Network.SOGS.defaultServerPublicKey
                     ]))
-                expect(openGroups?.map { $0.isActive }).to(equal([false, false, false]))
+                expect(openGroups?.map { $0.shouldPoll }).to(equal([false, false, false]))
                 expect(openGroups?.map { $0.name }).to(equal(["", "TestRoomName", "TestRoomName2"]))
             }
             
@@ -407,7 +409,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                         server: Network.SOGS.defaultServer,
                         roomToken: "testRoom",
                         publicKey: Network.SOGS.defaultServerPublicKey,
-                        isActive: false,
+                        shouldPoll: false,
                         name: "TestExisting",
                         userCount: 0,
                         infoUpdates: 0
@@ -464,7 +466,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 expect(openGroups?.map { $0.roomToken }.sorted()).to(equal(["", "testRoom"]))
                 expect(openGroups?.map { $0.publicKey })
                     .to(equal([Network.SOGS.defaultServerPublicKey, Network.SOGS.defaultServerPublicKey]))
-                expect(openGroups?.map { $0.isActive }).to(equal([false, false]))
+                expect(openGroups?.map { $0.shouldPoll }).to(equal([false, false]))
                 expect(openGroups?.map { $0.name }.sorted()).to(equal(["", "TestExisting"]))
             }
             
@@ -509,7 +511,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                         server: Network.SOGS.defaultServer,
                         roomToken: "testRoom2",
                         publicKey: Network.SOGS.defaultServerPublicKey,
-                        isActive: false,
+                        shouldPoll: false,
                         name: "TestExisting",
                         imageId: "10",
                         userCount: 0,
@@ -611,7 +613,7 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                         server: Network.SOGS.defaultServer,
                         roomToken: "testRoom2",
                         publicKey: Network.SOGS.defaultServerPublicKey,
-                        isActive: false,
+                        shouldPoll: false,
                         name: "TestExisting",
                         imageId: "12",
                         userCount: 0,
@@ -645,43 +647,25 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                     using: dependencies
                 )
                 
-                expect(mockOGMCache)
+                expect(mockCommunityManager)
                     .toNot(call(matchingParameters: .all) {
-                        $0.setDefaultRoomInfo([
-                            (
-                                room: Network.SOGS.Room.mock.with(
+                        await $0.updateRooms(
+                            rooms: [
+                                Network.SOGS.Room.mock.with(
                                     token: "testRoom",
                                     name: "TestRoomName"
                                 ),
-                                openGroup: OpenGroup(
-                                    server: Network.SOGS.defaultServer,
-                                    roomToken: "testRoom",
-                                    publicKey: Network.SOGS.defaultServerPublicKey,
-                                    isActive: false,
-                                    name: "TestRoomName",
-                                    userCount: 0,
-                                    infoUpdates: 0
-                                )
-                            ),
-                            (
-                                room: Network.SOGS.Room.mock.with(
+                                Network.SOGS.Room.mock.with(
                                     token: "testRoom2",
                                     name: "TestRoomName2",
                                     infoUpdates: 12,
                                     imageId: "12"
-                                ),
-                                openGroup: OpenGroup(
-                                    server: Network.SOGS.defaultServer,
-                                    roomToken: "testRoom2",
-                                    publicKey: Network.SOGS.defaultServerPublicKey,
-                                    isActive: false,
-                                    name: "TestRoomName2",
-                                    imageId: "12",
-                                    userCount: 0,
-                                    infoUpdates: 12
                                 )
-                            )
-                        ])
+                            ],
+                            server: Network.SOGS.defaultServer,
+                            publicKey: Network.SOGS.defaultServerPublicKey,
+                            areDefaultRooms: true
+                        )
                     })
             }
         }

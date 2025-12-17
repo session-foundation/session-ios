@@ -12,6 +12,8 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     var userSessionId: SessionId { mock() }
     var isEmpty: Bool { mock() }
     var allDumpSessionIds: Set<SessionId> { mock() }
+    var proConfig: SessionPro.ProConfig? { mock() }
+    var proAccessExpiryTimestampMs: UInt64 { mock() }
     
     // MARK: - State Management
     
@@ -161,9 +163,18 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         displayName: Update<String>,
         displayPictureUrl: Update<String?>,
         displayPictureEncryptionKey: Update<Data?>,
+        proProfileFeatures: Update<SessionPro.ProfileFeatures>,
         isReuploadProfilePicture: Bool
     ) throws {
-        try mockThrowingNoReturn(args: [displayName, displayPictureUrl, displayPictureEncryptionKey, isReuploadProfilePicture])
+        try mockThrowingNoReturn(args: [displayName, displayPictureUrl, displayPictureEncryptionKey, proProfileFeatures, isReuploadProfilePicture])
+    }
+    
+    func updateProConfig(proConfig: SessionPro.ProConfig) {
+        mockNoReturn(args: [proConfig])
+    }
+    
+    func removeProConfig() {
+        mockNoReturn()
     }
     
     func canPerformChange(
@@ -202,7 +213,7 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         return mock(args: [threadId, threadVariant, openGroupUrlInfo])
     }
     
-    func proProofMetadata(threadId: String) -> (genIndexHash: String, expiryUnixTimestampMs: Int64)? {
+    func proProofMetadata(threadId: String) -> LibSession.ProProofMetadata? {
         return mock(args: [threadId])
     }
     
@@ -263,6 +274,14 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
     
     func secretKey(groupSessionId: SessionId) -> [UInt8]? {
         return mock(args: [groupSessionId])
+    }
+    
+    func latestGroupKey(groupSessionId: SessionId) throws -> [UInt8] {
+        return try mockThrowing(args: [groupSessionId])
+    }
+    
+    func allActiveGroupKeys(groupSessionId: SessionId) throws -> [[UInt8]] {
+        return try mockThrowing(args: [groupSessionId])
     }
     
     func isAdmin(groupSessionId: SessionId) -> Bool {
@@ -421,7 +440,20 @@ extension Mock where T == LibSessionCacheType {
         self.when { $0.isContactBlocked(contactId: .any) }.thenReturn(false)
         self
             .when { $0.profile(contactId: .any, threadId: .any, threadVariant: .any, visibleMessage: .any) }
-            .thenReturn(Profile(id: "TestProfileId", name: "TestProfileName"))
+            .thenReturn(
+                Profile(
+                    id: "TestProfileId",
+                    name: "TestProfileName",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
+                )
+            )
         self.when { $0.hasCredentials(groupSessionId: .any) }.thenReturn(true)
         self.when { $0.secretKey(groupSessionId: .any) }.thenReturn(nil)
         self.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(true)
@@ -433,6 +465,7 @@ extension Mock where T == LibSessionCacheType {
         self.when { $0.groupIsDestroyed(groupSessionId: .any) }.thenReturn(false)
         self.when { $0.groupDeleteBefore(groupSessionId: .any) }.thenReturn(nil)
         self.when { $0.groupDeleteAttachmentsBefore(groupSessionId: .any) }.thenReturn(nil)
+        self.when { $0.authData(groupSessionId: .any) }.thenReturn(GroupAuthData(groupIdentityPrivateKey: nil, authData: nil))
         self.when { $0.get(.any) }.thenReturn(false)
         self.when { $0.get(.any) }.thenReturn(MockLibSessionConvertible.mock)
         self.when { $0.get(.any) }.thenReturn(Preferences.Sound.defaultNotificationSound)

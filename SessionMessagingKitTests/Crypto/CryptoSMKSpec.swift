@@ -66,14 +66,19 @@ class CryptoSMKSpec: QuickSpec {
                 }
             }
 
-            // MARK: -- when encrypting with the session protocol
-            context("when encrypting with the session protocol") {
+            // MARK: -- when encoding messages
+            context("when encoding messages") {
+                @TestState var result: Data?
+                
                 // MARK: ---- can encrypt correctly
                 it("can encrypt correctly") {
-                    let result: Data? = try? crypto.tryGenerate(
-                        .ciphertextWithSessionProtocol(
+                    result = try? crypto.tryGenerate(
+                        .encodedMessage(
                             plaintext: "TestMessage".data(using: .utf8)!,
-                            destination: .contact(publicKey: "05\(TestConstants.publicKey)")
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none,
+                            destination: .contact(publicKey: "05\(TestConstants.publicKey)"),
+                            sentTimestampMs: 1234567890
                         )
                     )
 
@@ -87,10 +92,13 @@ class CryptoSMKSpec: QuickSpec {
                     mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
 
                     expect {
-                        try crypto.tryGenerate(
-                            .ciphertextWithSessionProtocol(
+                        result = try crypto.tryGenerate(
+                            .encodedMessage(
                                 plaintext: "TestMessage".data(using: .utf8)!,
-                                destination: .contact(publicKey: "05\(TestConstants.publicKey)")
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none,
+                                destination: .contact(publicKey: "05\(TestConstants.publicKey)"),
+                                sentTimestampMs: 1234567890
                             )
                         )
                     }
@@ -100,20 +108,29 @@ class CryptoSMKSpec: QuickSpec {
 
             // MARK: -- when decrypting with the session protocol
             context("when decrypting with the session protocol") {
+                @TestState var result: DecodedMessage?
+                
                 // MARK: ---- successfully decrypts a message
                 it("successfully decrypts a message") {
-                    let result = crypto.generate(
-                        .plaintextWithSessionProtocol(
-                            ciphertext: Data(
+                    result = try? crypto.generate(
+                        .decodedMessage(
+                            encodedMessage: Data(
                                 base64Encoded: "SRP0eBUWh4ez6ppWjUs5/Wph5fhnPRgB5zsWWnTz+FBAw/YI3oS2pDpIfyetMTbU" +
                                 "sFMhE5G4PbRtQFey1hsxLl221Qivc3ayaX2Mm/X89Dl8e45BC+Lb/KU9EdesxIK4pVgYXs9XrMtX3v8" +
                                 "dt0eBaXneOBfr7qB8pHwwMZjtkOu1ED07T9nszgbWabBphUfWXe2U9K3PTRisSCI="
-                            )!
+                            )!,
+                            origin: .swarm(
+                                publicKey: TestConstants.publicKey,
+                                namespace: .default,
+                                serverHash: "12345",
+                                serverTimestampMs: 1234567890,
+                                serverExpirationTimestamp: 1234567890
+                            )
                         )
                     )
-
-                    expect(String(data: (result?.plaintext ?? Data()), encoding: .utf8)).to(equal("TestMessage"))
-                    expect(result?.senderSessionIdHex)
+                    
+                    expect(String(data: (result?.content ?? Data()), encoding: .utf8)).to(equal("TestMessage"))
+                    expect(result?.sender.hexString)
                         .to(equal("0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b"))
                 }
 
@@ -122,13 +139,20 @@ class CryptoSMKSpec: QuickSpec {
                     mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
 
                     expect {
-                        try crypto.tryGenerate(
-                            .plaintextWithSessionProtocol(
-                                ciphertext: Data(
+                        result = try crypto.tryGenerate(
+                            .decodedMessage(
+                                encodedMessage: Data(
                                     base64Encoded: "SRP0eBUWh4ez6ppWjUs5/Wph5fhnPRgB5zsWWnTz+FBAw/YI3oS2pDpIfyetMTbU" +
                                     "sFMhE5G4PbRtQFey1hsxLl221Qivc3ayaX2Mm/X89Dl8e45BC+Lb/KU9EdesxIK4pVgYXs9XrMtX3v8" +
                                     "dt0eBaXneOBfr7qB8pHwwMZjtkOu1ED07T9nszgbWabBphUfWXe2U9K3PTRisSCI="
-                                )!
+                                )!,
+                                origin: .swarm(
+                                    publicKey: TestConstants.publicKey,
+                                    namespace: .default,
+                                    serverHash: "12345",
+                                    serverTimestampMs: 1234567890,
+                                    serverExpirationTimestamp: 1234567890
+                                )
                             )
                         )
                     }
@@ -138,9 +162,16 @@ class CryptoSMKSpec: QuickSpec {
                 // MARK: ---- throws an error if the ciphertext is too short
                 it("throws an error if the ciphertext is too short") {
                     expect {
-                        try crypto.tryGenerate(
-                            .plaintextWithSessionProtocol(
-                                ciphertext: Data([1, 2, 3])
+                        result = try crypto.tryGenerate(
+                            .decodedMessage(
+                                encodedMessage: Data([1, 2, 3]),
+                                origin: .swarm(
+                                    publicKey: TestConstants.publicKey,
+                                    namespace: .default,
+                                    serverHash: "12345",
+                                    serverTimestampMs: 1234567890,
+                                    serverExpirationTimestamp: 1234567890
+                                )
                             )
                         )
                     }

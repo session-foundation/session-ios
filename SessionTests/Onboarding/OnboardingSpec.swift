@@ -39,7 +39,7 @@ class OnboardingSpec: AsyncSpec {
                     .when { $0.generate(.randomBytes(.any)) }
                     .thenReturn(Data([1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8]))
                 crypto
-                    .when { $0.generate(.ed25519Seed(ed25519SecretKey: .any)) }
+                    .when { $0.generate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
                     .thenReturn(Data([
                         1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
                         1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
@@ -47,7 +47,7 @@ class OnboardingSpec: AsyncSpec {
                         1, 2
                     ]))
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Array(Data(hex: TestConstants.edPublicKey)),
@@ -223,7 +223,7 @@ class OnboardingSpec: AsyncSpec {
                 beforeEach {
                     mockGeneralCache.when { $0.ed25519SecretKey }.thenReturn([])
                     mockCrypto
-                        .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                        .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                         .thenReturn(KeyPair(publicKey: [1, 2, 3], secretKey: [4, 5, 6]))
                     mockCrypto
                         .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
@@ -250,7 +250,7 @@ class OnboardingSpec: AsyncSpec {
                         .when { $0.ed25519SecretKey }
                         .thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
                     mockCrypto
-                        .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                        .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                         .thenReturn(
                             KeyPair(
                                 publicKey: Array(Data(hex: TestConstants.edPublicKey)),
@@ -296,10 +296,10 @@ class OnboardingSpec: AsyncSpec {
                 // MARK: ---- and failing to generate an x25519KeyPair
                 context("and failing to generate an x25519KeyPair") {
                     beforeEach {
-                        mockCrypto.removeMocksFor { $0.generate(.ed25519KeyPair(seed: .any)) }
-                        mockCrypto.removeMocksFor { $0.generate(.ed25519Seed(ed25519SecretKey: .any)) }
+                        mockCrypto.removeMocksFor { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                        mockCrypto.removeMocksFor { $0.generate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
                         mockCrypto
-                            .when { try $0.tryGenerate(.ed25519Seed(ed25519SecretKey: .any)) }
+                            .when { try $0.tryGenerate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
                             .thenThrow(MockError.mockedData)
                         mockCrypto
                             .when {
@@ -367,7 +367,20 @@ class OnboardingSpec: AsyncSpec {
                                     visibleMessage: .any
                                 )
                             }
-                            .thenReturn(Profile(id: "TestProfileId", name: "TestProfileName"))
+                            .thenReturn(
+                                Profile(
+                                    id: "TestProfileId",
+                                    name: "TestProfileName",
+                                    nickname: nil,
+                                    displayPictureUrl: nil,
+                                    displayPictureEncryptionKey: nil,
+                                    profileLastUpdated: nil,
+                                    blocksCommunityMessageRequests: nil,
+                                    proFeatures: .none,
+                                    proExpiryUnixTimestampMs: 0,
+                                    proGenIndexHashHex: nil
+                                )
+                            )
                     }
                     
                     // MARK: ------ loads from libSession
@@ -396,10 +409,10 @@ class OnboardingSpec: AsyncSpec {
                     // MARK: ------ after generating new credentials
                     context("after generating new credentials") {
                         beforeEach {
-                            mockCrypto.removeMocksFor { $0.generate(.ed25519KeyPair(seed: .any)) }
-                            mockCrypto.removeMocksFor { $0.generate(.ed25519Seed(ed25519SecretKey: .any)) }
+                            mockCrypto.removeMocksFor { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                            mockCrypto.removeMocksFor { $0.generate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
                             mockCrypto
-                                .when { try $0.tryGenerate(.ed25519Seed(ed25519SecretKey: .any)) }
+                                .when { try $0.tryGenerate(.ed25519Seed(ed25519SecretKey: Array<UInt8>.any)) }
                                 .thenThrow(MockError.mockedData)
                             mockCrypto
                                 .when {
@@ -458,7 +471,7 @@ class OnboardingSpec: AsyncSpec {
         describe("an Onboarding Cache when setting seed data") {
             beforeEach {
                 mockCrypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Array(Data(hex: TestConstants.edPublicKey)),
@@ -642,7 +655,10 @@ class OnboardingSpec: AsyncSpec {
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
                         profileLastUpdated: 12345678900,
-                        blocksCommunityMessageRequests: nil
+                        blocksCommunityMessageRequests: nil,
+                        proFeatures: .none,
+                        proExpiryUnixTimestampMs: 0,
+                        proGenIndexHashHex: nil
                     )
                 ]))
             }
@@ -681,7 +697,10 @@ class OnboardingSpec: AsyncSpec {
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
                         profileLastUpdated: profile.profileLastUpdated,
-                        blocksCommunityMessageRequests: nil
+                        blocksCommunityMessageRequests: nil,
+                        proFeatures: .none,
+                        proExpiryUnixTimestampMs: 0,
+                        proGenIndexHashHex: nil
                     )
                 ))
                 expect(profile.profileLastUpdated).toNot(beNil())
@@ -852,7 +871,7 @@ class OnboardingSpec: AsyncSpec {
                     displayName: .set(to: "TestPolledName"),
                     displayPictureUrl: .set(to: "http://filev2.getsession.org/file/1234"),
                     displayPictureEncryptionKey: .set(to: Data([1, 2, 3])),
-                    proFeatures: .set(to: .none),
+                    proProfileFeatures: .set(to: .none),
                     isReuploadProfilePicture: false
                 )
                 testCacheProfile = cache.profile

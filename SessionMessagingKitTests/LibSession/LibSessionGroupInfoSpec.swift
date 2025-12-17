@@ -134,8 +134,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -153,8 +152,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupMembers]!,
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         .to(throwError())
@@ -169,8 +167,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -192,8 +189,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -215,8 +211,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -242,8 +237,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -271,8 +265,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -296,8 +289,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -337,8 +329,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -389,7 +380,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                         }
                         
@@ -399,8 +391,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -445,7 +436,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Interaction(
                                 serverHash: "1235",
@@ -468,7 +460,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                         }
                         
@@ -478,8 +471,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -529,7 +521,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -552,8 +545,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -598,7 +590,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -621,8 +614,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -679,7 +671,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             let interaction2: Interaction = try Interaction(
                                 serverHash: "1235",
@@ -702,7 +695,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -736,8 +730,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -782,7 +775,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Interaction(
                                 serverHash: "1235",
@@ -805,7 +799,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                                 state: .sent,
                                 recipientReadTimestampMs: nil,
                                 mostRecentFailureText: nil,
-                                isProMessage: false
+                                proMessageFeatures: .none,
+                                proProfileFeatures: .none
                             ).inserted(db)
                             _ = try Attachment(
                                 id: "AttachmentId",
@@ -828,8 +823,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             try mockLibSessionCache.handleGroupInfoUpdate(
                                 db,
                                 in: createGroupOutput.groupState[.groupInfo],
-                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                                serverTimestampMs: 1234567891000
+                                groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                             )
                         }
                         
@@ -875,7 +869,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                     }
                     
@@ -885,8 +880,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
@@ -945,7 +939,8 @@ class LibSessionGroupInfoSpec: QuickSpec {
                             state: .sent,
                             recipientReadTimestampMs: nil,
                             mostRecentFailureText: nil,
-                            isProMessage: false
+                            proMessageFeatures: .none,
+                            proProfileFeatures: .none
                         ).inserted(db)
                     }
                     
@@ -955,8 +950,7 @@ class LibSessionGroupInfoSpec: QuickSpec {
                         try mockLibSessionCache.handleGroupInfoUpdate(
                             db,
                             in: createGroupOutput.groupState[.groupInfo],
-                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId),
-                            serverTimestampMs: 1234567891000
+                            groupSessionId: SessionId(.group, hex: createGroupOutput.group.threadId)
                         )
                     }
                     
