@@ -694,10 +694,11 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     }
     
     @MainActor func showModalForMessagesExceedingCharacterLimit() {
-        let didShowCTAModal: Bool = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-            .longerMessages(renew: (dependencies[singleton: .sessionProManager].currentUserCurrentProState.status == .expired)),
-            onConfirm: { [weak self] in
-                dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+        let manager: SessionProManagerType = dependencies[singleton: .sessionProManager]
+        let didShowCTAModal: Bool = manager.showSessionProCTAIfNeeded(
+            .longerMessages(renew: (manager.currentUserCurrentProState.status == .expired)),
+            onConfirm: { [weak self, manager] in
+                manager.showSessionProBottomSheetIfNeeded(
                     afterClosed: {
                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                     },
@@ -748,10 +749,11 @@ extension AttachmentApprovalViewController: InputViewDelegate {
     public func cancelVoiceMessageRecording() {}
     
     public func handleCharacterLimitLabelTapped() {
-        let didShowCTAModal: Bool = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
-            .longerMessages(renew: (dependencies[singleton: .sessionProManager].currentUserCurrentProState.status == .expired)),
-            onConfirm: { [weak self] in
-                dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+        let manager: SessionProManagerType = dependencies[singleton: .sessionProManager]
+        let didShowCTAModal: Bool = manager.showSessionProCTAIfNeeded(
+            .longerMessages(renew: (manager.currentUserCurrentProState.status == .expired)),
+            onConfirm: { [weak self, manager] in
+                manager.showSessionProBottomSheetIfNeeded(
                     afterClosed: {
                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                     },

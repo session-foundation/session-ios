@@ -174,7 +174,6 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
 
     public struct State: ObservableKeyProvider {
         let profileImageStatus: ProfileImageStatus
-        let isProConversation: Bool = false // TODO: [PRO] Need to determine whether it's a PRO group conversation
         
         let threadInfo: ConversationInfoViewModel
         let dataCache: ConversationDataCache
@@ -515,7 +514,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                 case .group:
                                     return .groupLimit(
                                         isAdmin: (state.threadInfo.groupInfo?.currentUserRole == .admin),
-                                        isSessionProActivated: state.isProConversation,
+                                        isSessionProActivated: (state.threadInfo.groupInfo?.isProGroup == true),
                                         proBadgeImage: UIView.image(
                                             for: .themedKey(
                                                 SessionProBadge.Size.mini.cacheKey,
@@ -525,7 +524,11 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                                         )
                                     )
                                 default:
-                                    return .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
+                                    return .generic(
+                                        renew: dependencies[singleton: .sessionProManager]
+                                            .currentUserCurrentProState
+                                            .status == .expired
+                                    )
                             }
                         }()
                         
@@ -533,8 +536,8 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                             proCTAModalVariant,
                             onConfirm: {
                                 dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
-                                    presenting: { bottomSheet in
-                                        self?.transitionToScreen(bottomSheet, transitionType: .present)
+                                    presenting: { [weak viewModel] bottomSheet in
+                                        viewModel?.transitionToScreen(bottomSheet, transitionType: .present)
                                     }
                                 )
                             },
@@ -2229,26 +2232,23 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                 /// If we already have too many conversations pinned then we need to show the CTA modal
                 guard numPinnedConversations > 0 else { return }
                 
-                await MainActor.run { [weak self, dependencies] in
-                    let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-                        modal: ProCTAModal(
-                            variant: .morePinnedConvos(
-                                isGrandfathered: (numPinnedConversations > SessionPro.PinnedConversationLimit),
-                                renew: (sessionProState.status == .expired)
-                            ),
-                            dataManager: dependencies[singleton: .imageDataManager],
-                            sessionProUIManager: dependencies[singleton: .sessionProManager],
-                            onConfirm: { [dependencies] in
-                                // TODO: [PRO] Need to sort this out
-                                dependencies[singleton: .sessionProState].upgradeToPro(
-                                    plan: SessionProPlan(variant: .threeMonths),
-                                    originatingPlatform: .iOS,
-                                    completion: nil
-                                )
-                            }
-                        )
+                _ = await MainActor.run { [weak self, dependencies] in
+                    dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                        .morePinnedConvos(
+                            isGrandfathered: (numPinnedConversations > SessionPro.PinnedConversationLimit),
+                            renew: (sessionProState.status == .expired)
+                        ),
+                        onConfirm: { [weak self] in
+                            dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                                presenting: { [weak self] bottomSheet in
+                                    self?.transitionToScreen(bottomSheet, transitionType: .present)
+                                }
+                            )
+                        },
+                        presenting: { [weak self] modal in
+                            self?.transitionToScreen(modal, transitionType: .present)
+                        }
                     )
-                    self?.transitionToScreen(sessionProModal, transitionType: .present)
                 }
             }
             catch {}

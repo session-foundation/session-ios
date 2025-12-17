@@ -100,7 +100,10 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                 case .contact:
                     /// If the thread is the Note to Self one then use the proper profile from the cache (instead of a random blinded one)
                     guard !currentUserSessionIds.contains(thread.id) else {
-                        return (dataCache.profile(for: dataCache.userSessionId.hexString) ?? Profile.defaultFor(dataCache.userSessionId.hexString))
+                        return (
+                            dataCache.profile(for: dataCache.userSessionId.hexString) ??
+                            Profile.defaultFor(dataCache.userSessionId.hexString)
+                        )
                     }
                     
                     return (dataCache.profile(for: thread.id) ?? Profile.defaultFor(thread.id))
@@ -249,11 +252,9 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
             
             switch thread.variant {
                 case .contact:
-                    // TODO: [PRO] Need to check if the pro status on the profile has expired
-                    return (
-                        dataCache.profile(for: thread.id)?.proFeatures.contains(.proBadge) == true ||
-                        dependencies[feature: .proBadgeEverywhere]
-                    )
+                    return dependencies[singleton: .sessionProManager]
+                        .profileFeatures(for: profile)
+                        .contains(.proBadge)
                     
                 case .group: return false   // TODO: [PRO] Determine if the group is PRO
                 case .community, .legacyGroup: return false
@@ -318,17 +319,7 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
         
         self.profile = profile.map { profile in
             profile.with(
-                proFeatures: .set(to: {
-                    guard dependencies[feature: .sessionProEnabled] else { return .none }
-                    // TODO: [PRO] Need to check if the pro status on the profile has expired - maybe add a function to SessionProManager to determine if the badge should show?
-                    var result: SessionPro.ProfileFeatures = profile.proFeatures
-                    
-                    if dependencies[feature: .proBadgeEverywhere] {
-                        result.insert(.proBadge)
-                    }
-                    
-                    return result
-                }())
+                proFeatures: .set(to: dependencies[singleton: .sessionProManager].profileFeatures(for: profile))
             )
         }
         self.additionalProfile = {
@@ -342,17 +333,7 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                     
                     return dataCache.profile(for: targetId).map { profile in
                         profile.with(
-                            proFeatures: .set(to: {
-                                guard dependencies[feature: .sessionProEnabled] else { return .none }
-                                // TODO: [PRO] Need to check if the pro status on the profile has expired - maybe add a function to SessionProManager to determine if the badge should show?
-                                var result: SessionPro.ProfileFeatures = profile.proFeatures
-                                
-                                if dependencies[feature: .proBadgeEverywhere] {
-                                    result.insert(.proBadge)
-                                }
-                                
-                                return result
-                            }())
+                            proFeatures: .set(to: dependencies[singleton: .sessionProManager].profileFeatures(for: profile))
                         )
                     }
                 
@@ -633,6 +614,7 @@ public extension ConversationInfoViewModel {
         public let isDestroyed: Bool
         public let adminProfile: Profile?
         public let currentUserRole: GroupMember.Role?
+        public let isProGroup: Bool
         
         init(
             group: ClosedGroup,
@@ -654,6 +636,9 @@ public extension ConversationInfoViewModel {
                 .map { $0.role }
                 .sorted()
                 .last   /// We want the highest-ranking role (in case there are multiple entries)
+            
+            // TODO: [PRO] Need to determine whether it's a PRO group conversation
+            self.isProGroup = false
         }
     }
 }

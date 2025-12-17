@@ -10,16 +10,25 @@ public extension SessionProPaymentScreenContent.SessionProPlanPaymentFlow {
         let expiryDate: Date? = state.accessExpiryTimestampMs.map { Date(timeIntervalSince1970: floor(Double($0) / 1000)) }
         
         switch (state.status, latestPlan, state.refundingStatus) {
-            case (.neverBeenPro, _, _), (.active, .none, _): self = .purchase
+            case (.neverBeenPro, _, _), (.active, .none, _):
+                self = .purchase(billingAccess: state.buildVariant == .appStore)
+                
             case (.active, .some(let plan), .notRefunding):
                 self = .update(
                     currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo(plan: plan),
                     expiredOn: (expiryDate ?? Date.distantPast),
                     originatingPlatform: state.originatingPlatform,
-                    isAutoRenewing: (state.autoRenewing == true)
+                    isAutoRenewing: (state.autoRenewing == true),
+                    isNonOriginatingAccount: (state.originatingAccount == .nonOriginatingAccount),
+                    billingAccess: (state.buildVariant == .appStore)
                 )
                 
-            case (.expired, _, _): self = .renew(originatingPlatform: state.originatingPlatform)
+            case (.expired, _, _):
+                self = .renew(
+                    originatingPlatform: state.originatingPlatform,
+                    billingAccess: (state.buildVariant == .appStore)
+                )
+                
             case (.active, .some, .refunding):
                 self = .refund(
                     originatingPlatform: state.originatingPlatform,

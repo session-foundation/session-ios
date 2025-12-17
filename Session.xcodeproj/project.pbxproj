@@ -203,7 +203,6 @@
 		945E89D22E95D54700D8D907 /* SessionProPaymentScreen+NoBillingAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D12E95D54000D8D907 /* SessionProPaymentScreen+NoBillingAccess.swift */; };
 		945E89D42E95D97000D8D907 /* SessionProPaymentScreen+SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */; };
 		945E89D62E9602AB00D8D907 /* SessionProPaymentScreen+Purchase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */; };
-		9463794A2E7131070017A014 /* SessionProManagerType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946379492E71308B0017A014 /* SessionProManagerType.swift */; };
 		9463794C2E71371F0017A014 /* SessionProPaymentScreen+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */; };
 		946F5A732D5DA3AC00A5ADCE /* Punycode in Frameworks */ = {isa = PBXBuildFile; productRef = 946F5A722D5DA3AC00A5ADCE /* Punycode */; };
 		9473386E2BDF5F3E00B9E169 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */; };
@@ -219,7 +218,6 @@
 		94805EB22EB087FD0055EBBC /* BottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EB12EB087F90055EBBC /* BottomSheet.swift */; };
 		94805EB92EB1E16D0055EBBC /* SessionProSettings+ProFeatures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EB82EB1E1650055EBBC /* SessionProSettings+ProFeatures.swift */; };
 		94805EBF2EB462C40055EBBC /* TransitionType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EBE2EB462C10055EBBC /* TransitionType.swift */; };
-		94805EC12EB48D910055EBBC /* SessionProState+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EC02EB48D860055EBBC /* SessionProState+Models.swift */; };
 		94805EC32EB48ED50055EBBC /* SessionProPaymentScreenContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EC22EB48EC40055EBBC /* SessionProPaymentScreenContent.swift */; };
 		94805EC62EB823B80055EBBC /* DismissType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EC52EB823B00055EBBC /* DismissType.swift */; };
 		94805EC82EB834D40055EBBC /* UINavigationController+Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94805EC72EB834CD0055EBBC /* UINavigationController+Utilities.swift */; };
@@ -514,6 +512,7 @@
 		FD17D7AE27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7AD27F41C4300122BE0 /* SnodeReceivedMessageInfo.swift */; };
 		FD17D7B827F51ECA00122BE0 /* Migration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7B727F51ECA00122BE0 /* Migration.swift */; };
 		FD17D7E527F6A09900122BE0 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD17D7E427F6A09900122BE0 /* Identity.swift */; };
+		FD184C232EF2100D001089EB /* SessionProError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD184C222EF2100A001089EB /* SessionProError.swift */; };
 		FD19363C2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */; };
 		FD19363F2ACA66DE004BCF0F /* DatabaseSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */; };
 		FD1A553E2E14BE11003761E4 /* PagedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1A553D2E14BE0E003761E4 /* PagedData.swift */; };
@@ -1722,7 +1721,6 @@
 		945E89D12E95D54000D8D907 /* SessionProPaymentScreen+NoBillingAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+NoBillingAccess.swift"; sourceTree = "<group>"; };
 		945E89D32E95D96100D8D907 /* SessionProPaymentScreen+SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+SharedViews.swift"; sourceTree = "<group>"; };
 		945E89D52E96028B00D8D907 /* SessionProPaymentScreen+Purchase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Purchase.swift"; sourceTree = "<group>"; };
-		946379492E71308B0017A014 /* SessionProManagerType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProManagerType.swift; sourceTree = "<group>"; };
 		9463794B2E7137120017A014 /* SessionProPaymentScreen+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProPaymentScreen+Models.swift"; sourceTree = "<group>"; };
 		9471CAA72CACFB4E00090FB7 /* GenerateLicenses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateLicenses.swift; sourceTree = "<group>"; };
 		9473386D2BDF5F3E00B9E169 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
@@ -1742,7 +1740,6 @@
 		94805EB12EB087F90055EBBC /* BottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomSheet.swift; sourceTree = "<group>"; };
 		94805EB82EB1E1650055EBBC /* SessionProSettings+ProFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProSettings+ProFeatures.swift"; sourceTree = "<group>"; };
 		94805EBE2EB462C10055EBBC /* TransitionType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitionType.swift; sourceTree = "<group>"; };
-		94805EC02EB48D860055EBBC /* SessionProState+Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SessionProState+Models.swift"; sourceTree = "<group>"; };
 		94805EC22EB48EC40055EBBC /* SessionProPaymentScreenContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProPaymentScreenContent.swift; sourceTree = "<group>"; };
 		94805EC52EB823B00055EBBC /* DismissType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DismissType.swift; sourceTree = "<group>"; };
 		94805EC72EB834CD0055EBBC /* UINavigationController+Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UINavigationController+Utilities.swift"; sourceTree = "<group>"; };
@@ -2045,6 +2042,7 @@
 		FD17D7C927F546D900122BE0 /* _001_SUK_InitialSetupMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _001_SUK_InitialSetupMigration.swift; sourceTree = "<group>"; };
 		FD17D7E427F6A09900122BE0 /* Identity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identity.swift; sourceTree = "<group>"; };
 		FD17D7E627F6A16700122BE0 /* _003_SUK_YDBToGRDBMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _003_SUK_YDBToGRDBMigration.swift; sourceTree = "<group>"; };
+		FD184C222EF2100A001089EB /* SessionProError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionProError.swift; sourceTree = "<group>"; };
 		FD19363B2ACA3134004BCF0F /* ResponseInfo+SnodeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ResponseInfo+SnodeAPI.swift"; sourceTree = "<group>"; };
 		FD19363E2ACA66DE004BCF0F /* DatabaseSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseSpec.swift; sourceTree = "<group>"; };
 		FD1A553D2E14BE0E003761E4 /* PagedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PagedData.swift; sourceTree = "<group>"; };
@@ -3243,8 +3241,6 @@
 				948615C02ED7D39B000A5666 /* SessionProSettingsViewModel.swift */,
 				948615C12ED7D39B000A5666 /* SessionProSettingsViewModel+Database.swift */,
 				94805EC22EB48EC40055EBBC /* SessionProPaymentScreenContent.swift */,
-				94B6BAF52E30A88800E718BB /* SessionProState.swift */,
-				94805EC02EB48D860055EBBC /* SessionProState+Models.swift */,
 			);
 			path = SessionPro;
 			sourceTree = "<group>";
@@ -4566,7 +4562,6 @@
 		FD2272D22C34ECBB004D8A6C /* Types */ = {
 			isa = PBXGroup;
 			children = (
-				946379492E71308B0017A014 /* SessionProManagerType.swift */,
 				FD39370B2E4D7BBE00571F17 /* DocumentPickerHandler.swift */,
 				FD0F85722EA83C41004E0B98 /* AnyCodable.swift */,
 				FD0E353A2AB98773006A81F7 /* AppVersion.swift */,
@@ -5373,6 +5368,7 @@
 				FD360EBE2ECAD5160050CAF4 /* SessionProConfig.swift */,
 				FDAA36CD2EB484450040603E /* SessionProDecodedProForMessage.swift */,
 				FDAA36CF2EB485EF0040603E /* SessionProDecodedStatus.swift */,
+				FD184C222EF2100A001089EB /* SessionProError.swift */,
 				FDAA36C52EB474C40040603E /* SessionProFeaturesForMessage.swift */,
 				FDAA36C72EB475140040603E /* SessionProFeatureStatus.swift */,
 				FD360ECE2ECEE5F20050CAF4 /* SessionProLoadingState.swift */,
@@ -7185,7 +7181,6 @@
 				FD2272E02C3502BE004D8A6C /* Setting+Theme.swift in Sources */,
 				FDE519F72AB7CDC700450C53 /* Result+Utilities.swift in Sources */,
 				FD5931A72A8DA5DA0040147D /* SQLInterpolation+Utilities.swift in Sources */,
-				9463794A2E7131070017A014 /* SessionProManagerType.swift in Sources */,
 				FD9004152818B46300ABAAF6 /* JobRunner.swift in Sources */,
 				FD3765EA2ADE37B400DC1489 /* Authentication.swift in Sources */,
 				FDE755202C9BC1A6002A2623 /* CacheConfig.swift in Sources */,
@@ -7397,6 +7392,7 @@
 				FD2CFB992EDFF32E00EC7F98 /* ConversationDataCache.swift in Sources */,
 				FD99A3A42EBAA6BD00E59F94 /* EnvelopeFlags.swift in Sources */,
 				C3A71D1E25589AC30043A11F /* WebSocketProto.swift in Sources */,
+				FD184C232EF2100D001089EB /* SessionProError.swift in Sources */,
 				C3C2A7852553AAF300C340D1 /* SessionProtos.pb.swift in Sources */,
 				FDF0B7422804EA4F004C14C5 /* _007_SMK_SetupStandardJobs.swift in Sources */,
 				B8EB20EE2640F28000773E52 /* VisibleMessage+OpenGroupInvitation.swift in Sources */,
@@ -7406,8 +7402,6 @@
 				FD09798D27FD1D8900936362 /* DisappearingMessageConfiguration.swift in Sources */,
 				FD99A3A22EBAA6AA00E59F94 /* Envelope.swift in Sources */,
 				FD2272732C32911C004D8A6C /* ConfigurationSyncJob.swift in Sources */,
-				FDF0B75A2807F3A3004C14C5 /* MessageSenderError.swift in Sources */,
-				94805EC12EB48D910055EBBC /* SessionProState+Models.swift in Sources */,
 				FD245C692850666800B966DD /* ExpirationTimerUpdate.swift in Sources */,
 				FD2272752C32911C004D8A6C /* RetrieveDefaultOpenGroupRoomsJob.swift in Sources */,
 				FD2272712C32911C004D8A6C /* MessageReceiveJob.swift in Sources */,

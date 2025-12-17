@@ -15,6 +15,7 @@ public extension SessionPro {
         public let buildVariant: BuildVariant
         public let products: [Product]
         public let plans: [SessionPro.Plan]
+        public let entitledTransactions: [Transaction]
         
         public let loadingState: SessionPro.LoadingState
         public let status: Network.SessionPro.BackendUserProStatus
@@ -36,6 +37,7 @@ public extension SessionPro.State {
         buildVariant: .appStore,
         products: [],
         plans: [],
+        entitledTransactions: [],
         loadingState: .loading,
         status: .neverBeenPro,
         proof: nil,
@@ -53,6 +55,7 @@ internal extension SessionPro.State {
     func with(
         products: Update<[Product]> = .useExisting,
         plans: Update<[SessionPro.Plan]> = .useExisting,
+        entitledTransactions: Update<[Transaction]> = .useExisting,
         loadingState: Update<SessionPro.LoadingState> = .useExisting,
         status: Update<Network.SessionPro.BackendUserProStatus> = .useExisting,
         proof: Update<Network.SessionPro.ProProof?> = .useExisting,
@@ -94,8 +97,23 @@ internal extension SessionPro.State {
                 case .useActual: return SessionProUI.ClientPlatform(finalLatestPaymentItem?.paymentProvider)
             }
         }()
-        
-//        // TODO: [PRO] 'originatingAccount'?? I think we might need to check StoreKit transactions to see if they match the current one? (and if not then it's not the originating account?)
+        let finalEntitledTransactions: [Transaction] = entitledTransactions.or(self.entitledTransactions)
+        let finalOriginatingAccount: SessionPro.OriginatingAccount = {
+            switch dependencies[feature: .mockCurrentUserOriginatingAccount] {
+                case .simulate(let mockedValue): return mockedValue
+                case .useActual:
+                    guard let lastPaymentItemAppleTransactionId: String = finalLatestPaymentItem?.appleTransactionId else {
+                        return .nonOriginatingAccount
+                    }
+                    
+                    let transactionIds: Set<String> = Set(finalEntitledTransactions.map { "\($0.id)" })
+                    
+                    return (transactionIds.contains(lastPaymentItemAppleTransactionId) ?
+                        .originatingAccount :
+                        .nonOriginatingAccount
+                    )
+            }
+        }()
         
         let finalRefundingStatus: SessionPro.RefundingStatus = {
             switch dependencies[feature: .mockCurrentUserSessionProRefundingStatus] {
@@ -113,6 +131,7 @@ internal extension SessionPro.State {
             buildVariant: finalBuildVariant,
             products: products.or(self.products),
             plans: plans.or(self.plans),
+            entitledTransactions: finalEntitledTransactions,
             loadingState: finalLoadingState,
             status: finalStatus,
             proof: proof.or(self.proof),
@@ -121,7 +140,7 @@ internal extension SessionPro.State {
             accessExpiryTimestampMs: finalAccessExpiryTimestampMs,
             latestPaymentItem: finalLatestPaymentItem,
             originatingPlatform: finalOriginatingPlatform,
-            originatingAccount: .originatingAccount,
+            originatingAccount: finalOriginatingAccount,
             refundingStatus: finalRefundingStatus
         )
     }

@@ -240,7 +240,7 @@ public extension UIContextualAction {
                                 }),
                                 pinnedConversationsNumber >= SessionPro.PinnedConversationLimit
                             {
-                                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                                     .morePinnedConvos(
                                         isGrandfathered: (pinnedConversationsNumber >= SessionPro.PinnedConversationLimit),
                                         renew: (dependencies[singleton: .sessionProManager]
@@ -273,6 +273,7 @@ public extension UIContextualAction {
                                     try SessionThread.updateVisibility(
                                         db,
                                         threadId: threadInfo.id,
+                                        threadVariant: threadInfo.variant,
                                         isVisible: true,
                                         customPriority: (isCurrentlyPinned ? LibSession.visiblePriority : 1),
                                         using: dependencies

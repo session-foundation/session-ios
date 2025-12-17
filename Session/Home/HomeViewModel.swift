@@ -542,7 +542,8 @@ public class HomeViewModel: NavigatableStateHolder {
                                 flow: info.paymentFlow,
                                 plans: info.planInfo
                             ),
-                            dependencies: dependencies
+                            isFromBottomSheet: false,
+                            using: dependencies
                         )
                     )
                 )

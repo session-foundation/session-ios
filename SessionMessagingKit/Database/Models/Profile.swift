@@ -59,7 +59,7 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     /// The unix timestamp (in milliseconds) when Session Pro expires for this profile
     public let proExpiryUnixTimestampMs: UInt64
     
-    /// The timestamp when Session Pro expires for this profile
+    /// Hash of the generation index for this users Session Pro
     public let proGenIndexHashHex: String?
     
     // MARK: - Initialization

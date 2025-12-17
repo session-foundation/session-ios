@@ -720,7 +720,7 @@ extension MessageReceiver {
         guard let text: String = text else { return nil }
         
         /// Extract the features used for the message
-        let info: SessionPro.FeaturesForMessage = dependencies[singleton: .sessionProManager].features(for: text)
+        let info: SessionPro.FeaturesForMessage = dependencies[singleton: .sessionProManager].messageFeatures(for: text)
         let proStatus: SessionPro.DecodedStatus? = dependencies[singleton: .sessionProManager].proStatus(
             for: decodedMessage.decodedPro?.proProof,
             verifyPubkey: {

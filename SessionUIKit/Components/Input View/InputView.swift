@@ -302,8 +302,7 @@ public final class InputView: UIView, InputViewButtonDelegate, InputTextViewDele
     
     private lazy var sessionProBadge: SessionProBadge = {
         let result: SessionProBadge = SessionProBadge(size: .medium)
-        // TODO: [PRO] Need to add this back
-//        result.isHidden = !dependencies[feature: .sessionProEnabled] || dependencies[cache: .libSession].isSessionPro
+        result.isHidden = (sessionProManager?.currentUserIsCurrentlyPro == true)
         
         return result
     }()

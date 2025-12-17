@@ -264,7 +264,7 @@ public extension MessageViewModel {
         }()
         let proProfileFeatures: SessionPro.ProfileFeatures = {
             guard dependencies[feature: .sessionProEnabled] else { return .none }
-            // TODO: [PRO] Need to check if the pro status on the profile has expired
+            
             var result: SessionPro.ProfileFeatures = interaction.proProfileFeatures
             
             if dependencies[feature: .forceMessageFeatureProBadge] {
@@ -307,17 +307,7 @@ public extension MessageViewModel {
         self.attachments = contentBuilder.attachments
         self.reactionInfo = (reactionInfo ?? [])
         self.profile = targetProfile.with(
-            proFeatures: .set(to: {
-                guard dependencies[feature: .sessionProEnabled] else { return .none }
-                // TODO: [PRO] Need to check if the pro status on the profile has expired - maybe add a function to SessionProManager to determine if the badge should show?
-                var result: SessionPro.ProfileFeatures = targetProfile.proFeatures
-                
-                if dependencies[feature: .proBadgeEverywhere] {
-                    result.insert(.proBadge)
-                }
-                
-                return result
-            }())
+            proFeatures: .set(to: dependencies[singleton: .sessionProManager].profileFeatures(for: targetProfile))
         )
         self.quoteViewModel = maybeUnresolvedQuotedInfo.map { info -> QuoteViewModel? in
             /// Should be `interaction` not `quotedInteraction`
@@ -403,14 +393,9 @@ public extension MessageViewModel {
                         )
                     }
                 ),
-                showProBadge: {
-                    guard dependencies[feature: .sessionProEnabled] else { return false }
-                    // TODO: [PRO] Need to check if the pro status on the profile has expired
-                    return (
-                        quotedAuthorProfile.proFeatures.contains(.proBadge) ||
-                        dependencies[feature: .proBadgeEverywhere]
-                    )
-                }(),
+                showProBadge: dependencies[singleton: .sessionProManager]
+                    .profileFeatures(for: quotedAuthorProfile)
+                    .contains(.proBadge),
                 currentUserSessionIds: currentUserSessionIds,
                 displayNameRetriever: dataCache.displayNameRetriever(
                     for: threadInfo.id,
@@ -701,25 +686,6 @@ public extension MessageViewModel {
         public static func < (lhs: ReactionInfo, rhs: ReactionInfo) -> Bool {
             return (lhs.reaction.sortId < rhs.reaction.sortId)
         }
-    }
-}
-
-// MARK: - TypingIndicatorInfo
-// TODO: [PRO] Is this needed????
-public extension MessageViewModel {
-    struct TypingIndicatorInfo: FetchableRecordWithRowId, Decodable, Identifiable, Equatable, ColumnExpressible {
-        public typealias Columns = CodingKeys
-        public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
-            case rowId
-            case threadId
-        }
-        
-        public let rowId: Int64
-        public let threadId: String
-        
-        // MARK: - Identifiable
-        
-        public var id: String { threadId }
     }
 }
 

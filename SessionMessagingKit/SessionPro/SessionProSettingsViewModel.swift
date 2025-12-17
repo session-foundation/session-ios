@@ -232,7 +232,6 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         proExpiryUnixTimestampMs: .set(to: expiryUnixTimestampMs),
                         proGenIndexHashHex: .set(to: genIndexHashHex)
                     )
-                default: break
             }
         }
         
@@ -329,14 +328,14 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 }
                             }(),
                             description: {
-                                switch (state.currentProPlanState, state.isInBottomSheet) {
+                                switch (state.proState.status, state.isInBottomSheet) {
                                     case (.expired, true):
                                         return "proAccessRenewStart"
                                             .put(key: "pro", value: Constants.pro)
                                             .put(key: "app_pro", value: Constants.app_pro)
                                             .localizedFormatted()
                                         
-                                    case (.none, _):
+                                    case (.neverBeenPro, _):
                                         return "proFullestPotential"
                                             .put(key: "app_name", value: Constants.app_name)
                                             .put(key: "app_pro", value: Constants.app_pro)
@@ -395,8 +394,8 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         .put(key: "pro", value: Constants.pro)
                                         .localized(),
                                     description: {
-                                        switch state.currentProPlanState {
-                                            case .none:
+                                        switch state.proState.status {
+                                            case .neverBeenPro:
                                                 "proStatusNetworkErrorContinue"
                                                     .put(key: "pro", value: Constants.pro)
                                                     .localizedFormatted()
@@ -421,10 +420,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         id: .continueButton,
                         variant: .button(
                             title: "theContinue".localized(),
-                            enabled: (state.loadingState == .success)
+                            enabled: (state.proState.loadingState == .success)
                         ),
                         onTap: { [weak viewModel] in
-                            switch state.loadingState {
+                            switch state.proState.loadingState {
                                 case .success: viewModel?.updateProPlan(state: state)
                                 case .loading:
                                     viewModel?.showLoadingModal(
@@ -620,7 +619,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 title: SessionListScreenContent.TextInfo(
                                     "proGroupsUpgraded"
                                         .putNumber(state.numberOfGroupsUpgraded)
-                                        .put(key: "total", value: (state.loadingState == .loading ? "" : state.numberOfGroupsUpgraded))
+                                        .put(key: "total", value: (state.proState.loadingState == .loading ? "" : state.numberOfGroupsUpgraded))
                                         .localized(),
                                     font: .Headings.H9,
                                     color: (state.proState.loadingState == .loading ? .textPrimary : .disabled)
@@ -1090,17 +1089,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 )
                             )
                         ),
-                        onTap: { [weak viewModel] in
-                            Task {
-                                await viewModel?
-                                    .dependencies[singleton: .sessionProState]
-                                    .recoverPro { [weak viewModel] result in
-                                        DispatchQueue.main.async {
-                                            viewModel?.recoverProPlanCompletionHandler(result)
-                                        }
-                                    }
-                            }
-                        }
+                        onTap: { [weak viewModel] in viewModel?.recoverProPlan() }
                     )
                 ]
         }
@@ -1192,12 +1181,12 @@ extension SessionProSettingsViewModel {
                     flow: SessionProPaymentScreenContent.SessionProPlanPaymentFlow(state: state.proState),
                     plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                 ),
-                isFromBottomSheet: state.isFromBottomSheet,
-                dependencies: dependencies
+                isFromBottomSheet: state.isInBottomSheet,
+                using: dependencies
             )
         )
         
-        guard !state.isFromBottomSheet else {
+        guard !state.isInBottomSheet else {
             self.transitionToScreen(paymentScreen, transitionType: .push)
             return
         }
@@ -1276,7 +1265,7 @@ extension SessionProSettingsViewModel {
                         plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     ),
                     isFromBottomSheet: false,
-                    dependencies: dependencies
+                    using: dependencies
                 )
             )
         )
@@ -1296,7 +1285,7 @@ extension SessionProSettingsViewModel {
                         plans: state.proState.plans.map { SessionProPaymentScreenContent.SessionProPlanInfo(plan: $0) }
                     ),
                     isFromBottomSheet: false,
-                    dependencies: dependencies
+                    using: dependencies
                 )
             )
         )

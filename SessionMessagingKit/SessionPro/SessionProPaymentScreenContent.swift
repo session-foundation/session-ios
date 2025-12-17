@@ -21,62 +21,30 @@ extension SessionProPaymentScreenContent {
             self.isFromBottomSheet = isFromBottomSheet
         }
         
-        @MainActor public func purchase(
-            planInfo: SessionProPlanInfo,
-            success: (@MainActor () -> Void)?,
-            failure: (@MainActor () -> Void)?
-        ) {
-            Task(priority: .userInitiated) {
-                do {
-                    try await dependencies[singleton: .sessionProManager].purchasePro(
-                        productId: planInfo.id
-                    )
-                    await MainActor.run {
-                        success?()
-                    }
-                }
-                catch {
-                    await MainActor.run {
-                        failure?()
-                    }
-                }
-            }
+        @MainActor public func purchase(planInfo: SessionProPlanInfo) async throws {
+            try await Task.detached(priority: .userInitiated) { [dependencies] in
+                try await dependencies[singleton: .sessionProManager].purchasePro(
+                    productId: planInfo.id
+                )
+            }.value
         }
         
-        @MainActor public func cancelPro(
-            success: (@MainActor () -> Void)?,
-            failure: (@MainActor () -> Void)?
-        ) {
-            do {
-                guard let scene: UIWindowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
-                    failure?()
-                    return Log.error(.sessionPro, "Failed to being refund request: Unable to get UIWindowScene")
-                }
-                
-                try await dependencies[singleton: .sessionProManager].cancelPro(scene: scene)
-                success?()
-            }
-            catch {
-                failure?()
-            }
-        }
-        
-        @MainActor public func requestRefund(
-            success: (@MainActor () -> Void)?,
-            failure: (@MainActor () -> Void)?
-        ) {
-            guard let scene: UIWindowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
-                failure?()
-                return Log.error(.sessionPro, "Failed to being refund request: Unable to get UIWindowScene")
+        @MainActor public func cancelPro(scene: UIWindowScene?) async throws {
+            guard let scene else {
+                Log.error(.sessionPro, "Failed to being refund request: Unable to get UIWindowScene")
+                throw SessionProError.windowSceneRequired
             }
             
-            do {
-                try await dependencies[singleton: .sessionProManager].requestRefund(scene: scene)
-                success?()
+            try await dependencies[singleton: .sessionProManager].cancelPro(scene: scene)
+        }
+        
+        @MainActor public func requestRefund(scene: UIWindowScene?) async throws {
+            guard let scene else {
+                Log.error(.sessionPro, "Failed to being refund request: Unable to get UIWindowScene")
+                throw SessionProError.windowSceneRequired
             }
-            catch {
-                failure?()
-            }
+            
+            try await dependencies[singleton: .sessionProManager].requestRefund(scene: scene)
         }
     }
 }

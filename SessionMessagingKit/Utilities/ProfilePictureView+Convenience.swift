@@ -51,7 +51,7 @@ public extension ProfilePictureView.Info {
         let explicitPathFileExists: Bool = (explicitPath.map { dependencies[singleton: .fileManager].fileExists(atPath: $0) } ?? false)
         
         switch (explicitPath, explicitPathFileExists, publicKey.isEmpty, threadVariant) {
-            // TODO: Deal with this case later when implement group related Pro features
+            // TODO: [PRO] Deal with this case later when implement group related Pro features
             case (.some(let path), true, _, .legacyGroup), (.some(let path), true, _, .group): fallthrough
             case (.some(let path), true, _, .community):
                 /// If we are given an explicit `displayPictureUrl` then only use that
@@ -193,7 +193,8 @@ public extension ProfilePictureView.Info {
 }
 
 public extension ProfilePictureView {
-    // TODO: [PRO] Need to properly wire this up (it won't observe the changes, the parent screen will be responsible for updating the profile data and reloading the UI if the pro state changes)
+    /// This will made a decision based on the current state of the profile data, it's up to the parent screen to observer changes and trigger
+    /// a UI refresh to update this state
     static func canProfileAnimate(_ profile: Profile?, using dependencies: Dependencies) -> Bool {
         guard dependencies[feature: .sessionProEnabled] else { return true }
 
@@ -203,7 +204,10 @@ public extension ProfilePictureView {
             case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
                 return dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
                 
-            case .some(let profile): return (profile.proFeatures.contains(.animatedAvatar) == true)
+            case .some(let profile):
+                return dependencies[singleton: .sessionProManager]
+                    .profileFeatures(for: profile)
+                    .contains(.animatedAvatar)
         }
     }
 }

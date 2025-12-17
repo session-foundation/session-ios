@@ -37,7 +37,7 @@ struct MessageInfoScreen: View {
                 case .increasedMessageLength: return .longerMessages(renew: (currentUserProStatus == .expired))
                 case .animatedDisplayPicture:
                     return .animatedProfileImage(
-                        isSessionProActivated: currentUserIsPro,
+                        isSessionProActivated: (currentUserProStatus == .active),
                         renew: (currentUserProStatus == .expired)
                     )
             }
@@ -465,7 +465,7 @@ struct MessageInfoScreen: View {
                                             
                                             if viewModel.shouldShowProBadge {
                                                 SessionProBadge_SwiftUI(size: .small)
-                                                    .onTapGesture { showSessionProCTAIfNeeded }
+                                                    .onTapGesture { showSessionProCTAIfNeeded() }
                                             }
                                         }
                                         
@@ -579,14 +579,14 @@ struct MessageInfoScreen: View {
     }
     
     private func showSessionProCTAIfNeeded() {
-        dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+        viewModel.dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
             viewModel.ctaVariant(
                 currentUserProStatus: viewModel.dependencies[singleton: .sessionProManager]
                     .currentUserCurrentProState
                     .status
             ),
             onConfirm: {
-                dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                viewModel.dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
                     presenting: { bottomSheet in
                         self.host.controller?.present(bottomSheet, animated: true)
                     }

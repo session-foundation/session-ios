@@ -23,7 +23,7 @@ public extension SessionPro {
         }
         
         // MARK: - Initialization
-        // TODO: [PRO] Might be good to actually test what happens if you put an unsupported value in here? (ie. does it get stripped when converting/storing?)
+        
         public init(rawValue: UInt64) {
             self.rawValue = rawValue
         }

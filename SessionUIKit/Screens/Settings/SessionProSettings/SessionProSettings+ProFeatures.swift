@@ -88,10 +88,7 @@ public struct ProFeaturesInfo {
                 .put(key: "pro", value: Constants.pro)
                 .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                 .localizedFormatted(Fonts.Body.smallRegular),
-            accessory: .proBadgeLeading(
-                size: .mini,
-                themeBackgroundColor: (proState == .expired ? .disabled : .primary)
-            )
+            accessory: .none
         )
     }
 }

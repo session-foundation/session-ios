@@ -1,6 +1,6 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
 
-import Foundation
+import UIKit
 
 public enum SessionProPaymentScreenContent {}
 
@@ -162,10 +162,8 @@ public extension SessionProPaymentScreenContent {
         var errorString: String? { get set }
         var isFromBottomSheet: Bool { get }
         
-        @MainActor func purchase(planInfo: SessionProPlanInfo, success: (@MainActor () -> Void)?, failure: (@MainActor () -> Void)?)
-        @MainActor func cancelPro(success: (@MainActor () -> Void)?, failure: (@MainActor () -> Void)?)
-        @MainActor func requestRefund(success: (@MainActor () -> Void)?, failure: (@MainActor () -> Void)?)
-        func openURL(_ url: URL)
+        @MainActor func purchase(planInfo: SessionProPlanInfo) async throws
+        @MainActor func cancelPro(scene: UIWindowScene?) async throws
+        @MainActor func requestRefund(scene: UIWindowScene?) async throws
     }
 }
-

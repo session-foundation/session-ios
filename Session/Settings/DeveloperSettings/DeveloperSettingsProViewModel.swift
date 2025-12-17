@@ -186,8 +186,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         let forceMessageFeatureProBadge: Bool
         let forceMessageFeatureLongMessage: Bool
         let forceMessageFeatureAnimatedAvatar: Bool
-        // TODO: [PRO] Add these back
-//        let proPlanToRecover: Bool
         
         let products: [Product]
         let purchasedProduct: Product?
@@ -809,24 +807,6 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         }
     }
     
-    private func purchaseSubscription() async {
-        do {
-            let products: [Product] = try await Product.products(for: ["com.getsession.org.pro_sub"])
-            
-            Task.detached(priority: .userInitiated) { [dependencies] in
-                try? await dependencies[singleton: .sessionProManager].refreshProState()
-            }
-        }
-        
-        if dependencies.hasSet(feature: .mockCurrentUserSessionProLoadingState) {
-            dependencies.reset(feature: .mockCurrentUserSessionProLoadingState)
-            
-            Task.detached(priority: .userInitiated) { [dependencies] in
-                try? await dependencies[singleton: .sessionProManager].refreshProState()
-            }
-        }
-    }
-    
     // MARK: - Pro Requests
     
     private func purchaseSubscription(currentProduct: Product?) async {
@@ -989,7 +969,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             let transactionId: String = try await {
                 guard await internalState.fakeAppleSubscriptionForDev else {
                     guard let transaction: Transaction = await internalState.purchaseTransaction else {
-                        throw NetworkError.explicit("No Transaction")
+                        throw SessionProError.transactionNotFound
                     }
                     
                     return "\(transaction.id)"

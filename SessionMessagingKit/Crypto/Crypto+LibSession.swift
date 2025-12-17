@@ -153,7 +153,7 @@ public extension Crypto.Generator {
                         cEncodedMessage,
                         cEncodedMessage.count,
                         sentTimestampMs,
-                        cBackendPubkey,
+                        (cBackendPubkey.isEmpty ? nil : cBackendPubkey),
                         cBackendPubkey.count,
                         &error,
                         error.count
@@ -187,7 +187,7 @@ public extension Crypto.Generator {
                         cPlaintext,
                         cPlaintext.count,
                         sentTimestampMs,
-                        cBackendPubkey,
+                        (cBackendPubkey.isEmpty ? nil : cBackendPubkey),
                         cBackendPubkey.count,
                         &error,
                         error.count
@@ -256,7 +256,7 @@ public extension Crypto.Generator {
                             &cKeys,
                             cEncodedMessage,
                             cEncodedMessage.count,
-                            cBackendPubkey,
+                            (cBackendPubkey.isEmpty ? nil : cBackendPubkey),
                             cBackendPubkey.count,
                             &error,
                             error.count
