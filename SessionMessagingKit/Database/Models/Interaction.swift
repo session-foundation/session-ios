@@ -1441,6 +1441,7 @@ public extension Interaction {
         let attachmentDownloadUrls: [String] = try Attachment
             .select(.downloadUrl)
             .filter(ids: interactionAttachments.map { $0.attachmentId })
+            .filter(Attachment.Columns.downloadUrl != nil)
             .asRequest(of: String.self)
             .fetchAll(db)
         try Attachment

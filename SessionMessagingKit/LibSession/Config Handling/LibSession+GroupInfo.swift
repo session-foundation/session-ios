@@ -188,11 +188,7 @@ internal extension LibSessionCacheType {
         
         // Check if the user is an admin in the group
         var messageHashesToDelete: Set<String> = []
-        let isAdmin: Bool = ((try? ClosedGroup
-            .filter(id: groupSessionId.hexString)
-            .select(.groupIdentityPrivateKey)
-            .asRequest(of: Data.self)
-            .fetchOne(db)) != nil)
+        let isAdmin: Bool = isAdmin(groupSessionId: groupSessionId)
 
         // If there is a `delete_before` setting then delete all messages before the provided timestamp
         let deleteBeforeTimestamp: Int64 = groups_info_get_delete_before(conf)
