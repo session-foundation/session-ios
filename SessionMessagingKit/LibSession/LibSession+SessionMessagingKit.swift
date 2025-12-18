@@ -829,7 +829,8 @@ public extension LibSession {
                     case .userProfile:
                         result[variant] = [
                             .profile(userSessionId.hexString): profile,
-                            .setting(.checkForCommunityMessageRequests): get(.checkForCommunityMessageRequests)
+                            .setting(.checkForCommunityMessageRequests): get(.checkForCommunityMessageRequests),
+                            .proAccessExpiryUpdated: proAccessExpiryTimestampMs
                         ]
                         
                     case .contacts(let conf):
@@ -1141,6 +1142,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     ) throws
     func updateProConfig(proConfig: SessionPro.ProConfig)
     func removeProConfig()
+    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64)
     
     func canPerformChange(
         threadId: String,
@@ -1428,6 +1430,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     ) throws {}
     func updateProConfig(proConfig: SessionPro.ProConfig) {}
     func removeProConfig() {}
+    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {}
     
     func canPerformChange(
         threadId: String,

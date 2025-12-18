@@ -458,7 +458,7 @@ public actor CommunityManager: CommunityManagerType {
                     pollInfo: Network.SOGS.RoomPollInfo(room: response.value.room.data),
                     server: targetServer,
                     roomToken: roomToken,
-                    publicKey: publicKey,
+                    publicKey: publicKey
                 )
             }
             .handleEvents(
@@ -1315,7 +1315,7 @@ private final class CommunityManagerSyncState {
     fileprivate func update(
         servers: Update<[String: CommunityManager.Server]> = .useExisting,
         pendingChanges: Update<[CommunityManager.PendingChange]> = .useExisting,
-        lastSuccessfulCommunityPollTimestamp: Update<TimeInterval?> = .useExisting,
+        lastSuccessfulCommunityPollTimestamp: Update<TimeInterval?> = .useExisting
     ) {
         lock.withLock {
             self._servers = servers.or(self._servers)

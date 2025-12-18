@@ -545,7 +545,7 @@ public extension MessageViewModel {
     
     func with(
         state: Update<Interaction.State> = .useExisting,         // Optimistic outgoing messages
-        mostRecentFailureText: Update<String?> = .useExisting,   // Optimistic outgoing messages
+        mostRecentFailureText: Update<String?> = .useExisting    // Optimistic outgoing messages
     ) -> MessageViewModel {
         return MessageViewModel(
             cellType: cellType,

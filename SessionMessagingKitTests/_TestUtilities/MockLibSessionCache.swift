@@ -177,6 +177,10 @@ class MockLibSessionCache: Mock<LibSessionCacheType>, LibSessionCacheType {
         mockNoReturn()
     }
     
+    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {
+        mockNoReturn(args: [proAccessExpiryTimestampMs])
+    }
+    
     func canPerformChange(
         threadId: String,
         threadVariant: SessionThread.Variant,

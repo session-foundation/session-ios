@@ -368,6 +368,11 @@ public actor SessionProManager: SessionProManagerType {
         /// other device did something that should refresh the pro state
         if updatedState.accessExpiryTimestampMs != oldState.accessExpiryTimestampMs {
             try? await refreshProState()
+            
+            await dependencies.notify(
+                key: .proAccessExpiryUpdated,
+                value: proInfo.accessExpiryTimestampMs
+            )
         }
     }
     
@@ -585,8 +590,29 @@ public actor SessionProManager: SessionProManagerType {
                     status: updatedState.status
                 )
                 
-            case .neverBeenPro: try await clearProProofFromConfig()
-            case .expired: try await clearProProofFromConfig()
+            case .neverBeenPro:
+                try await clearProProofFromConfig()
+                
+                /// We should still update the `accessExpiryTimestampMs` stored in the config just in case
+                try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+                    try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.performAndPushChange(db, for: .userProfile) { _ in
+                            cache.updateProAccessExpiryTimestampMs(updatedState.accessExpiryTimestampMs ?? 0)
+                        }
+                    }
+                }
+            
+            case .expired:
+                try await clearProProofFromConfig()
+                
+                /// We should still update the `accessExpiryTimestampMs` stored in the config just in case
+                try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+                    try dependencies.mutate(cache: .libSession) { cache in
+                        try cache.performAndPushChange(db, for: .userProfile) { _ in
+                            cache.updateProAccessExpiryTimestampMs(updatedState.accessExpiryTimestampMs ?? 0)
+                        }
+                    }
+                }
         }
         
         updatedState = oldState.with(
@@ -656,6 +682,7 @@ public actor SessionProManager: SessionProManagerType {
                             proProof: response.proof
                         )
                     )
+                    cache.updateProAccessExpiryTimestampMs(accessExpiryTimestampMs)
                 }
             }
         }
@@ -910,11 +937,17 @@ public extension ObservableKey {
             generic: .currentUserProState
         ) { [weak manager] in manager?.state }
     }
+    
+    static let proAccessExpiryUpdated: ObservableKey = ObservableKey(
+        "proAccessExpiryUpdated",
+        .proAccessExpiryUpdated
+    )
 }
 
 // stringlint:ignore_contents
 public extension GenericObservableKey {
     static let currentUserProState: GenericObservableKey = "currentUserProState"
+    static let proAccessExpiryUpdated: GenericObservableKey = "proAccessExpiryUpdated"
 }
 
 // MARK: - Mocking

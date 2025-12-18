@@ -157,6 +157,14 @@ internal extension LibSessionCacheType {
             db.addContactEvent(id: userSessionId.hexString, change: .didApproveMe(true))
         }
         
+        /// If the `proAccessExpiryTimestampMs` value was updated then we need to take the larger of the two
+        let oldProAccessExpiryTimestampMs: UInt64 = (oldState[.proAccessExpiryUpdated] as? UInt64 ?? 0)
+        let proAccessExpiryTimestampMs: UInt64 = user_profile_get_pro_access_expiry_ms(conf)
+        
+        if oldProAccessExpiryTimestampMs > proAccessExpiryTimestampMs {
+            updateProAccessExpiryTimestampMs(oldProAccessExpiryTimestampMs)
+        }
+        
         // Update the SessionProManager with these changes
         db.afterCommit { [sessionProManager = dependencies[singleton: .sessionProManager]] in
             Task { await sessionProManager.updateWithLatestFromUserConfig() }
@@ -325,6 +333,12 @@ public extension LibSession.Cache {
         guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
         
         user_profile_remove_pro_config(conf)
+    }
+    
+    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {
+        guard case .userProfile(let conf) = config(for: .userProfile, sessionId: userSessionId) else { return }
+        
+        user_profile_set_pro_access_expiry_ms(conf, proAccessExpiryTimestampMs)
     }
 }
 
