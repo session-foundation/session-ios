@@ -158,6 +158,7 @@ public actor CommunityManager: CommunityManagerType {
     
     public func updateServer(server: Server) async {
         _servers[server.server.lowercased()] = server
+        syncState.update(servers: .set(to: _servers))
     }
     
     public func updateCapabilities(
@@ -182,6 +183,8 @@ public actor CommunityManager: CommunityManagerType {
                     using: dependencies
                 )
         }
+        
+        syncState.update(servers: .set(to: _servers))
     }
     
     public func updateRooms(
@@ -213,6 +216,7 @@ public actor CommunityManager: CommunityManagerType {
             rooms: .set(to: rooms),
             using: dependencies
         )
+        syncState.update(servers: .set(to: _servers))
     }
     
     public func removeRoom(server: String, roomToken: String) async {
@@ -224,6 +228,7 @@ public actor CommunityManager: CommunityManagerType {
             rooms: .set(to: Array(server.rooms.removingValue(forKey: roomToken).values)),
             using: dependencies
         )
+        syncState.update(servers: .set(to: _servers))
     }
 
     // MARK: - Adding & Removing
@@ -1178,23 +1183,27 @@ public actor CommunityManager: CommunityManagerType {
             )
         )
         pendingChanges.append(pendingChange)
+        syncState.update(pendingChanges: .set(to: pendingChanges))
         
         return pendingChange
     }
     
     public func setPendingChanges(_ pendingChanges: [CommunityManager.PendingChange]) async {
         self.pendingChanges = pendingChanges
+        syncState.update(pendingChanges: .set(to: self.pendingChanges))
     }
     
     public func updatePendingChange(_ pendingChange: PendingChange, seqNo: Int64?) async {
         if let index = pendingChanges.firstIndex(of: pendingChange) {
             pendingChanges[index].seqNo = seqNo
+            syncState.update(pendingChanges: .set(to: pendingChanges))
         }
     }
     
     public func removePendingChange(_ pendingChange: PendingChange) async {
         if let index = pendingChanges.firstIndex(of: pendingChange) {
             pendingChanges.remove(at: index)
+            syncState.update(pendingChanges: .set(to: pendingChanges))
         }
     }
     
