@@ -202,9 +202,18 @@ public struct SessionProPaymentScreen: View {
                         originatingPlatform: originatingPlatform,
                         openProRoadmapAction: { openUrl(SNUIKit.urlStringProvider().proRoadmap) }
                     )
+                    
+                case .refund(originatingPlatform: .iOS, isNonOriginatingAccount: true, let requestedAt):
+                    RequestRefundNonOriginatorContent(
+                        originatingPlatform: .iOS,
+                        isNonOriginatingAccount: true,
+                        requestedAt: requestedAt,
+                        openPlatformStoreWebsiteAction: {
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).updateSubscriptionUrl)
+                        }
+                    )
                 
-                case .refund(originatingPlatform: .iOS, isNonOriginatingAccount: false, _),
-                    .refund(originatingPlatform: .iOS, isNonOriginatingAccount: .none, _):
+                case .refund(originatingPlatform: .iOS, _, _):
                     RequestRefundOriginatingPlatformContent(
                         requestRefundAction: {
                             Task { @MainActor [weak viewModel] in
@@ -216,16 +225,6 @@ public struct SessionProPaymentScreen: View {
                                     // TODO: [PRO] Request refund failure behaviour
                                 }
                             }
-                        }
-                    )
-                    
-                case .refund(originatingPlatform: .iOS, isNonOriginatingAccount: true, let requestedAt):
-                    RequestRefundNonOriginatorContent(
-                        originatingPlatform: .iOS,
-                        isNonOriginatingAccount: true,
-                        requestedAt: requestedAt,
-                        openPlatformStoreWebsiteAction: {
-                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).updateSubscriptionUrl)
                         }
                     )
                     
