@@ -1257,7 +1257,7 @@ public actor CommunityManager: CommunityManagerType {
         
         /// Check if the `publicKey` matches a visible admin or moderator
         let isVisibleModOrAdmin: Bool = (
-            !possibleKeys.isDisjoint(with: Set(room.admins)) &&
+            !possibleKeys.isDisjoint(with: Set(room.admins)) ||
             !possibleKeys.isDisjoint(with: Set(room.moderators))
         )
         
@@ -1266,9 +1266,9 @@ public actor CommunityManager: CommunityManagerType {
             return isVisibleModOrAdmin
         }
         
-        /// Chcek if the `publicKey` is a hidden admin/mod
+        /// Check if the `publicKey` is a hidden admin/mod
         return (
-            !possibleKeys.isDisjoint(with: Set(room.hiddenAdmins ?? [])) &&
+            !possibleKeys.isDisjoint(with: Set(room.hiddenAdmins ?? [])) ||
             !possibleKeys.isDisjoint(with: Set(room.hiddenModerators ?? []))
         )
     }
