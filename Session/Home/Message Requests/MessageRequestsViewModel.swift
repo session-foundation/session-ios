@@ -251,7 +251,7 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
             viewState: (loadResult.info.totalCount == 0 ? .empty : .loaded),
             loadedPageInfo: loadResult.info,
             dataCache: dataCache,
-            itemCache: itemCache,
+            itemCache: itemCache
         )
     }
     
