@@ -463,8 +463,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             let viewController: SessionListHostingViewController = SessionListHostingViewController(
                                 viewModel: SessionProSettingsViewModel(using: dependencies),
-                                customizedNavigationBackground: .clear,
-                                using: dependencies
+                                customizedNavigationBackground: .clear
                             )
                             viewModel?.transitionToScreen(viewController)
                         }

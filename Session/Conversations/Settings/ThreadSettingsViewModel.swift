@@ -1990,7 +1990,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 identifier: "Upload",
                 label: "Upload"
             ),
-            dataManager: dependencies[singleton: .imageDataManager],
+            dataManager: self.imageDataManager,
             onProBageTapped: nil,   // FIXME: Need to add Group Pro display pic CTA
             onClick: { [weak self] onDisplayPictureSelected in
                 self?.onDisplayPictureSelected = { source, cropRect in
@@ -2180,8 +2180,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     let existingFilePath: String = try? dependencies[singleton: .displayPictureManager]
                         .path(for: existingDownloadUrl)
                 {
-                    Task { [dependencies] in
-                        await dependencies[singleton: .imageDataManager].removeImage(
+                    Task { [weak self, dependencies] in
+                        await self?.imageDataManager.removeImage(
                             identifier: existingFilePath
                         )
                         try? dependencies[singleton: .fileManager].removeItem(atPath: existingFilePath)
@@ -2253,7 +2253,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit),
                                     renew: dependencies[singleton: .sessionProState].isSessionProExpired
                                 ),
-                                dataManager: dependencies[singleton: .imageDataManager],
+                                dataManager: self?.imageDataManager,
                                 onConfirm: { [dependencies] in
                                     Task {
                                         await dependencies[singleton: .sessionProState].upgradeToPro(

@@ -110,8 +110,7 @@ extension ConversationVC:
                     }
                 },
                 using: self.viewModel.dependencies
-            ),
-            using: self.viewModel.dependencies
+            )
         )
         navigationController?.pushViewController(viewController, animated: true)
     }
