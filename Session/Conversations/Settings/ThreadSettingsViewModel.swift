@@ -427,7 +427,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         id: .contactName,
                         variant: .cell(
                             info: .init(
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "(\(threadViewModel.contactDisplayName))", // stringlint:ignore
                                     font: .Body.baseRegular,
                                     alignment: .center,
@@ -443,7 +443,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         id: .threadDescription,
                         variant: .cell(
                             info: .init(
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     threadDescription,
                                     font: .Body.baseRegular,
                                     alignment: .center,
@@ -470,7 +470,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     id: .sessionId,
                     variant: .cell(
                         info: .init(
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 threadViewModel.id,
                                 font: .Display.extraLarge,
                                 alignment: .center,
@@ -502,7 +502,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                         .trash2,
                                         customTint: .danger
                                     ),
-                                    title: .init(
+                                    title: SessionListScreenContent.TextInfo(
                                         "groupDelete".localized(),
                                         font: .Headings.H8,
                                         color: .danger
@@ -554,7 +554,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: .icon(.copy),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     (threadViewModel.threadVariant == .community ?
                                         "communityUrlCopy".localized() :
                                         "accountIDCopy".localized()
@@ -597,7 +597,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     variant: .cell(
                         info: .init(
                             leadingAccessory: .icon(.search),
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 "searchConversation".localized(),
                                 font: .Headings.H8
                             )
@@ -619,11 +619,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: .icon(.timer),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "disappearingMessages".localized(),
                                     font: .Headings.H8
                                 ),
-                                description: .init(
+                                description: SessionListScreenContent.TextInfo(
                                     {
                                         guard current.disappearingMessagesConfig.isEnabled else {
                                             return "off".localized()
@@ -671,7 +671,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                         .pin
                                     )
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     (threadViewModel.threadPinnedPriority > 0 ? "pinUnpinConversation".localized() : "pinConversation".localized()),
                                     font: .Headings.H8
                                 )
@@ -707,11 +707,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                         return .volume2
                                     }()
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "sessionNotifications".localized(),
                                     font: .Headings.H8
                                 ),
-                                description: .init(
+                                description: SessionListScreenContent.TextInfo(
                                     {
                                         if threadViewModel.threadOnlyNotifyForMentions == true {
                                             return "notificationsMentionsOnly".localized()
@@ -754,7 +754,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: .icon(.userRoundPlus),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "membersInvite".localized(),
                                     font: .Headings.H8
                                 )
@@ -773,7 +773,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: .icon(.usersRound),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "groupMembers".localized(),
                                     font: .Headings.H8
                                 )
@@ -792,7 +792,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     variant: .cell(
                         info: .init(
                             leadingAccessory: .icon(.file),
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 "attachments".localized(),
                                 font: .Headings.H8
                             )
@@ -829,7 +829,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             variant: .cell(
                                 info: .init(
                                     leadingAccessory: .icon(.userRoundPen),
-                                    title: .init(
+                                    title: SessionListScreenContent.TextInfo(
                                         "manageMembers".localized(),
                                         font: .Headings.H8
                                     )
@@ -860,7 +860,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                             UIImage(named: "table_ic_group_edit")?
                                                 .withRenderingMode(.alwaysTemplate)
                                         ),
-                                        title: .init(
+                                        title: SessionListScreenContent.TextInfo(
                                             "adminPromote".localized(),
                                             font: .Headings.H8
                                         )
@@ -879,11 +879,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             variant: .cell(
                                 info: .init(
                                     leadingAccessory: .icon(.timer),
-                                    title: .init(
+                                    title: SessionListScreenContent.TextInfo(
                                         "disappearingMessages".localized(),
                                         font: .Headings.H8
                                     ),
-                                    description: .init(
+                                    description: SessionListScreenContent.TextInfo(
                                         {
                                             guard current.disappearingMessagesConfig.isEnabled else {
                                                 return "off".localized()
@@ -943,7 +943,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                             customTint: .danger
                                         )
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     (
                                         threadViewModel.threadIsBlocked == true ?
                                             "blockUnblock".localized() :
@@ -1004,7 +1004,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     isThreadHidden ? .eye : .eyeOff,
                                     customTint: isThreadHidden ? .textPrimary : .danger
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
                                     font: .Headings.H8,
                                     color: isThreadHidden ? .textPrimary : .danger
@@ -1059,7 +1059,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 UIImage(named: "ic_message_trash")?.withRenderingMode(.alwaysTemplate),
                                 customTint: .danger
                             ),
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 "clearMessages".localized(),
                                 font: .Headings.H8,
                                 color: .danger
@@ -1211,7 +1211,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     .logOut,
                                     customTint: .danger
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "communityLeave".localized(),
                                     font: .Headings.H8,
                                     color: .danger
@@ -1258,7 +1258,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     currentUserIsClosedGroupAdmin ? .trash2 : .logOut,
                                     customTint: .danger
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     currentUserIsClosedGroupAdmin ? "groupDelete".localized() : "groupLeave".localized(),
                                     font: .Headings.H8,
                                     color: .danger
@@ -1312,7 +1312,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     .trash2,
                                     customTint: .danger
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "conversationsDelete".localized(),
                                     font: .Headings.H8,
                                     color: .danger
@@ -1359,7 +1359,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     UIImage(named: "ic_user_round_trash")?.withRenderingMode(.alwaysTemplate),
                                     customTint: .danger
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "contactDelete".localized(),
                                     font: .Headings.H8,
                                     color: .danger
@@ -1409,7 +1409,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                         .withRenderingMode(.alwaysTemplate),
                                     customTint: .danger
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "[DEBUG] Delete all arrachments before now",    // stringlint:disable
                                     font: .Headings.H8,
                                     color: .danger
