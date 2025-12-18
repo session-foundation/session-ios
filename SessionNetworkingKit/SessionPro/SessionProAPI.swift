@@ -250,7 +250,7 @@ public extension Network.SessionPro {
                         provider: .appStore,
                         paymentId: transactionId,
                         orderId: "" /// The `order_id` is only needed for Google transactions
-                    ),
+                    )
                 ),
                 using: dependencies
             ),
