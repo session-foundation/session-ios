@@ -10,7 +10,7 @@ import Nimble
 @testable import SessionMessagingKit
 @testable import SessionUtilitiesKit
 
-class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
+class RetrieveDefaultOpenGroupRoomsJobSpec: AsyncSpec {
     override class func spec() {
         // MARK: Configuration
         
@@ -192,97 +192,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 expect(wasDeferred).to(beFalse())
             }
             
-            // MARK: -- creates an inactive entry in the database if one does not exist
-            it("creates an inactive entry in the database if one does not exist") {
-                mockNetwork
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            requestTimeout: .any,
-                            requestAndPathBuildTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.errorResponse())
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                let openGroups: [OpenGroup]? = mockStorage.read { db in try OpenGroup.fetchAll(db) }
-                expect(openGroups?.count).to(equal(1))
-                expect(openGroups?.map { $0.server }).to(equal([Network.SOGS.defaultServer]))
-                expect(openGroups?.map { $0.roomToken }).to(equal([""]))
-                expect(openGroups?.map { $0.publicKey }).to(equal([Network.SOGS.defaultServerPublicKey]))
-                expect(openGroups?.map { $0.shouldPoll }).to(equal([false]))
-                expect(openGroups?.map { $0.name }).to(equal([""]))
-            }
-            
-            // MARK: -- does not create a new entry if one already exists
-            it("does not create a new entry if one already exists") {
-                mockNetwork
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            requestTimeout: .any,
-                            requestAndPathBuildTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.errorResponse())
-                
-                mockStorage.write { db in
-                    try OpenGroup(
-                        server: Network.SOGS.defaultServer,
-                        roomToken: "",
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        shouldPoll: false,
-                        name: "TestExisting",
-                        userCount: 0,
-                        infoUpdates: 0
-                    )
-                    .insert(db)
-                }
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                let openGroups: [OpenGroup]? = mockStorage.read { db in try OpenGroup.fetchAll(db) }
-                expect(openGroups?.count).to(equal(1))
-                expect(openGroups?.map { $0.server }).to(equal([Network.SOGS.defaultServer]))
-                expect(openGroups?.map { $0.roomToken }).to(equal([""]))
-                expect(openGroups?.map { $0.publicKey }).to(equal([Network.SOGS.defaultServerPublicKey]))
-                expect(openGroups?.map { $0.shouldPoll }).to(equal([false]))
-                expect(openGroups?.map { $0.name }).to(equal(["TestExisting"]))
-            }
-            
             // MARK: -- sends the correct request
             it("sends the correct request") {
-                mockStorage.write { db in
-                    try OpenGroup(
-                        server: Network.SOGS.defaultServer,
-                        roomToken: "",
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        shouldPoll: false,
-                        name: "TestExisting",
-                        userCount: 0,
-                        infoUpdates: 0
-                    )
-                    .insert(db)
-                }
                 let expectedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
                     try Network.SOGS.preparedCapabilitiesAndRooms(
                         authMethod: Authentication.Community(
@@ -307,8 +218,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                     using: dependencies
                 )
                 
-                expect(mockNetwork)
-                    .to(call { network in
+                await expect(mockNetwork)
+                    .toEventually(call { network in
                         network.send(
                             endpoint: Network.SOGS.Endpoint.sequence,
                             destination: expectedRequest.destination,
@@ -321,47 +232,8 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                 expect(expectedRequest?.headers).to(beEmpty())
             }
             
-            // MARK: -- will retry 8 times before it fails
-            it("will retry 8 times before it fails") {
-                mockNetwork
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            requestTimeout: .any,
-                            requestAndPathBuildTimeout: .any
-                        )
-                    }
-                    .thenReturn(MockNetwork.nullResponse())
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, error_, permanentFailure_ in
-                        error = error_
-                        permanentFailure = permanentFailure_
-                    },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                expect(error).to(matchError(NetworkError.parsingFailed))
-                expect(mockNetwork)   // First attempt + 8 retries
-                    .to(call(.exactly(times: 9)) { network in
-                        network.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            requestTimeout: .any,
-                            requestAndPathBuildTimeout: .any
-                        )
-                    })
-            }
-            
-            // MARK: -- stores the updated capabilities
-            it("stores the updated capabilities") {
+            // MARK: -- sends the updated capabilities to the CommunityManager for storage
+            it("sends the updated capabilities to the CommunityManager for storage") {
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
                     scheduler: DispatchQueue.main,
@@ -371,88 +243,24 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                     using: dependencies
                 )
                 
-                let capabilities: [Capability]? = mockStorage.read { db in try Capability.fetchAll(db) }
-                expect(capabilities?.count).to(equal(2))
-                expect(capabilities?.map { $0.openGroupServer })
-                    .to(equal([Network.SOGS.defaultServer, Network.SOGS.defaultServer]))
-                expect(capabilities?.map { $0.variant }).to(equal([.blind, .reactions]))
-                expect(capabilities?.map { $0.isMissing }).to(equal([false, false]))
-            }
-            
-            // MARK: -- inserts the returned rooms
-            it("inserts the returned rooms") {
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                let openGroups: [OpenGroup]? = mockStorage.read { db in try OpenGroup.fetchAll(db) }
-                expect(openGroups?.count).to(equal(3))  // 1 for the entry used to fetch the default rooms
-                expect(openGroups?.map { $0.server })
-                    .to(equal([Network.SOGS.defaultServer, Network.SOGS.defaultServer, Network.SOGS.defaultServer]))
-                expect(openGroups?.map { $0.roomToken }).to(equal(["", "testRoom", "testRoom2"]))
-                expect(openGroups?.map { $0.publicKey })
-                    .to(equal([
-                        Network.SOGS.defaultServerPublicKey,
-                        Network.SOGS.defaultServerPublicKey,
-                        Network.SOGS.defaultServerPublicKey
-                    ]))
-                expect(openGroups?.map { $0.shouldPoll }).to(equal([false, false, false]))
-                expect(openGroups?.map { $0.name }).to(equal(["", "TestRoomName", "TestRoomName2"]))
-            }
-            
-            // MARK: -- does not override existing rooms that were returned
-            it("does not override existing rooms that were returned") {
-                mockStorage.write { db in
-                    try OpenGroup(
+                await expect(mockCommunityManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                    $0.handleCapabilities(
+                        .any,
+                        capabilities: Network.SOGS.CapabilitiesResponse(
+                            capabilities: [
+                                Capability.Variant.blind.rawValue,
+                                Capability.Variant.reactions.rawValue
+                            ],
+                            missing: nil
+                        ),
                         server: Network.SOGS.defaultServer,
-                        roomToken: "testRoom",
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        shouldPoll: false,
-                        name: "TestExisting",
-                        userCount: 0,
-                        infoUpdates: 0
+                        publicKey: Network.SOGS.defaultServerPublicKey
                     )
-                    .insert(db)
-                }
-                mockNetwork
-                    .when {
-                        $0.send(
-                            endpoint: MockEndpoint.any,
-                            destination: .any,
-                            body: .any,
-                            requestTimeout: .any,
-                            requestAndPathBuildTimeout: .any
-                        )
-                    }
-                    .thenReturn(
-                        MockNetwork.batchResponseData(
-                            with: [
-                                (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
-                                (
-                                    Network.SOGS.Endpoint.rooms,
-                                    try! JSONEncoder().with(outputFormatting: .sortedKeys).encode(
-                                        Network.BatchSubResponse(
-                                            code: 200,
-                                            headers: [:],
-                                            body: [
-                                                Network.SOGS.Room.mock.with(
-                                                    token: "testRoom",
-                                                    name: "TestReplacementName"
-                                                )
-                                            ],
-                                            failedToParseBody: false
-                                        )
-                                    )
-                                )
-                            ]
-                        )
-                    )
-                
+                })
+            }
+            
+            // MARK: -- stores the returned rooms in the CommunityManager
+            it("stores the returned rooms in the CommunityManager") {
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,
                     scheduler: DispatchQueue.main,
@@ -462,15 +270,25 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                     using: dependencies
                 )
                 
-                let openGroups: [OpenGroup]? = mockStorage.read { db in try OpenGroup.fetchAll(db) }
-                expect(openGroups?.count).to(equal(2))  // 1 for the entry used to fetch the default rooms
-                expect(openGroups?.map { $0.server })
-                    .to(equal([Network.SOGS.defaultServer, Network.SOGS.defaultServer]))
-                expect(openGroups?.map { $0.roomToken }.sorted()).to(equal(["", "testRoom"]))
-                expect(openGroups?.map { $0.publicKey })
-                    .to(equal([Network.SOGS.defaultServerPublicKey, Network.SOGS.defaultServerPublicKey]))
-                expect(openGroups?.map { $0.shouldPoll }).to(equal([false, false]))
-                expect(openGroups?.map { $0.name }.sorted()).to(equal(["", "TestExisting"]))
+                await expect(mockCommunityManager).toEventually(call(.exactly(times: 1), matchingParameters: .all) {
+                    await $0.updateRooms(
+                        rooms: [
+                            Network.SOGS.Room.mock.with(
+                                token: "testRoom",
+                                name: "TestRoomName"
+                            ),
+                            Network.SOGS.Room.mock.with(
+                                token: "testRoom2",
+                                name: "TestRoomName2",
+                                infoUpdates: 12,
+                                imageId: "12"
+                            )
+                        ],
+                        server: Network.SOGS.defaultServer,
+                        publicKey: Network.SOGS.defaultServerPublicKey,
+                        areDefaultRooms: true
+                    )
+                })
             }
             
             // MARK: -- schedules a display picture download
@@ -484,75 +302,26 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                     using: dependencies
                 )
                 
-                expect(mockJobRunner)
-                    .to(call(matchingParameters: .all) {
-                        $0.add(
-                            .any,
-                            job: Job(
-                                variant: .displayPictureDownload,
-                                shouldBeUnique: true,
-                                details: DisplayPictureDownloadJob.Details(
-                                    target: .community(
-                                        imageId: "12",
-                                        roomToken: "testRoom2",
-                                        server: Network.SOGS.defaultServer,
-                                        skipAuthentication: true
-                                    ),
-                                    timestamp: 1234567890
-                                )
-                            ),
-                            dependantJob: nil,
-                            canStartJob: true
-                        )
-                    })
-            }
-            
-            // MARK: -- schedules a display picture download if the imageId has changed
-            it("schedules a display picture download if the imageId has changed") {
-                mockStorage.write { db in
-                    try OpenGroup(
-                        server: Network.SOGS.defaultServer,
-                        roomToken: "testRoom2",
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        shouldPoll: false,
-                        name: "TestExisting",
-                        imageId: "10",
-                        userCount: 0,
-                        infoUpdates: 10
+                await expect(mockJobRunner).toEventually(call(matchingParameters: .all) {
+                    $0.add(
+                        .any,
+                        job: Job(
+                            variant: .displayPictureDownload,
+                            shouldBeUnique: true,
+                            details: DisplayPictureDownloadJob.Details(
+                                target: .community(
+                                    imageId: "12",
+                                    roomToken: "testRoom2",
+                                    server: Network.SOGS.defaultServer,
+                                    skipAuthentication: true
+                                ),
+                                timestamp: 1234567890
+                            )
+                        ),
+                        dependantJob: nil,
+                        canStartJob: true
                     )
-                    .insert(db)
-                }
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                expect(mockJobRunner)
-                    .to(call(matchingParameters: .all) {
-                        $0.add(
-                            .any,
-                            job: Job(
-                                variant: .displayPictureDownload,
-                                shouldBeUnique: true,
-                                details: DisplayPictureDownloadJob.Details(
-                                    target: .community(
-                                        imageId: "12",
-                                        roomToken: "testRoom2",
-                                        server: Network.SOGS.defaultServer,
-                                        skipAuthentication: true
-                                    ),
-                                    timestamp: 1234567890
-                                )
-                            ),
-                            dependantJob: nil,
-                            canStartJob: true
-                        )
-                    })
+                })
             }
             
             // MARK: -- does not schedule a display picture download if there is no imageId
@@ -595,36 +364,6 @@ class RetrieveDefaultOpenGroupRoomsJobSpec: QuickSpec {
                             ]
                         )
                     )
-                
-                RetrieveDefaultOpenGroupRoomsJob.run(
-                    job,
-                    scheduler: DispatchQueue.main,
-                    success: { _, _ in },
-                    failure: { _, _, _ in },
-                    deferred: { _ in },
-                    using: dependencies
-                )
-                
-                expect(mockJobRunner)
-                    .toNot(call { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) })
-            }
-            
-            // MARK: -- does not schedule a display picture download if the imageId matches and the image has already been downloaded
-            it("does not schedule a display picture download if the imageId matches and the image has already been downloaded") {
-                mockStorage.write { db in
-                    try OpenGroup(
-                        server: Network.SOGS.defaultServer,
-                        roomToken: "testRoom2",
-                        publicKey: Network.SOGS.defaultServerPublicKey,
-                        shouldPoll: false,
-                        name: "TestExisting",
-                        imageId: "12",
-                        userCount: 0,
-                        infoUpdates: 12,
-                        displayPictureOriginalUrl: "TestUrl"
-                    )
-                    .insert(db)
-                }
                 
                 RetrieveDefaultOpenGroupRoomsJob.run(
                     job,

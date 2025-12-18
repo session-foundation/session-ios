@@ -257,7 +257,12 @@ class MessageReceiverGroupsSpec: QuickSpec {
         
         // MARK: -- Messages
         @TestState var decodedMessage: DecodedMessage! = DecodedMessage(
-            content: Data([1, 2, 3]),
+            content: Data(
+                base64Encoded: "CAESvwEKABIAGrYBCAYSACjQiOyP9yM4AUKmAfjX/WXVFs+QE5Eh54Esw9/N" +
+                "lYza3k8MOvcRAI7y8k0JzLsm/KpXxKP7Zx7+5YyII9sCRXzFK2U4/X9SSMN088YEr/5wKoDfL5q" +
+                "PQbN70aa59WS8YE+yWcniQO0KXfAzr6Acn40fsa9BMr9tnQLfvxY8vD7qBz9iEOV9jTxPzxUoD+" +
+                "JelIbsv2qlkOl9vs166NC/Y772NZmUAR5u1ewL4SYEWkqX5R4gAA=="
+            )!,
             sender: SessionId(.standard, hex: "1111111111111111111111111111111111111111111111111111111111111111"),
             decodedEnvelope: nil,
             sentTimestampMs: 1234567890000
@@ -978,6 +983,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         
                         // MARK: -------- subscribes for push notifications
                         it("subscribes for push notifications") {
+                            mockLibSessionCache
+                                .when { $0.authData(groupSessionId: .any) }
+                                .thenReturn(GroupAuthData(groupIdentityPrivateKey: nil, authData: Data([1, 2, 3])))
                             let expectedRequest: Network.PreparedRequest<Network.PushNotification.SubscribeResponse> = mockStorage.write { db in
                                 _ = try SessionThread.upsert(
                                     db,
@@ -1149,7 +1157,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                 
                 // MARK: ---- fails if it cannot convert the group seed to a groupIdentityKeyPair
                 it("fails if it cannot convert the group seed to a groupIdentityKeyPair") {
-                    mockCrypto.when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }.thenReturn(nil)
+                    mockCrypto
+                        .when { try $0.tryGenerate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                        .thenThrow(TestError.mock)
                     
                     mockStorage.write { db in
                         expect {
@@ -1164,7 +1174,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage("Test")))
+                        }.to(throwError(TestError.mock))
                     }
                 }
                 
@@ -1234,6 +1244,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
             // MARK: -- when receiving an info changed message
             context("when receiving an info changed message") {
                 beforeEach {
+                    decodedMessage = DecodedMessage(
+                        content: decodedMessage.content,
+                        sender: SessionId(
+                            .standard,
+                            hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                        ),
+                        decodedEnvelope: decodedMessage.decodedEnvelope,
+                        sentTimestampMs: infoChangedMessage.sentTimestampMs!
+                    )
+                    
                     mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
@@ -1245,48 +1265,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             ),
                             using: dependencies
                         )
-                    }
-                }
-                
-                // MARK: ---- throws if there is no sender
-                it("throws if there is no sender") {
-                    infoChangedMessage.sender = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: infoChangedMessage,
-                                decodedMessage: decodedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                currentUserSessionIds: [],
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageError.invalidMessage("Test")))
-                    }
-                }
-                
-                // MARK: ---- throws if there is no timestamp
-                it("throws if there is no timestamp") {
-                    infoChangedMessage.sentTimestampMs = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: infoChangedMessage,
-                                decodedMessage: decodedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                currentUserSessionIds: [],
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1352,6 +1330,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         infoChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         infoChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                     }
                     
                     // MARK: ------ creates the correct control message
@@ -1391,6 +1378,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         infoChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         infoChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                     }
                     
                     // MARK: ------ creates the correct control message
@@ -1431,6 +1427,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
             // MARK: -- when receiving a member changed message
             context("when receiving a member changed message") {
                 beforeEach {
+                    decodedMessage = DecodedMessage(
+                        content: decodedMessage.content,
+                        sender: SessionId(
+                            .standard,
+                            hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                        ),
+                        decodedEnvelope: decodedMessage.decodedEnvelope,
+                        sentTimestampMs: memberChangedMessage.sentTimestampMs!
+                    )
+                    
                     mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
@@ -1442,48 +1448,6 @@ class MessageReceiverGroupsSpec: QuickSpec {
                             ),
                             using: dependencies
                         )
-                    }
-                }
-                
-                // MARK: ---- throws if there is no sender
-                it("throws if there is no sender") {
-                    memberChangedMessage.sender = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: memberChangedMessage,
-                                decodedMessage: decodedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                currentUserSessionIds: [],
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageError.invalidMessage("Test")))
-                    }
-                }
-                
-                // MARK: ---- throws if there is no timestamp
-                it("throws if there is no timestamp") {
-                    memberChangedMessage.sentTimestampMs = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: memberChangedMessage,
-                                decodedMessage: decodedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                currentUserSessionIds: [],
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageError.invalidMessage("Test")))
                     }
                 }
                 
@@ -1647,6 +1611,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1690,6 +1663,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1727,6 +1709,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1765,6 +1756,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1804,6 +1804,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1841,6 +1850,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1879,6 +1897,15 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         memberChangedMessage.sender = "051111111111111111111111111111111111111111111111111111111111111111"
                         memberChangedMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111111"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
                         
                         mockStorage.write { db in
                             try MessageReceiver.handleGroupUpdateMessage(
@@ -1942,9 +1969,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     expect(interactions).to(beEmpty())
                 }
                 
-                // MARK: ---- throws if there is no sender
-                it("throws if there is no sender") {
-                    memberLeftMessage.sender = nil
+                // MARK: ---- throws if the current user is not an admin
+                it("throws if the current user is not an admin") {
+                    mockLibSessionCache.when { $0.isAdmin(groupSessionId: .any) }.thenReturn(false)
                     
                     mockStorage.write { db in
                         expect {
@@ -1959,28 +1986,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage("Test")))
-                    }
-                }
-                
-                // MARK: ---- throws if there is no timestamp
-                it("throws if there is no timestamp") {
-                    memberLeftMessage.sentTimestampMs = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: memberLeftMessage,
-                                decodedMessage: decodedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                currentUserSessionIds: [],
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageError.invalidMessage("Test")))
+                        }.to(throwError(MessageError.ignorableMessage))
                     }
                 }
                 
@@ -1993,6 +1999,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         _ = groups_members_get_or_construct(groupMembersConf, &groupMember, &cMemberId)
                         groupMember.set(\.name, to: "TestOtherName")
                         groups_members_set(groupMembersConf, &groupMember)
+                        
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: try! SessionId(from: memberLeftMessage.sender!),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: memberLeftMessage.sentTimestampMs!
+                        )
                         
                         mockStorage.write { db in
                             try ClosedGroup(
@@ -2141,6 +2154,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
             // MARK: -- when receiving a member left notification message
             context("when receiving a member left notification message") {
                 beforeEach {
+                    decodedMessage = DecodedMessage(
+                        content: decodedMessage.content,
+                        sender: try! SessionId(from: memberLeftNotificationMessage.sender!),
+                        decodedEnvelope: decodedMessage.decodedEnvelope,
+                        sentTimestampMs: memberLeftNotificationMessage.sentTimestampMs!
+                    )
+                    
                     mockStorage.write { db in
                         try SessionThread.upsert(
                             db,
@@ -2238,9 +2258,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     }
                 }
                 
-                // MARK: ---- throws if there is no sender
-                it("throws if there is no sender") {
-                    inviteResponseMessage.sender = nil
+                // MARK: ---- throws if the message isn't an approval
+                it("throws if the message isn't an approval") {
+                    inviteResponseMessage.isApproved = false
                     
                     mockStorage.write { db in
                         expect {
@@ -2255,28 +2275,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 currentUserSessionIds: [],
                                 using: dependencies
                             )
-                        }.to(throwError(MessageError.invalidMessage("Test")))
-                    }
-                }
-                
-                // MARK: ---- throws if there is no timestamp
-                it("throws if there is no timestamp") {
-                    inviteResponseMessage.sentTimestampMs = nil
-                    
-                    mockStorage.write { db in
-                        expect {
-                            try MessageReceiver.handleGroupUpdateMessage(
-                                db,
-                                threadId: groupId.hexString,
-                                threadVariant: .group,
-                                message: inviteResponseMessage,
-                                decodedMessage: decodedMessage,
-                                serverExpirationTimestamp: 1234567890,
-                                suppressNotifications: false,
-                                currentUserSessionIds: [],
-                                using: dependencies
-                            )
-                        }.to(throwError(MessageError.invalidMessage("Test")))
+                        }.to(throwError(MessageError.ignorableMessage))
                     }
                 }
                 
@@ -2314,6 +2313,13 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         groupMember.set(\.name, to: "TestOtherMember")
                         groupMember.invited = 1
                         groups_members_set(groupMembersConf, &groupMember)
+                        
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: try! SessionId(from: inviteResponseMessage.sender!),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: inviteResponseMessage.sentTimestampMs!
+                        )
                         
                         mockStorage.write { db in
                             try ClosedGroup(
@@ -2999,6 +3005,18 @@ class MessageReceiverGroupsSpec: QuickSpec {
                         )
                         deleteContentMessage.sender = "051111111111111111111111111111111111111111111111111111111111111112"
                         deleteContentMessage.sentTimestampMs = 1234567800000
+                        decodedMessage = DecodedMessage(
+                            content: decodedMessage.content,
+                            sender: SessionId(
+                                .standard,
+                                hex: "1111111111111111111111111111111111111111111111111111111111111112"
+                            ),
+                            decodedEnvelope: decodedMessage.decodedEnvelope,
+                            sentTimestampMs: 1234567800000
+                        )
+                        mockLibSessionCache
+                            .when { $0.authData(groupSessionId: .any) }
+                            .thenReturn(GroupAuthData(groupIdentityPrivateKey: Data([1, 2, 3]), authData: nil))
                         
                         let preparedRequest: Network.PreparedRequest<[String: Bool]> = try! Network.SnodeAPI
                             .preparedDeleteMessages(
@@ -3282,6 +3300,9 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     mockUserDefaults
                         .when { $0.bool(forKey: UserDefaults.BoolKey.isUsingFullAPNs.rawValue) }
                         .thenReturn(true)
+                    mockLibSessionCache
+                        .when { $0.authData(groupSessionId: .any) }
+                        .thenReturn(GroupAuthData(groupIdentityPrivateKey: nil, authData: Data([1, 2, 3])))
                     
                     let expectedRequest: Network.PreparedRequest<Network.PushNotification.UnsubscribeResponse> = mockStorage.read { db in
                         try Network.PushNotification.preparedUnsubscribe(
@@ -3505,7 +3526,7 @@ class MessageReceiverGroupsSpec: QuickSpec {
                                 using: dependencies
                             )
                         }
-                        .to(throwError(MessageError.invalidMessage("Test")))
+                        .to(throwError(MessageError.ignorableMessage))
                     }
                 }
                 
@@ -3540,6 +3561,16 @@ class MessageReceiverGroupsSpec: QuickSpec {
                     groupMember.set(\.name, to: "TestOtherMember")
                     groupMember.invited = 1
                     groups_members_set(groupMembersConf, &groupMember)
+                    
+                    decodedMessage = DecodedMessage(
+                        content: decodedMessage.content,
+                        sender: try! SessionId(from: visibleMessage.sender!),
+                        decodedEnvelope: decodedMessage.decodedEnvelope,
+                        sentTimestampMs: visibleMessage.sentTimestampMs!
+                    )
+                    mockLibSessionCache
+                        .when { $0.authData(groupSessionId: .any) }
+                        .thenReturn(GroupAuthData(groupIdentityPrivateKey: Data([1, 2, 3]), authData: nil))
                     
                     mockStorage.write { db in
                         try SessionThread.upsert(

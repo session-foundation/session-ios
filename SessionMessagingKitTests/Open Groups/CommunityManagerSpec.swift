@@ -67,37 +67,35 @@ class CommunityManagerSpec: AsyncSpec {
             activeUsers: 10,
             details: .mock
         )
-        @TestState var testMessage: Network.SOGS.Message! = Network.SOGS.Message(
-            id: 127,
-            sender: "05\(TestConstants.publicKey)",
-            posted: 123,
-            edited: nil,
-            deleted: nil,
-            seqNo: 124,
-            whisper: false,
-            whisperMods: false,
-            whisperTo: nil,
-            base64EncodedData: [
-                "Cg0KC1Rlc3RNZXNzYWdlg",
-                "AAAAAAAAAAAAAAAAAAAAA",
-                "AAAAAAAAAAAAAAAAAAAAA",
-                "AAAAAAAAAAAAAAAAAAAAA",
-                "AAAAAAAAAAAAAAAAAAAAA",
-                "AAAAAAAAAAAAAAAAAAAAA",
-                "AAAAAAAAAAAAAAAAAAAAA",
-                "AAAAAAAAAAAAAAAAAAAAA",
-                "AAAAAAAAAAAAAAAAAAAAA",
-                "AAAAAAAAAAAAAAAAAAAAA",
-                "AA"
-            ].joined(),
-            base64EncodedSignature: nil,
-            reactions: nil
-        )
+        @TestState var testMessage: Network.SOGS.Message! = {
+            let proto = SNProtoContent.builder()
+            let protoDataBuilder = SNProtoDataMessage.builder()
+            proto.setSigTimestamp(1234567890000)
+            protoDataBuilder.setBody("TestMessage")
+            protoDataBuilder.setTimestamp(1234567890000)
+            proto.setDataMessage(try! protoDataBuilder.build())
+            
+            return Network.SOGS.Message(
+                id: 127,
+                sender: "05\(TestConstants.publicKey)",
+                posted: 1234567890,
+                edited: nil,
+                deleted: nil,
+                seqNo: 124,
+                whisper: false,
+                whisperMods: false,
+                whisperTo: nil,
+                base64EncodedData: try! proto.build().serializedData().base64EncodedString(),
+                base64EncodedSignature: nil,
+                reactions: nil
+            )
+        }()
         @TestState var testDirectMessage: Network.SOGS.DirectMessage! = {
             let proto = SNProtoContent.builder()
             let protoDataBuilder = SNProtoDataMessage.builder()
             proto.setSigTimestamp(1234567890000)
             protoDataBuilder.setBody("TestMessage")
+            protoDataBuilder.setTimestamp(1234567890000)
             proto.setDataMessage(try! protoDataBuilder.build())
             
             return Network.SOGS.DirectMessage(
@@ -275,8 +273,8 @@ class CommunityManagerSpec: AsyncSpec {
         
         @TestState var communityManager: CommunityManager! = CommunityManager(using: dependencies)
         
-        // MARK: - an OpenGroupManager
-        describe("an OpenGroupManager") {
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
             beforeEach {
                 _ = userGroupsInitResult
             }
@@ -349,8 +347,8 @@ class CommunityManagerSpec: AsyncSpec {
                 }
             }
             
-            // MARK: -- when checking if an open group is run by session
-            context("when checking if an open group is run by session") {
+            // MARK: -- when checking if an community is run by session
+            context("when checking if an community is run by session") {
                 // MARK: ---- returns false when it does not match one of Sessions servers with no scheme
                 it("returns false when it does not match one of Sessions servers with no scheme") {
                     expect(CommunityManager.isSessionRunCommunity(server: "test.test"))
@@ -418,195 +416,187 @@ class CommunityManagerSpec: AsyncSpec {
                 }
             }
             
-            // MARK: -- when checking it has an existing open group
-            context("when checking it has an existing open group") {
-                // MARK: ---- when there is a thread for the room and the cache has a poller
-                context("when there is a thread for the room and the cache has a poller") {
+            // MARK: -- when checking it has an existing community
+            context("when checking it has an existing community") {
+                // MARK: ---- for the no-scheme variant
+                context("for the no-scheme variant") {
                     beforeEach {
-                        mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn(["http://127.0.0.1"])
+                        await communityManager.updateServer(server: CommunityManager.Server(
+                            server: "127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey,
+                            openGroups: [testOpenGroup],
+                            using: dependencies
+                        ))
                     }
                     
-                    // MARK: ------ for the no-scheme variant
-                    context("for the no-scheme variant") {
-                        // MARK: -------- returns true when no scheme is provided
-                        it("returns true when no scheme is provided") {
-                            expect(
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            ).to(beTrue())
-                        }
-                        
-                        // MARK: -------- returns true when a http scheme is provided
-                        it("returns true when a http scheme is provided") {
-                            expect(
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            ).to(beTrue())
-                        }
-                        
-                        // MARK: -------- returns true when a https scheme is provided
-                        it("returns true when a https scheme is provided") {
-                            expect(
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            ).to(beTrue())
-                        }
-                    }
-                    
-                    // MARK: ------ for the http variant
-                    context("for the http variant") {
-                        // MARK: -------- returns true when no scheme is provided
-                        it("returns true when no scheme is provided") {
-                            expect(
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            ).to(beTrue())
-                        }
-                        
-                        // MARK: -------- returns true when a http scheme is provided
-                        it("returns true when a http scheme is provided") {
-                            expect(
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            ).to(beTrue())
-                        }
-                        
-                        // MARK: -------- returns true when a https scheme is provided
-                        it("returns true when a https scheme is provided") {
-                            expect(
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            ).to(beTrue())
-                        }
-                    }
-                    
-                    // MARK: ------ for the https variant
-                    context("for the https variant") {
-                        // MARK: -------- returns true when no scheme is provided
-                        it("returns true when no scheme is provided") {
-                            expect(
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            ).to(beTrue())
-                        }
-                        
-                        // MARK: -------- returns true when a http scheme is provided
-                        it("returns true when a http scheme is provided") {
-                            expect(
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            ).to(beTrue())
-                        }
-                        
-                        // MARK: -------- returns true when a https scheme is provided
-                        it("returns true when a https scheme is provided") {
-                            expect(
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://127.0.0.1",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            ).to(beTrue())
-                        }
-                    }
-                }
-                
-                // MARK: ---- when given the legacy DNS host and there is a cached poller for the default server
-                context("when given the legacy DNS host and there is a cached poller for the default server") {
-                    // MARK: ------ returns true
-                    it("returns true") {
-                        mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn(["http://116.203.70.33"])
-                        mockStorage.write { db in
-                            try SessionThread(
-                                id: OpenGroup.idFor(roomToken: "testRoom", server: "http://116.203.70.33"),
-                                variant: .community,
-                                creationDateTimestamp: 0,
-                                shouldBeVisible: true,
-                                isPinned: false,
-                                messageDraft: nil,
-                                notificationSound: nil,
-                                mutedUntilTimestamp: nil,
-                                onlyNotifyForMentions: false
-                            ).insert(db)
-                        }
-                        
+                    // MARK: ------ returns true when no scheme is provided
+                    it("returns true when no scheme is provided") {
                         expect(
-                            mockStorage.read { db -> Bool in
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://open.getsession.org",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            }
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a http scheme is provided
+                    it("returns true when a http scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a https scheme is provided
+                    it("returns true when a https scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "https://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
                         ).to(beTrue())
                     }
                 }
                 
-                // MARK: ---- when given the default server and there is a cached poller for the legacy DNS host
-                context("when given the default server and there is a cached poller for the legacy DNS host") {
-                    // MARK: ------ returns true
-                    it("returns true") {
-                        mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn(["http://open.getsession.org"])
-                        mockStorage.write { db in
-                            try SessionThread(
-                                id: OpenGroup.idFor(roomToken: "testRoom", server: "http://open.getsession.org"),
-                                variant: .community,
-                                creationDateTimestamp: 0,
-                                shouldBeVisible: true,
-                                isPinned: false,
-                                messageDraft: nil,
-                                notificationSound: nil,
-                                mutedUntilTimestamp: nil,
-                                onlyNotifyForMentions: false
-                            ).insert(db)
-                        }
-                        
+                // MARK: ---- for the http variant
+                context("for the http variant") {
+                    beforeEach {
+                        await communityManager.updateServer(server: CommunityManager.Server(
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey,
+                            openGroups: [testOpenGroup],
+                            using: dependencies
+                        ))
+                    }
+                    
+                    // MARK: ------ returns true when no scheme is provided
+                    it("returns true when no scheme is provided") {
                         expect(
-                            mockStorage.read { db -> Bool in
-                                communityManager.hasExistingCommunity(
-                                    roomToken: "testRoom",
-                                    server: "http://116.203.70.33",
-                                    publicKey: TestConstants.serverPublicKey
-                                )
-                            }
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
                         ).to(beTrue())
                     }
+                    
+                    // MARK: ------ returns true when a http scheme is provided
+                    it("returns true when a http scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a https scheme is provided
+                    it("returns true when a https scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "https://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                }
+                
+                // MARK: ---- for the https variant
+                context("for the https variant") {
+                    beforeEach {
+                        await communityManager.updateServer(server: CommunityManager.Server(
+                            server: "https://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey,
+                            openGroups: [testOpenGroup],
+                            using: dependencies
+                        ))
+                    }
+                    
+                    // MARK: ------ returns true when no scheme is provided
+                    it("returns true when no scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a http scheme is provided
+                    it("returns true when a http scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a https scheme is provided
+                    it("returns true when a https scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "https://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                }
+                
+                // MARK: ---- returns true when given the legacy DNS host and the cache includes the default server
+                it("returns true when given the legacy DNS host and the cache includes the default server") {
+                    await communityManager.updateServer(server: CommunityManager.Server(
+                        server: Network.SOGS.defaultServer,
+                        publicKey: Network.SOGS.defaultServerPublicKey,
+                        openGroups: [testOpenGroup],
+                        using: dependencies
+                    ))
+                    
+                    expect(
+                        communityManager.hasExistingCommunity(
+                            roomToken: "testRoom",
+                            server: "http://116.203.70.33",
+                            publicKey: TestConstants.serverPublicKey
+                        )
+                    ).to(beTrue())
+                }
+                
+                // MARK: ---- returns true when given the default server and the legacy DNS host is cached
+                it("returns true when given the default server and the legacy DNS host is cached") {
+                    await communityManager.updateServer(server: CommunityManager.Server(
+                        server: Network.SOGS.legacyDefaultServerIP,
+                        publicKey: Network.SOGS.defaultServerPublicKey,
+                        openGroups: [testOpenGroup],
+                        using: dependencies
+                    ))
+                    
+                    expect(
+                        communityManager.hasExistingCommunity(
+                            roomToken: "testRoom",
+                            server: "http://open.getsession.org",
+                            publicKey: TestConstants.serverPublicKey
+                        )
+                    ).to(beTrue())
                 }
                 
                 // MARK: ---- returns false when given an invalid server
                 it("returns false when given an invalid server") {
                     expect(
-                        mockStorage.read { db -> Bool in
-                            communityManager.hasExistingCommunity(
-                                roomToken: "testRoom",
-                                server: "%%%",
-                                publicKey: TestConstants.serverPublicKey
-                            )
-                        }
+                        communityManager.hasExistingCommunity(
+                            roomToken: "testRoom",
+                            server: "%%%",
+                            publicKey: TestConstants.serverPublicKey
+                        )
                     ).to(beFalse())
                 }
                 
@@ -615,13 +605,11 @@ class CommunityManagerSpec: AsyncSpec {
                     mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn([])
                     
                     expect(
-                        mockStorage.read { db -> Bool in
-                            communityManager.hasExistingCommunity(
-                                roomToken: "testRoom",
-                                server: "http://127.0.0.1",
-                                publicKey: TestConstants.serverPublicKey
-                            )
-                        }
+                        communityManager.hasExistingCommunity(
+                            roomToken: "testRoom",
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey
+                        )
                     ).to(beFalse())
                 }
                 
@@ -632,20 +620,18 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     
                     expect(
-                        mockStorage.read { db -> Bool in
-                            communityManager.hasExistingCommunity(
-                                roomToken: "testRoom",
-                                server: "http://127.0.0.1",
-                                publicKey: TestConstants.serverPublicKey
-                            )
-                        }
+                        communityManager.hasExistingCommunity(
+                            roomToken: "testRoom",
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey
+                        )
                     ).to(beFalse())
                 }
             }
         }
         
-        // MARK: - an OpenGroupManager
-        describe("an OpenGroupManager") {
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
             // MARK: -- when adding
             context("when adding") {
                 beforeEach {
@@ -672,8 +658,8 @@ class CommunityManagerSpec: AsyncSpec {
                         .thenReturn(Date(timeIntervalSince1970: 1234567890))
                 }
                 
-                // MARK: ---- stores the open group server
-                it("stores the open group server") {
+                // MARK: ---- stores the community server
+                it("stores the community server") {
                     mockStorage
                         .writePublisher { db -> Bool in
                             communityManager.add(
@@ -746,7 +732,13 @@ class CommunityManagerSpec: AsyncSpec {
                 // MARK: ---- an existing room
                 context("an existing room") {
                     beforeEach {
-                        mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn(["http://127.0.0.1"])
+                        await communityManager.updateServer(server: CommunityManager.Server(
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey,
+                            openGroups: [testOpenGroup],
+                            using: dependencies
+                        ))
+                        
                         mockStorage.write { db in
                             try testOpenGroup.insert(db)
                         }
@@ -900,8 +892,8 @@ class CommunityManagerSpec: AsyncSpec {
                         .to(equal(0))
                 }
                 
-                // MARK: ---- and there is only one open group for this server
-                context("and there is only one open group for this server") {
+                // MARK: ---- and there is only one community for this server
+                context("and there is only one community for this server") {
                     // MARK: ------ stops the poller
                     it("stops the poller") {
                         mockStorage.write { db in
@@ -916,8 +908,8 @@ class CommunityManagerSpec: AsyncSpec {
                             .to(call(matchingParameters: .all) { $0.stopAndRemovePoller(for: "http://127.0.0.1") })
                     }
                     
-                    // MARK: ------ removes the open group
-                    it("removes the open group") {
+                    // MARK: ------ removes the community
+                    it("removes the community") {
                         mockStorage.write { db in
                             try communityManager.delete(
                                 db,
@@ -931,8 +923,8 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                 }
                 
-                // MARK: ---- and the are multiple open groups for this server
-                context("and the are multiple open groups for this server") {
+                // MARK: ---- and the are multiple communities for this server
+                context("and the are multiple communities for this server") {
                     beforeEach {
                         mockStorage.write { db in
                             try OpenGroup.deleteAll(db)
@@ -954,8 +946,8 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                     }
                     
-                    // MARK: ------ removes the open group
-                    it("removes the open group") {
+                    // MARK: ------ removes the community
+                    it("removes the community") {
                         mockStorage.write { db in
                             try communityManager.delete(
                                 db,
@@ -966,78 +958,6 @@ class CommunityManagerSpec: AsyncSpec {
                         
                         expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
                             .to(equal(1))
-                    }
-                }
-                
-                // MARK: ---- and it is the default server
-                context("and it is the default server") {
-                    beforeEach {
-                        mockStorage.write { db in
-                            try OpenGroup.deleteAll(db)
-                            try OpenGroup(
-                                server: Network.SOGS.defaultServer,
-                                roomToken: "testRoom",
-                                publicKey: TestConstants.publicKey,
-                                shouldPoll: true,
-                                name: "Test1",
-                                roomDescription: nil,
-                                imageId: nil,
-                                userCount: 0,
-                                infoUpdates: 0,
-                                sequenceNumber: 0,
-                                inboxLatestMessageId: 0,
-                                outboxLatestMessageId: 0
-                            ).insert(db)
-                            try OpenGroup(
-                                server: Network.SOGS.defaultServer,
-                                roomToken: "testRoom1",
-                                publicKey: TestConstants.publicKey,
-                                shouldPoll: true,
-                                name: "Test1",
-                                roomDescription: nil,
-                                imageId: nil,
-                                userCount: 0,
-                                infoUpdates: 0,
-                                sequenceNumber: 0,
-                                inboxLatestMessageId: 0,
-                                outboxLatestMessageId: 0
-                            ).insert(db)
-                        }
-                    }
-                    
-                    // MARK: ------ does not remove the open group
-                    it("does not remove the open group") {
-                        mockStorage.write { db in
-                            try communityManager.delete(
-                                db,
-                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: Network.SOGS.defaultServer),
-                                skipLibSessionUpdate: true
-                            )
-                        }
-                        
-                        expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
-                            .to(equal(2))
-                    }
-                    
-                    // MARK: ------ deactivates the open group
-                    it("deactivates the open group") {
-                        mockStorage.write { db in
-                            try communityManager.delete(
-                                db,
-                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: Network.SOGS.defaultServer),
-                                skipLibSessionUpdate: true
-                            )
-                        }
-                        
-                        expect(
-                            mockStorage.read { db in
-                                try OpenGroup
-                                    .select(.shouldPoll)
-                                    .filter(id: OpenGroup.idFor(roomToken: "testRoom", server: Network.SOGS.defaultServer))
-                                    .asRequest(of: Bool.self)
-                                    .fetchOne(db)
-                            }
-                        ).to(beFalse())
                     }
                 }
             }
@@ -1066,8 +986,8 @@ class CommunityManagerSpec: AsyncSpec {
             }
         }
         
-        // MARK: - an OpenGroupManager
-        describe("an OpenGroupManager") {
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
             // MARK: -- when handling room poll info
             context("when handling room poll info") {
                 beforeEach {
@@ -1078,8 +998,8 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                 }
                 
-                // MARK: ---- saves the updated open group
-                it("saves the updated open group") {
+                // MARK: ---- saves the updated community
+                it("saves the updated community") {
                     mockStorage.write { db in
                         try communityManager.handlePollInfo(
                             db,
@@ -1415,8 +1335,8 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                 }
                 
-                // MARK: ---- when it cannot get the open group
-                context("when it cannot get the open group") {
+                // MARK: ---- when it cannot get the community
+                context("when it cannot get the community") {
                     // MARK: ------ does not save the thread
                     it("does not save the thread") {
                         mockStorage.write { db in
@@ -1651,8 +1571,8 @@ class CommunityManagerSpec: AsyncSpec {
             }
         }
         
-        // MARK: - an OpenGroupManager
-        describe("an OpenGroupManager") {
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
             // MARK: -- when handling messages
             context("when handling messages") {
                 beforeEach {
@@ -1673,12 +1593,10 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         .thenReturn(
                             DecodedMessage(
-                                content: Data(base64Encoded:"Cg0KC1Rlc3RNZXNzYWdlcNCI7I/3Iw==")! +
-                                Data([0x80]) +
-                                Data([UInt8](repeating: 0, count: 32)),
+                                content: Data(base64Encoded: testMessage.base64EncodedData!)!,
                                 sender: SessionId(.standard, hex: TestConstants.publicKey),
                                 decodedEnvelope: nil,
-                                sentTimestampMs: 1234567890
+                                sentTimestampMs: 1234567890000
                             )
                         )
                     mockStorage.write { db in
@@ -1781,8 +1699,24 @@ class CommunityManagerSpec: AsyncSpec {
                     expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
                 }
                 
-                // MARK: ---- ignores a message with invalid data
-                it("ignores a message with invalid data") {
+                // MARK: ---- ignores a message which fails to decode
+                it("ignores a message which fails to decode") {
+                    mockCrypto
+                        .when {
+                            try $0.generate(
+                                .decodedMessage(
+                                    encodedMessage: Data.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .default,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
+                                )
+                            )
+                        }
+                        .thenThrow(MessageError.invalidMessage("Test"))
                     mockStorage.write { db in
                         try Interaction.deleteWhere(db, .deleteAll)
                     }
@@ -1934,8 +1868,8 @@ class CommunityManagerSpec: AsyncSpec {
             }
         }
          
-        // MARK: - an OpenGroupManager
-        describe("an OpenGroupManager") {
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
             // MARK: -- when handling direct messages
             context("when handling direct messages") {
                 beforeEach {
@@ -1956,12 +1890,10 @@ class CommunityManagerSpec: AsyncSpec {
                         }
                         .thenReturn(
                             DecodedMessage(
-                                content: Data(base64Encoded:"Cg0KC1Rlc3RNZXNzYWdlcNCI7I/3Iw==")! +
-                                Data([0x80]) +
-                                Data([UInt8](repeating: 0, count: 32)),
+                                content: Data(base64Encoded: testDirectMessage.base64EncodedMessage)!,
                                 sender: SessionId(.standard, hex: TestConstants.publicKey),
                                 decodedEnvelope: nil,
-                                sentTimestampMs: 1234567890
+                                sentTimestampMs: 1234567890000
                             )
                         )
                     mockCrypto
@@ -1999,8 +1931,8 @@ class CommunityManagerSpec: AsyncSpec {
                     ).to(equal(0))
                 }
                 
-                // MARK: ---- does nothing if it cannot get the open group
-                it("does nothing if it cannot get the open group") {
+                // MARK: ---- does nothing if it cannot get the community
+                it("does nothing if it cannot get the community") {
                     mockStorage.write { db in
                         try OpenGroup.deleteAll(db)
                     }
@@ -2033,8 +1965,8 @@ class CommunityManagerSpec: AsyncSpec {
                     ).to(beNil())
                 }
                 
-                // MARK: ---- ignores messages with non base64 encoded data
-                it("ignores messages with non base64 encoded data") {
+                // MARK: ---- ignores messages which fail to decode
+                it("ignores messages which fail to decode") {
                     testDirectMessage = Network.SOGS.DirectMessage(
                         id: testDirectMessage.id,
                         sender: testDirectMessage.sender.replacingOccurrences(of: "8", with: "9"),
@@ -2043,6 +1975,22 @@ class CommunityManagerSpec: AsyncSpec {
                         expires: testDirectMessage.expires,
                         base64EncodedMessage: "TestMessage%%%"
                     )
+                    mockCrypto
+                        .when {
+                            try $0.generate(
+                                .decodedMessage(
+                                    encodedMessage: Data.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .default,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
+                                )
+                            )
+                        }
+                        .thenThrow(MessageError.invalidMessage("Test"))
                     
                     mockStorage.write { db in
                         communityManager.handleDirectMessages(
@@ -2109,7 +2057,7 @@ class CommunityManagerSpec: AsyncSpec {
                                     content: Data("TestInvalid".bytes),
                                     sender: SessionId(.standard, hex: TestConstants.publicKey),
                                     decodedEnvelope: nil,
-                                    sentTimestampMs: 1234567890
+                                    sentTimestampMs: 1234567890000
                                 )
                             )
                         
@@ -2251,23 +2199,24 @@ class CommunityManagerSpec: AsyncSpec {
                         ).toNot(beNil())
                     }
                     
-                    // MARK: ------ ignores a message with invalid data
-                    it("ignores a message with invalid data") {
+                    // MARK: ------ ignores a messages which fail to decode
+                    it("ignores a messages which fail to decode") {
                         mockCrypto
                             .when {
-                                $0.generate(
-                                    .plaintextWithSessionBlindingProtocol(
-                                        ciphertext: Array<UInt8>.any,
-                                        senderId: .any,
-                                        recipientId: .any,
-                                        serverPublicKey: .any
+                                try $0.generate(
+                                    .decodedMessage(
+                                        encodedMessage: Data.any,
+                                        origin: .swarm(
+                                            publicKey: .any,
+                                            namespace: .default,
+                                            serverHash: .any,
+                                            serverTimestampMs: .any,
+                                            serverExpirationTimestamp: .any
+                                        )
                                     )
                                 )
                             }
-                            .thenReturn((
-                                plaintext: Data("TestInvalid".bytes),
-                                senderSessionIdHex: "05\(TestConstants.publicKey)"
-                            ))
+                            .thenThrow(MessageError.invalidMessage("Test"))
                         
                         mockStorage.write { db in
                             communityManager.handleDirectMessages(
@@ -2325,8 +2274,8 @@ class CommunityManagerSpec: AsyncSpec {
             }
         }
         
-        // MARK: - an OpenGroupManager
-        describe("an OpenGroupManager") {
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
             // MARK: -- when determining if a user is a moderator or an admin
             context("when determining if a user is a moderator or an admin") {
                 beforeEach {
@@ -2391,7 +2340,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     await expect {
                         await communityManager.isUserModeratorOrAdmin(
-                            targetUserPublicKey: "05\(TestConstants.publicKey)",
+                            targetUserPublicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                             server: "http://127.0.0.1",
                             roomToken: "testRoom",
                             includingHidden: true
@@ -2424,7 +2373,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     await expect {
                         await communityManager.isUserModeratorOrAdmin(
-                            targetUserPublicKey: "05\(TestConstants.publicKey)",
+                            targetUserPublicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                             server: "http://127.0.0.1",
                             roomToken: "testRoom",
                             includingHidden: true
@@ -2457,7 +2406,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     await expect {
                         await communityManager.isUserModeratorOrAdmin(
-                            targetUserPublicKey: "05\(TestConstants.publicKey)",
+                            targetUserPublicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                             server: "http://127.0.0.1",
                             roomToken: "testRoom",
                             includingHidden: true
@@ -2490,7 +2439,7 @@ class CommunityManagerSpec: AsyncSpec {
                     
                     await expect {
                         await communityManager.isUserModeratorOrAdmin(
-                            targetUserPublicKey: "05\(TestConstants.publicKey)",
+                            targetUserPublicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
                             server: "http://127.0.0.1",
                             roomToken: "testRoom",
                             includingHidden: true
@@ -2513,7 +2462,8 @@ class CommunityManagerSpec: AsyncSpec {
                 // MARK: ---- and the key belongs to the current user
                 context("and the key belongs to the current user") {
                     // MARK: ------ matches a blinded key
-                    it("matches a blinded key ") {
+                    it("matches a blinded key") {
+                        mockCrypto.removeMocksFor { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                         mockCrypto
                             .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
                             .thenReturn(
@@ -2590,8 +2540,8 @@ class CommunityManagerSpec: AsyncSpec {
                     }
                     await communityManager.fetchDefaultRoomsIfNeeded()
                     
-                    expect(mockNetwork)
-                        .to(call { network in
+                    await expect(mockNetwork)
+                        .toEventually(call { network in
                             network.send(
                                 endpoint: Network.SOGS.Endpoint.sequence,
                                 destination: expectedRequest.destination,
