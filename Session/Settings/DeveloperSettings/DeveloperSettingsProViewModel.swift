@@ -92,6 +92,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         case submitPurchaseToProBackend
         case refreshProState
+        case resetRevocationListTicket
         case removeProFromUserConfig
         
         // MARK: - Conformance
@@ -122,6 +123,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 
                 case .submitPurchaseToProBackend: return "submitPurchaseToProBackend"
                 case .refreshProState: return "refreshProState"
+                case .resetRevocationListTicket: return "resetRevocationListTicket"
                 case .removeProFromUserConfig: return "removeProFromUserConfig"
             }
         }
@@ -155,6 +157,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 
                 case .submitPurchaseToProBackend: result.append(.submitPurchaseToProBackend); fallthrough
                 case .refreshProState: result.append(.refreshProState); fallthrough
+                case .resetRevocationListTicket: result.append(.resetRevocationListTicket); fallthrough
                 case .removeProFromUserConfig: result.append(.removeProFromUserConfig)
             }
             
@@ -199,6 +202,7 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         
         let currentProStatus: String?
         let currentProStatusErrored: Bool
+        let currentRevocationListTicket: UInt32
         
         @MainActor public func sections(viewModel: DeveloperSettingsProViewModel, previousState: State) -> [SectionModel] {
             DeveloperSettingsProViewModel.sections(
@@ -221,7 +225,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             .feature(.forceMessageFeatureProBadge),
             .feature(.forceMessageFeatureLongMessage),
             .feature(.forceMessageFeatureAnimatedAvatar),
-            .updateScreen(DeveloperSettingsProViewModel.self)
+            .updateScreen(DeveloperSettingsProViewModel.self),
+            .proRevocationListUpdated
         ]
         
         static func initialState(using dependencies: Dependencies) -> State {
@@ -252,7 +257,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 submittedTransactionErrored: false,
                 
                 currentProStatus: nil,
-                currentProStatusErrored: false
+                currentProStatusErrored: false,
+                currentRevocationListTicket: 0
             )
         }
     }
@@ -276,10 +282,17 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
         var refundRequestStatus: Transaction.RefundRequestStatus? = previousState.refundRequestStatus
         var submittedTransactionStatus: String? = previousState.submittedTransactionStatus
         var submittedTransactionErrored: Bool = previousState.submittedTransactionErrored
+        var currentRevocationListTicket: UInt32 = previousState.currentRevocationListTicket
         
-        events.forEach { event in
-            guard let eventValue: DeveloperSettingsProEvent = event.value as? DeveloperSettingsProEvent else { return }
-            
+        if isInitialQuery {
+            currentRevocationListTicket = ((try? await dependencies[singleton: .storage].readAsync { db in
+                UInt32(db[.proRevocationsTicket] ?? 0)
+            }) ?? 0)
+        }
+        
+        let changes: EventChangeset = events.split()
+        
+        changes.forEach(.updateScreen, as: DeveloperSettingsProEvent.self) { eventValue in
             switch eventValue {
                 case .purchasedProduct(let receivedProducts, let purchased, let error, let status, let transaction):
                     products = receivedProducts
@@ -299,6 +312,12 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     currentProStatus = status
                     currentProStatusErrored = errored
             }
+        }
+        
+        if changes.contains(.proRevocationListUpdated) {
+            currentRevocationListTicket = ((try? await dependencies[singleton: .storage].readAsync { db in
+                UInt32(db[.proRevocationsTicket] ?? 0)
+            }) ?? currentRevocationListTicket)
         }
         
         return State(
@@ -323,7 +342,8 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
             submittedTransactionStatus: submittedTransactionStatus,
             submittedTransactionErrored: submittedTransactionErrored,
             currentProStatus: currentProStatus,
-            currentProStatusErrored: currentProStatusErrored
+            currentProStatusErrored: currentProStatusErrored,
+            currentRevocationListTicket: currentRevocationListTicket
         )
     }
     
@@ -750,6 +770,19 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                     }
                 ),
                 SessionCell.Info(
+                    id: .resetRevocationListTicket,
+                    title: "Reset Revocation List Ticket",
+                    subtitle: """
+                    Reset the revocation list ticket (this will result in the revocation list being refetched from the beginning).
+                    
+                    <b>Current Ticket: </b>\(state.currentRevocationListTicket)
+                    """,
+                    trailingAccessory: .highlightingBackgroundLabel(title: "Reset"),
+                    onTap: { [weak viewModel] in
+                        Task { await viewModel?.resetProRevocationListTicket() }
+                    }
+                ),
+                SessionCell.Info(
                     id: .removeProFromUserConfig,
                     title: "Remove Pro From User Config",
                     subtitle: """
@@ -1011,6 +1044,22 @@ class DeveloperSettingsProViewModel: SessionTableViewModel, NavigatableStateHold
                 key: .updateScreen(DeveloperSettingsProViewModel.self),
                 value: DeveloperSettingsProEvent.currentProStatus("Error: \(error)", true)
             )
+        }
+    }
+    
+    private func resetProRevocationListTicket() async {
+        do {
+            try await dependencies[singleton: .storage].writeAsync { db in
+                db[.proRevocationsTicket] = nil
+            }
+            
+            await dependencies.notify(
+                key: .proRevocationListUpdated,
+                value: Array<Network.SessionPro.RevocationItem>()
+            )
+        }
+        catch {
+            Log.error("[DevSettings] Reset pro revocation list failed failed: \(error)")
         }
     }
     

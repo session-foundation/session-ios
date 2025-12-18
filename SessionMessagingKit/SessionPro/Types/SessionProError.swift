@@ -14,6 +14,7 @@ public enum SessionProError: Error, CustomStringConvertible {
     case refundFailed(String)
     case generateProProofFailed(String)
     case getProDetailsFailed(String)
+    case getProRevocationsFailed(String)
     
     case noLatestPaymentItem
     case refundAlreadyRequestedForLatestPayment
@@ -34,6 +35,7 @@ public enum SessionProError: Error, CustomStringConvertible {
             case .refundFailed(let error): return "The refund failed due to error: \(error)."
             case .generateProProofFailed(let error): return "Failed to generate the pro proof due to error: \(error)."
             case .getProDetailsFailed(let error): return "Failed to get pro details due to error: \(error)."
+            case .getProRevocationsFailed(let error): return "Failed to retrieve the latest pro revocations due to error: \(error)."
                 
             case .noLatestPaymentItem: return "No latest payment item."
             case .refundAlreadyRequestedForLatestPayment: return "Refund already requested for latest payment"

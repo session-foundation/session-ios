@@ -5,7 +5,7 @@ import SessionUtil
 import SessionUtilitiesKit
 
 public extension Network.SessionPro {
-    struct RevocationItem: Equatable {
+    struct RevocationItem: Sendable, Equatable, Hashable {
         public let genIndexHash: [UInt8]
         public let expiryUnixTimestampMs: UInt64
         

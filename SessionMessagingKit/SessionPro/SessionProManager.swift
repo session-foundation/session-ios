@@ -799,7 +799,53 @@ public actor SessionProManager: SessionProManagerType {
     
     private func startRevocationListTask() {
         revocationListTask = Task {
-            // TODO: [PRO] Need to add in the logic for fetching, storing and updating the revocation list
+            while true {
+                do {
+                    let ticket: UInt32 = try await Result(
+                        catching: {
+                            try await dependencies[singleton: .storage].readAsync { db in
+                                UInt32(db[.proRevocationsTicket] ?? 0)
+                            }
+                        }
+                    )
+                    .mapError { SessionProError.getProRevocationsFailed("Could not retrieve ticket (\($0))") }
+                    .get()
+                    let request = try Network.SessionPro.getProRevocations(
+                        ticket: ticket,
+                        using: dependencies
+                    )
+                    // FIXME: Make this async/await when the refactored networking is merged
+                    let response: Network.SessionPro.GetProRevocationsResponse = try await request
+                        .send(using: dependencies)
+                        .values
+                        .first(where: { _ in true })?.1 ?? { throw NetworkError.invalidResponse }()
+                    
+                    guard response.header.errors.isEmpty else {
+                        let errorString: String = response.header.errors.joined(separator: ", ")
+                        throw SessionProError.getProRevocationsFailed(errorString)
+                    }
+                    
+                    try await dependencies[singleton: .storage].writeAsync { db in
+                        db[.proRevocationsTicket] = Int(response.ticket)
+                        
+                        // TODO: [PRO] Need to store the revocations in the database
+                    }
+                    
+                    /// Send out a notification that the revocations list was updated, in case something wants to immediately respond
+                    await dependencies.notify(
+                        key: .proRevocationListUpdated,
+                        value: response.items
+                    )
+                    
+                    Log.info(.sessionPro, (response.ticket != ticket ? "Successfully updated revocation list to \(response.ticket)." : "Revocation list already up-to-date."))
+                    try? await Task.sleep(for: .seconds(15 * 60))   /// Wait for 15 mins before trying again
+                }
+                catch {
+                    Log.warn(.sessionPro, "\(error), will retry in 10s.")
+                    try? await Task.sleep(for: .seconds(10))
+                    continue
+                }
+            }
         }
     }
     
@@ -942,12 +988,18 @@ public extension ObservableKey {
         "proAccessExpiryUpdated",
         .proAccessExpiryUpdated
     )
+    
+    static let proRevocationListUpdated: ObservableKey = ObservableKey(
+        "proRevocationListUpdated",
+        .proRevocationListUpdated
+    )
 }
 
 // stringlint:ignore_contents
 public extension GenericObservableKey {
     static let currentUserProState: GenericObservableKey = "currentUserProState"
     static let proAccessExpiryUpdated: GenericObservableKey = "proAccessExpiryUpdated"
+    static let proRevocationListUpdated: GenericObservableKey = "proRevocationListUpdated"
 }
 
 // MARK: - Mocking
