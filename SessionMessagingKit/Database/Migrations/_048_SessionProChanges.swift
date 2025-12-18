@@ -12,15 +12,34 @@ enum _048_SessionProChanges: Migration {
     static func migrate(_ db: ObservingDatabase, using dependencies: Dependencies) throws {
         try db.alter(table: "interaction") { t in
             t.drop(column: "isProMessage")
-            t.add(column: "proMessageFeatures", .integer).defaults(to: 0)
-            t.add(column: "proProfileFeatures", .integer).defaults(to: 0)
+            t.add(column: "proMessageFeatures", .integer)
+                .notNull()
+                .defaults(to: 0)
+            t.add(column: "proProfileFeatures", .integer)
+                .notNull()
+                .defaults(to: 0)
         }
         
         try db.alter(table: "profile") { t in
-            t.add(column: "proFeatures", .integer).defaults(to: 0)
-            t.add(column: "proExpiryUnixTimestampMs", .integer).defaults(to: 0)
+            t.add(column: "proFeatures", .integer)
+                .notNull()
+                .defaults(to: 0)
+            t.add(column: "proExpiryUnixTimestampMs", .integer)
+                .notNull()
+                .defaults(to: 0)
             t.add(column: "proGenIndexHashHex", .text)
         }
+        
+        /// SQLite doesn't retroactively insert default values into columns so we need to add them now
+        try db.execute(sql: """
+            UPDATE interaction 
+            SET proMessageFeatures = 0, proProfileFeatures = 0
+        """)
+
+        try db.execute(sql: """
+            UPDATE profile 
+            SET proFeatures = 0, proExpiryUnixTimestampMs = 0
+        """)
         
         MigrationExecution.updateProgress(1)
     }
