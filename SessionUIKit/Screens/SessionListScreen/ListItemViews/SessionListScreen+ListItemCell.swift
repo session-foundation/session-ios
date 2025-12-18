@@ -43,86 +43,90 @@ public struct ListItemCell: View {
                     .padding(.horizontal, leadingAccessory.padding)
             }
             
-            VStack(alignment: .center, spacing: 0) {
-                if let title = info.title {
-                    HStack(spacing: Values.verySmallSpacing) {
-                        if case .trailing = info.title?.alignment { Spacer(minLength: 0) }
-                        if case .center = info.title?.alignment { Spacer(minLength: 0) }
-                        
-                        if let text = title.text {
-                            VStack(spacing: Values.smallSpacing) {
-                                ZStack {
-                                    if let inlineImage = title.inlineImage {
-                                        switch inlineImage.position {
-                                            case .leading:
-                                                Text("\(Image(uiImage: inlineImage.image)) ") + Text(text)
-                                            case .trailing:
-                                                Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
+            if info.title != nil || info.description != nil {
+                VStack(alignment: .center, spacing: 0) {
+                    if let title = info.title {
+                        HStack(spacing: Values.verySmallSpacing) {
+                            if case .trailing = info.title?.alignment { Spacer(minLength: 0) }
+                            if case .center = info.title?.alignment { Spacer(minLength: 0) }
+                            
+                            if let text = title.text {
+                                VStack(spacing: Values.smallSpacing) {
+                                    ZStack {
+                                        if let inlineImage = title.inlineImage {
+                                            switch inlineImage.position {
+                                                case .leading:
+                                                    Text("\(Image(uiImage: inlineImage.image)) ") + Text(text)
+                                                case .trailing:
+                                                    Text(text) + Text(" \(Image(uiImage: inlineImage.image))")
+                                            }
+                                        } else {
+                                            Text(text)
                                         }
-                                    } else {
-                                        Text(text)
+                                    }
+                                    .lineLimit(isExpanded ? nil : 2)
+                                    .font(title.font)
+                                    .multilineTextAlignment(title.alignment)
+                                    .foregroundColor(themeColor: title.color)
+                                    .accessibility(title.accessibility)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .textSelection(title.interaction == .copy)
+                                    
+                                    if info.title?.interaction == .expandable {
+                                        Text(isExpanded ? "viewLess".localized() : "viewMore".localized())
+                                            .bold()
+                                            .font(title.font)
+                                            .foregroundColor(themeColor: .textPrimary)
                                     }
                                 }
-                                .lineLimit(isExpanded ? nil : 2)
-                                .font(title.font)
-                                .multilineTextAlignment(title.alignment)
-                                .foregroundColor(themeColor: title.color)
-                                .accessibility(title.accessibility)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .textSelection(title.interaction == .copy)
-                                
-                                if info.title?.interaction == .expandable {
-                                    Text(isExpanded ? "viewLess".localized() : "viewMore".localized())
-                                        .bold()
-                                        .font(title.font)
-                                        .foregroundColor(themeColor: .textPrimary)
-                                }
+                            } else if let attributedString = title.attributedString {
+                                AttributedText(attributedString)
+                                    .font(title.font)
+                                    .multilineTextAlignment(title.alignment)
+                                    .foregroundColor(themeColor: title.color)
+                                    .accessibility(title.accessibility)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .textSelection(title.interaction == .copy)
                             }
-                        } else if let attributedString = title.attributedString {
-                            AttributedText(attributedString)
-                                .font(title.font)
-                                .multilineTextAlignment(title.alignment)
-                                .foregroundColor(themeColor: title.color)
-                                .accessibility(title.accessibility)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .textSelection(title.interaction == .copy)
+                            
+                            if case .center = info.title?.alignment { Spacer(minLength: 0) }
+                            if case .leading = info.title?.alignment { Spacer(minLength: 0) }
                         }
-                        
-                        if case .center = info.title?.alignment { Spacer(minLength: 0) }
-                        if case .leading = info.title?.alignment { Spacer(minLength: 0) }
+                    }
+                    
+                    if let description = info.description {
+                        HStack(spacing: Values.verySmallSpacing) {
+                            if case .trailing = info.description?.alignment { Spacer(minLength: 0) }
+                            if case .center = info.description?.alignment { Spacer(minLength: 0) }
+                            
+                            if let text = description.text {
+                                Text(text)
+                                    .font(description.font)
+                                    .multilineTextAlignment(description.alignment)
+                                    .foregroundColor(themeColor: description.color)
+                                    .accessibility(description.accessibility)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else if let attributedString = description.attributedString {
+                                AttributedText(attributedString)
+                                    .font(description.font)
+                                    .multilineTextAlignment(description.alignment)
+                                    .foregroundColor(themeColor: description.color)
+                                    .accessibility(description.accessibility)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            
+                            if case .center = info.description?.alignment { Spacer(minLength: 0) }
+                            if case .leading = info.description?.alignment { Spacer(minLength: 0) }
+                        }
                     }
                 }
-                
-                if let description = info.description {
-                    HStack(spacing: Values.verySmallSpacing) {
-                        if case .trailing = info.description?.alignment { Spacer(minLength: 0) }
-                        if case .center = info.description?.alignment { Spacer(minLength: 0) }
-                        
-                        if let text = description.text {
-                            Text(text)
-                                .font(description.font)
-                                .multilineTextAlignment(description.alignment)
-                                .foregroundColor(themeColor: description.color)
-                                .accessibility(description.accessibility)
-                                .fixedSize(horizontal: false, vertical: true)
-                        } else if let attributedString = description.attributedString {
-                            AttributedText(attributedString)
-                                .font(description.font)
-                                .multilineTextAlignment(description.alignment)
-                                .foregroundColor(themeColor: description.color)
-                                .accessibility(description.accessibility)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        
-                        if case .center = info.description?.alignment { Spacer(minLength: 0) }
-                        if case .leading = info.description?.alignment { Spacer(minLength: 0) }
-                    }
-                }
+                .frame(
+                    maxWidth: .infinity,
+                    alignment: .leading
+                )
+            } else {
+                Spacer(minLength: Values.smallSpacing)
             }
-            .frame(
-                maxWidth: .infinity,
-                alignment: .leading
-            )
             
             if let trailingAccessory = info.trailingAccessory {
                 trailingAccessory.accessoryView()

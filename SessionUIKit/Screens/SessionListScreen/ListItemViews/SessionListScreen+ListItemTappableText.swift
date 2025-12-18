@@ -87,14 +87,27 @@ public struct ListItemTappableText: View {
     
     let info: Info
     let height: CGFloat
+    let onAnyTap: (@MainActor() -> Void)?
+    
+    public init(info: Info, height: CGFloat, onAnyTap: (() -> Void)? = nil) {
+        self.info = info
+        self.height = height
+        self.onAnyTap = onAnyTap
+    }
     
     public var body: some View {
         AttributedLabel(
             info.makeAttributedString(),
             alignment: .center,
             maxWidth: (UIScreen.main.bounds.width - Values.mediumSpacing * 2 - Values.largeSpacing * 2),
-            onTextTap: info.onTextTap,
-            onImageTap: info.onImageTap
+            onTextTap: {
+                info.onTextTap?()
+                onAnyTap?()
+            },
+            onImageTap: {
+                info.onImageTap?()
+                onAnyTap?()
+            }
         )
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, Values.mediumSpacing)

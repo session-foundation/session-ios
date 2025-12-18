@@ -167,12 +167,22 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                         ForEach(section.elements.indices, id: \.self) { index in
                             let element = section.elements[index]
                             let isLastElement: Bool = (index == section.elements.count - 1)
+                            let onTapAction: (@MainActor () -> Void) = {
+                                if let elementOnTap = element.onTap {
+                                    elementOnTap()
+                                }
+                                
+                                if let confirmationInfo = element.confirmationInfo {
+                                    let modal: ConfirmationModal = ConfirmationModal(info: confirmationInfo)
+                                    host.controller?.present(modal, animated: true)
+                                }
+                            }
                             switch element.variant {
                                 case .cell(let info):
                                     VStack(spacing: 0) {
                                         ListItemCell(
                                             info: info,
-                                            onTap: element.onTap
+                                            onTap: onTapAction
                                         )
                                         .frame(
                                             maxWidth: .infinity,
@@ -195,7 +205,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 case .logoWithPro(let info):
                                     ListItemLogoWithPro(info: info)
                                         .onTapGesture {
-                                            element.onTap?()
+                                            onTapAction()
                                         }
                                 case .dataMatrix(let info):
                                     ListItemDataMatrix(
@@ -208,7 +218,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         info: info
                                     )
                                     .onTapGesture {
-                                        element.onTap?()
+                                        onTapAction()
                                     }
                                     .background(
                                         Rectangle()
@@ -217,7 +227,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                 case .button(let title, let enabled):
                                     ListItemButton(title: title, enabled: enabled)
                                         .onTapGesture {
-                                            element.onTap?()
+                                            onTapAction()
                                         }
                                 case .profilePicture(let info):
                                     ListItemProfilePicture(
@@ -225,21 +235,23 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         isProfileImageExpanding: $isProfileImageExpanding,
                                         info: info,
                                         dataManager: viewModel.imageDataManager,
-                                        host: host
+                                        host: host,
+                                        onProfilePictureTap: onTapAction
                                     )
                                     .padding(.vertical, Values.smallSpacing)
                                     .frame(maxWidth: .infinity, alignment: .top)
                                 case .tappableText(let info):
                                     ListItemTappableText(
                                         info: info,
-                                        height: section.model.style.cellMinHeight
+                                        height: section.model.style.cellMinHeight,
+                                        onAnyTap: onTapAction
                                     )
                                     .padding(.vertical, Values.smallSpacing)
                                     .frame(maxWidth: .infinity)
                             }
                         }
                     }
-                    .cornerRadius(11)
+                    .cornerRadius(16)
                     .padding(.vertical, Values.smallSpacing)
                     .listRowInsets(.init(top: 0, leading: Values.largeSpacing, bottom: 0, trailing: Values.largeSpacing))
                     .listRowBackground(Color.clear)
@@ -248,6 +260,14 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                 .listSectionSeparator(.hidden)
                 .padding(0)
             }
+            
+            ZStack {
+                viewModel.footerView
+            }
+            .frame(maxWidth: .infinity)
+            .listRowSeparator(.hidden)
+            .listSectionSeparator(.hidden)
+            .listRowBackground(Color.clear)
         }
         .listStyle(.plain)
         .modifier(HideScrollIndicators())

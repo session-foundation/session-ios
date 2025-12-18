@@ -11,11 +11,13 @@ public struct ListItemProfilePicture: View {
         let sessionId: String?
         let qrCodeImage: UIImage?
         let profileInfo: ProfilePictureView.Info?
+        let isExpandable: Bool
         
-        public init(sessionId: String?, qrCodeImage: UIImage?, profileInfo: ProfilePictureView.Info?) {
+        public init(sessionId: String?, qrCodeImage: UIImage?, profileInfo: ProfilePictureView.Info?, isExpandable: Bool = true) {
             self.sessionId = sessionId
             self.qrCodeImage = qrCodeImage
             self.profileInfo = profileInfo
+            self.isExpandable = isExpandable
         }
     }
     
@@ -30,6 +32,7 @@ public struct ListItemProfilePicture: View {
     var info: Info
     var dataManager: ImageDataManagerType
     let host: HostWrapper
+    let onProfilePictureTap: (@MainActor () -> Void)
     
     public var body: some View {
         let scale: CGFloat = isProfileImageExpanding ? (190.0 / 90) : 1
@@ -44,8 +47,12 @@ public struct ListItemProfilePicture: View {
                         )
                         .scaleEffect(scale, anchor: .topLeading)
                         .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.1)) {
-                                self.isProfileImageExpanding.toggle()
+                            if info.isExpandable {
+                                withAnimation(.easeInOut(duration: 0.1)) {
+                                    self.isProfileImageExpanding.toggle()
+                                }
+                            } else {
+                                onProfilePictureTap()
                             }
                         }
                     }
