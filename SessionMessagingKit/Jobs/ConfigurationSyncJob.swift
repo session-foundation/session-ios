@@ -93,9 +93,12 @@ public enum ConfigurationSyncJob: JobExecutor {
         
         AnyPublisher
             .lazy { () -> Network.PreparedRequest<Network.BatchResponse> in
-                let authMethod: AuthenticationMethod = try Authentication.with(
-                    swarmPublicKey: swarmPublicKey,
-                    using: dependencies
+                let authMethod: AuthenticationMethod = try (
+                    additionalTransientData?.customAuthMethod ??
+                    Authentication.with(
+                        swarmPublicKey: swarmPublicKey,
+                        using: dependencies
+                    )
                 )
                 
                 return try Network.SnodeAPI.preparedSequence(
@@ -337,24 +340,28 @@ extension ConfigurationSyncJob {
         public let afterSequenceRequests: [any ErasedPreparedRequest]
         public let requireAllBatchResponses: Bool
         public let requireAllRequestsSucceed: Bool
+        public let customAuthMethod: AuthenticationMethod?
         
         init?(
             beforeSequenceRequests: [any ErasedPreparedRequest],
             afterSequenceRequests: [any ErasedPreparedRequest],
             requireAllBatchResponses: Bool,
-            requireAllRequestsSucceed: Bool
+            requireAllRequestsSucceed: Bool,
+            customAuthMethod: AuthenticationMethod?
         ) {
             guard
                 !beforeSequenceRequests.isEmpty ||
                 !afterSequenceRequests.isEmpty ||
                 requireAllBatchResponses ||
-                requireAllRequestsSucceed
+                requireAllRequestsSucceed ||
+                customAuthMethod != nil
             else { return nil }
             
             self.beforeSequenceRequests = beforeSequenceRequests
             self.afterSequenceRequests = afterSequenceRequests
             self.requireAllBatchResponses = requireAllBatchResponses
             self.requireAllRequestsSucceed = requireAllRequestsSucceed
+            self.customAuthMethod = customAuthMethod
         }
     }
 }
@@ -414,6 +421,7 @@ public extension ConfigurationSyncJob {
         afterSequenceRequests: [any ErasedPreparedRequest] = [],
         requireAllBatchResponses: Bool = false,
         requireAllRequestsSucceed: Bool = false,
+        customAuthMethod: AuthenticationMethod? = nil,
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         return Deferred {
@@ -428,7 +436,8 @@ public extension ConfigurationSyncJob {
                             beforeSequenceRequests: beforeSequenceRequests,
                             afterSequenceRequests: afterSequenceRequests,
                             requireAllBatchResponses: requireAllBatchResponses,
-                            requireAllRequestsSucceed: requireAllRequestsSucceed
+                            requireAllRequestsSucceed: requireAllRequestsSucceed,
+                            customAuthMethod: customAuthMethod
                         )
                     )
                 else { return resolver(Result.failure(NetworkError.parsingFailed)) }

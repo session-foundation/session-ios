@@ -51,6 +51,7 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
     public let isTyping: Bool
     public let userCount: Int?
     public let memberNames: String
+    public let messageSnippet: String?
     public let targetInteraction: InteractionInfo?
     public let lastInteraction: InteractionInfo?
     public let userSessionId: SessionId
@@ -85,12 +86,16 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
     ) {
         let currentUserSessionIds: Set<String> = dataCache.currentUserSessionIds(for: thread.id)
         let isMessageRequest: Bool = (
-            dataCache.group(for: thread.id)?.invited == true || (
+            (
+                thread.variant == .group &&
+                dataCache.group(for: thread.id)?.invited != false
+            ) || (
+                thread.variant == .contact &&
                 !currentUserSessionIds.contains(thread.id) &&
-                dataCache.contact(for: thread.id)?.isApproved == false
+                dataCache.contact(for: thread.id)?.isApproved != true
             )
         )
-        let requiresApproval: Bool = (dataCache.contact(for: thread.id)?.didApproveMe == false)
+        let requiresApproval: Bool = (dataCache.contact(for: thread.id)?.didApproveMe != true)
         let sortedMemberIds: [String] = dataCache.groupMembers(for: thread.id)
             .map({ $0.profileId })
             .filter({ !currentUserSessionIds.contains($0) })
@@ -116,18 +121,26 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                 case .community: return nil
             }
         }()
-        let lastInteraction: InteractionInfo? = dataCache.interactionStats(for: thread.id).map {
-            dataCache.interaction(for: $0.latestInteractionId).map {
-                InteractionInfo(
-                    interaction: $0,
-                    searchText: searchText,
-                    threadVariant: thread.variant,
-                    userSessionId: dataCache.userSessionId,
-                    dataCache: dataCache,
-                    using: dependencies
-                )
-            }
+        let lastInteractionContentBuilder: Interaction.ContentBuilder = Interaction.ContentBuilder(
+            interaction: dataCache.interactionStats(for: thread.id).map {
+                dataCache.interaction(for: $0.latestInteractionId)
+            },
+            threadId: thread.id,
+            threadVariant: thread.variant,
+            searchText: searchText,
+            dataCache: dataCache
+        )
+        let targetInteractionContentBuilder: Interaction.ContentBuilder? = targetInteractionId.map {
+            Interaction.ContentBuilder(
+                interaction: dataCache.interaction(for: $0),
+                threadId: thread.id,
+                threadVariant: thread.variant,
+                searchText: searchText,
+                dataCache: dataCache
+            )
         }
+            
+        let lastInteraction: InteractionInfo? = InteractionInfo(contentBuilder: lastInteractionContentBuilder)
         let groupInfo: GroupInfo? = dataCache.group(for: thread.id).map {
             GroupInfo(
                 group: $0,
@@ -295,21 +308,14 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                 content: memberNameString
             )
         }()
+        self.messageSnippet = (targetInteractionContentBuilder ?? lastInteractionContentBuilder)
+            .makeSnippet(dateNow: dependencies.dateNow)
         
         self.unreadCount = (dataCache.interactionStats(for: thread.id)?.unreadCount ?? 0)
         self.unreadMentionCount = (dataCache.interactionStats(for: thread.id)?.unreadMentionCount ?? 0)
         self.hasUnreadMessagesOfAnyKind = (dataCache.interactionStats(for: thread.id)?.hasUnreadMessagesOfAnyKind == true)
-        self.targetInteraction = targetInteractionId.map { id in
-            dataCache.interaction(for: id).map {
-                InteractionInfo(
-                    interaction: $0,
-                    searchText: searchText,
-                    threadVariant: thread.variant,
-                    userSessionId: dataCache.userSessionId,
-                    dataCache: dataCache,
-                    using: dependencies
-                )
-            }
+        self.targetInteraction = targetInteractionContentBuilder.map {
+            InteractionInfo(contentBuilder: $0)
         }
         self.lastInteraction = lastInteraction
         self.userSessionId = dataCache.userSessionId
@@ -560,6 +566,7 @@ public extension ConversationInfoViewModel {
         self.isTyping = false
         self.userCount = nil
         self.memberNames = ""
+        self.messageSnippet = ""
         self.targetInteraction = nil
         self.lastInteraction = nil
         self.userSessionId = .invalid
@@ -682,24 +689,12 @@ public extension ConversationInfoViewModel {
         public let state: Interaction.State
         public let hasBeenReadByRecipient: Bool
         public let hasAttachments: Bool
-        public let messageSnippet: String?
         
-        public init?(
-            interaction: Interaction,
-            searchText: String?,
-            threadVariant: SessionThread.Variant,
-            userSessionId: SessionId,
-            dataCache: ConversationDataCache,
-            using dependencies: Dependencies
-        ) {
-            guard let interactionId: Int64 = interaction.id else { return nil }
-            
-            let contentBuilder: Interaction.ContentBuilder = Interaction.ContentBuilder(
-                interaction: interaction,
-                threadVariant: threadVariant,
-                searchText: searchText,
-                dataCache: dataCache
-            )
+        internal init?(contentBuilder: Interaction.ContentBuilder) {
+            guard
+                let interaction: Interaction = contentBuilder.interaction,
+                let interactionId: Int64 = interaction.id
+            else { return nil }
             
             self.id = interactionId
             self.threadId = interaction.threadId
@@ -710,8 +705,7 @@ public extension ConversationInfoViewModel {
             self.timestampMs = interaction.timestampMs
             self.state = interaction.state
             self.hasBeenReadByRecipient = (interaction.recipientReadTimestampMs != nil)
-            self.hasAttachments = !dataCache.interactionAttachments(for: interactionId).isEmpty
-            self.messageSnippet = contentBuilder.makeSnippet(dateNow: dependencies.dateNow)
+            self.hasAttachments = contentBuilder.hasAttachments
         }
     }
 }

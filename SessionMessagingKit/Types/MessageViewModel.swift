@@ -250,6 +250,7 @@ public extension MessageViewModel {
         }()
         let contentBuilder: Interaction.ContentBuilder = Interaction.ContentBuilder(
             interaction: interaction,
+            threadId: threadInfo.id,
             threadVariant: threadInfo.variant,
             dataCache: dataCache
         )
@@ -350,6 +351,7 @@ public extension MessageViewModel {
             }()
             let quotedContentBuilder: Interaction.ContentBuilder = Interaction.ContentBuilder(
                 interaction: quotedInteraction,
+                threadId: threadInfo.id,
                 threadVariant: threadInfo.variant,
                 dataCache: dataCache
             )
@@ -929,25 +931,28 @@ private extension MessageViewModel {
 
 internal extension Interaction {
     struct ContentBuilder {
-        private let interaction: Interaction
+        public let interaction: Interaction?
         private let searchText: String?
         private let dataCache: ConversationDataCache
         
+        private let threadId: String
         private let threadVariant: SessionThread.Variant
         private let currentUserSessionIds: Set<String>
         public let attachments: [Attachment]
+        public let hasAttachments: Bool
         public let linkPreview: LinkPreview?
         public let linkPreviewAttachment: Attachment?
         
-        public var rawBody: String? { interaction.body }
+        public var rawBody: String? { interaction?.body }
         public let authorDisplayName: String
         public let authorDisplayNameNoSuffix: String
         public let threadContactDisplayName: String
-        public var containsOnlyEmoji: Bool { interaction.body?.containsOnlyEmoji == true }
-        public var glyphCount: Int { interaction.body?.glyphCount ?? 0 }
+        public var containsOnlyEmoji: Bool { interaction?.body?.containsOnlyEmoji == true }
+        public var glyphCount: Int { interaction?.body?.glyphCount ?? 0 }
         
         init(
-            interaction: Interaction,
+            interaction: Interaction?,
+            threadId: String,
             threadVariant: SessionThread.Variant,
             searchText: String? = nil,
             dataCache: ConversationDataCache
@@ -956,37 +961,49 @@ internal extension Interaction {
             self.searchText = searchText
             self.dataCache = dataCache
             
-            let currentUserSessionIds: Set<String> = dataCache.currentUserSessionIds(for: interaction.threadId)
-            let linkPreviewInfo = ContentBuilder.resolveBestLinkPreview(
-                for: interaction,
-                dataCache: dataCache
-            )
+            let currentUserSessionIds: Set<String> = dataCache.currentUserSessionIds(for: threadId)
+            let linkPreviewInfo = interaction.map {
+                ContentBuilder.resolveBestLinkPreview(
+                    for: $0,
+                    dataCache: dataCache
+                )
+            }
+            self.threadId = threadId
             self.threadVariant = threadVariant
             self.currentUserSessionIds = currentUserSessionIds
-            self.attachments = (interaction.id.map { dataCache.attachments(for: $0) } ?? [])
+            self.attachments = (interaction?.id.map { dataCache.attachments(for: $0) } ?? [])
+            self.hasAttachments = (interaction?.id.map { dataCache.interactionAttachments(for: $0).isEmpty } == false)
             self.linkPreview = linkPreviewInfo?.preview
             self.linkPreviewAttachment = linkPreviewInfo?.attachment
             
-            if currentUserSessionIds.contains(interaction.authorId) {
-                self.authorDisplayName = "you".localized()
-                self.authorDisplayNameNoSuffix = "you".localized()
+            if let authorId: String = interaction?.authorId {
+                if currentUserSessionIds.contains(authorId) {
+                    self.authorDisplayName = "you".localized()
+                    self.authorDisplayNameNoSuffix = "you".localized()
+                }
+                else {
+                    let profile: Profile = (
+                        dataCache.profile(for: authorId) ??
+                        Profile.defaultFor(authorId)
+                    )
+                    
+                    self.authorDisplayName = profile.displayName(
+                        includeSessionIdSuffix: (threadVariant == .community)
+                    )
+                    self.authorDisplayNameNoSuffix = profile.displayName(includeSessionIdSuffix: false)
+                }
             }
             else {
-                let profile: Profile = (
-                    dataCache.profile(for: interaction.authorId) ??
-                    Profile.defaultFor(interaction.authorId)
-                )
-                
-                self.authorDisplayName = profile.displayName(
-                    includeSessionIdSuffix: (threadVariant == .community)
-                )
-                self.authorDisplayNameNoSuffix = profile.displayName(includeSessionIdSuffix: false)
+                self.authorDisplayName = ""
+                self.authorDisplayNameNoSuffix = ""
             }
             
-            self.threadContactDisplayName = dataCache.contactDisplayName(for: interaction.threadId)
+            self.threadContactDisplayName = dataCache.contactDisplayName(for: threadId)
         }
         
         func makeBubbleBody() -> String? {
+            guard let interaction else { return nil }
+            
             if interaction.variant.isInfoMessage {
                 return makePreviewText()
             }
@@ -1012,6 +1029,8 @@ internal extension Interaction {
         }
         
         func makeBodyForCopying() -> String? {
+            guard let interaction else { return nil }
+            
             if interaction.variant.isInfoMessage {
                 return makePreviewText()
             }
@@ -1020,6 +1039,8 @@ internal extension Interaction {
         }
         
         func makePreviewText() -> String? {
+            guard let interaction else { return nil }
+            
             return Interaction.previewText(
                 variant: interaction.variant,
                 body: interaction.body,
@@ -1041,13 +1062,13 @@ internal extension Interaction {
         func makeSnippet(dateNow: Date) -> String? {
             var result: String = ""
             let isSearchResult: Bool = (searchText != nil)
-            let groupInfo: LibSession.GroupInfo? = dataCache.groupInfo(for: interaction.threadId)
+            let groupInfo: LibSession.GroupInfo? = dataCache.groupInfo(for: threadId)
             let groupKicked: Bool = (groupInfo?.wasKickedFromGroup == true)
             let groupDestroyed: Bool = (groupInfo?.wasGroupDestroyed == true)
             let groupThreadTypes: Set<SessionThread.Variant> = [.legacyGroup, .group, .community]
             let groupSourceTypes: Set<ConversationDataCache.Context.Source> = [.conversationList, .searchResults]
             let shouldIncludeAuthorPrefix: Bool = (
-                !interaction.variant.isInfoMessage &&
+                interaction?.variant.isInfoMessage == false &&
                 groupSourceTypes.contains(dataCache.context.source) &&
                 groupThreadTypes.contains(threadVariant)
             )
@@ -1063,7 +1084,7 @@ internal extension Interaction {
             
             /// Add status icon prefixes
             if shouldHaveStatusIcon {
-                if let thread = dataCache.thread(for: interaction.threadId) {
+                if let thread = dataCache.thread(for: threadId) {
                     let now: TimeInterval = dateNow.timeIntervalSince1970
                     let mutedUntil: TimeInterval = (thread.mutedUntilTimestamp ?? 0)
                     
@@ -1079,7 +1100,7 @@ internal extension Interaction {
             }
             
             /// If it's a group conversation then it might have a specia status
-            switch (groupInfo, groupDestroyed, groupKicked, interaction.variant) {
+            switch (groupInfo, groupDestroyed, groupKicked, interaction?.variant) {
                 case (.some(let groupInfo), true, _, _):
                     result.append(
                         "groupDeletedMemberDescription"
@@ -1109,7 +1130,7 @@ internal extension Interaction {
                                 in: previewText,
                                 currentUserSessionIds: currentUserSessionIds,
                                 displayNameRetriever: dataCache.displayNameRetriever(
-                                    for: interaction.threadId,
+                                    for: threadId,
                                     includeSessionIdSuffixWhenInMessageBody: (threadVariant == .community)
                                 )
                             )

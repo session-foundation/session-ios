@@ -198,20 +198,6 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
             loadPageEvent: loadPageEvent
         )
         
-        /// Peform any `libSession` changes
-        if fetchRequirements.needsAnyFetch {
-            do {
-                dataCache = try ConversationDataHelper.fetchFromLibSession(
-                    requirements: fetchRequirements,
-                    cache: dataCache,
-                    using: dependencies
-                )
-            }
-            catch {
-                Log.warn(.messageRequestsViewModel, "Failed to handle \(changes.libSessionEvents.count) libSession event(s) due to error: \(error).")
-            }
-        }
-        
         /// Peform any database changes
         if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
             do {
@@ -233,6 +219,20 @@ class MessageRequestsViewModel: SessionTableViewModel, NavigatableStateHolder, O
         }
         else if !changes.databaseEvents.isEmpty {
             Log.warn(.messageRequestsViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+        }
+        
+        /// Peform any `libSession` changes
+        if fetchRequirements.needsAnyFetch {
+            do {
+                dataCache = try ConversationDataHelper.fetchFromLibSession(
+                    requirements: fetchRequirements,
+                    cache: dataCache,
+                    using: dependencies
+                )
+            }
+            catch {
+                Log.warn(.messageRequestsViewModel, "Failed to handle \(changes.libSessionEvents.count) libSession event(s) due to error: \(error).")
+            }
         }
         
         /// Regenerate the `itemCache` now that the `dataCache` is updated

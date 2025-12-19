@@ -230,11 +230,33 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
                 )
             }
             
-            if threadInfo.variant == .community && !threadInfo.canWrite {
-                return InputView.InputState(
-                    inputs: .disabled,
-                    message: "permissionsWriteCommunity".localized()
-                )
+            // TODO: [BUGFIXING] Need copy for these cases
+            guard threadInfo.canWrite else {
+                switch threadInfo.variant {
+                    case .contact:
+                        return InputView.InputState(
+                            inputs: .disabled,
+                            message: "You cannot send messages to this user." // TODO: [BUGFIXING] blocks community message requests or generic
+                        )
+                        
+                    case .group:
+                        return InputView.InputState(
+                            inputs: .disabled,
+                            message: "You cannot send messages to this group."
+                        )
+                        
+                    case .legacyGroup:
+                        return InputView.InputState(
+                            inputs: .disabled,
+                            message: "This group is read-only."
+                        )
+                        
+                    case .community:
+                        return InputView.InputState(
+                            inputs: .disabled,
+                            message: "permissionsWriteCommunity".localized()
+                        )
+                }
             }
             
             /// Attachments shouldn't be allowed for message requests or if uploads are disabled
@@ -556,34 +578,26 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             loadPageEvent: loadPageEvent
         )
         
-        /// Peform any `libSession` changes
-        if fetchRequirements.needsAnyFetch {
-            do {
-                dataCache = try ConversationDataHelper.fetchFromLibSession(
-                    requirements: fetchRequirements,
-                    cache: dataCache,
-                    using: dependencies
-                )
-            }
-            catch {
-                Log.warn(.conversation, "Failed to handle \(changes.libSessionEvents.count) libSession event(s) due to error: \(error).")
-            }
-        }
-        
         /// Peform any database changes
         if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
             do {
                 try await dependencies[singleton: .storage].readAsync { db in
                     /// Fetch the `authMethod` if needed
+                    ///
+                    /// **Note:** It's possible that we won't be able to fetch the `authMethod` (eg. if a group was destroyed or
+                    /// the user was kicked from a group), in that case just fail silently (it's an expected behaviour - won't be able to
+                    /// send requests anymore)
                     if fetchRequirements.requireAuthMethodFetch {
                         // TODO: [Database Relocation] Should be able to remove the database requirement now we have the CommunityManager
+                        let maybeAuthMethod: AuthenticationMethod? = try? Authentication.with(
+                            db,
+                            threadId: threadInfo.id,
+                            threadVariant: threadInfo.variant,
+                            using: dependencies
+                        )
+                        
                         authMethod = EquatableAuthenticationMethod(
-                            value: try Authentication.with(
-                                db,
-                                threadId: threadInfo.id,
-                                threadVariant: threadInfo.variant,
-                                using: dependencies
-                            )
+                            value: (maybeAuthMethod ?? Authentication.invalid)
                         )
                     }
                     
@@ -630,6 +644,20 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         }
         else if !changes.databaseEvents.isEmpty {
             Log.warn(.conversation, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+        }
+        
+        /// Peform any `libSession` changes
+        if fetchRequirements.needsAnyFetch {
+            do {
+                dataCache = try ConversationDataHelper.fetchFromLibSession(
+                    requirements: fetchRequirements,
+                    cache: dataCache,
+                    using: dependencies
+                )
+            }
+            catch {
+                Log.warn(.conversation, "Failed to handle \(changes.libSessionEvents.count) libSession event(s) due to error: \(error).")
+            }
         }
         
         /// Update the typing indicator state if needed
@@ -1603,15 +1631,15 @@ public extension ConversationViewModel {
             threadIdsNeedingFetch: [threadId]
         )
         
-        dataCache = try ConversationDataHelper.fetchFromLibSession(
-            requirements: fetchRequirements,
-            cache: dataCache,
-            using: dependencies
-        )
         dataCache = try ConversationDataHelper.fetchFromDatabase(
             db,
             requirements: fetchRequirements,
             currentCache: dataCache,
+            using: dependencies
+        )
+        dataCache = try ConversationDataHelper.fetchFromLibSession(
+            requirements: fetchRequirements,
+            cache: dataCache,
             using: dependencies
         )
         

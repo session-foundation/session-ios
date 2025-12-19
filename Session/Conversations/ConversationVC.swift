@@ -12,6 +12,7 @@ import SessionUtilitiesKit
 import SignalUtilitiesKit
 
 final class ConversationVC: BaseVC, LibSessionRespondingViewController, ConversationSearchControllerDelegate, UITableViewDataSource, UITableViewDelegate {
+    private static let emptyStateLabelFont: UIFont = .systemFont(ofSize: Values.verySmallFontSize)
     private static let loadingHeaderHeight: CGFloat = 40
     static let expandedAttachmentButtonSpacing: CGFloat = 4
     
@@ -262,7 +263,7 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         let result: UILabel = UILabel()
         result.accessibilityIdentifier = "Control message"
         result.translatesAutoresizingMaskIntoConstraints = false
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.font = ConversationVC.emptyStateLabelFont
         result.themeAttributedText = viewModel.state.emptyStateText.formatted(in: result)
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
@@ -736,7 +737,10 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         // Update the table content
         let updatedSections: [ConversationViewModel.SectionModel] = state.sections(viewModel: viewModel)
         
-        // Update the empty state
+        /// Update the empty state
+        ///
+        /// **Note:** Need to reset the fonts as it seems that the `.font` values can end up using a styled font from the attributed text
+        emptyStateLabel.font = ConversationVC.emptyStateLabelFont
         emptyStateLabel.themeAttributedText = state.emptyStateText.formatted(in: emptyStateLabel)
         emptyStateLabelContainer.isHidden = (state.viewState != .empty)
         

@@ -139,12 +139,14 @@ public class Dependencies {
     }
     
     public func set<S>(singleton: SingletonConfig<S>, to instance: S) {
-        setValue(instance, typedStorage: .singleton(instance), key: singleton.identifier)
+        let isNoop: Bool = (instance is NoopDependency)
+        setValue(instance, typedStorage: .singleton(instance, isNoop: isNoop), key: singleton.identifier)
     }
     
     public func set<M, I>(cache: CacheConfig<M, I>, to instance: M) {
         let value: ThreadSafeObject<MutableCacheType> = ThreadSafeObject(cache.mutableInstance(instance))
-        setValue(value, typedStorage: .cache(value), key: cache.identifier)
+        let isNoop: Bool = (instance is NoopDependency)
+        setValue(value, typedStorage: .cache(value, isNoop: isNoop), key: cache.identifier)
     }
     
     public func remove<M, I>(cache: CacheConfig<M, I>) {
@@ -211,8 +213,9 @@ public extension Dependencies {
             typedValue?.value(as: Feature<T>.self) ??
             feature.createInstance(self)
         )
+        let isNoop: Bool = (instance is NoopDependency)
         instance.setValue(to: updatedFeature, using: self)
-        setValue(instance, typedStorage: .feature(instance), key: feature.identifier)
+        setValue(instance, typedStorage: .feature(instance, isNoop: isNoop), key: feature.identifier)
         
         /// Notify observers
         notifyAsync(events: [
@@ -282,17 +285,16 @@ private extension Dependencies {
         var instances: [Key: Value] = [:]
         
         enum Value {
-            case singleton(Any)
-            case cache(ThreadSafeObject<MutableCacheType>)
-            case userDefaults(UserDefaultsType)
-            case feature(any FeatureType)
+            case singleton(Any, isNoop: Bool)
+            case cache(ThreadSafeObject<MutableCacheType>, isNoop: Bool)
+            case userDefaults(UserDefaultsType, isNoop: Bool)
+            case feature(any FeatureType, isNoop: Bool)
             
             var isNoop: Bool {
                 switch self {
-                    case .singleton(let value): return value is NoopDependency
-                    case .userDefaults(let value): return value is NoopDependency
-                    case .feature(let value): return value is NoopDependency
-                    case .cache(let value): return value.performMap { $0 is NoopDependency }
+                    case .singleton(_, let isNoop), .userDefaults(_, let isNoop),
+                        .feature(_, let isNoop), .cache(_, let isNoop):
+                        return isNoop
                 }
             }
             
@@ -307,10 +309,10 @@ private extension Dependencies {
             
             func value<T>(as type: T.Type) -> T? {
                 switch self {
-                    case .singleton(let value): return value as? T
-                    case .cache(let value): return value as? T
-                    case .userDefaults(let value): return value as? T
-                    case .feature(let value): return value as? T
+                    case .singleton(let value, _): return value as? T
+                    case .cache(let value, _): return value as? T
+                    case .userDefaults(let value, _): return value as? T
+                    case .feature(let value, _): return value as? T
                 }
             }
         }
@@ -429,32 +431,38 @@ private extension Dependencies.DependencyStorage {
         static func singleton(_ constructor: @escaping () -> T) -> Constructor<T> {
             return Constructor(variant: .singleton) {
                 let instance: T = constructor()
+                let isNoop: Bool = (instance is NoopDependency)
                 
-                return (.singleton(instance), instance)
+                return (.singleton(instance, isNoop: isNoop), instance)
             }
         }
         
         static func cache(_ constructor: @escaping () -> T) -> Constructor<T> where T: ThreadSafeObject<MutableCacheType> {
             return Constructor(variant: .cache) {
+                /// We need to peek at the wrapped value to check if it's a `NoopDependency` so use `performMap` to access
+                /// it safely
                 let instance: T = constructor()
+                let isNoop: Bool = instance.performMap { $0 is NoopDependency }
                 
-                return (.cache(instance), instance)
+                return (.cache(instance, isNoop: isNoop), instance)
             }
         }
         
         static func userDefaults(_ constructor: @escaping () -> T) -> Constructor<T> where T == UserDefaultsType {
             return Constructor(variant: .userDefaults) {
                 let instance: T = constructor()
+                let isNoop: Bool = (instance is NoopDependency)
                 
-                return (.userDefaults(instance), instance)
+                return (.userDefaults(instance, isNoop: isNoop), instance)
             }
         }
         
         static func feature(_ constructor: @escaping () -> T) -> Constructor<T> where T: FeatureType {
             return Constructor(variant: .feature) {
                 let instance: T = constructor()
+                let isNoop: Bool = (instance is NoopDependency)
                 
-                return (.feature(instance), instance)
+                return (.feature(instance, isNoop: isNoop), instance)
             }
         }
     }

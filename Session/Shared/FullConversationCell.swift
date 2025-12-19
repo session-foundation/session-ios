@@ -338,7 +338,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         bottomLabelStackView.isHidden = false
         displayNameLabel.themeAttributedText = cellViewModel.displayName.formatted(baseFont: displayNameLabel.font)
         displayNameLabel.isProBadgeHidden = !cellViewModel.shouldShowProBadge
-        snippetLabel.themeAttributedText = cellViewModel.targetInteraction?.messageSnippet?
+        snippetLabel.themeAttributedText = cellViewModel.messageSnippet?
             .formatted(baseFont: snippetLabel.font)
             .stylingNotificationPrefixesIfNeeded(fontSize: Values.verySmallFontSize)
     }
@@ -439,7 +439,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             }()
             typingIndicatorView.isHidden = true
             typingIndicatorView.stopAnimation()
-            snippetLabel.themeAttributedText = cellViewModel.lastInteraction?.messageSnippet?
+            snippetLabel.themeAttributedText = cellViewModel.messageSnippet?
                 .formatted(baseFont: snippetLabel.font)
                 .stylingNotificationPrefixesIfNeeded(fontSize: Values.verySmallFontSize)
         }

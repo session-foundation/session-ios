@@ -131,6 +131,10 @@ extension MessageSender {
             try await ConfigurationSyncJob.run(
                 swarmPublicKey: preparedGroupData.groupSessionId.hexString,
                 requireAllRequestsSucceed: true,
+                customAuthMethod: Authentication.groupAdmin(
+                    groupSessionId: preparedGroupData.groupSessionId,
+                    ed25519SecretKey: preparedGroupData.identityKeyPair.secretKey
+                ),
                 using: dependencies
             ).values.first { _ in true }
         }

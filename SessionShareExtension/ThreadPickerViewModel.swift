@@ -74,11 +74,6 @@ public class ThreadPickerViewModel {
                 itemCache: [ConversationInfoViewModel.ID: ConversationInfoViewModel](),
                 loadPageEvent: .initial
             )
-            dataCache = try ConversationDataHelper.fetchFromLibSession(
-                requirements: fetchRequirements,
-                cache: dataCache,
-                using: dependencies
-            )
             
             /// Fetch any required data from the cache
             var loadResult: PagedData.LoadResult<ConversationInfoViewModel.ID> = PagedData.LoadedInfo(
@@ -95,6 +90,11 @@ public class ThreadPickerViewModel {
                 currentCache: dataCache,
                 loadResult: loadResult,
                 loadPageEvent: .initial,
+                using: dependencies
+            )
+            dataCache = try ConversationDataHelper.fetchFromLibSession(
+                requirements: fetchRequirements,
+                cache: dataCache,
                 using: dependencies
             )
             

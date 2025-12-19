@@ -302,20 +302,6 @@ public class HomeViewModel: NavigatableStateHolder {
             loadPageEvent: loadPageEvent
         )
         
-        /// Peform any `libSession` changes
-        if fetchRequirements.needsAnyFetch {
-            do {
-                dataCache = try ConversationDataHelper.fetchFromLibSession(
-                    requirements: fetchRequirements,
-                    cache: dataCache,
-                    using: dependencies
-                )
-            }
-            catch {
-                Log.warn(.homeViewModel, "Failed to handle \(changes.libSessionEvents.count) libSession event(s) due to error: \(error).")
-            }
-        }
-        
         /// Peform any database changes
         if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
             do {
@@ -370,6 +356,20 @@ public class HomeViewModel: NavigatableStateHolder {
         }
         else if !changes.databaseEvents.isEmpty {
             Log.warn(.homeViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+        }
+        
+        /// Peform any `libSession` changes
+        if fetchRequirements.needsAnyFetch {
+            do {
+                dataCache = try ConversationDataHelper.fetchFromLibSession(
+                    requirements: fetchRequirements,
+                    cache: dataCache,
+                    using: dependencies
+                )
+            }
+            catch {
+                Log.warn(.homeViewModel, "Failed to handle \(changes.libSessionEvents.count) libSession event(s) due to error: \(error).")
+            }
         }
         
         /// Then handle remaining non-database events
