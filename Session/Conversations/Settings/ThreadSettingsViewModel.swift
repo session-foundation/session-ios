@@ -1155,10 +1155,12 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     }
                                 }()
                                 
-                                // Return if the selected option is `Clear on this device`
-                                guard selectedIndex != 0 else { return }
-                                viewModel.deleteAllMessagesBeforeNow()
+                                // Don't update the group if the selected option is `Clear on this device`
+                                if selectedIndex != 0 {
+                                    viewModel.deleteAllMessagesBeforeNow()
+                                }
                             }
+                            
                             dependencies[singleton: .storage].writeAsync(
                                 updates: { db in
                                     try Interaction.markAllAsDeleted(
@@ -2069,7 +2071,9 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     }
     
     @MainActor private func showPhotoLibraryForAvatar() {
-        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] in
+        Permissions.requestLibraryPermissionIfNeeded(isSavingMedia: false, using: dependencies) { [weak self] granted in
+            guard granted else { return }
+            
             DispatchQueue.main.async {
                 var configuration: PHPickerConfiguration = PHPickerConfiguration()
                 configuration.selectionLimit = 1
@@ -2215,11 +2219,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     }
     
     private func toggleConversationPinnedStatus(currentPinnedPriority: Int32) {
-        let isCurrentlyPinned: Bool = (currentPinnedPriority > LibSession.visiblePriority)
+        let isCurrentlyPinned: Bool = (currentPinnedPriority > Int32(LibSession.visiblePriority))
         
         if !isCurrentlyPinned && dependencies[feature: .sessionProEnabled] && !dependencies[cache: .libSession].isSessionPro {
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
-            dependencies[singleton: .storage].writeAsync (
+            dependencies[singleton: .storage].writeAsync(
                 updates: { [threadId, dependencies] db in
                     let numPinnedConversations: Int = try SessionThread
                         .filter(SessionThread.Columns.pinnedPriority > LibSession.visiblePriority)
@@ -2240,7 +2244,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     
                     return -1
                 },
-                completion: { [weak self, dependencies] result in
+                completion: { [weak self, imageDataManager, dependencies] result in
                     guard
                         let numPinnedConversations: Int = try? result.successOrThrow(),
                         numPinnedConversations > 0
@@ -2253,7 +2257,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit),
                                     renew: dependencies[singleton: .sessionProState].isSessionProExpired
                                 ),
-                                dataManager: self?.imageDataManager,
+                                dataManager: imageDataManager,
                                 onConfirm: { [dependencies] in
                                     Task {
                                         await dependencies[singleton: .sessionProState].upgradeToPro(
@@ -2278,7 +2282,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 db,
                 threadId: threadId,
                 isVisible: true,
-                customPriority: (currentPinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
+                customPriority: (currentPinnedPriority <= Int32(LibSession.visiblePriority) ? 1 : Int32(LibSession.visiblePriority)),
                 using: dependencies
             )
         }
@@ -2382,3 +2386,4 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         self.transitionToScreen(viewController, transitionType: .present)
     }
 }
+

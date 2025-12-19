@@ -184,11 +184,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         dependencies[singleton: .notificationsManager].setDelegate(self)
         
         NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(showMissedCallTipsIfNeededNotification(_:)),
-            name: .missedCall,
-            object: nil
-        )
+            forName: .missedCall,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            DispatchQueue.main.async { [weak self] in
+                self?.showMissedCallTipsIfNeeded(notification)
+            }
+        }
         
         Log.info(.cat, "didFinishLaunchingWithOptions completed.")
         return true
@@ -841,23 +844,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     
     // MARK: - Notification Handling
     
-    @objc public func showMissedCallTipsIfNeededNotification(_ notification: Notification) {
-        showMissedCallTipsIfNeeded(notification)
-    }
-    
-    private func showMissedCallTipsIfNeeded(_ notification: Notification) {
+    @MainActor private func showMissedCallTipsIfNeeded(_ notification: Notification) {
         guard
             dependencies[singleton: .appContext].isValid,
-            !dependencies[defaults: .standard, key: .hasSeenCallMissedTips]
+            !dependencies[defaults: .standard, key: .hasSeenCallMissedTips],
+            let callerId: String = notification.userInfo?[Notification.Key.senderId.rawValue] as? String,
+            let presentingVC = dependencies[singleton: .appContext].frontMostViewController
         else { return }
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async {
-                self.showMissedCallTipsIfNeeded(notification)
-            }
-            return
-        }
-        guard let callerId: String = notification.userInfo?[Notification.Key.senderId.rawValue] as? String else { return }
-        guard let presentingVC = dependencies[singleton: .appContext].frontMostViewController else { preconditionFailure() }
         
         let callMissedTipsModal: CallMissedTipsModal = CallMissedTipsModal(
             caller: Profile.displayName(id: callerId, using: dependencies),

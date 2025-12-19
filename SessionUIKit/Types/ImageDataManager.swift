@@ -161,7 +161,7 @@ public actor ImageDataManager: ImageDataManagerType {
                 
             /// Custom handle `urlThumbnail` generation
             case .urlThumbnail(let url, let size, let thumbnailManager):
-                let maxDimensionInPixels: CGFloat = await size.pixelDimension()
+                let maxDimensionInPixels: CGFloat = size.pixelDimension()
                 let flooredPixels: Int = Int(floor(maxDimensionInPixels))
                 
                 /// If we had already generated a thumbnail then use that
@@ -982,14 +982,13 @@ public extension ImageDataManager.DataSource {
     /// We need to ensure that the image size is "reasonable", otherwise trying to load it could cause out-of-memory crashes
     static let maxValidDimension: Int = 1 << 18 // 262,144 pixels
     
-    @MainActor
-    var displaySizeFromMetadata: CGSize? {
-        /// There are a number of types which have fixed sizes, in those cases we should return the target size rather than try to
-        /// read it from data so we doncan avoid processing
+    /// There are a number of types which have fixed sizes, in those cases we should return the target size rather than try to
+    /// read it from data on the disk
+    var knownDisplaySize: CGSize? {
         switch self {
             case .icon(_, let size, _): return CGSize(width: size, height: size)
             case .image(_, let image):
-                guard let image: UIImage = image else { break }
+                guard let image: UIImage = image else { return nil }
                 
                 return image.size
                 
@@ -999,10 +998,29 @@ public extension ImageDataManager.DataSource {
                 
             case .placeholderIcon(_, _, let size): return CGSize(width: size, height: size)
                 
-            case .url, .data, .videoUrl, .asyncSource: break
+            case .url, .data, .videoUrl, .asyncSource: return nil
         }
-        
-        /// Since we don't have a direct size, try to extract it from the data
+    }
+    
+    /// There are a number of types which have fixed orientations, in those cases we should return the target orientation rather than try to
+    /// read it from data on the disk
+    var knownOrientation: UIImage.Orientation? {
+        switch self {
+            case .icon, .urlThumbnail, .placeholderIcon: return .up
+            case .image(_, let image):
+                guard let image: UIImage = image else { return nil }
+                
+                return image.imageOrientation
+                
+            case .url, .data, .videoUrl, .asyncSource: return nil
+        }
+    }
+    
+    /// Retrieve the display size and orientation of the content from the data itself
+    ///
+    /// **Note:** This should only be called if `knownDisplaySize` and/or `knownOrientation` returned `nil` (meaning we
+    /// don't have an explicit value and need to load it from the data which may involve File I/O)
+    func extractDisplayMetadataFromData() -> (displaySize: CGSize, orientation: UIImage.Orientation)? {
         guard
             let source: CGImageSource = createImageSource(),
             let properties: [String: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
@@ -1015,47 +1033,20 @@ public extension ImageDataManager.DataSource {
         else { return nil }
         
         /// Since we want the "display size" (ie. size after the orientation has been applied) we may need to rotate the resolution
-        let orientation: UIImage.Orientation? = {
-            guard
-                let rawCgOrientation: UInt32 = properties[kCGImagePropertyOrientation as String] as? UInt32,
-                let cgOrientation: CGImagePropertyOrientation = CGImagePropertyOrientation(rawValue: rawCgOrientation)
-            else { return nil }
-    
-            return UIImage.Orientation(cgOrientation)
+        let orientation: UIImage.Orientation = ImageDataManager.orientation(from: properties)
+        let displaySize: CGSize = {
+            switch orientation {
+                case .up, .upMirrored, .down, .downMirrored:
+                    return CGSize(width: sourceWidth, height: sourceHeight)
+                
+                case .leftMirrored, .left, .rightMirrored, .right:
+                    return CGSize(width: sourceHeight, height: sourceWidth)
+                
+                @unknown default: return CGSize(width: sourceWidth, height: sourceHeight)
+            }
         }()
         
-        switch orientation {
-            case .up, .upMirrored, .down, .downMirrored, .none:
-                return CGSize(width: sourceWidth, height: sourceHeight)
-            
-            case .leftMirrored, .left, .rightMirrored, .right:
-                return CGSize(width: sourceHeight, height: sourceWidth)
-            
-            @unknown default: return CGSize(width: sourceWidth, height: sourceHeight)
-        }
-    }
-    
-    @MainActor
-    var orientationFromMetadata: UIImage.Orientation {
-        /// There are a number of types which have fixed sizes, in those cases we should return the target size rather than try to
-        /// read it from data so we doncan avoid processing
-        switch self {
-            case .icon, .urlThumbnail, .placeholderIcon: return .up
-            case .image(_, let image):
-                guard let image: UIImage = image else { break }
-                
-                return image.imageOrientation
-                
-            case .url, .data, .videoUrl, .asyncSource: break
-        }
-        
-        /// Since we don't have a direct size, try to extract it from the data
-        guard
-            let source: CGImageSource = createImageSource(),
-            let properties: [String: Any] = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any]
-        else { return .up }
-        
-        return ImageDataManager.orientation(from: properties)
+        return (displaySize, orientation)
     }
 }
 
@@ -1067,19 +1058,24 @@ public extension ImageDataManager {
         case medium
         case large
         
-        @MainActor public func pixelDimension() -> CGFloat {
-            let scale: CGFloat = UIScreen.main.scale
-            
+        public func pixelDimension() -> CGFloat {
             switch self {
-                case .small: return floor(200 * scale)
-                case .medium: return floor(450 * scale)
-                case .large:
-                    /// This size is large enough to render full screen
-                    let screenSizePoints: CGSize = UIScreen.main.bounds.size
+                case .small: return floor(200 * InitialScreenConstants.scale)
+                case .medium: return floor(450 * InitialScreenConstants.scale)
                     
-                    return floor(max(screenSizePoints.width, screenSizePoints.height) * scale)
+                /// This size is large enough to render full screen
+                case .large: return floor(InitialScreenConstants.maxDimension * InitialScreenConstants.scale)
             }
         }
+    }
+    
+    enum InitialScreenConstants {
+        /// Initial scale the screen had during launch (Fallback to `1` if `nil` which shouldn't really happen)
+        static var scale: CGFloat = (SNUIKit.initialMainScreenScale ?? 1)
+        
+        /// Initial max dimension the screen had during launch (Fallback to `874` for the max resolution which is the iPhone 17 Pro
+        /// height which shouldn't really happen)
+        static var maxDimension: CGFloat = (SNUIKit.initialMainScreenMaxDimension ?? 874)
     }
 }
 

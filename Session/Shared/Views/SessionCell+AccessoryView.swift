@@ -192,8 +192,8 @@ extension SessionCell {
                     
                 case is SessionCell.AccessoryConfig.DisplayPicture: return createDisplayPictureView()
                 case is SessionCell.AccessoryConfig.Search: return createSearchView()
-                    
                 case is SessionCell.AccessoryConfig.Button: return createButtonView()
+                case is SessionCell.AccessoryConfig.ActivityIndicator: return createActivityIndicatorView()
                 case let accessory as SessionCell.AccessoryConfig.AnyCustom:
                     return accessory.createView(
                         maxContentWidth: maxContentWidth,
@@ -246,8 +246,8 @@ extension SessionCell {
                     layoutDisplayPictureView(view, size: accessory.size)
                     
                 case is SessionCell.AccessoryConfig.Search: layoutSearchView(view)
-                    
                 case is SessionCell.AccessoryConfig.Button: layoutButtonView(view)
+                case is SessionCell.AccessoryConfig.ActivityIndicator: layoutActivityIndicatorView(view)
                 case let accessory as SessionCell.AccessoryConfig.AnyCustom:
                     layoutCustomView(view, size: accessory.size)
                     
@@ -304,6 +304,9 @@ extension SessionCell {
                     
                 case let accessory as SessionCell.AccessoryConfig.Button:
                     configureButtonView(view, accessory)
+                    
+                case let accessory as SessionCell.AccessoryConfig.ActivityIndicator:
+                    configureActivityIndicatorView(view, accessory)
                     
                 case let accessory as SessionCell.AccessoryConfig.AnyCustom:
                     configureCustomView(view, accessory)
@@ -886,6 +889,29 @@ extension SessionCell {
             button.setTitle(accessory.title, for: .normal)
             button.style = accessory.style
             button.isHidden = false
+        }
+        
+        // MARK: -- ActivityIndicator
+        
+        private func createActivityIndicatorView() -> UIActivityIndicatorView {
+            return UIActivityIndicatorView(style: .medium)
+        }
+        
+        private func layoutActivityIndicatorView(_ view: UIView?) {
+            guard let indicator: UIActivityIndicatorView = view as? UIActivityIndicatorView else { return }
+            
+            indicator.pin(.top, to: .top, of: self)
+            indicator.pin(.leading, to: .leading, of: self)
+            indicator.pin(.trailing, to: .trailing, of: self)
+            indicator.pin(.bottom, to: .bottom, of: self).setting(priority: .defaultHigh)
+            minWidthConstraint.isActive = true
+        }
+        
+        private func configureActivityIndicatorView(_ view: UIView?, _ accessory: SessionCell.AccessoryConfig.ActivityIndicator) {
+            guard let indicator: UIActivityIndicatorView = view as? UIActivityIndicatorView else { return }
+            
+            indicator.themeColor = accessory.themeColor
+            indicator.startAnimating()
         }
             
         // MARK: -- Custom

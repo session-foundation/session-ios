@@ -54,7 +54,7 @@ class AppReviewPromptDialog: UIView {
     private lazy var primaryButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setThemeTitleColor(.sessionButton_text, for: .normal)
-        result.setThemeTitleColor(.sessionButton_highlight, for: .highlighted)
+        result.setThemeTitleColor(.highlighted(.sessionButton_text, alwaysDarken: false), for: .highlighted)
         result.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.titleLabel?.numberOfLines = 0
         result.titleLabel?.textAlignment = .center
@@ -66,7 +66,7 @@ class AppReviewPromptDialog: UIView {
     private lazy var secondaryButton: UIButton = {
         let result = UIButton(type: .custom)
         result.setThemeTitleColor(.textPrimary, for: .normal)
-        result.setThemeTitleColor(.textSecondary, for: .highlighted)
+        result.setThemeTitleColor(.highlighted(.textPrimary, alwaysDarken: false), for: .highlighted)
         result.titleLabel?.font = .boldSystemFont(ofSize: Values.mediumFontSize)
         result.titleLabel?.numberOfLines = 0
         result.titleLabel?.textAlignment = .center
@@ -138,10 +138,20 @@ class AppReviewPromptDialog: UIView {
         
         primaryButton.isHidden = prompt?.promptContent.primaryButtonTitle == nil
         primaryButton.setTitle(prompt?.promptContent.primaryButtonTitle, for: .normal)
+        primaryButton.setThemeTitleColor(prompt?.promptContent.primaryButtonColor, for: .normal)
+        primaryButton.setThemeTitleColor(
+            (prompt?.promptContent.primaryButtonColor).map { .highlighted($0, alwaysDarken: false) },
+            for: .highlighted
+        )
         primaryButton.accessibilityIdentifier = prompt?.promptContent.primaryButtonAccessibilityIdentifier
         
         secondaryButton.isHidden = prompt?.promptContent.secondaryButtonTitle == nil
         secondaryButton.setTitle(prompt?.promptContent.secondaryButtonTitle, for: .normal)
+        secondaryButton.setThemeTitleColor(prompt?.promptContent.secondaryButtonColor, for: .normal)
+        secondaryButton.setThemeTitleColor(
+            (prompt?.promptContent.secondaryButtonColor).map { .highlighted($0, alwaysDarken: false) },
+            for: .highlighted
+        )
         secondaryButton.accessibilityIdentifier = prompt?.promptContent.secondaryButtonAccessibilityIdentifier
         
         let isButtonsHidden = primaryButton.isHidden && secondaryButton.isHidden

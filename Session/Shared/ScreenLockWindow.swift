@@ -38,7 +38,7 @@ public class ScreenLockWindow {
     
     // MARK: - UI
     
-    public lazy var window: UIWindow = {
+    @MainActor public lazy var window: UIWindow = {
         let result: UIWindow = UIWindow()
         result.isHidden = false
         result.windowLevel = .background
@@ -107,7 +107,7 @@ public class ScreenLockWindow {
         )
     }
     
-    public func setupWithRootWindow(rootWindow: UIWindow) {
+    @MainActor public func setupWithRootWindow(rootWindow: UIWindow) {
         self.window.frame = rootWindow.bounds
         self.observeNotifications()
         

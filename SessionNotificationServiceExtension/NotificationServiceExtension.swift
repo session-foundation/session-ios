@@ -21,7 +21,8 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     private var dependencies: Dependencies = Dependencies.createEmpty()
     private var startTime: CFTimeInterval = 0
     private var cachedNotificationInfo: NotificationInfo = .invalid
-    @ThreadSafe private var hasCompleted: Bool = false
+    private let hasCompletedLock: NSLock = NSLock()
+    private var _hasCompleted: Bool = false
     
     // MARK: Did receive a remote push notification request
     
@@ -34,10 +35,13 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         /// notifications causing issues with new notifications
         self.dependencies = Dependencies.createEmpty()
         
-        // It's technically possible for 'completeSilently' to be called twice due to the NSE timeout so
-        self.hasCompleted = false
+        /// It's technically possible for `completeSilently` to be called twice due to the NSE timeout so we need to track whether
+        /// it has already been handled or not (and need to reset the flag whenever we get a new notification)
+        hasCompletedLock.lock()
+        self._hasCompleted = false
+        hasCompletedLock.unlock()
         
-        // Abort if the main app is running
+        /// Abort if the main app is running
         guard !dependencies[defaults: .appGroup, key: .isMainAppActive] else {
             return self.completeSilenty(self.cachedNotificationInfo, .ignoreDueToMainAppRunning)
         }
@@ -592,10 +596,12 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                             )
                         let result = semaphore.wait(timeout: .now() + .seconds(Int(Network.defaultTimeout)))
                         
-                        switch (result, hasCompleted) {
-                            case (.timedOut, _), (_, true): throw NotificationError.timeout
-                            case (.success, false): break    /// Show the notification and write the message to disk
+                        if result == .timedOut || isAlreadyCompleted() {
+                            throw NotificationError.timeout
                         }
+                        
+                        /// Show the notification and write the message to disk
+                        break
                         
                     case (true, false, .preOffer):
                         let isMessageRequest: Bool = dependencies.mutate(cache: .libSession) { libSession in
@@ -1097,8 +1103,15 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
     }
     
     private func completeSilenty(_ info: NotificationInfo, _ resolution: NotificationResolution) {
-        // Ensure we only run this once
-        guard _hasCompleted.performUpdateAndMap({ (true, $0) }) == false else { return }
+        /// Ensure we only run this once
+        guard shouldProceedWithCompletion() else {
+            Log.info(.cat, "Ignoring call to 'completeSilenly', contentHandler already called, requestId: \(info.requestId).")
+            Log.flush()
+            return
+        }
+        
+        _hasCompleted = true
+        hasCompletedLock.unlock()
         
         let silentContent: UNMutableNotificationContent = UNMutableNotificationContent()
         
@@ -1129,6 +1142,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         displayNameRetriever: @escaping (String, Bool) -> String?
     ) {
         guard Preferences.isCallKitSupported else {
+            Log.info(.cat, "CallKit not supported, handling call as a failure, requestId: \(notification.info.requestId).")
             return handleFailureForVoIP(
                 notification,
                 threadVariant: threadVariant,
@@ -1145,10 +1159,16 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                 .defaulting(to: sender.truncated(threadVariant: threadVariant))
         ]
         
+        Log.info(.cat, "Notifying CallKit of new call, requestId: \(notification.info.requestId).")
         CXProvider.reportNewIncomingVoIPPushPayload(payload) { [weak self, dependencies] error in
+            guard let self else {
+                Log.error(.cat, "Self deallocated in CallKit callback, requestId: \(notification.info.requestId).")
+                return
+            }
+            
             if let error = error {
-                Log.error(.cat, "Failed to notify main app of call message: \(error).")
-                self?.handleFailureForVoIP(
+                Log.error(.cat, "Failed to notify main app of call message: \(error), \(notification.info.requestId).")
+                handleFailureForVoIP(
                     notification,
                     threadVariant: threadVariant,
                     callMessage: callMessage,
@@ -1157,7 +1177,7 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             }
             else {
                 dependencies[defaults: .appGroup, key: .lastCallPreOffer] = Date()
-                self?.completeSilenty(notification.info, .successCall)
+                completeSilenty(notification.info, .successCall)
             }
         }
     }
@@ -1168,6 +1188,11 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
         callMessage: CallMessage,
         displayNameRetriever: (String, Bool) -> String?
     ) {
+        if isAlreadyCompleted() {
+            Log.info(.cat, "Extension already completed, skipping VoIP failure handling for requestId: \(notification.info.requestId).")
+            return
+        }
+        
         let content: UNMutableNotificationContent = UNMutableNotificationContent()
         content.userInfo = [ NotificationUserInfoKey.isFromRemote: true ]
         content.title = Constants.app_name
@@ -1191,16 +1216,35 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
             content: content,
             trigger: nil
         )
+        
+        Log.info(.cat, "Attempting to add notification for call failure, requestId: \(notification.info.requestId).")
         let semaphore = DispatchSemaphore(value: 0)
+        var addError: Error?
         
         UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                Log.error(.cat, "Failed to add notification request for requestId: \(notification.info.requestId) due to error: \(error).")
-            }
+            addError = error
             semaphore.signal()
         }
-        semaphore.wait()
-        Log.info(.cat, "Add remote notification request for requestId: \(notification.info.requestId).")
+        let result = semaphore.wait(timeout: .now() + .seconds(3))
+        
+        if isAlreadyCompleted() {
+            Log.info(.cat, "Extension completed during notification add, requestId: \(notification.info.requestId).")
+            return
+        }
+        
+        switch result {
+            case .success:
+                if let addError {
+                    Log.error(.cat, "Failed to add notification request for requestId: \(notification.info.requestId) due to error: \(addError).")
+                } else {
+                    Log.info(.cat, "Successfully added notification request for requestId: \(notification.info.requestId).")
+                }
+                
+            case .timedOut:
+                /// Continue from this case anyway as it's possible the callback just didn't fire in time but we want to resolve
+                /// execution normally
+                Log.error(.cat, "Timed out waiting for UNUserNotificationCenter.add() for requestId: \(notification.info.requestId).")
+        }
         
         completeSilenty(notification.info, .errorCallFailure)
     }
@@ -1269,14 +1313,34 @@ public final class NotificationServiceExtension: UNNotificationServiceExtension 
                     .localized()
         }
         
+        guard shouldProceedWithCompletion() else {
+            Log.info(.cat, "Ignoring call to 'handleFailure', contentHandler already called, requestId: \(info.requestId).")
+            Log.flush()
+            return
+        }
+        
         info.contentHandler(info.content)
-        hasCompleted = true
     }
 }
 
 // MARK: - Convenience
 
 private extension NotificationServiceExtension {
+    private func isAlreadyCompleted() -> Bool {
+        hasCompletedLock.lock()
+        defer { hasCompletedLock.unlock() }
+        return _hasCompleted
+    }
+    
+    private func shouldProceedWithCompletion() -> Bool {
+        hasCompletedLock.lock()
+        defer { hasCompletedLock.unlock() }
+        
+        guard !_hasCompleted else { return false }
+        _hasCompleted = true
+        return true
+    }
+    
     struct NotificationInfo {
         static let invalid: NotificationInfo = NotificationInfo(
             content: UNMutableNotificationContent(),
