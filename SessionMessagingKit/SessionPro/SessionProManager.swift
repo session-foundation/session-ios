@@ -581,6 +581,7 @@ public actor SessionProManager: SessionProManagerType {
         await self.stateStream.send(updatedState)
         oldState = updatedState
         
+        // TODO: [PRO] Make sure we _actually_ want to remove this state (doing so might mean that we can't tell that the user used to be pro)
         switch response.status {
             case .active:
                 try await refreshProProofIfNeeded(
@@ -590,29 +591,10 @@ public actor SessionProManager: SessionProManagerType {
                     status: updatedState.status
                 )
                 
-            case .neverBeenPro:
-                try await clearProProofFromConfig()
-                
-                /// We should still update the `accessExpiryTimestampMs` stored in the config just in case
-                try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
-                    try dependencies.mutate(cache: .libSession) { cache in
-                        try cache.performAndPushChange(db, for: .userProfile) { _ in
-                            cache.updateProAccessExpiryTimestampMs(updatedState.accessExpiryTimestampMs ?? 0)
-                        }
-                    }
-                }
-            
-            case .expired:
-                try await clearProProofFromConfig()
-                
-                /// We should still update the `accessExpiryTimestampMs` stored in the config just in case
-                try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
-                    try dependencies.mutate(cache: .libSession) { cache in
-                        try cache.performAndPushChange(db, for: .userProfile) { _ in
-                            cache.updateProAccessExpiryTimestampMs(updatedState.accessExpiryTimestampMs ?? 0)
-                        }
-                    }
-                }
+            case .neverBeenPro, .expired:
+                try await clearStateFromConfig(
+                    accessExpiryTimestampMs: updatedState.accessExpiryTimestampMs
+                )
         }
         
         updatedState = oldState.with(
@@ -799,6 +781,8 @@ public actor SessionProManager: SessionProManagerType {
     
     private func startRevocationListTask() {
         revocationListTask = Task {
+            // TODO: [PRO] Load current revocation list into memory and add to `syncState`
+            
             while true {
                 do {
                     let ticket: UInt32 = try await Result(
@@ -872,6 +856,7 @@ public actor SessionProManager: SessionProManagerType {
         }
         
         // TODO: [PRO] Do we want this to run in a loop with a sleep in case the user purchases pro on another device?
+        // TODO: [PRO] Could potentially kick off this task from `updateLatestFromUserConfig` if `updatedState.accessExpiryTimestampMs != oldState.accessExpiryTimestampMs`??? (would get triggered if a user purchased pro using the same account on a separate iOS device while the app is open on this one)
         entitlementsObservingTask = Task { [weak self] in
             guard let self else { return }
             
@@ -895,11 +880,14 @@ public actor SessionProManager: SessionProManagerType {
         }
     }
     
-    private func clearProProofFromConfig() async throws {
+    private func clearStateFromConfig(accessExpiryTimestampMs: UInt64?) async throws {
         try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try dependencies.mutate(cache: .libSession) { cache in
                 try cache.performAndPushChange(db, for: .userProfile) { _ in
                     cache.removeProConfig()
+                    
+                    /// We should also update the `accessExpiryTimestampMs` stored in the config just in case
+                    cache.updateProAccessExpiryTimestampMs(accessExpiryTimestampMs ?? 0)
                 }
             }
         }

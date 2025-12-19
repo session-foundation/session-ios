@@ -122,6 +122,7 @@ public class HomeViewModel: NavigatableStateHolder {
                 .appLifecycle(.willEnterForeground),
                 .databaseLifecycle(.resumed),
                 .loadPage(HomeViewModel.self),
+                .conversationCreated,
                 .messageRequestAccepted,
                 .messageRequestDeleted,
                 .messageRequestMessageRead,

@@ -59,7 +59,7 @@ public extension SessionPro {
                     )
                 ]
             )
-#endif
+#else
             let products: [Product] = try await Product
                 .products(for: productIds)
                 .sorted()
@@ -106,6 +106,7 @@ public extension SessionPro {
             }
             
             return (products, plans)
+#endif
         }
     }
 }
