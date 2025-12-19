@@ -435,11 +435,12 @@ extension Onboarding {
                         /// won't actually get synced correctly and could result in linking a second device and having the 'Note to Self' conversation incorrectly
                         /// being visible
                         if initialFlow == .register {
-                            try SessionThread.updateVisibility(
+                            try SessionThread.update(
                                 db,
-                                threadId: userSessionId.hexString,
-                                threadVariant: .contact,
-                                isVisible: false,
+                                id: userSessionId.hexString,
+                                values: SessionThread.TargetValues(
+                                    shouldBeVisible: .setTo(false)
+                                ),
                                 using: dependencies
                             )
                         }

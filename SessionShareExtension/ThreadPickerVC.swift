@@ -347,12 +347,13 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     
                     /// Update the thread to be visible (if it isn't already)
                     if !thread.shouldBeVisible || thread.pinnedPriority == LibSession.hiddenPriority {
-                        try SessionThread.updateVisibility(
+                        try SessionThread.update(
                             db,
-                            threadId: threadId,
-                            threadVariant: thread.variant,
-                            isVisible: true,
-                            additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
+                            id: threadId,
+                            values: SessionThread.TargetValues(
+                                shouldBeVisible: .setTo(true),
+                                isDraft: .setTo(false)
+                            ),
                             using: dependencies
                         )
                     }

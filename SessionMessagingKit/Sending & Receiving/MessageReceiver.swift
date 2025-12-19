@@ -412,12 +412,13 @@ public enum MessageReceiver {
 
         guard !isCurrentlyVisible else { return }
         
-        try SessionThread.updateVisibility(
+        try SessionThread.update(
             db,
-            threadId: threadId,
-            threadVariant: threadVariant,
-            isVisible: true,
-            additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
+            id: threadId,
+            values: SessionThread.TargetValues(
+                shouldBeVisible: .setTo(true),
+                isDraft: .setTo(false)
+            ),
             using: dependencies
         )
     }

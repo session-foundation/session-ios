@@ -852,16 +852,16 @@ extension ConversationVC:
         do {
             try await viewModel.dependencies[singleton: .storage].writeAsync { [weak self, dependencies = viewModel.dependencies] db in
                 // Update the thread to be visible (if it isn't already)
-                if !state.threadInfo.shouldBeVisible {
-                    try SessionThread.updateVisibility(
-                        db,
-                        threadId: state.threadId,
-                        threadVariant: state.threadVariant,
-                        isVisible: true,
-                        additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
-                        using: dependencies
-                    )
-                }
+                try SessionThread.upsert(
+                    db,
+                    id: state.threadId,
+                    variant: state.threadVariant,
+                    values: SessionThread.TargetValues(
+                        shouldBeVisible: .setTo(true),
+                        isDraft: .setTo(false)
+                    ),
+                    using: dependencies
+                )
                 
                 // Insert the interaction and associated it with the optimistically inserted message so
                 // we can remove it once the database triggers a UI update
@@ -1996,15 +1996,14 @@ extension ConversationVC:
             
             let destination: Message.Destination = try await viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
                 // Update the thread to be visible (if it isn't already)
-                if threadShouldBeVisible == false {
-                    try SessionThread.updateVisibility(
-                        db,
-                        threadId: cellViewModel.threadId,
-                        threadVariant: cellViewModel.threadVariant,
-                        isVisible: true,
-                        using: dependencies
-                    )
-                }
+                try SessionThread.update(
+                    db,
+                    id: cellViewModel.threadId,
+                    values: SessionThread.TargetValues(
+                        shouldBeVisible: .setTo(true)
+                    ),
+                    using: dependencies
+                )
                 
                 // Get the pending reaction
                 if remove {

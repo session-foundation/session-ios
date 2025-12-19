@@ -1048,11 +1048,12 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                         onTap: { [dependencies = viewModel.dependencies] in
                             dependencies[singleton: .storage].writeAsync { db in
                                 if isThreadHidden {
-                                    try SessionThread.updateVisibility(
+                                    try SessionThread.update(
                                         db,
-                                        threadId: state.threadInfo.id,
-                                        threadVariant: state.threadInfo.variant,
-                                        isVisible: true,
+                                        id: state.threadInfo.id,
+                                        values: SessionThread.TargetValues(
+                                            shouldBeVisible: .setTo(true)
+                                        ),
                                         using: dependencies
                                     )
                                 } else {
@@ -2219,12 +2220,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
                     }
                     
                     /// We have the space to pin the conversation, so do so
-                    try SessionThread.updateVisibility(
+                    try SessionThread.update(
                         db,
-                        threadId: threadInfo.id,
-                        threadVariant: threadInfo.variant,
-                        isVisible: true,
-                        customPriority: (threadInfo.pinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
+                        id: threadInfo.id,
+                        values: SessionThread.TargetValues(
+                            shouldBeVisible: .setTo(true),
+                            pinnedPriority: .setTo(threadInfo.pinnedPriority <= LibSession.visiblePriority ?
+                                1 :
+                                LibSession.visiblePriority
+                            )
+                        ),
                         using: dependencies
                     )
                     
@@ -2259,12 +2264,16 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         
         // If we are unpinning then no need to check the current count, just unpin immediately
         try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
-            try SessionThread.updateVisibility(
+            try SessionThread.update(
                 db,
-                threadId: threadInfo.id,
-                threadVariant: threadInfo.variant,
-                isVisible: true,
-                customPriority: (threadInfo.pinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
+                id: threadInfo.id,
+                values: SessionThread.TargetValues(
+                    shouldBeVisible: .setTo(true),
+                    pinnedPriority: .setTo(threadInfo.pinnedPriority <= LibSession.visiblePriority ?
+                        1 :
+                        LibSession.visiblePriority
+                    )
+                ),
                 using: dependencies
             )
         }

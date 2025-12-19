@@ -508,7 +508,7 @@ public extension ConversationInfoViewModel {
             db.addConversationEvent(
                 id: id,
                 variant: variant,
-                type: .updated(.draft(draft))
+                type: .updated(.messageDraft(draft))
             )
         }
     }

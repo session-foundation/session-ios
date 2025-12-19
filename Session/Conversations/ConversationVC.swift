@@ -654,8 +654,6 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
         /// If the user just created this thread but didn't send a message or the conversation is marked as hidden then we want to delete the
         /// "shadow" thread since it's not actually in use (this is to prevent it from taking up database space or unintentionally getting synced
         /// via `libSession` in the future)
-        let threadId: String = viewModel.state.threadId
-        
         if
             (
                 self.navigationController == nil ||
@@ -664,10 +662,14 @@ final class ConversationVC: BaseVC, LibSessionRespondingViewController, Conversa
             !viewModel.state.threadInfo.isNoteToSelf &&
             viewModel.state.threadInfo.isDraft
         {
-            viewModel.dependencies[singleton: .storage].writeAsync { db in
-                _ = try SessionThread   // Intentionally use `deleteAll` here instead of `deleteOrLeave`
-                    .filter(id: threadId)
-                    .deleteAll(db)
+            viewModel.dependencies[singleton: .storage].writeAsync { [state = viewModel.state, dependencies = viewModel.dependencies] db in
+                try SessionThread.deleteOrLeave(
+                    db,
+                    type: .deleteContactConversationAndContact,
+                    threadId: state.threadInfo.id,
+                    threadVariant: state.threadInfo.variant,
+                    using: dependencies
+                )
             }
         }
     }

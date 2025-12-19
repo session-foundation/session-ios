@@ -284,7 +284,9 @@ public struct ConversationEvent: Hashable {
         case mutedUntilTimestamp(TimeInterval?)
         case onlyNotifyForMentions(Bool)
         case markedAsUnread(Bool)
-        case draft(String?)
+        case isDraft(Bool)
+        
+        case messageDraft(String?)
         case disappearingMessageConfiguration(DisappearingMessagesConfiguration?)
         case unreadCount
     }

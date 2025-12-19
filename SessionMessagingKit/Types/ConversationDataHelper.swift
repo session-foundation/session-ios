@@ -305,7 +305,12 @@ public extension ConversationDataHelper {
                     
                     updatedCache.insert(thread.with(markedAsUnread: .set(to: value)))
                     
-                case (_, .draft(let value)):
+                case (_, .isDraft(let value)):
+                    guard let thread: SessionThread = updatedCache.thread(for: event.id) else { return }
+                    
+                    updatedCache.insert(thread.with(isDraft: .set(to: value)))
+                    
+                case (_, .messageDraft(let value)):
                     guard let thread: SessionThread = updatedCache.thread(for: event.id) else { return }
                     
                     updatedCache.insert(thread.with(messageDraft: .set(to: value)))

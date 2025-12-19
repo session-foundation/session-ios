@@ -270,12 +270,16 @@ public extension UIContextualAction {
                             // Delay the change to give the cell "unswipe" animation some time to complete
                             DispatchQueue.global(qos: .default).asyncAfter(deadline: .now() + unswipeAnimationDelay) {
                                 dependencies[singleton: .storage].writeAsync { db in
-                                    try SessionThread.updateVisibility(
+                                    try SessionThread.update(
                                         db,
-                                        threadId: threadInfo.id,
-                                        threadVariant: threadInfo.variant,
-                                        isVisible: true,
-                                        customPriority: (isCurrentlyPinned ? LibSession.visiblePriority : 1),
+                                        id: threadInfo.id,
+                                        values: SessionThread.TargetValues(
+                                            shouldBeVisible: .setTo(true),
+                                            pinnedPriority: .setTo(isCurrentlyPinned ?
+                                                LibSession.visiblePriority :
+                                                1
+                                            )
+                                        ),
                                         using: dependencies
                                     )
                                 }

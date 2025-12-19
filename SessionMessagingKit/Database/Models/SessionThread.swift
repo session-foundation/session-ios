@@ -328,14 +328,35 @@ public extension SessionThread {
                 ).upserted(db)
         }
         
+        return try result.update(db, values: values, using: dependencies)
+    }
+    
+    @discardableResult static func update(
+        _ db: ObservingDatabase,
+        id: ID,
+        values: TargetValues,
+        using dependencies: Dependencies
+    ) throws -> SessionThread? {
+        guard let thread: SessionThread = try? fetchOne(db, id: id) else {
+            return nil
+        }
+        
+        return try thread.update(db, values: values, using: dependencies)
+    }
+    
+    private func update(
+        _ db: ObservingDatabase,
+        values: TargetValues,
+        using dependencies: Dependencies
+    ) throws -> SessionThread {
         /// Apply any changes if the provided `values` don't match the current or default settings
         var requiredChanges: [ConfigColumnAssignment] = []
-        var finalCreationDateTimestamp: TimeInterval = result.creationDateTimestamp
-        var finalShouldBeVisible: Bool = result.shouldBeVisible
-        var finalPinnedPriority: Int32? = result.pinnedPriority
-        var finalIsDraft: Bool? = result.isDraft
-        var finalMutedUntilTimestamp: TimeInterval? = result.mutedUntilTimestamp
-        var finalOnlyNotifyForMentions: Bool = result.onlyNotifyForMentions
+        var finalCreationDateTimestamp: TimeInterval = creationDateTimestamp
+        var finalShouldBeVisible: Bool = shouldBeVisible
+        var finalPinnedPriority: Int32? = pinnedPriority
+        var finalIsDraft: Bool? = isDraft
+        var finalMutedUntilTimestamp: TimeInterval? = mutedUntilTimestamp
+        var finalOnlyNotifyForMentions: Bool = onlyNotifyForMentions
         
         /// Resolve any settings which should be sourced from `libSession`
         let resolvedValues: TargetValues = values.resolveLibSessionValues(
@@ -392,12 +413,12 @@ public extension SessionThread {
         }
         
         /// And update any explicit `setTo` cases
-        if case .setTo(let value) = values.creationDateTimestamp, value != result.creationDateTimestamp {
+        if case .setTo(let value) = values.creationDateTimestamp, value != creationDateTimestamp {
             requiredChanges.append(SessionThread.Columns.creationDateTimestamp.set(to: value))
             finalCreationDateTimestamp = value
         }
         
-        if case .setTo(let value) = values.shouldBeVisible, value != result.shouldBeVisible {
+        if case .setTo(let value) = values.shouldBeVisible, value != shouldBeVisible {
             requiredChanges.append(SessionThread.Columns.shouldBeVisible.set(to: value))
             finalShouldBeVisible = value
             db.addConversationEvent(
@@ -419,7 +440,7 @@ public extension SessionThread {
             }
         }
         
-        if case .setTo(let value) = values.pinnedPriority, value != result.pinnedPriority {
+        if case .setTo(let value) = values.pinnedPriority, value != pinnedPriority {
             requiredChanges.append(SessionThread.Columns.pinnedPriority.set(to: value))
             finalPinnedPriority = value
             db.addConversationEvent(
@@ -429,12 +450,17 @@ public extension SessionThread {
             )
         }
         
-        if case .setTo(let value) = values.isDraft, value != result.isDraft {
+        if case .setTo(let value) = values.isDraft, value != isDraft {
             requiredChanges.append(SessionThread.Columns.isDraft.set(to: value))
             finalIsDraft = value
+            db.addConversationEvent(
+                id: id,
+                variant: variant,
+                type: .updated(.isDraft(value))
+            )
         }
         
-        if case .setTo(let value) = values.mutedUntilTimestamp, value != result.mutedUntilTimestamp {
+        if case .setTo(let value) = values.mutedUntilTimestamp, value != mutedUntilTimestamp {
             requiredChanges.append(SessionThread.Columns.mutedUntilTimestamp.set(to: value))
             finalMutedUntilTimestamp = value
             db.addConversationEvent(
@@ -444,7 +470,7 @@ public extension SessionThread {
             )
         }
         
-        if case .setTo(let value) = values.onlyNotifyForMentions, value != result.onlyNotifyForMentions {
+        if case .setTo(let value) = values.onlyNotifyForMentions, value != onlyNotifyForMentions {
             requiredChanges.append(SessionThread.Columns.onlyNotifyForMentions.set(to: value))
             finalOnlyNotifyForMentions = value
             db.addConversationEvent(
@@ -455,7 +481,7 @@ public extension SessionThread {
         }
         
         /// If no changes were needed we can just return the existing/default thread
-        guard !requiredChanges.isEmpty else { return result }
+        guard !requiredChanges.isEmpty else { return self }
         
         /// Otherwise save the changes
         try SessionThread
@@ -466,24 +492,15 @@ public extension SessionThread {
                 using: dependencies
             )
         
-        /// We need to re-fetch the updated thread as the changes wouldn't have been applied to `result`, it's also possible additional
-        /// changes could have happened to the thread during the database operations
-        ///
-        /// Since we want to avoid returning a nullable `SessionThread` here we need to fallback to a non-null instance, but it should
-        /// never be called
-        return try fetchOne(db, id: id)
-            .defaulting(
-                toThrowing: try SessionThread(
-                    id: id,
-                    variant: variant,
-                    creationDateTimestamp: finalCreationDateTimestamp,
-                    shouldBeVisible: finalShouldBeVisible,
-                    mutedUntilTimestamp: finalMutedUntilTimestamp,
-                    onlyNotifyForMentions: finalOnlyNotifyForMentions,
-                    pinnedPriority: finalPinnedPriority,
-                    isDraft: finalIsDraft
-                ).upserted(db)
-            )
+        /// Return and updated instance
+        return self.with(
+            creationDateTimestamp: .set(to: finalCreationDateTimestamp),
+            shouldBeVisible: .set(to: finalShouldBeVisible),
+            mutedUntilTimestamp: .set(to: finalMutedUntilTimestamp),
+            onlyNotifyForMentions: .set(to: finalOnlyNotifyForMentions),
+            pinnedPriority: .set(to: finalPinnedPriority),
+            isDraft: .set(to: finalIsDraft)
+        )
     }
     
     static func canSendReadReceipt(
@@ -606,13 +623,16 @@ public extension SessionThread {
         
         switch type {
             case .hideContactConversation:
-                try SessionThread.updateVisibility(
-                    db,
-                    threadIds: threadIds,
-                    threadVariant: threadVariant,
-                    isVisible: false,
-                    using: dependencies
-                )
+                try threadIds.forEach { id in
+                    try SessionThread.update(
+                        db,
+                        id: id,
+                        values: SessionThread.TargetValues(
+                            shouldBeVisible: .setTo(false)
+                        ),
+                        using: dependencies
+                    )
+                }
                 
             case .hideContactConversationAndDeleteContentDirectly:
                 // Clear any interactions for the deleted thread
@@ -622,13 +642,16 @@ public extension SessionThread {
                 )
                 
                 // Hide the threads
-                try SessionThread.updateVisibility(
-                    db,
-                    threadIds: threadIds,
-                    threadVariant: threadVariant,
-                    isVisible: false,
-                    using: dependencies
-                )
+                try threadIds.forEach { id in
+                    try SessionThread.update(
+                        db,
+                        id: id,
+                        values: SessionThread.TargetValues(
+                            shouldBeVisible: .setTo(false)
+                        ),
+                        using: dependencies
+                    )
+                }
                 
                 // Remove desired deduplication records
                 try MessageDeduplication.deleteIfNeeded(db, threadIds: threadIds, using: dependencies)
@@ -671,13 +694,16 @@ public extension SessionThread {
                         .filter(Interaction.Columns.threadId == userSessionId.hexString)
                     )
                     
-                    try SessionThread.updateVisibility(
-                        db,
-                        threadIds: threadIds,
-                        threadVariant: threadVariant,
-                        isVisible: false,
-                        using: dependencies
-                    )
+                    try threadIds.forEach { id in
+                        try SessionThread.update(
+                            db,
+                            id: id,
+                            values: SessionThread.TargetValues(
+                                shouldBeVisible: .setTo(false)
+                            ),
+                            using: dependencies
+                        )
+                    }
                 }
                 
                 // Remove desired deduplication records
@@ -758,115 +784,27 @@ public extension SessionThread {
 
 public extension SessionThread {
     func with(
+        creationDateTimestamp: Update<TimeInterval> = .useExisting,
         shouldBeVisible: Update<Bool> = .useExisting,
         messageDraft: Update<String?> = .useExisting,
         mutedUntilTimestamp: Update<TimeInterval?> = .useExisting,
         onlyNotifyForMentions: Update<Bool> = .useExisting,
         markedAsUnread: Update<Bool?> = .useExisting,
-        pinnedPriority: Update<Int32?> = .useExisting
+        pinnedPriority: Update<Int32?> = .useExisting,
+        isDraft: Update<Bool?> = .useExisting
     ) -> SessionThread {
         return SessionThread(
             id: id,
             variant: variant,
-            creationDateTimestamp: creationDateTimestamp,
+            creationDateTimestamp: creationDateTimestamp.or(self.creationDateTimestamp),
             shouldBeVisible: shouldBeVisible.or(self.shouldBeVisible),
             messageDraft: messageDraft.or(self.messageDraft),
             mutedUntilTimestamp: mutedUntilTimestamp.or(self.mutedUntilTimestamp),
             onlyNotifyForMentions: onlyNotifyForMentions.or(self.onlyNotifyForMentions),
             markedAsUnread: markedAsUnread.or(self.markedAsUnread),
             pinnedPriority: pinnedPriority.or(self.pinnedPriority),
-            isDraft: isDraft
+            isDraft: isDraft.or(self.isDraft)
         )
-    }
-    
-    static func updateVisibility(
-        _ db: ObservingDatabase,
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        isVisible: Bool,
-        customPriority: Int32? = nil,
-        additionalChanges: [ConfigColumnAssignment] = [],
-        using dependencies: Dependencies
-    ) throws {
-        try updateVisibility(
-            db,
-            threadIds: [threadId],
-            threadVariant: threadVariant,
-            isVisible: isVisible,
-            customPriority: customPriority,
-            additionalChanges: additionalChanges,
-            using: dependencies
-        )
-    }
-    
-    static func updateVisibility(
-        _ db: ObservingDatabase,
-        threadIds: [String],
-        threadVariant: SessionThread.Variant,
-        isVisible: Bool,
-        customPriority: Int32? = nil,
-        additionalChanges: [ConfigColumnAssignment] = [],
-        using dependencies: Dependencies
-    ) throws {
-        struct ThreadInfo: Decodable, FetchableRecord {
-            var id: String
-            var shouldBeVisible: Bool
-            var pinnedPriority: Int32
-        }
-        
-        let targetPriority: Int32
-        
-        switch (customPriority, isVisible) {
-            case (.some(let priority), _): targetPriority = priority
-            case (.none, true): targetPriority = LibSession.visiblePriority
-            case (.none, false): targetPriority = LibSession.hiddenPriority
-        }
-        
-        let currentInfo: [String: ThreadInfo] = try SessionThread
-            .select(.id, .shouldBeVisible, .pinnedPriority)
-            .filter(ids: threadIds)
-            .asRequest(of: ThreadInfo.self)
-            .fetchAll(db)
-            .reduce(into: [:]) { result, next in
-                result[next.id] = next
-            }
-        
-        _ = try SessionThread
-            .filter(ids: threadIds)
-            .updateAllAndConfig(
-                db,
-                [
-                    SessionThread.Columns.pinnedPriority.set(to: targetPriority),
-                    SessionThread.Columns.shouldBeVisible.set(to: isVisible)
-                ].appending(contentsOf: additionalChanges),
-                using: dependencies
-            )
-        
-        /// Emit events for any changes
-        threadIds.forEach { id in
-            if currentInfo[id]?.shouldBeVisible != isVisible {
-                db.addConversationEvent(
-                    id: id,
-                    variant: threadVariant,
-                    type: .updated(.shouldBeVisible(isVisible))
-                )
-                
-                /// Toggling visibility is the same as "creating"/"deleting" a conversation
-                db.addConversationEvent(
-                    id: id,
-                    variant: threadVariant,
-                    type: (isVisible ? .created : .deleted)
-                )
-            }
-            
-            if currentInfo[id]?.pinnedPriority != targetPriority {
-                db.addConversationEvent(
-                    id: id,
-                    variant: threadVariant,
-                    type: .updated(.pinnedPriority(targetPriority))
-                )
-            }
-        }
     }
     
     static func unreadMessageRequestsQuery(messageRequestThreadIds: Set<String>) -> SQLRequest<Int> {
