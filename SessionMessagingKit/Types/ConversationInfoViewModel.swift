@@ -395,19 +395,18 @@ extension ConversationInfoViewModel: ObservableKeyProvider {
             result.insert(.profile(additionalProfile.id))
         }
         
-        if self.contactInfo != nil {
-            result.insert(.contact(id))
-        }
-        
-        if self.groupInfo != nil {
-            result.insert(.groupInfo(groupId: id))
-            result.insert(.groupMemberCreated(threadId: id))
-            result.insert(.anyGroupMemberDeleted(threadId: id))
-        }
-        
-        if self.communityInfo != nil {
-            result.insert(.communityUpdated(id))
-            result.insert(.anyContactUnblinded) /// To update profile info and blinded mapping
+        switch variant {
+            case .contact: result.insert(.contact(id))
+            case .group:
+                result.insert(.groupInfo(groupId: id))
+                result.insert(.groupMemberCreated(threadId: id))
+                result.insert(.anyGroupMemberDeleted(threadId: id))
+                
+            case .community:
+                result.insert(.communityUpdated(id))
+                result.insert(.anyContactUnblinded) /// To update profile info and blinded mapping
+            
+            case .legacyGroup: break
         }
         
         return result

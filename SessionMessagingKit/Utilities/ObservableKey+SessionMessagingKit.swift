@@ -318,6 +318,7 @@ public struct MessageEvent: Hashable {
         case state(Interaction.State)
         case recipientReadTimestampMs(Int64)
         case markedAsDeleted
+        case expirationTimerStarted(TimeInterval, Double)
     }
 }
 

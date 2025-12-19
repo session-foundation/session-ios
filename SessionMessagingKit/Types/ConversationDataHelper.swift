@@ -929,8 +929,8 @@ private extension ConversationDataHelper {
         }
         
         switch cache.context.source {
-            case .messageList, .conversationSettings, .searchResults: break
-            case .conversationList:
+            case .conversationSettings, .searchResults: break
+            case .conversationList, .messageList:
                 /// Any message event means we need to refetch interaction stats and latest message
                 requirements.threadIdsNeedingInteractionStats.insert(messageEvent.threadId)
         }

@@ -424,22 +424,25 @@ final class VisibleMessageCell: MessageCell {
             hasBeenReadByRecipient: cellViewModel.hasBeenReadByRecipient,
             hasAttachments: !cellViewModel.attachments.isEmpty
         )
-        messageStatusLabel.text = statusText
-        messageStatusLabel.themeTextColor = tintColor
-        messageStatusImageView.image = image
-        messageStatusLabel.accessibilityIdentifier = "Message sent status: \(statusText ?? "invalid")"
-        messageStatusImageView.themeTintColor = tintColor
-        messageStatusStackView.isHidden = (
+        let expectedMessageStatusHiddenState: Bool = (
             (cellViewModel.expiresInSeconds ?? 0) == 0 && (
                 !cellViewModel.variant.isOutgoing ||
                 cellViewModel.variant.isDeletedMessage ||
                 cellViewModel.variant == .infoCall ||
+                cellViewModel.state == .localOnly ||
                 (
                     cellViewModel.state == .sent &&
                     !cellViewModel.isLastOutgoing
                 )
             )
         )
+        messageStatusLabel.text = statusText
+        messageStatusLabel.themeTextColor = tintColor
+        messageStatusLabel.accessibilityIdentifier = "Message sent status: \(statusText ?? "invalid")"
+        messageStatusLabel.isHidden = (statusText ?? "").isEmpty
+        messageStatusImageView.image = image
+        messageStatusImageView.themeTintColor = tintColor
+        messageStatusStackView.isHidden = expectedMessageStatusHiddenState
         
         // Timer
         if
@@ -459,7 +462,7 @@ final class VisibleMessageCell: MessageCell {
         }
         else {
             timerView.isHidden = true
-            messageStatusImageView.isHidden = false
+            messageStatusImageView.isHidden = expectedMessageStatusHiddenState
         }
         
         // Hide the underBubbleStackView if all of it's content is hidden

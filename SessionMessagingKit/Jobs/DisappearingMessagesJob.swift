@@ -206,6 +206,13 @@ public extension DisappearingMessagesJob {
         // If there were no changes then none of the provided `interactionIds` are expiring messages
         guard (changeCount ?? 0) > 0 else { return nil }
         
+        interactionExpirationInfosByExpiresInSeconds.flatMap { _, value in value }.forEach { info in
+            db.addMessageEvent(
+                id: info.id,
+                threadId: threadId,
+                type: .updated(.expirationTimerStarted(info.expiresInSeconds, startedAtMs)))
+        }
+        
         interactionExpirationInfosByExpiresInSeconds.forEach { expiresInSeconds, expirationInfos in
             let expirationTimestampMs: Int64 = Int64(startedAtMs + expiresInSeconds * 1000)
             dependencies[singleton: .jobRunner].add(
