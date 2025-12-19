@@ -95,7 +95,10 @@ public struct ConversationInfoViewModel: PagableRecord, Sendable, Equatable, Has
                 dataCache.contact(for: thread.id)?.isApproved != true
             )
         )
-        let requiresApproval: Bool = (dataCache.contact(for: thread.id)?.didApproveMe != true)
+        let requiresApproval: Bool = (
+            thread.variant == .contact &&
+            dataCache.contact(for: thread.id)?.didApproveMe != true
+        )
         let sortedMemberIds: [String] = dataCache.groupMembers(for: thread.id)
             .map({ $0.profileId })
             .filter({ !currentUserSessionIds.contains($0) })
