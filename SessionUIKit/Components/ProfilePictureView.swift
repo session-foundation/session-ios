@@ -10,7 +10,7 @@ public protocol ProfilePictureAnimationManagerType: AnyObject {
 }
 
 public final class ProfilePictureView: UIView {
-    public struct Info {
+    public struct Info: Equatable, Hashable {
         public enum Size {
             case navigation
             case message
@@ -118,6 +118,16 @@ public final class ProfilePictureView: UIView {
             self.cropRect = cropRect
             self.backgroundColor = backgroundColor
             self.forcedBackgroundColor = forcedBackgroundColor
+        }
+        
+        public func hash(into hasher: inout Hasher) {
+            source.hash(into: &hasher)
+            canAnimate.hash(into: &hasher)
+            renderingMode.hash(into: &hasher)
+            themeTintColor.hash(into: &hasher)
+            icon.hash(into: &hasher)
+            backgroundColor.hash(into: &hasher)
+            forcedBackgroundColor.hash(into: &hasher)
         }
     }
     

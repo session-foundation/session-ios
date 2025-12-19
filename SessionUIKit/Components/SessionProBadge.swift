@@ -46,6 +46,16 @@ public class SessionProBadge: UIView {
                 case .large: return 40
             }
         }
+        
+        // stringlint:ignore_contents
+        public var cacheKey: String {
+            switch self {
+                case .mini: return "SessionProBadge.Mini"
+                case .small: return "SessionProBadge.Small"
+                case .medium: return "SessionProBadge.Medium"
+                case .large: return "SessionProBadge.Large"
+            }
+        }
     }
     
     public var size: Size {

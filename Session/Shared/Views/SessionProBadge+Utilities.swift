@@ -4,20 +4,8 @@ import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
 
-public extension SessionProBadge.Size{
-    // stringlint:ignore_contents
-    var cacheKey: String {
-        switch self {
-            case .mini: return "SessionProBadge.Mini"
-            case .small: return "SessionProBadge.Small"
-            case .medium: return "SessionProBadge.Medium"
-            case .large: return "SessionProBadge.Large"
-        }
-    }
-}
-
 public extension SessionProBadge {
-    fileprivate static let accessibilityLabel: String = Constants.app_pro
+    static let accessibilityLabel: String = Constants.app_pro
     
     static func trailingImage(
         size: SessionProBadge.Size,

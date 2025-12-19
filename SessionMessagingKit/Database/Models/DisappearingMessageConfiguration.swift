@@ -7,7 +7,7 @@ import SessionUtil
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
-public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct DisappearingMessagesConfiguration: Codable, Identifiable, Sendable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "disappearingMessagesConfiguration" }
     internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
     private static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
@@ -37,7 +37,7 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Equatabl
         }
     }
     
-    public enum DisappearingMessageType: Int, Codable, Hashable, DatabaseValueConvertible {
+    public enum DisappearingMessageType: Int, Codable, Hashable, Sendable, DatabaseValueConvertible {
         case unknown
         case disappearAfterRead
         case disappearAfterSend

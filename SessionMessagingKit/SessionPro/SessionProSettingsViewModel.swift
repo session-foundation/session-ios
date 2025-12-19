@@ -14,6 +14,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
     public var navigatableStateSwiftUI: NavigatableState_SwiftUI = NavigatableState_SwiftUI()
     public let title: String = ""
     public let state: SessionListScreenContent.ListItemDataState<Section, ListItem> = SessionListScreenContent.ListItemDataState()
+    public var imageDataManager: ImageDataManagerType { dependencies[singleton: .imageDataManager] }
     public let isInBottomSheet: Bool
     
     /// This value is the current state of the view
@@ -77,7 +78,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             position: .topRight
                         )
                     )
-                case .proSettings, .proFeatures, .proManagement, .help: return .titleNoBackgroundContent
+                case .proSettings, .proFeatures, .proManagement, .help: return .titleRoundedContent
                 default: return .none
             }
         }
@@ -90,6 +91,13 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
         }
         
         public var footer: String? { return nil }
+        
+        public var extraVerticalPadding: CGFloat {
+            switch self {
+                case .proFeatures: return Values.smallSpacing
+                default : return 0
+            }
+        }
     }
     
     public enum ListItem: Differentiable {
@@ -445,7 +453,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             ),
                             trailingAccessory: .icon(
                                 .squareArrowUpRight,
-                                size: .large,
+                                size: .medium,
                                 customTint: {
                                     switch state.currentProPlanState {
                                         case .expired: return .textPrimary
@@ -473,7 +481,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             ),
                             trailingAccessory: .icon(
                                 .squareArrowUpRight,
-                                size: .large,
+                                size: .medium,
                                 customTint: {
                                     switch state.currentProPlanState {
                                         case .expired: return .textPrimary
@@ -633,7 +641,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                             backgroundSize: .veryLarge,
                             backgroundCornerRadius: 8
                         ),
-                        title: .init(info.title, font: .Headings.H9, accessory: info.accessory),
+                        title: .init(info.title, font: .Headings.H9, inlineImage: info.inlineImageInfo),
                         description: .init(font: .Body.smallRegular, attributedString: info.description, color: .textSecondary)
                     )
                 )
@@ -725,7 +733,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                                 )
                                         }
                                     }(),
-                                    trailingAccessory: state.loadingState == .loading ? .loadingIndicator(size: .large) : .icon(.chevronRight, size: .large)
+                                    trailingAccessory: state.loadingState == .loading ? .loadingIndicator(size: .medium) : .icon(.chevronRight, size: .medium)
                                 )
                             ),
                             onTap: { [weak viewModel] in
@@ -770,7 +778,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                             .put(key: "platform", value: originatingPlatform.name)
                                             .localizedFormatted(Fonts.Body.smallRegular)
                                     ),
-                                    trailingAccessory: .icon(.circleAlert, size: .large)
+                                    trailingAccessory: .icon(.circleAlert, size: .medium)
                                 )
                             ),
                             onTap: { [weak viewModel] in
@@ -876,7 +884,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                         font: .Headings.H8,
                                         color: .danger
                                     ),
-                                    trailingAccessory: .icon(.circleX, size: .large, customTint: .danger)
+                                    trailingAccessory: .icon(.circleX, size: .medium, customTint: .danger)
                                 )
                             ),
                             onTap: { [weak viewModel] in viewModel?.cancelPlan() }
@@ -886,7 +894,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                         variant: .cell(
                             info: .init(
                                 title: .init("requestRefund".localized(), font: .Headings.H8, color: .danger),
-                                trailingAccessory: .icon(.circleAlert, size: .large, customTint: .danger)
+                                trailingAccessory: .icon(.circleAlert, size: .medium, customTint: .danger)
                             )
                         ),
                         onTap: { [weak viewModel] in viewModel?.requestRefund() }
@@ -929,10 +937,10 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 }(),
                                 trailingAccessory: (
                                     state.loadingState == .loading ?
-                                        .loadingIndicator(size: .large) :
+                                        .loadingIndicator(size: .medium) :
                                         .icon(
                                             .circlePlus,
-                                            size: .large,
+                                            size: .medium,
                                             customTint: state.loadingState == .success ? .sessionButton_text : .textPrimary
                                         )
                                 )
@@ -979,7 +987,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 ),
                                 trailingAccessory: .icon(
                                     .refreshCcw,
-                                    size: .large,
+                                    size: .medium,
                                     customTint: .textPrimary
                                 )
                             )

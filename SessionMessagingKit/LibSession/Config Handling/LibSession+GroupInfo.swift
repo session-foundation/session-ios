@@ -450,6 +450,10 @@ public extension LibSession {
                 
                 if let config: DisappearingMessagesConfiguration = disappearingConfig {
                     groups_info_set_expiry_timer(conf, Int32(config.durationSeconds))
+                    db.addEvent(
+                        config,
+                        forKey: .disappearingMessagesConfigUpdated(groupSessionId.hexString)
+                    )
                 }
             }
         }

@@ -400,4 +400,5 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     }
 }
 
-extension String: Differentiable {}
+extension String: @retroactive ContentEquatable {}
+extension String: @retroactive ContentIdentifiable {}

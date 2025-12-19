@@ -250,7 +250,7 @@ public indirect enum ThemeValue: Hashable, Equatable {
 
 // MARK: - ForcedThemeValue
 
-public enum ForcedThemeValue {
+public enum ForcedThemeValue: Equatable, Hashable {
     case color(UIColor)
     case theme(Theme, color: ThemeValue, alpha: CGFloat?)
     

@@ -35,13 +35,9 @@ public extension UILabel {
         lineBreakMode = .byWordWrapping
     }
     
-    /// Returns true if `point` (in this label's coordinate space) hits a drawn NSTextAttachment at the end of the string.
-    /// Works with multi-line labels, alignment, and truncation.
-    func isPointOnTrailingAttachment(_ point: CGPoint, hitPadding: CGFloat = 0) -> Bool {
+    func isPointOnAttachment(_ point: CGPoint, hitPadding: CGFloat = 0) -> Bool {
         guard let attributed = attributedText, attributed.length > 0 else { return false }
 
-        // Reuse the general function but also ensure the attachment range ends at string end.
-        // We re-run the minimal parts to get the effectiveRange.
         let layoutManager = NSLayoutManager()
         let textContainer = NSTextContainer(size: CGSize(width: bounds.width, height: .greatestFiniteMagnitude))
         textContainer.lineFragmentPadding = 0
@@ -55,26 +51,47 @@ public extension UILabel {
 
         let glyphRange = layoutManager.glyphRange(for: textContainer)
         if glyphRange.length == 0 { return false }
-        let textBounds = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
 
-        var textOrigin = CGPoint.zero
+        // Find which line fragment contains the point
+        var lineOrigin = CGPoint.zero
+        var lineRect = CGRect.zero
+        var foundLine = false
+        
+        layoutManager.enumerateLineFragments(forGlyphRange: glyphRange) { rect, usedRect, _, _, stop in
+            if rect.contains(CGPoint(x: 0, y: point.y)) {
+                lineRect = usedRect
+                lineOrigin = rect.origin
+                foundLine = true
+                stop.pointee = true
+            }
+        }
+        
+        guard foundLine else { return false }
+
+        // Calculate horizontal offset for this specific line
+        var xOffset: CGFloat = 0
         switch textAlignment {
-        case .center: textOrigin.x = (bounds.width - textBounds.width) / 2.0
-        case .right:  textOrigin.x = bounds.width - textBounds.width
-        case .natural where effectiveUserInterfaceLayoutDirection == .rightToLeft:
-            textOrigin.x = bounds.width - textBounds.width
-        default: break
+            case .center:
+                xOffset = lineOrigin.x + (lineRect.width < bounds.width ? (bounds.width - lineRect.width) / 2.0 : 0)
+            case .right:
+                xOffset = lineOrigin.x + (lineRect.width < bounds.width ? bounds.width - lineRect.width : 0)
+            case .natural where effectiveUserInterfaceLayoutDirection == .rightToLeft:
+                xOffset = lineOrigin.x + (lineRect.width < bounds.width ? bounds.width - lineRect.width : 0)
+            default:
+                xOffset = lineOrigin.x
         }
 
-        let pt = CGPoint(x: point.x - textOrigin.x, y: point.y - textOrigin.y)
+        let pt = CGPoint(x: point.x - xOffset, y: point.y)
+        
+        // Check if point is within text bounds with padding
+        let textBounds = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
         if !textBounds.insetBy(dx: -hitPadding, dy: -hitPadding).contains(pt) { return false }
 
         let idx = layoutManager.characterIndex(for: pt, in: textContainer, fractionOfDistanceBetweenInsertionPoints: nil)
         guard idx < attributed.length else { return false }
 
         var range = NSRange(location: 0, length: 0)
-        guard attributed.attribute(.attachment, at: idx, effectiveRange: &range) is NSTextAttachment,
-              NSMaxRange(range) == attributed.length else {
+        guard attributed.attribute(.attachment, at: idx, effectiveRange: &range) is NSTextAttachment else {
             return false
         }
 
