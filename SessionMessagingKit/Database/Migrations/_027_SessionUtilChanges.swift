@@ -187,40 +187,42 @@ enum _027_SessionUtilChanges: Migration {
         /// **Note:** Since migrations are run when running tests creating a random SessionThread will result in unexpected thread
         /// counts so don't do this when running tests (this logic is the same as in `MainAppContext.isRunningTests`
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
-            let threadExists: Bool? = try Bool.fetchOne(
-                db,
-                sql: "SELECT EXISTS (SELECT * FROM thread WHERE id = '\(userSessionId.hexString)')"
-            )
-            
-            if threadExists == false {
-                try db.execute(
-                    sql: """
-                        INSERT INTO thread (
-                            id,
-                            variant,
-                            creationDateTimestamp,
-                            shouldBeVisible,
-                            isPinned,
-                            messageDraft,
-                            notificationSound,
-                            mutedUntilTimestamp,
-                            onlyNotifyForMentions,
-                            markedAsUnread,
-                            pinnedPriority
-                        )
-                        VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)
-                    """,
-                    arguments: [
-                        userSessionId.hexString,
-                        SessionThread.Variant.contact.rawValue,
-                        (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
-                        false,  // Not visible
-                        false,
-                        false,
-                        false,
-                        -1,     // Hidden priority at the time of writing
-                    ]
+            if MigrationHelper.userExists(db) {
+                let threadExists: Bool? = try Bool.fetchOne(
+                    db,
+                    sql: "SELECT EXISTS (SELECT * FROM thread WHERE id = '\(userSessionId.hexString)')"
                 )
+                
+                if threadExists == false {
+                    try db.execute(
+                        sql: """
+                            INSERT INTO thread (
+                                id,
+                                variant,
+                                creationDateTimestamp,
+                                shouldBeVisible,
+                                isPinned,
+                                messageDraft,
+                                notificationSound,
+                                mutedUntilTimestamp,
+                                onlyNotifyForMentions,
+                                markedAsUnread,
+                                pinnedPriority
+                            )
+                            VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?)
+                        """,
+                        arguments: [
+                            userSessionId.hexString,
+                            SessionThread.Variant.contact.rawValue,
+                            (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
+                            false,  // Not visible
+                            false,
+                            false,
+                            false,
+                            -1,     // Hidden priority at the time of writing
+                        ]
+                    )
+                }
             }
         }
         

@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-public struct Reaction: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct Reaction: Sendable, Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "reaction" }
     internal static let profileForeignKey = ForeignKey([Columns.authorId], to: [Profile.Columns.id])
     internal static let interactionForeignKey = ForeignKey([Columns.interactionId], to: [Interaction.Columns.id])

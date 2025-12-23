@@ -39,7 +39,11 @@ class PhotoCapture: NSObject {
     }
     private(set) var desiredPosition: AVCaptureDevice.Position = .back
     
-    let recordingAudioActivity = AudioActivity(audioDescription: "PhotoCapture", behavior: .playAndRecord)
+    lazy var recordingAudioActivity = AudioActivity(
+        audioDescription: "PhotoCapture",
+        behavior: .playAndRecord,
+        using: dependencies
+    )
 
     init(using dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -54,7 +58,7 @@ class PhotoCapture: NSObject {
     func startAudioCapture() throws {
         assertIsOnSessionQueue()
 
-        guard SessionEnvironment.shared?.audioSession.startAudioActivity(recordingAudioActivity) == true else {
+        guard dependencies[singleton: .audioSession].startAudioActivity(recordingAudioActivity) else {
             throw PhotoCaptureError.assertionError(description: "unable to capture audio activity")
         }
 
@@ -85,7 +89,7 @@ class PhotoCapture: NSObject {
         }
         session.removeInput(audioDeviceInput)
         self.audioDeviceInput = nil
-        SessionEnvironment.shared?.audioSession.endAudioActivity(recordingAudioActivity)
+        dependencies[singleton: .audioSession].endAudioActivity(recordingAudioActivity)
     }
 
     func startCapture() -> AnyPublisher<Void, Error> {

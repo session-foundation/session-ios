@@ -37,8 +37,8 @@ public struct ListItemCell: View {
             VStack(alignment: .leading, spacing: 0) {
                 if let title = info.title {
                     HStack(spacing: Values.verySmallSpacing) {
-                        if case .proBadgeLeading(let themeBackgroundColor) = title.accessory  {
-                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
+                        if case .proBadgeLeading(let size, let themeBackgroundColor) = title.accessory  {
+                            SessionProBadge_SwiftUI(size: size, themeBackgroundColor: themeBackgroundColor)
                         }
                         
                         if let text = title.text {
@@ -57,16 +57,16 @@ public struct ListItemCell: View {
                                 .fixedSize()
                         }
                         
-                        if case .proBadgeTrailing(let themeBackgroundColor) = title.accessory  {
-                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
+                        if case .proBadgeTrailing(let size, let themeBackgroundColor) = title.accessory  {
+                            SessionProBadge_SwiftUI(size: size, themeBackgroundColor: themeBackgroundColor)
                         }
                     }
                 }
                 
                 if let description = info.description {
                     HStack(spacing: Values.verySmallSpacing) {
-                        if case .proBadgeLeading(let themeBackgroundColor) = description.accessory {
-                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
+                        if case .proBadgeLeading(let size, let themeBackgroundColor) = description.accessory {
+                            SessionProBadge_SwiftUI(size: size, themeBackgroundColor: themeBackgroundColor)
                         }
                         
                         if let text = description.text {
@@ -85,8 +85,8 @@ public struct ListItemCell: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         
-                        if case .proBadgeTrailing(let themeBackgroundColor) = description.accessory {
-                            SessionProBadge_SwiftUI(size: .mini, themeBackgroundColor: themeBackgroundColor)
+                        if case .proBadgeTrailing(let size, let themeBackgroundColor) = description.accessory {
+                            SessionProBadge_SwiftUI(size: size, themeBackgroundColor: themeBackgroundColor)
                         }
                     }
                 }

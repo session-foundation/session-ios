@@ -19,7 +19,7 @@ public final class MessageSender {
     public enum Event {
         case willSend(Message, Message.Destination, interactionId: Int64?)
         case success(Message, Message.Destination, interactionId: Int64?, serverTimestampMs: Int64?, serverExpirationMs: Int64?)
-        case failure(Message, Message.Destination, interactionId: Int64?, error: MessageSenderError)
+        case failure(Message, Message.Destination, interactionId: Int64?, error: MessageError)
         
         var message: Message {
             switch self {
@@ -65,7 +65,7 @@ public final class MessageSender {
             let preparedRequest: Network.PreparedRequest<SendResponse>
             
             switch destination {
-                case .contact, .syncMessage, .closedGroup:
+                case .contact, .syncMessage, .group:
                     preparedRequest = try preparedSendToSnodeDestination(
                         message: updatedMessage,
                         to: destination,
@@ -78,8 +78,8 @@ public final class MessageSender {
                         using: dependencies
                     )
                     
-                case .openGroup:
-                    preparedRequest = try preparedSendToOpenGroupDestination(
+                case .community:
+                    preparedRequest = try preparedSendToCommunityDestination(
                         message: updatedMessage,
                         to: destination,
                         interactionId: interactionId,
@@ -90,8 +90,8 @@ public final class MessageSender {
                         using: dependencies
                     )
                     
-                case .openGroupInbox:
-                    preparedRequest = try preparedSendToOpenGroupInboxDestination(
+                case .communityInbox:
+                    preparedRequest = try preparedSendToCommunityInboxDestination(
                         message: message,
                         to: destination,
                         interactionId: interactionId,
@@ -122,14 +122,14 @@ public final class MessageSender {
                                     message,
                                     destination,
                                     interactionId: interactionId,
-                                    error: .other(nil, "Couldn't send message", error)
+                                    error: .sendFailure(nil, "Couldn't send message", error)
                                 ))
                         }
                     }
                 )
                 .map { _, response in response.message }
         }
-        catch let error as MessageSenderError {
+        catch let error as MessageError {
             onEvent?(.failure(message, destination, interactionId: interactionId, error: error))
             throw error
         }
@@ -147,7 +147,7 @@ public final class MessageSender {
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendResponse> {
         guard let namespace: Network.SnodeAPI.Namespace = namespace else {
-            throw MessageSenderError.invalidMessage
+            throw MessageError.missingRequiredField("namespace")
         }
         
         /// Set the sender/recipient info (needed to be valid)
@@ -168,14 +168,7 @@ public final class MessageSender {
             case (_, .some(var messageWithProfile)):
                 messageWithProfile.profile = dependencies
                     .mutate(cache: .libSession) { $0.profile(contactId: userSessionId.hexString) }
-                    .map { profile in
-                        VisibleMessage.VMProfile(
-                            displayName: profile.name,
-                            profileKey: profile.displayPictureEncryptionKey,
-                            profilePictureUrl: profile.displayPictureUrl,
-                            updateTimestampSeconds: profile.profileLastUpdated
-                        )
-                    }
+                    .map { profile in VisibleMessage.VMProfile(profile: profile) }
         }
         
         // Convert and prepare the data for sending
@@ -183,8 +176,8 @@ public final class MessageSender {
             switch destination {
                 case .contact(let publicKey): return publicKey
                 case .syncMessage: return userSessionId.hexString
-                case .closedGroup(let groupPublicKey): return groupPublicKey
-                case .openGroup, .openGroupInbox: preconditionFailure()
+                case .group(let publicKey): return publicKey
+                case .community, .communityInbox: preconditionFailure()
             }
         }()
         let snodeMessage = SnodeMessage(
@@ -194,7 +187,6 @@ public final class MessageSender {
                 destination: destination,
                 message: message,
                 attachments: attachments,
-                authMethod: authMethod,
                 using: dependencies
             ),
             ttl: Message.getSpecifiedTTL(message: message, destination: destination, using: dependencies),
@@ -220,7 +212,7 @@ public final class MessageSender {
             }
     }
     
-    private static func preparedSendToOpenGroupDestination(
+    private static func preparedSendToCommunityDestination(
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
@@ -236,12 +228,12 @@ public final class MessageSender {
         guard
             let message: VisibleMessage = message as? VisibleMessage,
             case .community(let server, let publicKey, let hasCapabilities, let supportsBlinding, _) = authMethod.info,
-            case .openGroup(let roomToken, let destinationServer, let whisperTo, let whisperMods) = destination,
+            case .community(let roomToken, let destinationServer, let whisperTo, let whisperMods) = destination,
             server == destinationServer,
             let userEdKeyPair: KeyPair = dependencies[singleton: .crypto].generate(
                 .ed25519KeyPair(seed: dependencies[cache: .general].ed25519Seed)
             )
-        else { throw MessageSenderError.invalidMessage }
+        else { throw MessageError.invalidMessage("Configuration doesn't meet requirements to send to a community") }
         
         // Set the sender/recipient info (needed to be valid)
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
@@ -257,7 +249,7 @@ public final class MessageSender {
                         ed25519SecretKey: userEdKeyPair.secretKey
                     )
                 )
-            else { throw MessageSenderError.signingFailed }
+            else { throw MessageError.requiredSignatureMissing }
             
             return SessionId(.blinded15, publicKey: blinded15KeyPair.publicKey).hexString
         }()
@@ -269,22 +261,18 @@ public final class MessageSender {
             }
             .map { profile, checkForCommunityMessageRequests in
                 VisibleMessage.VMProfile(
-                    displayName: profile.name,
-                    profileKey: profile.displayPictureEncryptionKey,
-                    profilePictureUrl: profile.displayPictureUrl,
-                    updateTimestampSeconds: profile.profileLastUpdated,
+                    profile: profile,
                     blocksCommunityMessageRequests: !checkForCommunityMessageRequests
                 )
             }
 
-        guard !(message.profile?.displayName ?? "").isEmpty else { throw MessageSenderError.noUsername }
+        guard !(message.profile?.displayName ?? "").isEmpty else { throw MessageError.invalidSender }
         
         let plaintext: Data = try MessageSender.encodeMessageForSending(
             namespace: .default,
             destination: destination,
             message: message,
             attachments: attachments,
-            authMethod: authMethod,
             using: dependencies
         )
         
@@ -310,7 +298,7 @@ public final class MessageSender {
             }
     }
     
-    private static func preparedSendToOpenGroupInboxDestination(
+    private static func preparedSendToCommunityInboxDestination(
         message: Message,
         to destination: Message.Destination,
         interactionId: Int64?,
@@ -320,11 +308,11 @@ public final class MessageSender {
         onEvent: ((Event) -> Void)?,
         using dependencies: Dependencies
     ) throws -> Network.PreparedRequest<SendResponse> {
-        // The `openGroupInbox` destination does not support attachments
+        /// The `communityInbox` destination does not support attachments
         guard
             (attachments ?? []).isEmpty,
-            case .openGroupInbox(_, _, let recipientBlindedPublicKey) = destination
-        else { throw MessageSenderError.invalidMessage }
+            case .communityInbox(_, _, let recipientBlindedPublicKey) = destination
+        else { throw MessageError.invalidMessage("Configuration doesn't meet requirements to send to community inbox") }
         
         let userSessionId: SessionId = dependencies[cache: .general].sessionId
         message.sender = userSessionId.hexString
@@ -334,14 +322,7 @@ public final class MessageSender {
             case .some(var messageWithProfile):
                 messageWithProfile.profile = dependencies
                     .mutate(cache: .libSession) { $0.profile(contactId: userSessionId.hexString) }
-                    .map { profile in
-                        VisibleMessage.VMProfile(
-                            displayName: profile.name,
-                            profileKey: profile.displayPictureEncryptionKey,
-                            profilePictureUrl: profile.displayPictureUrl,
-                            updateTimestampSeconds: profile.profileLastUpdated
-                        )
-                    }
+                    .map { profile in VisibleMessage.VMProfile(profile: profile) }
             
             default: break
         }
@@ -350,7 +331,6 @@ public final class MessageSender {
             destination: destination,
             message: message,
             attachments: nil,
-            authMethod: authMethod,
             using: dependencies
         )
         
@@ -380,128 +360,38 @@ public final class MessageSender {
         destination: Message.Destination,
         message: Message,
         attachments: [(attachment: Attachment, fileId: String)]?,
-        authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Data {
         /// Check the message itself is valid
-        guard
-            message.isValid(isSending: true),
-            let sentTimestampMs: UInt64 = message.sentTimestampMs
-        else { throw MessageSenderError.invalidMessage }
+        try message.validateMessage(isSending: true)
         
-        let plaintext: Data = try {
-            switch (namespace, destination) {
-                case (.revokedRetrievableGroupMessages, _):
-                    return try BencodeEncoder(using: dependencies).encode(message)
-                    
-                case (_, .openGroup), (_, .openGroupInbox):
-                    guard
-                        let proto: SNProtoContent = try message.toProto()?
-                            .addingAttachmentsIfNeeded(message, attachments?.map { $0.attachment })
-                    else { throw MessageSenderError.protoConversionFailed }
-                    
-                    return try Result { try proto.serializedData().paddedMessageBody() }
-                        .mapError { MessageSenderError.other(nil, "Couldn't serialize proto", $0) }
-                        .successOrThrow()
-                    
-                default:
-                    guard
-                        let proto: SNProtoContent = try message.toProto()?
-                            .addingAttachmentsIfNeeded(message, attachments?.map { $0.attachment })
-                    else { throw MessageSenderError.protoConversionFailed }
-                    
-                    return try Result { try proto.serializedData() }
-                        .map { serialisedData -> Data in
-                            switch destination {
-                                case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
-                                    return serialisedData
-                                    
-                                default: return serialisedData.paddedMessageBody()
-                            }
-                        }
-                        .mapError { MessageSenderError.other(nil, "Couldn't serialize proto", $0) }
-                        .successOrThrow()
-            }
-        }()
-        
-        switch (destination, namespace) {
-            /// Updated group messages should be wrapped _before_ encrypting
-            case (.closedGroup(let groupId), .groupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:
-                let messageData: Data = try Result {
-                    try MessageWrapper.wrap(
-                        type: .closedGroupMessage,
-                        timestampMs: sentTimestampMs,
-                        content: plaintext,
-                        wrapInWebSocketMessage: false
-                    )
-                }
-                .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }
-                .successOrThrow()
-                
-                let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
-                    .ciphertextForGroupMessage(
-                        groupSessionId: SessionId(.group, hex: groupId),
-                        message: Array(messageData)
-                    )
-                )
-                return ciphertext
-                
-            /// `revokedRetrievableGroupMessages` should be sent in plaintext (their content has custom encryption)
-            case (.closedGroup(let groupId), .revokedRetrievableGroupMessages) where (try? SessionId.Prefix(from: groupId)) == .group:
-                return plaintext
-                
-            // Standard one-to-one messages and legacy groups (which used a `05` prefix)
-            case (.contact, .default), (.syncMessage, _), (.closedGroup, _):
-                let ciphertext: Data = try dependencies[singleton: .crypto].tryGenerate(
-                    .ciphertextWithSessionProtocol(
-                        plaintext: plaintext,
-                        destination: destination
-                    )
-                )
-                
-                return try Result {
-                    try MessageWrapper.wrap(
-                        type: try {
-                            switch destination {
-                                case .contact, .syncMessage: return .sessionMessage
-                                case .closedGroup: return .closedGroupMessage
-                                default: throw MessageSenderError.invalidMessage
-                            }
-                        }(),
-                        timestampMs: sentTimestampMs,
-                        senderPublicKey: {
-                            switch destination {
-                                case .closedGroup: return try authMethod.swarmPublicKey // Needed for Android
-                                default: return ""                     // Empty for all other cases
-                            }
-                        }(),
-                        content: ciphertext
-                    )
-                }
-                .mapError { MessageSenderError.other(nil, "Couldn't wrap message", $0) }
-                .successOrThrow()
-            
-            /// Community messages should be sent in plaintext
-            case (.openGroup, _): return plaintext
-            
-            /// Blinded community messages have their own special encryption
-            case (.openGroupInbox(_, let serverPublicKey, let recipientBlindedPublicKey), _):
-                return try dependencies[singleton: .crypto].generateResult(
-                    .ciphertextWithSessionBlindingProtocol(
-                        plaintext: plaintext,
-                        recipientBlindedId: recipientBlindedPublicKey,
-                        serverPublicKey: serverPublicKey
-                    )
-                )
-                .mapError { MessageSenderError.other(nil, "Couldn't encrypt message for destination: \(destination)", $0) }
-                .successOrThrow()
-                
-            /// Config messages should be sent directly rather than via this method
-            case (.closedGroup(let groupId), _) where (try? SessionId.Prefix(from: groupId)) == .group:
-                throw MessageSenderError.invalidConfigMessageHandling
-                
-            /// Config messages should be sent directly rather than via this method
-            case (.contact, _): throw MessageSenderError.invalidConfigMessageHandling
+        guard let sentTimestampMs: UInt64 = message.sentTimestampMs else {
+            throw MessageError.missingRequiredField("sentTimestampMs")
         }
+
+        /// Messages sent to `revokedRetrievableGroupMessages` should be sent directly instead of via the `MessageSender`
+        guard namespace != .revokedRetrievableGroupMessages else {
+            throw MessageError.invalidMessage("Attempted to send to namespace \(namespace) via the wrong pipeline")
+        }
+        
+        /// Add Session Pro data if needed
+        let finalMessage: Message = dependencies[singleton: .sessionProManager].attachProInfoIfNeeded(message: message)
+        
+        /// Add attachments if needed and convert to serialised proto data
+        guard
+            let plaintext: Data = try? finalMessage.toProto()?
+                .addingAttachmentsIfNeeded(finalMessage, attachments?.map { $0.attachment })?
+                .serializedData()
+        else { throw MessageError.protoConversionFailed }
+        
+        return try dependencies[singleton: .crypto].tryGenerate(
+            .encodedMessage(
+                plaintext: Array(plaintext),
+                proMessageFeatures: (finalMessage.proMessageFeatures ?? .none),
+                proProfileFeatures: (finalMessage.proProfileFeatures ?? .none),
+                destination: destination,
+                sentTimestampMs: sentTimestampMs
+            )
+        )
     }
 }

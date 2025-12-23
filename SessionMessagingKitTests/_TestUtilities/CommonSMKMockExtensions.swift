@@ -86,7 +86,8 @@ extension Interaction: Mocked {
         state: .sent,
         recipientReadTimestampMs: nil,
         mostRecentFailureText: nil,
-        isProMessage: false
+        proMessageFeatures: .mock,
+        proProfileFeatures: .mock
     )
 }
 
@@ -162,5 +163,39 @@ extension ConfigDump: Mocked {
         sessionId: "",
         data: Data(),
         timestampMs: 1234567890
+    )
+}
+
+extension SessionPro.MessageFeatures: Mocked {
+    static var mock: SessionPro.MessageFeatures = .all
+}
+
+extension SessionPro.ProfileFeatures: Mocked {
+    static var mock: SessionPro.ProfileFeatures = .all
+}
+
+extension CommunityManager.PendingChange: Mocked {
+    static var mock: CommunityManager.PendingChange = CommunityManager.PendingChange(
+        server: .mock,
+        room: .mock,
+        changeType: .mock,
+        seqNo: .mock,
+        metadata: .mock
+    )
+}
+
+extension CommunityManager.PendingChange.ChangeType: Mocked {
+    static var mock: CommunityManager.PendingChange.ChangeType = .reaction
+}
+
+extension CommunityManager.PendingChange.ReactAction: Mocked {
+    static var mock: CommunityManager.PendingChange.ReactAction = .remove
+}
+
+extension CommunityManager.PendingChange.Metadata: Mocked {
+    static var mock: CommunityManager.PendingChange.Metadata = .reaction(
+        messageId: .mock,
+        emoji: .mock,
+        action: .mock
     )
 }

@@ -5,31 +5,43 @@ import Lucide
 import Combine
 
 public struct ProCTAModal: View {
+    public enum Variant {
+        case generic(renew: Bool)
+        case longerMessages(renew: Bool)
+        case animatedProfileImage(isSessionProActivated: Bool, renew: Bool)
+        case morePinnedConvos(isGrandfathered: Bool, renew: Bool)
+        case groupLimit(isAdmin: Bool, isSessionProActivated: Bool, proBadgeImage: UIImage)
+        case expiring(timeLeft: String?)
+    }
+    
     @EnvironmentObject var host: HostWrapper
     @State var proCTAImageHeight: CGFloat = 0
     
     private let variant: ProCTAModal.Variant
-    private var dataManager: ImageDataManagerType
+    private let dataManager: ImageDataManagerType
+    private let sessionProUIManager: SessionProUIManagerType
     
     let dismissType: Modal.DismissType
-    let afterClosed: (() -> Void)?
     let onConfirm: (() -> Void)?
     let onCancel: (() -> Void)?
+    let afterClosed: (() -> Void)?
     
     public init(
         variant: ProCTAModal.Variant,
         dataManager: ImageDataManagerType,
+        sessionProUIManager: SessionProUIManagerType,
         dismissType: Modal.DismissType = .recursive,
-        afterClosed: (() -> Void)? = nil,
         onConfirm: (() -> Void)? = nil,
-        onCancel: (() -> Void)? = nil
+        onCancel: (() -> Void)? = nil,
+        afterClosed: (() -> Void)? = nil
     ) {
         self.variant = variant
         self.dataManager = dataManager
+        self.sessionProUIManager = sessionProUIManager
         self.dismissType = dismissType
-        self.afterClosed = afterClosed
         self.onConfirm = onConfirm
         self.onCancel = onCancel
+        self.afterClosed = afterClosed
     }
     
     public var body: some View {
@@ -172,13 +184,13 @@ public struct ProCTAModal: View {
                             case .groupLimit(_, let isSessionProActivated, let proBadgeImage) = variant,
                             isSessionProActivated
                         {
-                            (Text(variant.subtitle.string) + Text(" \(Image(uiImage: proBadgeImage))"))
+                            (Text(variant.subtitle(sessionProUIManager: sessionProUIManager).string) + Text(" \(Image(uiImage: proBadgeImage))"))
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textSecondary)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
                         } else {
-                            AttributedText(variant.subtitle)
+                            AttributedText(variant.subtitle(sessionProUIManager: sessionProUIManager))
                                 .font(.Body.largeRegular)
                                 .foregroundColor(themeColor: .textSecondary)
                                 .multilineTextAlignment(.center)
@@ -266,6 +278,7 @@ public struct ProCTAModal: View {
 
                             // Cancel Button
                             Button {
+                                onCancel?()
                                 close(nil)
                                 onCancel?()
                             } label: {
@@ -290,237 +303,224 @@ public struct ProCTAModal: View {
     }
 }
 
-// MARK: - Variant
+// MARK: - ProCTAModal.Benefits
 
 public extension ProCTAModal {
-    enum Variant {
-        case generic(renew: Bool)
-        case longerMessages(renew: Bool)
-        case animatedProfileImage(isSessionProActivated: Bool, renew: Bool)
-        case morePinnedConvos(isGrandfathered: Bool, renew: Bool)
-        case groupLimit(isAdmin: Bool, isSessionProActivated: Bool, proBadgeImage: UIImage)
-        case expiring(timeLeft: String?)
+    enum Benefits: Equatable {
+        case largerGroups
+        case longerMessages
+        case animatedProfileImage
+        case morePinnedConvos
+        case loadsMore
         
-        public var isRenewing: Bool {
-            switch self {
-                case .generic(let renew), .longerMessages(let renew), .animatedProfileImage(_, let renew), .morePinnedConvos(_, let renew):
-                    return renew
-                case .groupLimit, .expiring:
-                    return false
-            }
-        }
-
-        // stringlint:ignore_contents
-        public var backgroundImageName: String {
-            switch self {
-                case .generic, .expiring:
-                    return "GenericCTA.webp"
-                case .longerMessages:
-                    return "HigherCharLimitCTA.webp"
-                case .animatedProfileImage:
-                    return "AnimatedProfileCTA.webp"
-                case .morePinnedConvos:
-                    return "PinnedConversationsCTA.webp"
-                case .groupLimit(let isAdmin, let isSessionProActivated, _):
-                    switch (isAdmin, isSessionProActivated) {
-                        case (false, false):
-                            return "GroupNonAdminCTA.webp"
-                        default:
-                            return "GroupAdminCTA.webp"
-                    }
-            }
-        }
-        
-        public var themeColor: ThemeValue {
-            switch self {
-                case .expiring(let timeLeft): return (timeLeft?.isEmpty == false) ? .primary : .disabled
-                default: return .primary
-            }
-        }
-        
-        public var grayscale: Double {
-            switch self {
-                case .expiring(let timeLeft): return (timeLeft?.isEmpty == false) ? 0.0 : 1.0
-                default: return 0.0
-            }
-        }
-        
-        // stringlint:ignore_contents
-        public var animatedAvatarImageURL: URL? {
-            switch self {
-            case .generic, .animatedProfileImage, .expiring:
-                    return Bundle.main.url(forResource: "AnimatedProfileCTAAnimationCropped", withExtension: "webp")
-                default: return nil
-            }
-        }
-        /// Note: This is a hack to manually position the animated avatar in the CTA background image to prevent heavy loading for the
-        /// animated webp. These coordinates are based on the full size image and get scaled during rendering based on the actual size
-        /// of the modal.
-        public var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
-            switch self {
-                case .generic, .expiring: return (1303, 743)
-                case .animatedProfileImage: return (680, 363)
-                default: return (0, 0)
-            }
-        }
-        
-        public var animatedAvatarImageSize: CGFloat {
-            switch self {
-                case .generic, .expiring: return 115
-                case .animatedProfileImage: return 200
-                default: return 0
-            }
-        }
-
-        public var subtitle: ThemedAttributedString {
-            switch self {
-                case .generic(let renew):
-                    return renew ?
-                        "proRenewMaxPotential"
-                            .put(key: "pro", value: Constants.pro)
-                            .put(key: "app_name", value: Constants.app_name)
-                            .localizedFormatted(baseFont: Fonts.Body.largeRegular) :
-                        "proUserProfileModalCallToAction"
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .put(key: "app_name", value: Constants.app_name)
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                case .longerMessages(let renew):
-                    return renew ?
-                        "proRenewLongerMessages"
-                            .put(key: "pro", value: Constants.pro)
-                            .localizedFormatted(baseFont: Fonts.Body.largeRegular) :
-                        "proCallToActionLongerMessages"
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                case .animatedProfileImage(let isSessionProActivated, let renew):
-                    switch (isSessionProActivated, renew) {
-                        case (true, _):
-                            return "proAnimatedDisplayPicture"
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                        case (false, true):
-                            return "proRenewAnimatedDisplayPicture"
-                                .put(key: "pro", value: Constants.pro)
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                        case (false, false):
-                            return "proAnimatedDisplayPictureCallToActionDescription"
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                    }
-                case .morePinnedConvos(let isGrandfathered, let renew):
-                    switch (isGrandfathered, renew) {
-                        case (true, false):
-                            return "proCallToActionPinnedConversations"
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                        case (false, false):
-                            return "proCallToActionPinnedConversationsMoreThan"
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .put(key: "limit", value: 5)    // TODO: [PRO] Get from SessionProUIManager
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                        case (true, true):
-                            return "proRenewPinMoreConversations"
-                                .put(key: "pro", value: Constants.pro)
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                        case (false, true):
-                            return "proRenewPinFiveConversations"
-                                .put(key: "pro", value: Constants.pro)
-                                .put(key: "limit", value: 5)    // TODO: [PRO] Get from SessionProUIManager
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                    }
-                case .groupLimit(let isAdmin, let isSessionProActivated, _):
-                    switch (isAdmin, isSessionProActivated) {
-                        case (_, true):
-                            return "proGroupActivatedDescription"
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                        case (true, false):
-                            return "proUserProfileModalCallToAction"
-                                .put(key: "app_pro", value: Constants.app_pro)
-                                .put(key: "app_name", value: Constants.app_name)
-                                .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                        case (false, false):
-                            // TODO: Localised
-                            return ThemedAttributedString(
-                                string: "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro"
-                            )
-                    }
-                case .expiring(let timeLeft):
-                    if let timeLeft, !timeLeft.isEmpty {
-                        return "proExpiringSoonDescription"
-                            .put(key: "pro", value: Constants.pro)
-                            .put(key: "time", value: timeLeft)
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                    } else {
-                        return "proExpiredDescription"
-                            .put(key: "pro", value: Constants.pro)
-                            .put(key: "app_pro", value: Constants.app_pro)
-                            .localizedFormatted(baseFont: Fonts.Body.largeRegular)
-                    }
-            }
-        }
-        
-        public enum Benefits: Equatable {
-            case largerGroups
-            case longerMessages
-            case animatedProfileImage
-            case morePinnedConvos
-            case loadsMore
-            
-            var description: String {
-                return switch self {
-                    case .largerGroups: "proFeatureListLargerGroups".localized()
-                    case .longerMessages: "proFeatureListLongerMessages".localized()
-                    case .animatedProfileImage: "proFeatureListAnimatedDisplayPicture".localized()
-                    case .morePinnedConvos: "proFeatureListPinnedConversations".localized()
-                    case .loadsMore: "proFeatureListLoadsMore".localized()
-                }
-            }
-        }
-        
-        public var benefits: [Benefits] {
+        var description: String {
             return switch self {
-                case .generic: [ .longerMessages, .morePinnedConvos, .loadsMore ]
-                case .longerMessages: [ .longerMessages, .morePinnedConvos, .loadsMore ]
-                case .animatedProfileImage: [ .animatedProfileImage, .longerMessages, .loadsMore ]
-                case .morePinnedConvos: [ .morePinnedConvos, .longerMessages, .loadsMore ]
-                case .groupLimit(let isAdmin, let isSessionProActivated, _):
-                    switch (isAdmin, isSessionProActivated) {
-                        case (true, false): [ .largerGroups, .longerMessages, .loadsMore ]
-                        default: []
-                    }
-                case .expiring: [ .longerMessages, .morePinnedConvos, .animatedProfileImage ]
+                case .largerGroups: "proFeatureListLargerGroups".localized()
+                case .longerMessages: "proFeatureListLongerMessages".localized()
+                case .animatedProfileImage: "proFeatureListAnimatedDisplayPicture".localized()
+                case .morePinnedConvos: "proFeatureListPinnedConversations".localized()
+                case .loadsMore: "proFeatureListLoadsMore".localized()
             }
         }
-        
-        public var confirmButtonTitle: String {
-            switch self {
-                case .expiring(let timeLeft):
-                return (timeLeft?.isEmpty == false) ? "update".localized() : "renew".localized()
-                default: return "theContinue".localized()
-            }
-        }
-        
-        public var cancelButtonTitle: String {
-            guard !self.onlyShowCloseButton else {
-                return "close".localized()
-            }
+    }
+}
+
+// MARK: - Variant Content
+
+public extension ProCTAModal.Variant {
+    var isRenewing: Bool {
+        switch self {
+            case .generic(let renew), .longerMessages(let renew), .animatedProfileImage(_, let renew), .morePinnedConvos(_, let renew):
+                return renew
             
-            switch self {
-                case .expiring(let timeLeft):
-                    return (timeLeft?.isEmpty == false) ? "close".localized() : "cancel".localized()
-                default: return "cancel".localized()
-            }
+            case .groupLimit, .expiring: return false
+        }
+    }
+    
+    // stringlint:ignore_contents
+    var backgroundImageName: String {
+        switch self {
+            case .generic, .expiring: return "GenericCTA.webp"
+            case .longerMessages: return "HigherCharLimitCTA.webp"
+            case .animatedProfileImage: return "AnimatedProfileCTA.webp"
+            case .morePinnedConvos: return "PinnedConversationsCTA.webp"
+            case .groupLimit(false, false, _): return "GroupNonAdminCTA.webp"
+            case .groupLimit: return "GroupAdminCTA.webp"
+        }
+    }
+    
+    var themeColor: ThemeValue {
+        switch self {
+            case .expiring(let timeLeft): return (timeLeft?.isEmpty == false ? .primary : .disabled)
+            default: return .primary
+        }
+    }
+    
+    var grayscale: Double {
+        switch self {
+            case .expiring(let timeLeft): return (timeLeft?.isEmpty == false ? 0.0 : 1.0)
+            default: return 0.0
+        }
+    }
+    
+    // stringlint:ignore_contents
+    var animatedAvatarImageURL: URL? {
+        switch self {
+            case .generic, .animatedProfileImage, .expiring:
+                return Bundle.main.url(forResource: "AnimatedProfileCTAAnimationCropped", withExtension: "webp")
+            default: return nil
+        }
+    }
+    
+    /// Note: This is a hack to manually position the animated avatar in the CTA background image to prevent heavy loading for the
+    /// animated webp. These coordinates are based on the full size image and get scaled during rendering based on the actual size
+    /// of the modal.
+    var animatedAvatarImagePadding: (leading: CGFloat, top: CGFloat) {
+        switch self {
+            case .generic, .expiring: return (1303, 743)
+            case .animatedProfileImage: return (680, 363)
+            default: return (0, 0)
+        }
+    }
+    
+    var animatedAvatarImageSize: CGFloat {
+        switch self {
+            case .generic, .expiring: return 115
+            case .animatedProfileImage: return 200
+            default: return 0
+        }
+    }
+
+    func subtitle(sessionProUIManager: SessionProUIManagerType) -> ThemedAttributedString {
+        switch self {
+            case .generic(renew: true):
+                return "proRenewMaxPotential"
+                    .put(key: "pro", value: Constants.pro)
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .generic(renew: false):
+                return "proUserProfileModalCallToAction"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+            
+            case .longerMessages(renew: true):
+                return "proRenewLongerMessages"
+                    .put(key: "pro", value: Constants.pro)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .longerMessages(renew: false):
+                return "proCallToActionLongerMessages"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+            
+            case .animatedProfileImage(isSessionProActivated: true, _):
+                return "proAnimatedDisplayPicture"
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .animatedProfileImage(isSessionProActivated: false, renew: true):
+                return "proRenewAnimatedDisplayPicture"
+                    .put(key: "pro", value: Constants.pro)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .animatedProfileImage(isSessionProActivated: false, renew: false):
+                return "proAnimatedDisplayPictureCallToActionDescription"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+            
+            case .morePinnedConvos(isGrandfathered: true, renew: false):
+                return "proCallToActionPinnedConversations"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .morePinnedConvos(isGrandfathered: false, renew: false):
+                return "proCallToActionPinnedConversationsMoreThan"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "limit", value: sessionProUIManager.pinnedConversationLimit)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .morePinnedConvos(isGrandfathered: true, renew: true):
+                return "proRenewPinMoreConversations"
+                    .put(key: "pro", value: Constants.pro)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .morePinnedConvos(isGrandfathered: false, renew: true):
+                return "proRenewPinFiveConversations"
+                    .put(key: "pro", value: Constants.pro)
+                    .put(key: "limit", value: sessionProUIManager.pinnedConversationLimit)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+            
+            case .groupLimit(_, isSessionProActivated: true, _):
+                return "proGroupActivatedDescription"
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+            
+            case .groupLimit(isAdmin: true, isSessionProActivated: false, _):
+                return "proUserProfileModalCallToAction"
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .groupLimit(isAdmin: false, isSessionProActivated: false, _):
+                // TODO: [PRO] Localised
+                return ThemedAttributedString(
+                    string: "Want to upgrade this group to Pro? Tell one of the group admins to upgrade to Pro"
+                )
+            
+            case .expiring(let timeLeft) where timeLeft?.isEmpty == false:
+                return "proExpiringSoonDescription"
+                    .put(key: "pro", value: Constants.pro)
+                    .put(key: "time", value: timeLeft ?? "")
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+                
+            case .expiring:
+                return "proExpiredDescription"
+                    .put(key: "pro", value: Constants.pro)
+                    .put(key: "app_pro", value: Constants.app_pro)
+                    .localizedFormatted(baseFont: Fonts.Body.largeRegular)
+        }
+    }
+    
+    var benefits: [ProCTAModal.Benefits] {
+        switch self {
+            case .generic: return [ .longerMessages, .morePinnedConvos, .loadsMore ]
+            case .longerMessages: return [ .longerMessages, .morePinnedConvos, .loadsMore ]
+            case .animatedProfileImage: return [ .animatedProfileImage, .longerMessages, .loadsMore ]
+            case .morePinnedConvos: return [ .morePinnedConvos, .longerMessages, .loadsMore ]
+            case .groupLimit(isAdmin: true, isSessionProActivated: false, _):
+                return [ .largerGroups, .longerMessages, .loadsMore ]
+                
+            case .groupLimit: return []
+            case .expiring: return [ .longerMessages, .morePinnedConvos, .animatedProfileImage ]
+        }
+    }
+    
+    var confirmButtonTitle: String {
+        switch self {
+            case .expiring(let timeLeft) where timeLeft?.isEmpty == false: return "update".localized()
+            case .expiring: return "renew".localized()
+            default: return "theContinue".localized()
+        }
+    }
+    
+    var cancelButtonTitle: String {
+        guard !self.onlyShowCloseButton else {
+            return "close".localized()
         }
         
-        public var onlyShowCloseButton: Bool {
-            switch self {
-                case .animatedProfileImage(let isSessionProActivated, _):
-                    return isSessionProActivated
-                case .groupLimit(let isAdmin, let isSessionProActivated, _):
-                    return (!isAdmin || isSessionProActivated)
-                default:
-                    return false
-            }
+        switch self {
+            case .expiring(let timeLeft) where timeLeft?.isEmpty == false: return "close".localized()
+            case .expiring: return "cancel".localized()
+            default: return "cancel".localized()
+        }
+    }
+    
+    var onlyShowCloseButton: Bool {
+        switch self {
+            case .animatedProfileImage(let isSessionProActivated, _): return isSessionProActivated
+            case .groupLimit(let isAdmin, let isSessionProActivated, _): return (!isAdmin || isSessionProActivated)
+            default: return false
         }
     }
 }
@@ -534,6 +534,7 @@ struct ProCTAModal_Previews: PreviewProvider {
                 ProCTAModal(
                     variant: .generic(renew: false),
                     dataManager: ImageDataManager(),
+                    sessionProUIManager: NoopSessionProUIManager(),
                     dismissType: .single,
                     afterClosed: nil
                 )
@@ -545,6 +546,7 @@ struct ProCTAModal_Previews: PreviewProvider {
                 ProCTAModal(
                     variant: .generic(renew: false),
                     dataManager: ImageDataManager(),
+                    sessionProUIManager: NoopSessionProUIManager(),
                     dismissType: .single,
                     afterClosed: nil
                 )
@@ -556,6 +558,7 @@ struct ProCTAModal_Previews: PreviewProvider {
                 ProCTAModal(
                     variant: .generic(renew: false),
                     dataManager: ImageDataManager(),
+                    sessionProUIManager: NoopSessionProUIManager(),
                     dismissType: .single,
                     afterClosed: nil
                 )
@@ -567,6 +570,7 @@ struct ProCTAModal_Previews: PreviewProvider {
                 ProCTAModal(
                     variant: .generic(renew: false),
                     dataManager: ImageDataManager(),
+                    sessionProUIManager: NoopSessionProUIManager(),
                     dismissType: .single,
                     afterClosed: nil
                 )

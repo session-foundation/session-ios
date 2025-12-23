@@ -71,7 +71,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     
     public indirect enum OnTapAction {
         case none
-        case callback((UserListViewModel<T>?, WithProfile<T>) -> Void)
+        case callback((UserListViewModel<T>?, WithProfile<T>) async -> Void)
         case radio
         case conditionalAction(action: (WithProfile<T>) -> OnTapAction)
         case custom(trailingAccessory: (WithProfile<T>) -> SessionCell.Accessory, onTap: (UserListViewModel<T>?, WithProfile<T>) -> Void)
@@ -79,7 +79,7 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
     
     public enum OnSubmitAction {
         case none
-        case callback((UserListViewModel<T>?, Set<WithProfile<T>>) throws -> Void)
+        case callback((UserListViewModel<T>?, Set<WithProfile<T>>) async throws -> Void)
         case publisher((UserListViewModel<T>?, Set<WithProfile<T>>) -> AnyPublisher<Void, UserListError>)
         
         var hasAction: Bool {
@@ -154,7 +154,9 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                 title,
                                 font: .title,
                                 trailingImage: {
-                                    guard (dependencies.mutate(cache: .libSession) { $0.validateProProof(for: userInfo.profile) }) else { return nil }
+                                    guard userInfo.profile?.proFeatures.contains(.proBadge) == true else {
+                                        return nil
+                                    }
                                     
                                     return SessionProBadge.trailingImage(
                                         size: .small,
@@ -181,7 +183,11 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
                                 // Trigger any 'onTap' actions
                                 switch finalAction {
                                     case .none: return
-                                    case .callback(let callback): callback(self, userInfo)
+                                    case .callback(let callback):
+                                        Task.detached(priority: .userInitiated) { [weak self] in
+                                            await callback(self, userInfo)
+                                        }
+                                    
                                     case .custom(_, let callback): callback(self, userInfo)
                                     case .radio: break
                                     case .conditionalAction(_): return  // Shouldn't hit this case
@@ -229,24 +235,31 @@ class UserListViewModel<T: ProfileAssociated & FetchableRecord>: SessionTableVie
             case .none: return
             
             case .callback(let submission):
-                do {
-                    try submission(self, selectedUsers)
-                    selectedUsersSubject.send([])
-                    forceRefresh()    // Just in case the filter was impacted
-                }
-                catch {
-                    transitionToScreen(
-                        ConfirmationModal(
-                            info: ConfirmationModal.Info(
-                                title: "theError".localized(),
-                                body: .text(error.localizedDescription),
-                                cancelTitle: "okay".localized(),
-                                cancelStyle: .alert_text
+                Task.detached(priority: .userInitiated) { [weak self] in
+                    do {
+                        try await submission(self, selectedUsers)
+                        await MainActor.run { [weak self] in
+                            self?.selectedUsersSubject.send([])
+                            self?.forceRefresh()    // Just in case the filter was impacted
+                        }
+                    }
+                    catch {
+                        await MainActor.run { [weak self] in
+                            self?.transitionToScreen(
+                                ConfirmationModal(
+                                    info: ConfirmationModal.Info(
+                                        title: "theError".localized(),
+                                        body: .text(error.localizedDescription),
+                                        cancelTitle: "okay".localized(),
+                                        cancelStyle: .alert_text
+                                    )
+                                ),
+                                transitionType: .present
                             )
-                        ),
-                        transitionType: .present
-                    )
+                        }
+                    }
                 }
+                
                 
             case .publisher(let submission):
                 transitionToScreen(

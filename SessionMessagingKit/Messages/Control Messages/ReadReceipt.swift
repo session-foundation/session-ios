@@ -20,10 +20,10 @@ public final class ReadReceipt: ControlMessage {
 
     // MARK: - Validation
     
-    public override func isValid(isSending: Bool) -> Bool {
-        guard super.isValid(isSending: isSending) else { return false }
-        if let timestamps = timestamps, !timestamps.isEmpty { return true }
-        return false
+    public override func validateMessage(isSending: Bool) throws {
+        try super.validateMessage(isSending: isSending)
+        
+        if timestamps?.isEmpty != false { throw MessageError.missingRequiredField("timestamps") }
     }
     
     // MARK: - Codable

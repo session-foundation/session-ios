@@ -3,10 +3,36 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-public struct QuoteViewModel: Equatable, Hashable {
-    public enum Mode: Equatable, Hashable { case regular, draft }
-    public enum Direction: Equatable, Hashable { case incoming, outgoing }
-    public struct AttachmentInfo: Equatable, Hashable {
+public struct QuoteViewModel: Sendable, Equatable, Hashable {
+    public enum Mode: Sendable, Equatable, Hashable { case regular, draft }
+    public enum Direction: Sendable, Equatable, Hashable { case incoming, outgoing }
+    
+    public struct QuotedInfo: Sendable, Equatable, Hashable {
+        public let interactionId: Int64
+        public let authorId: String
+        public let authorName: String
+        public let timestampMs: Int64
+        public let body: String?
+        public let attachmentInfo: AttachmentInfo?
+        
+        public init(
+            interactionId: Int64,
+            authorId: String,
+            authorName: String,
+            timestampMs: Int64,
+            body: String?,
+            attachmentInfo: AttachmentInfo?
+        ) {
+            self.interactionId = interactionId
+            self.authorId = authorId
+            self.authorName = authorName
+            self.timestampMs = timestampMs
+            self.body = body
+            self.attachmentInfo = attachmentInfo
+        }
+    }
+    
+    public struct AttachmentInfo: Sendable, Equatable, Hashable {
         public let id: String
         public let utType: UTType
         public let isVoiceMessage: Bool
@@ -31,35 +57,29 @@ public struct QuoteViewModel: Equatable, Hashable {
         }
     }
     
+    public static let emptyDraft: QuoteViewModel = QuoteViewModel(
+        mode: .draft,
+        direction: .outgoing,
+        quotedInfo: nil,
+        showProBadge: false,
+        currentUserSessionIds: [],
+        displayNameRetriever: { _, _ in nil },
+        currentUserMentionImage: nil
+    )
+    
     public let mode: Mode
     public let direction: Direction
-    public let currentUserSessionIds: Set<String>
-    public let rowId: Int64
-    public let interactionId: Int64?
-    public let authorId: String
+    public let targetThemeColor: ThemeValue
+    public let quotedInfo: QuotedInfo?
     public let showProBadge: Bool
-    public let timestampMs: Int64
-    public let quotedInteractionId: Int64
-    public let quotedInteractionIsDeleted: Bool
-    public let quotedText: String?
-    public let quotedAttachmentInfo: AttachmentInfo?
-    let displayNameRetriever: (String, Bool) -> String?
+    public let attributedText: ThemedAttributedString
 
     // MARK: - Computed Properties
     
-    var hasAttachment: Bool { quotedAttachmentInfo != nil }
-    var author: String? {
-        guard authorId.isEmpty || !currentUserSessionIds.contains(authorId) else { return "you".localized() }
-        guard quotedText != nil else {
-            // When we can't find the quoted message we want to hide the author label
-            return displayNameRetriever(authorId, false)
-        }
-        
-        return (displayNameRetriever(authorId, false) ?? authorId.truncated())
-    }
+    var hasAttachment: Bool { quotedInfo?.attachmentInfo != nil }
     
     var fallbackImage: UIImage? {
-        guard let utType: UTType = quotedAttachmentInfo?.utType else { return nil }
+        guard let utType: UTType = quotedInfo?.attachmentInfo?.utType else { return nil }
         
         let fallbackImageName: String = (utType.conforms(to: .audio) ? "attachment_audio" : "actionsheet_document_black")
             
@@ -68,17 +88,6 @@ public struct QuoteViewModel: Equatable, Hashable {
         }
         
         return image
-    }
-    
-    var targetThemeColor: ThemeValue {
-        switch mode {
-            case .draft: return .textPrimary
-            case .regular:
-                return (direction == .outgoing ?
-                    .messageBubble_outgoingText :
-                    .messageBubble_incomingText
-                )
-        }
     }
     
     var proBadgeThemeColor: ThemeValue {
@@ -103,18 +112,35 @@ public struct QuoteViewModel: Equatable, Hashable {
             
         }
     }
-        
-    var mentionLocation: MentionUtilities.MentionLocation {
-        switch (mode, direction) {
-            case (.draft, _): return .quoteDraft
-            case (_, .outgoing): return .outgoingQuote
-            case (_, .incoming): return .incomingQuote
-        }
-    }
     
-    var attributedText: ThemedAttributedString? {
+    // MARK: - Initialization
+    
+    public init(
+        mode: Mode,
+        direction: Direction,
+        quotedInfo: QuotedInfo?,
+        showProBadge: Bool,
+        currentUserSessionIds: Set<String>,
+        displayNameRetriever: @escaping DisplayNameRetriever,
+        currentUserMentionImage: UIImage?
+    ) {
+        self.mode = mode
+        self.direction = direction
+        self.quotedInfo = quotedInfo
+        self.showProBadge = showProBadge
+        self.targetThemeColor = {
+            switch mode {
+                case .draft: return .textPrimary
+                case .regular:
+                    return (direction == .outgoing ?
+                        .messageBubble_outgoingText :
+                        .messageBubble_incomingText
+                    )
+            }
+        }()
+        
         let text: String = {
-            switch (quotedText, quotedAttachmentInfo) {
+            switch (quotedInfo?.body, quotedInfo?.attachmentInfo) {
                 case (.some(let text), _) where !text.isEmpty: return text
                 case (_, .some(let info)):
                     return info.utType.shortDescription(isVoiceMessage: info.isVoiceMessage)
@@ -123,67 +149,46 @@ public struct QuoteViewModel: Equatable, Hashable {
             }
         }()
         
-        return MentionUtilities.highlightMentions(
-            in: text,
-            currentUserSessionIds: currentUserSessionIds,
-            location: mentionLocation,
-            textColor: targetThemeColor,
-            attributes: [
-                .themeForegroundColor: targetThemeColor,
-                .font: UIFont.systemFont(ofSize: Values.smallFontSize)
-            ],
-            displayNameRetriever: displayNameRetriever
-        )
-    }
-    
-    // MARK: - Initialization
-    
-    public init(
-        mode: Mode,
-        direction: Direction,
-        currentUserSessionIds: Set<String>,
-        rowId: Int64,
-        interactionId: Int64?,
-        authorId: String,
-        showProBadge: Bool,
-        timestampMs: Int64,
-        quotedInteractionId: Int64,
-        quotedInteractionIsDeleted: Bool,
-        quotedText: String?,
-        quotedAttachmentInfo: AttachmentInfo?,
-        displayNameRetriever: @escaping (String, Bool) -> String?
-    ) {
-        self.mode = mode
-        self.direction = direction
-        self.currentUserSessionIds = currentUserSessionIds
-        self.rowId = rowId
-        self.interactionId = interactionId
-        self.authorId = authorId
-        self.showProBadge = showProBadge
-        self.timestampMs = timestampMs
-        self.quotedInteractionId = quotedInteractionId
-        self.quotedInteractionIsDeleted = quotedInteractionIsDeleted
-        self.quotedText = quotedText
-        self.quotedAttachmentInfo = quotedAttachmentInfo
-        self.displayNameRetriever = displayNameRetriever
+        self.attributedText = text
+            .formatted(
+                baseFont: .systemFont(ofSize: Values.smallFontSize),
+                attributes: [.themeForegroundColor: targetThemeColor],
+                mentionColor: MentionUtilities.mentionColor(
+                    textColor: targetThemeColor,
+                    location: {
+                        switch (mode, direction) {
+                            case (.draft, _): return .quoteDraft
+                            case (_, .outgoing): return .outgoingQuote
+                            case (_, .incoming): return .incomingQuote
+                        }
+                    }()
+                ),
+                currentUserMentionImage: currentUserMentionImage
+            )
     }
     
     public init(showYouAsAuthor: Bool, previewBody: String) {
-        self.quotedText = previewBody
-        self.authorId = (showYouAsAuthor ? "you".localized() : "")
-        
-        /// This is an preview version so none of these values matter
+        self.quotedInfo = QuotedInfo(
+            interactionId: 0,
+            authorId: "",
+            authorName: (showYouAsAuthor ? "you".localized() : ""),
+            timestampMs: 0,
+            body: previewBody,
+            attachmentInfo: nil
+        )
         self.mode = .regular
         self.direction = .incoming
-        self.currentUserSessionIds = []
-        self.rowId = -1
-        self.interactionId = nil
+        self.targetThemeColor = .messageBubble_incomingText
         self.showProBadge = false
-        self.timestampMs = 0
-        self.quotedInteractionId = 0
-        self.quotedInteractionIsDeleted = false
-        self.quotedAttachmentInfo = nil
-        self.displayNameRetriever = { _, _ in nil }
+        self.attributedText = previewBody.formatted(
+            baseFont: .systemFont(ofSize: Values.smallFontSize),
+            attributes: [.themeForegroundColor: targetThemeColor],
+            mentionColor: MentionUtilities.mentionColor(
+                textColor: targetThemeColor,
+                location: .incomingQuote
+            ),
+            currentUserMentionImage: nil
+        )
     }
     
     // MARK: - Conformance
@@ -192,30 +197,16 @@ public struct QuoteViewModel: Equatable, Hashable {
         return (
             lhs.mode == rhs.mode &&
             lhs.direction == rhs.direction &&
-            lhs.currentUserSessionIds == rhs.currentUserSessionIds &&
-            lhs.rowId == rhs.rowId &&
-            lhs.interactionId == rhs.interactionId &&
-            lhs.authorId == rhs.authorId &&
-            lhs.timestampMs == rhs.timestampMs &&
-            lhs.quotedInteractionId == rhs.quotedInteractionId &&
-            lhs.quotedInteractionIsDeleted == rhs.quotedInteractionIsDeleted &&
-            lhs.quotedText == rhs.quotedText &&
-            lhs.quotedAttachmentInfo == rhs.quotedAttachmentInfo
+            lhs.quotedInfo == rhs.quotedInfo &&
+            lhs.attributedText == rhs.attributedText
         )
     }
     
     public func hash(into hasher: inout Hasher) {
         mode.hash(into: &hasher)
         direction.hash(into: &hasher)
-        currentUserSessionIds.hash(into: &hasher)
-        rowId.hash(into: &hasher)
-        interactionId?.hash(into: &hasher)
-        authorId.hash(into: &hasher)
-        timestampMs.hash(into: &hasher)
-        quotedInteractionId.hash(into: &hasher)
-        quotedInteractionIsDeleted.hash(into: &hasher)
-        quotedText.hash(into: &hasher)
-        quotedAttachmentInfo.hash(into: &hasher)
+        quotedInfo.hash(into: &hasher)
+        attributedText.hash(into: &hasher)
     }
 }
 
@@ -257,7 +248,7 @@ public struct QuoteView_SwiftUI: View {
                         height: Self.thumbnailSize
                     )
                     
-                    if let source: ImageDataManager.DataSource = viewModel.quotedAttachmentInfo?.thumbnailSource {
+                    if let source: ImageDataManager.DataSource = viewModel.quotedInfo?.attachmentInfo?.thumbnailSource {
                         SessionAsyncImage(
                             source: source,
                             dataManager: dataManager
@@ -310,15 +301,15 @@ public struct QuoteView_SwiftUI: View {
                 alignment: .leading,
                 spacing: Self.labelStackViewSpacing
             ) {
-                if let author: String = viewModel.author {
-                    Text(author)
+                if let authorName: String = viewModel.quotedInfo?.authorName {
+                    Text(authorName)
                         .bold()
                         .font(.system(size: Values.smallFontSize))
                         .foregroundColor(themeColor: viewModel.targetThemeColor)
                 }
                 
-                if let attributedText: ThemedAttributedString = viewModel.attributedText {
-                    AttributedText(attributedText)
+                if viewModel.quotedInfo != nil {
+                    AttributedText(viewModel.attributedText)
                         .lineLimit(2)
                 } else {
                     Text("messageErrorOriginal".localized())
@@ -364,17 +355,18 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                         viewModel: QuoteViewModel(
                             mode: .draft,
                             direction: .outgoing,
+                            quotedInfo: QuoteViewModel.QuotedInfo(
+                                interactionId: 0,
+                                authorId: "05123",
+                                authorName: "Test User",
+                                timestampMs: 0,
+                                body: nil,
+                                attachmentInfo: nil
+                            ),
+                            showProBadge: true,
                             currentUserSessionIds: ["05123"],
-                            rowId: 0,
-                            interactionId: nil,
-                            authorId: "05123",
-                            showProBadge: false,
-                            timestampMs: 0,
-                            quotedInteractionId: 0,
-                            quotedInteractionIsDeleted: false,
-                            quotedText: nil,
-                            quotedAttachmentInfo: nil,
-                            displayNameRetriever: { _, _ in nil }
+                            displayNameRetriever: { _, _ in nil },
+                            currentUserMentionImage: nil
                         ),
                         dataManager: ImageDataManager()
                     )
@@ -392,17 +384,18 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                         viewModel: QuoteViewModel(
                             mode: .draft,
                             direction: .outgoing,
+                            quotedInfo: QuoteViewModel.QuotedInfo(
+                                interactionId: 0,
+                                authorId: "05123",
+                                authorName: "0512...1234",
+                                timestampMs: 0,
+                                body: "This was a message",
+                                attachmentInfo: nil
+                            ),
+                            showProBadge: false,
                             currentUserSessionIds: [],
-                            rowId: 0,
-                            interactionId: nil,
-                            authorId: "05123",
-                            showProBadge: true,
-                            timestampMs: 0,
-                            quotedInteractionId: 0,
-                            quotedInteractionIsDeleted: false,
-                            quotedText: "This was a message",
-                            quotedAttachmentInfo: nil,
-                            displayNameRetriever: { _, _ in "Some User" }
+                            displayNameRetriever: { _, _ in "Some User" },
+                            currentUserMentionImage: nil
                         ),
                         dataManager: ImageDataManager()
                     )
@@ -420,24 +413,25 @@ struct QuoteView_SwiftUI_Previews: PreviewProvider {
                         viewModel: QuoteViewModel(
                             mode: .regular,
                             direction: .incoming,
-                            currentUserSessionIds: [],
-                            rowId: 0,
-                            interactionId: nil,
-                            authorId: "",
-                            showProBadge: false,
-                            timestampMs: 0,
-                            quotedInteractionId: 0,
-                            quotedInteractionIsDeleted: false,
-                            quotedText: nil,
-                            quotedAttachmentInfo: QuoteViewModel.AttachmentInfo(
-                                id: "",
-                                utType: .wav,
-                                isVoiceMessage: false,
-                                downloadUrl: nil,
-                                sourceFilename: nil,
-                                thumbnailSource: nil
+                            quotedInfo: QuoteViewModel.QuotedInfo(
+                                interactionId: 0,
+                                authorId: "05123",
+                                authorName: "Name",
+                                timestampMs: 0,
+                                body: nil,
+                                attachmentInfo: QuoteViewModel.AttachmentInfo(
+                                    id: "",
+                                    utType: .wav,
+                                    isVoiceMessage: false,
+                                    downloadUrl: nil,
+                                    sourceFilename: nil,
+                                    thumbnailSource: nil
+                                )
                             ),
-                            displayNameRetriever: { _, _ in nil }
+                            showProBadge: false,
+                            currentUserSessionIds: [],
+                            displayNameRetriever: { _, _ in nil },
+                            currentUserMentionImage: nil
                         ),
                         dataManager: ImageDataManager()
                     )

@@ -242,13 +242,15 @@ public class NotificationActionHandler {
         // If this happens when the the app is not, visible we skip the animation so the thread
         // can be visible to the user immediately upon opening the app, rather than having to watch
         // it animate in from the homescreen.
-        dependencies[singleton: .app].presentConversationCreatingIfNeeded(
-            for: threadId,
-            variant: threadVariant,
-            action: .none,
-            dismissing: dependencies[singleton: .app].homePresentedViewController,
-            animated: (UIApplication.shared.applicationState == .active)
-        )
+        Task.detached(priority: .userInitiated) { [dependencies] in
+            await dependencies[singleton: .app].presentConversationCreatingIfNeeded(
+                for: threadId,
+                variant: threadVariant,
+                action: .none,
+                dismissing: dependencies[singleton: .app].homePresentedViewController,
+                animated: (UIApplication.shared.applicationState == .active)
+            )
+        }
     }
     
     @MainActor func showHomeVC() {

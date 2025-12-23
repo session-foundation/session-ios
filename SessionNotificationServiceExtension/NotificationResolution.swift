@@ -22,6 +22,7 @@ enum NotificationResolution: CustomStringConvertible {
     case ignoreDueToDuplicateMessage
     case ignoreDueToDuplicateCall
     case ignoreDueToContentSize(Network.PushNotification.NotificationMetadata)
+    case ignoreDueToCryptoError(CryptoError)
     
     case errorTimeout
     case errorNotReadyForExtensions
@@ -29,7 +30,7 @@ enum NotificationResolution: CustomStringConvertible {
     case errorCallFailure
     case errorNoContent(Network.PushNotification.NotificationMetadata)
     case errorProcessing(Network.PushNotification.ProcessResult)
-    case errorMessageHandling(MessageReceiverError, Network.PushNotification.NotificationMetadata)
+    case errorMessageHandling(MessageError, Network.PushNotification.NotificationMetadata)
     case errorOther(Error)
     
     public var description: String {
@@ -55,6 +56,9 @@ enum NotificationResolution: CustomStringConvertible {
             
             case .ignoreDueToContentSize(let metadata):
                 return "Ignored: Notification content from \(metadata.messageOriginString) was too long (\(Format.fileSize(UInt(metadata.dataLength))))"
+                
+            case .ignoreDueToCryptoError(let error):
+                return "Ignored: Crypto error occurred: \(error)"
             
             case .errorTimeout: return "Failed: Execution time expired"
             case .errorNotReadyForExtensions: return "Failed: App not ready for extensions"
@@ -77,7 +81,7 @@ enum NotificationResolution: CustomStringConvertible {
                 .ignoreDueToSelfSend, .ignoreDueToNonLegacyGroupLegacyNotification,
                 .ignoreDueToOutdatedMessage, .ignoreDueToRequiresNoNotification,
                 .ignoreDueToMessageRequest, .ignoreDueToDuplicateMessage, .ignoreDueToDuplicateCall,
-                .ignoreDueToContentSize:
+                .ignoreDueToContentSize, .ignoreDueToCryptoError:
                 return .info
                 
             case .errorNotReadyForExtensions, .errorLegacyPushNotification, .errorNoContent, .errorCallFailure:

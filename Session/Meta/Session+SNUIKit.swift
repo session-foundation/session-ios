@@ -125,9 +125,21 @@ internal struct SessionSNUIKitConfig: SNUIKit.ConfigType {
     }
     
     @MainActor func numberOfCharactersLeft(for text: String) -> Int {
-        return LibSession.numberOfCharactersLeft(
-            for: text,
-            isSessionPro: dependencies[cache: .libSession].isSessionPro
-        )
+        return dependencies[singleton: .sessionProManager].numberOfCharactersLeft(for: text)
+    }
+    
+    func urlStringProvider() -> StringProvider.Url {
+        return Constants.urls
+    }
+    
+    func buildVariantStringProvider() -> StringProvider.BuildVariant {
+        return Constants.buildVariants
+    }
+    
+    func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform {
+        switch platform {
+            case .iOS: return Constants.PaymentProvider.appStore
+            case .android: return Constants.PaymentProvider.playStore
+        }
     }
 }

@@ -543,7 +543,7 @@ public extension LibSession {
             /// Count the OneToOne conversations (visible contacts)
             if
                 case .contacts(let conf) = configStore[userSessionId, .contacts],
-                let contactData: [String: ContactData] = try? LibSession.extractContacts(from: conf, using: dependencies)
+                let contactData: [String: ContactData] = try? extractContacts(from: conf)
             {
                 let visibleContacts: [ContactData] = contactData.values
                     .filter { $0.priority >= LibSession.visiblePriority }
@@ -815,61 +815,69 @@ public extension LibSession {
                 .reduce([], +)
         }
         
+        public func currentConfigState(
+            swarmPublicKey: String,
+            variants: Set<ConfigDump.Variant>
+        ) throws -> [ConfigDump.Variant: [ObservableKey: Any]] {
+            guard !variants.isEmpty else { return [:] }
+            guard !swarmPublicKey.isEmpty else { throw MessageError.invalidConfigMessageHandling }
+            
+            return try variants.reduce(into: [:]) { result, variant in
+                let sessionId: SessionId = SessionId(hex: swarmPublicKey, dumpVariant: variant)
+                
+                switch configStore[sessionId, variant] {
+                    case .userProfile:
+                        result[variant] = [
+                            .profile(userSessionId.hexString): profile,
+                            .setting(.checkForCommunityMessageRequests): get(.checkForCommunityMessageRequests),
+                            .proAccessExpiryUpdated: proAccessExpiryTimestampMs
+                        ]
+                        
+                    case .contacts(let conf):
+                        result[variant] = try extractContacts(from: conf).reduce(into: [:]) { result, next in
+                            result[.contact(next.key)] = next.value.contact
+                            result[.profile(next.key)] = next.value.profile
+                        }
+                        
+                    case .userGroups(let conf):
+                        let extractedUserGroups: ExtractedUserGroups = try extractUserGroups(from: conf, using: dependencies)
+                        var userGroupEvents: [ObservableKey: Any] = [:]
+                        
+                        extractedUserGroups.groups.forEach { info in
+                            userGroupEvents[.groupInfo(groupId: info.groupSessionId)] = info
+                        }
+                        
+                        result[variant] = userGroupEvents
+                        
+                    default: break
+                }
+            }
+        }
+        
         public func mergeConfigMessages(
             swarmPublicKey: String,
-            messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-            afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [ObservableKey: Any]) throws -> ConfigDump?
-        ) throws -> [MergeResult] {
-            guard !messages.isEmpty else { return [] }
-            guard !swarmPublicKey.isEmpty else { throw MessageReceiverError.noThread }
+            messages: [ConfigMessageReceiveJob.Details.MessageInfo]
+        ) throws -> [ConfigDump.Variant: Int64] {
+            guard !messages.isEmpty else { return [:] }
+            guard !swarmPublicKey.isEmpty else { throw MessageError.invalidConfigMessageHandling }
             
-            let groupedMessages: [ConfigDump.Variant: [ConfigMessageReceiveJob.Details.MessageInfo]] = messages
+            return try messages
                 .grouped(by: { ConfigDump.Variant(namespace: $0.namespace) })
-            
-            return try groupedMessages
                 .sorted { lhs, rhs in lhs.key.namespace.processingOrder < rhs.key.namespace.processingOrder }
-                .compactMap { variant, messages -> MergeResult? in
+                .reduce(into: [:]) { result, next in
+                    let (variant, messages): (ConfigDump.Variant, [ConfigMessageReceiveJob.Details.MessageInfo]) = next
                     let sessionId: SessionId = SessionId(hex: swarmPublicKey, dumpVariant: variant)
                     let config: Config? = configStore[sessionId, variant]
                     
                     do {
-                        let oldState: [ObservableKey: Any] = try {
-                            switch config {
-                                case .userProfile:
-                                    return [
-                                        .profile(userSessionId.hexString): profile,
-                                        .setting(.checkForCommunityMessageRequests): get(.checkForCommunityMessageRequests)
-                                    ]
-                                    
-                                case .contacts(let conf):
-                                    return try LibSession
-                                        .extractContacts(from: conf, using: dependencies)
-                                        .reduce(into: [:]) { result, next in
-                                            result[.contact(next.key)] = next.value.contact
-                                            result[.profile(next.key)] = next.value.profile
-                                        }
-                                    
-                                default: return [:]
-                            }
-                        }()
-                        
                         // Merge the messages (if it doesn't merge anything then don't bother trying
                         // to handle the result)
                         Log.info(.libSession, "Attempting to merge \(variant) config messages")
                         guard let latestServerTimestampMs: Int64 = try config?.merge(messages) else {
-                            return nil
+                            return
                         }
                         
-                        // Now that the config message has been merged, run any after-merge logic
-                        let dump: ConfigDump? = try afterMerge(
-                            sessionId,
-                            variant,
-                            config,
-                            latestServerTimestampMs,
-                            oldState
-                        )
-                        
-                        return (sessionId, variant, dump)
+                        result[variant] = latestServerTimestampMs
                     }
                     catch {
                         Log.error(.libSession, "Failed to process merge of \(variant) config data")
@@ -883,90 +891,101 @@ public extension LibSession {
             swarmPublicKey: String,
             messages: [ConfigMessageReceiveJob.Details.MessageInfo]
         ) throws {
-            let results: [MergeResult] = try mergeConfigMessages(
+            let oldStateMap: [ConfigDump.Variant: [ObservableKey: Any]] = try currentConfigState(
+                swarmPublicKey: swarmPublicKey,
+                variants: Set(messages.map { ConfigDump.Variant(namespace: $0.namespace) })
+            )
+            let latestServerTimestampsMs: [ConfigDump.Variant: Int64] = try mergeConfigMessages(
                 swarmPublicKey: swarmPublicKey,
                 messages: messages
-            ) { sessionId, variant, config, latestServerTimestampMs, oldState in
-                // Apply the updated states to the database
-                switch variant {
-                    case .userProfile:
-                        try handleUserProfileUpdate(
-                            db,
-                            in: config,
-                            oldState: oldState
-                        )
-                        
-                    case .contacts:
-                        try handleContactsUpdate(
-                            db,
-                            in: config,
-                            oldState: oldState
-                        )
-                        
-                    case .convoInfoVolatile:
-                        try handleConvoInfoVolatileUpdate(
-                            db,
-                            in: config
-                        )
-                        
-                    case .userGroups:
-                        try handleUserGroupsUpdate(
-                            db,
-                            in: config
-                        )
-                        
-                    case .groupInfo:
-                        try handleGroupInfoUpdate(
-                            db,
-                            in: config,
-                            groupSessionId: sessionId,
-                            serverTimestampMs: latestServerTimestampMs
-                        )
-                        
-                    case .groupMembers:
-                        try handleGroupMembersUpdate(
-                            db,
-                            in: config,
-                            groupSessionId: sessionId,
-                            serverTimestampMs: latestServerTimestampMs
-                        )
-                        
-                    case .groupKeys:
-                        try handleGroupKeysUpdate(
-                            db,
-                            in: config,
-                            groupSessionId: sessionId
-                        )
-                        
-                    case .local: Log.error(.libSession, "Tried to process merge of local config")
-                    case .invalid: Log.error(.libSession, "Failed to process merge of invalid config namespace")
+            )
+            let results: [MergeResult] = try latestServerTimestampsMs
+                .sorted { lhs, rhs in lhs.key.namespace.processingOrder < rhs.key.namespace.processingOrder }
+                .compactMap { variant, latestServerTimestampMs in
+                    let sessionId: SessionId = SessionId(hex: swarmPublicKey, dumpVariant: variant)
+                    let config: Config? = configStore[sessionId, variant]
+                    let oldState: [ObservableKey: Any] = (oldStateMap[variant] ?? [:])
+                    
+                    // Apply the updated states to the database
+                    switch variant {
+                        case .userProfile:
+                            try handleUserProfileUpdate(
+                                db,
+                                in: config,
+                                oldState: oldState
+                            )
+                            
+                        case .contacts:
+                            try handleContactsUpdate(
+                                db,
+                                in: config,
+                                oldState: oldState
+                            )
+                            
+                        case .convoInfoVolatile:
+                            try handleConvoInfoVolatileUpdate(
+                                db,
+                                in: config
+                            )
+                            
+                        case .userGroups:
+                            try handleUserGroupsUpdate(
+                                db,
+                                in: config,
+                                oldState: oldState
+                            )
+                            
+                        case .groupInfo:
+                            try handleGroupInfoUpdate(
+                                db,
+                                in: config,
+                                groupSessionId: sessionId
+                            )
+                            
+                        case .groupMembers:
+                            try handleGroupMembersUpdate(
+                                db,
+                                in: config,
+                                groupSessionId: sessionId,
+                                serverTimestampMs: latestServerTimestampMs
+                            )
+                            
+                        case .groupKeys:
+                            try handleGroupKeysUpdate(
+                                db,
+                                in: config,
+                                groupSessionId: sessionId
+                            )
+                            
+                        case .local: Log.error(.libSession, "Tried to process merge of local config")
+                        case .invalid: Log.error(.libSession, "Failed to process merge of invalid config namespace")
+                    }
+                    
+                    // Need to check if the config needs to be dumped (this might have changed
+                    // after handling the merge changes)
+                    guard configNeedsDump(config) else {
+                        try ConfigDump
+                            .filter(
+                                ConfigDump.Columns.variant == variant &&
+                                ConfigDump.Columns.publicKey == sessionId.hexString
+                            )
+                            .updateAll(
+                                db,
+                                ConfigDump.Columns.timestampMs.set(to: latestServerTimestampMs)
+                            )
+                        return nil
+                    }
+                    
+                    let dump: ConfigDump? = try createDump(
+                        config: config,
+                        for: variant,
+                        sessionId: sessionId,
+                        timestampMs: latestServerTimestampMs
+                    )
+                    try dump?.upsert(db)
+                    
+                    return (sessionId, variant, dump)
                 }
-                
-                // Need to check if the config needs to be dumped (this might have changed
-                // after handling the merge changes)
-                guard configNeedsDump(config) else {
-                    try ConfigDump
-                        .filter(
-                            ConfigDump.Columns.variant == variant &&
-                            ConfigDump.Columns.publicKey == sessionId.hexString
-                        )
-                        .updateAll(
-                            db,
-                            ConfigDump.Columns.timestampMs.set(to: latestServerTimestampMs)
-                        )
-                    return nil
-                }
-                
-                let dump: ConfigDump? = try createDump(
-                    config: config,
-                    for: variant,
-                    sessionId: sessionId,
-                    timestampMs: latestServerTimestampMs
-                )
-                try dump?.upsert(db)
-                
-                return dump
-            }
             
             let needsPush: Bool = (try? SessionId(from: swarmPublicKey)).map {
                 configStore[$0].contains(where: { $0.needsPush }) &&
@@ -1003,23 +1022,6 @@ public extension LibSession {
                 }
             }
         }
-        
-        public func unsafeDirectMergeConfigMessage(
-            swarmPublicKey: String,
-            messages: [ConfigMessageReceiveJob.Details.MessageInfo]
-        ) throws {
-            guard !messages.isEmpty else { return }
-            
-            let groupedMessages: [ConfigDump.Variant: [ConfigMessageReceiveJob.Details.MessageInfo]] = messages
-                .grouped(by: { ConfigDump.Variant(namespace: $0.namespace) })
-            
-            try groupedMessages
-                .sorted { lhs, rhs in lhs.key.namespace.processingOrder < rhs.key.namespace.processingOrder }
-                .forEach { [configStore] variant, message in
-                    let sessionId: SessionId = SessionId(hex: swarmPublicKey, dumpVariant: variant)
-                    _ = try configStore[sessionId, variant]?.merge(message)
-                }
-        }
     }
 }
 
@@ -1029,7 +1031,6 @@ public extension LibSession {
 public protocol LibSessionImmutableCacheType: ImmutableCacheType {
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
-    var isSessionPro: Bool { get }
     var allDumpSessionIds: Set<SessionId> { get }
     
     func hasConfig(for variant: ConfigDump.Variant, sessionId: SessionId) -> Bool
@@ -1041,7 +1042,6 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     var dependencies: Dependencies { get }
     var userSessionId: SessionId { get }
     var isEmpty: Bool { get }
-    var isSessionPro: Bool { get }
     var allDumpSessionIds: Set<SessionId> { get }
     
     // MARK: - State Management
@@ -1108,20 +1108,10 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     func mergeConfigMessages(
         swarmPublicKey: String,
-        messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [ObservableKey: Any]) throws -> ConfigDump?
-    ) throws -> [LibSession.MergeResult]
+        messages: [ConfigMessageReceiveJob.Details.MessageInfo]
+    ) throws -> [ConfigDump.Variant: Int64]
     func handleConfigMessages(
         _ db: ObservingDatabase,
-        swarmPublicKey: String,
-        messages: [ConfigMessageReceiveJob.Details.MessageInfo]
-    ) throws
-    
-    /// This function takes config messages and just triggers the merge into `libSession`
-    ///
-    /// **Note:** This function should only be used in a situation where we want to retrieve the data from a config message as using it
-    /// elsewhere will result in the database getting out of sync with the config state
-    func unsafeDirectMergeConfigMessage(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws
@@ -1138,13 +1128,21 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?)
     
     var displayName: String? { get }
+    var proConfig: SessionPro.ProConfig? { get }
+    var proAccessExpiryTimestampMs: UInt64 { get }
     
+    /// This function should not be called outside of the `Profile.updateIfNeeded` function to avoid duplicating changes and events,
+    /// as a result this function doesn't emit profile change events itself (use `Profile.updateLocal` instead)
     func updateProfile(
         displayName: Update<String>,
         displayPictureUrl: Update<String?>,
         displayPictureEncryptionKey: Update<Data?>,
+        proProfileFeatures: Update<SessionPro.ProfileFeatures>,
         isReuploadProfilePicture: Bool
     ) throws
+    func updateProConfig(proConfig: SessionPro.ProConfig)
+    func removeProConfig()
+    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64)
     
     func canPerformChange(
         threadId: String,
@@ -1170,6 +1168,7 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int64?
+    func proProofMetadata(threadId: String) -> LibSession.ProProofMetadata?
     
     /// Returns whether the specified conversation is a message request
     ///
@@ -1200,6 +1199,8 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     
     func hasCredentials(groupSessionId: SessionId) -> Bool
     func secretKey(groupSessionId: SessionId) -> [UInt8]?
+    func latestGroupKey(groupSessionId: SessionId) throws -> [UInt8]
+    func allActiveGroupKeys(groupSessionId: SessionId) throws -> [[UInt8]]
     func isAdmin(groupSessionId: SessionId) -> Bool
     func loadAdminKey(
         groupIdentitySeed: Data,
@@ -1210,8 +1211,11 @@ public protocol LibSessionCacheType: LibSessionImmutableCacheType, MutableCacheT
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool
     func groupName(groupSessionId: SessionId) -> String?
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool
+    func groupInfo(for groupIds: Set<String>) -> [LibSession.GroupInfo?]
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval?
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval?
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData
 }
 
 public extension LibSessionCacheType {
@@ -1287,6 +1291,7 @@ public extension LibSessionCacheType {
             displayName: .set(to: displayName),
             displayPictureUrl: .useExisting,
             displayPictureEncryptionKey: .useExisting,
+            proProfileFeatures: .useExisting,
             isReuploadProfilePicture: false
         )
     }
@@ -1305,7 +1310,6 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     let dependencies: Dependencies
     let userSessionId: SessionId = .invalid
     let isEmpty: Bool = true
-    var isSessionPro: Bool = false
     let allDumpSessionIds: Set<SessionId> = []
     
     init(using dependencies: Dependencies) {
@@ -1395,15 +1399,10 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     func activeHashes(for swarmPublicKey: String) -> [String] { return [] }
     func mergeConfigMessages(
         swarmPublicKey: String,
-        messages: [ConfigMessageReceiveJob.Details.MessageInfo],
-        afterMerge: (SessionId, ConfigDump.Variant, LibSession.Config?, Int64, [ObservableKey: Any]) throws -> ConfigDump?
-    ) throws -> [LibSession.MergeResult] { return [] }
+        messages: [ConfigMessageReceiveJob.Details.MessageInfo]
+    ) throws -> [ConfigDump.Variant: Int64] { return [:] }
     func handleConfigMessages(
         _ db: ObservingDatabase,
-        swarmPublicKey: String,
-        messages: [ConfigMessageReceiveJob.Details.MessageInfo]
-    ) throws {}
-    func unsafeDirectMergeConfigMessage(
         swarmPublicKey: String,
         messages: [ConfigMessageReceiveJob.Details.MessageInfo]
     ) throws {}
@@ -1417,6 +1416,8 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     // MARK: - State Access
     
     var displayName: String? { return nil }
+    var proConfig: SessionPro.ProConfig? { return nil }
+    var proAccessExpiryTimestampMs: UInt64 { return 0 }
     
     func set(_ key: Setting.BoolKey, _ value: Bool?) {}
     func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) {}
@@ -1424,8 +1425,12 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
         displayName: Update<String>,
         displayPictureUrl: Update<String?>,
         displayPictureEncryptionKey: Update<Data?>,
+        proProfileFeatures: Update<SessionPro.ProfileFeatures>,
         isReuploadProfilePicture: Bool
     ) throws {}
+    func updateProConfig(proConfig: SessionPro.ProConfig) {}
+    func removeProConfig() {}
+    func updateProAccessExpiryTimestampMs(_ proAccessExpiryTimestampMs: UInt64) {}
     
     func canPerformChange(
         threadId: String,
@@ -1451,6 +1456,7 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
         threadVariant: SessionThread.Variant,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Int64? { return nil }
+    func proProofMetadata(threadId: String) -> LibSession.ProProofMetadata? { return nil }
     
     func isMessageRequest(
         threadId: String,
@@ -1480,14 +1486,21 @@ private final class NoopLibSessionCache: LibSessionCacheType, NoopDependency {
     
     func hasCredentials(groupSessionId: SessionId) -> Bool { return false }
     func secretKey(groupSessionId: SessionId) -> [UInt8]? { return nil }
+    func latestGroupKey(groupSessionId: SessionId) throws -> [UInt8] { throw CryptoError.invalidKey }
+    func allActiveGroupKeys(groupSessionId: SessionId) throws -> [[UInt8]] { throw CryptoError.invalidKey }
     func isAdmin(groupSessionId: SessionId) -> Bool { return false }
     func markAsInvited(groupSessionIds: [String]) throws {}
     func markAsKicked(groupSessionIds: [String]) throws {}
     func wasKickedFromGroup(groupSessionId: SessionId) -> Bool { return false }
     func groupName(groupSessionId: SessionId) -> String? { return nil }
     func groupIsDestroyed(groupSessionId: SessionId) -> Bool { return false }
+    func groupInfo(for groupIds: Set<String>) -> [LibSession.GroupInfo?] { return [] }
     func groupDeleteBefore(groupSessionId: SessionId) -> TimeInterval? { return nil }
     func groupDeleteAttachmentsBefore(groupSessionId: SessionId) -> TimeInterval? { return nil }
+    
+    func authData(groupSessionId: SessionId) -> GroupAuthData {
+        return GroupAuthData(groupIdentityPrivateKey: nil, authData: nil)
+    }
 }
 
 // MARK: - Convenience
@@ -1539,7 +1552,7 @@ private extension Int32 {
     }
 }
 
-private extension SessionId {
+public extension SessionId {
     init(hex: String, dumpVariant: ConfigDump.Variant) {
         switch (try? SessionId(from: hex), dumpVariant) {
             case (.some(let sessionId), _): self = sessionId

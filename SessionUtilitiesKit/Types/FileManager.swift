@@ -15,7 +15,7 @@ public extension Singleton {
 
 // MARK: - FileManagerType
 
-public protocol FileManagerType {
+public protocol FileManagerType: Sendable {
     var temporaryDirectory: String { get }
     var documentsDirectoryPath: String { get }
     var appSharedDataDirectoryPath: String { get }
@@ -142,20 +142,19 @@ public extension SessionFileManager {
 
 // MARK: - SessionFileManager
 
-public class SessionFileManager: FileManagerType {
+public final class SessionFileManager: FileManagerType {
     private static let temporaryDirectoryPrefix: String = "sesh_temp_"
     
     private let dependencies: Dependencies
-    private let fileManager: FileManager = .default
-    public var temporaryDirectory: String
+    public let temporaryDirectory: String
     
     public var documentsDirectoryPath: String {
-        return (fileManager.urls(for: .documentDirectory, in: .userDomainMask).first?.path)
+        return (FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path)
             .defaulting(to: "")
     }
     
     public var appSharedDataDirectoryPath: String {
-        return (fileManager.containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup)?.path)
+        return (FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: UserDefaults.applicationGroup)?.path)
             .defaulting(to: "")
     }
     
@@ -184,7 +183,7 @@ public class SessionFileManager: FileManagerType {
     
     public func clearOldTemporaryDirectories() {
         /// We use the lowest priority queue for this, and wait N seconds to avoid interfering with app startup
-        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + .seconds(3), using: dependencies) { [temporaryDirectory, fileManager, dependencies] in
+        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + .seconds(3), using: dependencies) { [temporaryDirectory, dependencies] in
             /// Abort if app not active
             guard dependencies[singleton: .appContext].isAppForegroundAndActive else { return }
             
@@ -193,7 +192,7 @@ public class SessionFileManager: FileManagerType {
             let currentTempDirName: String = URL(fileURLWithPath: temporaryDirectory).lastPathComponent
             let dirPath: String = NSTemporaryDirectory()
             
-            guard let fileNames: [String] = try? fileManager.contentsOfDirectory(atPath: dirPath) else {
+            guard let fileNames: [String] = try? FileManager.default.contentsOfDirectory(atPath: dirPath) else {
                 return
             }
             
@@ -210,14 +209,14 @@ public class SessionFileManager: FileManagerType {
                     /// It's fine if we can't get the attributes (the file may have been deleted since we found it), also don't delete
                     /// files which were created in the last N minutes
                     guard
-                        let attributes: [FileAttributeKey: Any] = try? fileManager.attributesOfItem(atPath: filePath),
+                        let attributes: [FileAttributeKey: Any] = try? FileManager.default.attributesOfItem(atPath: filePath),
                         let modificationDate: Date = attributes[.modificationDate] as? Date,
                         modificationDate.timeIntervalSince1970 <= thresholdDate.timeIntervalSince1970
                     else { return }
                 }
                 
                 /// This can happen if the app launches before the phone is unlocked, clean up will occur when app becomes active
-                try? fileManager.removeItem(atPath: filePath)
+                try? FileManager.default.removeItem(atPath: filePath)
             }
         }
     }
@@ -225,8 +224,8 @@ public class SessionFileManager: FileManagerType {
     public func ensureDirectoryExists(at path: String, fileProtectionType: FileProtectionType) throws {
         var isDirectory: ObjCBool = false
         
-        if !fileManager.fileExists(atPath: path, isDirectory: &isDirectory) {
-            try fileManager.createDirectory(
+        if !FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) {
+            try FileManager.default.createDirectory(
                 atPath: path,
                 withIntermediateDirectories: true,
                 attributes: nil
@@ -237,9 +236,9 @@ public class SessionFileManager: FileManagerType {
     }
     
     public func protectFileOrFolder(at path: String, fileProtectionType: FileProtectionType) throws {
-        guard fileManager.fileExists(atPath: path) else { return }
+        guard FileManager.default.fileExists(atPath: path) else { return }
         
-        try fileManager.setAttributes(
+        try FileManager.default.setAttributes(
             [.protectionKey: fileProtectionType],
             ofItemAtPath: path
         )
@@ -251,7 +250,7 @@ public class SessionFileManager: FileManagerType {
     }
     
     public func fileSize(of path: String) -> UInt64? {
-        guard let attributes: [FileAttributeKey: Any] = try? fileManager.attributesOfItem(atPath: path) else {
+        guard let attributes: [FileAttributeKey: Any] = try? FileManager.default.attributesOfItem(atPath: path) else {
             return nil
         }
         
@@ -294,11 +293,11 @@ public class SessionFileManager: FileManagerType {
     
     // MARK: - Forwarded NSFileManager
     
-    public var currentDirectoryPath: String { fileManager.currentDirectoryPath }
+    public var currentDirectoryPath: String { FileManager.default.currentDirectoryPath }
     
     public func urls(for directory: FileManager.SearchPathDirectory, in domains: FileManager.SearchPathDomainMask) -> [URL] {
         
-        return fileManager.urls(for: directory, in: domains)
+        return FileManager.default.urls(for: directory, in: domains)
     }
     
     public func enumerator(
@@ -307,7 +306,7 @@ public class SessionFileManager: FileManagerType {
         options: FileManager.DirectoryEnumerationOptions,
         errorHandler: ((URL, Error) -> Bool)?
     ) -> FileManager.DirectoryEnumerator? {
-        return fileManager.enumerator(
+        return FileManager.default.enumerator(
             at: url,
             includingPropertiesForKeys: includingPropertiesForKeys,
             options: options,
@@ -316,15 +315,15 @@ public class SessionFileManager: FileManagerType {
     }
     
     public func fileExists(atPath: String) -> Bool {
-        return fileManager.fileExists(atPath: atPath)
+        return FileManager.default.fileExists(atPath: atPath)
     }
     
     public func fileExists(atPath: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool {
-        return fileManager.fileExists(atPath: atPath, isDirectory: isDirectory)
+        return FileManager.default.fileExists(atPath: atPath, isDirectory: isDirectory)
     }
     
     public func contents(atPath: String) -> Data? {
-        return fileManager.contents(atPath: atPath)
+        return FileManager.default.contents(atPath: atPath)
     }
     
     public func contents(atPath: String) throws -> Data {
@@ -332,16 +331,16 @@ public class SessionFileManager: FileManagerType {
     }
     
     public func contentsOfDirectory(at url: URL) throws -> [URL] {
-        return try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+        return try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
     }
     
     public func contentsOfDirectory(atPath path: String) throws -> [String] {
-        return try fileManager.contentsOfDirectory(atPath: path)
+        return try FileManager.default.contentsOfDirectory(atPath: path)
     }
     
     public func isDirectoryEmpty(at url: URL) -> Bool {
         guard
-            let enumerator = fileManager.enumerator(
+            let enumerator = FileManager.default.enumerator(
                 at: url,
                 includingPropertiesForKeys: nil,
                 options: [.skipsHiddenFiles]
@@ -356,11 +355,11 @@ public class SessionFileManager: FileManagerType {
     }
 
     public func createFile(atPath: String, contents: Data?, attributes: [FileAttributeKey: Any]?) -> Bool {
-        return fileManager.createFile(atPath: atPath, contents: contents, attributes: attributes)
+        return FileManager.default.createFile(atPath: atPath, contents: contents, attributes: attributes)
     }
     
     public func createDirectory(at url: URL, withIntermediateDirectories: Bool, attributes: [FileAttributeKey: Any]?) throws {
-        return try fileManager.createDirectory(
+        return try FileManager.default.createDirectory(
             at: url,
             withIntermediateDirectories: withIntermediateDirectories,
             attributes: attributes
@@ -368,7 +367,7 @@ public class SessionFileManager: FileManagerType {
     }
     
     public func createDirectory(atPath: String, withIntermediateDirectories: Bool, attributes: [FileAttributeKey: Any]?) throws {
-        return try fileManager.createDirectory(
+        return try FileManager.default.createDirectory(
             atPath: atPath,
             withIntermediateDirectories: withIntermediateDirectories,
             attributes: attributes
@@ -376,23 +375,23 @@ public class SessionFileManager: FileManagerType {
     }
     
     public func copyItem(atPath: String, toPath: String) throws {
-        return try fileManager.copyItem(atPath: atPath, toPath: toPath)
+        return try FileManager.default.copyItem(atPath: atPath, toPath: toPath)
     }
     
     public func copyItem(at fromUrl: URL, to toUrl: URL) throws {
-        return try fileManager.copyItem(at: fromUrl, to: toUrl)
+        return try FileManager.default.copyItem(at: fromUrl, to: toUrl)
     }
     
     public func moveItem(atPath: String, toPath: String) throws {
-        try fileManager.moveItem(atPath: atPath, toPath: toPath)
+        try FileManager.default.moveItem(atPath: atPath, toPath: toPath)
     }
     
     public func moveItem(at fromUrl: URL, to toUrl: URL) throws {
-        try fileManager.moveItem(at: fromUrl, to: toUrl)
+        try FileManager.default.moveItem(at: fromUrl, to: toUrl)
     }
     
     public func replaceItem(atPath originalItemPath: String, withItemAtPath newItemPath: String, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> String? {
-        return try fileManager.replaceItemAt(
+        return try FileManager.default.replaceItemAt(
             URL(fileURLWithPath: originalItemPath),
             withItemAt: URL(fileURLWithPath: newItemPath),
             backupItemName: backupItemName,
@@ -401,18 +400,18 @@ public class SessionFileManager: FileManagerType {
     }
     
     public func replaceItemAt(_ originalItemURL: URL, withItemAt newItemURL: URL, backupItemName: String?, options: FileManager.ItemReplacementOptions) throws -> URL? {
-        return try fileManager.replaceItemAt(originalItemURL, withItemAt: newItemURL, backupItemName: backupItemName, options: options)
+        return try FileManager.default.replaceItemAt(originalItemURL, withItemAt: newItemURL, backupItemName: backupItemName, options: options)
     }
     
     public func removeItem(atPath: String) throws {
-        return try fileManager.removeItem(atPath: atPath)
+        return try FileManager.default.removeItem(atPath: atPath)
     }
     
     public func attributesOfItem(atPath path: String) throws -> [FileAttributeKey: Any] {
-        return try fileManager.attributesOfItem(atPath: path)
+        return try FileManager.default.attributesOfItem(atPath: path)
     }
     
     public func setAttributes(_ attributes: [FileAttributeKey: Any], ofItemAtPath path: String) throws {
-        return try fileManager.setAttributes(attributes, ofItemAtPath: path)
+        return try FileManager.default.setAttributes(attributes, ofItemAtPath: path)
     }
 }

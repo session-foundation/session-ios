@@ -5,8 +5,8 @@ import NVActivityIndicatorView
 
 // MARK: - LinkPreviewViewModel
 
-public struct LinkPreviewViewModel {
-    public enum State {
+public struct LinkPreviewViewModel: Sendable, Equatable, Hashable {
+    public enum State: Sendable, Equatable, Hashable {
         case loading
         case draft
         case sent

@@ -63,7 +63,11 @@ internal extension LibSessionCacheType {
                             SessionThread.Columns.markedAsUnread.set(to: markedAsUnread),
                             using: dependencies
                         )
-                    db.addConversationEvent(id: threadId, type: .updated(.markedAsUnread(markedAsUnread)))
+                    db.addConversationEvent(
+                        id: threadId,
+                        variant: threadInfo.variant,
+                        type: .updated(.markedAsUnread(markedAsUnread))
+                    )
                 }
                 
                 // If the device has a more recent read interaction then return the info so we can
@@ -171,6 +175,14 @@ internal extension LibSession {
                                 
                             case .markedAsUnread(let unread):
                                 oneToOne.unread = unread
+                                
+                            case .proProofMetadata(let metadata):
+                                oneToOne.has_pro_gen_index_hash = (metadata != nil)
+                                
+                                guard let metadata: ProProofMetadata = metadata else { return }
+                                
+                                oneToOne.set(\.pro_gen_index_hash, to: Data(hex: metadata.genIndexHashHex))
+                                oneToOne.pro_expiry_unix_ts_ms = metadata.expiryUnixTimestampMs
                         }
                     }
                     convo_info_volatile_set_1to1(conf, &oneToOne)
@@ -195,6 +207,8 @@ internal extension LibSession {
                                 
                             case .markedAsUnread(let unread):
                                 legacyGroup.unread = unread
+                                
+                            case .proProofMetadata: break   /// Unsupported
                         }
                     }
                     convo_info_volatile_set_legacy_group(conf, &legacyGroup)
@@ -228,6 +242,8 @@ internal extension LibSession {
                                 
                             case .markedAsUnread(let unread):
                                 community.unread = unread
+                                
+                            case .proProofMetadata: break   /// Unsupported
                         }
                     }
                     convo_info_volatile_set_community(conf, &community)
@@ -252,6 +268,8 @@ internal extension LibSession {
 
                             case .markedAsUnread(let unread):
                                 group.unread = unread
+                                
+                            case .proProofMetadata: break   /// Unsupported
                         }
                     }
                     convo_info_volatile_set_group(conf, &group)
@@ -482,6 +500,59 @@ public extension LibSession.Cache {
                 return group.last_read
         }
     }
+    
+    func proProofMetadata(threadId: String) -> LibSession.ProProofMetadata? {
+        /// If it's the current user then source from the `proConfig` instead
+        guard threadId != userSessionId.hexString else {
+            return proConfig.map { proConfig in
+                return LibSession.ProProofMetadata(
+                    genIndexHashHex: proConfig.proProof.genIndexHash.toHexString(),
+                    expiryUnixTimestampMs: proConfig.proProof.expiryUnixTimestampMs
+                )
+            }
+        }
+        
+        /// If we don't have a config then just assume the user is non-pro
+        guard case .convoInfoVolatile(let conf) = config(for: .convoInfoVolatile, sessionId: userSessionId) else {
+            return nil
+        }
+        
+        switch try? SessionId.Prefix(from: threadId) {
+            case .standard:
+                var oneToOne: convo_info_volatile_1to1 = convo_info_volatile_1to1()
+                guard
+                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                    convo_info_volatile_get_1to1(conf, &oneToOne, &cThreadId)
+                else {
+                    LibSessionError.clear(conf)
+                    return nil
+                }
+                guard oneToOne.has_pro_gen_index_hash else { return nil }
+                
+                return LibSession.ProProofMetadata(
+                    genIndexHashHex: oneToOne.getHex(\.pro_gen_index_hash),
+                    expiryUnixTimestampMs: oneToOne.pro_expiry_unix_ts_ms
+                )
+                
+            case .blinded15, .blinded25:
+                var blinded: convo_info_volatile_blinded_1to1 = convo_info_volatile_blinded_1to1()
+                guard
+                    var cThreadId: [CChar] = threadId.cString(using: .utf8),
+                    convo_info_volatile_get_blinded_1to1(conf, &blinded, &cThreadId)
+                else {
+                    LibSessionError.clear(conf)
+                    return nil
+                }
+                guard blinded.has_pro_gen_index_hash else { return nil }
+                
+                return LibSession.ProProofMetadata(
+                    genIndexHashHex: blinded.getHex(\.pro_gen_index_hash),
+                    expiryUnixTimestampMs: blinded.pro_expiry_unix_ts_ms
+                )
+                
+            default: return nil    /// Other conversation types don't have `ProProofMetadata`
+        }
+    }
 }
 
 // MARK: State Access
@@ -490,26 +561,32 @@ public extension LibSessionCacheType {
     func timestampAlreadyRead(
         threadId: String,
         threadVariant: SessionThread.Variant,
-        timestampMs: Int64,
+        timestampMs: UInt64,
         openGroupUrlInfo: LibSession.OpenGroupUrlInfo?
     ) -> Bool {
-        let lastReadTimestampMs = conversationLastRead(
+        let lastReadTimestampMs: Int64? = conversationLastRead(
             threadId: threadId,
             threadVariant: threadVariant,
             openGroupUrlInfo: openGroupUrlInfo
         )
         
-        return ((lastReadTimestampMs ?? 0) >= timestampMs)
+        return ((lastReadTimestampMs ?? 0) >= Int64(timestampMs))
     }
 }
 
 // MARK: - VolatileThreadInfo
 
 public extension LibSession {
+    struct ProProofMetadata {
+        let genIndexHashHex: String
+        let expiryUnixTimestampMs: UInt64
+    }
+    
     struct VolatileThreadInfo {
         enum Change {
             case markedAsUnread(Bool)
             case lastReadTimestampMs(Int64)
+            case proProofMetadata(ProProofMetadata?)
         }
         
         let threadId: String
@@ -626,6 +703,7 @@ public extension LibSession {
         var community: convo_info_volatile_community = convo_info_volatile_community()
         var legacyGroup: convo_info_volatile_legacy_group = convo_info_volatile_legacy_group()
         var group: convo_info_volatile_group = convo_info_volatile_group()
+        var blinded: convo_info_volatile_blinded_1to1 = convo_info_volatile_blinded_1to1()
         let convoIterator: OpaquePointer = convo_info_volatile_iterator_new(conf)
 
         while !convo_info_volatile_iterator_done(convoIterator) {
@@ -638,7 +716,15 @@ public extension LibSession {
                         variant: .contact,
                         changes: [
                             .markedAsUnread(oneToOne.unread),
-                            .lastReadTimestampMs(oneToOne.last_read)
+                            .lastReadTimestampMs(oneToOne.last_read),
+                            .proProofMetadata({
+                                guard oneToOne.has_pro_gen_index_hash else { return nil }
+                                
+                                return ProProofMetadata(
+                                    genIndexHashHex: oneToOne.getHex(\.pro_gen_index_hash),
+                                    expiryUnixTimestampMs: oneToOne.pro_expiry_unix_ts_ms
+                                )
+                            }())
                         ]
                     )
                 )
@@ -689,6 +775,26 @@ public extension LibSession {
                     )
                 )
             }
+            else if convo_info_volatile_it_is_blinded_1to1(convoIterator, &blinded) {
+                result.append(
+                    VolatileThreadInfo(
+                        threadId: blinded.get(\.blinded_session_id),
+                        variant: .contact,
+                        changes: [
+                            .markedAsUnread(blinded.unread),
+                            .lastReadTimestampMs(blinded.last_read),
+                            .proProofMetadata({
+                                guard blinded.has_pro_gen_index_hash else { return nil }
+                                
+                                return ProProofMetadata(
+                                    genIndexHashHex: blinded.getHex(\.pro_gen_index_hash),
+                                    expiryUnixTimestampMs: blinded.pro_expiry_unix_ts_ms
+                                )
+                            }())
+                        ]
+                    )
+                )
+            }
             else {
                 Log.error(.libSession, "Ignoring unknown conversation type when iterating through volatile conversation info update")
             }
@@ -731,3 +837,4 @@ extension convo_info_volatile_1to1: CAccessible & CMutable {}
 extension convo_info_volatile_community: CAccessible & CMutable {}
 extension convo_info_volatile_legacy_group: CAccessible & CMutable {}
 extension convo_info_volatile_group: CAccessible & CMutable {}
+extension convo_info_volatile_blinded_1to1: CAccessible & CMutable {}

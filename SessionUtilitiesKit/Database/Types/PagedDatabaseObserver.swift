@@ -683,6 +683,28 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                                 ),
                                 nil
                             )
+                            
+                        case .numberBefore(let count):
+                            let updatedOffset: Int = max(0, (currentPageInfo.pageOffset - count))
+                            
+                            return (
+                                (
+                                    count,
+                                    updatedOffset,
+                                    updatedOffset
+                                ),
+                                nil
+                            )
+                            
+                        case .numberAfter(let count):
+                            return (
+                                (
+                                    count,
+                                    (currentPageInfo.pageOffset + currentPageInfo.currentCount),
+                                    currentPageInfo.pageOffset
+                                ),
+                                nil
+                            )
                         
                         case .untilInclusive(let targetId, let padding):
                             // If we want to focus on a specific item then we need to find it's index in
@@ -786,6 +808,17 @@ public class PagedDatabaseObserver<ObservedTable, T>: IdentifiableTransactionObs
                             return (nil, callback)
                             
                         case .reloadCurrent:
+                            return (
+                                (
+                                    currentPageInfo.currentCount,
+                                    currentPageInfo.pageOffset,
+                                    currentPageInfo.pageOffset
+                                ),
+                                nil
+                            )
+                            
+                        case .newItems:
+                            Log.error(.cat, "Used `.newItems` when in PagedDatabaseObserver which is not supported")
                             return (
                                 (
                                     currentPageInfo.currentCount,
@@ -945,8 +978,11 @@ private extension PagedData {
         case initialPageAround(id: SQLExpression)
         case pageBefore
         case pageAfter
+        case numberBefore(Int)
+        case numberAfter(Int)
         case jumpTo(id: SQLExpression, paddingForInclusive: Int)
         case reloadCurrent
+        case newItems
         
         /// This will be used when `jumpTo`  is called and the `id` is within a single `pageSize` of the currently
         /// cached data (plus the padding amount)
@@ -964,11 +1000,14 @@ private extension PagedData.Target {
             case .initialPageAround(let id): return .initialPageAround(id: id.sqlExpression)
             case .pageBefore: return .pageBefore
             case .pageAfter: return .pageAfter
+            case .numberBefore(let count): return .numberBefore(count)
+            case .numberAfter(let count): return .numberAfter(count)
             
             case .jumpTo(let id, let padding):
                 return .jumpTo(id: id.sqlExpression, paddingForInclusive: padding)
                 
             case .reloadCurrent: return .reloadCurrent
+            case .newItems: return .newItems
         }
     }
 }

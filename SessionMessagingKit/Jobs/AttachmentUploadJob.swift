@@ -130,7 +130,7 @@ public enum AttachmentUploadJob: JobExecutor {
                         threadId: threadId,
                         message: details.message,
                         destination: nil,
-                        error: .other(.cat, "Failed", error),
+                        error: .sendFailure(.cat, "Failed", error),
                         interactionId: interactionId,
                         using: dependencies
                     )
@@ -242,7 +242,7 @@ public extension AttachmentUploadJob {
     ) async throws -> (attachment: Attachment, response: FileUploadResponse) {
         let shouldEncrypt: Bool = {
             switch authMethod {
-                case is Authentication.community: return false
+                case is Authentication.Community: return false
                 default: return true
             }
         }()
@@ -305,7 +305,7 @@ public extension AttachmentUploadJob {
         
         /// Return the request and the prepared attachment
         switch authMethod {
-            case let communityAuth as Authentication.community:
+            case let communityAuth as Authentication.Community:
                 request = try Network.SOGS.preparedUpload(
                     data: preparedData,
                     roomToken: communityAuth.roomToken,
@@ -339,7 +339,7 @@ public extension AttachmentUploadJob {
 
             switch (attachment.downloadUrl, isPlaceholderUploadUrl, authMethod) {
                 case (.some(let downloadUrl), false, _): return downloadUrl
-                case (_, _, let community as Authentication.community):
+                case (_, _, let community as Authentication.Community):
                     return Network.SOGS.downloadUrlString(
                         for: response.id,
                         server: community.server,

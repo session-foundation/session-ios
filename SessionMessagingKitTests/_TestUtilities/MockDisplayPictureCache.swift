@@ -7,7 +7,7 @@ import SessionUtilitiesKit
 @testable import SessionMessagingKit
 
 class MockDisplayPictureCache: Mock<DisplayPictureCacheType>, DisplayPictureCacheType {
-    var downloadsToSchedule: Set<DisplayPictureManager.Owner> {
+    var downloadsToSchedule: Set<DisplayPictureManager.TargetWithTimestamp> {
         get { return mock() }
         set { mockNoReturn(args: [newValue]) }
     }

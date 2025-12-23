@@ -37,7 +37,6 @@ public enum AppSetup {
             SDImageCodersManager.shared.addCoder(SDImageWebPCoder.shared)
 
             SessionEnvironment.shared = SessionEnvironment(
-                audioSession: OWSAudioSession(),
                 proximityMonitoringManager: OWSProximityMonitoringManagerImpl(using: dependencies),
                 windowManager: OWSWindowManager(default: ())
             )
@@ -114,6 +113,11 @@ public enum AppSetup {
                                     ed25519SecretKey: userInfo.ed25519SecretKey,
                                     unreadCount: userInfo.unreadCount
                                 )
+                                
+                                // FIXME: The launch process should be made async/await and this called correctly
+                                Task.detached(priority: .medium) {
+                                    await dependencies[singleton: .communityManager].loadCacheIfNeeded()
+                                }
                                 
                                 Task.detached(priority: .medium) {
                                     dependencies[singleton: .extensionHelper].replicateAllConfigDumpsIfNeeded(

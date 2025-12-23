@@ -36,8 +36,30 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     variant: .x25519PublicKey,
                     data: Data(hex: TestConstants.publicKey)
                 ).insert(db)
-                try Profile(id: userPubkey, name: "TestMe").insert(db)
-                try Profile(id: user2Pubkey, name: "TestUser").insert(db)
+                try Profile(
+                    id: userPubkey,
+                    name: "TestMe",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
+                ).insert(db)
+                try Profile(
+                    id: user2Pubkey,
+                    name: "TestUser",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
+                ).insert(db)
             }
         )
         @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
@@ -129,9 +151,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                     ).insert(db)
                 }
                 
-                viewModel = ThreadSettingsViewModel(
-                    threadId: user2Pubkey,
-                    threadVariant: .contact,
+                viewModel = await ThreadSettingsViewModel(
+                    threadInfo: ConversationInfoViewModel(
+                        thread: SessionThread(
+                            id: user2Pubkey,
+                            variant: .contact,
+                            creationDateTimestamp: 1234567890
+                        ),
+                        dataCache: ConversationDataCache(
+                            userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                            context: ConversationDataCache.Context(
+                                source: .conversationSettings(threadId: user2Pubkey),
+                                requireFullRefresh: false,
+                                requireAuthMethodFetch: false,
+                                requiresMessageRequestCountUpdate: false,
+                                requiresInitialUnreadInteractionInfo: false,
+                                requireRecentReactionEmojiUpdate: false
+                            )
+                        ),
+                        targetInteractionId: nil,
+                        searchText: nil,
+                        using: dependencies
+                    ),
                     didTriggerSearch: {
                         didTriggerSearchCallbackTriggered = true
                     },
@@ -164,9 +205,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
-                        threadId: userPubkey,
-                        threadVariant: .contact,
+                    viewModel = await ThreadSettingsViewModel(
+                        threadInfo: ConversationInfoViewModel(
+                            thread: SessionThread(
+                                id: userPubkey,
+                                variant: .contact,
+                                creationDateTimestamp: 1234567890
+                            ),
+                            dataCache: ConversationDataCache(
+                                userSessionId: SessionId(.standard, hex: userPubkey),
+                                context: ConversationDataCache.Context(
+                                    source: .conversationSettings(threadId: userPubkey),
+                                    requireFullRefresh: false,
+                                    requireAuthMethodFetch: false,
+                                    requiresMessageRequestCountUpdate: false,
+                                    requiresInitialUnreadInteractionInfo: false,
+                                    requireRecentReactionEmojiUpdate: false
+                                )
+                            ),
+                            targetInteractionId: nil,
+                            searchText: nil,
+                            using: dependencies
+                        ),
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         },
@@ -177,7 +237,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("sessionSettings".localized()))
+                    await expect { await viewModel.title }
+                        .toEventually(equal("sessionSettings".localized()))
                 }
                 
                 // MARK: ---- has the correct display name
@@ -217,9 +278,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
-                        threadId: user2Pubkey,
-                        threadVariant: .contact,
+                    viewModel = await ThreadSettingsViewModel(
+                        threadInfo: ConversationInfoViewModel(
+                            thread: SessionThread(
+                                id: user2Pubkey,
+                                variant: .contact,
+                                creationDateTimestamp: 1234567890
+                            ),
+                            dataCache: ConversationDataCache(
+                                userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                context: ConversationDataCache.Context(
+                                    source: .conversationSettings(threadId: user2Pubkey),
+                                    requireFullRefresh: false,
+                                    requireAuthMethodFetch: false,
+                                    requiresMessageRequestCountUpdate: false,
+                                    requiresInitialUnreadInteractionInfo: false,
+                                    requireRecentReactionEmojiUpdate: false
+                                )
+                            ),
+                            targetInteractionId: nil,
+                            searchText: nil,
+                            using: dependencies
+                        ),
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         },
@@ -230,7 +310,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("sessionSettings".localized()))
+                    await expect { await viewModel.title }
+                        .toEventually(equal("sessionSettings".localized()))
                 }
                 
                 // MARK: ---- has the correct display name
@@ -377,9 +458,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
-                        threadId: legacyGroupPubkey,
-                        threadVariant: .legacyGroup,
+                    viewModel = await ThreadSettingsViewModel(
+                        threadInfo: ConversationInfoViewModel(
+                            thread: SessionThread(
+                                id: legacyGroupPubkey,
+                                variant: .legacyGroup,
+                                creationDateTimestamp: 1234567890
+                            ),
+                            dataCache: ConversationDataCache(
+                                userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                context: ConversationDataCache.Context(
+                                    source: .conversationSettings(threadId: legacyGroupPubkey),
+                                    requireFullRefresh: false,
+                                    requireAuthMethodFetch: false,
+                                    requiresMessageRequestCountUpdate: false,
+                                    requiresInitialUnreadInteractionInfo: false,
+                                    requireRecentReactionEmojiUpdate: false
+                                )
+                            ),
+                            targetInteractionId: nil,
+                            searchText: nil,
+                            using: dependencies
+                        ),
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         },
@@ -390,7 +490,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("deleteAfterGroupPR1GroupSettings".localized()))
+                    await expect { await viewModel.title }
+                        .toEventually(equal("deleteAfterGroupPR1GroupSettings".localized()))
                 }
                 
                 // MARK: ---- has the correct display name
@@ -436,9 +537,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             ).insert(db)
                         }
                         
-                        viewModel = ThreadSettingsViewModel(
-                            threadId: legacyGroupPubkey,
-                            threadVariant: .legacyGroup,
+                        viewModel = await ThreadSettingsViewModel(
+                            threadInfo: ConversationInfoViewModel(
+                                thread: SessionThread(
+                                    id: legacyGroupPubkey,
+                                    variant: .legacyGroup,
+                                    creationDateTimestamp: 1234567890
+                                ),
+                                dataCache: ConversationDataCache(
+                                    userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                    context: ConversationDataCache.Context(
+                                        source: .conversationSettings(threadId: legacyGroupPubkey),
+                                        requireFullRefresh: false,
+                                        requireAuthMethodFetch: false,
+                                        requiresMessageRequestCountUpdate: false,
+                                        requiresInitialUnreadInteractionInfo: false,
+                                        requireRecentReactionEmojiUpdate: false
+                                    )
+                                ),
+                                targetInteractionId: nil,
+                                searchText: nil,
+                                using: dependencies
+                            ),
                             didTriggerSearch: {
                                 didTriggerSearchCallbackTriggered = true
                             },
@@ -492,9 +612,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
-                        threadId: groupPubkey,
-                        threadVariant: .group,
+                    viewModel = await ThreadSettingsViewModel(
+                        threadInfo: ConversationInfoViewModel(
+                            thread: SessionThread(
+                                id: groupPubkey,
+                                variant: .group,
+                                creationDateTimestamp: 1234567890
+                            ),
+                            dataCache: ConversationDataCache(
+                                userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                context: ConversationDataCache.Context(
+                                    source: .conversationSettings(threadId: groupPubkey),
+                                    requireFullRefresh: false,
+                                    requireAuthMethodFetch: false,
+                                    requiresMessageRequestCountUpdate: false,
+                                    requiresInitialUnreadInteractionInfo: false,
+                                    requireRecentReactionEmojiUpdate: false
+                                )
+                            ),
+                            targetInteractionId: nil,
+                            searchText: nil,
+                            using: dependencies
+                        ),
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         },
@@ -505,7 +644,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("deleteAfterGroupPR1GroupSettings".localized()))
+                    await expect { await viewModel.title }
+                        .toEventually(equal("deleteAfterGroupPR1GroupSettings".localized()))
                 }
                 
                 // MARK: ---- has the correct display name
@@ -556,9 +696,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             ).insert(db)
                         }
                         
-                        viewModel = ThreadSettingsViewModel(
-                            threadId: groupPubkey,
-                            threadVariant: .group,
+                        viewModel = await ThreadSettingsViewModel(
+                            threadInfo: ConversationInfoViewModel(
+                                thread: SessionThread(
+                                    id: groupPubkey,
+                                    variant: .group,
+                                    creationDateTimestamp: 1234567890
+                                ),
+                                dataCache: ConversationDataCache(
+                                    userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                    context: ConversationDataCache.Context(
+                                        source: .conversationSettings(threadId: groupPubkey),
+                                        requireFullRefresh: false,
+                                        requireAuthMethodFetch: false,
+                                        requiresMessageRequestCountUpdate: false,
+                                        requiresInitialUnreadInteractionInfo: false,
+                                        requireRecentReactionEmojiUpdate: false
+                                    )
+                                ),
+                                targetInteractionId: nil,
+                                searchText: nil,
+                                using: dependencies
+                            ),
                             didTriggerSearch: {
                                 didTriggerSearchCallbackTriggered = true
                             },
@@ -587,9 +746,28 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                         
                         beforeEach {
                             dependencies[feature: .updatedGroupsAllowDescriptionEditing] = true
-                            viewModel = ThreadSettingsViewModel(
-                                threadId: groupPubkey,
-                                threadVariant: .group,
+                            viewModel = await ThreadSettingsViewModel(
+                                threadInfo: ConversationInfoViewModel(
+                                    thread: SessionThread(
+                                        id: groupPubkey,
+                                        variant: .group,
+                                        creationDateTimestamp: 1234567890
+                                    ),
+                                    dataCache: ConversationDataCache(
+                                        userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                        context: ConversationDataCache.Context(
+                                            source: .conversationSettings(threadId: groupPubkey),
+                                            requireFullRefresh: false,
+                                            requireAuthMethodFetch: false,
+                                            requiresMessageRequestCountUpdate: false,
+                                            requiresInitialUnreadInteractionInfo: false,
+                                            requireRecentReactionEmojiUpdate: false
+                                        )
+                                    ),
+                                    targetInteractionId: nil,
+                                    searchText: nil,
+                                    using: dependencies
+                                ),
                                 didTriggerSearch: {
                                     didTriggerSearchCallbackTriggered = true
                                 },
@@ -725,7 +903,7 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                                             threadId: groupPubkey,
                                             interactionId: nil,
                                             details: MessageSendJob.Details(
-                                                destination: .closedGroup(groupPublicKey: groupPubkey),
+                                                destination: .group(publicKey: groupPubkey),
                                                 message: try GroupUpdateInfoChangeMessage(
                                                     changeType: .name,
                                                     updatedName: "TestNewGroupName",
@@ -793,16 +971,35 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                             server: "testServer",
                             roomToken: "testRoom",
                             publicKey: TestConstants.serverPublicKey,
-                            isActive: false,
+                            shouldPoll: false,
                             name: "TestCommunity",
                             userCount: 1,
                             infoUpdates: 1
                         ).insert(db)
                     }
                     
-                    viewModel = ThreadSettingsViewModel(
-                        threadId: communityId,
-                        threadVariant: .community,
+                    viewModel = await ThreadSettingsViewModel(
+                        threadInfo: ConversationInfoViewModel(
+                            thread: SessionThread(
+                                id: communityId,
+                                variant: .community,
+                                creationDateTimestamp: 1234567890
+                            ),
+                            dataCache: ConversationDataCache(
+                                userSessionId: SessionId(.standard, hex: TestConstants.publicKey),
+                                context: ConversationDataCache.Context(
+                                    source: .conversationSettings(threadId: communityId),
+                                    requireFullRefresh: false,
+                                    requireAuthMethodFetch: false,
+                                    requiresMessageRequestCountUpdate: false,
+                                    requiresInitialUnreadInteractionInfo: false,
+                                    requireRecentReactionEmojiUpdate: false
+                                )
+                            ),
+                            targetInteractionId: nil,
+                            searchText: nil,
+                            using: dependencies
+                        ),
                         didTriggerSearch: {
                             didTriggerSearchCallbackTriggered = true
                         },
@@ -813,7 +1010,8 @@ class ThreadSettingsViewModelSpec: AsyncSpec {
                 
                 // MARK: ---- has the correct title
                 it("has the correct title") {
-                    expect(viewModel.title).to(equal("deleteAfterGroupPR1GroupSettings".localized()))
+                    await expect { await viewModel.title }
+                        .toEventually(equal("deleteAfterGroupPR1GroupSettings".localized()))
                 }
                 
                 // MARK: ---- has the correct display name

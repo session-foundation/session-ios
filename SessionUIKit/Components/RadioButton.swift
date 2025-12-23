@@ -4,6 +4,7 @@ import UIKit
 
 // FIXME: Remove this and use the 'SessionCell' instead
 public class RadioButton: UIView {
+    public static let descriptionFont: UIFont = .systemFont(ofSize: Values.verySmallFontSize)
     private static let selectionBorderSize: CGFloat = 26
     private static let selectionSize: CGFloat = 20
     
@@ -36,6 +37,14 @@ public class RadioButton: UIView {
         set { titleLabel.text = newValue }
     }
     
+    public var descriptionText: ThemedAttributedString? {
+        get { descriptionLabel.attributedText.map { ThemedAttributedString(attributedString: $0) } }
+        set {
+            descriptionLabel.themeAttributedText = newValue
+            descriptionLabel.isHidden = (newValue == nil)
+        }
+    }
+    
     public private(set) var isEnabled: Bool = true
     public private(set) var isSelected: Bool = false
     private let titleTextColor: ThemeValue
@@ -51,6 +60,16 @@ public class RadioButton: UIView {
         return result
     }()
     
+    private lazy var textStackView: UIStackView = {
+        let result: UIStackView = UIStackView()
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.isUserInteractionEnabled = false
+        result.axis = .vertical
+        result.distribution = .fill
+        
+        return result
+    }()
+    
     private lazy var titleLabel: UILabel = {
         let result: UILabel = UILabel()
         result.translatesAutoresizingMaskIntoConstraints = false
@@ -58,6 +77,18 @@ public class RadioButton: UIView {
         result.font = .systemFont(ofSize: Values.smallFontSize)
         result.themeTextColor = titleTextColor
         result.numberOfLines = 0
+        
+        return result
+    }()
+    
+    private lazy var descriptionLabel: UILabel = {
+        let result: UILabel = UILabel()
+        result.translatesAutoresizingMaskIntoConstraints = false
+        result.isUserInteractionEnabled = false
+        result.font = RadioButton.descriptionFont
+        result.themeTextColor = titleTextColor
+        result.numberOfLines = 0
+        result.isHidden = true
         
         return result
     }()
@@ -108,9 +139,12 @@ public class RadioButton: UIView {
     
     private func setupViewHierarchy(size: Size) {
         addSubview(selectionButton)
-        addSubview(titleLabel)
+        addSubview(textStackView)
         addSubview(selectionBorderView)
         addSubview(selectionView)
+        
+        textStackView.addArrangedSubview(titleLabel)
+        textStackView.addArrangedSubview(descriptionLabel)
         
         self.heightAnchor.constraint(
             greaterThanOrEqualTo: titleLabel.heightAnchor,
@@ -123,9 +157,9 @@ public class RadioButton: UIView {
         
         selectionButton.pin(to: self)
         
-        titleLabel.center(.vertical, in: self)
-        titleLabel.pin(.leading, to: .leading, of: self)
-        titleLabel.pin(.trailing, to: .trailing, of: selectionBorderView, withInset: -Values.verySmallSpacing)
+        textStackView.center(.vertical, in: self)
+        textStackView.pin(.leading, to: .leading, of: self)
+        textStackView.pin(.trailing, to: .leading, of: selectionBorderView, withInset: -Values.verySmallSpacing)
         
         selectionBorderView.center(.vertical, in: self)
         selectionBorderView.pin(.trailing, to: .trailing, of: self)
@@ -153,21 +187,25 @@ public class RadioButton: UIView {
         switch (self.isEnabled, self.isSelected) {
             case (true, true):
                 titleLabel.themeTextColor = titleTextColor
+                descriptionLabel.themeTextColor = titleTextColor
                 selectionBorderView.themeBorderColor = .radioButton_selectedBorder
                 selectionView.themeBackgroundColor = .radioButton_selectedBackground
             
             case (true, false):
                 titleLabel.themeTextColor = titleTextColor
+                descriptionLabel.themeTextColor = titleTextColor
                 selectionBorderView.themeBorderColor = .radioButton_unselectedBorder
                 selectionView.themeBackgroundColor = .radioButton_unselectedBackground
             
             case (false, true):
                 titleLabel.themeTextColor = .disabled
+                descriptionLabel.themeTextColor = .disabled
                 selectionBorderView.themeBorderColor = .radioButton_disabledBorder
                 selectionView.themeBackgroundColor = .radioButton_disabledSelectedBackground
             
             case (false, false):
                 titleLabel.themeTextColor = .disabled
+                descriptionLabel.themeTextColor = .disabled
                 selectionBorderView.themeBorderColor = .radioButton_disabledBorder
                 selectionView.themeBackgroundColor = .radioButton_disabledUnselectedBackground
         }

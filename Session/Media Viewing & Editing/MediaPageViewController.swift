@@ -816,8 +816,7 @@ class MediaPageViewController: UIPageViewController, UIPageViewControllerDataSou
                         .read { db in
                             Profile.displayName(
                                 db,
-                                id: targetItem.interactionAuthorId,
-                                threadVariant: threadVariant
+                                id: targetItem.interactionAuthorId
                             )
                         }
                         .defaulting(to: targetItem.interactionAuthorId.truncated())

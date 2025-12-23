@@ -1,0 +1,2708 @@
+// Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
+
+import UIKit
+import Combine
+import GRDB
+import SessionUtil
+import SessionUtilitiesKit
+
+import Quick
+import Nimble
+
+@testable import SessionMessagingKit
+@testable import SessionNetworkingKit
+
+class CommunityManagerSpec: AsyncSpec {
+    override class func spec() {
+        // MARK: Configuration
+        
+        @TestState var dependencies: TestDependencies! = TestDependencies { dependencies in
+            dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
+            dependencies.forceSynchronous = true
+        }
+        @TestState var testInteraction1: Interaction! = Interaction(
+            id: 234,
+            serverHash: "TestServerHash",
+            messageUuid: nil,
+            threadId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+            authorId: "TestAuthorId",
+            variant: .standardOutgoing,
+            body: "Test",
+            timestampMs: 123,
+            receivedAtTimestampMs: 124,
+            wasRead: false,
+            hasMention: false,
+            expiresInSeconds: nil,
+            expiresStartedAtMs: nil,
+            linkPreviewUrl: nil,
+            openGroupServerMessageId: nil,
+            openGroupWhisper: false,
+            openGroupWhisperMods: false,
+            openGroupWhisperTo: nil,
+            state: .sending,
+            recipientReadTimestampMs: nil,
+            mostRecentFailureText: nil,
+            proMessageFeatures: .none,
+            proProfileFeatures: .none
+        )
+        @TestState var testGroupThread: SessionThread! = SessionThread(
+            id: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+            variant: .community,
+            creationDateTimestamp: 0
+        )
+        @TestState var testOpenGroup: OpenGroup! = OpenGroup(
+            server: "http://127.0.0.1",
+            roomToken: "testRoom",
+            publicKey: TestConstants.publicKey,
+            shouldPoll: true,
+            name: "Test",
+            roomDescription: nil,
+            imageId: nil,
+            userCount: 0,
+            infoUpdates: 10,
+            sequenceNumber: 5
+        )
+        @TestState var testPollInfo: Network.SOGS.RoomPollInfo! = Network.SOGS.RoomPollInfo.mock.with(
+            token: "testRoom",
+            activeUsers: 10,
+            details: .mock
+        )
+        @TestState var testMessage: Network.SOGS.Message! = {
+            let proto = SNProtoContent.builder()
+            let protoDataBuilder = SNProtoDataMessage.builder()
+            proto.setSigTimestamp(1234567890000)
+            protoDataBuilder.setBody("TestMessage")
+            protoDataBuilder.setTimestamp(1234567890000)
+            proto.setDataMessage(try! protoDataBuilder.build())
+            
+            return Network.SOGS.Message(
+                id: 127,
+                sender: "05\(TestConstants.publicKey)",
+                posted: 1234567890,
+                edited: nil,
+                deleted: nil,
+                seqNo: 124,
+                whisper: false,
+                whisperMods: false,
+                whisperTo: nil,
+                base64EncodedData: try! proto.build().serializedData().base64EncodedString(),
+                base64EncodedSignature: nil,
+                reactions: nil
+            )
+        }()
+        @TestState var testDirectMessage: Network.SOGS.DirectMessage! = {
+            let proto = SNProtoContent.builder()
+            let protoDataBuilder = SNProtoDataMessage.builder()
+            proto.setSigTimestamp(1234567890000)
+            protoDataBuilder.setBody("TestMessage")
+            protoDataBuilder.setTimestamp(1234567890000)
+            proto.setDataMessage(try! protoDataBuilder.build())
+            
+            return Network.SOGS.DirectMessage(
+                id: 128,
+                sender: "15\(TestConstants.blind15PublicKey)",
+                recipient: "15\(TestConstants.blind15PublicKey)",
+                posted: 1234567890,
+                expires: 1234567990,
+                base64EncodedMessage: try! proto.build().serializedData().base64EncodedString()
+            )
+        }()
+        @TestState(singleton: .storage, in: dependencies) var mockStorage: Storage! = SynchronousStorage(
+            customWriter: try! DatabaseQueue(),
+            migrations: SNMessagingKit.migrations,
+            using: dependencies,
+            initialData: { db in
+                try Identity(variant: .x25519PublicKey, data: Data(hex: TestConstants.publicKey)).insert(db)
+                try Identity(variant: .x25519PrivateKey, data: Data(hex: TestConstants.privateKey)).insert(db)
+                try Identity(variant: .ed25519PublicKey, data: Data(hex: TestConstants.edPublicKey)).insert(db)
+                try Identity(variant: .ed25519SecretKey, data: Data(hex: TestConstants.edSecretKey)).insert(db)
+                
+                try testGroupThread.insert(db)
+                try testOpenGroup.insert(db)
+                try Capability(openGroupServer: testOpenGroup.server, variant: .sogs, isMissing: false).insert(db)
+            }
+        )
+        @TestState(singleton: .jobRunner, in: dependencies) var mockJobRunner: MockJobRunner! = MockJobRunner(
+            initialSetup: { jobRunner in
+                jobRunner
+                    .when { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) }
+                    .thenReturn(nil)
+                jobRunner
+                    .when { $0.upsert(.any, job: .any, canStartJob: .any) }
+                    .thenReturn(nil)
+                jobRunner
+                    .when { $0.jobInfoFor(jobs: .any, state: .any, variant: .any) }
+                    .thenReturn([:])
+            }
+        )
+        @TestState(singleton: .network, in: dependencies) var mockNetwork: MockNetwork! = MockNetwork(
+            initialSetup: { network in
+                network
+                    .when {
+                        $0.send(
+                            endpoint: MockEndpoint.any,
+                            destination: .any,
+                            body: .any,
+                            requestTimeout: .any,
+                            requestAndPathBuildTimeout: .any
+                        )
+                    }
+                    .thenReturn(MockNetwork.errorResponse())
+            }
+        )
+        @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
+            initialSetup: { crypto in
+                crypto.when { $0.generate(.hash(message: .any, length: .any)) }.thenReturn([])
+                crypto
+                    .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                    .thenReturn(
+                        KeyPair(
+                            publicKey: Data(hex: TestConstants.publicKey).bytes,
+                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                        )
+                    )
+                crypto
+                    .when { $0.generate(.blinded25KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                    .thenReturn(
+                        KeyPair(
+                            publicKey: Data(hex: TestConstants.publicKey).bytes,
+                            secretKey: Data(hex: TestConstants.edSecretKey).bytes
+                        )
+                    )
+                crypto
+                    .when { $0.generate(.signatureBlind15(message: .any, serverPublicKey: .any, ed25519SecretKey: .any)) }
+                    .thenReturn("TestSogsSignature".bytes)
+                crypto
+                    .when { $0.generate(.signature(message: .any, ed25519SecretKey: .any)) }
+                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
+                crypto
+                    .when { $0.generate(.randomBytes(16)) }
+                    .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
+                crypto
+                    .when { $0.generate(.randomBytes(24)) }
+                    .thenReturn(Array(Data(base64Encoded: "pbTUizreT0sqJ2R2LloseQDyVL2RYztD")!))
+                crypto
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
+                    .thenReturn(
+                        KeyPair(
+                            publicKey: Array(Data(hex: TestConstants.edPublicKey)),
+                            secretKey: Array(Data(hex: TestConstants.edSecretKey))
+                        )
+                    )
+                crypto
+                    .when { $0.generate(.ciphertextWithXChaCha20(plaintext: .any, encKey: .any)) }
+                    .thenReturn(Data([1, 2, 3]))
+            }
+        )
+        @TestState(defaults: .standard, in: dependencies) var mockUserDefaults: MockUserDefaults! = MockUserDefaults(
+            initialSetup: { defaults in
+                defaults.when { $0.integer(forKey: .any) }.thenReturn(0)
+                defaults.when { $0.set(.any, forKey: .any) }.thenReturn(())
+            }
+        )
+        @TestState(defaults: .appGroup, in: dependencies) var mockAppGroupDefaults: MockUserDefaults! = MockUserDefaults(
+            initialSetup: { defaults in
+                defaults.when { $0.bool(forKey: .any) }.thenReturn(false)
+                defaults.when { $0.object(forKey: .any) }.thenReturn(nil)
+            }
+        )
+        @TestState(cache: .general, in: dependencies) var mockGeneralCache: MockGeneralCache! = MockGeneralCache(
+            initialSetup: { cache in
+                cache.when { $0.sessionId }.thenReturn(SessionId(.standard, hex: TestConstants.publicKey))
+                cache.when { $0.ed25519SecretKey }.thenReturn(Array(Data(hex: TestConstants.edSecretKey)))
+                cache
+                    .when { $0.ed25519Seed }
+                    .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
+            }
+        )
+        @TestState(cache: .libSession, in: dependencies) var mockLibSessionCache: MockLibSessionCache! = MockLibSessionCache(
+            initialSetup: { $0.defaultInitialSetup() }
+        )
+        @TestState(singleton: .communityManager, in: dependencies) var mockCommunityManager: MockCommunityManager! = MockCommunityManager(
+            initialSetup: { manager in
+                manager.when { await $0.pendingChanges }.thenReturn([])
+                manager.when { await $0.setPendingChanges(.any) }.thenReturn(())
+                manager.when { await $0.updatePendingChange(.any, seqNo: .any) }.thenReturn(())
+                manager.when { await $0.removePendingChange(.any) }.thenReturn(())
+                manager.when { await $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
+                manager
+                    .when { await $0.updateRooms(rooms: .any, server: .any, publicKey: .any, areDefaultRooms: .any) }
+                    .thenReturn(())
+            }
+        )
+        @TestState var mockPoller: MockCommunityPoller! = MockCommunityPoller(
+            initialSetup: { poller in
+                poller.when { $0.startIfNeeded() }.thenReturn(())
+                poller.when { $0.stop() }.thenReturn(())
+            }
+        )
+        @TestState(cache: .communityPollers, in: dependencies) var mockCommunityPollerCache: MockCommunityPollerCache! = MockCommunityPollerCache(
+            initialSetup: { cache in
+                cache.when { $0.serversBeingPolled }.thenReturn([])
+                cache.when { $0.startAllPollers() }.thenReturn(())
+                cache.when { $0.getOrCreatePoller(for: .any) }.thenReturn(mockPoller)
+                cache.when { $0.stopAndRemovePoller(for: .any) }.thenReturn(())
+                cache.when { $0.stopAndRemoveAllPollers() }.thenReturn(())
+            }
+        )
+        @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
+            initialSetup: { keychain in
+                keychain
+                    .when {
+                        try $0.getOrGenerateEncryptionKey(
+                            forKey: .any,
+                            length: .any,
+                            cat: .any,
+                            legacyKey: .any,
+                            legacyService: .any
+                        )
+                    }
+                    .thenReturn(Data([1, 2, 3]))
+            }
+        )
+        @TestState(singleton: .fileManager, in: dependencies) var mockFileManager: MockFileManager! = MockFileManager(
+            initialSetup: { $0.defaultInitialSetup() }
+        )
+        @TestState var userGroupsConf: UnsafeMutablePointer<config_object>!
+        @TestState var userGroupsInitResult: Int32! = {
+            var secretKey: [UInt8] = Array(Data(hex: TestConstants.edSecretKey))
+            
+            return user_groups_init(&userGroupsConf, &secretKey, nil, 0, nil)
+        }()
+        @TestState var disposables: [AnyCancellable]! = []
+        
+        @TestState var communityManager: CommunityManager! = CommunityManager(using: dependencies)
+        
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
+            beforeEach {
+                _ = userGroupsInitResult
+            }
+            
+            // MARK: -- cache data
+            context("cache data") {
+                // MARK: ---- defaults the time since last open to zero
+                it("defaults the time since last open to zero") {
+                    mockUserDefaults
+                        .when { (defaults: inout any UserDefaultsType) -> Any? in
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
+                        }
+                        .thenReturn(nil)
+                    
+                    await expect {
+                        await communityManager.getLastSuccessfulCommunityPollTimestamp()
+                    }.toEventually(equal(0))
+                }
+                
+                // MARK: ---- returns the time since the last poll
+                it("returns the time since the last poll") {
+                    mockUserDefaults
+                        .when { (defaults: inout any UserDefaultsType) -> Any? in
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
+                        }
+                        .thenReturn(Date(timeIntervalSince1970: 1234567880))
+                    dependencies.dateNow = Date(timeIntervalSince1970: 1234567890)
+                    
+                    await expect {
+                        await communityManager.getLastSuccessfulCommunityPollTimestamp()
+                    }.toEventually(equal(1234567880))
+                }
+                
+                // MARK: ---- caches the time since the last poll in memory
+                it("caches the time since the last poll in memory") {
+                    mockUserDefaults
+                        .when { (defaults: inout any UserDefaultsType) -> Any? in
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
+                        }
+                        .thenReturn(Date(timeIntervalSince1970: 1234567770))
+                    dependencies.dateNow = Date(timeIntervalSince1970: 1234567780)
+                    
+                    await expect {
+                        await communityManager.getLastSuccessfulCommunityPollTimestamp()
+                    }.toEventually(equal(1234567770))
+                    
+                    mockUserDefaults
+                        .when { (defaults: inout any UserDefaultsType) -> Any? in
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
+                        }
+                        .thenReturn(Date(timeIntervalSince1970: 1234567890))
+                 
+                    // Cached value shouldn't have been updated
+                    await expect {
+                        await communityManager.getLastSuccessfulCommunityPollTimestamp()
+                    }.toEventually(equal(1234567770))
+                }
+                
+                // MARK: ---- updates the time since the last poll in user defaults
+                it("updates the time since the last poll in user defaults") {
+                    await communityManager.setLastSuccessfulCommunityPollTimestamp(12345)
+                    
+                    expect(mockUserDefaults)
+                        .to(call(matchingParameters: .all) {
+                            $0.set(
+                                Date(timeIntervalSince1970: 12345),
+                                forKey: UserDefaults.DateKey.lastOpen.rawValue
+                            )
+                        })
+                }
+            }
+            
+            // MARK: -- when checking if an community is run by session
+            context("when checking if an community is run by session") {
+                // MARK: ---- returns false when it does not match one of Sessions servers with no scheme
+                it("returns false when it does not match one of Sessions servers with no scheme") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "test.test"))
+                        .to(beFalse())
+                }
+                
+                // MARK: ---- returns false when it does not match one of Sessions servers in http
+                it("returns false when it does not match one of Sessions servers in http") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "http://test.test"))
+                        .to(beFalse())
+                }
+                
+                // MARK: ---- returns false when it does not match one of Sessions servers in https
+                it("returns false when it does not match one of Sessions servers in https") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "https://test.test"))
+                        .to(beFalse())
+                }
+                
+                // MARK: ---- returns true when it matches Sessions SOGS IP
+                it("returns true when it matches Sessions SOGS IP") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "116.203.70.33"))
+                        .to(beTrue())
+                }
+                
+                // MARK: ---- returns true when it matches Sessions SOGS IP with http
+                it("returns true when it matches Sessions SOGS IP with http") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "http://116.203.70.33"))
+                        .to(beTrue())
+                }
+                
+                // MARK: ---- returns true when it matches Sessions SOGS IP with https
+                it("returns true when it matches Sessions SOGS IP with https") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "https://116.203.70.33"))
+                        .to(beTrue())
+                }
+                
+                // MARK: ---- returns true when it matches Sessions SOGS IP with a port
+                it("returns true when it matches Sessions SOGS IP with a port") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "116.203.70.33:80"))
+                        .to(beTrue())
+                }
+                
+                // MARK: ---- returns true when it matches Sessions SOGS domain
+                it("returns true when it matches Sessions SOGS domain") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "open.getsession.org"))
+                        .to(beTrue())
+                }
+                
+                // MARK: ---- returns true when it matches Sessions SOGS domain with http
+                it("returns true when it matches Sessions SOGS domain with http") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "http://open.getsession.org"))
+                        .to(beTrue())
+                }
+                
+                // MARK: ---- returns true when it matches Sessions SOGS domain with https
+                it("returns true when it matches Sessions SOGS domain with https") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "https://open.getsession.org"))
+                        .to(beTrue())
+                }
+                
+                // MARK: ---- returns true when it matches Sessions SOGS domain with a port
+                it("returns true when it matches Sessions SOGS domain with a port") {
+                    expect(CommunityManager.isSessionRunCommunity(server: "open.getsession.org:80"))
+                        .to(beTrue())
+                }
+            }
+            
+            // MARK: -- when checking it has an existing community
+            context("when checking it has an existing community") {
+                // MARK: ---- for the no-scheme variant
+                context("for the no-scheme variant") {
+                    beforeEach {
+                        await communityManager.updateServer(server: CommunityManager.Server(
+                            server: "127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey,
+                            openGroups: [testOpenGroup],
+                            using: dependencies
+                        ))
+                    }
+                    
+                    // MARK: ------ returns true when no scheme is provided
+                    it("returns true when no scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a http scheme is provided
+                    it("returns true when a http scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a https scheme is provided
+                    it("returns true when a https scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "https://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                }
+                
+                // MARK: ---- for the http variant
+                context("for the http variant") {
+                    beforeEach {
+                        await communityManager.updateServer(server: CommunityManager.Server(
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey,
+                            openGroups: [testOpenGroup],
+                            using: dependencies
+                        ))
+                    }
+                    
+                    // MARK: ------ returns true when no scheme is provided
+                    it("returns true when no scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a http scheme is provided
+                    it("returns true when a http scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a https scheme is provided
+                    it("returns true when a https scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "https://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                }
+                
+                // MARK: ---- for the https variant
+                context("for the https variant") {
+                    beforeEach {
+                        await communityManager.updateServer(server: CommunityManager.Server(
+                            server: "https://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey,
+                            openGroups: [testOpenGroup],
+                            using: dependencies
+                        ))
+                    }
+                    
+                    // MARK: ------ returns true when no scheme is provided
+                    it("returns true when no scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a http scheme is provided
+                    it("returns true when a http scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                    
+                    // MARK: ------ returns true when a https scheme is provided
+                    it("returns true when a https scheme is provided") {
+                        expect(
+                            communityManager.hasExistingCommunity(
+                                roomToken: "testRoom",
+                                server: "https://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        ).to(beTrue())
+                    }
+                }
+                
+                // MARK: ---- returns true when given the legacy DNS host and the cache includes the default server
+                it("returns true when given the legacy DNS host and the cache includes the default server") {
+                    await communityManager.updateServer(server: CommunityManager.Server(
+                        server: Network.SOGS.defaultServer,
+                        publicKey: Network.SOGS.defaultServerPublicKey,
+                        openGroups: [testOpenGroup],
+                        using: dependencies
+                    ))
+                    
+                    expect(
+                        communityManager.hasExistingCommunity(
+                            roomToken: "testRoom",
+                            server: "http://116.203.70.33",
+                            publicKey: TestConstants.serverPublicKey
+                        )
+                    ).to(beTrue())
+                }
+                
+                // MARK: ---- returns true when given the default server and the legacy DNS host is cached
+                it("returns true when given the default server and the legacy DNS host is cached") {
+                    await communityManager.updateServer(server: CommunityManager.Server(
+                        server: Network.SOGS.legacyDefaultServerIP,
+                        publicKey: Network.SOGS.defaultServerPublicKey,
+                        openGroups: [testOpenGroup],
+                        using: dependencies
+                    ))
+                    
+                    expect(
+                        communityManager.hasExistingCommunity(
+                            roomToken: "testRoom",
+                            server: "http://open.getsession.org",
+                            publicKey: TestConstants.serverPublicKey
+                        )
+                    ).to(beTrue())
+                }
+                
+                // MARK: ---- returns false when given an invalid server
+                it("returns false when given an invalid server") {
+                    expect(
+                        communityManager.hasExistingCommunity(
+                            roomToken: "testRoom",
+                            server: "%%%",
+                            publicKey: TestConstants.serverPublicKey
+                        )
+                    ).to(beFalse())
+                }
+                
+                // MARK: ---- returns false if there is not a poller for the server in the cache
+                it("returns false if there is not a poller for the server in the cache") {
+                    mockCommunityPollerCache.when { $0.serversBeingPolled }.thenReturn([])
+                    
+                    expect(
+                        communityManager.hasExistingCommunity(
+                            roomToken: "testRoom",
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey
+                        )
+                    ).to(beFalse())
+                }
+                
+                // MARK: ---- returns false if there is a poller for the server in the cache but no thread for the room
+                it("returns false if there is a poller for the server in the cache but no thread for the room") {
+                    mockStorage.write { db in
+                        try SessionThread.deleteAll(db)
+                    }
+                    
+                    expect(
+                        communityManager.hasExistingCommunity(
+                            roomToken: "testRoom",
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey
+                        )
+                    ).to(beFalse())
+                }
+            }
+        }
+        
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
+            // MARK: -- when adding
+            context("when adding") {
+                beforeEach {
+                    mockStorage.write { db in
+                        try OpenGroup.deleteAll(db)
+                    }
+                    
+                    mockNetwork
+                        .when {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                requestTimeout: .any,
+                                requestAndPathBuildTimeout: .any
+                            )
+                        }
+                        .thenReturn(Network.BatchResponse.mockCapabilitiesAndRoomResponse)
+                    
+                    mockUserDefaults
+                        .when { (defaults: inout any UserDefaultsType) -> Any? in
+                            defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
+                        }
+                        .thenReturn(Date(timeIntervalSince1970: 1234567890))
+                }
+                
+                // MARK: ---- stores the community server
+                it("stores the community server") {
+                    mockStorage
+                        .writePublisher { db -> Bool in
+                            communityManager.add(
+                                db,
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey,
+                                joinedAt: 1234567890,
+                                forceVisible: false
+                            )
+                        }
+                        .flatMap { successfullyAddedGroup in
+                            communityManager.performInitialRequestsAfterAdd(
+                                queue: DispatchQueue.main,
+                                successfullyAddedGroup: successfullyAddedGroup,
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        }
+                        .sinkAndStore(in: &disposables)
+                    
+                    expect(
+                        mockStorage.read { db in
+                            try OpenGroup
+                                .select(.threadId)
+                                .asRequest(of: String.self)
+                                .fetchOne(db)
+                        }
+                    )
+                    .to(equal(OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1")))
+                }
+                
+                // MARK: ---- adds a poller
+                it("adds a poller") {
+                    mockStorage
+                        .writePublisher { db -> Bool in
+                            communityManager.add(
+                                db,
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey,
+                                joinedAt: 1234567890,
+                                forceVisible: false
+                            )
+                        }
+                        .flatMap { successfullyAddedGroup in
+                            communityManager.performInitialRequestsAfterAdd(
+                                queue: DispatchQueue.main,
+                                successfullyAddedGroup: successfullyAddedGroup,
+                                roomToken: "testRoom",
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.serverPublicKey
+                            )
+                        }
+                        .sinkAndStore(in: &disposables)
+                    
+                    expect(mockCommunityPollerCache)
+                        .to(call(matchingParameters: .all) {
+                            $0.getOrCreatePoller(
+                                for: CommunityPoller.Info(
+                                    server: "http://127.0.0.1",
+                                    pollFailureCount: 0
+                                )
+                            )
+                        })
+                    expect(mockPoller).to(call { $0.startIfNeeded() })
+                }
+                
+                // MARK: ---- an existing room
+                context("an existing room") {
+                    beforeEach {
+                        await communityManager.updateServer(server: CommunityManager.Server(
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.serverPublicKey,
+                            openGroups: [testOpenGroup],
+                            using: dependencies
+                        ))
+                        
+                        mockStorage.write { db in
+                            try testOpenGroup.insert(db)
+                        }
+                    }
+                    
+                    // MARK: ------ does not reset the sequence number or update the public key
+                    it("does not reset the sequence number or update the public key") {
+                        mockStorage
+                            .writePublisher { db -> Bool in
+                                communityManager.add(
+                                    db,
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1",
+                                    publicKey: TestConstants.serverPublicKey
+                                        .replacingOccurrences(of: "c3", with: "00")
+                                        .replacingOccurrences(of: "b3", with: "00"),
+                                    joinedAt: 1234567890,
+                                    forceVisible: false
+                                )
+                            }
+                            .flatMap { successfullyAddedGroup in
+                                communityManager.performInitialRequestsAfterAdd(
+                                    queue: DispatchQueue.main,
+                                    successfullyAddedGroup: successfullyAddedGroup,
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1",
+                                    publicKey: TestConstants.serverPublicKey
+                                        .replacingOccurrences(of: "c3", with: "00")
+                                        .replacingOccurrences(of: "b3", with: "00")
+                                )
+                            }
+                            .sinkAndStore(in: &disposables)
+                        
+                        expect(
+                            mockStorage.read { db in
+                                try OpenGroup
+                                    .select(.sequenceNumber)
+                                    .asRequest(of: Int64.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(equal(5))
+                        expect(
+                            mockStorage.read { db in
+                                try OpenGroup
+                                    .select(.publicKey)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(equal(TestConstants.publicKey))
+                    }
+                }
+                
+                // MARK: ---- with an invalid response
+                context("with an invalid response") {
+                    beforeEach {
+                        mockNetwork
+                            .when {
+                                $0.send(
+                                    endpoint: MockEndpoint.any,
+                                    destination: .any,
+                                    body: .any,
+                                    requestTimeout: .any,
+                                    requestAndPathBuildTimeout: .any
+                                )
+                            }
+                            .thenReturn(MockNetwork.response(data: Data()))
+                        
+                        mockUserDefaults
+                            .when { (defaults: inout any UserDefaultsType) -> Any? in
+                                defaults.object(forKey: UserDefaults.DateKey.lastOpen.rawValue)
+                            }
+                            .thenReturn(Date(timeIntervalSince1970: 1234567890))
+                    }
+                
+                    // MARK: ------ fails with the error
+                    it("fails with the error") {
+                        var error: Error?
+                        
+                        mockStorage
+                            .writePublisher { db -> Bool in
+                                communityManager.add(
+                                    db,
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1",
+                                    publicKey: TestConstants.serverPublicKey,
+                                    joinedAt: 1234567890,
+                                    forceVisible: false
+                                )
+                            }
+                            .flatMap { successfullyAddedGroup in
+                                communityManager.performInitialRequestsAfterAdd(
+                                    queue: DispatchQueue.main,
+                                    successfullyAddedGroup: successfullyAddedGroup,
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1",
+                                    publicKey: TestConstants.serverPublicKey
+                                )
+                            }
+                            .mapError { result -> Error in error.setting(to: result) }
+                            .sinkAndStore(in: &disposables)
+                        
+                        expect(error).to(matchError(NetworkError.parsingFailed))
+                    }
+                }
+            }
+            
+            // MARK: -- when deleting
+            context("when deleting") {
+                beforeEach {
+                    mockStorage.write { db in
+                        try Interaction.deleteWhere(db, .deleteAll)
+                        try SessionThread.deleteAll(db)
+                        
+                        try testGroupThread.insert(db)
+                        try testOpenGroup.insert(db)
+                        try testInteraction1.insert(db)
+                        try Interaction
+                            .updateAll(
+                                db,
+                                Interaction.Columns.threadId
+                                    .set(to: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"))
+                            )
+                    }
+                }
+                
+                // MARK: ---- removes all interactions for the thread
+                it("removes all interactions for the thread") {
+                    mockStorage.write { db in
+                        try communityManager.delete(
+                            db,
+                            openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                            skipLibSessionUpdate: true
+                        )
+                    }
+                    
+                    expect(mockStorage.read { db in try Interaction.fetchCount(db) })
+                        .to(equal(0))
+                }
+                
+                // MARK: ---- removes the given thread
+                it("removes the given thread") {
+                    mockStorage.write { db in
+                        try communityManager.delete(
+                            db,
+                            openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                            skipLibSessionUpdate: true
+                        )
+                    }
+                    
+                    expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) })
+                        .to(equal(0))
+                }
+                
+                // MARK: ---- and there is only one community for this server
+                context("and there is only one community for this server") {
+                    // MARK: ------ stops the poller
+                    it("stops the poller") {
+                        mockStorage.write { db in
+                            try communityManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                skipLibSessionUpdate: true
+                            )
+                        }
+                        
+                        expect(mockCommunityPollerCache)
+                            .to(call(matchingParameters: .all) { $0.stopAndRemovePoller(for: "http://127.0.0.1") })
+                    }
+                    
+                    // MARK: ------ removes the community
+                    it("removes the community") {
+                        mockStorage.write { db in
+                            try communityManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                skipLibSessionUpdate: true
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
+                            .to(equal(0))
+                    }
+                }
+                
+                // MARK: ---- and the are multiple communities for this server
+                context("and the are multiple communities for this server") {
+                    beforeEach {
+                        mockStorage.write { db in
+                            try OpenGroup.deleteAll(db)
+                            try testOpenGroup.insert(db)
+                            try OpenGroup(
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom1",
+                                publicKey: TestConstants.publicKey,
+                                shouldPoll: true,
+                                name: "Test1",
+                                roomDescription: nil,
+                                imageId: nil,
+                                userCount: 0,
+                                infoUpdates: 0,
+                                sequenceNumber: 0,
+                                inboxLatestMessageId: 0,
+                                outboxLatestMessageId: 0
+                            ).insert(db)
+                        }
+                    }
+                    
+                    // MARK: ------ removes the community
+                    it("removes the community") {
+                        mockStorage.write { db in
+                            try communityManager.delete(
+                                db,
+                                openGroupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                skipLibSessionUpdate: true
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db in try OpenGroup.fetchCount(db) })
+                            .to(equal(1))
+                    }
+                }
+            }
+            
+            // MARK: -- when handling capabilities
+            context("when handling capabilities") {
+                beforeEach {
+                    mockStorage.write { db in
+                        communityManager.handleCapabilities(
+                            db,
+                            capabilities: Network.SOGS.CapabilitiesResponse(
+                                capabilities: ["sogs"],
+                                missing: []
+                            ),
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.publicKey
+                        )
+                    }
+                }
+                
+                // MARK: ---- stores the capabilities
+                it("stores the capabilities") {
+                    expect(mockStorage.read { db in try Capability.fetchCount(db) })
+                        .to(equal(1))
+                }
+            }
+        }
+        
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
+            // MARK: -- when handling room poll info
+            context("when handling room poll info") {
+                beforeEach {
+                    mockStorage.write { db in
+                        try OpenGroup.deleteAll(db)
+                        
+                        try testOpenGroup.insert(db)
+                    }
+                }
+                
+                // MARK: ---- saves the updated community
+                it("saves the updated community") {
+                    mockStorage.write { db in
+                        try communityManager.handlePollInfo(
+                            db,
+                            pollInfo: testPollInfo,
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            publicKey: TestConstants.publicKey
+                        )
+                    }
+                    
+                    expect(
+                        mockStorage.read { db in
+                            try OpenGroup
+                                .select(.userCount)
+                                .asRequest(of: Int64.self)
+                                .fetchOne(db)
+                        }
+                    ).to(equal(10))
+                }
+                
+                // MARK: ---- does not schedule the displayPictureDownload job if there is no image
+                it("does not schedule the displayPictureDownload job if there is no image") {
+                    mockStorage.write { db in
+                        try communityManager.handlePollInfo(
+                            db,
+                            pollInfo: testPollInfo,
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            publicKey: TestConstants.publicKey
+                        )
+                    }
+                    
+                    expect(mockJobRunner)
+                        .toNot(call(matchingParameters: .all) {
+                            $0.add(
+                                .any,
+                                job: Job(
+                                    variant: .displayPictureDownload,
+                                    shouldBeUnique: true,
+                                    details: DisplayPictureDownloadJob.Details(
+                                        target: .community(
+                                            imageId: "12",
+                                            roomToken: "testRoom",
+                                            server: "testServer"
+                                        ),
+                                        timestamp: 1234567890
+                                    )
+                                ),
+                                dependantJob: nil,
+                                canStartJob: true
+                            )
+                        })
+                }
+                
+                // MARK: ---- schedules the displayPictureDownload job if there is an image
+                it("schedules the displayPictureDownload job if there is an image") {
+                    mockStorage.write { db in
+                        try OpenGroup.deleteAll(db)
+                        try OpenGroup(
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            publicKey: TestConstants.publicKey,
+                            shouldPoll: true,
+                            name: "Test",
+                            imageId: "12",
+                            userCount: 0,
+                            infoUpdates: 10
+                        ).insert(db)
+                    }
+                    
+                    mockStorage.write { db in
+                        try communityManager.handlePollInfo(
+                            db,
+                            pollInfo: testPollInfo,
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            publicKey: TestConstants.publicKey
+                        )
+                    }
+                    
+                    expect(mockJobRunner)
+                        .to(call(matchingParameters: .all) {
+                            $0.add(
+                                .any,
+                                job: Job(
+                                    variant: .displayPictureDownload,
+                                    shouldBeUnique: true,
+                                    details: DisplayPictureDownloadJob.Details(
+                                        target: .community(
+                                            imageId: "12",
+                                            roomToken: "testRoom",
+                                            server: "http://127.0.0.1"
+                                        ),
+                                        timestamp: 1234567890
+                                    )
+                                ),
+                                dependantJob: nil,
+                                canStartJob: true
+                            )
+                        })
+                }
+                
+                // MARK: ---- and updating the moderator list
+                context("and updating the moderator list") {
+                    // MARK: ------ successfully updates
+                    it("successfully updates") {
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: Network.SOGS.Room.mock.with(
+                                moderators: ["TestMod"],
+                                hiddenModerators: [],
+                                admins: [],
+                                hiddenAdmins: []
+                            )
+                        )
+                        
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> GroupMember? in
+                                try GroupMember
+                                    .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
+                                        roomToken: "testRoom",
+                                        server: "http://127.0.0.1"
+                                    ))
+                                    .fetchOne(db)
+                            }
+                        ).to(equal(
+                            GroupMember(
+                                groupId: OpenGroup.idFor(
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1"
+                                ),
+                                profileId: "TestMod",
+                                role: .moderator,
+                                roleStatus: .accepted,
+                                isHidden: false
+                            )
+                        ))
+                    }
+                    
+                    // MARK: ------ updates for hidden moderators
+                    it("updates for hidden moderators") {
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: Network.SOGS.Room.mock.with(
+                                moderators: [],
+                                hiddenModerators: ["TestMod2"],
+                                admins: [],
+                                hiddenAdmins: []
+                            )
+                        )
+                        
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> GroupMember? in
+                                try GroupMember
+                                    .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
+                                        roomToken: "testRoom",
+                                        server: "http://127.0.0.1"
+                                    ))
+                                    .fetchOne(db)
+                            }
+                        ).to(equal(
+                            GroupMember(
+                                groupId: OpenGroup.idFor(
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1"
+                                ),
+                                profileId: "TestMod2",
+                                role: .moderator,
+                                roleStatus: .accepted,
+                                isHidden: true
+                            )
+                        ))
+                    }
+                    
+                    // MARK: ------ does not insert mods if no moderators are provided
+                    it("does not insert mods if no moderators are provided") {
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
+                            token: "testRoom",
+                            activeUsers: 10
+                        )
+                        
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try GroupMember.fetchCount(db) })
+                            .to(equal(0))
+                    }
+                }
+                
+                // MARK: ---- and updating the admin list
+                context("and updating the admin list") {
+                    // MARK: ------ successfully updates
+                    it("successfully updates") {
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: Network.SOGS.Room.mock.with(
+                                moderators: [],
+                                hiddenModerators: [],
+                                admins: ["TestAdmin"],
+                                hiddenAdmins: []
+                            )
+                        )
+                        
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> GroupMember? in
+                                try GroupMember
+                                    .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
+                                        roomToken: "testRoom",
+                                        server: "http://127.0.0.1"
+                                    ))
+                                    .fetchOne(db)
+                            }
+                        ).to(equal(
+                            GroupMember(
+                                groupId: OpenGroup.idFor(
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1"
+                                ),
+                                profileId: "TestAdmin",
+                                role: .admin,
+                                roleStatus: .accepted,
+                                isHidden: false
+                            )
+                        ))
+                    }
+                    
+                    // MARK: ------ updates for hidden admins
+                    it("updates for hidden admins") {
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: Network.SOGS.Room.mock.with(
+                                moderators: [],
+                                hiddenModerators: [],
+                                admins: [],
+                                hiddenAdmins: ["TestAdmin2"]
+                            )
+                        )
+                        
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> GroupMember? in
+                                try GroupMember
+                                    .filter(GroupMember.Columns.groupId == OpenGroup.idFor(
+                                        roomToken: "testRoom",
+                                        server: "http://127.0.0.1"
+                                    ))
+                                    .fetchOne(db)
+                            }
+                        ).to(equal(
+                            GroupMember(
+                                groupId: OpenGroup.idFor(
+                                    roomToken: "testRoom",
+                                    server: "http://127.0.0.1"
+                                ),
+                                profileId: "TestAdmin2",
+                                role: .admin,
+                                roleStatus: .accepted,
+                                isHidden: true
+                            )
+                        ))
+                    }
+                    
+                    // MARK: ------ does not insert an admin if no admins are provided
+                    it("does not insert an admin if no admins are provided") {
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: nil
+                        )
+                        
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try GroupMember.fetchCount(db) })
+                            .to(equal(0))
+                    }
+                }
+                
+                // MARK: ---- when it cannot get the community
+                context("when it cannot get the community") {
+                    // MARK: ------ does not save the thread
+                    it("does not save the thread") {
+                        mockStorage.write { db in
+                            try OpenGroup.deleteAll(db)
+                        }
+                        
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try OpenGroup.fetchCount(db) }).to(equal(0))
+                    }
+                }
+                
+                // MARK: ---- when trying to get the room image
+                context("when trying to get the room image") {
+                    beforeEach {
+                        mockStorage.write { db in
+                            try OpenGroup
+                                .updateAll(db, OpenGroup.Columns.displayPictureOriginalUrl.set(to: nil))
+                        }
+                    }
+                    
+                    // MARK: ------ schedules a download for the room image
+                    it("schedules a download for the room image") {
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: Network.SOGS.Room.mock.with(
+                                token: "test",
+                                name: "test",
+                                imageId: "10"
+                            )
+                        )
+                        
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> String? in
+                                try OpenGroup
+                                    .select(.imageId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(equal("10"))
+                        expect(mockJobRunner)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.add(
+                                    .any,
+                                    job: Job(
+                                        variant: .displayPictureDownload,
+                                        shouldBeUnique: true,
+                                        details: DisplayPictureDownloadJob.Details(
+                                            target: .community(
+                                                imageId: "10",
+                                                roomToken: "testRoom",
+                                                server: "http://127.0.0.1"
+                                            ),
+                                            timestamp: 1234567890
+                                        )
+                                    ),
+                                    dependantJob: nil,
+                                    canStartJob: true
+                                )
+                            })
+                    }
+                    
+                    // MARK: ------ uses the existing room image id if none is provided
+                    it("uses the existing room image id if none is provided") {
+                        mockStorage.write { db in
+                            try OpenGroup.deleteAll(db)
+                            try OpenGroup(
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey,
+                                shouldPoll: true,
+                                name: "Test",
+                                imageId: "12",
+                                userCount: 0,
+                                infoUpdates: 10,
+                                displayPictureOriginalUrl: "http://127.0.0.1/room/testRoom/12"
+                            ).insert(db)
+                        }
+                        
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: nil
+                        )
+                        
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> String? in
+                                try OpenGroup
+                                    .select(.imageId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(equal("12"))
+                        expect(
+                            mockStorage.read { db -> String? in
+                                try OpenGroup
+                                    .select(.displayPictureOriginalUrl)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).toNot(beNil())
+                        expect(mockJobRunner).toNot(call { $0.add(.any, job: .any, dependantJob: .any, canStartJob: .any) })
+                    }
+                    
+                    // MARK: ------ uses the new room image id if there is an existing one
+                    it("uses the new room image id if there is an existing one") {
+                        mockStorage.write { db in
+                            try OpenGroup.deleteAll(db)
+                            try OpenGroup(
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey,
+                                shouldPoll: true,
+                                name: "Test",
+                                imageId: "12",
+                                userCount: 0,
+                                infoUpdates: 10,
+                                displayPictureOriginalUrl: "http://127.0.0.1/room/testRoom/10"
+                            ).insert(db)
+                        }
+                        
+                        testPollInfo = Network.SOGS.RoomPollInfo.mock.with(
+                            token: "testRoom",
+                            activeUsers: 10,
+                            details: Network.SOGS.Room.mock.with(
+                                token: "test",
+                                name: "test",
+                                infoUpdates: 10,
+                                imageId: "10"
+                            )
+                        )
+                        
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> String? in
+                                try OpenGroup
+                                    .select(.imageId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(equal("10"))
+                        expect(
+                            mockStorage.read { db -> String? in
+                                try OpenGroup
+                                    .select(.displayPictureOriginalUrl)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).toNot(beNil())
+                        expect(mockJobRunner)
+                            .to(call(.exactly(times: 1), matchingParameters: .all) {
+                                $0.add(
+                                    .any,
+                                    job: Job(
+                                        variant: .displayPictureDownload,
+                                        shouldBeUnique: true,
+                                        details: DisplayPictureDownloadJob.Details(
+                                            target: .community(
+                                                imageId: "10",
+                                                roomToken: "testRoom",
+                                                server: "http://127.0.0.1"
+                                            ),
+                                            timestamp: 1234567890
+                                        )
+                                    ),
+                                    dependantJob: nil,
+                                    canStartJob: true
+                                )
+                            })
+                    }
+                    
+                    // MARK: ------ does nothing if there is no room image
+                    it("does nothing if there is no room image") {
+                        mockStorage.write { db in
+                            try communityManager.handlePollInfo(
+                                db,
+                                pollInfo: testPollInfo,
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                publicKey: TestConstants.publicKey
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> String? in
+                                try OpenGroup
+                                    .select(.displayPictureOriginalUrl)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(beNil())
+                    }
+                }
+            }
+        }
+        
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
+            // MARK: -- when handling messages
+            context("when handling messages") {
+                beforeEach {
+                    mockCrypto
+                        .when {
+                            try $0.generate(
+                                .decodedMessage(
+                                    encodedMessage: Data.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .default,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
+                                )
+                            )
+                        }
+                        .thenReturn(
+                            DecodedMessage(
+                                content: Data(base64Encoded: testMessage.base64EncodedData!)!,
+                                sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                decodedEnvelope: nil,
+                                sentTimestampMs: 1234567890000
+                            )
+                        )
+                    mockStorage.write { db in
+                        try testGroupThread.insert(db)
+                        try testOpenGroup.insert(db)
+                        try testInteraction1.insert(db)
+                    }
+                }
+                
+                // MARK: ---- updates the sequence number when there are messages
+                it("updates the sequence number when there are messages") {
+                    mockStorage.write { db in
+                        communityManager.handleMessages(
+                            db,
+                            messages: [
+                                Network.SOGS.Message(
+                                    id: 1,
+                                    sender: nil,
+                                    posted: 123,
+                                    edited: nil,
+                                    deleted: nil,
+                                    seqNo: 124,
+                                    whisper: false,
+                                    whisperMods: false,
+                                    whisperTo: nil,
+                                    base64EncodedData: nil,
+                                    base64EncodedSignature: nil,
+                                    reactions: nil
+                                )
+                            ],
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            currentUserSessionIds: []
+                        )
+                    }
+                    
+                    expect(
+                        mockStorage.read { db -> Int64? in
+                            try OpenGroup
+                                .select(.sequenceNumber)
+                                .asRequest(of: Int64.self)
+                                .fetchOne(db)
+                        }
+                    ).to(equal(124))
+                }
+                
+                // MARK: ---- does not update the sequence number if there are no messages
+                it("does not update the sequence number if there are no messages") {
+                    mockStorage.write { db in
+                        communityManager.handleMessages(
+                            db,
+                            messages: [],
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            currentUserSessionIds: []
+                        )
+                    }
+                    
+                    expect(
+                        mockStorage.read { db -> Int64? in
+                            try OpenGroup
+                                .select(.sequenceNumber)
+                                .asRequest(of: Int64.self)
+                                .fetchOne(db)
+                        }
+                    ).to(equal(5))
+                }
+                
+                // MARK: ---- ignores a message with no sender
+                it("ignores a message with no sender") {
+                    mockStorage.write { db in
+                        try Interaction.deleteWhere(db, .deleteAll)
+                    }
+                    
+                    mockStorage.write { db in
+                        communityManager.handleMessages(
+                            db,
+                            messages: [
+                                Network.SOGS.Message(
+                                    id: 1,
+                                    sender: nil,
+                                    posted: 123,
+                                    edited: nil,
+                                    deleted: nil,
+                                    seqNo: 124,
+                                    whisper: false,
+                                    whisperMods: false,
+                                    whisperTo: nil,
+                                    base64EncodedData: Data([1, 2, 3]).base64EncodedString(),
+                                    base64EncodedSignature: nil,
+                                    reactions: nil
+                                )
+                            ],
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            currentUserSessionIds: []
+                        )
+                    }
+                    
+                    expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                }
+                
+                // MARK: ---- ignores a message which fails to decode
+                it("ignores a message which fails to decode") {
+                    mockCrypto
+                        .when {
+                            try $0.generate(
+                                .decodedMessage(
+                                    encodedMessage: Data.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .default,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
+                                )
+                            )
+                        }
+                        .thenThrow(MessageError.invalidMessage("Test"))
+                    mockStorage.write { db in
+                        try Interaction.deleteWhere(db, .deleteAll)
+                    }
+                    
+                    mockStorage.write { db in
+                        communityManager.handleMessages(
+                            db,
+                            messages: [
+                                Network.SOGS.Message(
+                                    id: 1,
+                                    sender: "05\(TestConstants.publicKey)",
+                                    posted: 123,
+                                    edited: nil,
+                                    deleted: nil,
+                                    seqNo: 124,
+                                    whisper: false,
+                                    whisperMods: false,
+                                    whisperTo: nil,
+                                    base64EncodedData: Data([1, 2, 3]).base64EncodedString(),
+                                    base64EncodedSignature: nil,
+                                    reactions: nil
+                                )
+                            ],
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            currentUserSessionIds: []
+                        )
+                    }
+                    
+                    expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                }
+                
+                // MARK: ---- processes a message with valid data
+                it("processes a message with valid data") {
+                    mockStorage.write { db in
+                        communityManager.handleMessages(
+                            db,
+                            messages: [testMessage],
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            currentUserSessionIds: []
+                        )
+                    }
+                    
+                    expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(1))
+                }
+                
+                // MARK: ---- processes valid messages when combined with invalid ones
+                it("processes valid messages when combined with invalid ones") {
+                    mockStorage.write { db in
+                        communityManager.handleMessages(
+                            db,
+                            messages: [
+                                Network.SOGS.Message(
+                                    id: 2,
+                                    sender: "05\(TestConstants.publicKey)",
+                                    posted: 122,
+                                    edited: nil,
+                                    deleted: nil,
+                                    seqNo: 123,
+                                    whisper: false,
+                                    whisperMods: false,
+                                    whisperTo: nil,
+                                    base64EncodedData: Data([1, 2, 3]).base64EncodedString(),
+                                    base64EncodedSignature: nil,
+                                    reactions: nil
+                                ),
+                                testMessage,
+                            ],
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            currentUserSessionIds: []
+                        )
+                    }
+                    
+                    expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(1))
+                }
+                
+                // MARK: ---- with no data
+                context("with no data") {
+                    // MARK: ------ deletes the message if we have the message
+                    it("deletes the message if we have the message") {
+                        mockStorage.write { db in
+                            try Interaction
+                                .updateAll(
+                                    db,
+                                    Interaction.Columns.openGroupServerMessageId.set(to: 127)
+                                )
+                        }
+                        
+                        mockStorage.write { db in
+                            communityManager.handleMessages(
+                                db,
+                                messages: [
+                                    Network.SOGS.Message(
+                                        id: 127,
+                                        sender: "05\(TestConstants.publicKey)",
+                                        posted: 123,
+                                        edited: nil,
+                                        deleted: nil,
+                                        seqNo: 123,
+                                        whisper: false,
+                                        whisperMods: false,
+                                        whisperTo: nil,
+                                        base64EncodedData: nil,
+                                        base64EncodedSignature: nil,
+                                        reactions: nil
+                                    )
+                                ],
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                    }
+                    
+                    // MARK: ------ does nothing if we do not have the message
+                    it("does nothing if we do not have the message") {
+                        mockStorage.write { db in
+                            communityManager.handleMessages(
+                                db,
+                                messages: [
+                                    Network.SOGS.Message(
+                                        id: 127,
+                                        sender: "05\(TestConstants.publicKey)",
+                                        posted: 123,
+                                        edited: nil,
+                                        deleted: nil,
+                                        seqNo: 123,
+                                        whisper: false,
+                                        whisperMods: false,
+                                        whisperTo: nil,
+                                        base64EncodedData: nil,
+                                        base64EncodedSignature: nil,
+                                        reactions: nil
+                                    )
+                                ],
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                    }
+                }
+            }
+        }
+         
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
+            // MARK: -- when handling direct messages
+            context("when handling direct messages") {
+                beforeEach {
+                    mockCrypto
+                        .when {
+                            try $0.generate(
+                                .decodedMessage(
+                                    encodedMessage: Data.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .default,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
+                                )
+                            )
+                        }
+                        .thenReturn(
+                            DecodedMessage(
+                                content: Data(base64Encoded: testDirectMessage.base64EncodedMessage)!,
+                                sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                decodedEnvelope: nil,
+                                sentTimestampMs: 1234567890000
+                            )
+                        )
+                    mockCrypto
+                        .when { $0.generate(.x25519(ed25519Pubkey: .any)) }
+                        .thenReturn(Data(hex: TestConstants.publicKey).bytes)
+                }
+                
+                // MARK: ---- does nothing if there are no messages
+                it("does nothing if there are no messages") {
+                    mockStorage.write { db in
+                        communityManager.handleDirectMessages(
+                            db,
+                            messages: [],
+                            fromOutbox: false,
+                            server: "http://127.0.0.1",
+                            currentUserSessionIds: []
+                        )
+                    }
+                    
+                    expect(
+                        mockStorage.read { db -> Int64? in
+                            try OpenGroup
+                                .select(.inboxLatestMessageId)
+                                .asRequest(of: Int64.self)
+                                .fetchOne(db)
+                        }
+                    ).to(equal(0))
+                    expect(
+                        mockStorage.read { db -> Int64? in
+                            try OpenGroup
+                                .select(.outboxLatestMessageId)
+                                .asRequest(of: Int64.self)
+                                .fetchOne(db)
+                        }
+                    ).to(equal(0))
+                }
+                
+                // MARK: ---- does nothing if it cannot get the community
+                it("does nothing if it cannot get the community") {
+                    mockStorage.write { db in
+                        try OpenGroup.deleteAll(db)
+                    }
+                    
+                    mockStorage.write { db in
+                        communityManager.handleDirectMessages(
+                            db,
+                            messages: [testDirectMessage],
+                            fromOutbox: false,
+                            server: "http://127.0.0.1",
+                            currentUserSessionIds: []
+                        )
+                    }
+                    
+                    expect(
+                        mockStorage.read { db -> Int64? in
+                            try OpenGroup
+                                .select(.inboxLatestMessageId)
+                                .asRequest(of: Int64.self)
+                                .fetchOne(db)
+                        }
+                    ).to(beNil())
+                    expect(
+                        mockStorage.read { db -> Int64? in
+                            try OpenGroup
+                                .select(.outboxLatestMessageId)
+                                .asRequest(of: Int64.self)
+                                .fetchOne(db)
+                        }
+                    ).to(beNil())
+                }
+                
+                // MARK: ---- ignores messages which fail to decode
+                it("ignores messages which fail to decode") {
+                    testDirectMessage = Network.SOGS.DirectMessage(
+                        id: testDirectMessage.id,
+                        sender: testDirectMessage.sender.replacingOccurrences(of: "8", with: "9"),
+                        recipient: testDirectMessage.recipient,
+                        posted: testDirectMessage.posted,
+                        expires: testDirectMessage.expires,
+                        base64EncodedMessage: "TestMessage%%%"
+                    )
+                    mockCrypto
+                        .when {
+                            try $0.generate(
+                                .decodedMessage(
+                                    encodedMessage: Data.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .default,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
+                                )
+                            )
+                        }
+                        .thenThrow(MessageError.invalidMessage("Test"))
+                    
+                    mockStorage.write { db in
+                        communityManager.handleDirectMessages(
+                            db,
+                            messages: [testDirectMessage],
+                            fromOutbox: false,
+                            server: "http://127.0.0.1",
+                            currentUserSessionIds: []
+                        )
+                    }
+                    
+                    expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                }
+                
+                // MARK: ---- for the inbox
+                context("for the inbox") {
+                    beforeEach {
+                        mockCrypto
+                            .when { $0.verify(.sessionId(.any, matchesBlindedId: .any, serverPublicKey: .any)) }
+                            .thenReturn(false)
+                    }
+                    
+                    // MARK: ------ updates the inbox latest message id
+                    it("updates the inbox latest message id") {
+                        mockStorage.write { db in
+                            communityManager.handleDirectMessages(
+                                db,
+                                messages: [testDirectMessage],
+                                fromOutbox: false,
+                                server: "http://127.0.0.1",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> Int64? in
+                                try OpenGroup
+                                    .select(.inboxLatestMessageId)
+                                    .asRequest(of: Int64.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(equal(128))
+                    }
+                    
+                    // MARK: ------ ignores a message with invalid data
+                    it("ignores a message with invalid data") {
+                        mockCrypto
+                            .when {
+                                try $0.generate(
+                                    .decodedMessage(
+                                        encodedMessage: Data.any,
+                                        origin: .swarm(
+                                            publicKey: .any,
+                                            namespace: .default,
+                                            serverHash: .any,
+                                            serverTimestampMs: .any,
+                                            serverExpirationTimestamp: .any
+                                        )
+                                    )
+                                )
+                            }
+                            .thenReturn(
+                                DecodedMessage(
+                                    content: Data("TestInvalid".bytes),
+                                    sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                    decodedEnvelope: nil,
+                                    sentTimestampMs: 1234567890000
+                                )
+                            )
+                        
+                        mockStorage.write { db in
+                            communityManager.handleDirectMessages(
+                                db,
+                                messages: [testDirectMessage],
+                                fromOutbox: false,
+                                server: "http://127.0.0.1",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(0))
+                    }
+                    
+                    // MARK: ------ processes a message with valid data
+                    it("processes a message with valid data") {
+                        mockStorage.write { db in
+                            communityManager.handleDirectMessages(
+                                db,
+                                messages: [testDirectMessage],
+                                fromOutbox: false,
+                                server: "http://127.0.0.1",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(1))
+                    }
+                    
+                    // MARK: ------ processes valid messages when combined with invalid ones
+                    it("processes valid messages when combined with invalid ones") {
+                        mockStorage.write { db in
+                            communityManager.handleDirectMessages(
+                                db,
+                                messages: [
+                                    Network.SOGS.DirectMessage(
+                                        id: testDirectMessage.id,
+                                        sender: testDirectMessage.sender.replacingOccurrences(of: "8", with: "9"),
+                                        recipient: testDirectMessage.recipient,
+                                        posted: testDirectMessage.posted,
+                                        expires: testDirectMessage.expires,
+                                        base64EncodedMessage: Data([1, 2, 3]).base64EncodedString()
+                                    ),
+                                    testDirectMessage
+                                ],
+                                fromOutbox: false,
+                                server: "http://127.0.0.1",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try Interaction.fetchCount(db) }).to(equal(1))
+                    }
+                }
+                
+                // MARK: ---- for the outbox
+                context("for the outbox") {
+                    beforeEach {
+                        mockCrypto
+                            .when { $0.verify(.sessionId(.any, matchesBlindedId: .any, serverPublicKey: .any)) }
+                            .thenReturn(false)
+                    }
+                    
+                    // MARK: ------ updates the outbox latest message id
+                    it("updates the outbox latest message id") {
+                        mockStorage.write { db in
+                            communityManager.handleDirectMessages(
+                                db,
+                                messages: [testDirectMessage],
+                                fromOutbox: true,
+                                server: "http://127.0.0.1",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(
+                            mockStorage.read { db -> Int64? in
+                                try OpenGroup
+                                    .select(.outboxLatestMessageId)
+                                    .asRequest(of: Int64.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(equal(128))
+                    }
+                    
+                    // MARK: ------ retrieves an existing blinded id lookup
+                    it("retrieves an existing blinded id lookup") {
+                        mockStorage.write { db in
+                            try BlindedIdLookup(
+                                blindedId: "15\(TestConstants.blind15PublicKey)",
+                                sessionId: "TestSessionId",
+                                openGroupServer: "http://127.0.0.1",
+                                openGroupPublicKey: "05\(TestConstants.publicKey)"
+                            ).insert(db)
+                        }
+                        
+                        mockStorage.write { db in
+                            communityManager.handleDirectMessages(
+                                db,
+                                messages: [testDirectMessage],
+                                fromOutbox: true,
+                                server: "http://127.0.0.1",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try BlindedIdLookup.fetchCount(db) }).to(equal(1))
+                        expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }).to(equal(2))
+                    }
+                    
+                    // MARK: ------ falls back to using the blinded id if no lookup is found
+                    it("falls back to using the blinded id if no lookup is found") {
+                        mockStorage.write { db in
+                            communityManager.handleDirectMessages(
+                                db,
+                                messages: [testDirectMessage],
+                                fromOutbox: true,
+                                server: "http://127.0.0.1",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try BlindedIdLookup.fetchCount(db) }).to(equal(1))
+                        expect(mockStorage
+                            .read { db -> String? in
+                                try BlindedIdLookup
+                                    .select(.sessionId)
+                                    .asRequest(of: String.self)
+                                    .fetchOne(db)
+                            }
+                        ).to(beNil())
+                        expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }).to(equal(2))
+                        expect(
+                            mockStorage.read { db -> SessionThread? in
+                                try SessionThread.fetchOne(db, id: "15\(TestConstants.blind15PublicKey)")
+                            }
+                        ).toNot(beNil())
+                    }
+                    
+                    // MARK: ------ ignores a messages which fail to decode
+                    it("ignores a messages which fail to decode") {
+                        mockCrypto
+                            .when {
+                                try $0.generate(
+                                    .decodedMessage(
+                                        encodedMessage: Data.any,
+                                        origin: .swarm(
+                                            publicKey: .any,
+                                            namespace: .default,
+                                            serverHash: .any,
+                                            serverTimestampMs: .any,
+                                            serverExpirationTimestamp: .any
+                                        )
+                                    )
+                                )
+                            }
+                            .thenThrow(MessageError.invalidMessage("Test"))
+                        
+                        mockStorage.write { db in
+                            communityManager.handleDirectMessages(
+                                db,
+                                messages: [testDirectMessage],
+                                fromOutbox: true,
+                                server: "http://127.0.0.1",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }).to(equal(1))
+                    }
+                    
+                    // MARK: ------ processes a message with valid data
+                    it("processes a message with valid data") {
+                        mockStorage.write { db in
+                            communityManager.handleDirectMessages(
+                                db,
+                                messages: [testDirectMessage],
+                                fromOutbox: true,
+                                server: "http://127.0.0.1",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }).to(equal(2))
+                    }
+                    
+                    // MARK: ------ processes valid messages when combined with invalid ones
+                    it("processes valid messages when combined with invalid ones") {
+                        mockStorage.write { db in
+                            communityManager.handleDirectMessages(
+                                db,
+                                messages: [
+                                    Network.SOGS.DirectMessage(
+                                        id: testDirectMessage.id,
+                                        sender: testDirectMessage.sender.replacingOccurrences(of: "8", with: "9"),
+                                        recipient: testDirectMessage.recipient,
+                                        posted: testDirectMessage.posted,
+                                        expires: testDirectMessage.expires,
+                                        base64EncodedMessage: Data([1, 2, 3]).base64EncodedString()
+                                    ),
+                                    testDirectMessage
+                                ],
+                                fromOutbox: true,
+                                server: "http://127.0.0.1",
+                                currentUserSessionIds: []
+                            )
+                        }
+                        
+                        expect(mockStorage.read { db -> Int in try SessionThread.fetchCount(db) }).to(equal(2))
+                    }
+                }
+            }
+        }
+        
+        // MARK: - a CommunityManager
+        describe("a CommunityManager") {
+            // MARK: -- when determining if a user is a moderator or an admin
+            context("when determining if a user is a moderator or an admin") {
+                beforeEach {
+                    await communityManager.updateServer(
+                        server: CommunityManager.Server(
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.publicKey,
+                            openGroups: [testOpenGroup],
+                            capabilities: nil,
+                            roomMembers: nil,
+                            using: dependencies
+                        )
+                    )
+                }
+                
+                // MARK: ---- has no moderators by default
+                it("has no moderators by default") {
+                    await expect {
+                        await communityManager.isUserModeratorOrAdmin(
+                            targetUserPublicKey: "05\(TestConstants.publicKey)",
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            includingHidden: true
+                        )
+                    }.toEventually(beFalse())
+                }
+                
+                // MARK: ----has no admins by default
+                it("has no admins by default") {
+                    await expect {
+                        await communityManager.isUserModeratorOrAdmin(
+                            targetUserPublicKey: "05\(TestConstants.publicKey)",
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            includingHidden: true
+                        )
+                    }.toEventually(beFalse())
+                }
+                
+                // MARK: ---- returns true if the key is in the moderator set
+                it("returns true if the key is in the moderator set") {
+                    await communityManager.updateServer(
+                        server: CommunityManager.Server(
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.publicKey,
+                            openGroups: [testOpenGroup],
+                            capabilities: nil,
+                            roomMembers: [
+                                "testRoom": [
+                                    GroupMember(
+                                        groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                        profileId: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                                        role: .moderator,
+                                        roleStatus: .accepted,
+                                        isHidden: false
+                                    )
+                                ]
+                            ],
+                            using: dependencies
+                        )
+                    )
+                    
+                    await expect {
+                        await communityManager.isUserModeratorOrAdmin(
+                            targetUserPublicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            includingHidden: true
+                        )
+                    }.toEventually(beTrue())
+                }
+                
+                // MARK: ---- returns true if the key is in the admin set
+                it("returns true if the key is in the admin set") {
+                    await communityManager.updateServer(
+                        server: CommunityManager.Server(
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.publicKey,
+                            openGroups: [testOpenGroup],
+                            capabilities: nil,
+                            roomMembers: [
+                                "testRoom": [
+                                    GroupMember(
+                                        groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                        profileId: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                                        role: .admin,
+                                        roleStatus: .accepted,
+                                        isHidden: false
+                                    )
+                                ]
+                            ],
+                            using: dependencies
+                        )
+                    )
+                    
+                    await expect {
+                        await communityManager.isUserModeratorOrAdmin(
+                            targetUserPublicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            includingHidden: true
+                        )
+                    }.toEventually(beTrue())
+                }
+                
+                // MARK: ---- returns true if the moderator is hidden
+                it("returns true if the moderator is hidden") {
+                    await communityManager.updateServer(
+                        server: CommunityManager.Server(
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.publicKey,
+                            openGroups: [testOpenGroup],
+                            capabilities: nil,
+                            roomMembers: [
+                                "testRoom": [
+                                    GroupMember(
+                                        groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                        profileId: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                                        role: .moderator,
+                                        roleStatus: .accepted,
+                                        isHidden: true
+                                    )
+                                ]
+                            ],
+                            using: dependencies
+                        )
+                    )
+                    
+                    await expect {
+                        await communityManager.isUserModeratorOrAdmin(
+                            targetUserPublicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            includingHidden: true
+                        )
+                    }.toEventually(beTrue())
+                }
+                
+                // MARK: ---- returns true if the admin is hidden
+                it("returns true if the admin is hidden") {
+                    await communityManager.updateServer(
+                        server: CommunityManager.Server(
+                            server: "http://127.0.0.1",
+                            publicKey: TestConstants.publicKey,
+                            openGroups: [testOpenGroup],
+                            capabilities: nil,
+                            roomMembers: [
+                                "testRoom": [
+                                    GroupMember(
+                                        groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                        profileId: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                                        role: .admin,
+                                        roleStatus: .accepted,
+                                        isHidden: true
+                                    )
+                                ]
+                            ],
+                            using: dependencies
+                        )
+                    )
+                    
+                    await expect {
+                        await communityManager.isUserModeratorOrAdmin(
+                            targetUserPublicKey: "05\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            includingHidden: true
+                        )
+                    }.toEventually(beTrue())
+                }
+                
+                // MARK: ---- returns false if the key is not an admin or moderator
+                it("returns false if the key is not an admin or moderator") {
+                    await expect {
+                        await communityManager.isUserModeratorOrAdmin(
+                            targetUserPublicKey: "InvalidValue",
+                            server: "http://127.0.0.1",
+                            roomToken: "testRoom",
+                            includingHidden: true
+                        )
+                    }.toEventually(beFalse())
+                }
+                
+                // MARK: ---- and the key belongs to the current user
+                context("and the key belongs to the current user") {
+                    // MARK: ------ matches a blinded key
+                    it("matches a blinded key") {
+                        mockCrypto.removeMocksFor { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                        mockCrypto
+                            .when { $0.generate(.blinded15KeyPair(serverPublicKey: .any, ed25519SecretKey: .any)) }
+                            .thenReturn(
+                                KeyPair(
+                                    publicKey: Array(Data(hex: TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))),
+                                    secretKey: Array(Data(hex: TestConstants.edSecretKey.replacingOccurrences(of: "1", with: "2")))
+                                )
+                            )
+                        await communityManager.updateServer(
+                            server: CommunityManager.Server(
+                                server: "http://127.0.0.1",
+                                publicKey: TestConstants.publicKey,
+                                openGroups: [testOpenGroup],
+                                capabilities: [.blind],
+                                roomMembers: [
+                                    "testRoom": [
+                                        GroupMember(
+                                            groupId: OpenGroup.idFor(roomToken: "testRoom", server: "http://127.0.0.1"),
+                                            profileId: "15\(TestConstants.publicKey.replacingOccurrences(of: "1", with: "2"))",
+                                            role: .admin,
+                                            roleStatus: .accepted,
+                                            isHidden: true
+                                        )
+                                    ]
+                                ],
+                                using: dependencies
+                            )
+                        )
+                        
+                        await expect {
+                            await communityManager.isUserModeratorOrAdmin(
+                                targetUserPublicKey: "05\(TestConstants.publicKey)",
+                                server: "http://127.0.0.1",
+                                roomToken: "testRoom",
+                                includingHidden: true
+                            )
+                        }.toEventually(beTrue())
+                    }
+                }
+            }
+            
+            // MARK: -- when accessing the default rooms publisher
+            context("when accessing the default rooms publisher") {
+                // MARK: ---- starts a job to retrieve the default rooms if we have none
+                it("starts a job to retrieve the default rooms if we have none") {
+                    mockAppGroupDefaults
+                        .when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }
+                        .thenReturn(true)
+                    mockStorage.write { db in
+                        try OpenGroup(
+                            server: Network.SOGS.defaultServer,
+                            roomToken: "",
+                            publicKey: Network.SOGS.defaultServerPublicKey,
+                            shouldPoll: false,
+                            name: "TestExisting",
+                            userCount: 0,
+                            infoUpdates: 0
+                        )
+                        .insert(db)
+                    }
+                    let expectedRequest: Network.PreparedRequest<Network.SOGS.CapabilitiesAndRoomsResponse>! = mockStorage.read { db in
+                        try Network.SOGS.preparedCapabilitiesAndRooms(
+                            authMethod: Authentication.Community(
+                                info: LibSession.OpenGroupCapabilityInfo(
+                                    roomToken: "",
+                                    server: Network.SOGS.defaultServer,
+                                    publicKey: Network.SOGS.defaultServerPublicKey,
+                                    capabilities: []
+                                ),
+                                forceBlinded: false
+                            ),
+                            using: dependencies
+                        )
+                    }
+                    await communityManager.fetchDefaultRoomsIfNeeded()
+                    
+                    await expect(mockNetwork)
+                        .toEventually(call { network in
+                            network.send(
+                                endpoint: Network.SOGS.Endpoint.sequence,
+                                destination: expectedRequest.destination,
+                                body: expectedRequest.body,
+                                requestTimeout: expectedRequest.requestTimeout,
+                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                            )
+                        })
+                }
+                
+                // MARK: ---- does not start a job to retrieve the default rooms if we already have rooms
+                it("does not start a job to retrieve the default rooms if we already have rooms") {
+                    mockAppGroupDefaults.when { $0.bool(forKey: UserDefaults.BoolKey.isMainAppActive.rawValue) }.thenReturn(true)
+                    await communityManager.updateRooms(
+                        rooms: [Network.SOGS.Room.mock],
+                        server: "http://127.0.0.1",
+                        publicKey: Network.SOGS.defaultServerPublicKey,
+                        areDefaultRooms: true
+                    )
+                    await communityManager.fetchDefaultRoomsIfNeeded()
+                    
+                    expect(mockNetwork)
+                        .toNot(call {
+                            $0.send(
+                                endpoint: MockEndpoint.any,
+                                destination: .any,
+                                body: .any,
+                                requestTimeout: .any,
+                                requestAndPathBuildTimeout: .any
+                            )
+                        })
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Convenience Extensions
+
+extension Network.SOGS.Room {
+    func with(
+        token: String? = nil,
+        name: String? = nil,
+        infoUpdates: Int64? = nil,
+        imageId: String? = nil,
+        moderators: [String]? = nil,
+        hiddenModerators: [String]? = nil,
+        admins: [String]? = nil,
+        hiddenAdmins: [String]? = nil
+    ) -> Network.SOGS.Room {
+        return Network.SOGS.Room(
+            token: (token ?? self.token),
+            name: (name ?? self.name),
+            roomDescription: self.roomDescription,
+            infoUpdates: (infoUpdates ?? self.infoUpdates),
+            messageSequence: self.messageSequence,
+            created: self.created,
+            activeUsers: self.activeUsers,
+            activeUsersCutoff: self.activeUsersCutoff,
+            imageId: (imageId ?? self.imageId),
+            pinnedMessages: self.pinnedMessages,
+            admin: self.admin,
+            globalAdmin: self.globalAdmin,
+            admins: (admins ?? self.admins),
+            hiddenAdmins: (hiddenAdmins ?? self.hiddenAdmins),
+            moderator: self.moderator,
+            globalModerator: self.globalModerator,
+            moderators: (moderators ?? self.moderators),
+            hiddenModerators: (hiddenModerators ?? self.hiddenModerators),
+            read: self.read,
+            defaultRead: self.defaultRead,
+            defaultAccessible: self.defaultAccessible,
+            write: self.write,
+            defaultWrite: self.defaultWrite,
+            upload: self.upload,
+            defaultUpload: self.defaultUpload
+        )
+    }
+}
+
+extension Network.SOGS.RoomPollInfo {
+    func with(
+        token: String? = nil,
+        activeUsers: Int64? = nil,
+        details: Network.SOGS.Room? = .mock
+    ) -> Network.SOGS.RoomPollInfo {
+        return Network.SOGS.RoomPollInfo(
+            token: (token ?? self.token),
+            activeUsers: (activeUsers ?? self.activeUsers),
+            admin: self.admin,
+            globalAdmin: self.globalAdmin,
+            moderator: self.moderator,
+            globalModerator: self.globalModerator,
+            read: self.read,
+            defaultRead: self.defaultRead,
+            defaultAccessible: self.defaultAccessible,
+            write: self.write,
+            defaultWrite: self.defaultWrite,
+            upload: self.upload,
+            defaultUpload: self.defaultUpload,
+            details: details
+        )
+    }
+}
+
+// MARK: - Mock Types
+
+extension OpenGroup: Mocked {
+    static var mock: OpenGroup = OpenGroup(
+        server: "testserver",
+        roomToken: "testRoom",
+        publicKey: TestConstants.serverPublicKey,
+        shouldPoll: true,
+        name: "testRoom",
+        userCount: 0,
+        infoUpdates: 0
+    )
+}
+                        
+extension Network.BatchResponse {
+    static let mockUnblindedPollResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+        with: [
+            (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.roomPollInfo("testRoom", 0), Network.SOGS.RoomPollInfo.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.roomMessagesRecent("testRoom"), [Network.SOGS.Message].mockBatchSubResponse())
+        ]
+    )
+    
+    static let mockBlindedPollResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+        with: [
+            (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.roomPollInfo("testRoom", 0), Network.SOGS.RoomPollInfo.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.roomMessagesRecent("testRoom"), Network.SOGS.Message.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.inboxSince(id: 0), Network.SOGS.DirectMessage.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.outboxSince(id: 0), Network.SOGS.DirectMessage.self.mockBatchSubResponse())
+        ]
+    )
+    
+    static let mockCapabilitiesResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+        with: [
+            (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse())
+        ]
+    )
+    
+    static let mockRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+        with: [
+            (Network.SOGS.Endpoint.capabilities, Network.SOGS.Room.mockBatchSubResponse())
+        ]
+    )
+    
+    static let mockBanAndDeleteAllResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+        with: [
+            (Network.SOGS.Endpoint.userBan(""), NoResponse.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.roomDeleteMessages("testRoon", sessionId: ""), NoResponse.mockBatchSubResponse())
+        ]
+    )
+    
+    static let mockCapabilitiesAndRoomResponse: AnyPublisher<(ResponseInfoType, Data?), Error> = MockNetwork.batchResponseData(
+        with: [
+            (Network.SOGS.Endpoint.capabilities, Network.SOGS.CapabilitiesResponse.mockBatchSubResponse()),
+            (Network.SOGS.Endpoint.room("testRoom"), Network.SOGS.Room.mockBatchSubResponse())
+        ]
+    )
+}

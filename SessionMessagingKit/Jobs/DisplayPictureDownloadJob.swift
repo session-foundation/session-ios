@@ -57,7 +57,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                             return try Network.SOGS.preparedDownload(
                                 fileId: fileId,
                                 roomToken: roomToken,
-                                authMethod: Authentication.community(info: info),
+                                authMethod: Authentication.Community(info: info),
                                 skipAuthentication: skipAuthentication,
                                 using: dependencies
                             )
@@ -264,7 +264,11 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 
                 db.addProfileEvent(id: id, change: .displayPictureUrl(url))
-                db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
+                db.addConversationEvent(
+                    id: id,
+                    variant: .contact,
+                    type: .updated(.displayPictureUrl(url))
+                )
                 
             case .group(let id, let url, let encryptionKey):
                 _ = try? ClosedGroup
@@ -275,7 +279,11 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                         ClosedGroup.Columns.displayPictureEncryptionKey.set(to: encryptionKey),
                         using: dependencies
                     )
-                db.addConversationEvent(id: id, type: .updated(.displayPictureUrl(url)))
+                db.addConversationEvent(
+                    id: id,
+                    variant: .group,
+                    type: .updated(.displayPictureUrl(url))
+                )
                 
             case .community(_, let roomToken, let server, _):
                 _ = try? OpenGroup
@@ -287,6 +295,7 @@ public enum DisplayPictureDownloadJob: JobExecutor {
                     )
                 db.addConversationEvent(
                     id: OpenGroup.idFor(roomToken: roomToken, server: server),
+                    variant: .community,
                     type: .updated(.displayPictureUrl(downloadUrl))
                 )
         }
@@ -372,51 +381,6 @@ extension DisplayPictureDownloadJob {
                 }
             }()
             self.timestamp = timestamp
-        }
-        
-        public init?(owner: DisplayPictureManager.Owner) {
-            switch owner {
-                case .user(let profile):
-                    guard
-                        let url: String = profile.displayPictureUrl,
-                        let key: Data = profile.displayPictureEncryptionKey,
-                        let details: Details = Details(
-                            target: .profile(id: profile.id, url: url, encryptionKey: key),
-                            timestamp: profile.profileLastUpdated
-                        )
-                    else { return nil }
-                    
-                    self = details
-                    
-                case .group(let group):
-                    guard
-                        let url: String = group.displayPictureUrl,
-                        let key: Data = group.displayPictureEncryptionKey,
-                        let details: Details = Details(
-                            target: .group(id: group.id, url: url, encryptionKey: key),
-                            timestamp: nil
-                        )
-                    else { return nil }
-                    
-                    self = details
-                    
-                case .community(let openGroup):
-                    guard
-                        let imageId: String = openGroup.imageId,
-                        let details: Details = Details(
-                            target: .community(
-                                imageId: imageId,
-                                roomToken: openGroup.roomToken,
-                                server: openGroup.server
-                            ),
-                            timestamp: nil
-                        )
-                    else { return nil }
-                    
-                    self = details
-                    
-                case .file: return nil
-            }
         }
         
         // MARK: - Functions

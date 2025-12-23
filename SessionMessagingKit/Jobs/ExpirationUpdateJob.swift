@@ -24,15 +24,14 @@ public enum ExpirationUpdateJob: JobExecutor {
             let details: Details = try? JSONDecoder(using: dependencies).decode(Details.self, from: detailsData)
         else { return failure(job, JobRunnerError.missingRequiredDetails, true) }
         
-        dependencies[singleton: .storage]
-            .readPublisher { db in
+        AnyPublisher
+            .lazy {
                 try Network.SnodeAPI
                     .preparedUpdateExpiry(
                         serverHashes: details.serverHashes,
                         updatedExpiryMs: details.expirationTimestampMs,
                         shortenOnly: true,
                         authMethod: try Authentication.with(
-                            db,
                             swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                             using: dependencies
                         ),

@@ -15,7 +15,7 @@ class GeneralCacheSpec: QuickSpec {
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
             initialSetup: { crypto in
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Array(Data(hex: TestConstants.edPublicKey)),
@@ -57,7 +57,7 @@ class GeneralCacheSpec: QuickSpec {
             
             // MARK: -- remains invalid when given a seckey that is too short
             it("remains invalid when given a seckey that is too short") {
-                mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
+                mockCrypto.when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }.thenReturn(nil)
                 let cache: General.Cache = General.Cache(using: dependencies)
                 cache.setSecretKey(ed25519SecretKey: [1, 2, 3])
                 
@@ -68,7 +68,7 @@ class GeneralCacheSpec: QuickSpec {
             
             // MARK: -- remains invalid when ed key pair generation fails
             it("remains invalid when ed key pair generation fails") {
-                mockCrypto.when { $0.generate(.ed25519KeyPair(seed: .any)) }.thenReturn(nil)
+                mockCrypto.when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }.thenReturn(nil)
                 let cache: General.Cache = General.Cache(using: dependencies)
                 cache.setSecretKey(ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)))
                 
@@ -79,7 +79,7 @@ class GeneralCacheSpec: QuickSpec {
             
             // MARK: -- remains invalid when x25519 pubkey generation fails
             it("remains invalid when x25519 pubkey generation fails") {
-                mockCrypto.when { $0.generate(.x25519(ed25519Pubkey: .any)) }.thenReturn(nil)
+                mockCrypto.when { $0.generate(.x25519(ed25519Pubkey: Array<UInt8>.any)) }.thenReturn(nil)
                 let cache: General.Cache = General.Cache(using: dependencies)
                 cache.setSecretKey(ed25519SecretKey: Array(Data(hex: TestConstants.edSecretKey)))
                 

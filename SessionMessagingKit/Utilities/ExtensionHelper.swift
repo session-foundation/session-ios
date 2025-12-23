@@ -1032,7 +1032,7 @@ public class ExtensionHelper: ExtensionHelperType {
                         
                         if result.validMessageCount != result.rawMessageCount {
                             failureStandardCount += (result.rawMessageCount - result.validMessageCount)
-                            Log.error(.cat, "Discarding some standard messages due to error: \(MessageReceiverError.failedToProcess)")
+                            Log.error(.cat, "Discarding \((result.rawMessageCount - result.validMessageCount)) standard message(s) as they could not be processed.")
                         }
                     }
                 }
@@ -1077,7 +1077,7 @@ public class ExtensionHelper: ExtensionHelperType {
     @discardableResult public func waitUntilMessagesAreLoaded(timeout: DispatchTimeInterval) async -> Bool {
         return await withThrowingTaskGroup(of: Bool.self) { [weak self] group in
             group.addTask {
-                guard await self?.messagesLoadedStream.currentValue != true else { return true }
+                guard await self?.messagesLoadedStream.getCurrent() != true else { return true }
                 _ = await self?.messagesLoadedStream.stream.first { $0 == true }
                 return true
             }

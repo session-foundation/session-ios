@@ -46,7 +46,7 @@ public enum GroupInviteMemberJob: JobExecutor {
         
         /// Perform the actual message sending
         dependencies[singleton: .storage]
-            .writePublisher { db -> (AuthenticationMethod, AuthenticationMethod) in
+            .writePublisher { db in
                 _ = try? GroupMember
                     .filter(GroupMember.Columns.groupId == threadId)
                     .filter(GroupMember.Columns.profileId == details.memberSessionIdHexString)
@@ -56,28 +56,24 @@ public enum GroupInviteMemberJob: JobExecutor {
                         GroupMember.Columns.roleStatus.set(to: GroupMember.RoleStatus.sending),
                         using: dependencies
                     )
-                
-                return (
-                    try Authentication.with(db, swarmPublicKey: threadId, using: dependencies),
-                    try Authentication.with(
-                        db,
-                        swarmPublicKey: details.memberSessionIdHexString,
-                        using: dependencies
-                    )
-                )
             }
-            .tryFlatMap { groupAuthMethod, memberAuthMethod -> AnyPublisher<(ResponseInfoType, Message), Error> in
-                try MessageSender.preparedSend(
+            .tryFlatMap { _ -> AnyPublisher<(ResponseInfoType, Message), Error> in
+                let groupAuthMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: threadId,
+                    using: dependencies
+                )
+                let memberAuthMethod: AuthenticationMethod = try Authentication.with(
+                    swarmPublicKey: details.memberSessionIdHexString,
+                    using: dependencies
+                )
+                
+                return try MessageSender.preparedSend(
                     message: try GroupUpdateInviteMessage(
                         inviteeSessionIdHexString: details.memberSessionIdHexString,
                         groupSessionId: SessionId(.group, hex: threadId),
                         groupName: groupName,
                         memberAuthData: details.memberAuthData,
-                        profile: VisibleMessage.VMProfile(
-                            displayName: adminProfile.name,
-                            profileKey: adminProfile.displayPictureEncryptionKey,
-                            profilePictureUrl: adminProfile.displayPictureUrl
-                        ),
+                        profile: VisibleMessage.VMProfile(profile: adminProfile),
                         sentTimestampMs: UInt64(sentTimestampMs),
                         authMethod: groupAuthMethod,
                         using: dependencies
@@ -141,11 +137,8 @@ public enum GroupInviteMemberJob: JobExecutor {
                             
                             // Register the failure
                             switch error {
-                                case let senderError as MessageSenderError where !senderError.isRetryable:
-                                    failure(job, error, true)
-                                    
-                                case SnodeAPIError.rateLimited:
-                                    failure(job, error, true)
+                                case is MessageError: failure(job, error, true)
+                                case SnodeAPIError.rateLimited: failure(job, error, true)
                                     
                                 case SnodeAPIError.clockOutOfSync:
                                     Log.error(.cat, "Permanently Failing to send due to clock out of sync issue.")
@@ -160,7 +153,7 @@ public enum GroupInviteMemberJob: JobExecutor {
     
     public static func failureMessage(groupName: String, memberIds: [String], profileInfo: [String: Profile]) -> ThemedAttributedString {
         let memberZeroName: String = memberIds.first
-            .map { profileInfo[$0]?.displayName(for: .group) ?? $0.truncated() }
+            .map { profileInfo[$0]?.displayName() ?? $0.truncated() }
             .defaulting(to: "anonymous".localized())
         
         switch memberIds.count {
@@ -172,7 +165,7 @@ public enum GroupInviteMemberJob: JobExecutor {
 
             case 2:
                 let memberOneName: String = (
-                    profileInfo[memberIds[1]]?.displayName(for: .group) ??
+                    profileInfo[memberIds[1]]?.displayName() ??
                     memberIds[1].truncated()
                 )
                 
@@ -266,7 +259,7 @@ public extension GroupInviteMemberJob {
                     }
                     let sortedFailedMemberIds: [String] = failedMemberIds.sorted { lhs, rhs in
                         // Sort by name, followed by id if names aren't present
-                        switch (profileMap[lhs]?.displayName(for: .group), profileMap[rhs]?.displayName(for: .group)) {
+                        switch (profileMap[lhs]?.displayName(), profileMap[rhs]?.displayName()) {
                             case (.some(let lhsName), .some(let rhsName)): return lhsName < rhsName
                             case (.some, .none): return true
                             case (.none, .some): return false
@@ -339,7 +332,7 @@ extension GroupInviteMemberJob {
             
             switch authInfo {
                 case .groupMember(_, let authData): self.memberAuthData = authData
-                default: throw MessageSenderError.invalidMessage
+                default: throw MessageError.requiredSignatureMissing
             }
         }
     }

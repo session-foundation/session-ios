@@ -8,6 +8,81 @@ import SessionMessagingKit
 import Lucide
 
 struct MessageInfoScreen: View {
+    public struct ViewModel {
+        let dependencies: Dependencies
+        let actions: [ContextMenuVC.Action]
+        let messageViewModel: MessageViewModel
+        let threadCanWrite: Bool
+        let openGroupServer: String?
+        let openGroupPublicKey: String?
+        let onStartThread: (@MainActor () -> Void)?
+        let isMessageFailed: Bool
+        let isCurrentUser: Bool
+        let profileInfo: ProfilePictureView.Info?
+        
+        /// These are the features that were enabled at the time the message was received
+        let proFeatures: [ProFeature]
+        
+        /// This flag is separate to the `proFeatures` because it should be based on the _current_ pro state of the user rather than
+        /// the state the user was in when the message was sent
+        let shouldShowProBadge: Bool
+        
+        func ctaVariant(currentUserProStatus: Network.SessionPro.BackendUserProStatus) -> ProCTAModal.Variant {
+            guard let firstFeature: ProFeature = proFeatures.first, proFeatures.count > 1 else {
+                return .generic(renew: (currentUserProStatus == .expired))
+            }
+            
+            switch firstFeature {
+                case .proBadge: return .generic(renew: (currentUserProStatus == .expired))
+                case .increasedMessageLength: return .longerMessages(renew: (currentUserProStatus == .expired))
+                case .animatedDisplayPicture:
+                    return .animatedProfileImage(
+                        isSessionProActivated: (currentUserProStatus == .active),
+                        renew: (currentUserProStatus == .expired)
+                    )
+            }
+        }
+    }
+    
+    public enum ProFeature: Equatable {
+        case proBadge
+        case increasedMessageLength
+        case animatedDisplayPicture
+        
+        var title: String {
+            switch self {
+                case .proBadge:
+                    return "appProBadge"
+                        .put(key: "app_pro", value: Constants.app_pro)
+                        .localized()
+                    
+                case .increasedMessageLength: return "proIncreasedMessageLengthFeature".localized()
+                case .animatedDisplayPicture: return "proAnimatedDisplayPictureFeature".localized()
+            }
+        }
+        
+        static func from(
+            messageFeatures: SessionPro.MessageFeatures,
+            profileFeatures: SessionPro.ProfileFeatures
+        ) -> [ProFeature] {
+            var result: [ProFeature] = []
+            
+            if profileFeatures.contains(.proBadge) {
+                result.append(.proBadge)
+            }
+            
+            if messageFeatures.contains(.largerCharacterLimit) {
+                result.append(.increasedMessageLength)
+            }
+            
+            if profileFeatures.contains(.animatedAvatar) {
+                result.append(.animatedDisplayPicture)
+            }
+            
+            return result
+        }
+    }
+    
     @EnvironmentObject var host: HostWrapper
     
     @State var index = 1
@@ -16,48 +91,42 @@ struct MessageInfoScreen: View {
     
     static private let cornerRadius: CGFloat = 17
     
-    var actions: [ContextMenuVC.Action]
-    var messageViewModel: MessageViewModel
-    let threadCanWrite: Bool
-    let onStartThread: (@MainActor () -> Void)?
-    let dependencies: Dependencies
-    let isMessageFailed: Bool
-    let isCurrentUser: Bool
-    let profileInfo: ProfilePictureView.Info?
-    var proFeatures: [String] = []
-    var proCTAVariant: ProCTAModal.Variant = .generic(renew: false)
+    var viewModel: ViewModel
     
     public init(
         actions: [ContextMenuVC.Action],
         messageViewModel: MessageViewModel,
         threadCanWrite: Bool,
+        openGroupServer: String?,
+        openGroupPublicKey: String?,
         onStartThread: (@MainActor () -> Void)?,
         using dependencies: Dependencies
     ) {
-        self.actions = actions
-        self.messageViewModel = messageViewModel
-        self.threadCanWrite = threadCanWrite
-        self.onStartThread = onStartThread
-        self.dependencies = dependencies
-        
-        self.isMessageFailed = [.failed, .failedToSync].contains(messageViewModel.state)
-        self.isCurrentUser = (messageViewModel.currentUserSessionIds ?? []).contains(messageViewModel.authorId)
-        self.profileInfo = ProfilePictureView.Info.generateInfoFrom(
-            size: .message,
-            publicKey: (
-                // Prioritise the profile.id because we override it for
-                // messages sent by the current user in communities
-                messageViewModel.profile?.id ??
-                messageViewModel.authorId
+        self.viewModel = ViewModel(
+            dependencies: dependencies,
+            actions: actions.filter { $0.actionType != .emoji },    // Exclude emoji actions
+            messageViewModel: messageViewModel,
+            threadCanWrite: threadCanWrite,
+            openGroupServer: openGroupServer,
+            openGroupPublicKey: openGroupPublicKey,
+            onStartThread: onStartThread,
+            isMessageFailed: [.failed, .failedToSync].contains(messageViewModel.state),
+            isCurrentUser: messageViewModel.currentUserSessionIds.contains(messageViewModel.authorId),
+            profileInfo: ProfilePictureView.Info.generateInfoFrom(
+                size: .message,
+                publicKey: messageViewModel.profile.id,
+                threadVariant: .contact,    // Always show the display picture in 'contact' mode
+                displayPictureUrl: nil,
+                profile: messageViewModel.profile,
+                profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
+                using: dependencies
+            ).front,
+            proFeatures: ProFeature.from(
+                messageFeatures: messageViewModel.proMessageFeatures,
+                profileFeatures: messageViewModel.proProfileFeatures
             ),
-            threadVariant: .contact,    // Always show the display picture in 'contact' mode
-            displayPictureUrl: nil,
-            profile: messageViewModel.profile,
-            profileIcon: (messageViewModel.isSenderModeratorOrAdmin ? .crown : .none),
-            using: dependencies
-        ).front
-        
-        (self.proFeatures, self.proCTAVariant) = getProFeaturesInfo()
+            shouldShowProBadge: messageViewModel.profile.proFeatures.contains(.proBadge)
+        )
     }
     
     var body: some View {
@@ -73,9 +142,9 @@ struct MessageInfoScreen: View {
                     ) {
                         // Message bubble snapshot
                         MessageBubble(
-                            messageViewModel: messageViewModel,
+                            messageViewModel: viewModel.messageViewModel,
                             attachmentOnly: false,
-                            dependencies: dependencies
+                            dependencies: viewModel.dependencies
                         )
                         .clipShape(
                             RoundedRectangle(cornerRadius: Self.cornerRadius)
@@ -83,7 +152,7 @@ struct MessageInfoScreen: View {
                         .background(
                             RoundedRectangle(cornerRadius: Self.cornerRadius)
                                 .fill(
-                                    themeColor: (messageViewModel.variant == .standardIncoming || messageViewModel.variant == .standardIncomingDeleted || messageViewModel.variant == .standardIncomingDeletedLocally ?
+                                    themeColor: (viewModel.messageViewModel.variant == .standardIncoming || viewModel.messageViewModel.variant == .standardIncomingDeleted || viewModel.messageViewModel.variant == .standardIncomingDeletedLocally ?
                                         .messageBubble_incomingBackground :
                                             .messageBubble_outgoingBackground)
                                 )
@@ -99,11 +168,11 @@ struct MessageInfoScreen: View {
                         .padding(.horizontal, Values.largeSpacing)
                         
                         
-                        if isMessageFailed {
-                            let (image, statusText, tintColor) = messageViewModel.state.statusIconInfo(
-                                variant: messageViewModel.variant,
-                                hasBeenReadByRecipient: messageViewModel.hasBeenReadByRecipient,
-                                hasAttachments: (messageViewModel.attachments?.isEmpty == false)
+                        if viewModel.isMessageFailed {
+                            let (image, statusText, tintColor) = viewModel.messageViewModel.state.statusIconInfo(
+                                variant: viewModel.messageViewModel.variant,
+                                hasBeenReadByRecipient: viewModel.messageViewModel.hasBeenReadByRecipient,
+                                hasAttachments: !viewModel.messageViewModel.attachments.isEmpty
                             )
                             
                             HStack(spacing: 6) {
@@ -125,8 +194,10 @@ struct MessageInfoScreen: View {
                             .padding(.horizontal, Values.largeSpacing)
                         }
                         
-                        if let attachments = messageViewModel.attachments {
-                            switch messageViewModel.cellType {
+                        if !viewModel.messageViewModel.attachments.isEmpty {
+                            let attachments: [Attachment] = viewModel.messageViewModel.attachments
+                            
+                            switch viewModel.messageViewModel.cellType {
                                 case .mediaMessage:
                                     let attachment: Attachment = attachments[(index - 1 + attachments.count) % attachments.count]
                                     
@@ -135,9 +206,9 @@ struct MessageInfoScreen: View {
                                             // Attachment carousel view
                                             SessionCarouselView_SwiftUI(
                                                 index: $index,
-                                                isOutgoing: (messageViewModel.variant == .standardOutgoing),
+                                                isOutgoing: (viewModel.messageViewModel.variant == .standardOutgoing),
                                                 contentInfos: attachments,
-                                                using: dependencies
+                                                using: viewModel.dependencies
                                             )
                                             .frame(
                                                 maxWidth: .infinity,
@@ -147,10 +218,10 @@ struct MessageInfoScreen: View {
                                         } else {
                                             MediaView_SwiftUI(
                                                 attachment: attachments[0],
-                                                isOutgoing: (messageViewModel.variant == .standardOutgoing),
+                                                isOutgoing: (viewModel.messageViewModel.variant == .standardOutgoing),
                                                 shouldSupressControls: true,
                                                 cornerRadius: 0,
-                                                using: dependencies
+                                                using: viewModel.dependencies
                                             )
                                             .frame(
                                                 maxWidth: .infinity,
@@ -183,9 +254,9 @@ struct MessageInfoScreen: View {
                                     
                                 default:
                                     MessageBubble(
-                                        messageViewModel: messageViewModel,
+                                        messageViewModel: viewModel.messageViewModel,
                                         attachmentOnly: true,
-                                        dependencies: dependencies
+                                        dependencies: viewModel.dependencies
                                     )
                                     .clipShape(
                                         RoundedRectangle(cornerRadius: Self.cornerRadius)
@@ -193,7 +264,7 @@ struct MessageInfoScreen: View {
                                     .background(
                                         RoundedRectangle(cornerRadius: Self.cornerRadius)
                                             .fill(
-                                                themeColor: (messageViewModel.variant == .standardIncoming || messageViewModel.variant == .standardIncomingDeleted || messageViewModel.variant == .standardIncomingDeletedLocally ?
+                                                themeColor: (viewModel.messageViewModel.variant == .standardIncoming || viewModel.messageViewModel.variant == .standardIncomingDeleted || viewModel.messageViewModel.variant == .standardIncomingDeletedLocally ?
                                                     .messageBubble_incomingBackground :
                                                         .messageBubble_outgoingBackground)
                                             )
@@ -211,7 +282,8 @@ struct MessageInfoScreen: View {
                     }
                         
                     // Attachment Info
-                    if let attachments = messageViewModel.attachments, !attachments.isEmpty {
+                    if !viewModel.messageViewModel.attachments.isEmpty {
+                        let attachments: [Attachment] = viewModel.messageViewModel.attachments
                         let attachment: Attachment = attachments[(index - 1 + attachments.count) % attachments.count]
                         
                         ZStack {
@@ -294,7 +366,7 @@ struct MessageInfoScreen: View {
                             spacing: Values.mediumSpacing
                         ) {
                             // Pro feature message
-                            if proFeatures.count > 0 {
+                            if viewModel.proFeatures.count > 0 {
                                 VStack(
                                     alignment: .leading,
                                     spacing: Values.mediumSpacing
@@ -305,21 +377,7 @@ struct MessageInfoScreen: View {
                                             .font(.Body.extraLargeBold)
                                             .foregroundColor(themeColor: .textPrimary)
                                     }
-                                    .onTapGesture {
-                                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                                            proCTAVariant,
-                                            onConfirm: {
-                                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                                                    presenting: { bottomSheet in
-                                                        self.host.controller?.present(bottomSheet, animated: true)
-                                                    }
-                                                )
-                                            },
-                                            presenting: { modal in
-                                                self.host.controller?.present(modal, animated: true)
-                                            }
-                                        )
-                                    }
+                                    .onTapGesture { showSessionProCTAIfNeeded() }
                                     
                                     Text(
                                         "proMessageInfoFeatures"
@@ -333,13 +391,13 @@ struct MessageInfoScreen: View {
                                         alignment: .leading,
                                         spacing: Values.smallSpacing
                                     ) {
-                                        ForEach(self.proFeatures, id: \.self) { feature in
+                                        ForEach(viewModel.proFeatures, id: \.self) { feature in
                                             HStack(spacing: Values.smallSpacing) {
                                                 AttributedText(Lucide.Icon.circleCheck.attributedString(size: 17))
                                                     .font(.system(size: 17))
                                                     .foregroundColor(themeColor: .primary)
                                                 
-                                                Text(feature)
+                                                Text(feature.title)
                                                     .font(.Body.largeRegular)
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
@@ -348,8 +406,8 @@ struct MessageInfoScreen: View {
                                 }
                             }
                             
-                            if isMessageFailed {
-                                let failureText: String = messageViewModel.mostRecentFailureText ?? "messageStatusFailedToSend".localized()
+                            if viewModel.isMessageFailed {
+                                let failureText: String = viewModel.messageViewModel.mostRecentFailureText ?? "messageStatusFailedToSend".localized()
                                 InfoBlock(title: "theError".localized() + ":") {
                                     Text(failureText)
                                         .font(.Body.largeRegular)
@@ -357,13 +415,13 @@ struct MessageInfoScreen: View {
                                 }
                             } else {
                                 InfoBlock(title: "sent".localized()) {
-                                    Text(messageViewModel.dateForUI.fromattedForMessageInfo)
+                                    Text(viewModel.messageViewModel.dateForUI.fromattedForMessageInfo)
                                         .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
                                 
                                 InfoBlock(title: "received".localized()) {
-                                    Text(messageViewModel.receivedDateForUI.fromattedForMessageInfo)
+                                    Text(viewModel.messageViewModel.receivedDateForUI.fromattedForMessageInfo)
                                         .font(.Body.largeRegular)
                                         .foregroundColor(themeColor: .textPrimary)
                                 }
@@ -375,12 +433,12 @@ struct MessageInfoScreen: View {
                                 ) {
                                     let size: ProfilePictureView.Info.Size = .list
                                     
-                                    if let info: ProfilePictureView.Info = self.profileInfo {
+                                    if let info: ProfilePictureView.Info = viewModel.profileInfo {
                                         ProfilePictureSwiftUI(
                                             size: size,
                                             info: info,
                                             additionalInfo: nil,
-                                            dataManager: dependencies[singleton: .imageDataManager]
+                                            dataManager: viewModel.dependencies[singleton: .imageDataManager]
                                         )
                                         .frame(
                                             width: size.viewSize,
@@ -394,44 +452,30 @@ struct MessageInfoScreen: View {
                                         spacing: Values.verySmallSpacing
                                     ) {
                                         HStack(spacing: Values.verySmallSpacing) {
-                                            if isCurrentUser {
+                                            if viewModel.isCurrentUser {
                                                 Text("you".localized())
                                                     .font(.Body.extraLargeBold)
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
-                                            else if !messageViewModel.authorNameSuppressedId.isEmpty {
-                                                Text(messageViewModel.authorNameSuppressedId)
+                                            else if !viewModel.messageViewModel.authorName().isEmpty {
+                                                Text(viewModel.messageViewModel.authorName())
                                                     .font(.Body.extraLargeBold)
                                                     .foregroundColor(themeColor: .textPrimary)
                                             }
                                             
-                                            if (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: messageViewModel.authorId)}) {
+                                            if viewModel.shouldShowProBadge {
                                                 SessionProBadge_SwiftUI(size: .small)
-                                                    .onTapGesture {
-                                                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                                                            proCTAVariant,
-                                                            onConfirm: {
-                                                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                                                                    presenting: { bottomSheet in
-                                                                        self.host.controller?.present(bottomSheet, animated: true)
-                                                                    }
-                                                                )
-                                                            },
-                                                            presenting: { modal in
-                                                                self.host.controller?.present(modal, animated: true)
-                                                            }
-                                                        )
-                                                    }
+                                                    .onTapGesture { showSessionProCTAIfNeeded() }
                                             }
                                         }
                                         
-                                        Text(messageViewModel.authorId)
+                                        Text(viewModel.messageViewModel.authorId)
                                             .font(.Display.base)
                                             .foregroundColor(
                                                 themeColor: {
                                                     if
-                                                        messageViewModel.authorId.hasPrefix(SessionId.Prefix.blinded15.rawValue) ||
-                                                        messageViewModel.authorId.hasPrefix(SessionId.Prefix.blinded25.rawValue)
+                                                        viewModel.messageViewModel.authorId.hasPrefix(SessionId.Prefix.blinded15.rawValue) ||
+                                                        viewModel.messageViewModel.authorId.hasPrefix(SessionId.Prefix.blinded25.rawValue)
                                                     {
                                                         return .textSecondary
                                                     }
@@ -462,21 +506,21 @@ struct MessageInfoScreen: View {
                     .padding(.horizontal, Values.largeSpacing)
 
                     // Actions
-                    if !actions.isEmpty {
+                    if !viewModel.actions.isEmpty {
                         ZStack {
                             VStack(
                                 alignment: .leading,
                                 spacing: 0
                             ) {
                                 ForEach(
-                                    0...(actions.count - 1),
+                                    0...(viewModel.actions.count - 1),
                                     id: \.self
                                 ) { index in
-                                    let tintColor: ThemeValue = actions[index].themeColor
+                                    let tintColor: ThemeValue = viewModel.actions[index].themeColor
                                     Button(
                                         action: {
-                                            actions[index].work() {
-                                                switch (actions[index].shouldDismissInfoScreen, actions[index].feedback) {
+                                            viewModel.actions[index].work() {
+                                                switch (viewModel.actions[index].shouldDismissInfoScreen, viewModel.actions[index].feedback) {
                                                     case (false, _): break
                                                     case (true, .some):
                                                         DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: {
@@ -485,17 +529,20 @@ struct MessageInfoScreen: View {
                                                     default: dismiss()
                                                 }
                                             }
-                                            feedbackMessage = actions[index].feedback
+                                            feedbackMessage = viewModel.actions[index].feedback
                                         },
                                         label: {
                                             HStack(spacing: Values.largeSpacing) {
-                                                Image(uiImage: actions[index].icon!.withRenderingMode(.alwaysTemplate))
-                                                    .resizable()
-                                                    .scaledToFit()
-                                                    .scaleEffect(x: (actions[index].flipIconForRTL ? -1 : 1), y: 1)
-                                                    .foregroundColor(themeColor: tintColor)
-                                                    .frame(width: 26, height: 26)
-                                                Text(actions[index].title)
+                                                if let icon: UIImage = viewModel.actions[index].icon?.withRenderingMode(.alwaysTemplate) {
+                                                    Image(uiImage: icon)
+                                                        .resizable()
+                                                        .scaledToFit()
+                                                        .scaleEffect(x: (viewModel.actions[index].flipIconForRTL ? -1 : 1), y: 1)
+                                                        .foregroundColor(themeColor: tintColor)
+                                                        .frame(width: 26, height: 26)
+                                                }
+                                                
+                                                Text(viewModel.actions[index].title)
                                                     .font(.Headings.H8)
                                                     .foregroundColor(themeColor: tintColor)
                                             }
@@ -504,7 +551,7 @@ struct MessageInfoScreen: View {
                                     )
                                     .frame(height: 60)
                                     
-                                    if index < (actions.count - 1) {
+                                    if index < (viewModel.actions.count - 1) {
                                         Divider()
                                             .foregroundColor(themeColor: .borderSeparator)
                                     }
@@ -531,166 +578,61 @@ struct MessageInfoScreen: View {
         .toastView(message: $feedbackMessage)
     }
     
-    private func getProFeaturesInfo() -> (proFeatures: [String], proCTAVariant: ProCTAModal.Variant) {
-        var proFeatures: [String] = []
-        var proCTAVariant: ProCTAModal.Variant = .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
-        
-        guard dependencies[feature: .sessionProEnabled] else { return (proFeatures, proCTAVariant) }
-        
-        if (dependencies.mutate(cache: .libSession) { $0.shouldShowProBadge(for: messageViewModel.profile) }) {
-            proFeatures.append("appProBadge".put(key: "app_pro", value: Constants.app_pro).localized())
-        }
-        
-        if (
-            messageViewModel.isProMessage &&
-            messageViewModel.body.defaulting(to: "").utf16.count > LibSession.CharacterLimit ||
-            dependencies[feature: .messageFeatureLongMessage]
-        ) {
-            proFeatures.append("proIncreasedMessageLengthFeature".localized())
-            proCTAVariant = (
-                proFeatures.count > 1 ?
-                    .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired) :
-                    .longerMessages(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
-            )
-        }
-        
-        if (
-            ImageDataManager.isAnimatedImage(profileInfo?.source) ||
-            dependencies[feature: .messageFeatureAnimatedAvatar]
-        ) {
-            proFeatures.append("proAnimatedDisplayPictureFeature".localized())
-            proCTAVariant = (
-                proFeatures.count > 1 ?
-                    .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired) :
-                    .animatedProfileImage(
-                        isSessionProActivated: false,
-                        renew: dependencies[singleton: .sessionProState].isSessionProExpired
-                    )
-            )
-        }
-        
-        return (proFeatures, proCTAVariant)
+    private func showSessionProCTAIfNeeded() {
+        viewModel.dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+            viewModel.ctaVariant(
+                currentUserProStatus: viewModel.dependencies[singleton: .sessionProManager]
+                    .currentUserCurrentProState
+                    .status
+            ),
+            onConfirm: {
+                viewModel.dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                    presenting: { bottomSheet in
+                        self.host.controller?.present(bottomSheet, animated: true)
+                    }
+                )
+            },
+            presenting: { modal in
+                self.host.controller?.present(modal, animated: true)
+            }
+        )
     }
     
     func showUserProfileModal() {
-        guard threadCanWrite else { return }
-        // FIXME: Add in support for starting a thread with a 'blinded25' id (disabled until we support this decoding)
-        guard (try? SessionId.Prefix(from: messageViewModel.authorId)) != .blinded25 else { return }
+        guard viewModel.threadCanWrite else { return }
         
-        guard let profileInfo: ProfilePictureView.Info = ProfilePictureView.Info.generateInfoFrom(
-            size: .message,
-            publicKey: (
-                // Prioritise the profile.id because we override it for
-                // messages sent by the current user in communities
-                messageViewModel.profile?.id ??
-                messageViewModel.authorId
-            ),
-            threadVariant: .contact,    // Always show the display picture in 'contact' mode
-            displayPictureUrl: nil,
-            profile: messageViewModel.profile,
-            profileIcon: .none,
-            using: dependencies
-        ).front else {
-            return
-        }
-        
-        let (sessionId, blindedId): (String?, String?) = {
+        Task.detached(priority: .userInitiated) {
             guard
-                (try? SessionId.Prefix(from: messageViewModel.authorId)) == .blinded15,
-                let openGroupServer: String = messageViewModel.threadOpenGroupServer,
-                let openGroupPublicKey: String = messageViewModel.threadOpenGroupPublicKey
-            else {
-                return (messageViewModel.authorId, nil)
-            }
-            let lookup: BlindedIdLookup? = dependencies[singleton: .storage].write { db in
-                try BlindedIdLookup.fetchOrCreate(
-                    db,
-                    blindedId: messageViewModel.authorId,
-                    openGroupServer: openGroupServer,
-                    openGroupPublicKey: openGroupPublicKey,
-                    isCheckingForOutbox: false,
-                    using: dependencies
+                let info: UserProfileModal.Info = await viewModel.messageViewModel.createUserProfileModalInfo(
+                    openGroupServer: viewModel.openGroupServer,
+                    openGroupPublicKey: viewModel.openGroupPublicKey,
+                    onStartThread: viewModel.onStartThread,
+                    onProBadgeTapped: showSessionProCTAIfNeeded,
+                    using: viewModel.dependencies
                 )
-            }
-            return (lookup?.sessionId, messageViewModel.authorId.truncated(prefix: 10, suffix: 10))
-        }()
-        
-        let qrCodeImage: UIImage? = {
-            guard let sessionId: String = sessionId else { return nil }
-            return QRCode.generate(for: sessionId, hasBackground: false, iconName: "SessionWhite40") // stringlint:ignore
-        }()
-        
-        let isMessasgeRequestsEnabled: Bool = {
-            guard messageViewModel.threadVariant == .community else { return true }
-            return messageViewModel.profile?.blocksCommunityMessageRequests != true
-        }()
-        
-        let (displayName, contactDisplayName): (String?, String?) = {
-            guard let sessionId: String = sessionId else {
-                return (messageViewModel.authorNameSuppressedId, nil)
-            }
+            else { return }
             
-            let profile: Profile? = (
-                dependencies.mutate(cache: .libSession) { $0.profile(contactId: sessionId) } ??
-                dependencies[singleton: .storage].read { db in try? Profile.fetchOne(db, id: sessionId) }
-            )
-            
-            let isCurrentUser: Bool = (messageViewModel.currentUserSessionIds?.contains(sessionId) == true)
-            guard !isCurrentUser else {
-                return ("you".localized(), "you".localized())
-            }
-            
-            return (
-                (profile?.displayName(for: .contact) ?? messageViewModel.authorNameSuppressedId),
-                profile?.displayName(for: .contact, ignoringNickname: true)
-            )
-        }()
-        
-        DispatchQueue.main.async {
-            let userProfileModal: ModalHostingViewController = ModalHostingViewController(
-                modal: UserProfileModal(
-                    info: .init(
-                        sessionId: sessionId,
-                        blindedId: blindedId,
-                        qrCodeImage: qrCodeImage,
-                        profileInfo: profileInfo,
-                        displayName: displayName,
-                        contactDisplayName: contactDisplayName,
-                        isProUser: dependencies.mutate(cache: .libSession, { $0.validateProProof(for: messageViewModel.profile) }),
-                        isMessageRequestsEnabled: isMessasgeRequestsEnabled,
-                        onStartThread: self.onStartThread,
-                        onProBadgeTapped: {
-                            dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                                proCTAVariant,
-                                onConfirm: {
-                                    dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                                        presenting: { bottomSheet in
-                                            self.host.controller?.present(bottomSheet, animated: true)
-                                        }
-                                    )
-                                },
-                                presenting: { modal in
-                                    self.host.controller?.present(modal, animated: true)
-                                }
-                            )
-                        }
-                    ),
-                    dataManager: dependencies[singleton: .imageDataManager]
+            await MainActor.run {
+                let userProfileModal: ModalHostingViewController = ModalHostingViewController(
+                    modal: UserProfileModal(
+                        info: info,
+                        dataManager: viewModel.dependencies[singleton: .imageDataManager]
+                    )
                 )
-            )
-            self.host.controller?.present(userProfileModal, animated: true, completion: nil)
+                self.host.controller?.present(userProfileModal, animated: true, completion: nil)
+            }
         }
     }
     
     private func showMediaFullScreen(attachment: Attachment) {
         if let mediaGalleryView = MediaGalleryViewModel.createDetailViewController(
-            for: messageViewModel.threadId,
-            threadVariant: messageViewModel.threadVariant,
-            interactionId: messageViewModel.id,
+            for: viewModel.messageViewModel.threadId,
+            threadVariant: viewModel.messageViewModel.threadVariant,
+            interactionId: viewModel.messageViewModel.id,
             selectedAttachmentId: attachment.id,
             options: [ .sliderEnabled ],
             useTransitioningDelegate: false,
-            using: dependencies
+            using: viewModel.dependencies
         ) {
             self.host.controller?.present(mediaGalleryView, animated: true)
         }
@@ -733,8 +675,7 @@ struct MessageBubble: View {
                 for: messageViewModel,
                 with: maxWidth,
                 textColor: bodyLabelTextColor,
-                searchText: nil,
-                using: dependencies
+                searchText: nil
             ).height
             
             VStack(
@@ -770,27 +711,13 @@ struct MessageBubble: View {
                     else {
                         if let quoteViewModel: QuoteViewModel = messageViewModel.quoteViewModel {
                             QuoteView_SwiftUI(
-                                viewModel: quoteViewModel.with(
-                                    direction: (messageViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
-                                    currentUserSessionIds: (messageViewModel.currentUserSessionIds ?? []),
-                                    showProBadge: dependencies.mutate(cache: .libSession) {
-                                        $0.validateSessionProState(for: quoteViewModel.authorId)
-                                    },
-                                    thumbnailSource: .thumbnailFrom(
-                                        quoteViewModel: quoteViewModel,
-                                        using: dependencies
-                                    ),
-                                    displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                                        threadVariant: messageViewModel.threadVariant,
-                                        using: dependencies
-                                    )
-                                ),
+                                viewModel: quoteViewModel,
                                 dataManager: dependencies[singleton: .imageDataManager]
                             )
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, Self.inset)
                             .padding(.horizontal, Self.inset)
-                            .padding(.bottom, (messageViewModel.body?.isEmpty == false ?
+                            .padding(.bottom, (messageViewModel.bubbleBody?.isEmpty == false ?
                                 -Values.smallSpacing :
                                 Self.inset
                             ))
@@ -800,8 +727,7 @@ struct MessageBubble: View {
                     if let bodyText: ThemedAttributedString = VisibleMessageCell.getBodyAttributedText(
                         for: messageViewModel,
                         textColor: bodyLabelTextColor,
-                        searchText: nil,
-                        using: dependencies
+                        searchText: nil
                     ) {
                         AttributedLabel(bodyText, maxWidth: maxWidth)
                             .padding(.horizontal, Self.inset)
@@ -822,13 +748,13 @@ struct MessageBubble: View {
                 else {
                     switch messageViewModel.cellType {
                         case .voiceMessage:
-                            if let attachment: Attachment = messageViewModel.attachments?.first(where: { $0.isAudio }){
+                            if let attachment: Attachment = messageViewModel.attachments.first(where: { $0.isAudio }){
                                 // TODO: Playback Info and check if playing function is needed
                                 VoiceMessageView_SwiftUI(attachment: attachment)
                                     .padding(.top, Self.inset)
                             }
                         case .audio, .genericAttachment:
-                            if let attachment: Attachment = messageViewModel.attachments?.first {
+                            if let attachment: Attachment = messageViewModel.attachments.first {
                                 DocumentView_SwiftUI(
                                     maxWidth: $maxWidth,
                                     attachment: attachment,
@@ -885,6 +811,8 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
         actions: [ContextMenuVC.Action],
         messageViewModel: MessageViewModel,
         threadCanWrite: Bool,
+        openGroupServer: String?,
+        openGroupPublicKey: String?,
         onStartThread: (() -> Void)?,
         using dependencies: Dependencies
     ) {
@@ -892,6 +820,8 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
             actions: actions,
             messageViewModel: messageViewModel,
             threadCanWrite: threadCanWrite,
+            openGroupServer: openGroupServer,
+            openGroupPublicKey: openGroupPublicKey,
             onStartThread: onStartThread,
             using: dependencies
         )
@@ -916,36 +846,70 @@ final class MessageInfoViewController: SessionHostingViewController<MessageInfoS
 struct MessageInfoView_Previews: PreviewProvider {
     static var messageViewModel: MessageViewModel {
         let dependencies: Dependencies = .createEmpty()
-        let result = MessageViewModel(
-            optimisticMessageId: UUID(),
-            threadId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
-            threadVariant: .contact,
-            threadExpirationType: nil,
-            threadExpirationTimer: nil,
-            threadOpenGroupServer: nil,
-            threadOpenGroupPublicKey: nil,
-            threadContactNameInternal: "Test",
-            timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
-            receivedAtTimestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
-            authorId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
-            authorNameInternal: "Test",
-            body: "Mauris sapien dui, sagittis et fringilla eget, tincidunt vel mauris. Mauris bibendum quis ipsum ac pulvinar. Integer semper elit vitae placerat efficitur. Quisque blandit scelerisque orci, a fringilla dui. In a sollicitudin tortor. Vivamus consequat sollicitudin felis, nec pretium dolor bibendum sit amet. Integer non congue risus, id imperdiet diam. Proin elementum enim at felis commodo semper. Pellentesque magna magna, laoreet nec hendrerit in, suscipit sit amet risus. Nulla et imperdiet massa. Donec commodo felis quis arcu dignissim lobortis. Praesent nec fringilla felis, ut pharetra sapien. Donec ac dignissim nisi, non lobortis justo. Nulla congue velit nec sodales bibendum. Nullam feugiat, mauris ac consequat posuere, eros sem dignissim nulla, ac convallis dolor sem rhoncus dolor. Cras ut luctus risus, quis viverra mauris.",
-            expiresStartedAtMs: nil,
-            expiresInSeconds: nil,
-            isProMessage: true,
-            state: .failed,
-            isSenderModeratorOrAdmin: false,
-            currentUserProfile: Profile(
-                id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
-                name: "TestUser"
+        let threadId: String = "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg"
+        var dataCache: ConversationDataCache = ConversationDataCache(
+            userSessionId: SessionId(
+                .standard,
+                hex: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a961111"
             ),
-            quoteViewModel: nil,
-            linkPreview: nil,
-            linkPreviewAttachment: nil,
-            attachments: nil
+            context: ConversationDataCache.Context(
+                source: .messageList(threadId: threadId),
+                requireFullRefresh: false,
+                requireAuthMethodFetch: false,
+                requiresMessageRequestCountUpdate: false,
+                requiresInitialUnreadInteractionInfo: false,
+                requireRecentReactionEmojiUpdate: false
+            )
+        )
+        dataCache.insert(
+            Profile.with(
+                id: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a96c65b",
+                name: "TestUser",
+                proFeatures: .proBadge
+            )
+        )
+        dataCache.setCurrentUserSessionIds([
+            threadId: ["0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a961111"]
+        ])
+        
+        let result = MessageViewModel(
+            optimisticMessageId: 0,
+            interaction: Interaction(
+                threadId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
+                threadVariant: .contact,
+                authorId: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
+                variant: .standardIncoming,
+                body: "Mauris sapien dui, sagittis et fringilla eget, tincidunt vel mauris. Mauris bibendum quis ipsum ac pulvinar. Integer semper elit vitae placerat efficitur. Quisque blandit scelerisque orci, a fringilla dui. In a sollicitudin tortor. Vivamus consequat sollicitudin felis, nec pretium dolor bibendum sit amet. Integer non congue risus, id imperdiet diam. Proin elementum enim at felis commodo semper. Pellentesque magna magna, laoreet nec hendrerit in, suscipit sit amet risus. Nulla et imperdiet massa. Donec commodo felis quis arcu dignissim lobortis. Praesent nec fringilla felis, ut pharetra sapien. Donec ac dignissim nisi, non lobortis justo. Nulla congue velit nec sodales bibendum. Nullam feugiat, mauris ac consequat posuere, eros sem dignissim nulla, ac convallis dolor sem rhoncus dolor. Cras ut luctus risus, quis viverra mauris.",
+                timestampMs: dependencies[cache: .snodeAPI].currentOffsetTimestampMs(),
+                state: .failed,
+                proMessageFeatures: .largerCharacterLimit,
+                using: dependencies
+            ),
+            reactionInfo: nil,
+            maybeUnresolvedQuotedInfo: nil,
+            userSessionId: SessionId(
+                .standard,
+                hex: "0588672ccb97f40bb57238989226cf429b575ba355443f47bc76c5ab144a961111"
+            ),
+            threadInfo: ConversationInfoViewModel(
+                thread: SessionThread(
+                    id: "d4f1g54sdf5g1d5f4g65ds4564df65f4g65d54gdfsg",
+                    variant: .contact,
+                    creationDateTimestamp: 0
+                ),
+                dataCache: dataCache,
+                using: dependencies
+            ),
+            dataCache: dataCache,
+            previousInteraction: nil,
+            nextInteraction: nil,
+            isLast: true,
+            isLastOutgoing: false,
+            currentUserMentionImage: nil,
+            using: dependencies
         )
         
-        return result
+        return result!
     }
     
     static var actions: [ContextMenuVC.Action] {
@@ -961,6 +925,8 @@ struct MessageInfoView_Previews: PreviewProvider {
             actions: actions,
             messageViewModel: messageViewModel,
             threadCanWrite: true,
+            openGroupServer: nil,
+            openGroupPublicKey: nil,
             onStartThread: nil,
             using: Dependencies.createEmpty()
         )

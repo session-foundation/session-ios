@@ -173,7 +173,7 @@ final class CallMessageCell: MessageCell {
         )
         infoImageView.isHidden = !shouldShowInfoIcon
         
-        label.text = cellViewModel.body
+        label.text = cellViewModel.bubbleBody
         
         // Timer
         if

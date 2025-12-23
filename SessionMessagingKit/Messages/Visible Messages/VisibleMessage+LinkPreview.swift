@@ -5,37 +5,48 @@ import SessionUtilitiesKit
 
 public extension VisibleMessage {
     struct VMLinkPreview: Codable {
+        public let url: String
         public let title: String?
-        public let url: String?
         public let attachmentId: String?
+        public let nonInsertedAttachment: Attachment?
 
-        public func isValid(isSending: Bool) -> Bool { title != nil && url != nil && attachmentId != nil }
+        public func validateMessage(isSending: Bool) throws {
+            if !url.isEmpty { throw MessageError.invalidMessage("url") }
+        }
         
         // MARK: - Initialization
 
-        internal init(title: String?, url: String, attachmentId: String?) {
-            self.title = title
+        internal init(
+            url: String,
+            title: String?,
+            attachmentId: String?,
+            nonInsertedAttachment: Attachment?
+        ) {
             self.url = url
+            self.title = title
             self.attachmentId = attachmentId
+            self.nonInsertedAttachment = nonInsertedAttachment
         }
         
         // MARK: - Proto Conversion
 
         public static func fromProto(_ proto: SNProtoDataMessagePreview) -> VMLinkPreview? {
+            guard
+                !proto.url.isEmpty,
+                LinkPreviewManager.isValidLinkUrl(proto.url)
+            else { return nil }
+            
             return VMLinkPreview(
-                title: proto.title,
                 url: proto.url,
-                attachmentId: nil
+                title: proto.title,
+                attachmentId: nil,
+                nonInsertedAttachment: proto.image.map { Attachment(proto: $0) }
             )
         }
 
         public func toProto() -> SNProtoDataMessagePreview? {
-            guard let url = url else {
-                Log.warn(.messageSender, "Couldn't construct link preview proto from: \(self).")
-                return nil
-            }
             let linkPreviewProto = SNProtoDataMessagePreview.builder(url: url)
-            if let title = title { linkPreviewProto.setTitle(title) }
+            if let title: String = title, !title.isEmpty { linkPreviewProto.setTitle(title) }
             
             do {
                 return try linkPreviewProto.build()
@@ -50,9 +61,10 @@ public extension VisibleMessage {
         public var description: String {
             """
             LinkPreview(
+                url: \(url),
                 title: \(title ?? "null"),
-                url: \(url ?? "null"),
-                attachmentId: \(attachmentId ?? "null")
+                attachmentId: \(attachmentId ?? "null"),
+                nonInsertedAttachment: \(nonInsertedAttachment.map { "\($0)" } ?? "null")
             )
             """
         }
@@ -64,9 +76,10 @@ public extension VisibleMessage {
 public extension VisibleMessage.VMLinkPreview {
     static func from(linkPreview: LinkPreview) -> VisibleMessage.VMLinkPreview {
         return VisibleMessage.VMLinkPreview(
-            title: linkPreview.title,
             url: linkPreview.url,
-            attachmentId: linkPreview.attachmentId
+            title: linkPreview.title,
+            attachmentId: linkPreview.attachmentId,
+            nonInsertedAttachment: nil
         )
     }
 }

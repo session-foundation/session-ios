@@ -1,9 +1,11 @@
 // Copyright © 2025 Rangeproof Pty Ltd. All rights reserved.
+//
+// stringlint:disable
 
 import Foundation
 
 public extension Network.SessionNetwork {
-    public enum Endpoint: EndpointType {
+    enum Endpoint: EndpointType {
         case info
         case price
         case token

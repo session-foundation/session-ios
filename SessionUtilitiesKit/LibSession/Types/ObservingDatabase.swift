@@ -81,6 +81,10 @@ public enum ObservationContext {
 
 // MARK: - Convenience
 
+public extension ObservingDatabase {
+    var lastInsertedRowID: Int64 { originalDb.lastInsertedRowID }
+}
+
 public extension FetchableRecord where Self: TableRecord {
     static func fetchAll(_ db: ObservingDatabase) throws -> [Self] {
         return try self.fetchAll(db.originalDb)
@@ -108,6 +112,12 @@ public extension FetchableRecord where Self: TableRecord, Self: Identifiable, Se
     
     static func fetchOne(_ db: ObservingDatabase, id: Self.ID) throws -> Self? {
         return try self.fetchOne(db.originalDb, id: id)
+    }
+}
+
+public extension FetchRequest {
+    func fetchCount(_ db: ObservingDatabase) throws -> Int {
+        return try self.fetchCount(db.originalDb)
     }
 }
 

@@ -200,10 +200,18 @@ public extension Preferences {
         
         // MARK: - AudioPlayer
         
-        public static func audioPlayer(for sound: Sound, behavior: OWSAudioBehavior) -> OWSAudioPlayer? {
+        @MainActor public static func audioPlayer(
+            for sound: Sound,
+            behavior: OWSAudioBehavior,
+            using dependencies: Dependencies
+        ) -> OWSAudioPlayer? {
             guard let soundUrl: URL = sound.soundUrl(quiet: false) else { return nil }
             
-            let player = OWSAudioPlayer(mediaUrl: soundUrl, audioBehavior: behavior)
+            let player: OWSAudioPlayer = OWSAudioPlayer(
+                mediaUrl: soundUrl,
+                audioBehavior: behavior,
+                using: dependencies
+            )
             
             // These two cases should loop
             if sound == .callConnecting || sound == .callOutboundRinging {

@@ -196,57 +196,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             ).toNot(beNil())
                         }
                     }
-                    
-                    // MARK: ------ with an owner
-                    context("with an owner") {
-                        // MARK: -------- returns nil when given a null url
-                        it("returns nil when given a null url") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .user(
-                                        Profile(
-                                            id: "1234",
-                                            name: "test",
-                                            displayPictureUrl: nil,
-                                            displayPictureEncryptionKey: encryptionKey
-                                        )
-                                    )
-                                )
-                            ).to(beNil())
-                        }
-                        
-                        // MARK: -------- returns nil when given a null encryption key
-                        it("returns nil when given a null encryption key") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .user(
-                                        Profile(
-                                            id: "1234",
-                                            name: "test",
-                                            displayPictureUrl: "http://oxen.io/1234/",
-                                            displayPictureEncryptionKey: nil
-                                        )
-                                    )
-                                )
-                            ).to(beNil())
-                        }
-                        
-                        // MARK: -------- returns a value when given valid data
-                        it("returns a value when given valid data") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .user(
-                                        Profile(
-                                            id: "1234",
-                                            name: "test",
-                                            displayPictureUrl: "http://oxen.io/1234/",
-                                            displayPictureEncryptionKey: encryptionKey
-                                        )
-                                    )
-                                )
-                            ).toNot(beNil())
-                        }
-                    }
                 }
                 
                 // MARK: ---- for a group
@@ -307,66 +256,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             ).toNot(beNil())
                         }
                     }
-                    
-                    // MARK: ------ with an owner
-                    context("with an owner") {
-                        // MARK: -------- returns nil when given a null url
-                        it("returns nil when given a null url") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .group(
-                                        ClosedGroup(
-                                            threadId: "1234",
-                                            name: "test",
-                                            formationTimestamp: 0,
-                                            displayPictureUrl: nil,
-                                            displayPictureEncryptionKey: encryptionKey,
-                                            shouldPoll: nil,
-                                            invited: nil
-                                        )
-                                    )
-                                )
-                            ).to(beNil())
-                        }
-                        
-                        // MARK: -------- returns nil when given a null encryption key
-                        it("returns nil when given a null encryption key") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .group(
-                                        ClosedGroup(
-                                            threadId: "1234",
-                                            name: "test",
-                                            formationTimestamp: 0,
-                                            displayPictureUrl: "http://oxen.io/1234/",
-                                            displayPictureEncryptionKey: nil,
-                                            shouldPoll: nil,
-                                            invited: nil
-                                        )
-                                    )
-                                )
-                            ).to(beNil())
-                        }
-                        
-                        // MARK: -------- returns a value when given valid data
-                        it("returns a value when given valid data") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .group(
-                                        ClosedGroup(
-                                            threadId: "1234",
-                                            name: "test",
-                                            formationTimestamp: 0,
-                                            displayPictureUrl: "http://oxen.io/1234/",
-                                            displayPictureEncryptionKey: encryptionKey,
-                                            shouldPoll: nil,
-                                            invited: nil
-                                        )
-                                    )
-                                )
-                            ).toNot(beNil())
-                        }
-                    }
                 }
                 
                 // MARK: ---- for a community
@@ -389,49 +278,6 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 DisplayPictureDownloadJob.Details(
                                     target: .community(imageId: "12", roomToken: "", server: ""),
                                     timestamp: 0
-                                )
-                            ).toNot(beNil())
-                        }
-                    }
-                    
-                    // MARK: ------ with an owner
-                    context("with an owner") {
-                        // MARK: -------- returns nil when given an empty imageId
-                        it("returns nil when given an empty imageId") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .community(
-                                        OpenGroup(
-                                            server: "testServer",
-                                            roomToken: "testRoom",
-                                            publicKey: "1234",
-                                            isActive: false,
-                                            name: "test",
-                                            imageId: nil,
-                                            userCount: 0,
-                                            infoUpdates: 0
-                                        )
-                                    )
-                                )
-                            ).to(beNil())
-                        }
-                        
-                        // MARK: -------- returns a value when given valid data
-                        it("returns a value when given valid data") {
-                            expect(
-                                DisplayPictureDownloadJob.Details(
-                                    owner: .community(
-                                        OpenGroup(
-                                            server: "testServer",
-                                            roomToken: "testRoom",
-                                            publicKey: "1234",
-                                            isActive: false,
-                                            name: "test",
-                                            imageId: "12",
-                                            userCount: 0,
-                                            infoUpdates: 0
-                                        )
-                                    )
                                 )
                             ).toNot(beNil())
                         }
@@ -492,9 +338,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                 profile = Profile(
                     id: "1234",
                     name: "test",
+                    nickname: nil,
                     displayPictureUrl: nil,
                     displayPictureEncryptionKey: nil,
-                    profileLastUpdated: nil
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
                 )
                 mockStorage.write { db in try profile.insert(db) }
                 job = Job(
@@ -546,7 +397,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         server: "testServer",
                         roomToken: "testRoom",
                         publicKey: TestConstants.serverPublicKey,
-                        isActive: false,
+                        shouldPoll: false,
                         name: "test",
                         imageId: "12",
                         userCount: 0,
@@ -570,7 +421,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     try Network.SOGS.preparedDownload(
                         fileId: "12",
                         roomToken: "testRoom",
-                        authMethod: Authentication.community(
+                        authMethod: Authentication.Community(
                             info: LibSession.OpenGroupCapabilityInfo(
                                 roomToken: "",
                                 server: "testserver",
@@ -614,9 +465,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                     profile = Profile(
                         id: "1234",
                         name: "test",
+                        nickname: nil,
                         displayPictureUrl: nil,
                         displayPictureEncryptionKey: nil,
-                        profileLastUpdated: nil
+                        profileLastUpdated: nil,
+                        blocksCommunityMessageRequests: nil,
+                        proFeatures: .none,
+                        proExpiryUnixTimestampMs: 0,
+                        proGenIndexHashHex: nil
                     )
                     mockStorage.write { db in try profile.insert(db) }
                     job = Job(
@@ -734,9 +590,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                         profile = Profile(
                             id: "1234",
                             name: "test",
+                            nickname: nil,
                             displayPictureUrl: "http://oxen.io/100/",
                             displayPictureEncryptionKey: encryptionKey,
-                            profileLastUpdated: 1234567890
+                            profileLastUpdated: 1234567890,
+                            blocksCommunityMessageRequests: nil,
+                            proFeatures: .none,
+                            proExpiryUnixTimestampMs: 0,
+                            proGenIndexHashHex: nil
                         )
                         mockStorage.write { db in
                             _ = try Profile.deleteAll(db)
@@ -808,9 +669,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     Profile(
                                         id: "1234",
                                         name: "test",
+                                        nickname: nil,
                                         displayPictureUrl: "http://oxen.io/100/",
                                         displayPictureEncryptionKey: encryptionKey,
-                                        profileLastUpdated: 1234567891
+                                        profileLastUpdated: 1234567891,
+                                        blocksCommunityMessageRequests: nil,
+                                        proFeatures: .none,
+                                        proExpiryUnixTimestampMs: 0,
+                                        proGenIndexHashHex: nil
                                     )
                                 ))
                         }
@@ -845,9 +711,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     Profile(
                                         id: "1234",
                                         name: "test",
+                                        nickname: nil,
                                         displayPictureUrl: "http://oxen.io/100/",
                                         displayPictureEncryptionKey: encryptionKey,
-                                        profileLastUpdated: 1234567891
+                                        profileLastUpdated: 1234567891,
+                                        blocksCommunityMessageRequests: nil,
+                                        proFeatures: .none,
+                                        proExpiryUnixTimestampMs: 0,
+                                        proGenIndexHashHex: nil
                                     )
                                 ))
                         }
@@ -890,9 +761,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     Profile(
                                         id: "1234",
                                         name: "test",
+                                        nickname: nil,
                                         displayPictureUrl: "http://oxen.io/100/",
                                         displayPictureEncryptionKey: encryptionKey,
-                                        profileLastUpdated: 1234567891
+                                        profileLastUpdated: 1234567891,
+                                        blocksCommunityMessageRequests: nil,
+                                        proFeatures: .none,
+                                        proExpiryUnixTimestampMs: 0,
+                                        proGenIndexHashHex: nil
                                     )
                                 ))
                         }
@@ -905,9 +781,14 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                 Profile(
                                     id: "1234",
                                     name: "test",
+                                    nickname: nil,
                                     displayPictureUrl: "http://oxen.io/100/",
                                     displayPictureEncryptionKey: encryptionKey,
-                                    profileLastUpdated: 1234567891
+                                    profileLastUpdated: 1234567891,
+                                    blocksCommunityMessageRequests: nil,
+                                    proFeatures: .none,
+                                    proExpiryUnixTimestampMs: 0,
+                                    proGenIndexHashHex: nil
                                 )
                             ))
                     }
@@ -1086,7 +967,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                             server: "testServer",
                             roomToken: "testRoom",
                             publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                            isActive: true,
+                            shouldPoll: true,
                             name: "name",
                             imageId: "100",
                             userCount: 1,
@@ -1172,7 +1053,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                         server: "testServer",
                                         roomToken: "testRoom",
                                         publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                                        isActive: true,
+                                        shouldPoll: true,
                                         name: "name",
                                         imageId: "100",
                                         userCount: 1,
@@ -1215,7 +1096,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                         server: "testServer",
                                         roomToken: "testRoom",
                                         publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                                        isActive: true,
+                                        shouldPoll: true,
                                         name: "name",
                                         imageId: "100",
                                         userCount: 1,
@@ -1234,7 +1115,7 @@ class DisplayPictureDownloadJobSpec: AsyncSpec {
                                     server: "testServer",
                                     roomToken: "testRoom",
                                     publicKey: "03cbd569f56fb13ea95a3f0c05c331cc24139c0090feb412069dc49fab34406ece",
-                                    isActive: true,
+                                    shouldPoll: true,
                                     name: "name",
                                     imageId: "100",
                                     userCount: 1,

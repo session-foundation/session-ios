@@ -51,9 +51,9 @@ internal extension LibSessionCacheType {
             .asSet()
 
         // Add in any new members and remove any removed members
-        try updatedMembers
-            .subtracting(existingMembers)
-            .forEach { try $0.upsert(db) }
+        let newMembers: Set<GroupMember> = updatedMembers.subtracting(existingMembers)
+        let removedMembers: Set<GroupMember> = existingMembers.subtracting(updatedMembers)
+        try newMembers.forEach { try $0.upsert(db) }
         
         try GroupMember
             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
@@ -67,6 +67,38 @@ internal extension LibSessionCacheType {
                 )
             )
             .deleteAll(db)
+        
+        // Notify of any member/role changes
+        newMembers.forEach { member in
+            db.addGroupMemberEvent(
+                profileId: member.profileId,
+                threadId: groupSessionId.hexString,
+                type: .created
+            )
+        }
+        
+        removedMembers.forEach { member in
+            db.addGroupMemberEvent(
+                profileId: member.profileId,
+                threadId: groupSessionId.hexString,
+                type: .deleted
+            )
+        }
+        
+        updatedMembers.forEach { member in
+            guard
+                let existingMember: GroupMember = existingMembers.first(where: { $0.profileId == member.profileId }), (
+                    existingMember.role != member.role ||
+                    existingMember.roleStatus != member.roleStatus
+                )
+            else { return }
+            
+            db.addGroupMemberEvent(
+                profileId: member.profileId,
+                threadId: groupSessionId.hexString,
+                type: .updated(.role(role: member.role, status: member.roleStatus))
+            )
+        }
         
         // Schedule a job to process the removals
         if (try? LibSession.extractPendingRemovals(from: conf, groupSessionId: groupSessionId))?.isEmpty == false {
@@ -116,6 +148,11 @@ internal extension LibSessionCacheType {
                 status: .accepted,
                 in: config
             )
+            db.addGroupMemberEvent(
+                profileId: userSessionId.hexString,
+                threadId: groupSessionId.hexString,
+                type: .updated(.role(role: .admin, status: .accepted))
+            )
         }
         
         // If there were members then also extract and update the profile information for the members
@@ -132,8 +169,10 @@ internal extension LibSessionCacheType {
                 db,
                 publicKey: profile.id,
                 displayNameUpdate: .contactUpdate(profile.name),
-                displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
+                displayPictureUpdate: .contactUpdateTo(profile, fallback: .none),
+                proUpdate: .none,    /// Syncing group member pro state is not supported (changes come from contacts or messages)
                 profileUpdateTimestamp: profile.profileLastUpdated,
+                currentUserSessionIds: [userSessionId.hexString],
                 using: dependencies
             )
         }
@@ -517,7 +556,7 @@ internal extension LibSession {
             }
             
             result.append(
-                Profile(
+                Profile.with(
                     id: member.get(\.session_id),
                     name: member.get(\.name),
                     nickname: nil,

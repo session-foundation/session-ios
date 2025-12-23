@@ -161,7 +161,7 @@ public struct UserProfileModal: View {
                                     .foregroundColor(themeColor: .textPrimary)
                                     .multilineTextAlignment(.center)
                                 
-                                if info.isProUser {
+                                if info.shouldShowProBadge {
                                     SessionProBadge_SwiftUI(size: .large)
                                         .onTapGesture {
                                             info.onProBadgeTapped?()
@@ -186,7 +186,7 @@ public struct UserProfileModal: View {
                             case (.some(let sessionId), .some):
                                 return ("accountId".localized(), sessionId.splitIntoLines(charactersForLines: [23, 23, 20]))
                             case (.none, .some(let blindedId)):
-                                return ("blindedId".localized(), blindedId)
+                                return ("blindedId".localized(), blindedId.truncated(prefix: 10, suffix: 10))
                             case (.none, .none):
                                 return ("", "") // Shouldn't happen
                         }
@@ -259,7 +259,7 @@ public struct UserProfileModal: View {
                         }
                         .padding(.bottom, 12)
                     } else {
-                        if !info.isMessageRequestsEnabled, let displayName: String = info.displayName {
+                        if !info.areMessageRequestsEnabled, let displayName: String = info.displayName {
                             AttributedText(
                                 "messageRequestsTurnedOff"
                                     .put(key: "name", value: displayName)
@@ -277,17 +277,17 @@ public struct UserProfileModal: View {
                                 } label: {
                                     Text("message".localized())
                                         .font(.Body.baseBold)
-                                        .foregroundColor(themeColor: (info.isMessageRequestsEnabled ? .sessionButton_text : .disabled))
+                                        .foregroundColor(themeColor: (info.areMessageRequestsEnabled ? .sessionButton_text : .disabled))
                                         .overlay(
                                             Capsule()
-                                                .stroke(themeColor: (info.isMessageRequestsEnabled ? .sessionButton_border : .disabled))
+                                                .stroke(themeColor: (info.areMessageRequestsEnabled ? .sessionButton_border : .disabled))
                                                 .frame(
                                                     width: (geometry.size.width - Values.mediumSpacing) / 2,
                                                     height: Values.smallButtonHeight
                                                 )
                                         )
                                 }
-                                .disabled(!info.isMessageRequestsEnabled)
+                                .disabled(!info.areMessageRequestsEnabled)
                                 .buttonStyle(PlainButtonStyle())
                             }
                             .frame(
@@ -395,10 +395,10 @@ public extension UserProfileModal {
         let profileInfo: ProfilePictureView.Info
         let displayName: String?
         let contactDisplayName: String?
-        let isProUser: Bool
-        let isMessageRequestsEnabled: Bool
-        let onStartThread: (() -> Void)?
-        let onProBadgeTapped: (() -> Void)?
+        let shouldShowProBadge: Bool
+        let areMessageRequestsEnabled: Bool
+        let onStartThread: (@MainActor () -> Void)?
+        let onProBadgeTapped: (@MainActor () -> Void)?
         
         public init(
             sessionId: String?,
@@ -407,10 +407,10 @@ public extension UserProfileModal {
             profileInfo: ProfilePictureView.Info,
             displayName: String?,
             contactDisplayName: String?,
-            isProUser: Bool,
-            isMessageRequestsEnabled: Bool,
-            onStartThread: (() -> Void)?,
-            onProBadgeTapped: (() -> Void)?
+            shouldShowProBadge: Bool,
+            areMessageRequestsEnabled: Bool,
+            onStartThread: (@MainActor () -> Void)?,
+            onProBadgeTapped: (@MainActor () -> Void)?
         ) {
             self.sessionId = sessionId
             self.blindedId = blindedId
@@ -418,8 +418,8 @@ public extension UserProfileModal {
             self.profileInfo = profileInfo
             self.displayName = displayName
             self.contactDisplayName = contactDisplayName
-            self.isProUser = isProUser
-            self.isMessageRequestsEnabled = isMessageRequestsEnabled
+            self.shouldShowProBadge = shouldShowProBadge
+            self.areMessageRequestsEnabled = areMessageRequestsEnabled
             self.onStartThread = onStartThread
             self.onProBadgeTapped = onProBadgeTapped
         }

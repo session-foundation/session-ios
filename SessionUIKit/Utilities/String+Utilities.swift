@@ -79,6 +79,7 @@ public extension String.StringInterpolation {
 }
 
 public extension String {
+    // stringlint:ignore_contents
     static func formattedDuration(
         _ duration: TimeInterval,
         format: TimeInterval.DurationFormat = .short,

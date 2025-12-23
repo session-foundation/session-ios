@@ -11,11 +11,9 @@ public extension MentionSelectionView.ViewModel {
         profiles: [Profile],
         threadVariant: SessionThread.Variant,
         currentUserSessionIds: Set<String>,
-        adminModMembers: [GroupMember],
+        adminModIds: [String],
         using dependencies: Dependencies
     ) -> [MentionSelectionView.ViewModel] {
-        let adminModIds: Set<String> = Set(adminModMembers.map { $0.profileId })
-        
         return profiles.compactMap { profile -> MentionSelectionView.ViewModel? in
             guard let info: ProfilePictureView.Info = ProfilePictureView.Info.generateInfoFrom(
                 size: MentionSelectionView.profilePictureViewSize,
@@ -29,9 +27,10 @@ public extension MentionSelectionView.ViewModel {
             
             return MentionSelectionView.ViewModel(
                 profileId: profile.id,
-                displayName: profile.displayNameForMention(
-                    for: threadVariant,
-                    currentUserSessionIds: currentUserSessionIds
+                displayName: profile.displayName(
+                    showYouForCurrentUser: true,
+                    currentUserSessionIds: currentUserSessionIds,
+                    includeSessionIdSuffix: (threadVariant == .community)
                 ),
                 profilePictureInfo: info
             )
@@ -46,50 +45,55 @@ public extension MentionSelectionView.ViewModel {
         communityInfo: (server: String, roomToken: String)?,
         using dependencies: Dependencies
     ) async throws -> [MentionSelectionView.ViewModel] {
-        let (profiles, adminModMembers): ([Profile], [GroupMember]) = try await dependencies[singleton: .storage].readAsync { db in
-            let pattern: FTS5Pattern? = try? SessionThreadViewModel.pattern(db, searchTerm: query, forTable: Profile.self)
-            let capabilities: Set<Capability.Variant> = (threadVariant != .community ?
-                nil :
-                try? Capability
-                    .select(.variant)
-                    .filter(Capability.Columns.openGroupServer == communityInfo?.server)
-                    .asRequest(of: Capability.Variant.self)
-                    .fetchSet(db)
-            )
-            .defaulting(to: [])
-            let targetPrefixes: [SessionId.Prefix] = (capabilities.contains(.blind) ?
-                [.blinded15, .blinded25] :
-                [.standard]
-            )
-            let profiles: [Profile] = try mentionsQuery(
+        let profiles: [Profile] = try await dependencies[singleton: .storage].readAsync { db in
+            let pattern: FTS5Pattern? = try? GlobalSearch.pattern(db, searchTerm: query, forTable: Profile.self)
+            let targetPrefixes: [SessionId.Prefix] = {
+                switch threadVariant {
+                    case .contact, .legacyGroup, .group: return [.standard]
+                    case .community:
+                        let capabilities: Set<Capability.Variant> = ((try? Capability
+                            .select(.variant)
+                            .filter(Capability.Columns.openGroupServer == communityInfo?.server)
+                            .asRequest(of: Capability.Variant.self)
+                            .fetchSet(db)) ?? [])
+                        
+                        guard capabilities.contains(.blind) else {
+                            return [.standard]
+                        }
+                        
+                        return [.blinded15, .blinded25]
+                }
+            }()
+            
+            return try mentionsQuery(
                 threadId: threadId,
                 threadVariant: threadVariant,
                 targetPrefixes: targetPrefixes,
                 currentUserSessionIds: currentUserSessionIds,
                 pattern: pattern
             ).fetchAll(db)
-            
-            /// If it's not a community then no need to determine admin/moderator status
-            guard threadVariant == .community, let communityId: String = communityInfo.map({ OpenGroup.idFor(roomToken: $0.roomToken, server: $0.server) }) else {
-                return (profiles, [])
-            }
-            
-            let adminModMembers: [GroupMember] = try dependencies[singleton: .openGroupManager].membersWhere(
-                db,
-                currentUserSessionIds: currentUserSessionIds,
-                .groupIds([communityId]),
-                .publicKeys(profiles.map { $0.id }),
-                .roles([.moderator, .admin])
-            )
-            
-            return (profiles, adminModMembers)
         }
+        
+        let adminModIds: [String] = await {
+            switch (threadVariant, communityInfo) {
+                case (.contact, _), (.group, _), (.legacyGroup, _), (.community, .none): return []
+                case (.community, .some(let communityInfo)):
+                    guard let server: CommunityManager.Server = await dependencies[singleton: .communityManager].server(communityInfo.server) else {
+                        return []
+                    }
+                    
+                    return (
+                        (server.rooms[communityInfo.roomToken]?.admins ?? []) +
+                        (server.rooms[communityInfo.roomToken]?.moderators ?? [])
+                    )
+            }
+        }()
         
         return mentions(
             profiles: profiles,
             threadVariant: threadVariant,
             currentUserSessionIds: currentUserSessionIds,
-            adminModMembers: adminModMembers,
+            adminModIds: adminModIds,
             using: dependencies
         )
     }

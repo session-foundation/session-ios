@@ -170,7 +170,7 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
         dataChangeObservable = nil
     }
     
-    private func handleUpdates(_ updatedViewData: [SessionThreadViewModel]) {
+    private func handleUpdates(_ updatedViewData: [ConversationInfoViewModel]) {
         // Ensure the first load runs without animations (if we don't do this the cells will animate
         // in from a frame of CGRect.zero)
         guard hasLoadedInitialData else {
@@ -224,12 +224,12 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
             let viewController: AttachmentApprovalViewController = AttachmentApprovalViewController(
                 mode: .modal,
                 delegate: self,
-                threadId: viewModel.viewData[indexPath.row].threadId,
-                threadVariant: viewModel.viewData[indexPath.row].threadVariant,
+                threadId: viewModel.viewData[indexPath.row].id,
+                threadVariant: viewModel.viewData[indexPath.row].variant,
                 attachments: attachments,
                 messageText: nil,
                 quoteViewModel: nil,
-                disableLinkPreviewImageDownload: (viewModel.viewData[indexPath.row].threadCanUpload != true),
+                disableLinkPreviewImageDownload: !viewModel.viewData[indexPath.row].canUpload,
                 didLoadLinkPreview: { [weak self] result in
                     self?.viewModel.didLoadLinkPreview(result: result)
                 },
@@ -342,16 +342,18 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                 
                 let shareData: ShareDatabaseData = try await dependencies[singleton: .storage].writeAsync { db in
                     guard let thread: SessionThread = try SessionThread.fetchOne(db, id: threadId) else {
-                        throw MessageSenderError.noThread
+                        throw MessageError.messageRequiresThreadToExistButThreadDoesNotExist
                     }
                     
                     /// Update the thread to be visible (if it isn't already)
                     if !thread.shouldBeVisible || thread.pinnedPriority == LibSession.hiddenPriority {
-                        try SessionThread.updateVisibility(
+                        try SessionThread.update(
                             db,
-                            threadId: threadId,
-                            isVisible: true,
-                            additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
+                            id: threadId,
+                            values: SessionThread.TargetValues(
+                                shouldBeVisible: .setTo(true),
+                                isDraft: .setTo(false)
+                            ),
                             using: dependencies
                         )
                     }
@@ -388,7 +390,9 @@ final class ThreadPickerVC: UIViewController, UITableViewDataSource, UITableView
                     if
                         isSharingUrl,
                         let linkPreviewViewModel: LinkPreviewViewModel = linkPreviewViewModel,
-                        (try? interaction.linkPreview.isEmpty(db)) == true
+                        (((try? Interaction
+                            .linkPreview(url: interaction.linkPreviewUrl, timestampMs: interaction.timestampMs)?
+                            .fetchCount(db)) ?? 0) == 0)
                     {
                         try LinkPreview(
                             url: linkPreviewViewModel.urlString,

@@ -4,33 +4,50 @@ import Foundation
 import AVFoundation
 import SessionUtilitiesKit
 
-@objc(OWSAudioActivity)
-public class AudioActivity: NSObject {
-    let audioDescription: String
+// MARK: - Singleton
 
+public extension Singleton {
+    static let audioSession: SingletonConfig<OWSAudioSession> = Dependencies.create(
+        identifier: "audioSession",
+        createInstance: { _ in OWSAudioSession() }
+    )
+}
+
+// MARK: - AudioActivity
+
+public class AudioActivity: Equatable, CustomStringConvertible {
+    let dependencies: Dependencies
+    let audioDescription: String
     let behavior: OWSAudioBehavior
 
-    @objc
-    public init(audioDescription: String, behavior: OWSAudioBehavior) {
+    public init(audioDescription: String, behavior: OWSAudioBehavior, using dependencies: Dependencies) {
         self.audioDescription = audioDescription
         self.behavior = behavior
+        self.dependencies = dependencies
     }
 
     deinit {
-        SessionEnvironment.shared?.audioSession.ensureAudioSessionActivationStateAfterDelay()
+        dependencies[singleton: .audioSession].ensureAudioSessionActivationStateAfterDelay()
     }
 
     // MARK: 
 
-    override public var description: String {
+    public var description: String {
         return "<[AudioActivity] audioDescription: \"\(audioDescription)\">" // stringlint:ignore
+    }
+    
+    public static func ==(lhs: AudioActivity, rhs: AudioActivity) -> Bool {
+        return (
+            lhs.audioDescription == rhs.audioDescription &&
+            lhs.behavior == rhs.behavior
+        )
     }
 }
 
-@objc
-public class OWSAudioSession: NSObject {
+// MARK: - OWSAudioSession
 
-    @objc
+public class OWSAudioSession {
+
     public func setup() {
         NotificationCenter.default.addObserver(self, selector: #selector(proximitySensorStateDidChange(notification:)), name: UIDevice.proximityStateDidChangeNotification, object: nil)
     }
@@ -48,7 +65,6 @@ public class OWSAudioSession: NSObject {
         return Set(self.currentActivities.compactMap { $0.value?.behavior })
     }
 
-    @objc
     public func startAudioActivity(_ audioActivity: AudioActivity) -> Bool {
         Log.debug("[AudioActivity] startAudioActivity called with \(audioActivity)")
 
@@ -66,7 +82,6 @@ public class OWSAudioSession: NSObject {
         }
     }
 
-    @objc
     public func endAudioActivity(_ audioActivity: AudioActivity) {
         Log.debug("[AudioActivity] endAudioActivity called with: \(audioActivity)")
 

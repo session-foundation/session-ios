@@ -276,7 +276,7 @@ extension Onboarding {
                         userEd25519SecretKey: identity.ed25519KeyPair.secretKey,
                         groupEd25519SecretKey: nil
                     )
-                    try cache.unsafeDirectMergeConfigMessage(
+                    _ = try cache.mergeConfigMessages(
                         swarmPublicKey: userSessionId.hexString,
                         messages: [
                             ConfigMessageReceiveJob.Details.MessageInfo(
@@ -414,7 +414,9 @@ extension Onboarding {
                                     publicKey: userSessionId.hexString,
                                     displayNameUpdate: .currentUserUpdate(displayName),
                                     displayPictureUpdate: .none,
+                                    proUpdate: .none,
                                     profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                                    currentUserSessionIds: [userSessionId.hexString],
                                     using: dependencies
                                 )
                             }
@@ -433,10 +435,12 @@ extension Onboarding {
                         /// won't actually get synced correctly and could result in linking a second device and having the 'Note to Self' conversation incorrectly
                         /// being visible
                         if initialFlow == .register {
-                            try SessionThread.updateVisibility(
+                            try SessionThread.update(
                                 db,
-                                threadId: userSessionId.hexString,
-                                isVisible: false,
+                                id: userSessionId.hexString,
+                                values: SessionThread.TargetValues(
+                                    shouldBeVisible: .setTo(false)
+                                ),
                                 using: dependencies
                             )
                         }

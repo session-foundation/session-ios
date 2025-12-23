@@ -2141,11 +2141,7 @@ class ExtensionHelperSpec: AsyncSpec {
                                         publicKey: "05\(TestConstants.publicKey)",
                                         namespace: .default,
                                         rawMessage: GetMessagesResponse.RawMessage(
-                                            base64EncodedDataString: try! MessageWrapper.wrap(
-                                                type: .sessionMessage,
-                                                timestampMs: 1234567890,
-                                                content: Data([1, 2, 3])
-                                            ).base64EncodedString(),
+                                            base64EncodedDataString: "TestData",
                                             expirationMs: nil,
                                             hash: "TestHash",
                                             timestampMs: 1234567890
@@ -2159,8 +2155,28 @@ class ExtensionHelperSpec: AsyncSpec {
                     dataMessage.setBody("Test")
                     content.setDataMessage(try! dataMessage.build())
                     mockCrypto
-                        .when { $0.generate(.plaintextWithSessionProtocol(ciphertext: .any)) }
-                        .thenReturn((try! content.build().serializedData(), "05\(TestConstants.publicKey)"))
+                        .when {
+                            try $0.generate(
+                                .decodedMessage(
+                                    encodedMessage: Array<UInt8>.any,
+                                    origin: .swarm(
+                                        publicKey: .any,
+                                        namespace: .default,
+                                        serverHash: .any,
+                                        serverTimestampMs: .any,
+                                        serverExpirationTimestamp: .any
+                                    )
+                                )
+                            )
+                        }
+                        .thenReturn(
+                            DecodedMessage(
+                                content: try! content.build().serializedData(),
+                                sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                decodedEnvelope: nil,
+                                sentTimestampMs: 1234567890
+                            )
+                        )
                 }
                 
                 // MARK: ---- successfully loads messages

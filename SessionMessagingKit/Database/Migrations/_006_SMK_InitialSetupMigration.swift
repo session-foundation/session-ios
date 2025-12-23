@@ -13,7 +13,7 @@ enum _006_SMK_InitialSetupMigration: Migration {
         Contact.self, Profile.self, SessionThread.self, DisappearingMessagesConfiguration.self,
         ClosedGroup.self, OpenGroup.self, Capability.self, BlindedIdLookup.self,
         GroupMember.self, Interaction.self, Attachment.self, InteractionAttachment.self, Quote.self,
-        LinkPreview.self, ThreadTypingIndicator.self
+        LinkPreview.self
     ]
     
     public static let fullTextSearchTokenizer: FTS5TokenizerDescriptor = {

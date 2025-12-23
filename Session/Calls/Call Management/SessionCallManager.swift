@@ -209,11 +209,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
             let call: SessionCall = dependencies[singleton: .storage].read({ [dependencies] db in
                 SessionCall(
                     for: caller,
-                    contactName: Profile.displayName(
-                        db,
-                        id: caller,
-                        threadVariant: .contact
-                    ),
+                    contactName: Profile.displayName(db, id: caller),
                     uuid: uuid,
                     mode: mode,
                     using: dependencies
@@ -235,7 +231,7 @@ public final class SessionCallManager: NSObject, CallManagerProtocol {
                 
                 if
                     let conversationVC: ConversationVC = currentFrontMostViewController as? ConversationVC,
-                    conversationVC.viewModel.threadData.threadId == call.sessionId
+                    conversationVC.viewModel.state.threadId == call.sessionId
                 {
                     let callVC = CallVC(for: call, using: dependencies)
                     currentFrontMostViewController.present(callVC, animated: true, completion: nil)

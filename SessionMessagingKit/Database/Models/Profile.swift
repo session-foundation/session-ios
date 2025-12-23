@@ -10,11 +10,6 @@ import SessionUtilitiesKit
 /// `updateAllAndConfig` function. Updating it elsewhere could result in issues with syncing data between devices
 public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible, Differentiable {
     public static var databaseTableName: String { "profile" }
-    internal static let interactionForeignKey = ForeignKey([Columns.id], to: [Interaction.Columns.authorId])
-    internal static let contactForeignKey = ForeignKey([Columns.id], to: [Contact.Columns.id])
-    internal static let groupMemberForeignKey = ForeignKey([GroupMember.Columns.profileId], to: [Columns.id])
-    public static let contact = hasOne(Contact.self, using: contactForeignKey)
-    public static let groupMembers = hasMany(GroupMember.self, using: groupMemberForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -29,6 +24,10 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         case profileLastUpdated
         
         case blocksCommunityMessageRequests
+        
+        case proFeatures
+        case proExpiryUnixTimestampMs
+        case proGenIndexHashHex
     }
 
     /// The id for the user that owns the profile (Note: This could be a sessionId, a blindedId or some future variant)
@@ -54,14 +53,18 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
     /// A flag indicating whether this profile has reported that it blocks community message requests
     public let blocksCommunityMessageRequests: Bool?
     
-    /// The Pro Proof for when this profile is updated
-    // TODO: Implement these when the structure of Session Pro Proof is determined
-    public let sessionProProof: String?
-    public var showProBadge: Bool?
+    /// The Session Pro features enabled for this profile
+    public let proFeatures: SessionPro.ProfileFeatures
+    
+    /// The unix timestamp (in milliseconds) when Session Pro expires for this profile
+    public let proExpiryUnixTimestampMs: UInt64
+    
+    /// Hash of the generation index for this users Session Pro
+    public let proGenIndexHashHex: String?
     
     // MARK: - Initialization
     
-    public init(
+    public static func with(
         id: String,
         name: String,
         nickname: String? = nil,
@@ -69,18 +72,22 @@ public struct Profile: Codable, Sendable, Identifiable, Equatable, Hashable, Fet
         displayPictureEncryptionKey: Data? = nil,
         profileLastUpdated: TimeInterval? = nil,
         blocksCommunityMessageRequests: Bool? = nil,
-        sessionProProof: String? = nil,
-        showProBadge: Bool? = nil
-    ) {
-        self.id = id
-        self.name = name
-        self.nickname = nickname
-        self.displayPictureUrl = displayPictureUrl
-        self.displayPictureEncryptionKey = displayPictureEncryptionKey
-        self.profileLastUpdated = profileLastUpdated
-        self.blocksCommunityMessageRequests = blocksCommunityMessageRequests
-        self.sessionProProof = sessionProProof
-        self.showProBadge = showProBadge
+        proFeatures: SessionPro.ProfileFeatures = .none,
+        proExpiryUnixTimestampMs: UInt64 = 0,
+        proGenIndexHashHex: String? = nil
+    ) -> Profile {
+        return Profile(
+            id: id,
+            name: name,
+            nickname: nickname,
+            displayPictureUrl: displayPictureUrl,
+            displayPictureEncryptionKey: displayPictureEncryptionKey,
+            profileLastUpdated: profileLastUpdated,
+            blocksCommunityMessageRequests: blocksCommunityMessageRequests,
+            proFeatures: proFeatures,
+            proExpiryUnixTimestampMs: proExpiryUnixTimestampMs,
+            proGenIndexHashHex: proGenIndexHashHex
+        )
     }
 }
 
@@ -106,7 +113,10 @@ extension Profile: CustomStringConvertible, CustomDebugStringConvertible {
             displayPictureUrl: \(displayPictureUrl.map { "\"\($0)\"" } ?? "null"),
             displayPictureEncryptionKey: \(displayPictureEncryptionKey?.toHexString() ?? "null"),
             profileLastUpdated: \(profileLastUpdated.map { "\($0)" } ?? "null"),
-            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null")
+            blocksCommunityMessageRequests: \(blocksCommunityMessageRequests.map { "\($0)" } ?? "null"),
+            proFeatures: \(proFeatures),
+            proExpiryUnixTimestampMs: \(proExpiryUnixTimestampMs),
+            proGenIndexHashHex: \(proGenIndexHashHex.map { "\($0)" } ?? "null")
         )
         """
     }
@@ -137,7 +147,10 @@ public extension Profile {
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: displayPictureKey,
             profileLastUpdated: try container.decodeIfPresent(TimeInterval.self, forKey: .profileLastUpdated),
-            blocksCommunityMessageRequests: try container.decodeIfPresent(Bool.self, forKey: .blocksCommunityMessageRequests)
+            blocksCommunityMessageRequests: try container.decodeIfPresent(Bool.self, forKey: .blocksCommunityMessageRequests),
+            proFeatures: try container.decode(SessionPro.ProfileFeatures.self, forKey: .proFeatures),
+            proExpiryUnixTimestampMs: try container.decode(UInt64.self, forKey: .proExpiryUnixTimestampMs),
+            proGenIndexHashHex: try container.decodeIfPresent(String.self, forKey: .proGenIndexHashHex)
         )
     }
     
@@ -151,6 +164,9 @@ public extension Profile {
         try container.encodeIfPresent(displayPictureEncryptionKey, forKey: .displayPictureEncryptionKey)
         try container.encodeIfPresent(profileLastUpdated, forKey: .profileLastUpdated)
         try container.encodeIfPresent(blocksCommunityMessageRequests, forKey: .blocksCommunityMessageRequests)
+        try container.encode(proFeatures, forKey: .proFeatures)
+        try container.encode(proExpiryUnixTimestampMs, forKey: .proExpiryUnixTimestampMs)
+        try container.encodeIfPresent(proGenIndexHashHex, forKey: .proGenIndexHashHex)
     }
 }
 
@@ -168,7 +184,6 @@ public extension Profile {
         {
             dataMessageProto.setProfileKey(displayPictureEncryptionKey)
             profileProto.setProfilePicture(displayPictureUrl)
-            // TODO: Add ProProof if needed
         }
         
         if let profileLastUpdated: TimeInterval = profileLastUpdated {
@@ -192,12 +207,9 @@ public extension Profile {
     static func displayName(
         _ db: ObservingDatabase,
         id: ID,
-        threadVariant: SessionThread.Variant = .contact,
-        suppressId: Bool = false,
         customFallback: String? = nil
     ) -> String {
-        let existingDisplayName: String? = (try? Profile.fetchOne(db, id: id))?
-            .displayName(for: threadVariant, suppressId: suppressId)
+        let existingDisplayName: String? = (try? Profile.fetchOne(db, id: id))?.displayName()
         
         return (existingDisplayName ?? (customFallback ?? id))
     }
@@ -208,8 +220,7 @@ public extension Profile {
         threadVariant: SessionThread.Variant = .contact,
         suppressId: Bool = false
     ) -> String? {
-        return (try? Profile.fetchOne(db, id: id))?
-            .displayName(for: threadVariant, suppressId: suppressId)
+        return (try? Profile.fetchOne(db, id: id))?.displayName()
     }
     
     // MARK: - Fetch or Create
@@ -223,8 +234,9 @@ public extension Profile {
             displayPictureEncryptionKey: nil,
             profileLastUpdated: nil,
             blocksCommunityMessageRequests: nil,
-            sessionProProof: nil,
-            showProBadge: nil
+            proFeatures: .none,
+            proExpiryUnixTimestampMs: 0,
+            proGenIndexHashHex: nil
         )
     }
     
@@ -239,73 +251,6 @@ public extension Profile {
         )
     }
 }
-
-// MARK: - Deprecated GRDB Interactions
-
-public extension Profile {
-    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
-    static func displayName(
-        id: ID,
-        threadVariant: SessionThread.Variant = .contact,
-        suppressId: Bool = false,
-        customFallback: String? = nil,
-        using dependencies: Dependencies
-    ) -> String {
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        var displayName: String?
-        dependencies[singleton: .storage].readAsync(
-            retrieve: { db in Profile.displayName(db, id: id, threadVariant: threadVariant, suppressId: suppressId) },
-            completion: { result in
-                switch result {
-                    case .failure: break
-                    case .success(let name): displayName = name
-                }
-                semaphore.signal()
-            }
-        )
-        semaphore.wait()
-        return (displayName ?? (customFallback ?? id))
-    }
-    
-    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
-    static func displayNameNoFallback(
-        id: ID,
-        threadVariant: SessionThread.Variant = .contact,
-        suppressId: Bool = false,
-        using dependencies: Dependencies
-    ) -> String? {
-        let semaphore: DispatchSemaphore = DispatchSemaphore(value: 0)
-        var displayName: String?
-        dependencies[singleton: .storage].readAsync(
-            retrieve: { db in Profile.displayNameNoFallback(db, id: id, threadVariant: threadVariant, suppressId: suppressId) },
-            completion: { result in
-                switch result {
-                    case .failure: break
-                    case .success(let name): displayName = name
-                }
-                semaphore.signal()
-            }
-        )
-        semaphore.wait()
-        return displayName
-    }
-    
-    @available(*, deprecated, message: "This function should be avoided as it uses a blocking database query to retrieve the result. Use an async method instead.")
-    static func defaultDisplayNameRetriever(
-        threadVariant: SessionThread.Variant = .contact,
-        using dependencies: Dependencies
-    ) -> ((String, Bool) -> String?) {
-        // FIXME: This does a database query and is happening when populating UI - should try to refactor it somehow (ideally resolve a set of mentioned profiles as part of the database query)
-        return { sessionId, _ in
-            Profile.displayNameNoFallback(
-                id: sessionId,
-                threadVariant: threadVariant,
-                using: dependencies
-            )
-        }
-    }
-}
-
 
 // MARK: - Search Queries
 
@@ -325,54 +270,53 @@ public extension Profile {
 // MARK: - Convenience
 
 public extension Profile {
-    func displayNameForMention(
-        for threadVariant: SessionThread.Variant = .contact,
-        ignoringNickname: Bool = false,
-        currentUserSessionIds: Set<String> = []
-    ) -> String {
-        guard !currentUserSessionIds.contains(id) else {
-            return "you".localized()
-        }
-        return displayName(for: threadVariant, ignoringNickname: ignoringNickname)
-    }
-    
     /// The name to display in the UI for a given thread variant
     func displayName(
-        for threadVariant: SessionThread.Variant = .contact,
         messageProfile: VisibleMessage.VMProfile? = nil,
-        ignoringNickname: Bool = false,
-        suppressId: Bool = false
+        ignoreNickname: Bool = false,
+        showYouForCurrentUser: Bool = true,
+        currentUserSessionIds: Set<String> = [],
+        includeSessionIdSuffix: Bool = false
     ) -> String {
         return Profile.displayName(
-            for: threadVariant,
             id: id,
             name: (messageProfile?.displayName?.nullIfEmpty ?? name),
-            nickname: (ignoringNickname ? nil : nickname),
-            suppressId: suppressId
+            nickname: (ignoreNickname ? nil : nickname),
+            showYouForCurrentUser: showYouForCurrentUser,
+            currentUserSessionIds: currentUserSessionIds,
+            includeSessionIdSuffix: includeSessionIdSuffix
         )
     }
     
     static func displayName(
-        for threadVariant: SessionThread.Variant,
         id: String,
         name: String?,
         nickname: String?,
-        suppressId: Bool,
+        showYouForCurrentUser: Bool = true,
+        currentUserSessionIds: Set<String> = [],
+        includeSessionIdSuffix: Bool = false,
         customFallback: String? = nil
     ) -> String {
-        if let nickname: String = nickname, !nickname.isEmpty { return nickname }
-        
-        guard let name: String = name, name != id, !name.isEmpty else {
-            return (customFallback ?? id.truncated(threadVariant: threadVariant))
+        if showYouForCurrentUser && currentUserSessionIds.contains(id) {
+            return "you".localized()
         }
         
-        switch (threadVariant, suppressId) {
-            case (.contact, _), (.legacyGroup, _), (.group, _), (.community, true): return name
+        // stringlint:ignore_contents
+        switch (nickname, name, customFallback, includeSessionIdSuffix) {
+            case (.some(let value), _, _, false) where !value.isEmpty && value != id,
+                (_, .some(let value), _, false) where !value.isEmpty && value != id,
+                (_, _, .some(let value), false) where !value.isEmpty && value != id:
+                return value
                 
-            case (.community, false):
-                // In open groups, where it's more likely that multiple users have the same name,
-                // we display a bit of the Session ID after a user's display name for added context
-                return "\(name) (\(id.truncated()))"
+            case (.some(let value), _, _, true) where !value.isEmpty && value != id,
+                (_, .some(let value), _, true) where !value.isEmpty && value != id,
+                (_, _, .some(let value), true) where !value.isEmpty && value != id:
+                return (Dependencies.isRTL ?
+                    "(\(id.truncated(prefix: 4, suffix: 4))) \(value)" :
+                    "​\(value) (\(id.truncated(prefix: 4, suffix: 4)))"
+                )
+            
+            default: return id.truncated(prefix: 4, suffix: 4)
         }
     }
 }
@@ -450,7 +394,10 @@ public extension Profile {
         displayPictureUrl: Update<String?> = .useExisting,
         displayPictureEncryptionKey: Update<Data?> = .useExisting,
         profileLastUpdated: Update<TimeInterval?> = .useExisting,
-        blocksCommunityMessageRequests: Update<Bool?> = .useExisting
+        blocksCommunityMessageRequests: Update<Bool?> = .useExisting,
+        proFeatures: Update<SessionPro.ProfileFeatures> = .useExisting,
+        proExpiryUnixTimestampMs: Update<UInt64> = .useExisting,
+        proGenIndexHashHex: Update<String?> = .useExisting
     ) -> Profile {
         return Profile(
             id: id,
@@ -460,7 +407,9 @@ public extension Profile {
             displayPictureEncryptionKey: displayPictureEncryptionKey.or(self.displayPictureEncryptionKey),
             profileLastUpdated: profileLastUpdated.or(self.profileLastUpdated),
             blocksCommunityMessageRequests: blocksCommunityMessageRequests.or(self.blocksCommunityMessageRequests),
-            sessionProProof: self.sessionProProof
+            proFeatures: proFeatures.or(self.proFeatures),
+            proExpiryUnixTimestampMs: proExpiryUnixTimestampMs.or(self.proExpiryUnixTimestampMs),
+            proGenIndexHashHex: proGenIndexHashHex.or(self.proGenIndexHashHex)
         )
     }
 }

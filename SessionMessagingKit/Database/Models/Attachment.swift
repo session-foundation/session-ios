@@ -12,14 +12,6 @@ import SessionUIKit
 
 public struct Attachment: Sendable, Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "attachment" }
-    internal static let linkPreviewForeignKey = ForeignKey([Columns.id], to: [LinkPreview.Columns.attachmentId])
-    public static let interactionAttachments = hasOne(InteractionAttachment.self)
-    public static let interaction = hasOne(
-        Interaction.self,
-        through: interactionAttachments,
-        using: InteractionAttachment.interaction
-    )
-    fileprivate static let linkPreview = belongsTo(LinkPreview.self, using: linkPreviewForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
@@ -42,7 +34,7 @@ public struct Attachment: Sendable, Codable, Identifiable, Equatable, Hashable, 
         case caption
     }
     
-    public enum Variant: Int, Sendable, Codable, DatabaseValueConvertible {
+    public enum Variant: Int, Sendable, Codable, CaseIterable, DatabaseValueConvertible {
         case standard
         case voiceMessage
     }

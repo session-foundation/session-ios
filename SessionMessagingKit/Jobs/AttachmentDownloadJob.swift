@@ -121,7 +121,7 @@ public enum AttachmentDownloadJob: JobExecutor {
                 let request: Network.PreparedRequest<Data>
                 
                 switch maybeAuthMethod {
-                    case let authMethod as Authentication.community:
+                    case let authMethod as Authentication.Community:
                         request = try Network.SOGS.preparedDownload(
                             url: downloadUrl,
                             roomToken: authMethod.roomToken,

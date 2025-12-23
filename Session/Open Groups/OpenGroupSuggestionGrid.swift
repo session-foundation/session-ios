@@ -13,22 +13,26 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     private let dependencies: Dependencies
     private let itemsPerSection: Int = (UIDevice.current.isIPad ? 4 : 2)
     private var maxWidth: CGFloat
-    private var data: [OpenGroupManager.DefaultRoomInfo] = [] {
-        didSet {
-            // Start an observer for changes
-            let updatedIds: Set<String> = data.map { $0.openGroup.id }.asSet()
-            
-            if oldValue.map({ $0.openGroup.id }).asSet() != updatedIds {
-                startObservingRoomChanges(for: updatedIds)
-            }
-        }
-    }
-    private var dataChangeObservable: DatabaseCancellable? {
-        didSet { oldValue?.cancel() }   // Cancel the old observable if there was one
-    }
+    private var state: State
     private var heightConstraint: NSLayoutConstraint!
+    private var defaultRoomObservationTask: Task<Void, Never>?
+    private var defaultRoomDisplayPictureObservationTask: Task<Void, Never>?
     
     var delegate: OpenGroupSuggestionGridDelegate?
+    
+    struct State: ObservableKeyProvider {
+        let server: String
+        let skipAuthentication: Bool
+        let data: [Network.SOGS.Room]
+        
+        var observedKeys: Set<ObservableKey> {
+            return Set(data.map {
+                let id: String = OpenGroup.idFor(roomToken: $0.token, server: server)
+                
+                return ObservableKey.conversationUpdated(id)
+            })
+        }
+    }
     
     // MARK: - UI
     
@@ -115,6 +119,11 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     init(maxWidth: CGFloat, using dependencies: Dependencies) {
         self.dependencies = dependencies
         self.maxWidth = maxWidth
+        self.state = State(
+            server: Network.SOGS.defaultServer,
+            skipAuthentication: true,
+            data: []
+        )
         
         super.init(frame: CGRect.zero)
         
@@ -127,6 +136,11 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     
     required init?(coder: NSCoder) {
         preconditionFailure("Use init(maxWidth:) instead.")
+    }
+    
+    deinit {
+        defaultRoomObservationTask?.cancel()
+        defaultRoomDisplayPictureObservationTask?.cancel()
     }
     
     private func initialize() {
@@ -159,54 +173,42 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         heightConstraint = set(.height, to: OpenGroupSuggestionGrid.cellHeight)
         widthAnchor.constraint(greaterThanOrEqualToConstant: OpenGroupSuggestionGrid.cellHeight).isActive = true
         
-        dependencies[cache: .openGroupManager].defaultRoomsPublisher
-            .subscribe(on: DispatchQueue.global(qos: .default))
-            .receive(on: DispatchQueue.main)
-            .sinkUntilComplete(
-                receiveCompletion: { [weak self] result in
-                    switch result {
-                        case .finished: break
-                        case .failure: self?.update()
-                    }
-                },
-                receiveValue: { [weak self] roomInfo in self?.data = roomInfo }
-            )
+        defaultRoomObservationTask = Task.detached(priority: .userInitiated) { [weak self, manager = dependencies[singleton: .communityManager], dependencies] in
+            for await roomInfo in manager.defaultRooms {
+                guard let self else { return }
+                guard !roomInfo.rooms.isEmpty else { continue }
+                
+                /// Update the data
+                let updatedState: State = await State(
+                    server: self.state.server,
+                    skipAuthentication: self.state.skipAuthentication,
+                    data: roomInfo.rooms
+                )
+                
+                await MainActor.run { [weak self] in
+                    self?.state = updatedState
+                    self?.update()
+                    
+                    /// Observe changes to the data (no need to update the state, just refresh the UI if images were downloaded)
+                    self?.defaultRoomDisplayPictureObservationTask?.cancel()
+                    self?.defaultRoomDisplayPictureObservationTask = ObservationBuilder
+                        .initialValue(updatedState)
+                        .debounce(for: .milliseconds(250))
+                        .using(dependencies: dependencies)
+                        .query({ previousState, _, _, _ -> State in previousState })
+                        .assign { [weak self] _ in self?.update() }
+                }
+            }
+        }
     }
     
     // MARK: - Updating
-    
-    private func startObservingRoomChanges(for openGroupIds: Set<String>) {
-        // We don't actually care about the updated data as the 'update' function has the logic
-        // to fetch any newly downloaded images
-        dataChangeObservable = dependencies[singleton: .storage].start(
-            ValueObservation
-                .tracking(
-                    regions: [
-                        OpenGroup.select(.name).filter(ids: openGroupIds),
-                        OpenGroup.select(.roomDescription).filter(ids: openGroupIds),
-                        OpenGroup.select(.displayPictureOriginalUrl).filter(ids: openGroupIds)
-                    ],
-                    fetch: { db in try OpenGroup.filter(ids: openGroupIds).fetchAll(db) }
-                )
-                .removeDuplicates(),
-            onError: { _ in },
-            onChange: { [weak self] result in
-                guard let strongSelf = self else { return }
-                
-                let updatedGroupsByToken: [String: OpenGroup] = result
-                    .reduce(into: [:]) { result, next in result[next.roomToken] = next }
-                strongSelf.data = strongSelf.data
-                    .map { room, oldGroup in (room, (updatedGroupsByToken[room.token] ?? oldGroup)) }
-                strongSelf.update()
-            }
-        )
-    }
     
     private func update() {
         spinner.stopAnimating()
         spinner.isHidden = true
         
-        let roomCount: CGFloat = CGFloat(min(data.count, 8)) // Cap to a maximum of 8 (4 rows of 2)
+        let roomCount: CGFloat = CGFloat(min(state.data.count, 8)) // Cap to a maximum of 8 (4 rows of 2)
         let numRows: CGFloat = ceil(roomCount / CGFloat(OpenGroupSuggestionGrid.numHorizontalCells))
         let height: CGFloat = ((OpenGroupSuggestionGrid.cellHeight * numRows) + ((numRows - 1) * layout.minimumLineSpacing))
         heightConstraint.constant = height
@@ -233,7 +235,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
         
         // If there isn't an even number of items then we want to calculate proper sizing
         return CGSize(
-            width: Cell.calculatedWith(for: data[indexPath.item].room.name),
+            width: Cell.calculatedWith(for: state.data[indexPath.item].name),
             height: OpenGroupSuggestionGrid.cellHeight
         )
     }
@@ -241,12 +243,17 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     // MARK: - Data Source
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return min(data.count, 8) // Cap to a maximum of 8 (4 rows of 2)
+        return min(state.data.count, 8) // Cap to a maximum of 8 (4 rows of 2)
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell: Cell = collectionView.dequeue(type: Cell.self, for: indexPath)
-        cell.update(with: data[indexPath.item].room, openGroup: data[indexPath.item].openGroup, using: dependencies)
+        cell.update(
+            with: state.data[indexPath.item],
+            server: state.server,
+            skipAuthentication: state.skipAuthentication,
+            using: dependencies
+        )
         
         return cell
     }
@@ -254,7 +261,7 @@ final class OpenGroupSuggestionGrid: UIView, UICollectionViewDataSource, UIColle
     // MARK: - Interaction
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let room = data[indexPath.section * itemsPerSection + indexPath.item].room
+        let room = state.data[indexPath.section * itemsPerSection + indexPath.item]
         delegate?.join(room)
         collectionView.deselectItem(at: indexPath, animated: true)
     }
@@ -355,25 +362,39 @@ extension OpenGroupSuggestionGrid {
             snContentView.pin(to: self)
         }
         
-        fileprivate func update(with room: Network.SOGS.Room, openGroup: OpenGroup, using dependencies: Dependencies) {
+        fileprivate func update(
+            with room: Network.SOGS.Room,
+            server: String,
+            skipAuthentication: Bool,
+            using dependencies: Dependencies
+        ) {
             label.text = room.name
             
-            let maybePath: String? = openGroup.displayPictureOriginalUrl
-                .map { try? dependencies[singleton: .displayPictureManager].path(for: $0) }
-            
-            switch maybePath {
-                case .some(let path):
-                    imageView.isHidden = false
-                    imageView.setDataManager(dependencies[singleton: .imageDataManager])
-                    imageView.loadImage(from: path)
-                
-                case .none:
-                    imageView.isHidden = true
-                    
-                    dependencies[singleton: .displayPictureManager].scheduleDownload(
-                        for: .community(openGroup)
-                    )
+            guard let imageId: String = room.imageId else {
+                imageView.isHidden = true
+                return
             }
+            guard
+                let path: String = try? dependencies[singleton: .displayPictureManager].path(
+                    for: Network.SOGS.downloadUrlString(for: imageId, server: server, roomToken: room.token)
+                ),
+                dependencies[singleton: .fileManager].fileExists(atPath: path)
+            else {
+                dependencies[singleton: .displayPictureManager].scheduleDownload(
+                    for: .community(
+                        imageId: imageId,
+                        roomToken: room.token,
+                        server: server,
+                        skipAuthentication: skipAuthentication
+                    )
+                )
+                imageView.isHidden = true
+                return
+            }
+            
+            imageView.isHidden = false
+            imageView.setDataManager(dependencies[singleton: .imageDataManager])
+            imageView.loadImage(from: path)
         }
     }
 }

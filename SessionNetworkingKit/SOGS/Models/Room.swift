@@ -1,9 +1,10 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import Foundation
+import SessionUtilitiesKit
 
 extension Network.SOGS {
-    public struct Room: Codable, Equatable {
+    public struct Room: Sendable, Codable, Equatable {
         enum CodingKeys: String, CodingKey {
             case token
             case name
@@ -141,6 +142,96 @@ extension Network.SOGS {
         ///
         /// It is included in the response only if the requesting user has moderator or admin permissions
         public let defaultUpload: Bool?
+        
+        public init(
+            token: String,
+            name: String,
+            roomDescription: String?,
+            infoUpdates: Int64,
+            messageSequence: Int64,
+            created: TimeInterval,
+            activeUsers: Int64,
+            activeUsersCutoff: Int64,
+            imageId: String?,
+            pinnedMessages: [PinnedMessage]?,
+            admin: Bool,
+            globalAdmin: Bool,
+            admins: [String],
+            hiddenAdmins: [String]?,
+            moderator: Bool,
+            globalModerator: Bool,
+            moderators: [String],
+            hiddenModerators: [String]?,
+            read: Bool,
+            defaultRead: Bool?,
+            defaultAccessible: Bool?,
+            write: Bool,
+            defaultWrite: Bool?,
+            upload: Bool,
+            defaultUpload: Bool?
+        ) {
+            self.token = token
+            self.name = name
+            self.roomDescription = roomDescription
+            self.infoUpdates = infoUpdates
+            self.messageSequence = messageSequence
+            self.created = created
+            self.activeUsers = activeUsers
+            self.activeUsersCutoff = activeUsersCutoff
+            self.imageId = imageId
+            self.pinnedMessages = pinnedMessages
+            self.admin = admin
+            self.globalAdmin = globalAdmin
+            self.admins = admins
+            self.hiddenAdmins = hiddenAdmins
+            self.moderator = moderator
+            self.globalModerator = globalModerator
+            self.moderators = moderators
+            self.hiddenModerators = hiddenModerators
+            self.read = read
+            self.defaultRead = defaultRead
+            self.defaultAccessible = defaultAccessible
+            self.write = write
+            self.defaultWrite = defaultWrite
+            self.upload = upload
+            self.defaultUpload = defaultUpload
+        }
+    }
+}
+
+// MARK: - Convenience
+
+public extension Network.SOGS.Room {
+    func with(
+        messageSequence: Update<Int64> = .useExisting
+    ) -> Network.SOGS.Room {
+        return Network.SOGS.Room(
+            token: token,
+            name: name,
+            roomDescription: roomDescription,
+            infoUpdates: infoUpdates,
+            messageSequence: messageSequence.or(self.messageSequence),
+            created: created,
+            activeUsers: activeUsers,
+            activeUsersCutoff: activeUsersCutoff,
+            imageId: imageId,
+            pinnedMessages: pinnedMessages,
+            admin: admin,
+            globalAdmin: globalAdmin,
+            admins: admins,
+            hiddenAdmins: hiddenAdmins,
+            moderator: moderator,
+            globalModerator: globalModerator,
+            moderators: moderators,
+            hiddenModerators: hiddenModerators,
+            read: read,
+            defaultRead: defaultRead,
+            defaultAccessible: defaultAccessible,
+            write: write,
+            defaultWrite: defaultWrite,
+            upload: upload,
+            defaultUpload: defaultUpload
+        )
     }
 }
 

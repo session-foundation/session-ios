@@ -146,7 +146,6 @@ enum _036_GroupsRebuildChanges: Migration {
                 /// If the group isn't in the invited state then make sure to subscribe for PNs once the migrations are done
                 if !group.invited, let token: String = dependencies[defaults: .standard, key: .deviceToken] {
                     let maybeAuthMethod: AuthenticationMethod? = try? Authentication.with(
-                        db,
                         swarmPublicKey: group.groupSessionId,
                         using: dependencies
                     )

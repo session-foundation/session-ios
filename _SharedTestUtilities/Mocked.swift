@@ -30,6 +30,7 @@ extension Mocked { static var any: Self { mock } }
 
 extension Int: Mocked { static var mock: Int { 0 } }
 extension Int64: Mocked { static var mock: Int64 { 0 } }
+extension UInt64: Mocked { static var mock: UInt64 { 0 } }
 extension Dictionary: Mocked { static var mock: Self { [:] } }
 extension Array: Mocked { static var mock: Self { [] } }
 extension Set: Mocked { static var mock: Self { [] } }
