@@ -1204,7 +1204,7 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             
             /// If we already have pending info to mark as read then no need to trigger another update
             if let pendingValue: Interaction.TimestampInfo = pendingMarkAsReadInfo {
-                /// If the target info is "newer" than the pending info then we sould update the pending info so the "newer" value ends
+                /// If the target info is "newer" than the pending info then we should update the pending info so the "newer" value ends
                 /// up getting marked as read
                 if targetInfo.id > pendingValue.id || targetInfo.timestampMs > pendingValue.timestampMs {
                     pendingMarkAsReadInfo = targetInfo
@@ -1226,10 +1226,16 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
         
         /// Get the latest values
         let (threadInfo, pendingInfo): (ConversationInfoViewModel, Interaction.TimestampInfo?) = await MainActor.run {
-            (
+            let result: (ConversationInfoViewModel, Interaction.TimestampInfo?) = (
                 state.threadInfo,
                 pendingMarkAsReadInfo
             )
+            
+            /// Immediately clear the pending info so we can mark something else as read while waiting in this message to be marked
+            /// as read
+            pendingMarkAsReadInfo = nil
+            
+            return result
         }
         
         guard let info: Interaction.TimestampInfo = pendingInfo else { return }
@@ -1238,11 +1244,6 @@ public class ConversationViewModel: OWSAudioPlayerDelegate, NavigatableStateHold
             target: .threadAndInteractions(interactionsBeforeInclusive: info.id),
             using: dependencies
         )
-        
-        /// Clear the pending info so we can mark something else as read
-        await MainActor.run {
-            pendingMarkAsReadInfo = nil
-        }
     }
     
     @MainActor public func trustContact() {

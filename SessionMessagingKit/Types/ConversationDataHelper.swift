@@ -323,6 +323,9 @@ public extension ConversationDataHelper {
                 /// These need to be handled via a database query
                 case (_, .unreadCount), (_, .none): return
                     
+                /// These events are handled via a libSession query
+                case (_, .markedAsKicked), (_, .markedAsDestroyed): return
+                    
                 /// These events can be ignored as they will be handled via profile changes
                 case (.contact, .displayName), (.contact, .displayPictureUrl): return
                     
@@ -533,7 +536,10 @@ public extension ConversationDataHelper {
                     updatedRequirements.threadIdsNeedingInteractionStats.insert(contentsOf: Set(newIds))
                 }
                 
-            case .messageList:
+            case .messageList(let threadId):
+                /// Always re-fetch the interaction stats
+                updatedRequirements.threadIdsNeedingInteractionStats.insert(threadId)
+                
                 if let newIds: [Int64] = updatedLoadResult.newIds as? [Int64], !newIds.isEmpty {
                     updatedRequirements.interactionIdsNeedingFetch.insert(contentsOf: Set(newIds))
                 }

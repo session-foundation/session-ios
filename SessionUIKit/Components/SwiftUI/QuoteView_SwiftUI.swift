@@ -176,13 +176,19 @@ public struct QuoteViewModel: Sendable, Equatable, Hashable {
             body: previewBody,
             attachmentInfo: nil
         )
-        
-        /// This is an preview version so none of these values matter
         self.mode = .regular
         self.direction = .incoming
         self.targetThemeColor = .messageBubble_incomingText
         self.showProBadge = false
-        self.attributedText = ThemedAttributedString(string: previewBody)
+        self.attributedText = previewBody.formatted(
+            baseFont: .systemFont(ofSize: Values.smallFontSize),
+            attributes: [.themeForegroundColor: targetThemeColor],
+            mentionColor: MentionUtilities.mentionColor(
+                textColor: targetThemeColor,
+                location: .incomingQuote
+            ),
+            currentUserMentionImage: nil
+        )
     }
     
     // MARK: - Conformance

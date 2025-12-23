@@ -840,8 +840,8 @@ public extension SessionThread {
         profile: Profile?
     ) -> String {
         switch variant {
-            case .legacyGroup, .group: return (groupName ?? "groupUnknown".localized())
-            case .community: return (communityName ?? "communityUnknown".localized())
+            case .legacyGroup, .group: return (groupName?.nullIfEmpty ?? "groupUnknown".localized())
+            case .community: return (communityName?.nullIfEmpty ?? "communityUnknown".localized())
             case .contact:
                 guard !isNoteToSelf else { return "noteToSelf".localized() }
                 guard let profile: Profile = profile else { return threadId.truncated() }

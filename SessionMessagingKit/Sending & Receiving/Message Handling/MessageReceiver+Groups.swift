@@ -840,6 +840,13 @@ extension MessageReceiver {
                 groupSessionIds: [groupSessionId.hexString],
                 using: dependencies
             )
+            
+            /// Notify of being marked as kicked
+            db.addConversationEvent(
+                id: groupSessionId.hexString,
+                variant: .group,
+                type: .updated(.markedAsKicked)
+            )
         }
         
         /// Delete the group data (if the group is a message request then delete it entirely, otherwise we want to keep a shell of group around because

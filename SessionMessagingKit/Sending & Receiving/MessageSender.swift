@@ -187,7 +187,6 @@ public final class MessageSender {
                 destination: destination,
                 message: message,
                 attachments: attachments,
-                authMethod: authMethod,
                 using: dependencies
             ),
             ttl: Message.getSpecifiedTTL(message: message, destination: destination, using: dependencies),
@@ -274,7 +273,6 @@ public final class MessageSender {
             destination: destination,
             message: message,
             attachments: attachments,
-            authMethod: authMethod,
             using: dependencies
         )
         
@@ -333,7 +331,6 @@ public final class MessageSender {
             destination: destination,
             message: message,
             attachments: nil,
-            authMethod: authMethod,
             using: dependencies
         )
         
@@ -363,7 +360,6 @@ public final class MessageSender {
         destination: Message.Destination,
         message: Message,
         attachments: [(attachment: Attachment, fileId: String)]?,
-        authMethod: AuthenticationMethod,
         using dependencies: Dependencies
     ) throws -> Data {
         /// Check the message itself is valid

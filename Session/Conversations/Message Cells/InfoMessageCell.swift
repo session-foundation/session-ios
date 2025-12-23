@@ -7,6 +7,7 @@ import SessionUtilitiesKit
 
 final class InfoMessageCell: MessageCell {
     private static let iconSize: CGFloat = 12
+    private static let font: UIFont = .systemFont(ofSize: Values.verySmallFontSize)
     public static let inset = Values.mediumSpacing
     
     private var isHandlingLongPress: Bool = false
@@ -33,7 +34,7 @@ final class InfoMessageCell: MessageCell {
 
     private lazy var label: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.font = InfoMessageCell.font
         result.themeTextColor = .textSecondary
         result.textAlignment = .center
         result.lineBreakMode = .byWordWrapping
@@ -44,7 +45,7 @@ final class InfoMessageCell: MessageCell {
     
     private lazy var actionLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.verySmallFontSize)
+        result.font = InfoMessageCell.font
         result.themeTextColor = .primary
         result.textAlignment = .center
         result.numberOfLines = 1
@@ -79,6 +80,13 @@ final class InfoMessageCell: MessageCell {
     }
 
     // MARK: - Updating
+    
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        
+        label.font = InfoMessageCell.font
+        actionLabel.font = InfoMessageCell.font
+    }
     
     override func update(
         with cellViewModel: MessageViewModel,

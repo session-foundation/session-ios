@@ -58,7 +58,7 @@ internal extension LibSessionCacheType {
             throw LibSessionError.invalidConfigObject(wanted: .groupInfo, got: config)
         }
         
-        // If the group is destroyed then mark the group as kicked in the USER_GROUPS config and remove
+        // If the group is destroyed then mark the group as destroyed in the USER_GROUPS config and remove
         // the group data (want to keep the group itself around because the UX of conversations randomly
         // disappearing isn't great) - no other changes matter and this can't be reversed
         guard !groups_info_is_destroyed(conf) else {
@@ -72,6 +72,13 @@ internal extension LibSessionCacheType {
                     .authDetails, .libSessionState
                 ],
                 using: dependencies
+            )
+            
+            /// Notify of being marked as destroyed
+            db.addConversationEvent(
+                id: groupSessionId.hexString,
+                variant: .group,
+                type: .updated(.markedAsDestroyed)
             )
             return
         }

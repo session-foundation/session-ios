@@ -289,6 +289,9 @@ public struct ConversationEvent: Hashable {
         case messageDraft(String?)
         case disappearingMessageConfiguration(DisappearingMessagesConfiguration?)
         case unreadCount
+        
+        case markedAsDestroyed
+        case markedAsKicked
     }
 }
 
