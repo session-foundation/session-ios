@@ -146,7 +146,7 @@ internal extension LibSessionCacheType {
             )
         }
         
-        if existingGroup?.groupDescription == groupDesc {
+        if existingGroup?.groupDescription != groupDesc {
             db.addConversationEvent(
                 id: groupSessionId.hexString,
                 variant: .group,

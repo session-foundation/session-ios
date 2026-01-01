@@ -993,7 +993,7 @@ public extension Interaction {
             FROM \(linkPreview)
             WHERE (
                 \(linkPreview[.url]) = \(url) AND
-                (\(linkPreview[.timestamp]) BETWEEN (\(minTimestamp) AND \(maxTimestamp)) AND
+                \(linkPreview[.timestamp]) BETWEEN (\(minTimestamp) AND \(maxTimestamp)) AND
                 \(linkPreview[.variant]) IN \(variants)
             )
         """
