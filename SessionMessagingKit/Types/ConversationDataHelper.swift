@@ -158,6 +158,21 @@ public extension ConversationDataHelper {
             }
         }
         
+        /// Handle conversation update events which may require lib session fetching (eg. group changes)
+        changes.libSessionEvents.forEach { event in
+            switch (event.key.generic, event.value) {
+                case (.conversationUpdated, is ConversationEvent):
+                    handleConversationEvent(
+                        event,
+                        cache: currentCache,
+                        itemCache: itemCache,
+                        requirements: &requirements
+                    )
+                    
+                default: break
+            }
+        }
+        
         /// Handle any events which require a change to the message request count
         requirements.requiresMessageRequestCountUpdate = changes.databaseEvents.contains { event in
             switch event.key {
@@ -848,6 +863,7 @@ public extension ConversationDataHelper {
         var updatedCache: ConversationDataCache = cache
         let groupInfoIdsNeedingFetch: Set<String> = Set(cache.groups.keys)
             .filter { cache.groupInfo(for: $0) == nil }
+            .inserting(contentsOf: requirements.groupIdsNeedingFetch)
         
         if !groupInfoIdsNeedingFetch.isEmpty {
             let groupInfo: [LibSession.GroupInfo?] = dependencies.mutate(cache: .libSession) { cache in
@@ -907,6 +923,9 @@ private extension ConversationDataHelper {
                     
                     requirements.interactionIdsNeedingFetch.insert(messageViewModel.id)
                 }
+            
+            case (_, .markedAsKicked, _), (_, .markedAsDestroyed, _):
+                requirements.groupIdsNeedingFetch.insert(conversationEvent.id)
                 
             default: break
         }

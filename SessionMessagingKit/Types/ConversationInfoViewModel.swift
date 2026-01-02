@@ -767,7 +767,7 @@ private extension ObservedEvent {
             case (_, .groupInfo): return .libSessionQuery
             
             case (_, .typingIndicator): return .directCacheUpdate
-            case (_, .conversationUpdated): return .directCacheUpdate
+            case (_, .conversationUpdated): return [.directCacheUpdate, .libSessionQuery]
             case (_, .contact): return .directCacheUpdate
             case (_, .communityUpdated): return .directCacheUpdate
                 
