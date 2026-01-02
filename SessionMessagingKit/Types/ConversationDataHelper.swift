@@ -558,6 +558,34 @@ public extension ConversationDataHelper {
                 if let newIds: [Int64] = updatedLoadResult.newIds as? [Int64], !newIds.isEmpty {
                     updatedRequirements.interactionIdsNeedingFetch.insert(contentsOf: Set(newIds))
                 }
+                
+                /// Fetch any associated data that isn't already cached
+                if let thread: SessionThread = updatedCache.thread(for: threadId) {
+                    switch thread.variant {
+                        case .contact:
+                            if updatedCache.profile(for: thread.id) == nil || currentCache.context.requireFullRefresh {
+                                updatedRequirements.profileIdsNeedingFetch.insert(thread.id)
+                            }
+                            
+                            if updatedCache.contact(for: thread.id) == nil || currentCache.context.requireFullRefresh {
+                                updatedRequirements.contactIdsNeedingFetch.insert(thread.id)
+                            }
+                            
+                        case .group, .legacyGroup:
+                            if updatedCache.group(for: thread.id) == nil || currentCache.context.requireFullRefresh {
+                                updatedRequirements.groupIdsNeedingFetch.insert(thread.id)
+                            }
+                            
+                            if updatedCache.groupMembers(for: thread.id).isEmpty || currentCache.context.requireFullRefresh {
+                                updatedRequirements.groupIdsNeedingMemberFetch.insert(thread.id)
+                            }
+                            
+                        case .community:
+                            if updatedCache.community(for: thread.id) == nil || currentCache.context.requireFullRefresh {
+                                updatedRequirements.communityIdsNeedingFetch.insert(thread.id)
+                            }
+                    }
+                }
         }
         
         /// Now that we've finished the page load we can clear out the "insertedIds" sets (should only be used for the above)
