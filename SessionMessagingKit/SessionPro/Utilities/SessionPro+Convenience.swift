@@ -45,8 +45,8 @@ public extension SessionProPaymentScreenContent.SessionProPlanInfo {
     init(plan: SessionPro.Plan) {
         let price: Double = Double(truncating: plan.price as NSNumber)
         let pricePerMonth: Double = Double(truncating: plan.pricePerMonth as NSNumber)
-        let formattedPrice: String = price.formatted(format: .currency(decimal: true, withLocalSymbol: true))
-        let formattedPricePerMonth: String = pricePerMonth.formatted(format: .currency(decimal: true, withLocalSymbol: true))
+        let formattedPrice: String = price.formatted(format: .currency(decimal: true, withLocalSymbol: true, roundingMode: .floor))
+        let formattedPricePerMonth: String = pricePerMonth.formatted(format: .currency(decimal: true, withLocalSymbol: true, roundingMode: .floor))
         
         self = SessionProPaymentScreenContent.SessionProPlanInfo(
             id: plan.id,
