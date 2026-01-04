@@ -153,6 +153,16 @@ public extension ConversationDataHelper {
                     
                 case (_, let reactionEvent as ReactionEvent):
                     requirements.interactionIdsNeedingReactionUpdates.insert(reactionEvent.messageId)
+                    
+                case (GenericObservableKey(.messageRequestAccepted), let contactId as String):
+                    switch currentCache.context.source {
+                        case .searchResults: break
+                        case .conversationList: requirements.contactIdsNeedingFetch.insert(contactId)
+                        case .conversationSettings(let threadId), .messageList(let threadId):
+                            guard threadId == contactId else { break }
+                            
+                            requirements.contactIdsNeedingFetch.insert(contactId)
+                    }
                 
                 default: break
             }
@@ -213,6 +223,12 @@ public extension ConversationDataHelper {
                     /// On the conversation list if a new message is created in any conversation then we need to reload the paged
                     /// data as it means the conversation order likely changed
                     if changes.contains(.anyMessageCreatedInAnyConversation) {
+                        return true
+                    }
+                    
+                    /// If a message request was accepted then we need to reload the paged data as it likely means a new
+                    /// conversation should appear at the top of the list
+                    if changes.contains(.messageRequestAccepted) {
                         return true
                     }
                     
