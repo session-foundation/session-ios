@@ -99,7 +99,7 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
         
         switch adminSignature {
             case .some(.standard(let signature)): try container.encode(signature, forKey: .adminSignature)
-            case .some(.subaccount): throw MessageSenderError.signingFailed
+            case .some(.subaccount): throw MessageError.requiredSignatureMissing
             case .none: break   // Valid case (member deleting their own sent messages)
         }
     }
@@ -126,7 +126,7 @@ public final class GroupUpdateDeleteMemberContentMessage: ControlMessage {
             
             switch adminSignature {
                 case .some(.standard(let signature)): deleteMemberContentMessageBuilder.setAdminSignature(Data(signature))
-                case .some(.subaccount): throw MessageSenderError.signingFailed
+                case .some(.subaccount): throw MessageError.requiredSignatureMissing
                 case .none: break    // Valid case (member deleting their own sent messages)
             }
             

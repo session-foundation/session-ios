@@ -204,6 +204,55 @@ internal extension LibSession {
 // MARK: - State Accses
 
 public extension LibSession.Cache {
+    func latestGroupKey(groupSessionId: SessionId) throws -> [UInt8] {
+        guard let config: LibSession.Config = config(for: .groupKeys, sessionId: groupSessionId) else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+        }
+        guard case .groupKeys(let conf, _, _) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
+        }
+        
+        let result: span_u8 = groups_keys_group_enc_key(conf);
+        
+        guard result.size > 0 else { throw CryptoError.invalidKey }
+        
+        return Array(UnsafeBufferPointer(start: result.data, count: result.size))
+    }
+    
+    func allActiveGroupKeys(groupSessionId: SessionId) throws -> [[UInt8]] {
+        guard let config: LibSession.Config = config(for: .groupKeys, sessionId: groupSessionId) else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: nil)
+        }
+        guard case .groupKeys(let conf, _, _) = config else {
+            throw LibSessionError.invalidConfigObject(wanted: .groupKeys, got: config)
+        }
+        
+        /// Get the number of active keys first, if there aren't any then no need to allocate anything
+        let activeKeys: Int = groups_keys_size(conf)
+        
+        guard activeKeys > 0 else { return [] }
+        
+        let destBuffer = UnsafeMutableBufferPointer<span_u8>.allocate(capacity: activeKeys)
+        defer { destBuffer.deallocate() }
+        
+        destBuffer.initialize(repeating: span_u8())
+        
+        let numKeys: Int = groups_keys_get_keys(conf, 0, destBuffer.baseAddress, activeKeys)
+        var keys: [[UInt8]] = []
+        keys.reserveCapacity(numKeys)
+        
+        for i in 0..<numKeys {
+            let span: span_u8 = destBuffer[i]
+            
+            guard let data = span.data else { continue }
+            
+            let keyBytes: [UInt8] = Array(UnsafeBufferPointer(start: data, count: span.size))
+            keys.append(keyBytes)
+        }
+        
+        return keys
+    }
+    
     func isAdmin(groupSessionId: SessionId) -> Bool {
         guard case .groupKeys(let conf, _, _) = config(for: .groupKeys, sessionId: groupSessionId) else {
             return false

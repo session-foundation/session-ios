@@ -323,6 +323,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        
+        let sessionProStatus: String = (dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")
+        let mockedProStatus: String = {
+            switch (dependencies[feature: .sessionProEnabled], dependencies[feature: .mockCurrentUserSessionProBackendStatus]) {
+                case (true, .simulate(let status)): return "<span>\(status)</span>"
+                case (false, _), (_, .useActual): return "<disabled>None</disabled>"
+            }
+        }()
         let sessionPro: SectionModel = SectionModel(
             model: .sessionPro,
             elements: [
@@ -332,7 +340,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     subtitle: """
                     Configure settings related to Session Pro.
                     
-                    <b>Session Pro:</b> <span>\(dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")</span>
+                    <b>Session Pro:</b> <span>\(sessionProStatus)</span>
+                    <b>Mock Pro Status:</b> \(mockedProStatus)
                     """,
                     trailingAccessory: .icon(.chevronRight),
                     onTap: { [weak self, dependencies] in
@@ -1146,7 +1155,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         
         /// Start the new network cache and clear out the old one
-        dependencies.warmCache(cache: .libSessionNetwork)
+        dependencies.warm(cache: .libSessionNetwork)
         
         /// Free the `oldNetworkCache` so it can be destroyed(the 'if' is only there to prevent the "variable never read" warning)
         if oldNetworkCache != nil { oldNetworkCache = nil }
@@ -1276,7 +1285,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                                 isApproved: true,
                                                 currentUserSessionId: currentUserSessionId
                                             ).upserted(db)
-                                            _ = try Profile(
+                                            _ = try Profile.with(
                                                 id: sessionId.hexString,
                                                 name: String(format: "\(self?.contactPrefix ?? "")%04d", index + 1)
                                             ).upserted(db)
@@ -2093,8 +2102,78 @@ extension DeveloperSettingsViewModel {
             transitionType: .present
         )
     }
+    
+    static func showModalForMockableState<M>(
+        title: String,
+        explanation: String,
+        feature: FeatureConfig<MockableFeature<M>>,
+        currentValue: MockableFeature<M>,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onMockingRemoved: (() -> Void)? = nil,
+        using dependencies: Dependencies?
+    ) {
+        let allCases: [MockableFeature<M>] = MockableFeature<M>.allCases
+    
+        navigatableStateHolder?.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: title,
+                    body: .radio(
+                        explanation: ThemedAttributedString(string: explanation),
+                        warning: nil,
+                        options: {
+                            return allCases.enumerated().map { index, feature in
+                                ConfirmationModal.Info.Body.RadioOptionInfo(
+                                    title: feature.title,
+                                    descriptionText: feature.subtitle.map {
+                                        ThemedAttributedString(
+                                            stringWithHTMLTags: $0,
+                                            font: RadioButton.descriptionFont
+                                        )
+                                    },
+                                    enabled: true,
+                                    selected: currentValue == feature
+                                )
+                            }
+                        }()
+                    ),
+                    confirmTitle: "select".localized(),
+                    cancelStyle: .alert_text,
+                    onConfirm: { [dependencies] modal in
+                        let selectedValue: MockableFeature<M>? = {
+                            switch modal.info.body {
+                                case .radio(_, _, let options):
+                                    return options
+                                        .enumerated()
+                                        .first(where: { _, value in value.selected })
+                                        .map { index, _ in
+                                            guard index >= 0 && index < allCases.count else {
+                                                return nil
+                                            }
+                                            
+                                            return allCases[index]
+                                        }
+                                
+                                default: return nil
+                            }
+                        }()
+                        
+                        let finalValue: MockableFeature<M> = (selectedValue ?? .useActual)
+                        
+                        switch finalValue {
+                            case .useActual:
+                                dependencies?.reset(feature: feature)
+                                onMockingRemoved?()
+                                
+                            case .simulate: dependencies?.set(feature: feature, to: finalValue)
+                        }
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
 }
-
 
 // MARK: - DocumentPickerResult
 
@@ -2137,6 +2216,17 @@ internal extension String.StringInterpolation {
     }
 }
 
+// MARK: - Format Convenience
+
+internal extension String.StringInterpolation {
+    mutating func appendInterpolation<T: CustomStringConvertible>(devValue: MockableFeature<T>) {
+        switch devValue {
+            case .useActual: appendLiteral("<disabled>None</disabled>")
+            case .simulate(let value): appendLiteral("<span>\(value)</span>")
+        }
+    }
+}
+
 // MARK: - WarningVersion
 
 struct WarningVersion: Listable {
@@ -2157,12 +2247,3 @@ extension Network.PushNotification.Service: Listable {}
 extension Log.Level: @retroactive ContentIdentifiable {}
 extension Log.Level: @retroactive ContentEquatable {}
 extension Log.Level: Listable {}
-extension SessionProStateMock: @retroactive ContentIdentifiable {}
-extension SessionProStateMock: @retroactive ContentEquatable {}
-extension SessionProStateMock: Listable {}
-extension SessionProLoadingState: @retroactive ContentIdentifiable {}
-extension SessionProLoadingState: @retroactive ContentEquatable {}
-extension SessionProLoadingState: Listable {}
-extension SessionProStateExpiryMock: @retroactive ContentIdentifiable {}
-extension SessionProStateExpiryMock: @retroactive ContentEquatable {}
-extension SessionProStateExpiryMock: Listable {}

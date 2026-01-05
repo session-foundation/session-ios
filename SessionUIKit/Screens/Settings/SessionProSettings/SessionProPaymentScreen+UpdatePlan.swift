@@ -9,7 +9,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
     let currentPlan: SessionProPaymentScreenContent.SessionProPlanInfo
     let currentPlanExpiredOn: Date
     let isAutoRenewing: Bool
-    let originatingPlatform: SessionProPaymentScreenContent.ClientPlatform
+    let originatingPlatform: SessionProUI.ClientPlatform
     let openPlatformStoreWebsiteAction: () -> Void
 
     var body: some View {
@@ -34,7 +34,7 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                         "proAccessSignUp"
                             .put(key: "app_pro", value: Constants.app_pro)
                             .put(key: "platform_store", value: originatingPlatform.store)
-                            .put(key: "platform_account", value: originatingPlatform.account)
+                            .put(key: "platform_account", value: originatingPlatform.platformAccount)
                             .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular)
                     )
@@ -52,14 +52,14 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                 .foregroundColor(themeColor: .textSecondary)
                 
                 ApproachCell(
-                    info: .init(
+                    info: ApproachCell.Info(
                         title: "onDevice"
-                            .put(key: "device_type", value: originatingPlatform.deviceType)
+                            .put(key: "device_type", value: originatingPlatform.device)
                             .localized(),
                         description: "onDeviceDescription"
                             .put(key: "app_name", value: Constants.app_name)
-                            .put(key: "device_type", value: originatingPlatform.deviceType)
-                            .put(key: "platform_account", value: originatingPlatform.account)
+                            .put(key: "device_type", value: originatingPlatform.device)
+                            .put(key: "platform_account", value: originatingPlatform.platformAccount)
                             .put(key: "app_pro", value: Constants.app_pro)
                             .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular),
@@ -68,12 +68,12 @@ struct UpdatePlanNonOriginatingPlatformContent: View {
                 )
                 
                 ApproachCell(
-                    info: .init(
+                    info: ApproachCell.Info(
                         title: "viaStoreWebsite"
-                            .put(key: "platform", value: originatingPlatform.name)
+                            .put(key: "platform", value: originatingPlatform.platform)
                             .localized(),
                         description: "viaStoreWebsiteDescription"
-                            .put(key: "platform_account", value: originatingPlatform.account)
+                            .put(key: "platform_account", value: originatingPlatform.platformAccount)
                             .put(key: "platform_store", value: originatingPlatform.store)
                             .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(Fonts.Body.baseRegular),

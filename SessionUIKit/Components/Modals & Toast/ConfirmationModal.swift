@@ -517,6 +517,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                                     options: options.enumerated().map { otherIndex, otherInfo in
                                         Info.Body.RadioOptionInfo(
                                             title: otherInfo.title,
+                                            descriptionText: otherInfo.descriptionText,
                                             enabled: otherInfo.enabled,
                                             selected: (index == otherIndex),
                                             accessibility: otherInfo.accessibility
@@ -527,6 +528,7 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                         )
                     }
                     radioButton.text = optionInfo.title
+                    radioButton.descriptionText = optionInfo.descriptionText
                     radioButton.accessibilityLabel = optionInfo.accessibility?.label
                     radioButton.accessibilityIdentifier = optionInfo.accessibility?.identifier
                     radioButton.update(isEnabled: optionInfo.enabled, isSelected: optionInfo.selected)
@@ -540,7 +542,53 @@ public class ConfirmationModal: Modal, UITextFieldDelegate, UITextViewDelegate {
                 mainStackView.spacing = 0
                 contentStackView.spacing = Values.verySmallSpacing
                 proDescriptionLabelContainer.isHidden = (description == nil)
-                proDescriptionLabel.themeAttributedText = description
+                
+                if let description {
+                    var result: ThemedAttributedString = ThemedAttributedString()
+                    
+                    if let attributedString: ThemedAttributedString = description.attributedString {
+                        result.append(attributedString)
+                    }
+                    else if let text: String = description.text {
+                        result.append(ThemedAttributedString(string: text))
+                    }
+                    
+                    switch description.accessory {
+                        case .none: break
+                        case .proBadgeLeading(let size, let themeBackgroundColor):
+                            let proBadgeImage: UIImage = UIView.image(
+                                for: .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
+                                generator: { SessionProBadge(size: size) }
+                            )
+                            result.insert(ThemedAttributedString(string: " "), at: 0)
+                            result.insert(
+                                ThemedAttributedString(
+                                    image: proBadgeImage,
+                                    accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                    font: proDescriptionLabel.font
+                                ),
+                                at: 0
+                            )
+                            
+                        case .proBadgeTrailing(let size, let themeBackgroundColor):
+                            let proBadgeImage: UIImage = UIView.image(
+                                for: .themedKey(size.cacheKey, themeBackgroundColor: themeBackgroundColor),
+                                generator: { SessionProBadge(size: size) }
+                            )
+                            
+                            result.append(ThemedAttributedString(string: " "))
+                            result.append(
+                                ThemedAttributedString(
+                                    image: proBadgeImage,
+                                    accessibilityLabel: SessionProBadge.accessibilityLabel,
+                                    font: proDescriptionLabel.font
+                                )
+                            )
+                    }
+                    
+                    proDescriptionLabel.themeAttributedText = result
+                }
+                
                 imageViewContainer.isHidden = false
                 profileView.clipsToBounds = (style == .circular)
                 profileView.setDataManager(dataManager)
@@ -973,17 +1021,20 @@ public extension ConfirmationModal.Info {
         
         public struct RadioOptionInfo: Equatable, Hashable {
             public let title: String
+            public let descriptionText: ThemedAttributedString?
             public let enabled: Bool
             public let selected: Bool
             public let accessibility: Accessibility?
             
             public init(
                 title: String,
+                descriptionText: ThemedAttributedString? = nil,
                 enabled: Bool,
                 selected: Bool = false,
                 accessibility: Accessibility? = nil
             ) {
                 self.title = title
+                self.descriptionText = descriptionText
                 self.enabled = enabled
                 self.selected = selected
                 self.accessibility = accessibility
@@ -1020,10 +1071,10 @@ public extension ConfirmationModal.Info {
             placeholder: ImageDataManager.DataSource?,
             icon: ProfilePictureView.Info.ProfileIcon = .none,
             style: ImageStyle,
-            description: ThemedAttributedString?,
+            description: SessionListScreenContent.TextInfo?,
             accessibility: Accessibility?,
             dataManager: ImageDataManagerType,
-            onProBageTapped: (() -> Void)?,
+            onProBageTapped: (@MainActor () -> Void)?,
             onClick: (@MainActor (@escaping (ConfirmationModal.ValueUpdate) -> Void) -> Void)
         )
         

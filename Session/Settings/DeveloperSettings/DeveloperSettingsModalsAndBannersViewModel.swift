@@ -128,8 +128,8 @@ class DeveloperSettingsModalsAndBannersViewModel: SessionTableViewModel, Navigat
     
     public struct State: Equatable, ObservableKeyProvider {
         let donationsCTAModalAppearanceCount: Int
-        let donationsCTAModalLastAppearanceTimestamp: TimeInterval?
-        let customFirstInstallDateTime: TimeInterval?
+        let donationsCTAModalLastAppearanceTimestamp: TimeInterval
+        let customFirstInstallDateTime: TimeInterval
         let donationsUrlOpenCount: Int
         let donationsUrlCopyCount: Int
         

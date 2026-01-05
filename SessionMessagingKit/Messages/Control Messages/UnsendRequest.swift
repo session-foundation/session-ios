@@ -16,10 +16,11 @@ public final class UnsendRequest: ControlMessage {
     
     // MARK: - Validation
     
-    public override func isValid(isSending: Bool) -> Bool {
-        guard super.isValid(isSending: isSending) else { return false }
+    public override func validateMessage(isSending: Bool) throws {
+        try super.validateMessage(isSending: isSending)
         
-        return timestamp != nil && author != nil
+        if (timestamp ?? 0) == 0 { throw MessageError.missingRequiredField("timestamp") }
+        if author?.isEmpty != false { throw MessageError.missingRequiredField("author") }
     }
     
     // MARK: - Initialization

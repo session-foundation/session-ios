@@ -52,13 +52,15 @@ struct QRCodeScreen: View {
             errorString = "qrNotAccountId".localized()
         }
         else {
-            dependencies[singleton: .app].presentConversationCreatingIfNeeded(
-                for: hexEncodedPublicKey,
-                variant: .contact,
-                action: .compose,
-                dismissing: self.host.controller,
-                animated: false
-            )
+            Task.detached(priority: .userInitiated) {
+                await dependencies[singleton: .app].presentConversationCreatingIfNeeded(
+                    for: hexEncodedPublicKey,
+                    variant: .contact,
+                    action: .compose,
+                    dismissing: self.host.controller,
+                    animated: false
+                )
+            }
         }
     }
     

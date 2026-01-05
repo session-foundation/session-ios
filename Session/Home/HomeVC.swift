@@ -324,7 +324,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
             serviceNetwork: self.viewModel.state.serviceNetwork,
             forceOffline: self.viewModel.state.forceOffline
         )
-        setUpNavBarSessionHeading(currentUserSessionProState: viewModel.dependencies[singleton: .sessionProState])
+        setUpNavBarSessionHeading(sessionProUIManager: viewModel.dependencies[singleton: .sessionProManager])
         
         // Banner stack view
         view.addSubview(bannersStackView)
@@ -375,7 +375,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         // Onion request path countries cache
         Task.detached(priority: .background) { [dependencies = viewModel.dependencies] in
-            dependencies.warmCache(cache: .ip2Country)
+            dependencies.warm(cache: .ip2Country)
         }
         
         // Bind the UI to the view model
@@ -578,19 +578,19 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
         
         switch section.model {
             case .messageRequests:
-                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let threadInfo: ConversationInfoViewModel = section.elements[indexPath.row]
                 let cell: MessageRequestsCell = tableView.dequeue(type: MessageRequestsCell.self, for: indexPath)
                 cell.accessibilityIdentifier = "Message requests banner"
                 cell.isAccessibilityElement = true
-                cell.update(with: Int(threadViewModel.threadUnreadCount ?? 0))
+                cell.update(with: threadInfo.unreadCount)
                 return cell
                 
             case .threads:
-                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let threadInfo: ConversationInfoViewModel = section.elements[indexPath.row]
                 let cell: FullConversationCell = tableView.dequeue(type: FullConversationCell.self, for: indexPath)
-                cell.update(with: threadViewModel, using: viewModel.dependencies)
+                cell.update(with: threadInfo, using: viewModel.dependencies)
                 cell.accessibilityIdentifier = "Conversation list item"
-                cell.accessibilityLabel = threadViewModel.displayName
+                cell.accessibilityLabel = threadInfo.displayName.deformatted()
                 return cell
                 
             default: preconditionFailure("Other sections should have no content")
@@ -630,7 +630,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     public func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
         switch sections[section].model {
-            case .loadMore: self.viewModel.loadNextPage()
+            case .loadMore: self.viewModel.loadPageAfter()
             default: break
         }
     }
@@ -648,10 +648,9 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 self.navigationController?.pushViewController(viewController, animated: true)
                 
             case .threads:
-                let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+                let threadInfo: ConversationInfoViewModel = section.elements[indexPath.row]
                 let viewController: ConversationVC = ConversationVC(
-                    threadId: threadViewModel.threadId,
-                    threadVariant: threadViewModel.threadVariant,
+                    threadInfo: threadInfo,
                     focusedInteractionInfo: nil,
                     using: viewModel.dependencies
                 )
@@ -675,7 +674,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     public func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: HomeViewModel.SectionModel = sections[indexPath.section]
-        let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+        let threadInfo: ConversationInfoViewModel = section.elements[indexPath.row]
         
         switch section.model {
             case .threads:
@@ -683,11 +682,11 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 // the 'Note to Self' conversation also doesn't support 'mark as unread' so don't
                 // provide it there either
                 guard
-                    threadViewModel.threadVariant != .legacyGroup &&
-                        threadViewModel.threadId != threadViewModel.currentUserSessionId && (
-                            threadViewModel.threadVariant != .contact ||
-                            (try? SessionId(from: section.elements[indexPath.row].threadId))?.prefix == .standard
-                        )
+                    threadInfo.variant != .legacyGroup &&
+                    threadInfo.id != threadInfo.userSessionId.hexString && (
+                        threadInfo.variant != .contact ||
+                        (try? SessionId(from: section.elements[indexPath.row].id))?.prefix == .standard
+                    )
                 else { return nil }
                 
                 return UIContextualAction.configuration(
@@ -696,7 +695,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         for: .leading,
                         indexPath: indexPath,
                         tableView: tableView,
-                        threadViewModel: threadViewModel,
+                        threadInfo: threadInfo,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies
@@ -709,7 +708,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
     
     public func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         let section: HomeViewModel.SectionModel = sections[indexPath.section]
-        let threadViewModel: SessionThreadViewModel = section.elements[indexPath.row]
+        let threadInfo: ConversationInfoViewModel = section.elements[indexPath.row]
         
         switch section.model {
             case .messageRequests:
@@ -719,7 +718,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         for: .trailing,
                         indexPath: indexPath,
                         tableView: tableView,
-                        threadViewModel: threadViewModel,
+                        threadInfo: threadInfo,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies
@@ -727,13 +726,13 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                 )
                 
             case .threads:
-                let sessionIdPrefix: SessionId.Prefix? = try? SessionId.Prefix(from: threadViewModel.threadId)
+                let sessionIdPrefix: SessionId.Prefix? = try? SessionId.Prefix(from: threadInfo.id)
                 
                 // Cannot properly sync outgoing blinded message requests so only provide valid options
                 let shouldHavePinAction: Bool = {
-                    switch threadViewModel.threadVariant {
+                    switch threadInfo.variant {
                             // Only allow unpin for legacy groups
-                        case .legacyGroup: return threadViewModel.threadPinnedPriority > 0
+                        case .legacyGroup: return (threadInfo.pinnedPriority > 0)
                             
                         default:
                             return (
@@ -743,23 +742,22 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                     }
                 }()
                 let shouldHaveMuteAction: Bool = {
-                    switch threadViewModel.threadVariant {
+                    switch threadInfo.variant {
                         case .contact: return (
-                            !threadViewModel.threadIsNoteToSelf &&
+                            !threadInfo.isNoteToSelf &&
                             sessionIdPrefix != .blinded15 &&
                             sessionIdPrefix != .blinded25
                         )
                             
-                        case .group: return (threadViewModel.currentUserIsClosedGroupMember == true)
-                            
+                        case .group: return (threadInfo.groupInfo?.currentUserRole != nil)
                         case .legacyGroup: return false
                         case .community: return true
                     }
                 }()
                 let destructiveAction: UIContextualAction.SwipeAction = {
-                    switch (threadViewModel.threadVariant, threadViewModel.threadIsNoteToSelf, threadViewModel.currentUserIsClosedGroupMember, threadViewModel.currentUserIsClosedGroupAdmin) {
-                        case (.contact, true, _, _): return .hide
-                        case (.group, _, true, false), (.community, _, _, _): return .leave
+                    switch (threadInfo.variant, threadInfo.isNoteToSelf, threadInfo.groupInfo?.currentUserRole) {
+                        case (.contact, true, _): return .hide
+                        case (.group, _, .standard), (.community, _, _): return .leave
                         default: return .delete
                     }
                 }()
@@ -774,7 +772,7 @@ public final class HomeVC: BaseVC, LibSessionRespondingViewController, UITableVi
                         for: .trailing,
                         indexPath: indexPath,
                         tableView: tableView,
-                        threadViewModel: threadViewModel,
+                        threadInfo: threadInfo,
                         viewController: self,
                         navigatableStateHolder: viewModel,
                         using: viewModel.dependencies

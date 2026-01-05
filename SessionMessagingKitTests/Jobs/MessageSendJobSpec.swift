@@ -187,7 +187,8 @@ class MessageSendJobSpec: AsyncSpec {
                         state: .sending,
                         recipientReadTimestampMs: nil,
                         mostRecentFailureText: nil,
-                        isProMessage: false
+                        proMessageFeatures: .none,
+                        proProfileFeatures: .none
                     )
                     job = Job(
                         variant: .messageSend,

@@ -57,7 +57,7 @@ public struct Version: Comparable {
     }
 }
 
-public enum FeatureVersion: Int, Codable, Equatable, Hashable, DatabaseValueConvertible {
+public enum FeatureVersion: Int, Sendable, Codable, Equatable, Hashable, DatabaseValueConvertible {
     case legacyDisappearingMessages
     case newDisappearingMessages
 }

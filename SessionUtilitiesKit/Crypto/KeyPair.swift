@@ -2,7 +2,7 @@
 
 import Foundation
 
-public struct KeyPair: Codable, Equatable {
+public struct KeyPair: Sendable, Codable, Equatable, Hashable {
     public static let empty: KeyPair = KeyPair(publicKey: [], secretKey: [])
     
     public let publicKey: [UInt8]

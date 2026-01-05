@@ -4,21 +4,7 @@ import UIKit
 import SessionUIKit
 import SessionUtilitiesKit
 
-public extension SessionProBadge.Size{
-    // stringlint:ignore_contents
-    var cacheKey: String {
-        switch self {
-            case .mini: return "SessionProBadge.Mini"
-            case .small: return "SessionProBadge.Small"
-            case .medium: return "SessionProBadge.Medium"
-            case .large: return "SessionProBadge.Large"
-        }
-    }
-}
-
 public extension SessionProBadge {
-    fileprivate static let accessibilityLabel: String = Constants.app_pro
-    
     static func trailingImage(
         size: SessionProBadge.Size,
         themeBackgroundColor: ThemeValue
@@ -28,60 +14,5 @@ public extension SessionProBadge {
             accessibilityLabel: SessionProBadge.accessibilityLabel,
             { SessionProBadge(size: size, themeBackgroundColor: themeBackgroundColor) }
         )
-    }
-}
-
-public extension String {
-    enum SessionProBadgePosition {
-        case leading, trailing
-    }
-    
-    func addProBadge(
-        at postion: SessionProBadgePosition,
-        font: UIFont,
-        textColor: ThemeValue = .textPrimary,
-        proBadgeSize: SessionProBadge.Size,
-        spacing: String = " ",
-        using dependencies: Dependencies
-    ) -> ThemedAttributedString {
-        let base = ThemedAttributedString()
-        switch postion {
-            case .leading:
-                base.append(
-                    ThemedAttributedString(
-                        imageAttachmentGenerator: {
-                            (
-                                UIView.image(
-                                    for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
-                                    generator: { SessionProBadge(size: proBadgeSize) }
-                                ),
-                                SessionProBadge.accessibilityLabel
-                            )
-                        },
-                        referenceFont: font
-                    )
-                )
-                base.append(ThemedAttributedString(string: spacing))
-                base.append(ThemedAttributedString(string: self, attributes: [.font: font, .themeForegroundColor: textColor]))
-            case .trailing:
-                base.append(ThemedAttributedString(string: self, attributes: [.font: font, .themeForegroundColor: textColor]))
-                base.append(ThemedAttributedString(string: spacing))
-                base.append(
-                    ThemedAttributedString(
-                        imageAttachmentGenerator: {
-                            (
-                                UIView.image(
-                                    for: .themedKey(proBadgeSize.cacheKey, themeBackgroundColor: .primary),
-                                    generator: { SessionProBadge(size: proBadgeSize) }
-                                ),
-                                SessionProBadge.accessibilityLabel
-                            )
-                        },
-                        referenceFont: font
-                    )
-                )
-        }
-
-        return base
     }
 }

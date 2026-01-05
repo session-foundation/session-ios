@@ -94,7 +94,7 @@ public final class QuoteView: UIView {
             imageView.center(in: imageContainerView)
             
             // Generate the thumbnail if needed
-            if let source: ImageDataManager.DataSource = viewModel.quotedAttachmentInfo?.thumbnailSource {
+            if let source: ImageDataManager.DataSource = viewModel.quotedInfo?.attachmentInfo?.thumbnailSource {
                 imageView.loadImage(source) { [weak imageView] buffer in
                     guard buffer != nil else { return }
                     
@@ -119,17 +119,17 @@ public final class QuoteView: UIView {
         bodyLabel.numberOfLines = 2
         bodyLabel.themeAttributedText = viewModel.attributedText
         
-        // Label stack view
+        /// Label stack view
         let authorLabel = SessionLabelWithProBadge(
             proBadgeSize: .mini,
             proBadgeThemeBackgroundColor: viewModel.proBadgeThemeColor
         )
         authorLabel.font = .boldSystemFont(ofSize: Values.smallFontSize)
-        authorLabel.text = viewModel.author
+        authorLabel.text = (viewModel.quotedInfo?.authorName ?? "")
         authorLabel.themeTextColor = viewModel.targetThemeColor
         authorLabel.lineBreakMode = .byTruncatingTail
         authorLabel.numberOfLines = 1
-        authorLabel.isHidden = (authorLabel.text == nil)
+        authorLabel.isHidden = (viewModel.quotedInfo == nil)
         authorLabel.isProBadgeHidden = !viewModel.showProBadge
         authorLabel.setCompressionResistance(.vertical, to: .required)
         

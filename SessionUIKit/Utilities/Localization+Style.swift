@@ -23,6 +23,9 @@ public extension ThemedAttributedString {
         case warningTheme = "warn"
         case dangerTheme = "error"
         case disabledTheme = "disabled"
+        case faded = "faded"
+        case mention = "mention"
+        case userMention = "userMention"
 
         // MARK: - Functions
 
@@ -37,7 +40,11 @@ public extension ThemedAttributedString {
             ).map { ($0, isCloseTag) }
         }
 
-        func format(with font: UIFont) -> [NSAttributedString.Key: Any] {
+        func format(
+            with font: UIFont,
+            mentionColor: ThemeValue? = nil,
+            currentUserMentionImage: UIImage? = nil
+        ) -> [NSAttributedString.Key: Any] {
             /// **Note:** Constructing a `UIFont` with a `size`of `0` will preserve the textSize
             switch self {
                 case .bold: return [
@@ -59,11 +66,38 @@ public extension ThemedAttributedString {
                 case .warningTheme: return [.themeForegroundColor: ThemeValue.warning]
                 case .dangerTheme: return [.themeForegroundColor: ThemeValue.danger]
                 case .disabledTheme: return [.themeForegroundColor: ThemeValue.disabled]
+                case .faded: return [.themeAlphaMultiplier: Values.lowOpacity]
+                case .mention:
+                    guard let mentionColor: ThemeValue = mentionColor else { return [:] }
+                    
+                    return [
+                        .font: UIFont(
+                            descriptor: (font.fontDescriptor.withSymbolicTraits(.traitBold) ?? font.fontDescriptor),
+                            size: 0
+                        ),
+                        .themeForegroundColor: mentionColor
+                    ]
+                    
+                case .userMention:
+                    guard let currentUserMentionImage: UIImage = currentUserMentionImage else { return [:] }
+                    
+                    return [.themeCurrentUserMentionImage: currentUserMentionImage]
             }
         }
     }
 
-    convenience init(stringWithHTMLTags: String?, font: UIFont) {
+    convenience init(
+        stringWithHTMLTags: String?,
+        font: UIFont,
+        attributes: [NSAttributedString.Key: Any] = [:],
+        mentionColor: ThemeValue? = nil,
+        currentUserMentionImage: UIImage? = nil
+    ) {
+        let standardAttributes: [NSAttributedString.Key: Any] = [.font: font].merging(
+            attributes,
+            uniquingKeysWith: { _, new in new }
+        )
+        
         guard
             let targetString: String = stringWithHTMLTags,
             let expression: NSRegularExpression = try? NSRegularExpression(
@@ -71,7 +105,7 @@ public extension ThemedAttributedString {
                 options: [.caseInsensitive, .dotMatchesLineSeparators]
             )
         else {
-            self.init(string: (stringWithHTMLTags ?? ""))
+            self.init(string: (stringWithHTMLTags ?? ""), attributes: standardAttributes)
             return
         }
 
@@ -79,7 +113,10 @@ public extension ThemedAttributedString {
         ///
         /// **Note:** We use an `NSAttributedString` for retrieving string ranges because if we don't then emoji characters
         /// can cause odd behaviours with accessing ranges so this simplifies the logic
-        let attrString: ThemedAttributedString = ThemedAttributedString(string: targetString)
+        let attrString: ThemedAttributedString = ThemedAttributedString(
+            string: targetString,
+            attributes: standardAttributes
+        )
         let stringLength: Int = targetString.utf16.count
         var partsAndTags: [(part: String, tags: [HTMLTag])] = []
         var openTags: [HTMLTag: Int] = [:]
@@ -129,7 +166,7 @@ public extension ThemedAttributedString {
 
         /// If we don't have a `lastMatch` value then we weren't able to get a single valid tag match so just stop here are return the `targetString`
         guard let finalMatch: NSTextCheckingResult = lastMatch else {
-            self.init(string: targetString)
+            self.init(string: targetString, attributes: standardAttributes)
             return
         }
 
@@ -144,7 +181,19 @@ public extension ThemedAttributedString {
         /// Lastly we should construct the attributed string, applying the desired formatting
         self.init(
             attributedString: partsAndTags.reduce(into: ThemedAttributedString()) { result, next in
-                result.append(ThemedAttributedString(string: next.part, attributes: next.tags.format(with: font)))
+                let partAttributes: [NSAttributedString.Key: Any] = next.tags.format(
+                    with: font,
+                    mentionColor: mentionColor,
+                    currentUserMentionImage: currentUserMentionImage
+                )
+                
+                result.append(
+                    ThemedAttributedString(
+                        string: next.part,
+                        attributes: standardAttributes
+                            .merging(partAttributes, uniquingKeysWith: { _, new in new })
+                    )
+                )
             }
         )
     }
@@ -164,7 +213,11 @@ public extension ThemedAttributedString {
 }
 
 private extension Collection where Element == ThemedAttributedString.HTMLTag {
-    func format(with font: UIFont) -> [NSAttributedString.Key: Any] {
+    func format(
+        with font: UIFont,
+        mentionColor: ThemeValue?,
+        currentUserMentionImage: UIImage?
+    ) -> [NSAttributedString.Key: Any] {
         func fontWith(_ font: UIFont, traits: UIFontDescriptor.SymbolicTraits) -> UIFont {
             /// **Note:** Constructing a `UIFont` with a `size`of `0` will preserve the textSize
             return UIFont(
@@ -193,6 +246,17 @@ private extension Collection where Element == ThemedAttributedString.HTMLTag {
                 case .warningTheme: result[.themeForegroundColor] = ThemeValue.warning
                 case .dangerTheme: result[.themeForegroundColor] = ThemeValue.danger
                 case .disabledTheme: result[.themeForegroundColor] = ThemeValue.disabled
+                case .faded: result[.themeAlphaMultiplier] = Values.lowOpacity
+                case .mention:
+                    guard let mentionColor: ThemeValue = mentionColor else { return }
+                    
+                    result[.font] = fontWith(font, traits: [.traitBold])
+                    result[.themeForegroundColor] = mentionColor
+                    
+                case .userMention:
+                    guard let currentUserMentionImage: UIImage = currentUserMentionImage else { return }
+                    
+                    result[.themeCurrentUserMentionImage] = currentUserMentionImage
             }
         }
     }
@@ -222,12 +286,34 @@ extension UITextField: DirectFontAccessible {}
 extension UITextView: DirectFontAccessible {}
 
 public extension String {
-    func formatted(in view: FontAccessible) -> ThemedAttributedString {
-        return ThemedAttributedString(stringWithHTMLTags: self, font: (view.fontValue ?? .systemFont(ofSize: 14)))
+    func formatted(
+        in view: FontAccessible,
+        attributes: [NSAttributedString.Key: Any] = [:],
+        mentionColor: ThemeValue? = nil,
+        currentUserMentionImage: UIImage? = nil
+    ) -> ThemedAttributedString {
+        return ThemedAttributedString(
+            stringWithHTMLTags: self,
+            font: (view.fontValue ?? .systemFont(ofSize: 14)),
+            attributes: attributes,
+            mentionColor: mentionColor,
+            currentUserMentionImage: currentUserMentionImage
+        )
     }
     
-    func formatted(baseFont: UIFont) -> ThemedAttributedString {
-        return ThemedAttributedString(stringWithHTMLTags: self, font: baseFont)
+    func formatted(
+        baseFont: UIFont,
+        attributes: [NSAttributedString.Key: Any] = [:],
+        mentionColor: ThemeValue? = nil,
+        currentUserMentionImage: UIImage? = nil
+    ) -> ThemedAttributedString {
+        return ThemedAttributedString(
+            stringWithHTMLTags: self,
+            font: baseFont,
+            attributes: attributes,
+            mentionColor: mentionColor,
+            currentUserMentionImage: currentUserMentionImage
+        )
     }
     
     func formatted() -> ThemedAttributedString {
@@ -235,7 +321,13 @@ public extension String {
     }
     
     func deformatted() -> String {
-        return ThemedAttributedString(stringWithHTMLTags: self, font: .systemFont(ofSize: 14)).string
+        return ThemedAttributedString(
+            stringWithHTMLTags: self,
+            font: .systemFont(ofSize: 14),
+            attributes: [:],
+            mentionColor: nil,
+            currentUserMentionImage: nil
+        ).string
     }
 }
 

@@ -8,6 +8,7 @@ import GRDB
 import DifferenceKit
 import SessionUIKit
 import SessionMessagingKit
+import SessionNetworkingKit
 import SessionUtilitiesKit
 import SignalUtilitiesKit
 
@@ -37,7 +38,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         self.dependencies = dependencies
         self.internalState = State.initialState(
             userSessionId: dependencies[cache: .general].sessionId,
-            sessionProPlanState: dependencies[singleton: .sessionProState].sessionProStateSubject.value
+            proState: dependencies[singleton: .sessionProManager].currentUserCurrentProState
         )
         
         bindState()
@@ -156,7 +157,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     public struct State: ObservableKeyProvider {
         let userSessionId: SessionId
         let profile: Profile
-        let sessionProPlanState: SessionProPlanState
+        let proState: SessionPro.State
         let serviceNetwork: ServiceNetwork
         let forceOffline: Bool
         let developerModeEnabled: Bool
@@ -166,23 +167,30 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             SettingsViewModel.sections(state: self, viewModel: viewModel)
         }
         
-        public var observedKeys: Set<ObservableKey> {
-            [
+        /// We need `dependencies` to generate the keys in this case so set the variable `observedKeys` to an empty array to
+        /// suppress the conformance warning
+        public let observedKeys: Set<ObservableKey> = []
+        public func observedKeys(using dependencies: Dependencies) -> Set<ObservableKey> {
+            let sessionProManager: SessionProManagerType = dependencies[singleton: .sessionProManager]
+            
+            return [
                 .profile(userSessionId.hexString),
+                .currentUserProState(sessionProManager),
                 .feature(.serviceNetwork),
                 .feature(.forceOffline),
-                .feature(.mockCurrentUserSessionProState),
                 .setting(.developerModeEnabled),
                 .setting(.hideRecoveryPasswordPermanently)
-                // TODO: [PRO] Need to observe changes to the users pro status
             ]
         }
         
-        static func initialState(userSessionId: SessionId, sessionProPlanState: SessionProPlanState) -> State {
+        static func initialState(
+            userSessionId: SessionId,
+            proState: SessionPro.State
+        ) -> State {
             return State(
                 userSessionId: userSessionId,
                 profile: Profile.defaultFor(userSessionId.hexString),
-                sessionProPlanState: sessionProPlanState,
+                proState: proState,
                 serviceNetwork: .mainnet,
                 forceOffline: false,
                 developerModeEnabled: false,
@@ -216,7 +224,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     ) async -> State {
         /// Store mutable copies of the data to update
         var profile: Profile = previousState.profile
-        var sessionProPlanState: SessionProPlanState = previousState.sessionProPlanState
+        var proState: SessionPro.State = previousState.proState
         var serviceNetwork: ServiceNetwork = previousState.serviceNetwork
         var forceOffline: Bool = previousState.forceOffline
         var developerModeEnabled: Bool = previousState.developerModeEnabled
@@ -225,7 +233,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         if isInitialFetch {
             serviceNetwork = dependencies[feature: .serviceNetwork]
             forceOffline = dependencies[feature: .forceOffline]
-            sessionProPlanState = dependencies[singleton: .sessionProState].sessionProStateSubject.value
+            proState = await dependencies[singleton: .sessionProManager].state.first(defaultValue: .invalid)
             
             dependencies.mutate(cache: .libSession) { libSession in
                 profile = libSession.profile
@@ -233,6 +241,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 hideRecoveryPasswordPermanently = libSession.get(.hideRecoveryPasswordPermanently)
             }
         }
+        
+        /// Split the events
+        let changes: EventChangeset = events.split()
         
         /// If the users profile picture doesn't exist on disk then clear out the value (that way if we get events after downloading
         /// it then then there will be a diff in the `State` and the UI will update
@@ -278,18 +289,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                 
                 forceOffline = updatedValue
             }
-            else if event.key == .feature(.mockCurrentUserSessionProState) {
-                guard let updatedValue: SessionProStateMock = event.value as? SessionProStateMock else { return }
-                
-                sessionProPlanState = dependencies[singleton: .sessionProState].sessionProStateSubject.value
-            }
+        }
+        
+        if let value = changes.latestGeneric(.currentUserProState, as: SessionPro.State.self) {
+            proState = value
         }
         
         /// Generate the new state
         return State(
             userSessionId: previousState.userSessionId,
             profile: profile,
-            sessionProPlanState: sessionProPlanState,
+            proState: proState,
             serviceNetwork: serviceNetwork,
             forceOffline: forceOffline,
             developerModeEnabled: developerModeEnabled,
@@ -329,7 +339,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         label: "Profile picture"
                     ),
                     onTap: { [weak viewModel] in
-                        viewModel?.updateProfilePicture(currentUrl: state.profile.displayPictureUrl)
+                        viewModel?.updateProfilePicture(
+                            currentUrl: state.profile.displayPictureUrl,
+                            proState: state.proState
+                        )
                     }
                 ),
                 SessionCell.Info(
@@ -339,9 +352,9 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         font: .titleLarge,
                         alignment: .center,
                         trailingImage: {
-                            switch state.sessionProPlanState {
-                                case .none: return nil
-                                case .active, .refunding:
+                            switch state.proState.status {
+                                case .neverBeenPro: return nil
+                                case .active:
                                     return SessionProBadge.trailingImage(
                                         size: .medium,
                                         themeBackgroundColor: .primary
@@ -434,7 +447,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         let donationAndNetwork: SectionModel
         
         // FIXME: [PRO] Should be able to remove this once pro is properly enabled
-        if viewModel.dependencies[feature: .sessionProEnabled] {
+        if state.proState.sessionProEnabled {
             sessionProAndCommunity = SectionModel(
                 model: .sessionProAndCommunity,
                 elements: [
@@ -442,15 +455,17 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         id: .sessionPro,
                         leadingAccessory: .proBadge(size: .small),
                         title: {
-                            switch state.sessionProPlanState {
-                                case .none:
+                            switch state.proState.status {
+                                case .neverBeenPro:
                                     return "upgradeSession"
                                         .put(key: "app_name", value: Constants.app_name)
                                         .localized()
-                                case .active, .refunding:
+
+                                case .active:
                                     return "sessionProBeta"
                                         .put(key: "app_pro", value: Constants.app_pro)
                                         .localized()
+
                                 case .expired:
                                     return "proRenewBeta"
                                         .put(key: "pro", value: Constants.pro)
@@ -812,7 +827,10 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         )
     }
     
-    private func updateProfilePicture(currentUrl: String?) {
+    private func updateProfilePicture(
+        currentUrl: String?,
+        proState: SessionPro.State
+    ) {
         let iconName: String = "profile_placeholder" // stringlint:ignore
         var hasSetNewProfilePicture: Bool = false
         let currentSource: ImageDataManager.DataSource? = {
@@ -838,26 +856,20 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             icon: (currentUrl != nil ? .pencil : .rightPlus),
             style: .circular,
             description: {
-                guard dependencies[feature: .sessionProEnabled] else { return nil }
-                return dependencies[cache: .libSession].isSessionPro ?
-                    "proAnimatedDisplayPictureModalDescription"
-                        .localized()
-                        .addProBadge(
-                            at: .leading,
-                            font: .systemFont(ofSize: Values.smallFontSize),
-                            textColor: .textSecondary,
-                            proBadgeSize: .small,
-                            using: dependencies
-                        ):
-                    "proAnimatedDisplayPicturesNonProModalDescription"
-                        .localized()
-                        .addProBadge(
-                            at: .trailing,
-                            font: .systemFont(ofSize: Values.smallFontSize),
-                            textColor: .textSecondary,
-                            proBadgeSize: .small,
-                            using: dependencies
+                switch (proState.sessionProEnabled, proState.status) {
+                    case (false, _): return nil
+                    case (true, .active):
+                        return SessionListScreenContent.TextInfo(
+                            "proAnimatedDisplayPictureModalDescription".localized(),
+                            accessory: .proBadgeLeading(size: .small, themeBackgroundColor: .textSecondary)
                         )
+                        
+                    case (true, _):
+                        return SessionListScreenContent.TextInfo(
+                            "proAnimatedDisplayPicturesNonProModalDescription".localized(),
+                            accessory: .proBadgeTrailing(size: .small, themeBackgroundColor: .textSecondary)
+                        )
+                }
             }(),
             accessibility: Accessibility(
                 identifier: "Upload",
@@ -866,13 +878,13 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
             dataManager: dependencies[singleton: .imageDataManager],
             onProBageTapped: { [weak self, dependencies] in
                 Task { @MainActor in
-                    dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                    dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                         .animatedProfileImage(
-                            isSessionProActivated: dependencies[cache: .libSession].isSessionPro,
-                            renew: dependencies[singleton: .sessionProState].isSessionProExpired
+                            isSessionProActivated: (proState.status == .active),
+                            renew: (proState.status == .expired)
                         ),
                         onConfirm: {
-                            dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+                            dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
                                 presenting: { bottomSheet in
                                     self?.transitionToScreen(bottomSheet, transitionType: .present)
                                 }
@@ -923,31 +935,30 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
                         switch modal.info.body {
                             case .image(.some(let source), _, _, let style, _, _, _, _, _):
                                 let isAnimatedImage: Bool = ImageDataManager.isAnimatedImage(source)
-                                guard (
-                                    !isAnimatedImage ||
-                                    dependencies[cache: .libSession].isSessionPro ||
-                                    !dependencies[feature: .sessionProEnabled]
-                                ) else {
-                                    Task { @MainActor in
-                                        dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-                                            .animatedProfileImage(
-                                                isSessionProActivated: dependencies[cache: .libSession].isSessionPro,
-                                                renew: dependencies[singleton: .sessionProState].isSessionProExpired
-                                            ),
-                                            onConfirm: {
-                                                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                                                    presenting: { bottomSheet in
-                                                        self?.transitionToScreen(bottomSheet, transitionType: .present)
-                                                    }
-                                                )
-                                            },
-                                            presenting: { modal in
-                                                self?.transitionToScreen(modal, transitionType: .present)
-                                            }
-                                        )
-                                    }
-                                    return
+                                var didShowCTAModal: Bool = false
+                                
+                                if isAnimatedImage && proState.sessionProEnabled {
+                                    didShowCTAModal = dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                                        .animatedProfileImage(
+                                            isSessionProActivated: (proState.status == .active),
+                                            renew: (proState.status == .expired)
+                                        ),
+                                        onConfirm: {
+                                            dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                                                presenting: { bottomSheet in
+                                                    self?.transitionToScreen(bottomSheet, transitionType: .present)
+                                                }
+                                            )
+                                        },
+                                        presenting: { modal in
+                                            self?.transitionToScreen(modal, transitionType: .present)
+                                        }
+                                    )
                                 }
+                                
+                                /// If we showed the CTA modal then the user doesn't have Session Pro so can't use the
+                                /// selected image as their display picture
+                                guard !didShowCTAModal else { return }
                                 
                                 self?.updateProfile(
                                     displayPictureUpdateGenerator: { [weak self] in
@@ -1022,13 +1033,12 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
         return .currentUserUpdateTo(
             url: result.downloadUrl,
             key: result.encryptionKey,
-            sessionProProof: dependencies.mutate(cache: .libSession) { $0.getCurrentUserProProof() },
-            isReupload: false
+            type: (pendingAttachment.utType.isAnimated ? .animatedImage : .staticImage)
         )
     }
     
     @MainActor fileprivate func updateProfile(
-        displayNameUpdate: Profile.DisplayNameUpdate = .none,
+        displayNameUpdate: Profile.TargetUserUpdate<String?> = .none,
         displayPictureUpdateGenerator generator: @escaping () async throws -> DisplayPictureManager.Update = { .none },
         onComplete: @escaping () -> ()
     ) {
@@ -1137,7 +1147,7 @@ class SettingsViewModel: SessionTableViewModel, NavigationItemSource, Navigatabl
     }
     
     private func openTokenUrl() {
-        guard let url: URL = URL(string: Constants.session_token_url) else { return }
+        guard let url: URL = URL(string: Constants.urls.token) else { return }
         
         let modal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(

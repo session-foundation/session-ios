@@ -87,8 +87,7 @@ public final class ProfilePictureView: UIView {
             }
         }
         
-        // TODO: [PRO] Should be able to remove the "public" once `MessageInfoScreen.getProFeaturesInfo()` has been updated
-        public let source: ImageDataManager.DataSource?
+        let source: ImageDataManager.DataSource?
         let canAnimate: Bool
         let renderingMode: UIImage.RenderingMode?
         let themeTintColor: ThemeValue?
