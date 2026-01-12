@@ -164,7 +164,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                             ),
                             using: dependencies
                         ),
-                        to: .closedGroup(groupPublicKey: groupSessionId.hexString),
+                        to: .group(publicKey: groupSessionId.hexString),
                         namespace: .groupMessages,
                         interactionId: nil,
                         attachments: nil,
@@ -195,7 +195,7 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                     response.allSatisfy({ subResponse in
                         200...299 ~= ((subResponse as? Network.BatchSubResponse<Void>)?.code ?? 400)
                     })
-                else { throw MessageSenderError.invalidClosedGroupUpdate }
+                else { throw MessageError.invalidGroupUpdate("Failed to remove group member") }
                 
                 return ()
             }
@@ -234,6 +234,14 @@ public enum ProcessPendingGroupMemberRemovalsJob: JobExecutor {
                                             .filter(GroupMember.Columns.groupId == groupSessionId.hexString)
                                             .filter(pendingRemovals.keys.contains(GroupMember.Columns.profileId))
                                             .deleteAll(db)
+                                        
+                                        pendingRemovals.keys.forEach { id in
+                                            db.addGroupMemberEvent(
+                                                profileId: id,
+                                                threadId: groupSessionId.hexString,
+                                                type: .deleted
+                                            )
+                                        }
                                         
                                         /// If we want to remove the messages sent by the removed members then do so and remove
                                         /// them from the swarm as well

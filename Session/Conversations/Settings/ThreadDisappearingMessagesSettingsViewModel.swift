@@ -20,8 +20,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     private let threadId: String
     private let threadVariant: SessionThread.Variant
     private var isNoteToSelf: Bool
-    private let currentUserIsClosedGroupMember: Bool?
-    private let currentUserIsClosedGroupAdmin: Bool?
+    private let currentUserRole: GroupMember.Role?
     private let originalConfig: DisappearingMessagesConfiguration
     private var configSubject: CurrentValueSubject<DisappearingMessagesConfiguration, Never>
     
@@ -30,8 +29,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
     init(
         threadId: String,
         threadVariant: SessionThread.Variant,
-        currentUserIsClosedGroupMember: Bool?,
-        currentUserIsClosedGroupAdmin: Bool?,
+        currentUserRole: GroupMember.Role?,
         config: DisappearingMessagesConfiguration,
         using dependencies: Dependencies
     ) {
@@ -39,8 +37,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
         self.threadId = threadId
         self.threadVariant = threadVariant
         self.isNoteToSelf = (threadId == dependencies[cache: .general].sessionId.hexString)
-        self.currentUserIsClosedGroupMember = currentUserIsClosedGroupMember
-        self.currentUserIsClosedGroupAdmin = currentUserIsClosedGroupAdmin
+        self.currentUserRole = currentUserRole
         self.originalConfig = config
         self.configSubject = CurrentValueSubject(config)
     }
@@ -271,7 +268,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                 ),
                                 isEnabled: (
                                     isNoteToSelf ||
-                                    currentUserIsClosedGroupAdmin == true
+                                    currentUserRole == .admin
                                 ),
                                 accessibility: Accessibility(
                                     identifier: "Disable disappearing messages (Off option)",
@@ -306,7 +303,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                                                 identifier: "\(title) - Radio"
                                             )
                                         ),
-                                        isEnabled: (isNoteToSelf || currentUserIsClosedGroupAdmin == true),
+                                        isEnabled: (isNoteToSelf || currentUserRole == .admin),
                                         accessibility: Accessibility(
                                             identifier: "Time option",
                                             label: "Time option"
@@ -357,7 +354,7 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
             // Update the local state
             try updatedConfig.upserted(db)
             
-            let currentOffsetTimestampMs: Int64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+            let currentOffsetTimestampMs: UInt64 = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
             let interactionId = try updatedConfig
                 .upserted(db)
                 .insertControlMessage(
@@ -396,9 +393,15 @@ class ThreadDisappearingMessagesSettingsViewModel: SessionTableViewModel, Naviga
                 threadVariant: threadVariant,
                 using: dependencies
             )
+            
+            /// Notify of update
+            db.addConversationEvent(
+                id: threadId,
+                variant: threadVariant,
+                type: .updated(.disappearingMessageConfiguration(updatedConfig))
+            )
         }
     }
 }
 
-extension String: @retroactive ContentEquatable {}
-extension String: @retroactive ContentIdentifiable {}
+extension String: @retroactive Differentiable {}

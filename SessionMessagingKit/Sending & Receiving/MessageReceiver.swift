@@ -22,220 +22,168 @@ public enum MessageReceiver {
         origin: Message.Origin,
         using dependencies: Dependencies
     ) throws -> ProcessedMessage {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let uniqueIdentifier: String
-        var plaintext: Data
-        var customProto: SNProtoContent? = nil
-        var customMessage: Message? = nil
-        let sender: String
-        let sentTimestampMs: UInt64?
-        let serverHash: String?
-        let openGroupServerMessageId: UInt64?
-        let openGroupWhisper: Bool
-        let openGroupWhisperMods: Bool
-        let openGroupWhisperTo: String?
-        let threadVariant: SessionThread.Variant
-        let threadIdGenerator: (Message) throws -> String
+        /// Config messages are custom-handled internally within `libSession` so just return the data directly
+        guard !origin.isConfigNamespace else {
+            guard case .swarm(let publicKey, let namespace, let serverHash, let timestampMs, _) = origin else {
+                throw MessageError.invalidConfigMessageHandling
+            }
+            
+            return .config(
+                publicKey: publicKey,
+                namespace: namespace,
+                serverHash: serverHash,
+                serverTimestampMs: timestampMs,
+                data: data,
+                uniqueIdentifier: serverHash
+            )
+        }
         
-        switch (origin.isConfigNamespace, origin) {
-            // Config messages are custom-handled via 'libSession' so just return the data directly
-            case (true, .swarm(let publicKey, let namespace, let serverHash, let serverTimestampMs, _)):
-                return .config(
-                    publicKey: publicKey,
-                    namespace: namespace,
-                    serverHash: serverHash,
-                    serverTimestampMs: serverTimestampMs,
-                    data: data,
-                    uniqueIdentifier: serverHash
-                )
-                
-            case (_, .community(let openGroupId, let messageSender, let timestamp, let messageServerId, let messageWhisper, let messageWhisperMods, let messageWhisperTo)):
-                uniqueIdentifier = "\(messageServerId)"
-                plaintext = data.removePadding()   // Remove the padding
-                sender = messageSender
-                sentTimestampMs = timestamp.map { UInt64(floor($0 * 1000)) } // Convert to ms for database consistency
-                serverHash = nil
-                openGroupServerMessageId = UInt64(messageServerId)
-                openGroupWhisper = messageWhisper
-                openGroupWhisperMods = messageWhisperMods
-                openGroupWhisperTo = messageWhisperTo
-                threadVariant = .community
-                threadIdGenerator = { message in
-                    // Guard against control messages in open groups
-                    guard message is VisibleMessage else { throw MessageReceiverError.invalidMessage }
-                    
-                    return openGroupId
+        /// The group "revoked retrievable" namespace uses custom encryption so we need to custom handle it
+        guard !origin.isRevokedRetrievableNamespace else {
+            guard case .swarm(let publicKey, _, let serverHash, _, let serverExpirationTimestamp) = origin else {
+                throw MessageError.invalidRevokedRetrievalMessageHandling
+            }
+            
+            let message: LibSessionMessage = LibSessionMessage(ciphertext: data)
+            message.sender = publicKey  /// The "group" sends these messages
+            message.serverHash = serverHash
+            
+            return .standard(
+                threadId: publicKey,
+                threadVariant: .group,
+                messageInfo: MessageReceiveJob.Details.MessageInfo(
+                    message: message,
+                    variant: .libSessionMessage,
+                    threadVariant: .group,
+                    serverExpirationTimestamp: serverExpirationTimestamp,
+                    decodedMessage: .empty /// LibSession system message doesn't need a `decodedMessage`
+                ),
+                uniqueIdentifier: serverHash
+            )
+        }
+        
+        /// For all other cases we can just decode the message
+        let decodedMessage: DecodedMessage = try dependencies[singleton: .crypto].tryGenerate(
+            .decodedMessage(
+                encodedMessage: data,
+                origin: origin
+            )
+        )
+        
+        let threadId: String
+        let threadVariant: SessionThread.Variant
+        let serverExpirationTimestamp: TimeInterval?
+        let uniqueIdentifier: String
+        let userSessionId: SessionId = dependencies[cache: .general].sessionId
+        let proto: SNProtoContent = try decodedMessage.decodeProtoContent()
+        let message: Message = try Message.createMessageFrom(proto, decodedMessage: decodedMessage, using: dependencies)
+        message.sender = decodedMessage.sender.hexString
+        message.sentTimestampMs = decodedMessage.sentTimestampMs
+        message.sigTimestampMs = (proto.hasSigTimestamp ? proto.sigTimestamp : nil)
+        message.receivedTimestampMs = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
+        
+        /// If the `decodedPro` content on the message is not `valid` or `expired` then we should remove any pro content from
+        /// the message itself as it's invalid
+        ///
+        /// **Note:** We sync the `expired` case because it's possible another device received and synced it while the data was
+        /// `valid` and we don't want to incorrectly remove pro state (or cause a config ping-pong due to inconsistent behaviours)
+        switch decodedMessage.decodedPro?.status {
+            case .valid, .expired: break
+            case .none, .invalidProBackendSig, .invalidUserSig:
+                message.proMessageFeatures = nil
+                message.proProfileFeatures = nil
+                message.proProof = nil
+        }
+        
+        /// Perform validation and assign additional message values based on the origin
+        switch origin {
+            case .community(let openGroupId, _, _, let messageServerId, let whisper, let whisperMods, let whisperTo):
+                /// Don't allow control messages in community conversations
+                guard message is VisibleMessage else {
+                    throw MessageError.communitiesDoNotSupportControlMessages
                 }
                 
-            case (_, .openGroupInbox(let timestamp, let messageServerId, let serverPublicKey, let senderId, let recipientId)):
-                (plaintext, sender) = try dependencies[singleton: .crypto].tryGenerate(
-                    .plaintextWithSessionBlindingProtocol(
-                        ciphertext: data,
-                        senderId: senderId,
-                        recipientId: recipientId,
-                        serverPublicKey: serverPublicKey
-                    )
-                )
-                
+                threadId = openGroupId
+                threadVariant = .community
+                serverExpirationTimestamp = nil
                 uniqueIdentifier = "\(messageServerId)"
-                plaintext = plaintext.removePadding()   // Remove the padding
-                sentTimestampMs = UInt64(floor(timestamp * 1000)) // Convert to ms for database consistency
-                serverHash = nil
-                openGroupServerMessageId = UInt64(messageServerId)
-                openGroupWhisper = false
-                openGroupWhisperMods = false
-                openGroupWhisperTo = nil
-                threadVariant = .contact
-                threadIdGenerator = { _ in sender }
+                message.openGroupServerMessageId = UInt64(messageServerId)
+                message.openGroupWhisper = whisper
+                message.openGroupWhisperMods = whisperMods
+                message.openGroupWhisperTo = whisperTo
                 
-            case (_, .swarm(let publicKey, let namespace, let swarmServerHash, _, _)):
-                uniqueIdentifier = swarmServerHash
-                serverHash = swarmServerHash
+            case .communityInbox(_, let messageServerId, _, _, _):
+                /// Don't process community inbox messages if the sender is blocked
+                guard
+                    dependencies.mutate(cache: .libSession, { cache in
+                        !cache.isContactBlocked(contactId: decodedMessage.sender.hexString)
+                    }) ||
+                    message.processWithBlockedSender
+                else { throw MessageError.senderBlocked }
+                
+                /// Ignore self sends if needed
+                guard message.isSelfSendValid || decodedMessage.sender != userSessionId else {
+                    throw MessageError.selfSend
+                }
+                
+                threadId = decodedMessage.sender.hexString
+                threadVariant = .contact
+                serverExpirationTimestamp = nil
+                uniqueIdentifier = "\(messageServerId)"
+                message.openGroupServerMessageId = UInt64(messageServerId)
+                
+            case .swarm(let publicKey, let namespace, let serverHash, _, let expirationTimestamp):
+                /// Don't process 1-to-1 or group messages if the sender is blocked
+                guard
+                    dependencies.mutate(cache: .libSession, { cache in
+                        !cache.isContactBlocked(contactId: decodedMessage.sender.hexString)
+                    }) ||
+                    message.processWithBlockedSender
+                else { throw MessageError.senderBlocked }
+                
+                /// Ignore self sends if needed
+                guard message.isSelfSendValid || decodedMessage.sender != userSessionId else {
+                    throw MessageError.selfSend
+                }
                 
                 switch namespace {
                     case .default:
-                        let envelope: SNProtoEnvelope = try Result(
-                            catching: { try MessageWrapper.unwrap(data: data, namespace: namespace) })
-                            .onFailure { error in Log.warn(.messageReceiver, "\(error)") }
-                            .mapError { _ in MessageReceiverError.invalidMessage }
-                            .successOrThrow()
-                        let ciphertext: Data = try Result(
-                            catching: { try envelope.content ?? { throw MessageReceiverError.noData }() })
-                            .onFailure { error in Log.warn(.messageReceiver, "Failed to unwrap message from '\(namespace)' namespace due to error: \(error).") }
-                            .mapError { _ in MessageReceiverError.invalidMessage }
-                            .successOrThrow()
-                        
-                        (plaintext, sender) = try dependencies[singleton: .crypto].tryGenerate(
-                            .plaintextWithSessionProtocol(ciphertext: ciphertext)
+                        threadId = Message.threadId(
+                            forMessage: message,
+                            destination: .contact(publicKey: decodedMessage.sender.hexString),
+                            using: dependencies
                         )
-                        plaintext = plaintext.removePadding()   // Remove the padding
-                        sentTimestampMs = envelope.timestamp
-                        openGroupServerMessageId = nil
-                        openGroupWhisper = false
-                        openGroupWhisperMods = false
-                        openGroupWhisperTo = nil
                         threadVariant = .contact
-                        threadIdGenerator = { message in
-                            Message.threadId(forMessage: message, destination: .contact(publicKey: sender), using: dependencies)
-                        }
                         
                     case .groupMessages:
-                        let plaintextEnvelope: Data
-                        (plaintextEnvelope, sender) = try dependencies[singleton: .crypto].tryGenerate(
-                            .plaintextForGroupMessage(
-                                groupSessionId: SessionId(.group, hex: publicKey),
-                                ciphertext: Array(data)
-                            )
-                        )
-                        
-                        let envelope: SNProtoEnvelope = try Result(catching: {
-                            try MessageWrapper.unwrap(
-                                data: plaintextEnvelope,
-                                namespace: namespace,
-                                includesWebSocketMessage: false
-                            )
-                        })
-                        .onFailure { error in Log.warn(.messageReceiver, "\(error)") }
-                        .mapError { _ in MessageReceiverError.invalidMessage }
-                        .successOrThrow()
-                        let envelopeContent: Data = try Result(
-                            catching: { try envelope.content ?? { throw MessageReceiverError.noData }() })
-                            .onFailure { error in Log.warn(.messageReceiver, "Failed to unwrap message from '\(namespace)' namespace due to error: \(error).") }
-                            .mapError { _ in MessageReceiverError.invalidMessage }
-                            .successOrThrow()
-                        
-                        plaintext = envelopeContent // Padding already removed for updated groups
-                        sentTimestampMs = envelope.timestamp
-                        openGroupServerMessageId = nil
-                        openGroupWhisper = false
-                        openGroupWhisperMods = false
-                        openGroupWhisperTo = nil
+                        threadId = publicKey
                         threadVariant = .group
-                        threadIdGenerator = { _ in publicKey }
                         
-                    case .revokedRetrievableGroupMessages:
-                        plaintext = Data()  // Requires custom decryption
-                        
-                        let contentProto: SNProtoContent.SNProtoContentBuilder = SNProtoContent.builder()
-                        contentProto.setSigTimestamp(0)
-                        customProto = try contentProto.build()
-                        customMessage = LibSessionMessage(ciphertext: data)
-                        sender = publicKey  // The "group" sends these messages
-                        sentTimestampMs = 0
-                        openGroupServerMessageId = nil
-                        openGroupWhisper = false
-                        openGroupWhisperMods = false
-                        openGroupWhisperTo = nil
-                        threadVariant = .group
-                        threadIdGenerator = { _ in publicKey }
-                        
-                    case .configUserProfile, .configContacts, .configConvoInfoVolatile, .configUserGroups:
-                        throw MessageReceiverError.invalidConfigMessageHandling
-                        
-                    case .configGroupInfo, .configGroupMembers, .configGroupKeys:
-                        throw MessageReceiverError.invalidConfigMessageHandling
-                    
-                    case .legacyClosedGroup: throw MessageReceiverError.deprecatedMessage
-                    case .configLocal, .all, .unknown:
+                    default:
                         Log.warn(.messageReceiver, "Couldn't process message due to invalid namespace.")
-                        throw MessageReceiverError.unknownMessage(nil)
+                        throw MessageError.unknownMessage(decodedMessage)
                 }
+                
+                serverExpirationTimestamp = expirationTimestamp
+                uniqueIdentifier = serverHash
+                message.serverHash = serverHash
+                message.attachDisappearingMessagesConfiguration(from: proto)
         }
         
-        let proto: SNProtoContent = try (customProto ?? Result(catching: { try SNProtoContent.parseData(plaintext) })
-            .onFailure { Log.error(.messageReceiver, "Couldn't parse proto due to error: \($0).") }
-            .successOrThrow())
-        let message: Message = try (customMessage ?? Message.createMessageFrom(proto, sender: sender, using: dependencies))
-        message.sender = sender
-        message.serverHash = serverHash
-        message.sentTimestampMs = sentTimestampMs
-        message.sigTimestampMs = (proto.hasSigTimestamp ? proto.sigTimestamp : nil)
-        message.receivedTimestampMs = dependencies[cache: .snodeAPI].currentOffsetTimestampMs()
-        message.openGroupServerMessageId = openGroupServerMessageId
-        message.openGroupWhisper = openGroupWhisper
-        message.openGroupWhisperMods = openGroupWhisperMods
-        message.openGroupWhisperTo = openGroupWhisperTo
-        
-        // Ignore disappearing message settings in communities (in case of modified clients)
-        if threadVariant != .community {
-            message.attachDisappearingMessagesConfiguration(from: proto)
-        }
-        
-        // Don't process the envelope any further if the sender is blocked
-        guard
-            dependencies.mutate(cache: .libSession, { cache in
-                !cache.isContactBlocked(contactId: sender)
-            }) ||
-            message.processWithBlockedSender
-        else { throw MessageReceiverError.senderBlocked }
-        
-        // Ignore self sends if needed
-        guard message.isSelfSendValid || sender != userSessionId.hexString else {
-            throw MessageReceiverError.selfSend
-        }
-        
-        // Guard against control messages in open groups
-        guard !origin.isCommunity || message is VisibleMessage else {
-            throw MessageReceiverError.invalidMessage
-        }
-        
-        // Validate
-        guard message.isValid(isSending: false) else {
-            throw MessageReceiverError.invalidMessage
-        }
+        /// Ensure the message is valid
+        try message.validateMessage(isSending: false)
         
         return .standard(
-            threadId: try threadIdGenerator(message),
+            threadId: threadId,
             threadVariant: threadVariant,
-            proto: proto,
-            messageInfo: try MessageReceiveJob.Details.MessageInfo(
+            messageInfo: MessageReceiveJob.Details.MessageInfo(
                 message: message,
                 variant: try Message.Variant(from: message) ?? {
-                    throw MessageReceiverError.invalidMessage
+                    throw MessageError.invalidMessage("Unknown message type: \(type(of: message))")
                 }(),
                 threadVariant: threadVariant,
-                serverExpirationTimestamp: origin.serverExpirationTimestamp,
-                proto: proto
+                serverExpirationTimestamp: serverExpirationTimestamp,
+                decodedMessage: decodedMessage
             ),
             uniqueIdentifier: uniqueIdentifier
         )
@@ -248,9 +196,10 @@ public enum MessageReceiver {
         threadId: String,
         threadVariant: SessionThread.Variant,
         message: Message,
+        decodedMessage: DecodedMessage,
         serverExpirationTimestamp: TimeInterval?,
-        associatedWithProto proto: SNProtoContent,
         suppressNotifications: Bool,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         /// Throw if the message is outdated and shouldn't be processed (this is based on pretty flaky logic which checks if the config
@@ -267,12 +216,9 @@ public enum MessageReceiver {
         
         MessageReceiver.updateContactDisappearingMessagesVersionIfNeeded(
             db,
-            messageVariant: .init(from: message),
+            messageVariant: Message.Variant(from: message),
             contactId: message.sender,
-            version: ((!proto.hasExpirationType && !proto.hasExpirationTimer) ?
-                .legacyDisappearingMessages :
-                .newDisappearingMessages
-            ),
+            decodedMessage: decodedMessage,
             using: dependencies
         )
         
@@ -306,8 +252,10 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
                     suppressNotifications: suppressNotifications,
+                    currentUserSessionIds: currentUserSessionIds,
                     using: dependencies
                 )
                 
@@ -327,8 +275,8 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    proto: proto,
                     using: dependencies
                 )
                 
@@ -348,6 +296,7 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     suppressNotifications: suppressNotifications,
                     using: dependencies
                 )
@@ -356,6 +305,8 @@ public enum MessageReceiver {
                 interactionInfo = try MessageReceiver.handleMessageRequestResponse(
                     db,
                     message: message,
+                    decodedMessage: decodedMessage,
+                    currentUserSessionIds: currentUserSessionIds,
                     using: dependencies
                 )
                 
@@ -365,9 +316,10 @@ public enum MessageReceiver {
                     threadId: threadId,
                     threadVariant: threadVariant,
                     message: message,
+                    decodedMessage: decodedMessage,
                     serverExpirationTimestamp: serverExpirationTimestamp,
-                    associatedWithProto: proto,
                     suppressNotifications: suppressNotifications,
+                    currentUserSessionIds: currentUserSessionIds,
                     using: dependencies
                 )
             
@@ -381,7 +333,7 @@ public enum MessageReceiver {
                     using: dependencies
                 )
             
-            default: throw MessageReceiverError.unknownMessage(proto)
+            default: throw MessageError.unknownMessage(decodedMessage)
         }
         
         // Perform any required post-handling logic
@@ -460,11 +412,13 @@ public enum MessageReceiver {
 
         guard !isCurrentlyVisible else { return }
         
-        try SessionThread.updateVisibility(
+        try SessionThread.update(
             db,
-            threadId: threadId,
-            isVisible: true,
-            additionalChanges: [SessionThread.Columns.isDraft.set(to: false)],
+            id: threadId,
+            values: SessionThread.TargetValues(
+                shouldBeVisible: .setTo(true),
+                isDraft: .setTo(false)
+            ),
             using: dependencies
         )
     }
@@ -475,28 +429,54 @@ public enum MessageReceiver {
         openGroupMessageServerId: Int64,
         openGroupReactions: [Reaction]
     ) throws {
-        struct Info: Decodable, FetchableRecord {
+        struct InteractionInfo: Decodable, FetchableRecord {
             let id: Int64
             let variant: Interaction.Variant
         }
+        struct ReactionInfo: Decodable, FetchableRecord {
+            let rowID: Int64
+            let emoji: String
+        }
         
-        guard let interactionInfo: Info = try? Interaction
+        guard let interactionInfo: InteractionInfo = try? Interaction
             .select(.id, .variant)
             .filter(Interaction.Columns.threadId == threadId)
             .filter(Interaction.Columns.openGroupServerMessageId == openGroupMessageServerId)
-            .asRequest(of: Info.self)
+            .asRequest(of: InteractionInfo.self)
             .fetchOne(db)
-        else { throw MessageReceiverError.invalidMessage }
+        else { throw MessageError.invalidMessage("Could not find message reaction is associated to") }
         
         // If the user locally deleted the message then we don't want to process reactions for it
         guard !interactionInfo.variant.isDeletedMessage else { return }
+        
+        let removedReactions: [ReactionInfo] = try Reaction
+            .select(Column.rowID, Reaction.Columns.emoji)
+            .filter(Reaction.Columns.interactionId == interactionInfo.id)
+            .asRequest(of: ReactionInfo.self)
+            .fetchAll(db)
         
         _ = try Reaction
             .filter(Reaction.Columns.interactionId == interactionInfo.id)
             .deleteAll(db)
         
+        // Send events
+        removedReactions.forEach { reaction in
+            db.addReactionEvent(
+                id: reaction.rowID,
+                messageId: interactionInfo.id,
+                change: .removed(reaction.emoji)
+            )
+        }
+        
         for reaction in openGroupReactions {
             try reaction.with(interactionId: interactionInfo.id).insert(db)
+            
+            // Send event
+            db.addReactionEvent(
+                id: db.lastInsertedRowID,
+                messageId: interactionInfo.id,
+                change: .added(reaction.emoji)
+            )
         }
     }
     
@@ -542,7 +522,7 @@ public enum MessageReceiver {
                         cache.hasCredentials(groupSessionId: groupSessionId),
                         !cache.groupIsDestroyed(groupSessionId: groupSessionId),
                         !cache.wasKickedFromGroup(groupSessionId: groupSessionId)
-                    else { throw MessageReceiverError.outdatedMessage }
+                    else { throw MessageError.outdatedMessage }
                     
                     return
                 }
@@ -561,7 +541,7 @@ public enum MessageReceiver {
                             (message as? VisibleMessage)?.dataMessageHasAttachments == false ||
                             messageSentTimestamp > deleteAttachmentsBefore
                         )
-                    else { throw MessageReceiverError.outdatedMessage }
+                    else { throw MessageError.outdatedMessage }
                     
                     return
                 }
@@ -585,7 +565,7 @@ public enum MessageReceiver {
             )
             
             switch (conversationInConfig, canPerformConfigChange) {
-                case (false, false): throw MessageReceiverError.outdatedMessage
+                case (false, false): throw MessageError.outdatedMessage
                 default: break
             }
         }

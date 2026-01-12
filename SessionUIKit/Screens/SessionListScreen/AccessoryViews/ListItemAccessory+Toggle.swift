@@ -12,6 +12,7 @@ public extension SessionListScreenContent.ListItemAccessory {
             AnimatedToggle(
                 value: value,
                 oldValue: oldValue,
+                allowHitTesting: false, /// Disable hit testing as the `ListItem` should receive the touches
                 accessibility: accessibility
             )
         }

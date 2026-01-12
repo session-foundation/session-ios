@@ -3,8 +3,22 @@
 import UIKit
 
 public class SessionProBadge: UIView {
+    public static let accessibilityLabel: String = Constants.app_pro
+    
+    public static let identifier: String = "ProBadge"   // stringlint:ignore
+    
     public enum Size {
         case mini, small, medium, large
+        
+        // stringlint:ignore_contents
+        public var cacheKey: String {
+            switch self {
+                case .mini: return "SessionProBadge.Mini"
+                case .small: return "SessionProBadge.Small"
+                case .medium: return "SessionProBadge.Medium"
+                case .large: return "SessionProBadge.Large"
+            }
+        }
         
         public var width: CGFloat {
             switch self {
@@ -44,16 +58,6 @@ public class SessionProBadge: UIView {
                 case .small: return 24
                 case .medium: return 28
                 case .large: return 40
-            }
-        }
-        
-        // stringlint:ignore_contents
-        public var cacheKey: String {
-            switch self {
-                case .mini: return "SessionProBadge.Mini"
-                case .small: return "SessionProBadge.Small"
-                case .medium: return "SessionProBadge.Medium"
-                case .large: return "SessionProBadge.Large"
             }
         }
     }

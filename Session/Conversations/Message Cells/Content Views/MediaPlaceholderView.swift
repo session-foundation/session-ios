@@ -32,7 +32,7 @@ final class MediaPlaceholderView: UIView {
         let (iconName, attachmentDescription): (String, String) = {
             guard
                 cellViewModel.variant == .standardIncoming,
-                let attachment: Attachment = cellViewModel.attachments?.first
+                let attachment: Attachment = cellViewModel.attachments.first
             else {
                 return (
                     "actionsheet_document_black", // stringlint:ignore

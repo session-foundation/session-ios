@@ -107,7 +107,7 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
         
         switch adminSignature {
             case .standard(let signature): try container.encode(signature, forKey: .adminSignature)
-            case .subaccount: throw MessageSenderError.signingFailed
+            case .subaccount: throw MessageError.requiredSignatureMissing
         }
     }
 
@@ -143,7 +143,7 @@ public final class GroupUpdateInfoChangeMessage: ControlMessage {
                 adminSignature: try {
                     switch adminSignature {
                         case .standard(let signature): return Data(signature)
-                        case .subaccount: throw MessageSenderError.signingFailed
+                        case .subaccount: throw MessageError.requiredSignatureMissing
                     }
                 }()
             )

@@ -114,19 +114,56 @@ final public class LocalizationHelper: CustomStringConvertible {
 
 public extension LocalizationHelper {
     func localizedDeformatted() -> String {
-        return ThemedAttributedString(stringWithHTMLTags: localized(), font: .systemFont(ofSize: 14)).string
+        return ThemedAttributedString(
+            stringWithHTMLTags: localized(),
+            font: .systemFont(ofSize: 14),
+            attributes: [:],
+            mentionColor: nil,
+            currentUserMentionImage: nil
+        ).string
     }
     
-    func localizedFormatted(baseFont: UIFont) -> ThemedAttributedString {
-        return ThemedAttributedString(stringWithHTMLTags: localized(), font: baseFont)
+    func localizedFormatted(
+        baseFont: UIFont,
+        attributes: [NSAttributedString.Key: Any] = [:],
+        mentionColor: ThemeValue? = nil,
+        currentUserMentionImage: UIImage? = nil
+    ) -> ThemedAttributedString {
+        return ThemedAttributedString(
+            stringWithHTMLTags: localized(),
+            font: baseFont,
+            attributes: attributes,
+            mentionColor: mentionColor,
+            currentUserMentionImage: currentUserMentionImage
+        )
     }
     
-    func localizedFormatted(in view: FontAccessible) -> ThemedAttributedString {
-        return localizedFormatted(baseFont: (view.fontValue ?? .systemFont(ofSize: 14)))
+    func localizedFormatted(
+        in view: FontAccessible,
+        attributes: [NSAttributedString.Key: Any] = [:],
+        mentionColor: ThemeValue? = nil,
+        currentUserMentionImage: UIImage? = nil
+    ) -> ThemedAttributedString {
+        return localizedFormatted(
+            baseFont: (view.fontValue ?? .systemFont(ofSize: 14)),
+            attributes: attributes,
+            mentionColor: mentionColor,
+            currentUserMentionImage: currentUserMentionImage
+        )
     }
     
-    func localizedFormatted(_ font: UIFont = .systemFont(ofSize: 14)) -> ThemedAttributedString {
-        return localizedFormatted(baseFont: font)
+    func localizedFormatted(
+        _ font: UIFont = .systemFont(ofSize: 14),
+        attributes: [NSAttributedString.Key: Any] = [:],
+        mentionColor: ThemeValue? = nil,
+        currentUserMentionImage: UIImage? = nil
+    ) -> ThemedAttributedString {
+        return localizedFormatted(
+            baseFont: font,
+            attributes: attributes,
+            mentionColor: mentionColor,
+            currentUserMentionImage: currentUserMentionImage
+        )
     }
 }
 
@@ -175,13 +212,13 @@ public extension String {
                     
                 // Arabic (also covers Persian, Urdu, Pashto, Sorani Kurdish)
                 case 0x0600...0x06FF,   // Arabic + Persian/Urdu/Pashto extensions
-                    0x0750...0x077F,   // Arabic Supplement
-                    0x08A0...0x08FF:   // Arabic Extended-A
+                    0x0750...0x077F,    // Arabic Supplement
+                    0x08A0...0x08FF:    // Arabic Extended-A
                     return true
                     
                 // Presentation forms (used by all Arabic-script languages)
                 case 0xFB1D...0xFDFF,   // Hebrew + Arabic presentation forms
-                    0xFE70...0xFEFE:   // Arabic Presentation Forms-B
+                    0xFE70...0xFEFE:    // Arabic Presentation Forms-B
                     return true
                     
                 default: return false

@@ -2,6 +2,7 @@
 
 import Foundation
 import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 struct AppReviewPromptModel {
@@ -104,7 +105,7 @@ enum AppReviewPromptState {
             case .rateSession:
                 /// In this case the full `platformStore` value was found to be too verbose so remove the leading `Apple `
                 /// to make it more succinct
-                let storeVaraint: String = Constants.platform_store
+                let storeVariant: String = Constants.PaymentProvider.appStore.store
                     .replacingOccurrences(of: "Apple ", with: "")   // stringlint:ignore
                 
                 return AppReviewPromptModel(
@@ -113,7 +114,7 @@ enum AppReviewPromptState {
                         .localized(),
                     message: "rateSessionModalDescriptionUpdated"
                         .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "storevariant", value: storeVaraint)
+                        .put(key: "storevariant", value: storeVariant)
                         .localized(),
                     primaryButtonTitle: "rateUs".localized(),
                     primaryButtonColor: .sessionButton_text,

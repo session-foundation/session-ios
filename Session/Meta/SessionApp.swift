@@ -69,43 +69,59 @@ public class SessionApp: SessionAppType {
         self.homeViewController = homeViewController
     }
     
-    @MainActor public func presentConversationCreatingIfNeeded(
+    public func presentConversationCreatingIfNeeded(
         for threadId: String,
         variant: SessionThread.Variant,
         action: ConversationViewModel.Action = .none,
         dismissing presentingViewController: UIViewController?,
         animated: Bool
-    ) {
+    ) async {
         guard let homeViewController: HomeVC = self.homeViewController else {
             Log.error("[SessionApp] Unable to present conversation due to missing HomeVC.")
             return
         }
         
-        let threadExists: Bool? = dependencies[singleton: .storage].read { db in
-            SessionThread.filter(id: threadId).isNotEmpty(db)
-        }
-        
         /// The thread should generally exist at the time of calling this method, but on the off chance it doesn't then we need to
         /// `fetchOrCreate` it and should do it on a background thread just in case something is keeping the DBWrite thread
         /// busy as in the past this could cause the app to hang
-        creatingThreadIfNeededThenRunOnMain(
-            threadId: threadId,
-            variant: variant,
-            threadExists: (threadExists == true),
-            onComplete: { [weak self, dependencies] in
-                self?.showConversation(
-                    threadId: threadId,
-                    threadVariant: variant,
-                    isMessageRequest: dependencies.mutate(cache: .libSession) { cache in
-                        cache.isMessageRequest(threadId: threadId, threadVariant: variant)
-                    },
-                    action: action,
-                    dismissing: presentingViewController,
-                    homeViewController: homeViewController,
-                    animated: animated
+        let threadExists: Bool? = try? await dependencies[singleton: .storage].readAsync { db in
+            SessionThread.filter(id: threadId).isNotEmpty(db)
+        }
+        
+        if threadExists != true {
+            _ = try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+                try SessionThread.upsert(
+                    db,
+                    id: threadId,
+                    variant: variant,
+                    values: SessionThread.TargetValues(
+                        shouldBeVisible: .useLibSession,
+                        isDraft: .useExistingOrSetTo(true)
+                    ),
+                    using: dependencies
                 )
             }
+        }
+        
+        let maybeThreadInfo: ConversationInfoViewModel? = try? await ConversationViewModel.fetchConversationInfo(
+            threadId: threadId,
+            using: dependencies
         )
+        
+        guard let threadInfo: ConversationInfoViewModel = maybeThreadInfo else {
+            Log.error("Failed to present \(variant) conversation \(threadId) due to failure to fetch threadViewModel")
+            return
+        }
+        
+        await MainActor.run { [weak self] in
+            self?.showConversation(
+                threadInfo: threadInfo,
+                action: action,
+                dismissing: presentingViewController,
+                homeViewController: homeViewController,
+                animated: animated
+            )
+        }
     }
     
     public func createNewConversation() {
@@ -176,41 +192,8 @@ public class SessionApp: SessionAppType {
     
     // MARK: - Internal Functions
     
-    @MainActor private func creatingThreadIfNeededThenRunOnMain(
-        threadId: String,
-        variant: SessionThread.Variant,
-        threadExists: Bool,
-        onComplete: @escaping () -> Void
-    ) {
-        guard !threadExists else {
-            return onComplete()
-        }
-        
-        Task(priority: .userInitiated) { [storage = dependencies[singleton: .storage], dependencies] in
-            storage.writeAsync(
-                updates: { db in
-                    try SessionThread.upsert(
-                        db,
-                        id: threadId,
-                        variant: variant,
-                        values: SessionThread.TargetValues(
-                            shouldBeVisible: .useLibSession,
-                            isDraft: .useExistingOrSetTo(true)
-                        ),
-                        using: dependencies
-                    )
-                },
-                completion: { _ in
-                    Task { @MainActor in onComplete() }
-                }
-            )
-        }
-    }
-    
     @MainActor private func showConversation(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
-        isMessageRequest: Bool,
+        threadInfo: ConversationInfoViewModel,
         action: ConversationViewModel.Action,
         dismissing presentingViewController: UIViewController?,
         homeViewController: HomeVC,
@@ -221,13 +204,12 @@ public class SessionApp: SessionAppType {
         homeViewController.navigationController?.setViewControllers(
             [
                 homeViewController,
-                (isMessageRequest && action != .compose ?
+                (threadInfo.isMessageRequest && action != .compose ?
                     SessionTableViewController(viewModel: MessageRequestsViewModel(using: dependencies)) :
                     nil
                 ),
                 ConversationVC(
-                    threadId: threadId,
-                    threadVariant: threadVariant,
+                    threadInfo: threadInfo,
                     focusedInteractionInfo: nil,
                     using: dependencies
                 )
@@ -244,13 +226,13 @@ public protocol SessionAppType {
     
     func setHomeViewController(_ homeViewController: HomeVC)
     @MainActor func showHomeView()
-    @MainActor func presentConversationCreatingIfNeeded(
+    func presentConversationCreatingIfNeeded(
         for threadId: String,
         variant: SessionThread.Variant,
         action: ConversationViewModel.Action,
         dismissing presentingViewController: UIViewController?,
         animated: Bool
-    )
+    ) async
     func createNewConversation()
     func resetData(onReset: (() -> ()))
     @MainActor func showPromotedScreen()

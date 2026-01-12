@@ -9,47 +9,8 @@ import SessionUtilitiesKit
 // MARK: - Messages
 
 public extension Crypto.Generator {
-    static func ciphertextWithSessionBlindingProtocol(
-        plaintext: Data,
-        recipientBlindedId: String,
-        serverPublicKey: String
-    ) -> Crypto.Generator<Data> {
-        return Crypto.Generator(
-            id: "ciphertextWithSessionBlindingProtocol",
-            args: [plaintext, serverPublicKey]
-        ) { dependencies in
-            var cPlaintext: [UInt8] = Array(plaintext)
-            var cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
-            var cRecipientBlindedId: [UInt8] = Array(Data(hex: recipientBlindedId))
-            var cServerPublicKey: [UInt8] = Array(Data(hex: serverPublicKey))
-            var maybeCiphertext: UnsafeMutablePointer<UInt8>? = nil
-            var ciphertextLen: Int = 0
-
-            guard !cEd25519SecretKey.isEmpty else { throw MessageSenderError.noUserED25519KeyPair }
-            guard
-                cEd25519SecretKey.count == 64,
-                cServerPublicKey.count == 32,
-                session_encrypt_for_blinded_recipient(
-                    &cPlaintext,
-                    cPlaintext.count,
-                    &cEd25519SecretKey,
-                    &cServerPublicKey,
-                    &cRecipientBlindedId,
-                    &maybeCiphertext,
-                    &ciphertextLen
-                ),
-                ciphertextLen > 0,
-                let ciphertext: Data = maybeCiphertext.map({ Data(bytes: $0, count: ciphertextLen) })
-            else { throw MessageSenderError.encryptionFailed }
-
-            free(UnsafeMutableRawPointer(mutating: maybeCiphertext))
-
-            return ciphertext
-        }
-    }
-
-    static func plaintextWithSessionBlindingProtocol(
-        ciphertext: Data,
+    static func plaintextWithSessionBlindingProtocol<I: DataProtocol>(
+        ciphertext: I,
         senderId: String,
         recipientId: String,
         serverPublicKey: String
@@ -67,7 +28,7 @@ public extension Crypto.Generator {
             var maybePlaintext: UnsafeMutablePointer<UInt8>? = nil
             var plaintextLen: Int = 0
 
-            guard !cEd25519SecretKey.isEmpty else { throw MessageSenderError.noUserED25519KeyPair }
+            guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
             guard
                 cEd25519SecretKey.count == 64,
                 cServerPublicKey.count == 32,
@@ -84,7 +45,7 @@ public extension Crypto.Generator {
                 ),
                 plaintextLen > 0,
                 let plaintext: Data = maybePlaintext.map({ Data(bytes: $0, count: plaintextLen) })
-            else { throw MessageReceiverError.decryptionFailed }
+            else { throw MessageError.decodingFailed }
 
             free(UnsafeMutableRawPointer(mutating: maybePlaintext))
 

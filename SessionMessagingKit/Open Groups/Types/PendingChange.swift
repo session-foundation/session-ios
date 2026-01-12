@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension OpenGroupManager {
+extension CommunityManager {
     public struct PendingChange: Equatable {
         public enum ChangeType {
             case reaction
@@ -24,7 +24,7 @@ extension OpenGroupManager {
         var seqNo: Int64?
         let metadata: Metadata
         
-        public static func == (lhs: OpenGroupManager.PendingChange, rhs: OpenGroupManager.PendingChange) -> Bool {
+        public static func == (lhs: CommunityManager.PendingChange, rhs: CommunityManager.PendingChange) -> Bool {
             guard
                 lhs.server == rhs.server &&
                 lhs.room == rhs.room &&

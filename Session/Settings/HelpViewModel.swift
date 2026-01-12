@@ -81,9 +81,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                         pinEdges: [.right]
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://getsession.org/translate") else {
-                            return
-                        }
+                        guard let url: URL = URL(string: Constants.urls.translate) else { return }
                         
                         UIApplication.shared.open(url)
                     }
@@ -103,9 +101,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                         pinEdges: [.right]
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://getsession.org/survey") else {
-                            return
-                        }
+                        guard let url: URL = URL(string: Constants.urls.survey) else { return }
                         
                         UIApplication.shared.open(url)
                     }
@@ -125,9 +121,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                         pinEdges: [.right]
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://getsession.org/faq") else {
-                            return
-                        }
+                        guard let url: URL = URL(string: Constants.urls.faq) else { return }
                         
                         UIApplication.shared.open(url)
                     }
@@ -147,9 +141,7 @@ class HelpViewModel: SessionTableViewModel, NavigatableStateHolder, ObservableTa
                         pinEdges: [.right]
                     ),
                     onTap: {
-                        guard let url: URL = URL(string: "https://sessionapp.zendesk.com/hc/en-us") else {
-                            return
-                        }
+                        guard let url: URL = URL(string: Constants.urls.support) else { return }
                         
                         UIApplication.shared.open(url)
                     }

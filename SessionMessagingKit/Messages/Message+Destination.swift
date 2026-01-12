@@ -15,10 +15,10 @@ public extension Message {
         
         /// A one-to-one destination where `groupPublicKey` is a `standard` `SessionId` for legacy groups
         /// and a `group` `SessionId` for updated groups
-        case closedGroup(groupPublicKey: String)
+        case group(publicKey: String)
         
         /// A message directed to an open group
-        case openGroup(
+        case community(
             roomToken: String,
             server: String,
             whisperTo: String? = nil,
@@ -26,27 +26,27 @@ public extension Message {
         )
         
         /// A message directed to an open group inbox
-        case openGroupInbox(server: String, openGroupPublicKey: String, blindedPublicKey: String)
+        case communityInbox(server: String, openGroupPublicKey: String, blindedPublicKey: String)
         
         public var threadVariant: SessionThread.Variant {
             switch self {
-                case .contact, .syncMessage, .openGroupInbox: return .contact
-                case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
+                case .contact, .syncMessage, .communityInbox: return .contact
+                case .group(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
                     return .group
                 
-                case .closedGroup: return .legacyGroup
-                case .openGroup: return .community
+                case .group: return .legacyGroup
+                case .community: return .community
             }
         }
         
         public var defaultNamespace: Network.SnodeAPI.Namespace? {
             switch self {
                 case .contact, .syncMessage: return .`default`
-                case .closedGroup(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
+                case .group(let groupId) where (try? SessionId.Prefix(from: groupId)) == .group:
                     return .groupMessages
                 
-                case .closedGroup: return .legacyClosedGroup
-                case .openGroup, .openGroupInbox: return nil
+                case .group: return .legacyClosedGroup
+                case .community, .communityInbox: return nil
             }
         }
         
@@ -64,7 +64,7 @@ public extension Message {
                             throw SOGSError.blindedLookupMissingCommunityInfo
                         }
                         
-                        return .openGroupInbox(
+                        return .communityInbox(
                             server: lookup.openGroupServer,
                             openGroupPublicKey: lookup.openGroupPublicKey,
                             blindedPublicKey: threadId
@@ -73,7 +73,7 @@ public extension Message {
                     
                     return .contact(publicKey: threadId)
                 
-                case .legacyGroup, .group: return .closedGroup(groupPublicKey: threadId)
+                case .legacyGroup, .group: return .group(publicKey: threadId)
                 
                 case .community:
                     guard
@@ -81,7 +81,7 @@ public extension Message {
                             .fetchOne(db, id: threadId)
                     else { throw StorageError.objectNotFound }
                     
-                    return .openGroup(roomToken: info.roomToken, server: info.server)
+                    return .community(roomToken: info.roomToken, server: info.server)
             }
         }
     }

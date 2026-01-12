@@ -12,26 +12,27 @@ extension MessageReceiver {
     internal static func handleMessageRequestResponse(
         _ db: ObservingDatabase,
         message: MessageRequestResponse,
+        decodedMessage: DecodedMessage,
+        currentUserSessionIds: Set<String>,
         using dependencies: Dependencies
     ) throws -> InsertedInteractionInfo? {
         let userSessionId = dependencies[cache: .general].sessionId
         var blindedContactIds: [String] = []
         
         // Ignore messages which were sent from the current user
-        guard
-            message.sender != userSessionId.hexString,
-            let senderId: String = message.sender
-        else { throw MessageReceiverError.invalidMessage }
+        guard message.sender != userSessionId.hexString else { throw MessageError.ignorableMessage }
+        guard let senderId: String = message.sender else { throw MessageError.missingRequiredField("sender") }
         
-        // Update profile if needed (want to do this regardless of whether the message exists or
-        // not to ensure the profile info gets sync between a users devices at every chance)
+        // Update profile if needed
         if let profile = message.profile {
             try Profile.updateIfNeeded(
                 db,
                 publicKey: senderId,
                 displayNameUpdate: .contactUpdate(profile.displayName),
-                displayPictureUpdate: .from(profile, fallback: .none, using: dependencies),
+                displayPictureUpdate: .contactUpdateTo(profile, fallback: .none),
+                proUpdate: .contactUpdate(Profile.ProState(decodedMessage.decodedPro)),
                 profileUpdateTimestamp: profile.updateTimestampSeconds,
+                currentUserSessionIds: currentUserSessionIds,
                 using: dependencies
             )
         }
@@ -107,14 +108,19 @@ extension MessageReceiver {
                 .filter(Interaction.Columns.threadId == blindedIdLookup.blindedId)
                 .updateAll(db, Interaction.Columns.threadId.set(to: unblindedThread.id))
             
-            _ = try SessionThread
-                .deleteOrLeave(
-                    db,
-                    type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
-                    threadId: blindedIdLookup.blindedId,
-                    threadVariant: .contact,
-                    using: dependencies
-                )
+            _ = try SessionThread.deleteOrLeave(
+                db,
+                type: .deleteContactConversationAndContact, // Blinded contact isn't synced anyway
+                threadId: blindedIdLookup.blindedId,
+                threadVariant: .contact,
+                using: dependencies
+            )
+            
+            // Notify about unblinding event
+            db.addContactEvent(
+                id: blindedIdLookup.blindedId,
+                change: .unblinded(blindedId: blindedIdLookup.blindedId, unblindedId: senderId)
+            )
         }
         
         // Update the `didApproveMe` state of the sender

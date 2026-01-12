@@ -25,10 +25,20 @@ public extension Network.PushNotification {
         }
         
         return dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<Network.PushNotification.SubscribeResponse> in
+            .readPublisher { db -> Set<String> in
+                try ClosedGroup
+                    .select(.threadId)
+                    .filter(
+                        ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                        ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
+                    )
+                    .filter(ClosedGroup.Columns.shouldPoll)
+                    .asRequest(of: String.self)
+                    .fetchSet(db)
+            }
+            .tryMap { groupIds in
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let userAuthMethod: AuthenticationMethod = try Authentication.with(
-                    db,
                     swarmPublicKey: userSessionId.hexString,
                     using: dependencies
                 )
@@ -37,32 +47,22 @@ public extension Network.PushNotification {
                     .preparedSubscribe(
                         token: token,
                         swarms: [(userSessionId, userAuthMethod)]
-                            .appending(contentsOf: try ClosedGroup
-                                .select(.threadId)
-                                .filter(
-                                    ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
-                                    ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
-                                )
-                                .filter(ClosedGroup.Columns.shouldPoll)
-                                .asRequest(of: String.self)
-                                .fetchSet(db)
-                                .compactMap { threadId in
-                                    do {
-                                        return (
-                                            SessionId(.group, hex: threadId),
-                                            try Authentication.with(
-                                                db,
-                                                swarmPublicKey: threadId,
-                                                using: dependencies
-                                            )
+                            .appending(contentsOf: groupIds.compactMap { threadId in
+                                do {
+                                    return (
+                                        SessionId(.group, hex: threadId),
+                                        try Authentication.with(
+                                            swarmPublicKey: threadId,
+                                            using: dependencies
                                         )
-                                    }
-                                    catch {
-                                        Log.warn(.pushNotificationAPI, "Unable to subscribe for push notifications to \(threadId) due to error: \(error).")
-                                        return nil
-                                    }
+                                    )
                                 }
-                            ),
+                                catch {
+                                    Log.warn(.pushNotificationAPI, "Skipping attempt to subscribe for push notifications for \(threadId) due to error: \(error).")
+                                    return nil
+                                }
+                            }
+                        ),
                         using: dependencies
                     )
                     .handleEvents(
@@ -85,10 +85,19 @@ public extension Network.PushNotification {
         using dependencies: Dependencies
     ) -> AnyPublisher<Void, Error> {
         return dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<Network.PushNotification.UnsubscribeResponse> in
+            .readPublisher { db -> Set<String> in
+                ((try? ClosedGroup
+                    .select(.threadId)
+                    .filter(
+                        ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
+                        ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
+                    )
+                    .asRequest(of: String.self)
+                    .fetchSet(db)) ?? [])
+            }
+            .tryMap { groupIds in
                 let userSessionId: SessionId = dependencies[cache: .general].sessionId
                 let userAuthMethod: AuthenticationMethod = try Authentication.with(
-                    db,
                     swarmPublicKey: userSessionId.hexString,
                     using: dependencies
                 )
@@ -97,31 +106,21 @@ public extension Network.PushNotification {
                     .preparedUnsubscribe(
                         token: token,
                         swarms: [(userSessionId, userAuthMethod)]
-                            .appending(contentsOf: (try? ClosedGroup
-                                .select(.threadId)
-                                .filter(
-                                    ClosedGroup.Columns.threadId > SessionId.Prefix.group.rawValue &&
-                                    ClosedGroup.Columns.threadId < SessionId.Prefix.group.endOfRangeString
-                                )
-                                .asRequest(of: String.self)
-                                .fetchSet(db))
-                                .defaulting(to: [])
-                                .compactMap { threadId in
-                                    do {
-                                        return (
-                                            SessionId(.group, hex: threadId),
-                                            try Authentication.with(
-                                                db,
-                                                swarmPublicKey: threadId,
-                                                using: dependencies
-                                            )
+                            .appending(contentsOf: groupIds.compactMap { threadId in
+                                do {
+                                    return (
+                                        SessionId(.group, hex: threadId),
+                                        try Authentication.with(
+                                            swarmPublicKey: threadId,
+                                            using: dependencies
                                         )
-                                    }
-                                    catch {
-                                        Log.info(.pushNotificationAPI, "Unable to unsubscribe for push notifications to \(threadId) due to error: \(error).")
-                                        return nil
-                                    }
-                                }),
+                                    )
+                                }
+                                catch {
+                                    Log.info(.pushNotificationAPI, "Skippint attempt to unsubscribe for push notifications from \(threadId) due to error: \(error).")
+                                    return nil
+                                }
+                            }),
                         using: dependencies
                     )
                     .handleEvents(

@@ -4,7 +4,7 @@ import Foundation
 import GRDB
 import SessionUtilitiesKit
 
-public struct Quote: Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct Quote: Sendable, Codable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "quote" }
     
     public typealias Columns = CodingKeys
@@ -57,21 +57,5 @@ public extension Quote {
             authorId: self.authorId,
             timestampMs: self.timestampMs
         )
-    }
-}
-
-// MARK: - Protobuf
-
-public extension Quote {
-    init?(proto: SNProtoDataMessage, interactionId: Int64, thread: SessionThread) throws {
-        guard
-            let quoteProto = proto.quote,
-            quoteProto.id != 0,
-            !quoteProto.author.isEmpty
-        else { return nil }
-        
-        self.interactionId = interactionId
-        self.timestampMs = Int64(quoteProto.id)
-        self.authorId = quoteProto.author
     }
 }

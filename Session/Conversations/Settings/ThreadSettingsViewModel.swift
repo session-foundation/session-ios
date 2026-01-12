@@ -13,6 +13,14 @@ import SignalUtilitiesKit
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
+// MARK: - Log.Category
+
+public extension Log.Category {
+    static let threadSettingsViewModel: Log.Category = .create("ThreadSettingsViewModel", defaultLevel: .warn)
+}
+
+// MARK: - ThreadSettingsViewModel
+
 class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemSource, NavigatableStateHolder {
     public let dependencies: Dependencies
     public let navigatableState: NavigatableState = NavigatableState()
@@ -23,8 +31,6 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     @MainActor @Published private(set) var internalState: ViewModelState
     private var observationTask: Task<Void, Never>?
     
-    private let threadId: String
-    private let threadVariant: SessionThread.Variant
     private let didTriggerSearch: () -> ()
     private var updatedName: String?
     private var updatedDescription: String?
@@ -40,20 +46,17 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     // MARK: - Initialization
     
     @MainActor init(
-        threadId: String,
-        threadVariant: SessionThread.Variant,
+        threadInfo: ConversationInfoViewModel,
         didTriggerSearch: @escaping () -> (),
         using dependencies: Dependencies
     ) {
         self.dependencies = dependencies
-        self.threadId = threadId
-        self.threadVariant = threadVariant
         self.didTriggerSearch = didTriggerSearch
-        self.internalState = ViewModelState.initialState(threadId: threadId)
+        self.internalState = ViewModelState.initialState(threadInfo: threadInfo, using: dependencies)
         
         self.observationTask = ObservationBuilder
             .initialValue(self.internalState)
-            .debounce(for: .never)
+            .debounce(for: .milliseconds(10))   /// Changes trigger multiple events at once so debounce them
             .using(dependencies: dependencies)
             .query(ThreadSettingsViewModel.queryState)
             .assign { [weak self] updatedState in
@@ -145,18 +148,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     
     lazy var rightNavItems: AnyPublisher<[SessionNavItem<NavItem>], Never> = $internalState
         .map { [weak self] state -> [SessionNavItem<NavItem>] in
-            guard let threadViewModel: SessionThreadViewModel = state.threadViewModel else { return [] }
-           
-            let currentUserIsClosedGroupAdmin: Bool = (
-                [.legacyGroup, .group].contains(threadViewModel.threadVariant) &&
-                threadViewModel.currentUserIsClosedGroupAdmin == true
-            )
-            
             let canEditDisplayName: Bool = (
-                threadViewModel.threadIsNoteToSelf != true &&
+                !state.threadInfo.isNoteToSelf &&
                 (
-                    threadViewModel.threadVariant == .contact ||
-                    currentUserIsClosedGroupAdmin
+                    state.threadInfo.variant == .contact ||
+                    state.threadInfo.groupInfo?.currentUserRole == .admin
                 )
             )
             
@@ -170,12 +166,9 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     style: .plain,
                     accessibilityIdentifier: "Edit Nickname",
                     action: { [weak self] in
-                        guard
-                            let info: ConfirmationModal.Info = self?.updateDisplayNameModal(
-                                threadViewModel: threadViewModel,
-                                currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
-                            )
-                        else { return }
+                        guard let info: ConfirmationModal.Info = self?.updateDisplayNameModal(state: state) else {
+                            return
+                        }
                         
                         self?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
                     }
@@ -187,40 +180,63 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     // MARK: - Content
     
     public struct ViewModelState: ObservableKeyProvider {
-        let threadId: String
-        let threadViewModel: SessionThreadViewModel?
-        let disappearingMessagesConfig: DisappearingMessagesConfiguration
+        let threadInfo: ConversationInfoViewModel
+        let dataCache: ConversationDataCache
         
         @MainActor public func sections(viewModel: ThreadSettingsViewModel, previousState: ViewModelState) -> [SectionModel] {
             ThreadSettingsViewModel.sections(
-                current: self,
+                state: self,
                 viewModel: viewModel
             )
         }
         
         public var observedKeys: Set<ObservableKey> {
             var result: Set<ObservableKey> = [
+                .appLifecycle(.willEnterForeground),
+                .databaseLifecycle(.resumed),
                 .updateScreen(ThreadSettingsViewModel.self),
-                .profile(threadId),
-                .contact(threadId),
-                .conversationUpdated(threadId),
-                .disappearingMessagesConfigUpdated(threadId)
+                .conversationUpdated(threadInfo.id),
+                .conversationDeleted(threadInfo.id),
+                .profile(threadInfo.userSessionId.hexString),
+                .typingIndicator(threadInfo.id),
+                .messageCreated(threadId: threadInfo.id),
+                .recentReactionsUpdated
             ]
-            
+
+            if SessionId.Prefix.isCommunityBlinded(threadInfo.id) {
+                result.insert(.anyContactUnblinded)
+            }
+
+            result.insert(contentsOf: threadInfo.observedKeys)
+
             return result
         }
         
-        static func initialState(threadId: String) -> ViewModelState {
+        static func initialState(
+            threadInfo: ConversationInfoViewModel,
+            using dependencies: Dependencies
+        ) -> ViewModelState {
+            let dataCache: ConversationDataCache = ConversationDataCache(
+                userSessionId: dependencies[cache: .general].sessionId,
+                context: ConversationDataCache.Context(
+                    source: .conversationSettings(threadId: threadInfo.id),
+                    requireFullRefresh: false,
+                    requireAuthMethodFetch: false,
+                    requiresMessageRequestCountUpdate: false,
+                    requiresInitialUnreadInteractionInfo: false,
+                    requireRecentReactionEmojiUpdate: false
+                )
+            )
+            
             return ViewModelState(
-                threadId: threadId,
-                threadViewModel: nil,
-                disappearingMessagesConfig: DisappearingMessagesConfiguration.defaultWith(threadId)
+                threadInfo: threadInfo,
+                dataCache: dataCache
             )
         }
     }
     
-    var title: String {
-        switch threadVariant {
+    @MainActor var title: String {
+        switch internalState.threadInfo.variant {
             case .contact: return "sessionSettings".localized()
             case .legacyGroup, .group, .community: return "deleteAfterGroupPR1GroupSettings".localized()
         }
@@ -232,85 +248,110 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         isInitialQuery: Bool,
         using dependencies: Dependencies
     ) async -> ViewModelState {
-        let userSessionId: SessionId = dependencies[cache: .general].sessionId
-        let threadId: String = previousState.threadId
-        var threadViewModel: SessionThreadViewModel? = previousState.threadViewModel
-        var disappearingMessagesConfig: DisappearingMessagesConfiguration = previousState.disappearingMessagesConfig
+        var threadInfo: ConversationInfoViewModel = previousState.threadInfo
+        var dataCache: ConversationDataCache = previousState.dataCache
+
+        /// If there are no events we want to process then just return the current state
+        guard isInitialQuery || !events.isEmpty else { return previousState }
         
-        /// If we have no previous state then we need to fetch the initial state
-        if isInitialQuery {
-            dependencies[singleton: .storage].read { db in
-                threadViewModel = try SessionThreadViewModel
-                    .conversationSettingsQuery(threadId: threadId, userSessionId: userSessionId)
-                    .fetchOne(db)
-                disappearingMessagesConfig = try DisappearingMessagesConfiguration
-                    .fetchOne(db, id: threadId)
-                    .defaulting(to: DisappearingMessagesConfiguration.defaultWith(threadId))
+        /// Split the events between those that need database access and those that don't
+        let changes: EventChangeset = events.split(by: { $0.handlingStrategy })
+
+        /// Update the context
+        dataCache.withContext(
+            source: .conversationSettings(threadId: threadInfo.id),
+            requireFullRefresh: (
+                isInitialQuery ||
+                changes.containsAny(
+                    .appLifecycle(.willEnterForeground),
+                    .databaseLifecycle(.resumed)
+                )
+            )
+        )
+        
+        /// Process cache updates first
+        dataCache = await ConversationDataHelper.applyNonDatabaseEvents(
+            changes,
+            currentCache: dataCache,
+            using: dependencies
+        )
+        
+        /// Then determine the fetch requirements
+        let fetchRequirements: ConversationDataHelper.FetchRequirements = ConversationDataHelper.determineFetchRequirements(
+            for: changes,
+            currentCache: dataCache,
+            itemCache: [threadInfo.id: threadInfo],
+            loadPageEvent: nil
+        )
+
+        /// Peform any database changes
+        if !dependencies[singleton: .storage].isSuspended, fetchRequirements.needsAnyFetch {
+            do {
+                try await dependencies[singleton: .storage].readAsync { db in
+                    /// Fetch any required data from the cache
+                    dataCache = try ConversationDataHelper.fetchFromDatabase(
+                        db,
+                        requirements: fetchRequirements,
+                        currentCache: dataCache,
+                        using: dependencies
+                    )
+                }
+            } catch {
+                let eventList: String = changes.databaseEvents.map { $0.key.rawValue }.joined(separator: ", ")
+                Log.critical(.threadSettingsViewModel, "Failed to fetch state for events [\(eventList)], due to error: \(error)")
+            }
+        }
+        else if !changes.databaseEvents.isEmpty {
+            Log.warn(.threadSettingsViewModel, "Ignored \(changes.databaseEvents.count) database event(s) sent while storage was suspended.")
+        }
+        
+        /// Peform any `libSession` changes
+        if fetchRequirements.needsAnyFetch {
+            do {
+                dataCache = try ConversationDataHelper.fetchFromLibSession(
+                    requirements: fetchRequirements,
+                    cache: dataCache,
+                    using: dependencies
+                )
+            }
+            catch {
+                Log.warn(.threadSettingsViewModel, "Failed to handle \(changes.libSessionEvents.count) libSession event(s) due to error: \(error).")
             }
         }
         
-        /// Process any event changes
-        events.forEach { event in
-            switch event.key.generic {
-                case .disappearingMessagesConfigUpdate:
-                    if let newValue = event.value as? DisappearingMessagesConfiguration {
-                        disappearingMessagesConfig = newValue
-                    }
-                default:
-                    dependencies[singleton: .storage].read { db in
-                        threadViewModel = try SessionThreadViewModel
-                            .conversationSettingsQuery(threadId: threadId, userSessionId: userSessionId)
-                            .fetchOne(db)
-                    }
-            }
+        /// Regenerate the `threadInfo` now that the `dataCache` is updated
+        if let thread: SessionThread = dataCache.thread(for: threadInfo.id) {
+            threadInfo = ConversationInfoViewModel(
+                thread: thread,
+                dataCache: dataCache,
+                using: dependencies
+            )
         }
-        
+
+        /// Generate the new state
         return ViewModelState(
-            threadId: threadId,
-            threadViewModel: threadViewModel,
-            disappearingMessagesConfig: disappearingMessagesConfig
+            threadInfo: threadInfo,
+            dataCache: dataCache
         )
     }
     
-    private static func sections(
-        current: ViewModelState,
+    @MainActor private static func sections(
+        state: ViewModelState,
         viewModel: ThreadSettingsViewModel
     ) -> [SectionModel] {
-        // If we don't get a `SessionThreadViewModel` then it means the thread was probably deleted
-        // so dismiss the screen
-        guard let threadViewModel: SessionThreadViewModel = current.threadViewModel else {
-            viewModel.dismissScreen(type: .popToRoot)
-            return []
-        }
-        
-        let isGroup: Bool = (
-            threadViewModel.threadVariant == .legacyGroup ||
-            threadViewModel.threadVariant == .group
-        )
-        let currentUserKickedFromGroup: Bool = (
-            isGroup &&
-            threadViewModel.currentUserIsClosedGroupMember != true
-        )
-        
-        let currentUserIsClosedGroupMember: Bool = (
-            isGroup &&
-            threadViewModel.currentUserIsClosedGroupMember == true
-        )
-        let currentUserIsClosedGroupAdmin: Bool = (
-            isGroup &&
-            threadViewModel.currentUserIsClosedGroupAdmin == true
-        )
+        let threadDisplayName: String = state.threadInfo.displayName.deformatted()
         let isThreadHidden: Bool = (
-            threadViewModel.threadShouldBeVisible != true &&
-            threadViewModel.threadPinnedPriority == LibSession.hiddenPriority
+            !state.threadInfo.shouldBeVisible ||
+            state.threadInfo.pinnedPriority == LibSession.hiddenPriority
         )
 
         let showThreadPubkey: Bool = (
-            threadViewModel.threadVariant == .contact || (
-                threadViewModel.threadVariant == .group &&
+            state.threadInfo.variant == .contact || (
+                state.threadInfo.variant == .group &&
                 viewModel.dependencies[feature: .groupsShowPubkeyInConversationSettings]
             )
         )
+        
         // MARK: - Conversation Info
         
         let conversationInfoSection: SectionModel = SectionModel(
@@ -320,11 +361,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     id: .avatar,
                     variant: .profilePicture(
                         info: .init(
-                            sessionId: threadViewModel.id,
+                            sessionId: state.threadInfo.id,
                             qrCodeImage: {
-                                guard threadViewModel.threadVariant != .group else { return nil }
+                                guard state.threadInfo.variant != .group else { return nil }
                                 return QRCode.generate(
-                                    for: threadViewModel.threadId,
+                                    for: state.threadInfo.id,
                                     hasBackground: false,
                                     iconName: "SessionWhite40" // stringlint:ignore
                                 )
@@ -332,10 +373,10 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             profileInfo: {
                                 let (info, _) = ProfilePictureView.Info.generateInfoFrom(
                                     size: .hero,
-                                    publicKey: threadViewModel.id,
-                                    threadVariant: threadViewModel.threadVariant,
+                                    publicKey: state.threadInfo.id,
+                                    threadVariant: state.threadInfo.variant,
                                     displayPictureUrl: nil,
-                                    profile: threadViewModel.profile,
+                                    profile: state.threadInfo.profile,
                                     using: viewModel.dependencies
                                 )
                                 
@@ -348,12 +389,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     id: .displayName,
                     variant: .tappableText(
                         info: .init(
-                            text: threadViewModel.displayName,
+                            text: threadDisplayName,
                             font: Fonts.Headings.H4,
                             imageAttachmentPosition: .trailing,
                             imageAttachmentGenerator: {
-                                guard !threadViewModel.threadIsNoteToSelf else { return nil }
-                                guard (viewModel.dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: viewModel.threadId) }) else { return nil }
+                                guard
+                                    state.threadInfo.shouldShowProBadge &&
+                                    !state.threadInfo.isNoteToSelf
+                                else { return nil }
                                 
                                 return {
                                     (
@@ -368,25 +411,22 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     )
                                 }
                             }(),
-                            onTextTap: {
-                                guard
-                                    let info: ConfirmationModal.Info = viewModel.updateDisplayNameModal(
-                                        threadViewModel: threadViewModel,
-                                        currentUserIsClosedGroupAdmin: currentUserIsClosedGroupAdmin
-                                    )
-                                else { return }
+                            onTextTap: { [weak viewModel] in
+                                guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {
+                                    return
+                                }
                                 
-                                viewModel.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
+                                viewModel?.transitionToScreen(ConfirmationModal(info: info), transitionType: .present)
                             },
-                            onImageTap: { [dependencies = viewModel.dependencies] in
-                                guard !dependencies[cache: .libSession].isSessionPro else { return }
+                            onImageTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                                guard !dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro else { return }
                                 
                                 let proCTAModalVariant: ProCTAModal.Variant = {
-                                    switch threadViewModel.threadVariant {
+                                    switch state.threadInfo.variant {
                                         case .group:
                                             return .groupLimit(
-                                                isAdmin: currentUserIsClosedGroupAdmin,
-                                                isSessionProActivated: (dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: threadViewModel.threadId) }),
+                                                isAdmin: (state.threadInfo.groupInfo?.currentUserRole == .admin),
+                                                isSessionProActivated: (state.threadInfo.groupInfo?.isProGroup == true),
                                                 proBadgeImage: UIView.image(
                                                     for: .themedKey(
                                                         SessionProBadge.Size.mini.cacheKey,
@@ -396,21 +436,25 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                                 )
                                             )
                                         default:
-                                            return .generic(renew: dependencies[singleton: .sessionProState].isSessionProExpired)
+                                        return .generic(
+                                            renew: dependencies[singleton: .sessionProManager]
+                                                .currentUserCurrentProState
+                                                .status == .expired
+                                        )
                                     }
                                 }()
                                 
-                                dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
+                                dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
                                     proCTAModalVariant,
                                     onConfirm: {
-                                        dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
-                                            presenting: { bottomSheet in
-                                                viewModel.transitionToScreen(bottomSheet, transitionType: .present)
+                                        dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                                            presenting: { [weak viewModel] bottomSheet in
+                                                viewModel?.transitionToScreen(bottomSheet, transitionType: .present)
                                             }
                                         )
                                     },
-                                    presenting: { modal in
-                                        viewModel.transitionToScreen(modal, transitionType: .present)
+                                    presenting: { [weak viewModel] modal in
+                                        viewModel?.transitionToScreen(modal, transitionType: .present)
                                     }
                                 )
                             }
@@ -418,17 +462,17 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     ),
                     accessibility: Accessibility(
                         identifier: "Username",
-                        label: threadViewModel.displayName
+                        label: threadDisplayName
                     )
                 ),
                 
-                (threadViewModel.displayName == threadViewModel.contactDisplayName ? nil :
+                (state.threadInfo.contactInfo == nil || threadDisplayName == state.threadInfo.contactInfo?.displayName ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .contactName,
                         variant: .cell(
                             info: .init(
                                 title: SessionListScreenContent.TextInfo(
-                                    "(\(threadViewModel.contactDisplayName))", // stringlint:ignore
+                                    "(\(state.threadInfo.contactInfo?.displayName ?? ""))", // stringlint:ignore
                                     font: .Body.baseRegular,
                                     alignment: .center,
                                     color: .textSecondary
@@ -438,13 +482,13 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                 ),
                 
-                threadViewModel.threadDescription.map { threadDescription in
+                state.threadInfo.conversationDescription.map { conversationDescription in
                     SessionListScreenContent.ListItemInfo(
                         id: .threadDescription,
                         variant: .cell(
                             info: .init(
                                 title: SessionListScreenContent.TextInfo(
-                                    threadDescription,
+                                    conversationDescription,
                                     font: .Body.baseRegular,
                                     alignment: .center,
                                     color: .textSecondary,
@@ -454,7 +498,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         ),
                         accessibility: Accessibility(
                             identifier: "Description",
-                            label: threadDescription
+                            label: conversationDescription
                         )
                     )
                 }
@@ -464,14 +508,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         // MARK: - Session Id
         
         let sessionIdSection: SectionModel = SectionModel(
-            model: (threadViewModel.threadIsNoteToSelf == true ? .sessionIdNoteToSelf : .sessionId),
+            model: (state.threadInfo.isNoteToSelf ? .sessionIdNoteToSelf : .sessionId),
             elements: [
                 SessionListScreenContent.ListItemInfo(
                     id: .sessionId,
                     variant: .cell(
                         info: .init(
                             title: SessionListScreenContent.TextInfo(
-                                threadViewModel.id,
+                                state.threadInfo.id,
                                 font: .Display.extraLarge,
                                 alignment: .center,
                                 interaction: .copy
@@ -480,7 +524,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     ),
                     accessibility: Accessibility(
                         identifier: "Session ID",
-                        label: threadViewModel.id
+                        label: state.threadInfo.id
                     )
                 )
             ]
@@ -488,7 +532,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         
         // MARK: - Users kicked from groups
         
-        guard !currentUserKickedFromGroup else {
+        guard state.threadInfo.groupInfo?.wasKicked != true else {
             return [
                 conversationInfoSection,
                 SectionModel(
@@ -517,21 +561,21 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 title: "groupDelete".localized(),
                                 body: .attributedText(
                                     "groupDeleteDescriptionMember"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .put(key: "group_name", value: threadDisplayName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 ),
                                 confirmTitle: "delete".localized(),
                                 confirmStyle: .danger,
                                 cancelStyle: .alert_text
                             ),
-                            onTap: { [dependencies = viewModel.dependencies] in
-                                viewModel.dismissScreen(type: .popToRoot) {
+                            onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                                viewModel?.dismissScreen(type: .popToRoot) {
                                     dependencies[singleton: .storage].writeAsync { db in
                                         try SessionThread.deleteOrLeave(
                                             db,
                                             type: .leaveGroupAsync,
-                                            threadId: threadViewModel.threadId,
-                                            threadVariant: threadViewModel.threadVariant,
+                                            threadId: state.threadInfo.id,
+                                            threadVariant: state.threadInfo.variant,
                                             using: dependencies
                                         )
                                     }
@@ -548,14 +592,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         let standardActionsSection: SectionModel = SectionModel(
             model: .content,
             elements: [
-                (threadViewModel.threadVariant == .legacyGroup || threadViewModel.threadVariant == .group ? nil :
+                (state.threadInfo.variant == .legacyGroup || state.threadInfo.variant == .group ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .copyThreadId,
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: .icon(.copy),
                                 title: SessionListScreenContent.TextInfo(
-                                    (threadViewModel.threadVariant == .community ?
+                                    (state.threadInfo.variant == .community ?
                                         "communityUrlCopy".localized() :
                                         "accountIDCopy".localized()
                                     ),
@@ -567,24 +611,25 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             identifier: "\(ThreadSettingsViewModel.self).copy_thread_id",
                             label: "Copy Session ID"
                         ),
-                        onTap: {
-                            switch threadViewModel.threadVariant {
+                        onTap: { [weak viewModel] in
+                            switch state.threadInfo.variant {
                                 case .contact, .legacyGroup, .group:
-                                    UIPasteboard.general.string = threadViewModel.threadId
+                                    UIPasteboard.general.string = state.threadInfo.id
 
                                 case .community:
                                     guard
+                                        let communityInfo: ConversationInfoViewModel.CommunityInfo = state.threadInfo.communityInfo,
                                         let urlString: String = LibSession.communityUrlFor(
-                                            server: threadViewModel.openGroupServer,
-                                            roomToken: threadViewModel.openGroupRoomToken,
-                                            publicKey: threadViewModel.openGroupPublicKey
+                                            server: communityInfo.server,
+                                            roomToken: communityInfo.roomToken,
+                                            publicKey: communityInfo.publicKey
                                         )
                                     else { return }
 
                                     UIPasteboard.general.string = urlString
                             }
 
-                            viewModel.showToast(
+                            viewModel?.showToast(
                                 text: "copied".localized(),
                                 backgroundColor: .backgroundSecondary
                             )
@@ -607,13 +652,13 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         identifier: "\(ThreadSettingsViewModel.self).search",
                         label: "Search"
                     ),
-                    onTap: { viewModel.didTriggerSearch() }
+                    onTap: { [weak viewModel] in viewModel?.didTriggerSearch() }
                 ),
                 
                 (
-                    threadViewModel.threadVariant == .community ||
-                    threadViewModel.threadIsBlocked == true ||
-                    currentUserIsClosedGroupAdmin ? nil :
+                    state.threadInfo.variant == .community ||
+                    state.threadInfo.isBlocked ||
+                    state.threadInfo.groupInfo?.currentUserRole == .admin ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .disappearingMessages,
                         variant: .cell(
@@ -625,13 +670,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 ),
                                 description: SessionListScreenContent.TextInfo(
                                     {
-                                        guard current.disappearingMessagesConfig.isEnabled else {
-                                            return "off".localized()
-                                        }
+                                        guard
+                                            let config: DisappearingMessagesConfiguration = state.threadInfo.disappearingMessagesConfiguration,
+                                            config.isEnabled
+                                        else { return "off".localized() }
                                         
-                                        return (current.disappearingMessagesConfig.type ?? .unknown)
+                                        return (config.type ?? .unknown)
                                             .localizedState(
-                                                durationString: current.disappearingMessagesConfig.durationString
+                                                durationString: config.durationString
                                             )
                                     }(),
                                     font: .Body.smallRegular,
@@ -643,15 +689,17 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             identifier: "Disappearing messages",
                             label: "\(ThreadSettingsViewModel.self).disappearing_messages"
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] in
-                            viewModel.transitionToScreen(
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.transitionToScreen(
                                 SessionTableViewController(
                                     viewModel: ThreadDisappearingMessagesSettingsViewModel(
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        currentUserIsClosedGroupMember: threadViewModel.currentUserIsClosedGroupMember,
-                                        currentUserIsClosedGroupAdmin: threadViewModel.currentUserIsClosedGroupAdmin,
-                                        config: current.disappearingMessagesConfig,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
+                                        currentUserRole: state.threadInfo.groupInfo?.currentUserRole,
+                                        config: (
+                                            state.threadInfo.disappearingMessagesConfiguration ??
+                                            DisappearingMessagesConfiguration.defaultWith(state.threadInfo.id)
+                                        ),
                                         using: dependencies
                                     )
                                 )
@@ -660,19 +708,23 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                 ),
                 
-                (threadViewModel.threadIsBlocked == true ? nil :
+                (state.threadInfo.isBlocked ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .pinConversation,
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: .icon(
-                                    (threadViewModel.threadPinnedPriority > 0 ?
+                                    (state.threadInfo.pinnedPriority > 0 ?
                                         .pinOff :
                                         .pin
                                     )
                                 ),
                                 title: SessionListScreenContent.TextInfo(
-                                    (threadViewModel.threadPinnedPriority > 0 ? "pinUnpinConversation".localized() : "pinConversation".localized()),
+                                    (
+                                        state.threadInfo.pinnedPriority  > 0 ?
+                                            "pinUnpinConversation".localized() :
+                                            "pinConversation".localized()
+                                    ),
                                     font: .Headings.H8
                                 )
                             )
@@ -681,26 +733,28 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             identifier: "\(ThreadSettingsViewModel.self).pin_conversation",
                             label: "Pin Conversation"
                         ),
-                        onTap: {
-                            viewModel.toggleConversationPinnedStatus(
-                                currentPinnedPriority: threadViewModel.threadPinnedPriority
-                            )
+                        onTap: { [weak viewModel] in
+                            Task {
+                                await viewModel?.toggleConversationPinnedStatus(
+                                    threadInfo: state.threadInfo
+                                )
+                            }
                         }
                     )
                  ),
                 
-                ((threadViewModel.threadIsNoteToSelf == true || threadViewModel.threadIsBlocked == true) ? nil :
+                (state.threadInfo.isNoteToSelf || state.threadInfo.isBlocked ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .notifications,
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: .icon(
                                     {
-                                        if threadViewModel.threadOnlyNotifyForMentions == true {
+                                        if state.threadInfo.onlyNotifyForMentions {
                                             return .atSign
                                         }
                                         
-                                        if threadViewModel.threadMutedUntilTimestamp != nil {
+                                        if state.threadInfo.mutedUntilTimestamp != nil {
                                             return .volumeOff
                                         }
                                         
@@ -713,11 +767,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 ),
                                 description: SessionListScreenContent.TextInfo(
                                     {
-                                        if threadViewModel.threadOnlyNotifyForMentions == true {
+                                        if state.threadInfo.onlyNotifyForMentions {
                                             return "notificationsMentionsOnly".localized()
                                         }
                                         
-                                        if threadViewModel.threadMutedUntilTimestamp != nil {
+                                        if state.threadInfo.mutedUntilTimestamp != nil {
                                             return "notificationsMuted".localized()
                                         }
                                         
@@ -732,14 +786,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             identifier: "\(ThreadSettingsViewModel.self).notifications",
                             label: "Notifications"
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] in
-                            viewModel.transitionToScreen(
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.transitionToScreen(
                                 SessionTableViewController(
                                     viewModel: ThreadNotificationSettingsViewModel(
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        threadOnlyNotifyForMentions: threadViewModel.threadOnlyNotifyForMentions,
-                                        threadMutedUntilTimestamp: threadViewModel.threadMutedUntilTimestamp,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
+                                        threadOnlyNotifyForMentions: state.threadInfo.onlyNotifyForMentions,
+                                        threadMutedUntilTimestamp: state.threadInfo.mutedUntilTimestamp,
                                         using: dependencies
                                     )
                                 )
@@ -748,7 +802,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                 ),
                 
-                (threadViewModel.threadVariant != .community ? nil :
+                (state.threadInfo.variant != .community ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .addToOpenGroup,
                         variant: .cell(
@@ -763,11 +817,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         accessibility: Accessibility(
                             identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
                         ),
-                        onTap: { viewModel.inviteUsersToCommunity(threadViewModel: threadViewModel) }
+                        onTap: { [weak viewModel] in viewModel?.inviteUsersToCommunity(threadInfo: state.threadInfo) }
                     )
                 ),
                 
-                (!currentUserIsClosedGroupMember ? nil :
+                (state.threadInfo.groupInfo?.currentUserRole == nil ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .groupMembers,
                         variant: .cell(
@@ -783,7 +837,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             identifier: "Group members",
                             label: "Group members"
                         ),
-                        onTap: { viewModel.viewMembers() }
+                        onTap: { [weak viewModel] in viewModel?.viewMembers(state: state) }
                     )
                 ),
                 
@@ -802,12 +856,12 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         identifier: "\(ThreadSettingsViewModel.self).all_media",
                         label: "All media"
                     ),
-                    onTap: { [dependencies = viewModel.dependencies] in
-                        viewModel.transitionToScreen(
+                    onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                        viewModel?.transitionToScreen(
                             MediaGalleryViewModel.createAllMediaViewController(
-                                threadId: threadViewModel.threadId,
-                                threadVariant: threadViewModel.threadVariant,
-                                threadTitle: threadViewModel.displayName,
+                                threadId: state.threadInfo.id,
+                                threadVariant: state.threadInfo.variant,
+                                threadTitle: threadDisplayName,
                                 focusedAttachmentId: nil,
                                 using: dependencies
                             )
@@ -820,7 +874,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         // MARK: - Admin Actions
         
         let adminActionsSection: SectionModel? = (
-            !currentUserIsClosedGroupAdmin ? nil :
+            state.threadInfo.groupInfo?.currentUserRole != .admin ? nil :
                 SectionModel(
                     model: .adminActions,
                     elements: [
@@ -839,11 +893,11 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 identifier: "Edit group",
                                 label: "Edit group"
                             ),
-                            onTap: { [dependencies = viewModel.dependencies] in
-                                viewModel.transitionToScreen(
+                            onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                                viewModel?.transitionToScreen(
                                     SessionTableViewController(
                                         viewModel: EditGroupViewModel(
-                                            threadId: threadViewModel.threadId,
+                                            threadId: state.threadInfo.id,
                                             using: dependencies
                                         )
                                     )
@@ -870,7 +924,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     identifier: "Promote admins",
                                     label: "Promote admins"
                                 ),
-                                onTap: { viewModel.promoteAdmins(currentGroupName: threadViewModel.closedGroupName) }
+                                onTap: { [weak viewModel] in viewModel?.promoteAdmins(state: state) }
                             )
                         ),
                         
@@ -885,13 +939,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     ),
                                     description: SessionListScreenContent.TextInfo(
                                         {
-                                            guard current.disappearingMessagesConfig.isEnabled else {
-                                                return "off".localized()
-                                            }
+                                            guard
+                                                let config: DisappearingMessagesConfiguration = state.threadInfo.disappearingMessagesConfiguration,
+                                                config.isEnabled
+                                            else { return "off".localized() }
                                             
-                                            return (current.disappearingMessagesConfig.type ?? .unknown)
+                                            return (config.type ?? .unknown)
                                                 .localizedState(
-                                                    durationString: current.disappearingMessagesConfig.durationString
+                                                    durationString: config.durationString
                                                 )
                                         }(),
                                         font: .Body.smallRegular,
@@ -903,15 +958,17 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 identifier: "Disappearing messages",
                                 label: "\(ThreadSettingsViewModel.self).disappearing_messages"
                             ),
-                            onTap: { [dependencies = viewModel.dependencies] in
-                                viewModel.transitionToScreen(
+                            onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                                viewModel?.transitionToScreen(
                                     SessionTableViewController(
                                         viewModel: ThreadDisappearingMessagesSettingsViewModel(
-                                            threadId: threadViewModel.threadId,
-                                            threadVariant: threadViewModel.threadVariant,
-                                            currentUserIsClosedGroupMember: threadViewModel.currentUserIsClosedGroupMember,
-                                            currentUserIsClosedGroupAdmin: threadViewModel.currentUserIsClosedGroupAdmin,
-                                            config: current.disappearingMessagesConfig,
+                                            threadId: state.threadInfo.id,
+                                            threadVariant: state.threadInfo.variant,
+                                            currentUserRole: state.threadInfo.groupInfo?.currentUserRole,
+                                            config: (
+                                                state.threadInfo.disappearingMessagesConfiguration ??
+                                                DisappearingMessagesConfiguration.defaultWith(state.threadInfo.id)
+                                            ),
                                             using: dependencies
                                         )
                                     )
@@ -927,13 +984,13 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         let destructiveActionsSection: SectionModel = SectionModel(
             model: .destructiveActions,
             elements: [
-                (threadViewModel.threadIsNoteToSelf || threadViewModel.threadVariant != .contact ? nil :
+                (state.threadInfo.isNoteToSelf || state.threadInfo.variant != .contact ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .blockUser,
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: (
-                                    threadViewModel.threadIsBlocked == true ?
+                                    state.threadInfo.isBlocked ?
                                         .icon(
                                             .userRoundCheck,
                                             customTint: .danger
@@ -945,7 +1002,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 ),
                                 title: SessionListScreenContent.TextInfo(
                                     (
-                                        threadViewModel.threadIsBlocked == true ?
+                                        state.threadInfo.isBlocked ?
                                             "blockUnblock".localized() :
                                             "block".localized()
                                     ),
@@ -959,43 +1016,41 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             label: "Block"
                         ),
                         confirmationInfo: ConfirmationModal.Info(
-                            title: (threadViewModel.threadIsBlocked == true ?
+                            title: (state.threadInfo.isBlocked ?
                                 "blockUnblock".localized() :
                                 "block".localized()
                             ),
-                            body: (threadViewModel.threadIsBlocked == true ?
+                            body: (state.threadInfo.isBlocked ?
                                 .attributedText(
                                     "blockUnblockName"
-                                        .put(key: "name", value: threadViewModel.displayName)
+                                        .put(key: "name", value: threadDisplayName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 ) :
                                 .attributedText(
                                     "blockDescription"
-                                        .put(key: "name", value: threadViewModel.displayName)
+                                        .put(key: "name", value: threadDisplayName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 )
                             ),
-                            confirmTitle: (threadViewModel.threadIsBlocked == true ?
+                            confirmTitle: (state.threadInfo.isBlocked ?
                                 "blockUnblock".localized() :
                                 "block".localized()
                             ),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: {
-                            let isBlocked: Bool = (threadViewModel.threadIsBlocked == true)
-                            
-                            viewModel.updateBlockedState(
-                                from: isBlocked,
-                                isBlocked: !isBlocked,
-                                threadId: threadViewModel.threadId,
-                                displayName: threadViewModel.displayName
+                        onTap: { [weak viewModel] in
+                            viewModel?.updateBlockedState(
+                                from: state.threadInfo.isBlocked,
+                                isBlocked: !state.threadInfo.isBlocked,
+                                threadId: state.threadInfo.id,
+                                displayName: threadDisplayName
                             )
                         }
                     )
                 ),
                 
-                (threadViewModel.threadIsNoteToSelf != true ? nil :
+                (!state.threadInfo.isNoteToSelf ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .hideNoteToSelf,
                         variant: .cell(
@@ -1031,18 +1086,20 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         onTap: { [dependencies = viewModel.dependencies] in
                             dependencies[singleton: .storage].writeAsync { db in
                                 if isThreadHidden {
-                                    try SessionThread.updateVisibility(
+                                    try SessionThread.update(
                                         db,
-                                        threadId: threadViewModel.threadId,
-                                        isVisible: true,
+                                        id: state.threadInfo.id,
+                                        values: SessionThread.TargetValues(
+                                            shouldBeVisible: .setTo(true)
+                                        ),
                                         using: dependencies
                                     )
                                 } else {
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .hideContactConversation,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         using: dependencies
                                     )
                                 }
@@ -1073,36 +1130,36 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     confirmationInfo: ConfirmationModal.Info(
                         title: "clearMessages".localized(),
                         body: {
-                            guard threadViewModel.threadIsNoteToSelf != true else {
+                            guard !state.threadInfo.isNoteToSelf else {
                                 return .attributedText(
                                     "clearMessagesNoteToSelfDescriptionUpdated"
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 )
                             }
-                            switch threadViewModel.threadVariant {
+                            switch state.threadInfo.variant {
                                 case .contact:
                                     return .attributedText(
                                         "clearMessagesChatDescriptionUpdated"
-                                            .put(key: "name", value: threadViewModel.displayName)
+                                            .put(key: "name", value: threadDisplayName)
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     )
                                 case .legacyGroup:
                                     return .attributedText(
                                         "clearMessagesGroupDescriptionUpdated"
-                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .put(key: "group_name", value: threadDisplayName)
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     )
                                 case .community:
                                     return .attributedText(
                                         "clearMessagesCommunityUpdated"
-                                            .put(key: "community_name", value: threadViewModel.displayName)
+                                            .put(key: "community_name", value: threadDisplayName)
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     )
                                 case .group:
-                                    if currentUserIsClosedGroupAdmin {
+                                    if state.threadInfo.groupInfo?.currentUserRole == .admin {
                                         return .radio(
                                             explanation: "clearMessagesGroupAdminDescriptionUpdated"
-                                                .put(key: "group_name", value: threadViewModel.displayName)
+                                                .put(key: "group_name", value: threadDisplayName)
                                                 .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
                                             warning: nil,
                                             options: [
@@ -1129,7 +1186,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     } else {
                                         return .attributedText(
                                             "clearMessagesGroupDescriptionUpdated"
-                                                .put(key: "group_name", value: threadViewModel.displayName)
+                                                .put(key: "group_name", value: threadDisplayName)
                                                 .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                         )
                                     }
@@ -1139,8 +1196,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         confirmStyle: .danger,
                         cancelStyle: .alert_text,
                         dismissOnConfirm: false,
-                        onConfirm: { [dependencies = viewModel.dependencies] modal in
-                            if threadViewModel.threadVariant == .group && currentUserIsClosedGroupAdmin {
+                        onConfirm: { [weak viewModel, dependencies = viewModel.dependencies] modal in
+                            if state.threadInfo.variant == .group && state.threadInfo.groupInfo?.currentUserRole == .admin {
                                 /// Determine the selected action index
                                 let selectedIndex: Int = {
                                     switch modal.info.body {
@@ -1157,7 +1214,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 
                                 // Don't update the group if the selected option is `Clear on this device`
                                 if selectedIndex != 0 {
-                                    viewModel.deleteAllMessagesBeforeNow()
+                                    viewModel?.deleteAllMessagesBeforeNow(state: state)
                                 }
                             }
                             
@@ -1165,18 +1222,18 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 updates: { db in
                                     try Interaction.markAllAsDeleted(
                                         db,
-                                        threadId: threadViewModel.id,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         options: [.local, .noArtifacts],
                                         using: dependencies
                                     )
-                                }, completion: { result in
+                                }, completion: { [weak viewModel] result in
                                     switch result {
                                         case .failure(let error):
                                             Log.error("Failed to clear messages due to error: \(error)")
                                             DispatchQueue.main.async {
                                                 modal.dismiss(animated: true) {
-                                                    viewModel.showToast(
+                                                    viewModel?.showToast(
                                                         text: "deleteMessageFailed"
                                                             .putNumber(0)
                                                             .localized(),
@@ -1188,7 +1245,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                         case .success:
                                             DispatchQueue.main.async {
                                                 modal.dismiss(animated: true) {
-                                                    viewModel.showToast(
+                                                    viewModel?.showToast(
                                                         text: "deleteMessageDeleted"
                                                             .putNumber(0)
                                                             .localized(),
@@ -1204,7 +1261,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                 ),
                 
-                (threadViewModel.threadVariant != .community ? nil :
+                (state.threadInfo.variant != .community ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .leaveCommunity,
                         variant: .cell(
@@ -1228,21 +1285,21 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             title: "communityLeave".localized(),
                             body: .attributedText(
                                 "groupLeaveDescription"
-                                    .put(key: "group_name", value: threadViewModel.displayName)
+                                    .put(key: "group_name", value: threadDisplayName)
                                     .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                             ),
                             confirmTitle: "leave".localized(),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] in
-                            viewModel.dismissScreen(type: .popToRoot) {
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .deleteCommunityAndContent,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         using: dependencies
                                     )
                                 }
@@ -1251,17 +1308,17 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                 ),
                 
-                (!currentUserIsClosedGroupMember ? nil :
+                (state.threadInfo.groupInfo?.currentUserRole == nil ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .leaveGroup,
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: .icon(
-                                    currentUserIsClosedGroupAdmin ? .trash2 : .logOut,
+                                    state.threadInfo.groupInfo?.currentUserRole == .admin ? .trash2 : .logOut,
                                     customTint: .danger
                                 ),
                                 title: SessionListScreenContent.TextInfo(
-                                    currentUserIsClosedGroupAdmin ? "groupDelete".localized() : "groupLeave".localized(),
+                                    state.threadInfo.groupInfo?.currentUserRole == .admin ? "groupDelete".localized() : "groupLeave".localized(),
                                     font: .Headings.H8,
                                     color: .danger
                                 )
@@ -1272,31 +1329,31 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             label: "Leave group"
                         ),
                         confirmationInfo: ConfirmationModal.Info(
-                            title: currentUserIsClosedGroupAdmin ? "groupDelete".localized() : "groupLeave".localized(),
-                            body: (currentUserIsClosedGroupAdmin ?
+                            title: state.threadInfo.groupInfo?.currentUserRole == .admin ? "groupDelete".localized() : "groupLeave".localized(),
+                            body: (state.threadInfo.groupInfo?.currentUserRole == .admin ?
                                 .attributedText(
                                     "groupDeleteDescription"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .put(key: "group_name", value: threadDisplayName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 ) :
                                 .attributedText(
                                     "groupLeaveDescription"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .put(key: "group_name", value: threadDisplayName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 )
                             ),
-                            confirmTitle: currentUserIsClosedGroupAdmin ? "delete".localized() : "leave".localized(),
+                            confirmTitle: state.threadInfo.groupInfo?.currentUserRole == .admin ? "delete".localized() : "leave".localized(),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] in
-                            viewModel.dismissScreen(type: .popToRoot) {
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .leaveGroupAsync,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         using: dependencies
                                     )
                                 }
@@ -1305,7 +1362,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                 ),
                 
-                (threadViewModel.threadVariant != .contact || threadViewModel.threadIsNoteToSelf == true ? nil :
+                (state.threadInfo.variant != .contact || state.threadInfo.isNoteToSelf ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .deleteConversation,
                         variant: .cell(
@@ -1329,21 +1386,21 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             title: "conversationsDelete".localized(),
                             body: .attributedText(
                                 "deleteConversationDescription"
-                                    .put(key: "name", value: threadViewModel.displayName)
+                                    .put(key: "name", value: threadDisplayName)
                                     .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                             ),
                             confirmTitle: "delete".localized(),
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] in
-                            viewModel.dismissScreen(type: .popToRoot) {
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .deleteContactConversationAndMarkHidden,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         using: dependencies
                                     )
                                 }
@@ -1352,7 +1409,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     )
                  ),
                 
-                (threadViewModel.threadVariant != .contact || threadViewModel.threadIsNoteToSelf == true ? nil :
+                (state.threadInfo.variant != .contact || state.threadInfo.isNoteToSelf ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .deleteContact,
                         variant: .cell(
@@ -1376,7 +1433,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             title: "contactDelete".localized(),
                             body: .attributedText(
                                 "deleteContactDescription"
-                                    .put(key: "name", value: threadViewModel.displayName)
+                                    .put(key: "name", value: threadDisplayName)
                                     .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
                                 scrollMode: .never
                             ),
@@ -1384,14 +1441,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { [dependencies = viewModel.dependencies] in
-                            viewModel.dismissScreen(type: .popToRoot) {
+                        onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
+                            viewModel?.dismissScreen(type: .popToRoot) {
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try SessionThread.deleteOrLeave(
                                         db,
                                         type: .deleteContactConversationAndContact,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
+                                        threadId: state.threadInfo.id,
+                                        threadVariant: state.threadInfo.variant,
                                         using: dependencies
                                     )
                                 }
@@ -1401,7 +1458,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 ),
                 
                 // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
-                (!viewModel.dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] || threadViewModel.threadVariant != .group ? nil :
+                (!viewModel.dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] || state.threadInfo.variant != .group ? nil :
                     SessionListScreenContent.ListItemInfo(
                         id: .debugDeleteAttachmentsBeforeNow,
                         variant: .cell(
@@ -1425,7 +1482,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             confirmStyle: .danger,
                             cancelStyle: .alert_text
                         ),
-                        onTap: { viewModel.deleteAllAttachmentsBeforeNow() }
+                        onTap: { [weak viewModel] in viewModel?.deleteAllAttachmentsBeforeNow(state: state) }
                     )
                 )
             ].compactMap { $0 }
@@ -1442,42 +1499,16 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     
     // MARK: - Functions
     
-    private func inviteUsersToCommunity(threadViewModel: SessionThreadViewModel) {
+    private func inviteUsersToCommunity(threadInfo: ConversationInfoViewModel) {
         guard
-            let name: String = threadViewModel.openGroupName,
-            let server: String = threadViewModel.openGroupServer,
-            let roomToken: String = threadViewModel.openGroupRoomToken,
-            let publicKey: String = threadViewModel.openGroupPublicKey,
+            let communityInfo: ConversationInfoViewModel.CommunityInfo = threadInfo.communityInfo,
             let communityUrl: String = LibSession.communityUrlFor(
-                server: threadViewModel.openGroupServer,
-                roomToken: threadViewModel.openGroupRoomToken,
-                publicKey: threadViewModel.openGroupPublicKey
+                server: communityInfo.server,
+                roomToken: communityInfo.roomToken,
+                publicKey: communityInfo.publicKey
             )
         else { return }
         
-        let openGroupCapabilityInfo: LibSession.OpenGroupCapabilityInfo = LibSession.OpenGroupCapabilityInfo(
-            roomToken: roomToken,
-            server: server,
-            publicKey: publicKey,
-            capabilities: (threadViewModel.openGroupCapabilities ?? [])
-        )
-        let currentUserSessionIds: Set<String> = Set([
-            dependencies[cache: .general].sessionId.hexString,
-            SessionThread.getCurrentUserBlindedSessionId(
-                threadId: threadId,
-                threadVariant: threadVariant,
-                blindingPrefix: .blinded15,
-                openGroupCapabilityInfo: openGroupCapabilityInfo,
-                using: dependencies
-            )?.hexString,
-            SessionThread.getCurrentUserBlindedSessionId(
-                threadId: threadId,
-                threadVariant: threadVariant,
-                blindingPrefix: .blinded25,
-                openGroupCapabilityInfo: openGroupCapabilityInfo,
-                using: dependencies
-            )?.hexString
-        ].compactMap { $0 })
         let contact: TypedTableAlias<Contact> = TypedTableAlias()
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         
@@ -1491,7 +1522,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         SELECT \(contact.allColumns)
                         FROM \(contact)
                         LEFT JOIN \(groupMember) ON (
-                            \(groupMember[.groupId]) = \(threadId) AND
+                            \(groupMember[.groupId]) = \(threadInfo.id) AND
                             \(groupMember[.profileId]) = \(contact[.id])
                         )
                         WHERE (
@@ -1499,7 +1530,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             \(contact[.isApproved]) = TRUE AND
                             \(contact[.didApproveMe]) = TRUE AND
                             \(contact[.isBlocked]) = FALSE AND
-                            \(contact[.id]) NOT IN \(currentUserSessionIds)
+                            \(contact[.id]) NOT IN \(threadInfo.currentUserSessionIds)
                         )
                     """),
                     footerTitle: "membersInviteTitle".localized(),
@@ -1530,7 +1561,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 try LinkPreview(
                                     url: communityUrl,
                                     variant: .openGroupInvitation,
-                                    title: name,
+                                    title: communityInfo.name,
                                     using: dependencies
                                 )
                                 .upsert(db)
@@ -1542,7 +1573,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 let interaction: Interaction = try Interaction(
                                     threadId: thread.id,
                                     threadVariant: thread.variant,
-                                    authorId: threadViewModel.currentUserSessionId,
+                                    authorId: threadInfo.userSessionId.hexString,
                                     variant: .standardOutgoing,
                                     timestampMs: sentTimestampMs,
                                     expiresInSeconds: destinationDisappearingMessagesConfiguration?.expiresInSeconds(),
@@ -1585,7 +1616,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     
     public static func createMemberListViewController(
         threadId: String,
-        transitionToConversation: @escaping @MainActor (String) -> Void,
+        transitionToConversation: @escaping @MainActor (ConversationInfoViewModel?) -> Void,
         using dependencies: Dependencies
     ) -> UIViewController {
         return SessionTableViewController(
@@ -1603,43 +1634,61 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     .filter(GroupMember.Columns.groupId == threadId)
                     .group(GroupMember.Columns.profileId),
                 onTap: .callback { _, memberInfo in
-                    dependencies[singleton: .storage].writeAsync(
-                        updates: { db in
-                            try SessionThread.upsert(
-                                db,
-                                id: memberInfo.profileId,
-                                variant: .contact,
-                                values: SessionThread.TargetValues(
-                                    creationDateTimestamp: .useExistingOrSetTo(
-                                        dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
-                                    ),
-                                    shouldBeVisible: .useExisting,
-                                    isDraft: .useExistingOrSetTo(true)
+                    let maybeThreadInfo: ConversationInfoViewModel? = try? await dependencies[singleton: .storage].writeAsync { db in
+                        try SessionThread.upsert(
+                            db,
+                            id: memberInfo.profileId,
+                            variant: .contact,
+                            values: SessionThread.TargetValues(
+                                creationDateTimestamp: .useExistingOrSetTo(
+                                    dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000
                                 ),
-                                using: dependencies
-                            )
-                        },
-                        completion: { _ in
-                            Task { @MainActor in
-                                transitionToConversation(memberInfo.profileId)
-                            }
-                        }
-                    )
+                                shouldBeVisible: .useExisting,
+                                isDraft: .useExistingOrSetTo(true)
+                            ),
+                            using: dependencies
+                        )
+
+                        return try ConversationViewModel.fetchConversationInfo(
+                            db,
+                            threadId: memberInfo.profileId,
+                            using: dependencies
+                        )
+                    }
+                    
+                    await MainActor.run {
+                        transitionToConversation(maybeThreadInfo)
+                    }
                 },
                 using: dependencies
             )
         )
     }
     
-    private func viewMembers() {
+    private func viewMembers(state: ViewModelState) {
         self.transitionToScreen(
             ThreadSettingsViewModel.createMemberListViewController(
-                threadId: threadId,
-                transitionToConversation: { [weak self, dependencies] selectedMemberId in
+                threadId: state.threadInfo.id,
+                transitionToConversation: { [weak self, dependencies] maybeThreadInfo in
+                    guard let threadInfo: ConversationInfoViewModel = maybeThreadInfo else {
+                        self?.transitionToScreen(
+                            ConfirmationModal(
+                                info: ConfirmationModal.Info(
+                                    title: "theError".localized(),
+                                    body: .text("errorUnknown".localized()),
+                                    cancelTitle: "okay".localized(),
+                                    cancelStyle: .alert_text
+                                )
+                            ),
+                            transitionType: .present
+                        )
+                        return
+                    }
+                    
                     self?.transitionToScreen(
                         ConversationVC(
-                            threadId: selectedMemberId,
-                            threadVariant: .contact,
+                            threadInfo: threadInfo,
+                            focusedInteractionInfo: nil,
                             using: dependencies
                         ),
                         transitionType: .push
@@ -1650,7 +1699,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         )
     }
     
-    private func promoteAdmins(currentGroupName: String?) {
+    private func promoteAdmins(state: ViewModelState) {
         guard dependencies[feature: .updatedGroupsAllowPromotions] else { return }
         
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
@@ -1672,7 +1721,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             /// Actually trigger the sending process
             MessageSender
                 .promoteGroupMembers(
-                    groupSessionId: SessionId(.group, hex: threadId),
+                    groupSessionId: SessionId(.group, hex: state.threadInfo.id),
                     members: memberInfo,
                     isResend: isResend,
                     using: dependencies
@@ -1680,7 +1729,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 .subscribe(on: DispatchQueue.global(qos: .userInitiated), using: dependencies)
                 .receive(on: DispatchQueue.main, using: dependencies)
                 .sinkUntilComplete(
-                    receiveCompletion: { [threadId, dependencies] result in
+                    receiveCompletion: { [dependencies] result in
                         switch result {
                             case .finished: break
                             case .failure:
@@ -1689,7 +1738,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 /// Flag the members as failed
                                 dependencies[singleton: .storage].writeAsync { db in
                                     try? GroupMember
-                                        .filter(GroupMember.Columns.groupId == threadId)
+                                        .filter(GroupMember.Columns.groupId == state.threadInfo.id)
                                         .filter(memberIds.contains(GroupMember.Columns.profileId))
                                         .updateAllAndConfig(
                                             db,
@@ -1701,7 +1750,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                 /// Show a toast that the promotions failed to send
                                 viewModel?.showToast(
                                     text: GroupPromoteMemberJob.failureMessage(
-                                        groupName: (currentGroupName ?? "groupUnknown".localized()),
+                                        groupName: (state.threadInfo.groupInfo?.name ?? "groupUnknown".localized()),
                                         memberIds: memberIds,
                                         profileInfo: memberInfo.reduce(into: [:]) { result, next in
                                             result[next.id] = next.profile
@@ -1726,7 +1775,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         SELECT \(groupMember.allColumns)
                         FROM \(groupMember)
                         WHERE (
-                            \(groupMember[.groupId]) == \(threadId) AND (
+                            \(groupMember[.groupId]) == \(state.threadInfo.id) AND (
                                 \(groupMember[.role]) == \(GroupMember.Role.admin) OR
                                 (
                                     \(groupMember[.role]) != \(GroupMember.Role.admin) AND
@@ -1770,11 +1819,14 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     }
     
     private func updateNickname(
+        state: ViewModelState,
         current: String?,
         displayName: String
     ) -> ConfirmationModal.Info {
         /// Set `updatedName` to `current` so we can disable the "save" button when there are no changes and don't need to worry about retrieving them in the confirmation closure
         self.updatedName = current
+        let currentUserSessionId: SessionId = dependencies[cache: .general].sessionId
+        
         return ConfirmationModal.Info(
             title: "nicknameSet".localized(),
             body: .input(
@@ -1809,7 +1861,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             cancelEnabled: .bool(current?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
             hasCloseButton: true,
             dismissOnConfirm: false,
-            onConfirm: { [weak self, dependencies, threadId] modal in
+            onConfirm: { [weak self, dependencies] modal in
                 guard
                     let finalNickname: String = (self?.updatedName ?? "")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1827,9 +1879,10 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     updates: { db in
                         try Profile.updateIfNeeded(
                             db,
-                            publicKey: threadId,
+                            publicKey: state.threadInfo.id,
                             nicknameUpdate: .set(to: finalNickname),
-                            profileUpdateTimestamp: nil,
+                            profileUpdateTimestamp: nil,                              /// Not set for `nickname`
+                            currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
                             using: dependencies
                         )
                     },
@@ -1840,15 +1893,16 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                     }
                 )
             },
-            onCancel: { [dependencies, threadId] modal in
+            onCancel: { [dependencies] modal in
                 /// Remove the nickname
                 dependencies[singleton: .storage].writeAsync(
                     updates: { db in
                         try Profile.updateIfNeeded(
                             db,
-                            publicKey: threadId,
+                            publicKey: state.threadInfo.id,
                             nicknameUpdate: .set(to: nil),
-                            profileUpdateTimestamp: nil,
+                            profileUpdateTimestamp: nil,                              /// Not set for `nickname`
+                            currentUserSessionIds: [currentUserSessionId.hexString],  /// Contact thread
                             using: dependencies
                         )
                     },
@@ -1863,6 +1917,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     }
     
     private func updateGroupNameAndDescription(
+        state: ViewModelState,
         currentName: String,
         currentDescription: String?,
         isUpdatedGroup: Bool
@@ -1922,7 +1977,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             },
             cancelStyle: .danger,
             dismissOnConfirm: false,
-            onConfirm: { [weak self, dependencies, threadId] modal in
+            onConfirm: { [weak self, dependencies] modal in
                 guard
                     let finalName: String = (self?.updatedName ?? "")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1946,7 +2001,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                 /// Update the group appropriately
                 MessageSender
                     .updateGroup(
-                        groupSessionId: threadId,
+                        groupSessionId: state.threadInfo.id,
                         name: finalName,
                         groupDescription: finalDescription,
                         using: dependencies
@@ -1960,7 +2015,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         )
     }
     
-    private func updateGroupDisplayPicture(currentUrl: String?) {
+    private func updateGroupDisplayPicture(state: ViewModelState, currentUrl: String?) {
         guard dependencies[feature: .updatedGroupsAllowDisplayPicture] else { return }
         
         let iconName: String = "profile_placeholder" // stringlint:ignore
@@ -2034,6 +2089,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             case .image(.some(let source), _, _, let style, _, _, _, _, _):
                                 // FIXME: Need to add Group Pro display pic CTA
                                 self?.updateGroupDisplayPicture(
+                                    state: state,
                                     displayPictureUpdate: .groupUploadImage(
                                         source: source,
                                         cropRect: style.cropRect
@@ -2057,6 +2113,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             hasSetNewProfilePicture = false
                         } else {
                             self?.updateGroupDisplayPicture(
+                                state: state,
                                 displayPictureUpdate: .groupRemove,
                                 onUploadComplete: { [weak modal] in
                                     Task { @MainActor in modal?.close() }
@@ -2088,6 +2145,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     }
     
     private func updateGroupDisplayPicture(
+        state: ViewModelState,
         displayPictureUpdate: DisplayPictureManager.Update,
         onUploadComplete: @escaping () -> ()
     ) {
@@ -2096,7 +2154,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             default: break
         }
         
-        Task.detached(priority: .userInitiated) { [weak self, threadId, dependencies] in
+        Task.detached(priority: .userInitiated) { [weak self, dependencies] in
             var targetUpdate: DisplayPictureManager.Update = displayPictureUpdate
             var indicator: ModalActivityIndicatorViewController?
             
@@ -2165,7 +2223,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             
             let existingDownloadUrl: String? = try? await dependencies[singleton: .storage].readAsync { db in
                 try? ClosedGroup
-                    .filter(id: threadId)
+                    .filter(id: state.threadInfo.id)
                     .select(.displayPictureUrl)
                     .asRequest(of: String.self)
                     .fetchOne(db)
@@ -2173,7 +2231,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
             
             do {
                 try await MessageSender.updateGroup(
-                    groupSessionId: threadId,
+                    groupSessionId: state.threadInfo.id,
                     displayPictureUpdate: targetUpdate,
                     using: dependencies
                 )
@@ -2218,96 +2276,104 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         }
     }
     
-    private func toggleConversationPinnedStatus(currentPinnedPriority: Int32) {
-        let isCurrentlyPinned: Bool = (currentPinnedPriority > Int32(LibSession.visiblePriority))
+    private func toggleConversationPinnedStatus(threadInfo: ConversationInfoViewModel) async {
+        let isCurrentlyPinned: Bool = (threadInfo.pinnedPriority > LibSession.visiblePriority)
+        let sessionProState: SessionPro.State = await dependencies[singleton: .sessionProManager]
+            .state
+            .first(defaultValue: .invalid)
         
-        if !isCurrentlyPinned && dependencies[feature: .sessionProEnabled] && !dependencies[cache: .libSession].isSessionPro {
+        if sessionProState.sessionProEnabled && !isCurrentlyPinned && sessionProState.status != .active {
             // TODO: [Database Relocation] Retrieve the full conversation list from lib session and check the pinnedPriority that way instead of using the database
-            dependencies[singleton: .storage].writeAsync(
-                updates: { [threadId, dependencies] db in
+            do {
+                let numPinnedConversations: Int = try await dependencies[singleton: .storage].writeAsync { [dependencies] db in
                     let numPinnedConversations: Int = try SessionThread
                         .filter(SessionThread.Columns.pinnedPriority > LibSession.visiblePriority)
                         .fetchCount(db)
                     
-                    guard numPinnedConversations < LibSession.PinnedConversationLimit else {
+                    guard numPinnedConversations < SessionPro.PinnedConversationLimit else {
                         return numPinnedConversations
                     }
                     
                     // We have the space to pin the conversation, so do so
-                    try SessionThread.updateVisibility(
+                    try SessionThread.update(
                         db,
-                        threadId: threadId,
-                        isVisible: true,
-                        customPriority: (currentPinnedPriority <= LibSession.visiblePriority ? 1 : LibSession.visiblePriority),
+                        id: threadInfo.id,
+                        values: SessionThread.TargetValues(
+                            shouldBeVisible: .setTo(true),
+                            pinnedPriority: .setTo(threadInfo.pinnedPriority <= LibSession.visiblePriority ?
+                                1 :
+                                LibSession.visiblePriority
+                            )
+                        ),
                         using: dependencies
                     )
                     
                     return -1
-                },
-                completion: { [weak self, imageDataManager, dependencies] result in
-                    guard
-                        let numPinnedConversations: Int = try? result.successOrThrow(),
-                        numPinnedConversations > 0
-                    else { return }
-                    
-                    DispatchQueue.main.async {
-                        let sessionProModal: ModalHostingViewController = ModalHostingViewController(
-                            modal: ProCTAModal(
-                                variant: .morePinnedConvos(
-                                    isGrandfathered: (numPinnedConversations > LibSession.PinnedConversationLimit),
-                                    renew: dependencies[singleton: .sessionProState].isSessionProExpired
-                                ),
-                                dataManager: imageDataManager,
-                                onConfirm: { [dependencies] in
-                                    Task {
-                                        await dependencies[singleton: .sessionProState].upgradeToPro(
-                                            plan: SessionProPlan(variant: .threeMonths),
-                                            originatingPlatform: .iOS,
-                                            completion: nil
-                                        )
-                                    }
+                }
+                
+                /// If we already have too many conversations pinned then we need to show the CTA modal
+                guard numPinnedConversations > 0 else { return }
+
+                _ = await MainActor.run { [weak self, dependencies] in
+                    dependencies[singleton: .sessionProManager].showSessionProCTAIfNeeded(
+                        .morePinnedConvos(
+                            isGrandfathered: (numPinnedConversations > SessionPro.PinnedConversationLimit),
+                            renew: (sessionProState.status == .expired)
+                        ),
+                        onConfirm: { [weak self] in
+                            dependencies[singleton: .sessionProManager].showSessionProBottomSheetIfNeeded(
+                                presenting: { [weak self] bottomSheet in
+                                    self?.transitionToScreen(bottomSheet, transitionType: .present)
                                 }
                             )
-                        )
-                        self?.transitionToScreen(sessionProModal, transitionType: .present)
-                    }
+                        },
+                        presenting: { [weak self] modal in
+                            self?.transitionToScreen(modal, transitionType: .present)
+                        }
+                    )
                 }
-            )
+            }
+            catch {}
             return
         }
         
         // If we are unpinning then no need to check the current count, just unpin immediately
-        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
-            try SessionThread.updateVisibility(
+        try? await dependencies[singleton: .storage].writeAsync { [dependencies] db in
+            try SessionThread.update(
                 db,
-                threadId: threadId,
-                isVisible: true,
-                customPriority: (currentPinnedPriority <= Int32(LibSession.visiblePriority) ? 1 : Int32(LibSession.visiblePriority)),
+                id: threadInfo.id,
+                values: SessionThread.TargetValues(
+                    shouldBeVisible: .setTo(true),
+                    pinnedPriority: .setTo(threadInfo.pinnedPriority <= LibSession.visiblePriority ?
+                        1 :
+                        LibSession.visiblePriority
+                    )
+                ),
                 using: dependencies
             )
         }
     }
     
-    private func deleteAllMessagesBeforeNow() {
-        guard threadVariant == .group else { return }
+    private func deleteAllMessagesBeforeNow(state: ViewModelState) {
+        guard state.threadInfo.variant == .group else { return }
         
-        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+        dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try LibSession.deleteMessagesBefore(
                 db,
-                groupSessionId: SessionId(.group, hex: threadId),
+                groupSessionId: SessionId(.group, hex: state.threadInfo.id),
                 timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                 using: dependencies
             )
         }
     }
     
-    private func deleteAllAttachmentsBeforeNow() {
-        guard threadVariant == .group else { return }
+    private func deleteAllAttachmentsBeforeNow(state: ViewModelState) {
+        guard state.threadInfo.variant == .group else { return }
         
-        dependencies[singleton: .storage].writeAsync { [threadId, dependencies] db in
+        dependencies[singleton: .storage].writeAsync { [dependencies] db in
             try LibSession.deleteAttachmentsBefore(
                 db,
-                groupSessionId: SessionId(.group, hex: threadId),
+                groupSessionId: SessionId(.group, hex: state.threadInfo.id),
                 timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000),
                 using: dependencies
             )
@@ -2316,38 +2382,37 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
     
     // MARK: - Confirmation Modals
     
-    private func updateDisplayNameModal(
-        threadViewModel: SessionThreadViewModel,
-        currentUserIsClosedGroupAdmin: Bool
-    ) -> ConfirmationModal.Info? {
-        guard !threadViewModel.threadIsNoteToSelf else { return nil }
+    private func updateDisplayNameModal(state: ViewModelState) -> ConfirmationModal.Info? {
+        guard !state.threadInfo.isNoteToSelf else { return nil }
         
-        switch (threadViewModel.threadVariant, currentUserIsClosedGroupAdmin) {
+        switch (state.threadInfo.variant, state.threadInfo.groupInfo?.currentUserRole) {
             case (.contact, _):
                 return self.updateNickname(
-                    current: threadViewModel.profile?.nickname,
+                    state: state,
+                    current: state.threadInfo.profile?.nickname,
                     displayName: (
                         /// **Note:** We want to use the `profile` directly rather than `threadViewModel.displayName`
                         /// as the latter would use the `nickname` here which is incorrect
-                        threadViewModel.profile?.displayName(ignoringNickname: true) ??
-                        threadViewModel.threadId.truncated()
+                        state.threadInfo.profile?.displayName(ignoreNickname: true) ??
+                        state.threadInfo.displayName.deformatted()
                     )
                 )
             
-            case (.group, true), (.legacyGroup, true):
+            case (.group, .admin), (.legacyGroup, .admin):
                 return self.updateGroupNameAndDescription(
-                    currentName: threadViewModel.displayName,
-                    currentDescription: threadViewModel.threadDescription,
-                    isUpdatedGroup: (threadViewModel.threadVariant == .group)
+                    state: state,
+                    currentName: state.threadInfo.displayName.deformatted(),
+                    currentDescription: state.threadInfo.conversationDescription,
+                    isUpdatedGroup: (state.threadInfo.variant == .group)
                 )
             
-            case (.community, _), (.legacyGroup, false), (.group, false): return nil
+            case (.community, _), (.legacyGroup, _), (.group, _): return nil
         }
     }
     
-    private func showQRCodeLightBox(for threadViewModel: SessionThreadViewModel) {
+    private func showQRCodeLightBox(for threadInfo: ConversationInfoViewModel) {
         let qrCodeImage: UIImage = QRCode.generate(
-            for: threadViewModel.getQRCodeString(),
+            for: threadInfo.qrCodeString,
             hasBackground: false,
             iconName: "SessionWhite40" // stringlint:ignore
         )
@@ -2384,6 +2449,43 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
         )
         viewController.modalPresentationStyle = .fullScreen
         self.transitionToScreen(viewController, transitionType: .present)
+    }
+}
+
+// MARK: - Convenience
+
+private extension ObservedEvent {
+    var handlingStrategy: EventHandlingStrategy {
+        let threadInfoStrategy: EventHandlingStrategy? = ConversationInfoViewModel.handlingStrategy(for: self)
+        let localStrategy: EventHandlingStrategy = {
+            switch (key, key.generic) {
+                case (.appLifecycle(.willEnterForeground), _): return .databaseQuery
+                case (.databaseLifecycle(.resumed), _): return .databaseQuery
+
+                default: return .directCacheUpdate
+            }
+        }()
+
+        return localStrategy.union(threadInfoStrategy ?? .none)
+    }
+}
+
+private extension ConversationInfoViewModel {
+    var qrCodeString: String {
+        switch self.variant {
+            case .contact, .legacyGroup, .group: return id
+            case .community:
+                guard
+                    let communityInfo: CommunityInfo = self.communityInfo,
+                    let urlString: String = LibSession.communityUrlFor(
+                        server: communityInfo.server,
+                        roomToken: communityInfo.roomToken,
+                        publicKey: communityInfo.publicKey
+                    )
+                else { return "" }
+
+                return urlString
+        }
     }
 }
 

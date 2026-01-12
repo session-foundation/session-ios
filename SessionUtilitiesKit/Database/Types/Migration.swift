@@ -11,7 +11,7 @@ public extension Log.Category {
 
 // MARK: - Migration
 
-public protocol Migration {
+public protocol Migration: Sendable {
     static var identifier: String { get }
     static var minExpectedRunDuration: TimeInterval { get }
     static var createdTables: [(TableRecord & FetchableRecord).Type] { get }

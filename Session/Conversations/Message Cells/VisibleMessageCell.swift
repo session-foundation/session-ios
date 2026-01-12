@@ -347,8 +347,7 @@ final class VisibleMessageCell: MessageCell {
         let profileShouldBeVisible: Bool = (
             isGroupThread &&
             cellViewModel.canHaveProfile &&
-            cellViewModel.shouldShowProfile &&
-            cellViewModel.profile != nil
+            cellViewModel.shouldShowDisplayPicture
         )
         profilePictureView.isHidden = !cellViewModel.canHaveProfile
         profilePictureView.alpha = (profileShouldBeVisible ? 1 : 0)
@@ -383,11 +382,14 @@ final class VisibleMessageCell: MessageCell {
         bubbleView.isAccessibilityElement = true
         
         // Author label
-        authorLabel.isHidden = (cellViewModel.senderName == nil)
-        authorLabel.text = cellViewModel.authorNameSuppressedId
-        authorLabel.extraText = cellViewModel.authorName.replacingOccurrences(of: cellViewModel.authorNameSuppressedId, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        authorLabel.isHidden = !cellViewModel.shouldShowAuthorName
+        authorLabel.text = cellViewModel.authorName()
+        authorLabel.extraText = (cellViewModel.threadVariant == .community ?
+            "(\(cellViewModel.authorId.truncated()))" : /// Show a truncated authorId in Community conversations // stringlint:ignore
+            nil
+        )
         authorLabel.themeTextColor = .textPrimary
-        authorLabel.isProBadgeHidden = !dependencies.mutate(cache: .libSession) { $0.validateSessionProState(for: cellViewModel.authorId) }
+        authorLabel.isProBadgeHidden = !cellViewModel.profile.proFeatures.contains(.proBadge)
         
         // Flip horizontally for RTL languages
         replyIconImageView.transform = CGAffineTransform.identity
@@ -405,7 +407,7 @@ final class VisibleMessageCell: MessageCell {
         }
         
         // Reaction view
-        reactionContainerView.isHidden = (cellViewModel.reactionInfo?.isEmpty != false)
+        reactionContainerView.isHidden = cellViewModel.reactionInfo.isEmpty
         populateReaction(
             for: cellViewModel,
             maxWidth: VisibleMessageCell.getMaxWidth(
@@ -420,24 +422,27 @@ final class VisibleMessageCell: MessageCell {
         let (image, statusText, tintColor) = cellViewModel.state.statusIconInfo(
             variant: cellViewModel.variant,
             hasBeenReadByRecipient: cellViewModel.hasBeenReadByRecipient,
-            hasAttachments: (cellViewModel.attachments?.isEmpty == false)
+            hasAttachments: !cellViewModel.attachments.isEmpty
         )
-        messageStatusLabel.text = statusText
-        messageStatusLabel.themeTextColor = tintColor
-        messageStatusImageView.image = image
-        messageStatusLabel.accessibilityIdentifier = "Message sent status: \(statusText ?? "invalid")"
-        messageStatusImageView.themeTintColor = tintColor
-        messageStatusStackView.isHidden = (
+        let expectedMessageStatusHiddenState: Bool = (
             (cellViewModel.expiresInSeconds ?? 0) == 0 && (
                 !cellViewModel.variant.isOutgoing ||
                 cellViewModel.variant.isDeletedMessage ||
                 cellViewModel.variant == .infoCall ||
+                cellViewModel.state == .localOnly ||
                 (
                     cellViewModel.state == .sent &&
                     !cellViewModel.isLastOutgoing
                 )
             )
         )
+        messageStatusLabel.text = statusText
+        messageStatusLabel.themeTextColor = tintColor
+        messageStatusLabel.accessibilityIdentifier = "Message sent status: \(statusText ?? "invalid")"
+        messageStatusLabel.isHidden = (statusText ?? "").isEmpty
+        messageStatusImageView.image = image
+        messageStatusImageView.themeTintColor = tintColor
+        messageStatusStackView.isHidden = expectedMessageStatusHiddenState
         
         // Timer
         if
@@ -457,7 +462,7 @@ final class VisibleMessageCell: MessageCell {
         }
         else {
             timerView.isHidden = true
-            messageStatusImageView.isHidden = false
+            messageStatusImageView.isHidden = expectedMessageStatusHiddenState
         }
         
         // Hide the underBubbleStackView if all of it's content is hidden
@@ -488,10 +493,7 @@ final class VisibleMessageCell: MessageCell {
         tableSize: CGSize,
         using dependencies: Dependencies
     ) {
-        let bodyLabelTextColor: ThemeValue = (cellViewModel.variant.isOutgoing ?
-            .messageBubble_outgoingText :
-            .messageBubble_incomingText
-        )
+        let bodyLabelTextColor: ThemeValue = cellViewModel.bodyTextColor
         snContentView.alignment = (cellViewModel.variant.isOutgoing ? .trailing : .leading)
         
         for subview in snContentView.arrangedSubviews {
@@ -572,8 +574,7 @@ final class VisibleMessageCell: MessageCell {
                             for: cellViewModel,
                             with: maxWidth,
                             textColor: bodyLabelTextColor,
-                            searchText: lastSearchText,
-                            using: dependencies
+                            searchText: lastSearchText
                         )
                         
                         bodyTappableLabelContainer.addSubview(bodyTappableInfo.label)
@@ -625,21 +626,7 @@ final class VisibleMessageCell: MessageCell {
                 if let quoteViewModel: QuoteViewModel = cellViewModel.quoteViewModel {
                     let hInset: CGFloat = 2
                     let quoteView: QuoteView = QuoteView(
-                        viewModel: quoteViewModel.with(
-                            direction: (cellViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
-                            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-                            showProBadge: dependencies.mutate(cache: .libSession) {
-                                $0.validateSessionProState(for: quoteViewModel.authorId)
-                            },
-                            thumbnailSource: .thumbnailFrom(
-                                quoteViewModel: quoteViewModel,
-                                using: dependencies
-                            ),
-                            displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                                threadVariant: cellViewModel.threadVariant,
-                                using: dependencies
-                            )
-                        ),
+                        viewModel: quoteViewModel,
                         dataManager: dependencies[singleton: .imageDataManager]
                     )
                     self.quoteView = quoteView
@@ -652,8 +639,7 @@ final class VisibleMessageCell: MessageCell {
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
-                    searchText: lastSearchText,
-                    using: dependencies
+                    searchText: lastSearchText
                 )
                 self.bodyLabel = bodyTappableLabel
                 self.bodyLabelHeight = height
@@ -713,7 +699,7 @@ final class VisibleMessageCell: MessageCell {
         )
         let lineHeight: CGFloat = UIFont.systemFont(ofSize: VisibleMessageCell.getFontSize(for: cellViewModel)).lineHeight
         
-        switch (cellViewModel.quoteViewModel, cellViewModel.body) {
+        switch (cellViewModel.quoteViewModel, cellViewModel.bubbleBody) {
             /// Both quote and body
             case (.some(let quoteViewModel), .some(let body)) where !body.isEmpty:
                 // Stack view
@@ -724,21 +710,7 @@ final class VisibleMessageCell: MessageCell {
                 // Quote view
                 let hInset: CGFloat = 2
                 let quoteView: QuoteView = QuoteView(
-                    viewModel: quoteViewModel.with(
-                        direction: (cellViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
-                        currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-                        showProBadge: dependencies.mutate(cache: .libSession) {
-                            $0.validateSessionProState(for: quoteViewModel.authorId)
-                        },
-                        thumbnailSource: .thumbnailFrom(
-                            quoteViewModel: quoteViewModel,
-                            using: dependencies
-                        ),
-                        displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                            threadVariant: cellViewModel.threadVariant,
-                            using: dependencies
-                        )
-                    ),
+                    viewModel: quoteViewModel,
                     dataManager: dependencies[singleton: .imageDataManager]
                 )
                 self.quoteView = quoteView
@@ -750,8 +722,7 @@ final class VisibleMessageCell: MessageCell {
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
-                    searchText: lastSearchText,
-                    using: dependencies
+                    searchText: lastSearchText
                 )
                 self.bodyLabel = bodyTappableLabel
                 self.bodyLabelHeight = height
@@ -783,8 +754,7 @@ final class VisibleMessageCell: MessageCell {
                     for: cellViewModel,
                     with: maxWidth,
                     textColor: bodyLabelTextColor,
-                    searchText: lastSearchText,
-                    using: dependencies
+                    searchText: lastSearchText
                 )
 
                 self.bodyLabel = bodyTappableLabel
@@ -809,21 +779,7 @@ final class VisibleMessageCell: MessageCell {
             /// Just quote
             case (.some(let quoteViewModel), _):
                 let quoteView: QuoteView = QuoteView(
-                    viewModel: quoteViewModel.with(
-                        direction: (cellViewModel.variant == .standardOutgoing ? .outgoing : .incoming),
-                        currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-                        showProBadge: dependencies.mutate(cache: .libSession) {
-                            $0.validateSessionProState(for: quoteViewModel.authorId)
-                        },
-                        thumbnailSource: .thumbnailFrom(
-                            quoteViewModel: quoteViewModel,
-                            using: dependencies
-                        ),
-                        displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                            threadVariant: cellViewModel.threadVariant,
-                            using: dependencies
-                        )
-                    ),
+                    viewModel: quoteViewModel,
                     dataManager: dependencies[singleton: .imageDataManager]
                 )
                 self.quoteView = quoteView
@@ -853,9 +809,7 @@ final class VisibleMessageCell: MessageCell {
                     cellWidth: tableSize.width
                 )
                 let albumView = MediaAlbumView(
-                    items: (cellViewModel.attachments?
-                        .filter { $0.isVisualMedia })
-                        .defaulting(to: []),
+                    items: cellViewModel.attachments.filter { $0.isVisualMedia },
                     isOutgoing: cellViewModel.variant.isOutgoing,
                     maxMessageWidth: maxMessageWidth,
                     using: dependencies
@@ -869,7 +823,7 @@ final class VisibleMessageCell: MessageCell {
                 snContentView.addArrangedSubview(albumView)
             
             case .voiceMessage:
-                guard let attachment: Attachment = cellViewModel.attachments?.first(where: { $0.isAudio }) else {
+                guard let attachment: Attachment = cellViewModel.attachments.first(where: { $0.isAudio }) else {
                     return
                 }
                 
@@ -885,7 +839,7 @@ final class VisibleMessageCell: MessageCell {
                 addViewWrappingInBubbleIfNeeded(voiceMessageView)
                 
             case .audio, .genericAttachment:
-                guard let attachment: Attachment = cellViewModel.attachments?.first else { preconditionFailure() }
+                guard let attachment: Attachment = cellViewModel.attachments.first else { return }
                 
                 // Document view
                 let documentView = DocumentView(attachment: attachment, textColor: bodyLabelTextColor)
@@ -899,13 +853,13 @@ final class VisibleMessageCell: MessageCell {
         maxWidth: CGFloat,
         showExpandedReactions: Bool
     ) {
-        let reactions: OrderedDictionary<EmojiWithSkinTones, ReactionViewModel> = (cellViewModel.reactionInfo ?? [])
+        let reactions: OrderedDictionary<EmojiWithSkinTones, ReactionViewModel> = cellViewModel.reactionInfo
             .reduce(into: OrderedDictionary()) { result, reactionInfo in
                 guard let emoji: EmojiWithSkinTones = EmojiWithSkinTones(rawValue: reactionInfo.reaction.emoji) else {
                     return
                 }
                 
-                let isSelfSend: Bool = (cellViewModel.currentUserSessionIds ?? []).contains(reactionInfo.reaction.authorId)
+                let isSelfSend: Bool = cellViewModel.currentUserSessionIds.contains(reactionInfo.reaction.authorId)
                 
                 if let value: ReactionViewModel = result.value(forKey: emoji) {
                     result.replace(
@@ -965,7 +919,7 @@ final class VisibleMessageCell: MessageCell {
 
         switch cellViewModel.cellType {
             case .voiceMessage:
-                guard let attachment: Attachment = cellViewModel.attachments?.first(where: { $0.isAudio }) else {
+                guard let attachment: Attachment = cellViewModel.attachments.first(where: { $0.isAudio }) else {
                     return
                 }
                 
@@ -1087,11 +1041,11 @@ final class VisibleMessageCell: MessageCell {
         let location = gestureRecognizer.location(in: self)
         let tappedAuthorName: Bool = (
             authorLabel.bounds.contains(authorLabel.convert(location, from: self)) &&
-            !(cellViewModel.senderName ?? "").isEmpty
+            !cellViewModel.authorName().isEmpty
         )
         let tappedProfilePicture: Bool = (
             profilePictureView.bounds.contains(profilePictureView.convert(location, from: self)) &&
-            cellViewModel.shouldShowProfile
+            cellViewModel.shouldShowDisplayPicture
         )
         
         if tappedAuthorName || tappedProfilePicture {
@@ -1232,9 +1186,9 @@ final class VisibleMessageCell: MessageCell {
     private static func getFontSize(for cellViewModel: MessageViewModel) -> CGFloat {
         let baselineFontSize = Values.mediumFontSize
         
-        guard cellViewModel.containsOnlyEmoji == true else { return baselineFontSize }
+        guard cellViewModel.containsOnlyEmoji else { return baselineFontSize }
         
-        switch (cellViewModel.glyphCount ?? 0) {
+        switch cellViewModel.glyphCount {
             case 1: return baselineFontSize + 30
             case 2: return baselineFontSize + 24
             case 3, 4, 5: return baselineFontSize + 18
@@ -1247,10 +1201,7 @@ final class VisibleMessageCell: MessageCell {
     }
 
     private func getSize(for cellViewModel: MessageViewModel, tableSize: CGSize) -> CGSize {
-        guard let mediaAttachments: [Attachment] = cellViewModel.attachments?.filter({ $0.isVisualMedia }) else {
-            preconditionFailure()
-        }
-        
+        let mediaAttachments: [Attachment] = cellViewModel.attachments.filter({ $0.isVisualMedia })
         let maxMessageWidth = VisibleMessageCell.getMaxWidth(
             for: cellViewModel,
             cellWidth: tableSize.width
@@ -1323,27 +1274,24 @@ final class VisibleMessageCell: MessageCell {
     static func getBodyAttributedText(
         for cellViewModel: MessageViewModel,
         textColor: ThemeValue,
-        searchText: String?,
-        using dependencies: Dependencies
+        searchText: String?
     ) -> ThemedAttributedString? {
         guard
-            let body: String = cellViewModel.body,
+            let body: String = cellViewModel.bubbleBody,
             !body.isEmpty
         else { return nil }
         
         let isOutgoing: Bool = (cellViewModel.variant == .standardOutgoing)
-        let attributedText: ThemedAttributedString = MentionUtilities.highlightMentions(
-            in: body,
-            threadVariant: cellViewModel.threadVariant,
-            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-            location: (isOutgoing ? .outgoingMessage : .incomingMessage),
-            textColor: textColor,
-            attributes: [
-                .themeForegroundColor: textColor,
-                .font: UIFont.systemFont(ofSize: getFontSize(for: cellViewModel))
-            ],
-            using: dependencies
-        )
+        let attributedText: ThemedAttributedString = body
+            .formatted(
+                baseFont: .systemFont(ofSize: getFontSize(for: cellViewModel)),
+                attributes: [.themeForegroundColor: textColor],
+                mentionColor: MentionUtilities.mentionColor(
+                    textColor: textColor,
+                    location: (isOutgoing ? .outgoingMessage : .incomingMessage)
+                ),
+                currentUserMentionImage: cellViewModel.currentUserMentionImage
+            )
         
         // Custom handle links
         let links: [URL: NSRange] = {
@@ -1355,23 +1303,25 @@ final class VisibleMessageCell: MessageCell {
             // NSAttributedString and NSRange are both based on UTF-16 encoded lengths, so
             // in order to avoid strings which contain emojis breaking strings which end
             // with URLs we need to use the 'String.utf16.count' value when creating the range
+            let rawString: String = attributedText.string
+            
             return detector
                 .matches(
-                    in: attributedText.string,
+                    in: rawString,
                     options: [],
-                    range: NSRange(location: 0, length: attributedText.string.utf16.count)
+                    range: NSRange(location: 0, length: rawString.utf16.count)
                 )
                 .reduce(into: [:]) { result, match in
                     guard
                         let matchUrl: URL = match.url,
-                        let originalRange: Range = Range(match.range, in: attributedText.string)
+                        let originalRange: Range = Range(match.range, in: rawString)
                     else { return }
                     
                     /// If the URL entered didn't have a scheme it will default to 'http', we want to catch this and
                     /// set the scheme to 'https' instead as we don't load previews for 'http' so this will result
                     /// in more previews actually getting loaded without forcing the user to enter 'https://' before
                     /// every URL they enter
-                    let originalString: String = String(attributedText.string[originalRange])
+                    let originalString: String = String(rawString[originalRange])
                     
                     guard matchUrl.absoluteString != "http://\(originalString)" else {
                         guard let httpsUrl: URL = URL(string: "https://\(originalString)") else {
@@ -1401,46 +1351,15 @@ final class VisibleMessageCell: MessageCell {
         
         // If there is a valid search term then highlight each part that matched
         if let searchText = searchText, searchText.count >= ConversationSearchController.minimumSearchTextLength {
-            let normalizedBody: String = attributedText.string.lowercased()
+            let ranges: [NSRange] = GlobalSearch.ranges(
+                for: searchText,
+                in: attributedText.string
+            )
             
-            SessionThreadViewModel.searchTermParts(searchText)
-                .map { part -> String in
-                    guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part }
-                    
-                    let partRange = (part.index(after: part.startIndex)..<part.index(before: part.endIndex))
-                    return String(part[partRange])
-                }
-                .forEach { part in
-                    // Highlight all ranges of the text (Note: The search logic only finds
-                    // results that start with the term so we use the regex below to ensure
-                    // we only highlight those cases)
-                    normalizedBody
-                        .ranges(
-                            of: (Dependencies.isRTL ?
-                                 "(\(part.lowercased()))(^|[^a-zA-Z0-9])" :
-                                 "(^|[^a-zA-Z0-9])(\(part.lowercased()))"
-                            ),
-                            options: [.regularExpression]
-                        )
-                        .forEach { range in
-                            let targetRange: Range<String.Index> = {
-                                let term: String = String(normalizedBody[range])
-                                
-                                // If the matched term doesn't actually match the "part" value then it means
-                                // we've matched a term after a non-alphanumeric character so need to shift
-                                // the range over by 1
-                                guard term.starts(with: part.lowercased()) else {
-                                    return (normalizedBody.index(after: range.lowerBound)..<range.upperBound)
-                                }
-                                
-                                return range
-                            }()
-                            
-                            let legacyRange: NSRange = NSRange(targetRange, in: normalizedBody)
-                            attributedText.addAttribute(.themeBackgroundColor, value: ThemeValue.backgroundPrimary, range: legacyRange)
-                            attributedText.addAttribute(.themeForegroundColor, value: ThemeValue.textPrimary, range: legacyRange)
-                        }
-                }
+            for range in ranges {
+                attributedText.addAttribute(.themeBackgroundColor, value: ThemeValue.backgroundPrimary, range: range)
+                attributedText.addAttribute(.themeForegroundColor, value: ThemeValue.textPrimary, range: range)
+            }
         }
         
         return attributedText
@@ -1450,14 +1369,12 @@ final class VisibleMessageCell: MessageCell {
         for cellViewModel: MessageViewModel,
         with availableWidth: CGFloat,
         textColor: ThemeValue,
-        searchText: String?,
-        using dependencies: Dependencies
+        searchText: String?
     ) -> (label: LinkHighlightingLabel, height: CGFloat) {
         let attributedText: ThemedAttributedString? = VisibleMessageCell.getBodyAttributedText(
             for: cellViewModel,
             textColor: textColor,
-            searchText: searchText,
-            using: dependencies
+            searchText: searchText
         )
         let result: LinkHighlightingLabel = LinkHighlightingLabel()
         result.setContentHugging(.vertical, to: .required)

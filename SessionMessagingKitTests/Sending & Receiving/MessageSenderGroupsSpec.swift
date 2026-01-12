@@ -46,7 +46,15 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 
                 try Profile(
                     id: "05\(TestConstants.publicKey)",
-                    name: "TestCurrentUser"
+                    name: "TestCurrentUser",
+                    nickname: nil,
+                    displayPictureUrl: nil,
+                    displayPictureEncryptionKey: nil,
+                    profileLastUpdated: nil,
+                    blocksCommunityMessageRequests: nil,
+                    proFeatures: .none,
+                    proExpiryUnixTimestampMs: 0,
+                    proGenIndexHashHex: nil
                 ).insert(db)
             }
         )
@@ -114,7 +122,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         )
                     )
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Data(hex: groupId.hexString).bytes,
@@ -149,11 +157,24 @@ class MessageSenderGroupsSpec: AsyncSpec {
                     .when { $0.generate(.legacyEncryptedDisplayPicture(data: .any, key: .any)) }
                     .thenReturn(TestConstants.validImageData)
                 crypto
-                    .when { $0.generate(.ciphertextForGroupMessage(groupSessionId: .any, message: .any)) }
+                    .when {
+                        try $0.generate(
+                            .encodedMessage(
+                                plaintext: Array<UInt8>.any,
+                                proMessageFeatures: .any,
+                                proProfileFeatures: .any,
+                                destination: .any,
+                                sentTimestampMs: .any
+                            )
+                        )
+                    }
                     .thenReturn("TestGroupMessageCiphertext".data(using: .utf8)!)
                 crypto
                     .when { $0.generate(.hash(message: .any)) }
                     .thenReturn(Array(Data(hex: "01010101010101010101010101010101")))
+                crypto
+                    .when { $0.generate(.signatureSubaccount(config: .any, verificationBytes: .any, memberAuthData: .any)) }
+                    .thenReturn(Authentication.Signature.standard(signature: "TestSignature".bytes))
             }
         )
         @TestState(singleton: .keychain, in: dependencies) var mockKeychain: MockKeychain! = MockKeychain(
@@ -234,6 +255,9 @@ class MessageSenderGroupsSpec: AsyncSpec {
                 cache
                     .when { try $0.pendingPushes(swarmPublicKey: .any) }
                     .thenReturn(LibSession.PendingPushes(obsoleteHashes: ["testHash"]))
+                cache
+                    .when { $0.authData(groupSessionId: .any) }
+                    .thenReturn(GroupAuthData(groupIdentityPrivateKey: nil, authData: Data([1, 2, 3])))
             }
         )
         @TestState(cache: .snodeAPI, in: dependencies) var mockSnodeAPICache: MockSnodeAPICache! = MockSnodeAPICache(
@@ -461,7 +485,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                 ]
                             )
                         )
-                    let expectedRequest: Network.PreparedRequest<Network.BatchResponse> = mockStorage.write { db in
+                    let expectedRequest: Network.PreparedRequest<Network.BatchResponse>? = mockStorage.write { db in
                         // Need the auth data to exist in the database to prepare the request
                         _ = try SessionThread.upsert(
                             db,
@@ -494,7 +518,6 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                         ),
                                         in: ConfigDump.Variant.groupInfo.namespace,
                                         authMethod: try Authentication.with(
-                                            db,
                                             swarmPublicKey: groupId.hexString,
                                             using: dependencies
                                         ),
@@ -513,7 +536,8 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         try SessionThread.filter(id: groupId.hexString).deleteAll(db)
                         
                         return preparedRequest
-                    }!
+                    }
+                    try require(expectedRequest).toNot(beNil())
                     
                     let result = await Result {
                         try await MessageSender.createGroup(
@@ -533,10 +557,10 @@ class MessageSenderGroupsSpec: AsyncSpec {
                         .to(call(.exactly(times: 1), matchingParameters: .all) { network in
                             network.send(
                                 endpoint: Network.SnodeAPI.Endpoint.sequence,
-                                destination: expectedRequest.destination,
-                                body: expectedRequest.body,
-                                requestTimeout: expectedRequest.requestTimeout,
-                                requestAndPathBuildTimeout: expectedRequest.requestAndPathBuildTimeout
+                                destination: expectedRequest!.destination,
+                                body: expectedRequest!.body,
+                                requestTimeout: expectedRequest!.requestTimeout,
+                                requestAndPathBuildTimeout: expectedRequest!.requestAndPathBuildTimeout
                             )
                         })
                 }
@@ -1275,7 +1299,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                         behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                         threadId: groupId.hexString,
                                         details: MessageSendJob.Details(
-                                            destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                            destination: .group(publicKey: groupId.hexString),
                                             message: try GroupUpdateMemberChangeMessage(
                                                 changeType: .added,
                                                 memberSessionIds: [
@@ -1477,7 +1501,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                     threadId: groupId.hexString,
                                     details: MessageSendJob.Details(
-                                        destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                        destination: .group(publicKey: groupId.hexString),
                                         message: try GroupUpdateMemberChangeMessage(
                                             changeType: .added,
                                             memberSessionIds: [
@@ -1522,7 +1546,7 @@ class MessageSenderGroupsSpec: AsyncSpec {
                                     behaviour: .runOnceAfterConfigSyncIgnoringPermanentFailure,
                                     threadId: groupId.hexString,
                                     details: MessageSendJob.Details(
-                                        destination: .closedGroup(groupPublicKey: groupId.hexString),
+                                        destination: .group(publicKey: groupId.hexString),
                                         message: try GroupUpdateMemberChangeMessage(
                                             changeType: .added,
                                             memberSessionIds: [

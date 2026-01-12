@@ -12,6 +12,13 @@ public enum GetExpirationJob: JobExecutor {
     public static var requiresInteractionId: Bool = false
     private static let minRunFrequency: TimeInterval = 5
     
+    private struct ExpirationInteractionInfo: Codable, Hashable, FetchableRecord {
+        let id: Int64
+        let threadId: String
+        let expiresInSeconds: TimeInterval
+        let expiresStartedAtMs: Double
+    }
+    
     public static func run<S: Scheduler>(
         _ job: Job,
         scheduler: S,
@@ -37,12 +44,11 @@ public enum GetExpirationJob: JobExecutor {
             return success(job, false)
         }
         
-        dependencies[singleton: .storage]
-            .readPublisher { db -> Network.PreparedRequest<GetExpiriesResponse> in
+        AnyPublisher
+            .lazy {
                 try Network.SnodeAPI.preparedGetExpiries(
                     of: expirationInfo.map { $0.key },
                     authMethod: try Authentication.with(
-                        db,
                         swarmPublicKey: dependencies[cache: .general].sessionId.hexString,
                         using: dependencies
                     ),
@@ -68,6 +74,7 @@ public enum GetExpirationJob: JobExecutor {
                         }
                     var hashesWithNoExiprationInfo: Set<String> = Set(expirationInfo.keys)
                         .subtracting(serverSpecifiedExpirationStartTimesMs.keys)
+                    
                     
                     dependencies[singleton: .storage].write { db in
                         try serverSpecifiedExpirationStartTimesMs.forEach { hash, expiresStartedAtMs in
@@ -103,6 +110,25 @@ public enum GetExpirationJob: JobExecutor {
                                 db,
                                 Interaction.Columns.expiresStartedAtMs.set(to: details.startedAtTimestampMs)
                             )
+                        
+                        /// Send events that the expiration started
+                        let allHashes: Set<String> = hashesWithNoExiprationInfo
+                            .inserting(contentsOf: Set(serverSpecifiedExpirationStartTimesMs.keys))
+                        let interactionInfo: [ExpirationInteractionInfo] = ((try? Interaction
+                            .select(.id, .threadId, .expiresInSeconds, .expiresStartedAtMs)
+                            .filter(allHashes.contains(Interaction.Columns.serverHash))
+                            .filter(Interaction.Columns.expiresInSeconds != nil)
+                            .filter(Interaction.Columns.expiresStartedAtMs != nil)
+                            .asRequest(of: ExpirationInteractionInfo.self)
+                            .fetchAll(db)) ?? [])
+                        
+                        interactionInfo.forEach { info in
+                            db.addMessageEvent(
+                                id: info.id,
+                                threadId: info.threadId,
+                                type: .updated(.expirationTimerStarted(info.expiresInSeconds, info.expiresStartedAtMs))
+                            )
+                        }
                         
                         dependencies[singleton: .jobRunner].upsert(
                             db,

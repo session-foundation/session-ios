@@ -6,8 +6,26 @@ import SessionUtilitiesKit
 // MARK: - Authentication Types
 
 public extension Authentication {
+    static func community(
+        roomToken: String,
+        server: String,
+        publicKey: String,
+        hasCapabilities: Bool,
+        supportsBlinding: Bool,
+        forceBlinded: Bool = false
+    ) -> AuthenticationMethod {
+        return Community(
+            roomToken: roomToken,
+            server: server,
+            publicKey: publicKey,
+            hasCapabilities: hasCapabilities,
+            supportsBlinding: supportsBlinding,
+            forceBlinded: forceBlinded
+        )
+    }
+    
     /// Used when interacting with a community
-    struct community: AuthenticationMethod {
+    struct Community: AuthenticationMethod {
         public let roomToken: String
         public let server: String
         public let publicKey: String
@@ -31,7 +49,7 @@ public extension Authentication {
             publicKey: String,
             hasCapabilities: Bool,
             supportsBlinding: Bool,
-            forceBlinded: Bool = false
+            forceBlinded: Bool
         ) {
             self.roomToken = roomToken
             self.server = server

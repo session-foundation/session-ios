@@ -7,13 +7,13 @@ import Lucide
 
 struct NoBillingAccessContent: View {
     let isRenewingPro: Bool
-    let originatingPlatform: SessionProPaymentScreenContent.ClientPlatform
+    let originatingPlatform: SessionProUI.ClientPlatform
     let openProRoadmapAction: (() -> Void)?
     let openPlatformStoreWebsiteAction: (() -> Void)?
     
     public init(
         isRenewingPro: Bool,
-        originatingPlatform: SessionProPaymentScreenContent.ClientPlatform,
+        originatingPlatform: SessionProUI.ClientPlatform,
         openProRoadmapAction: (() -> Void)?,
         openPlatformStoreWebsiteAction: (() -> Void)? = nil
     ) {
@@ -31,8 +31,8 @@ struct NoBillingAccessContent: View {
                     description: "proRenewDesktopLinked"
                         .put(key: "app_name", value: Constants.app_name)
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "platform_store", value: Constants.platform_store)
-                        .put(key: "platform_store_other", value: Constants.android_platform_store)
+                        .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
+                        .put(key: "platform_store_other", value: SNUIKit.proClientPlatformStringProvider(for: .android).store)
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(),
                     variant: .link
@@ -41,7 +41,7 @@ struct NoBillingAccessContent: View {
                     title: "proNewInstallation".localized(),
                     description: "proNewInstallationDescription"
                         .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "platform_store", value: Constants.platform_store)
+                        .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
                         .put(key: "app_pro", value: Constants.app_pro)
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(),
@@ -52,8 +52,8 @@ struct NoBillingAccessContent: View {
                         .put(key: "platform", value: originatingPlatform.store)
                         .localized(),
                     description: "proAccessRenewPlatformWebsite"
-                        .put(key: "platform_account", value: originatingPlatform.account)
-                        .put(key: "platform", value: originatingPlatform.name)
+                        .put(key: "platform_account", value: originatingPlatform.platformAccount)
+                        .put(key: "platform", value: originatingPlatform.platform)
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(Fonts.Body.baseRegular),
                     variant: .website
@@ -65,8 +65,8 @@ struct NoBillingAccessContent: View {
                     description: "proUpgradeDesktopLinked"
                         .put(key: "app_name", value: Constants.app_name)
                         .put(key: "app_pro", value: Constants.app_pro)
-                        .put(key: "platform_store", value: Constants.platform_store)
-                        .put(key: "platform_store_other", value: Constants.android_platform_store)
+                        .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
+                        .put(key: "platform_store_other", value: SNUIKit.proClientPlatformStringProvider(for: .android).store)
                         .put(key: "pro", value: Constants.pro)
                         .localizedFormatted(),
                     variant: .link
@@ -76,13 +76,13 @@ struct NoBillingAccessContent: View {
                     description:  isRenewingPro ?
                         "proNewInstallationDescription"
                             .put(key: "app_name", value: Constants.app_name)
-                            .put(key: "platform_store", value: Constants.platform_store)
+                            .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
                             .put(key: "app_pro", value: Constants.app_pro)
                             .put(key: "pro", value: Constants.pro)
                             .localizedFormatted() :
                         "proNewInstallationUpgrade"
                             .put(key: "app_name", value: Constants.app_name)
-                            .put(key: "platform_store", value: Constants.platform_store)
+                            .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
                             .put(key: "app_pro", value: Constants.app_pro)
                             .put(key: "pro", value: Constants.pro)
                             .localizedFormatted(),
@@ -117,18 +117,18 @@ struct NoBillingAccessContent: View {
                         isRenewingPro ?
                             "proRenewingNoAccessBilling"
                                 .put(key: "pro", value: Constants.pro)
-                                .put(key: "platform_store", value: Constants.platform_store)
-                                .put(key: "platform_store_other", value: Constants.android_platform_store)
+                                .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
+                                .put(key: "platform_store_other", value: SNUIKit.proClientPlatformStringProvider(for: .android).store)
                                 .put(key: "app_name", value: Constants.app_name)
-                                .put(key: "build_variant", value: Constants.IPA)
+                                .put(key: "build_variant", value: SNUIKit.buildVariantStringProvider().ipa)
                                 .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                                 .localizedFormatted(Fonts.Body.baseRegular) :
                             "proUpgradeNoAccessBilling"
                                 .put(key: "pro", value: Constants.pro)
-                                .put(key: "platform_store", value: Constants.platform_store)
-                                .put(key: "platform_store_other", value: Constants.android_platform_store)
+                                .put(key: "platform_store", value: SNUIKit.proClientPlatformStringProvider(for: .iOS).store)
+                                .put(key: "platform_store_other", value: SNUIKit.proClientPlatformStringProvider(for: .android).store)
                                 .put(key: "app_name", value: Constants.app_name)
-                                .put(key: "build_variant", value: Constants.IPA)
+                                .put(key: "build_variant", value: SNUIKit.buildVariantStringProvider().ipa)
                                 .put(key: "icon", value: Lucide.Icon.squareArrowUpRight)
                                 .localizedFormatted(Fonts.Body.baseRegular)
                     )

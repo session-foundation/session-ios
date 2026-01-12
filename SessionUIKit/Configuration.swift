@@ -29,6 +29,10 @@ public actor SNUIKit {
         func mediaDecoderSource(for data: Data) -> CGImageSource?
         
         @MainActor func numberOfCharactersLeft(for text: String) -> Int
+        
+        func urlStringProvider() -> StringProvider.Url
+        func buildVariantStringProvider() -> StringProvider.BuildVariant
+        func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform
     }
     
     @MainActor public static var mainWindow: UIWindow? = nil
@@ -154,5 +158,35 @@ public actor SNUIKit {
         defer { configLock.unlock() }
         
         return (config?.numberOfCharactersLeft(for: text) ?? 0)
+    }
+    
+    internal static func urlStringProvider() -> StringProvider.Url {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
+        return (
+            config?.urlStringProvider() ??
+            StringProvider.FallbackUrlStringProvider()
+        )
+    }
+    
+    internal static func buildVariantStringProvider() -> StringProvider.BuildVariant {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
+        return (
+            config?.buildVariantStringProvider() ??
+            StringProvider.FallbackBuildVariantStringProvider()
+        )
+    }
+    
+    internal static func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform {
+        configLock.lock()
+        defer { configLock.unlock() }
+        
+        return (
+            config?.proClientPlatformStringProvider(for: platform) ??
+            StringProvider.FallbackClientPlatformStringProvider()
+        )
     }
 }

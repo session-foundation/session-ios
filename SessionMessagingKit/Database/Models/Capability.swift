@@ -16,7 +16,7 @@ public struct Capability: Codable, FetchableRecord, PersistableRecord, TableReco
         case isMissing
     }
     
-    public enum Variant: Equatable, Hashable, CaseIterable, Codable, DatabaseValueConvertible {
+    public enum Variant: Sendable, Equatable, Hashable, CaseIterable, Codable, DatabaseValueConvertible {
         public static var allCases: [Variant] {
             [.sogs, .blind, .reactions]
         }

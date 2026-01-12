@@ -187,7 +187,11 @@ extension ContextMenuVC {
 
     static func actions(
         for cellViewModel: MessageViewModel,
-        in threadViewModel: SessionThreadViewModel,
+        threadInfo: ConversationInfoViewModel,
+        authMethod: AuthenticationMethod,
+        reactionsSupported: Bool,
+        recentReactionEmoji: [String],
+        isUserModeratorOrAdmin: Bool,
         forMessageInfoScreen: Bool,
         delegate: ContextMenuActionDelegate?,
         using dependencies: Dependencies
@@ -221,18 +225,18 @@ extension ContextMenuVC {
                     cellViewModel.cellType == .genericAttachment ||
                     cellViewModel.cellType == .mediaMessage
                 ) &&
-                (cellViewModel.attachments ?? []).count == 1 &&
-                (cellViewModel.attachments ?? []).first?.isVisualMedia == true &&
-                (cellViewModel.attachments ?? []).first?.isValid == true && (
-                    (cellViewModel.attachments ?? []).first?.state == .downloaded ||
-                    (cellViewModel.attachments ?? []).first?.state == .uploaded
+                cellViewModel.attachments.count == 1 &&
+                cellViewModel.attachments.first?.isVisualMedia == true &&
+                cellViewModel.attachments.first?.isValid == true && (
+                    cellViewModel.attachments.first?.state == .downloaded ||
+                    cellViewModel.attachments.first?.state == .uploaded
                 )
             )
         )
         let canSave: Bool = {
             switch cellViewModel.cellType {
                 case .mediaMessage:
-                    return (cellViewModel.attachments ?? [])
+                    return cellViewModel.attachments
                         .filter { attachment in
                             attachment.isValid &&
                             attachment.isVisualMedia && (
@@ -242,7 +246,7 @@ extension ContextMenuVC {
                         }.isEmpty == false
                     
                 case .audio, .genericAttachment:
-                    return (cellViewModel.attachments ?? [])
+                    return cellViewModel.attachments
                         .filter { attachment in
                             attachment.isValid && (
                                 attachment.state == .downloaded ||
@@ -258,40 +262,22 @@ extension ContextMenuVC {
             cellViewModel.threadVariant != .community &&
             !forMessageInfoScreen
         )
-        let canDelete: Bool = (MessageViewModel.DeletionBehaviours.deletionActions(
+        let canDelete: Bool = ((try? MessageViewModel.DeletionBehaviours.deletionActions(
             for: [cellViewModel],
-            with: threadViewModel,
+            threadInfo: threadInfo,
+            authMethod: authMethod,
+            isUserModeratorOrAdmin: isUserModeratorOrAdmin,
             using: dependencies
-        ) != nil)
+        )) != nil)
         let canBan: Bool = (
             cellViewModel.threadVariant == .community &&
-            dependencies[singleton: .openGroupManager].isUserModeratorOrAdmin(
-                publicKey: threadViewModel.currentUserSessionId,
-                for: threadViewModel.openGroupRoomToken,
-                on: threadViewModel.openGroupServer,
-                currentUserSessionIds: (threadViewModel.currentUserSessionIds ?? [])
-            )
+            isUserModeratorOrAdmin
         )
-        let shouldShowEmojiActions: Bool = {
-            guard cellViewModel.threadVariant != .legacyGroup else { return false }
-            
-            if cellViewModel.threadVariant == .community {
-                return (
-                    !forMessageInfoScreen &&
-                    dependencies[singleton: .openGroupManager].doesOpenGroupSupport(
-                        capability: .reactions,
-                        on: cellViewModel.threadOpenGroupServer
-                    )
-                )
-            }
-            return (threadViewModel.threadIsMessageRequest != true && !forMessageInfoScreen)
-        }()
         
         let recentEmojis: [EmojiWithSkinTones] = {
-            guard shouldShowEmojiActions else { return [] }
+            guard reactionsSupported else { return [] }
             
-            return (threadViewModel.recentReactionEmoji ?? [])
-                .compactMap { EmojiWithSkinTones(rawValue: $0) }
+            return recentReactionEmoji.compactMap { EmojiWithSkinTones(rawValue: $0) }
         }()
         let generatedActions: [Action] = [
             (canRetry ? Action.retry(cellViewModel, delegate) : nil),
@@ -305,7 +291,7 @@ extension ContextMenuVC {
             (forMessageInfoScreen ? nil : Action.info(cellViewModel, delegate)),
         ]
         .appending(
-            contentsOf: (shouldShowEmojiActions ? recentEmojis : [])
+            contentsOf: (reactionsSupported ? recentEmojis : [])
                 .map { Action.react(cellViewModel, $0, delegate) }
         )
         .appending(forMessageInfoScreen ? nil : Action.emojiPlusButton(cellViewModel, delegate))
@@ -322,7 +308,7 @@ extension ContextMenuVC {
 protocol ContextMenuActionDelegate {
     func info(_ cellViewModel: MessageViewModel)
     @MainActor func retry(_ cellViewModel: MessageViewModel, completion: (@MainActor () -> Void)?)
-    func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
+    @MainActor func reply(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func copy(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func copySessionID(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
     func delete(_ cellViewModel: MessageViewModel, completion: (() -> Void)?)
