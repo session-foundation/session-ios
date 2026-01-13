@@ -3249,16 +3249,6 @@
 			path = SessionNetworkScreen;
 			sourceTree = "<group>";
 		};
-		94805EC42EB8156A0055EBBC /* SessionPro */ = {
-			isa = PBXGroup;
-			children = (
-				948615C02ED7D39B000A5666 /* SessionProSettingsViewModel.swift */,
-				948615C12ED7D39B000A5666 /* SessionProSettingsViewModel+Database.swift */,
-				94805EC22EB48EC40055EBBC /* SessionProPaymentScreenContent.swift */,
-			);
-			path = SessionPro;
-			sourceTree = "<group>";
-		};
 		94CD96282E1B855E0097754D /* Input View */ = {
 			isa = PBXGroup;
 			children = (
@@ -4109,7 +4099,6 @@
 		C3C2A6F125539DE700C340D1 /* SessionMessagingKit */ = {
 			isa = PBXGroup;
 			children = (
-				94805EC42EB8156A0055EBBC /* SessionPro */,
 				C3C2A7802553AA6300C340D1 /* Protos */,
 				C3C2A70A25539DF900C340D1 /* Meta */,
 				B8DE1FB226C22F1F0079C9CE /* Calls */,
@@ -5371,6 +5360,9 @@
 				FDAA36C42EB474B50040603E /* Types */,
 				FD1F3CF42ED69B5B00E536D5 /* Utilities */,
 				94B6BAF52E30A88800E718BB /* SessionProManager.swift */,
+				948615C02ED7D39B000A5666 /* SessionProSettingsViewModel.swift */,
+				948615C12ED7D39B000A5666 /* SessionProSettingsViewModel+Database.swift */,
+				94805EC22EB48EC40055EBBC /* SessionProPaymentScreenContent.swift */,
 			);
 			path = SessionPro;
 			sourceTree = "<group>";

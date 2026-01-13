@@ -956,7 +956,7 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
                                 ),
                                 trailingAccessory: .icon(
                                     .refreshCcw,
-                                    size: .large,
+                                    size: .medium,
                                     customTint: .textPrimary
                                 )
                             )
