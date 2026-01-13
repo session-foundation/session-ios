@@ -195,6 +195,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         if (section.model.divider && !isLastElement) {
                                             Divider()
                                                 .foregroundColor(themeColor: .borderSeparator)
+                                                .framing(maxWidth: .infinity, height: 1)
                                                 .padding(.horizontal, Values.mediumSpacing)
                                         }
                                     }
