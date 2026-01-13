@@ -6,7 +6,7 @@ public extension SessionListScreenContent.ListItemAccessory {
     static func proBadge(
         size: SessionProBadge.Size,
         themeBackgroundColor: ThemeValue,
-        backgroundSize: IconSize = .medium,
+        backgroundSize: IconSize = .medium
     ) -> SessionListScreenContent.ListItemAccessory {
         return SessionListScreenContent.ListItemAccessory(
             padding: Values.smallSpacing
