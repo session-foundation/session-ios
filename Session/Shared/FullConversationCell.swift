@@ -1,15 +1,17 @@
 // Copyright © 2022 Rangeproof Pty Ltd. All rights reserved.
 
 import UIKit
+import Lucide
 import SessionUIKit
 import SignalUtilitiesKit
 import SessionMessagingKit
 import SessionUtilitiesKit
 
 public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticCell {
-    public static let mutePrefix: String = "\u{e067}  " // stringlint:ignore
     public static let unreadCountViewSize: CGFloat = 20
     private static let statusIndicatorSize: CGFloat = 14
+    private static let displayNameFont: UIFont = .boldSystemFont(ofSize: Values.mediumFontSize)
+    private static let snippetFont: UIFont = .systemFont(ofSize: Values.smallFontSize)
     
     // MARK: - UI
     
@@ -31,7 +33,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             proBadgeSize: .small,
             withStretchingSpacer: false
         )
-        result.font = .boldSystemFont(ofSize: Values.mediumFontSize)
+        result.font = FullConversationCell.displayNameFont
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
         result.isProBadgeHidden = true
@@ -152,7 +154,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
 
     private lazy var snippetLabel: UILabel = {
         let result: UILabel = UILabel()
-        result.font = .systemFont(ofSize: Values.smallFontSize)
+        result.font = FullConversationCell.snippetFont
         result.themeTextColor = .textPrimary
         result.lineBreakMode = .byTruncatingTail
         
@@ -281,13 +283,21 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
     
     // MARK: - Content
     
+    public override func prepareForReuse() {
+        super.prepareForReuse()
+        
+        /// Need to reset the fonts as it seems that the `.font` values can end up using a styled font from the attributed text
+        displayNameLabel.font = FullConversationCell.displayNameFont
+        snippetLabel.font = FullConversationCell.snippetFont
+    }
+    
     // MARK: --Search Results
-    public func updateForDefaultContacts(with cellViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
+    public func updateForDefaultContacts(with cellViewModel: ConversationInfoViewModel, using dependencies: Dependencies) {
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
-            publicKey: cellViewModel.threadId,
-            threadVariant: cellViewModel.threadVariant,
-            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
+            publicKey: cellViewModel.id,
+            threadVariant: cellViewModel.variant,
+            displayPictureUrl: cellViewModel.displayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
@@ -298,25 +308,22 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         unreadImageView.isHidden = true
         hasMentionView.isHidden = true
         timestampLabel.isHidden = true
-        timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
+        timestampLabel.text = cellViewModel.dateForDisplay
         bottomLabelStackView.isHidden = true
-        displayNameLabel.themeAttributedText = ThemedAttributedString(
-            string: cellViewModel.displayName,
-            attributes: [ .themeForegroundColor: ThemeValue.textPrimary ]
-        )
-        displayNameLabel.isProBadgeHidden = !cellViewModel.isSessionPro(using: dependencies)
+        displayNameLabel.themeAttributedText = cellViewModel.displayName.formatted(baseFont: displayNameLabel.font)
+        displayNameLabel.isProBadgeHidden = !cellViewModel.shouldShowProBadge
     }
     
     public func updateForMessageSearchResult(
-        with cellViewModel: SessionThreadViewModel,
+        with cellViewModel: ConversationInfoViewModel,
         searchText: String,
         using dependencies: Dependencies
     ) {
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
-            publicKey: cellViewModel.threadId,
-            threadVariant: cellViewModel.threadVariant,
-            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
+            publicKey: cellViewModel.id,
+            threadVariant: cellViewModel.variant,
+            displayPictureUrl: cellViewModel.displayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
@@ -327,45 +334,25 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         unreadImageView.isHidden = true
         hasMentionView.isHidden = true
         timestampLabel.isHidden = false
-        timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
+        timestampLabel.text = cellViewModel.dateForDisplay
         bottomLabelStackView.isHidden = false
-        displayNameLabel.themeAttributedText = ThemedAttributedString(
-            string: cellViewModel.displayName,
-            attributes: [ .themeForegroundColor: ThemeValue.textPrimary ]
-        )
-        displayNameLabel.isProBadgeHidden = !cellViewModel.isSessionPro(using: dependencies)
-        snippetLabel.themeAttributedText = getHighlightedSnippet(
-            content: Interaction.previewText(
-                variant: (cellViewModel.interactionVariant ?? .standardIncoming),
-                body: cellViewModel.interactionBody,
-                authorDisplayName: cellViewModel.authorName(for: .contact),
-                attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
-                attachmentCount: cellViewModel.interactionAttachmentCount,
-                isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
-                using: dependencies
-            ),
-            authorName: (!(cellViewModel.currentUserSessionIds ?? []).contains(cellViewModel.authorId ?? "") ?
-                cellViewModel.authorName(for: .contact) :
-                nil
-            ),
-            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-            searchText: searchText.lowercased(),
-            fontSize: Values.smallFontSize,
-            textColor: .textPrimary,
-            using: dependencies
-        )
+        displayNameLabel.themeAttributedText = cellViewModel.displayName.formatted(baseFont: displayNameLabel.font)
+        displayNameLabel.isProBadgeHidden = !cellViewModel.shouldShowProBadge
+        snippetLabel.themeAttributedText = cellViewModel.messageSnippet?
+            .formatted(baseFont: snippetLabel.font)
+            .stylingNotificationPrefixesIfNeeded(fontSize: Values.verySmallFontSize)
     }
     
     public func updateForContactAndGroupSearchResult(
-        with cellViewModel: SessionThreadViewModel,
+        with cellViewModel: ConversationInfoViewModel,
         searchText: String,
         using dependencies: Dependencies
     ) {
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
-            publicKey: cellViewModel.threadId,
-            threadVariant: cellViewModel.threadVariant,
-            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
+            publicKey: cellViewModel.id,
+            threadVariant: cellViewModel.variant,
+            displayPictureUrl: cellViewModel.displayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
@@ -376,40 +363,27 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         unreadImageView.isHidden = true
         hasMentionView.isHidden = true
         timestampLabel.isHidden = true
-        displayNameLabel.themeAttributedText = getHighlightedSnippet(
-            content: cellViewModel.displayName,
-            currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-            searchText: searchText.lowercased(),
-            fontSize: Values.mediumFontSize,
-            textColor: .textPrimary,
-            using: dependencies
-        )
-        displayNameLabel.isProBadgeHidden = !cellViewModel.isSessionPro(using: dependencies)
+        displayNameLabel.themeAttributedText = cellViewModel.displayName.formatted(baseFont: displayNameLabel.font)
+        displayNameLabel.isProBadgeHidden = !cellViewModel.shouldShowProBadge
         
-        switch cellViewModel.threadVariant {
+        switch cellViewModel.variant {
             case .contact, .community: bottomLabelStackView.isHidden = true
                 
             case .legacyGroup, .group:
-                bottomLabelStackView.isHidden = (cellViewModel.threadMemberNames ?? "").isEmpty
-                snippetLabel.themeAttributedText = getHighlightedSnippet(
-                    content: (cellViewModel.threadMemberNames ?? ""),
-                    currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-                    searchText: searchText.lowercased(),
-                    fontSize: Values.smallFontSize,
-                    textColor: .textPrimary,
-                    using: dependencies
-                )
+                bottomLabelStackView.isHidden = cellViewModel.memberNames.isEmpty
+                snippetLabel.themeAttributedText = cellViewModel.memberNames
+                    .formatted(baseFont: snippetLabel.font)
         }
     }
 
     // MARK: --Standard
     
-    public func update(with cellViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
-        let unreadCount: UInt = (cellViewModel.threadUnreadCount ?? 0)
+    public func update(with cellViewModel: ConversationInfoViewModel, using dependencies: Dependencies) {
+        let unreadCount: Int = cellViewModel.unreadCount
         let threadIsUnread: Bool = (
             unreadCount > 0 || (
-                cellViewModel.threadId != cellViewModel.currentUserSessionId &&
-                cellViewModel.threadWasMarkedUnread == true
+                cellViewModel.id != cellViewModel.userSessionId.hexString &&
+                cellViewModel.wasMarkedUnread
             )
         )
         let themeBackgroundColor: ThemeValue = (threadIsUnread ?
@@ -420,7 +394,7 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         self.selectedBackgroundView?.themeBackgroundColor = .highlighted(themeBackgroundColor)
         
         accentLineView.alpha = (unreadCount > 0 ? 1 : 0)
-        isPinnedIcon.isHidden = (cellViewModel.threadPinnedPriority == 0)
+        isPinnedIcon.isHidden = (cellViewModel.pinnedPriority <= LibSession.visiblePriority)
         unreadCountView.isHidden = (unreadCount <= 0)
         unreadImageView.isHidden = (!unreadCountView.isHidden || !threadIsUnread)
         unreadCountLabel.text = (unreadCount <= 0 ?
@@ -431,33 +405,33 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             ofSize: (unreadCount < 10000 ? Values.verySmallFontSize : 8)
         )
         hasMentionView.isHidden = !(
-            ((cellViewModel.threadUnreadMentionCount ?? 0) > 0) && (
-                cellViewModel.threadVariant == .legacyGroup ||
-                cellViewModel.threadVariant == .group ||
-                cellViewModel.threadVariant == .community
+            (cellViewModel.unreadMentionCount > 0) && (
+                cellViewModel.variant == .legacyGroup ||
+                cellViewModel.variant == .group ||
+                cellViewModel.variant == .community
             )
         )
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
-            publicKey: cellViewModel.threadId,
-            threadVariant: cellViewModel.threadVariant,
-            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
+            publicKey: cellViewModel.id,
+            threadVariant: cellViewModel.variant,
+            displayPictureUrl: cellViewModel.displayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
         )
-        displayNameLabel.text = cellViewModel.displayName
-        displayNameLabel.isProBadgeHidden = !cellViewModel.isSessionPro(using: dependencies)
-        timestampLabel.text = cellViewModel.lastInteractionDate.formattedForDisplay
+        displayNameLabel.themeAttributedText = cellViewModel.displayName.formatted(baseFont: displayNameLabel.font)
+        displayNameLabel.isProBadgeHidden = !cellViewModel.shouldShowProBadge
+        timestampLabel.text = cellViewModel.dateForDisplay
         
-        if cellViewModel.threadContactIsTyping == true {
+        if cellViewModel.isTyping {
             snippetLabel.text = ""
             typingIndicatorView.isHidden = false
             typingIndicatorView.startAnimation()
         }
         else {
             displayNameLabel.themeTextColor = {
-                guard cellViewModel.interactionVariant != .infoGroupCurrentUserLeaving else {
+                guard cellViewModel.lastInteraction?.variant != .infoGroupCurrentUserLeaving else {
                     return .textSecondary
                 }
                 
@@ -465,30 +439,22 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
             }()
             typingIndicatorView.isHidden = true
             typingIndicatorView.stopAnimation()
-            snippetLabel.themeAttributedText = getSnippet(
-                cellViewModel: cellViewModel,
-                textColor: {
-                    switch cellViewModel.interactionVariant {
-                        case .infoGroupCurrentUserLeaving: return .textSecondary
-                        case .infoGroupCurrentUserErrorLeaving: return .danger
-                        default: return .textPrimary
-                    }
-                }(),
-                using: dependencies
-            )
+            snippetLabel.themeAttributedText = cellViewModel.messageSnippet?
+                .formatted(baseFont: snippetLabel.font)
+                .stylingNotificationPrefixesIfNeeded(fontSize: Values.verySmallFontSize)
         }
         
-        let stateInfo = cellViewModel.interactionState?.statusIconInfo(
-            variant: (cellViewModel.interactionVariant ?? .standardOutgoing),
-            hasBeenReadByRecipient: (cellViewModel.interactionHasBeenReadByRecipient ?? false),
-            hasAttachments: ((cellViewModel.interactionAttachmentCount ?? 0) > 0)
+        let stateInfo = cellViewModel.lastInteraction?.state.statusIconInfo(
+            variant: (cellViewModel.lastInteraction?.variant ?? .standardOutgoing),
+            hasBeenReadByRecipient: (cellViewModel.lastInteraction?.hasBeenReadByRecipient == true),
+            hasAttachments: (cellViewModel.lastInteraction?.hasAttachments == true)
         )
         statusIndicatorView.image = stateInfo?.image
         statusIndicatorView.themeTintColor = stateInfo?.themeTintColor
         statusIndicatorView.isHidden = (
-            cellViewModel.interactionVariant != .standardOutgoing &&
-            cellViewModel.interactionState != .localOnly &&
-            cellViewModel.interactionState != .deleted
+            cellViewModel.lastInteraction?.variant != .standardOutgoing &&
+            cellViewModel.lastInteraction?.state != .localOnly &&
+            cellViewModel.lastInteraction?.state != .deleted
         )
     }
     
@@ -504,19 +470,24 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
         // update might get reset (this should be rare and is a relatively minor bug so can be left in)
         if let isMuted: Bool = isMuted {
             let attrString: NSAttributedString = (self.snippetLabel.attributedText ?? NSAttributedString())
-            let hasMutePrefix: Bool = attrString.string.starts(with: FullConversationCell.mutePrefix)
+            let hasMutePrefix: Bool = attrString.string.starts(with: NotificationsUI.mutePrefix.rawValue)
             
             switch (isMuted, hasMutePrefix) {
                 case (true, false):
-                    self.snippetLabel.attributedText = NSAttributedString(
-                        string: FullConversationCell.mutePrefix,
-                        attributes: [ .font: UIFont(name: "ElegantIcons", size: 10) as Any ]
+                    snippetLabel.themeAttributedText = ThemedAttributedString(
+                        string: NotificationsUI.mutePrefix.rawValue,
+                        attributes: Lucide.attributes(for: .systemFont(ofSize: Values.verySmallFontSize))
                     )
-                    .appending(attrString)
+                    .appending(NSAttributedString(string: " "))
+                    .appending(attrString.adding(attributes: [.font: FullConversationCell.snippetFont]))
                     
                 case (false, true):
-                    self.snippetLabel.attributedText = attrString
-                        .attributedSubstring(from: NSRange(location: FullConversationCell.mutePrefix.count, length: (attrString.length - FullConversationCell.mutePrefix.count)))
+                    /// Need to remove the space as well
+                    let location: Int = (NotificationsUI.mutePrefix.rawValue.count + 1)
+                    snippetLabel.attributedText = attrString
+                        .attributedSubstring(
+                            from: NSRange(location: location, length: (attrString.length - location))
+                        )
                     
                 default: break
             }
@@ -537,217 +508,5 @@ public final class FullConversationCell: UITableViewCell, SwipeActionOptimisticC
                 accentLineView.alpha = 0
             }
         }
-    }
-    
-    // MARK: - Snippet generation
-
-    private func getSnippet(
-        cellViewModel: SessionThreadViewModel,
-        textColor: ThemeValue,
-        using dependencies: Dependencies
-    ) -> ThemedAttributedString {
-        guard cellViewModel.groupIsDestroyed != true else {
-            return ThemedAttributedString(
-                string: "groupDeletedMemberDescription"
-                    .put(key: "group_name", value: cellViewModel.displayName)
-                    .localizedDeformatted()
-            )
-        }
-        guard cellViewModel.wasKickedFromGroup != true else {
-            return ThemedAttributedString(
-                string: "groupRemovedYou"
-                    .put(key: "group_name", value: cellViewModel.displayName)
-                    .localizedDeformatted()
-            )
-        }
-        
-        // If we don't have an interaction then do nothing
-        guard cellViewModel.interactionId != nil else { return ThemedAttributedString() }
-        
-        let result = ThemedAttributedString()
-        
-        if Date().timeIntervalSince1970 < (cellViewModel.threadMutedUntilTimestamp ?? 0) {
-            result.append(ThemedAttributedString(
-                string: FullConversationCell.mutePrefix,
-                attributes: [
-                    .font: UIFont(name: "ElegantIcons", size: 10) as Any,
-                    .themeForegroundColor: textColor
-                ]
-            ))
-        }
-        else if cellViewModel.threadOnlyNotifyForMentions == true {
-            let imageAttachment = NSTextAttachment()
-            imageAttachment.image = UIImage(named: "NotifyMentions.png")?
-                .withRenderingMode(.alwaysTemplate)
-            imageAttachment.bounds = CGRect(x: 0, y: -2, width: Values.smallFontSize, height: Values.smallFontSize)
-            
-            let imageString = ThemedAttributedString(
-                attachment: imageAttachment,
-                attributes: [.themeForegroundColor: textColor]
-            )
-            result.append(imageString)
-            result.append(ThemedAttributedString(
-                string: "  ",
-                attributes: [
-                    .font: UIFont(name: "ElegantIcons", size: 10) as Any,
-                    .themeForegroundColor: textColor
-                ]
-            ))
-        }
-        
-        if
-            (cellViewModel.threadVariant == .legacyGroup || cellViewModel.threadVariant == .group || cellViewModel.threadVariant == .community) &&
-            (cellViewModel.interactionVariant?.isInfoMessage == false)
-        {
-            let authorName: String = cellViewModel.authorName(for: cellViewModel.threadVariant)
-            
-            result.append(ThemedAttributedString(
-                string: "messageSnippetGroup"
-                    .put(key: "author", value: authorName)
-                    .put(key: "message_snippet", value: "")
-                    .localizedDeformatted(),
-                attributes: [ .themeForegroundColor: textColor ]
-            ))
-        }
-        
-        let previewText: String = {
-            switch cellViewModel.interactionVariant {
-                case .infoGroupCurrentUserErrorLeaving:
-                    return "groupLeaveErrorFailed"
-                        .put(key: "group_name", value: cellViewModel.displayName)
-                        .localizedDeformatted()
-                
-                default:
-                    return Interaction.previewText(
-                        variant: (cellViewModel.interactionVariant ?? .standardIncoming),
-                        body: cellViewModel.interactionBody,
-                        threadContactDisplayName: cellViewModel.threadContactName(),
-                        authorDisplayName: cellViewModel.authorName(for: cellViewModel.threadVariant),
-                        attachmentDescriptionInfo: cellViewModel.interactionAttachmentDescriptionInfo,
-                        attachmentCount: cellViewModel.interactionAttachmentCount,
-                        isOpenGroupInvitation: (cellViewModel.interactionIsOpenGroupInvitation == true),
-                        using: dependencies
-                    ).localizedDeformatted()
-            }
-        }()
-        
-        result.append(ThemedAttributedString(
-            string: MentionUtilities.highlightMentionsNoAttributes(
-                in: previewText,
-                threadVariant: cellViewModel.threadVariant,
-                currentUserSessionIds: (cellViewModel.currentUserSessionIds ?? []),
-                using: dependencies
-            ),
-            attributes: [ .themeForegroundColor: textColor ]
-        ))
-            
-        return result
-    }
-    
-    private func getHighlightedSnippet(
-        content: String,
-        authorName: String? = nil,
-        currentUserSessionIds: Set<String>,
-        searchText: String,
-        fontSize: CGFloat,
-        textColor: ThemeValue,
-        using dependencies: Dependencies
-    ) -> ThemedAttributedString {
-        guard !content.isEmpty, content != "noteToSelf".localized() else {
-            if let authorName: String = authorName, !authorName.isEmpty {
-                return ThemedAttributedString(
-                    string: "messageSnippetGroup"
-                        .put(key: "author", value: authorName)
-                        .put(key: "message_snippet", value: content)
-                        .localized(),
-                    attributes: [ .themeForegroundColor: textColor ]
-                )
-            }
-            
-            return ThemedAttributedString(
-                string: content,
-                attributes: [ .themeForegroundColor: textColor ]
-            )
-        }
-        
-        // Replace mentions in the content
-        //
-        // Note: The 'threadVariant' is used for profile context but in the search results
-        // we don't want to include the truncated id as part of the name so we exclude it
-        let mentionReplacedContent: String = MentionUtilities.highlightMentionsNoAttributes(
-            in: content,
-            threadVariant: .contact,
-            currentUserSessionIds: currentUserSessionIds,
-            using: dependencies
-        )
-        let result: ThemedAttributedString = ThemedAttributedString(
-            string: mentionReplacedContent,
-            attributes: [
-                .themeForegroundColor: ThemeValue.value(textColor, alpha: Values.lowOpacity)
-            ]
-        )
-        
-        // Bold each part of the searh term which matched
-        let normalizedSnippet: String = mentionReplacedContent.lowercased()
-        var firstMatchRange: Range<String.Index>?
-        
-        SessionThreadViewModel.searchTermParts(searchText)
-            .map { part -> String in
-                guard part.hasPrefix("\"") && part.hasSuffix("\"") else { return part } // stringlint:ignore
-                
-                return part.trimmingCharacters(in: CharacterSet(charactersIn: "\""))    // stringlint:ignore
-            }
-            .forEach { part in
-                // Highlight all ranges of the text (Note: The search logic only finds results that start
-                // with the term so we use the regex below to ensure we only highlight those cases)
-                normalizedSnippet
-                    .ranges(
-                        of: (Dependencies.isRTL ?
-                             "(\(part.lowercased()))(^|[^a-zA-Z0-9])" : // stringlint:ignore
-                             "(^|[^a-zA-Z0-9])(\(part.lowercased()))"   // stringlint:ignore
-                        ),
-                        options: [.regularExpression]
-                    )
-                    .forEach { range in
-                        let targetRange: Range<String.Index> = {
-                            let term: String = String(normalizedSnippet[range])
-                            
-                            // If the matched term doesn't actually match the "part" value then it means
-                            // we've matched a term after a non-alphanumeric character so need to shift
-                            // the range over by 1
-                            guard term.starts(with: part.lowercased()) else {
-                                return (normalizedSnippet.index(after: range.lowerBound)..<range.upperBound)
-                            }
-                            
-                            return range
-                        }()
-                        
-                        // Store the range of the first match so we can focus it in the content displayed
-                        if firstMatchRange == nil {
-                            firstMatchRange = targetRange
-                        }
-                        
-                        let legacyRange: NSRange = NSRange(targetRange, in: normalizedSnippet)
-                        result.addAttribute(.themeForegroundColor, value: textColor, range: legacyRange)
-                        result.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: fontSize), range: legacyRange)
-                    }
-            }
-        
-        // Now that we have generated the focused snippet add the author name as a prefix (if provided)
-        return authorName
-            .map { authorName -> ThemedAttributedString? in
-                guard !authorName.isEmpty else { return nil }
-                
-                let authorPrefix: ThemedAttributedString = ThemedAttributedString(
-                    string: "messageSnippetGroup"
-                        .put(key: "author", value: authorName)
-                        .put(key: "message_snippet", value: "")
-                        .localized(),
-                    attributes: [ .themeForegroundColor: textColor ]
-                )
-                
-                return authorPrefix.appending(result)
-            }
-            .defaulting(to: result)
     }
 }

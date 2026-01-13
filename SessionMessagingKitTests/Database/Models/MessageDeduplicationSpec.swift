@@ -294,13 +294,17 @@ class MessageDeduplicationSpec: AsyncSpec {
                                 processedMessage: .standard(
                                     threadId: "testThreadId",
                                     threadVariant: .contact,
-                                    proto: try! SNProtoContent.builder().build(),
                                     messageInfo: MessageReceiveJob.Details.MessageInfo(
                                         message: mockMessage,
                                         variant: .readReceipt,
                                         threadVariant: .contact,
                                         serverExpirationTimestamp: nil,
-                                        proto: try! SNProtoContent.builder().build()
+                                        decodedMessage: DecodedMessage(
+                                            content: Data(),
+                                            sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                            decodedEnvelope: nil,
+                                            sentTimestampMs: 1234567890
+                                        )
                                     ),
                                     uniqueIdentifier: "testId"
                                 ),
@@ -367,7 +371,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                 ignoreDedupeFiles: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.duplicateMessage))
+                        }.to(throwError(MessageError.duplicateMessage))
                     }
                 }
                 
@@ -403,7 +407,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                                 ignoreDedupeFiles: false,
                                 using: dependencies
                             )
-                        }.to(throwError(MessageReceiverError.duplicateMessage))
+                        }.to(throwError(MessageError.duplicateMessage))
                     }
                 }
                 
@@ -806,13 +810,17 @@ class MessageDeduplicationSpec: AsyncSpec {
                             .standard(
                                 threadId: "testThreadId",
                                 threadVariant: .contact,
-                                proto: try! SNProtoContent.builder().build(),
                                 messageInfo: MessageReceiveJob.Details.MessageInfo(
                                     message: Message(),
                                     variant: .visibleMessage,
                                     threadVariant: .contact,
                                     serverExpirationTimestamp: nil,
-                                    proto: try! SNProtoContent.builder().build()
+                                    decodedMessage: DecodedMessage(
+                                        content: Data(),
+                                        sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                        decodedEnvelope: nil,
+                                        sentTimestampMs: 1234567890
+                                    )
                                 ),
                                 uniqueIdentifier: "testId"
                             ),
@@ -1041,13 +1049,17 @@ class MessageDeduplicationSpec: AsyncSpec {
                             .standard(
                                 threadId: "testThreadId",
                                 threadVariant: .contact,
-                                proto: try! SNProtoContent.builder().build(),
                                 messageInfo: MessageReceiveJob.Details.MessageInfo(
                                     message: Message(),
                                     variant: .visibleMessage,
                                     threadVariant: .contact,
                                     serverExpirationTimestamp: nil,
-                                    proto: try! SNProtoContent.builder().build()
+                                    decodedMessage: DecodedMessage(
+                                        content: Data(),
+                                        sender: SessionId(.standard, hex: TestConstants.publicKey),
+                                        decodedEnvelope: nil,
+                                        sentTimestampMs: 1234567890
+                                    )
                                 ),
                                 uniqueIdentifier: "testId"
                             ),
@@ -1068,7 +1080,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                             uniqueIdentifier: "testId",
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.duplicateMessage))
+                    }.to(throwError(MessageError.duplicateMessage))
                 }
                 
                 // MARK: ---- throws when the message is a legacy duplicate
@@ -1097,7 +1109,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                             legacyIdentifier: "testLegacyId",
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.duplicateMessage))
+                    }.to(throwError(MessageError.duplicateMessage))
                     expect(mockExtensionHelper).to(call(.exactly(times: 1), matchingParameters: .all) {
                         $0.dedupeRecordExists(threadId: "testThreadId", uniqueIdentifier: "testId")
                     })
@@ -1153,7 +1165,7 @@ class MessageDeduplicationSpec: AsyncSpec {
                             ),
                             using: dependencies
                         )
-                    }.to(throwError(MessageReceiverError.duplicatedCall))
+                    }.to(throwError(MessageError.duplicatedCall))
                 }
             }
         }

@@ -51,7 +51,7 @@ public extension ProfilePictureView.Info {
         let explicitPathFileExists: Bool = (explicitPath.map { dependencies[singleton: .fileManager].fileExists(atPath: $0) } ?? false)
         
         switch (explicitPath, explicitPathFileExists, publicKey.isEmpty, threadVariant) {
-            // TODO: Deal with this case later when implement group related Pro features
+            // TODO: [PRO] Deal with this case later when implement group related Pro features
             case (.some(let path), true, _, .legacyGroup), (.some(let path), true, _, .group): fallthrough
             case (.some(let path), true, _, .community):
                 /// If we are given an explicit `displayPictureUrl` then only use that
@@ -83,12 +83,24 @@ public extension ProfilePictureView.Info {
                             }
                         }(),
                         canAnimate: true,
-                        inset: UIEdgeInsets(
-                            top: 12,
-                            left: 12,
-                            bottom: 12,
-                            right: 12
-                        ),
+                        inset: {
+                            let padding: CGFloat
+                            
+                            switch size {
+                                case .navigation, .message: padding = 7
+                                case .list: padding = 12
+                                case .hero: padding = 28
+                                case .modal: padding = 24
+                                case .expanded: padding = 50
+                            }
+                            
+                            return UIEdgeInsets(
+                                top: padding,
+                                left: padding,
+                                bottom: padding,
+                                right: padding
+                            )
+                        }(),
                         icon: profileIcon,
                         forcedBackgroundColor: .theme(.classicDark, color: .borderSeparator)
                     ),
@@ -106,8 +118,7 @@ public extension ProfilePictureView.Info {
                     else {
                         return .placeholderIcon(
                             seed: (profile?.id ?? publicKey),
-                            text: (profile?.displayName(for: threadVariant))
-                                .defaulting(to: publicKey),
+                            text: (profile?.displayName() ?? publicKey),
                             size: (additionalProfile != nil ?
                                 size.multiImageSize :
                                 size.viewSize
@@ -134,7 +145,7 @@ public extension ProfilePictureView.Info {
                                 else {
                                     return .placeholderIcon(
                                         seed: other.id,
-                                        text: other.displayName(for: threadVariant),
+                                        text: other.displayName(),
                                         size: size.multiImageSize
                                     )
                                 }
@@ -174,8 +185,7 @@ public extension ProfilePictureView.Info {
                     else {
                         return .placeholderIcon(
                             seed: publicKey,
-                            text: (profile?.displayName(for: threadVariant))
-                                .defaulting(to: publicKey),
+                            text: (profile?.displayName() ?? publicKey),
                             size: size.viewSize
                         )
                     }
@@ -195,7 +205,8 @@ public extension ProfilePictureView.Info {
 }
 
 public extension ProfilePictureView {
-    // TODO: [PRO] Need to properly wire this up (it won't observe the changes, the parent screen will be responsible for updating the profile data and reloading the UI if the pro state changes)
+    /// This will made a decision based on the current state of the profile data, it's up to the parent screen to observer changes and trigger
+    /// a UI refresh to update this state
     static func canProfileAnimate(_ profile: Profile?, using dependencies: Dependencies) -> Bool {
         guard dependencies[feature: .sessionProEnabled] else { return true }
 
@@ -203,14 +214,12 @@ public extension ProfilePictureView {
             case .none: return false
             
             case .some(let profile) where profile.id == dependencies[cache: .general].sessionId.hexString:
-                if case .active = dependencies[singleton: .sessionProState].sessionProStateSubject.value {
-                    return true
-                } else {
-                    return false
-                }
+                return dependencies[singleton: .sessionProManager].currentUserIsCurrentlyPro
                 
             case .some(let profile):
-                return dependencies.mutate(cache: .libSession, { $0.validateProProof(for: profile) })
+                return dependencies[singleton: .sessionProManager]
+                    .profileFeatures(for: profile)
+                    .contains(.animatedAvatar)
         }
     }
 }

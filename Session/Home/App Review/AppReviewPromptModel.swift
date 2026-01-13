@@ -2,6 +2,7 @@
 
 import Foundation
 import SessionUIKit
+import SessionMessagingKit
 import SessionUtilitiesKit
 
 struct AppReviewPromptModel {
@@ -9,9 +10,11 @@ struct AppReviewPromptModel {
     let message: String
     
     var primaryButtonTitle: String?
+    var primaryButtonColor: ThemeValue?
     var primaryButtonAccessibilityIdentifier: String?
     
     var secondaryButtonTitle: String?
+    var secondaryButtonColor: ThemeValue?
     var secondaryButtonAccessibilityIdentifier: String?
 }
 
@@ -87,34 +90,38 @@ enum AppReviewPromptState {
                     message: "enjoyingSessionDescription"
                         .put(key: "app_name", value:  Constants.app_name)
                         .localized(),
-                    primaryButtonTitle: "enjoyingSessionButtonPositive"
-                        .put(key: "emoji", value: "❤️")
-                        .localized(),
-                    primaryButtonAccessibilityIdentifier: "enjoy-session-positive-button",
-                    secondaryButtonTitle: "enjoyingSessionButtonNegative"
+                    primaryButtonTitle: "enjoyingSessionButtonNegative"
                         .put(key: "emoji", value: "😕")
                         .localized(),
-                    secondaryButtonAccessibilityIdentifier: "enjoy-session-negative-button"
+                    primaryButtonColor: .textPrimary,
+                    primaryButtonAccessibilityIdentifier: "enjoy-session-negative-button",
+                    secondaryButtonTitle: "enjoyingSessionButtonPositive"
+                        .put(key: "emoji", value: "❤️")
+                        .localized(),
+                    secondaryButtonColor: .sessionButton_text,
+                    secondaryButtonAccessibilityIdentifier: "enjoy-session-positive-button"
                 )
             
             case .rateSession:
                 /// In this case the full `platformStore` value was found to be too verbose so remove the leading `Apple `
                 /// to make it more succinct
-                let storeVaraint: String = Constants.platform_store
+                let storeVariant: String = Constants.PaymentProvider.appStore.store
                     .replacingOccurrences(of: "Apple ", with: "")   // stringlint:ignore
                 
                 return AppReviewPromptModel(
                     title: "rateSession"
                         .put(key: "app_name", value: Constants.app_name)
                         .localized(),
-                    message: "rateSessionModalDescription"
+                    message: "rateSessionModalDescriptionUpdated"
                         .put(key: "app_name", value: Constants.app_name)
-                        .put(key: "storevariant", value: storeVaraint)
+                        .put(key: "storevariant", value: storeVariant)
                         .localized(),
-                    primaryButtonTitle: "rateSessionApp".localized(),
+                    primaryButtonTitle: "rateUs".localized(),
+                    primaryButtonColor: .sessionButton_text,
                     primaryButtonAccessibilityIdentifier: "rate-app-button",
-                    secondaryButtonTitle: "notNow".localized(),
-                    secondaryButtonAccessibilityIdentifier: "not-now-button"
+                    secondaryButtonTitle: nil,
+                    secondaryButtonColor: nil,
+                    secondaryButtonAccessibilityIdentifier: nil
                 )
             
             case .feedback:
@@ -124,8 +131,10 @@ enum AppReviewPromptState {
                         .put(key: "app_name", value: Constants.app_name)
                         .localized(),
                     primaryButtonTitle: "openSurvey".localized(),
+                    primaryButtonColor: .sessionButton_text,
                     primaryButtonAccessibilityIdentifier: "open-survey-button",
                     secondaryButtonTitle: "notNow".localized(),
+                    secondaryButtonColor: .textPrimary,
                     secondaryButtonAccessibilityIdentifier: "not-now-button"
                 )
             

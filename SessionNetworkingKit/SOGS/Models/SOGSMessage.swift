@@ -4,7 +4,7 @@ import Foundation
 import SessionUtilitiesKit
 
 extension Network.SOGS {
-    public struct Message: Codable, Equatable {
+    public struct Message: Codable, Equatable, Hashable {
         enum CodingKeys: String, CodingKey {
             case id
             case sender = "session_id"
@@ -35,7 +35,7 @@ extension Network.SOGS {
         public let base64EncodedData: String?
         public let base64EncodedSignature: String?
         
-        public struct Reaction: Codable, Equatable {
+        public struct Reaction: Codable, Equatable, Hashable {
             enum CodingKeys: String, CodingKey {
                 case count
                 case reactors

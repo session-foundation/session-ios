@@ -25,7 +25,7 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
                 ) {
                     SessionNetworkSection(
                         linkOutAction: {
-                            openUrl(Constants.session_network_url)
+                            openUrl(SNUIKit.urlStringProvider().network)
                         }
                     )
                     .frame(
@@ -48,7 +48,7 @@ public struct SessionNetworkScreen<ViewModel: SessionNetworkScreenContent.ViewMo
                         dataModel: $viewModel.dataModel,
                         isRefreshing: $viewModel.isRefreshing,
                         linkOutAction: {
-                            openUrl(Constants.session_staking_url)
+                            openUrl(SNUIKit.urlStringProvider().staking)
                         }
                     )
                     .frame(

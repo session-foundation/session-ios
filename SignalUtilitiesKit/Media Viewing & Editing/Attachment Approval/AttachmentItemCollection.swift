@@ -6,7 +6,7 @@ import SessionMessagingKit
 import SessionUtilitiesKit
 
 class AddMoreRailItem: GalleryRailItem {
-    func buildRailItemView(using dependencies: Dependencies) -> UIView {
+    @MainActor func buildRailItemView(using dependencies: Dependencies) -> UIView {
         let view = UIView()
         view.themeBackgroundColor = .backgroundSecondary
 

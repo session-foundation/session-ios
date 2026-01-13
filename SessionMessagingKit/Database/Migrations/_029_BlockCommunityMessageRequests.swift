@@ -55,10 +55,7 @@ enum _029_BlockCommunityMessageRequests: Migration {
                 WHERE key = 'checkForCommunityMessageRequests'
             """)
             
-            var targetValue: Bool = (!cache.has(.checkForCommunityMessageRequests) ?
-                true :
-                cache.get(.checkForCommunityMessageRequests)
-            )
+            var targetValue: Bool = cache.get(.checkForCommunityMessageRequests)
             let boolAsData: Data = withUnsafeBytes(of: &targetValue) { Data($0) }
             try db.execute(
                 sql: """

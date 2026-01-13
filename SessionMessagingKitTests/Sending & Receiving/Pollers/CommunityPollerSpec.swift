@@ -33,7 +33,7 @@ class CommunityPollerSpec: AsyncSpec {
                     server: "testServer",
                     roomToken: "testRoom",
                     publicKey: TestConstants.publicKey,
-                    isActive: true,
+                    shouldPoll: true,
                     name: "Test",
                     roomDescription: nil,
                     imageId: nil,
@@ -44,7 +44,7 @@ class CommunityPollerSpec: AsyncSpec {
                     server: "testServer1",
                     roomToken: "testRoom1",
                     publicKey: TestConstants.publicKey,
-                    isActive: true,
+                    shouldPoll: true,
                     name: "Test1",
                     roomDescription: nil,
                     imageId: nil,
@@ -89,10 +89,10 @@ class CommunityPollerSpec: AsyncSpec {
                     .thenReturn(Array(Array(Data(hex: TestConstants.edSecretKey)).prefix(upTo: 32)))
             }
         )
-        @TestState(cache: .openGroupManager, in: dependencies) var mockOGMCache: MockOGMCache! = MockOGMCache(
-            initialSetup: { cache in
-                cache.when { $0.pendingChanges }.thenReturn([])
-                cache.when { $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
+        @TestState(singleton: .communityManager, in: dependencies) var mockCommunityManager: MockCommunityManager! = MockCommunityManager(
+            initialSetup: { manager in
+                manager.when { await $0.pendingChanges }.thenReturn([])
+                manager.when { await $0.getLastSuccessfulCommunityPollTimestamp() }.thenReturn(0)
             }
         )
         @TestState(singleton: .crypto, in: dependencies) var mockCrypto: MockCrypto! = MockCrypto(
@@ -115,7 +115,7 @@ class CommunityPollerSpec: AsyncSpec {
                     .when { $0.generate(.randomBytes(16)) }
                     .thenReturn(Array(Data(base64Encoded: "pK6YRtQApl4NhECGizF0Cg==")!))
                 crypto
-                    .when { $0.generate(.ed25519KeyPair(seed: .any)) }
+                    .when { $0.generate(.ed25519KeyPair(seed: Array<UInt8>.any)) }
                     .thenReturn(
                         KeyPair(
                             publicKey: Array(Data(hex: TestConstants.edPublicKey)),

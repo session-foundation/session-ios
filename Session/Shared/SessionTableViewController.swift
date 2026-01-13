@@ -355,10 +355,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
             guard shouldLoadMore else { return }
             
             self?.isLoadingMore = true
-            
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
-            }
+            (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
         }
     }
     
@@ -483,7 +480,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
                     using: viewModel.dependencies
                 )
                 
-            case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<SessionThreadViewModel>):
+            case (let cell as FullConversationCell, let threadInfo as SessionCell.Info<ConversationInfoViewModel>):
                 cell.accessibilityIdentifier = info.accessibility?.identifier
                 cell.isAccessibilityElement = (info.accessibility != nil)
                 cell.update(with: threadInfo.id, using: viewModel.dependencies)
@@ -539,10 +536,7 @@ class SessionTableViewController<ViewModel>: BaseVC, UITableViewDataSource, UITa
         switch section.model.style {
             case .loadMore:
                 self.isLoadingMore = true
-                
-                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                    (self?.viewModel as? (any PagedObservationSource))?.loadPageAfter()
-                }
+                (self.viewModel as? (any PagedObservationSource))?.loadPageAfter()
                 
             default: break
         }

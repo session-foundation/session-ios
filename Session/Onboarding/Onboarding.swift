@@ -255,12 +255,12 @@ extension Onboarding {
                 using: dependencies
             )
             
-            typealias PollResult = (configMessage: ProcessedMessage, displayName: String?)
+            typealias Response = (configMessage: ProcessedMessage, displayName: String?)
             let publisher: AnyPublisher<String?, Error> = poller
                 .poll(forceSynchronousProcessing: true)
-                .tryMap { [userSessionId, dependencies] messages, _, _, _ -> PollResult? in
+                .tryMap { [userSessionId, dependencies] result -> Response? in
                     guard
-                        let targetMessage: ProcessedMessage = messages.last, /// Just in case there are multiple
+                        let targetMessage: ProcessedMessage = result.response.last, /// Just in case there are multiple
                         case let .config(_, _, serverHash, serverTimestampMs, data, _) = targetMessage
                     else { return nil }
                     
@@ -276,7 +276,7 @@ extension Onboarding {
                         userEd25519SecretKey: identity.ed25519KeyPair.secretKey,
                         groupEd25519SecretKey: nil
                     )
-                    try cache.unsafeDirectMergeConfigMessage(
+                    _ = try cache.mergeConfigMessages(
                         swarmPublicKey: userSessionId.hexString,
                         messages: [
                             ConfigMessageReceiveJob.Details.MessageInfo(
@@ -292,7 +292,7 @@ extension Onboarding {
                 }
                 .handleEvents(
                     receiveOutput: { [weak self] result in
-                        guard let result: PollResult = result else { return }
+                        guard let result: Response = result else { return }
                         
                         /// Only store the `displayName` returned from the swarm if the user hasn't provided one in the display
                         /// name step (otherwise the user could enter a display name and have it immediately overwritten due to the
@@ -414,7 +414,9 @@ extension Onboarding {
                                     publicKey: userSessionId.hexString,
                                     displayNameUpdate: .currentUserUpdate(displayName),
                                     displayPictureUpdate: .none,
+                                    proUpdate: .none,
                                     profileUpdateTimestamp: dependencies.dateNow.timeIntervalSince1970,
+                                    currentUserSessionIds: [userSessionId.hexString],
                                     using: dependencies
                                 )
                             }
@@ -433,10 +435,12 @@ extension Onboarding {
                         /// won't actually get synced correctly and could result in linking a second device and having the 'Note to Self' conversation incorrectly
                         /// being visible
                         if initialFlow == .register {
-                            try SessionThread.updateVisibility(
+                            try SessionThread.update(
                                 db,
-                                threadId: userSessionId.hexString,
-                                isVisible: false,
+                                id: userSessionId.hexString,
+                                values: SessionThread.TargetValues(
+                                    shouldBeVisible: .setTo(false)
+                                ),
                                 using: dependencies
                             )
                         }
@@ -444,7 +448,7 @@ extension Onboarding {
                     completion: { _ in
                         /// No need to show the seed again if the user is restoring (just in case only set the value if it hasn't already
                         /// been set - this will prevent us from unintentionally re-showing the seed banner)
-                        if !dependencies.mutate(cache: .libSession, { $0.has(.hasViewedSeed) }) {
+                        if initialFlow == .register || initialFlow == .restore {
                             dependencies.setAsync(.hasViewedSeed, (initialFlow == .restore))
                         }
                         

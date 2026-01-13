@@ -14,8 +14,7 @@ class SessionListHostingViewController<ViewModel>: SessionHostingViewController<
     init(
         viewModel: ViewModel,
         customizedNavigationBackground: ThemeValue? = nil,
-        shouldHideNavigationBar: Bool = false,
-        using dependencies: Dependencies
+        shouldHideNavigationBar: Bool = false
     ) {
         self.viewModel = viewModel
         super.init(

@@ -73,9 +73,6 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private let initialMessageText: String
     private var quoteViewModel: QuoteViewModel?
     private let onQuoteCancelled: (() -> Void)?
-    private var isSessionPro: Bool {
-        dependencies[cache: .libSession].isSessionPro
-    }
     
     var isKeyboardVisible: Bool = false
     private let disableLinkPreviewImageDownload: Bool
@@ -227,13 +224,9 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
     private lazy var snInputView: InputView = {
         let result: InputView = InputView(
             delegate: self,
-            displayNameRetriever: Profile.defaultDisplayNameRetriever(
-                threadVariant: threadVariant,
-                using: dependencies
-            ),
             imageDataManager: dependencies[singleton: .imageDataManager],
             linkPreviewManager: dependencies[singleton: .linkPreviewManager],
-            sessionProStatePublisher: dependencies[singleton: .sessionProState].isSessionProActivePublisher,
+            sessionProManager: dependencies[singleton: .sessionProManager],
             onQuoteCancelled: onQuoteCancelled,
             didLoadLinkPreview: { [weak self] result in
                 self?.didLoadLinkPreview?(result)
@@ -700,11 +693,12 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
         self.approvalDelegate?.attachmentApprovalDidCancel(self)
     }
     
-    @MainActor func showModalForMessagesExceedingCharacterLimit(isSessionPro: Bool) {
-        guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-            .longerMessages(renew: dependencies[singleton: .sessionProState].isSessionProExpired),
-            onConfirm: { [weak self, dependencies] in
-                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+    @MainActor func showModalForMessagesExceedingCharacterLimit() {
+        let manager: SessionProManagerType = dependencies[singleton: .sessionProManager]
+        let didShowCTAModal: Bool = manager.showSessionProCTAIfNeeded(
+            .longerMessages(renew: (manager.currentUserCurrentProState.status == .expired)),
+            onConfirm: { [weak self, manager] in
+                manager.showSessionProBottomSheetIfNeeded(
                     afterClosed: {
                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                     },
@@ -719,16 +713,16 @@ public class AttachmentApprovalViewController: UIPageViewController, UIPageViewC
             presenting: { [weak self] modal in
                 self?.present(modal, animated: true)
             }
-        ) else {
-            return
-        }
+        )
+        
+        guard didShowCTAModal else { return }
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit))
+                        .put(key: "limit", value: dependencies[singleton: .sessionProManager].characterLimit)
                         .localized(),
                     scrollMode: .never
                 ),
@@ -755,10 +749,11 @@ extension AttachmentApprovalViewController: InputViewDelegate {
     public func cancelVoiceMessageRecording() {}
     
     public func handleCharacterLimitLabelTapped() {
-        guard dependencies[singleton: .sessionProState].showSessionProCTAIfNeeded(
-            .longerMessages(renew: dependencies[singleton: .sessionProState].isSessionProExpired),
-            onConfirm: { [weak self, dependencies] in
-                dependencies[singleton: .sessionProState].showSessionProBottomSheetIfNeeded(
+        let manager: SessionProManagerType = dependencies[singleton: .sessionProManager]
+        let didShowCTAModal: Bool = manager.showSessionProCTAIfNeeded(
+            .longerMessages(renew: (manager.currentUserCurrentProState.status == .expired)),
+            onConfirm: { [weak self, manager] in
+                manager.showSessionProBottomSheetIfNeeded(
                     afterClosed: {
                         self?.snInputView.updateNumberOfCharactersLeft(self?.snInputView.text ?? "")
                     },
@@ -773,16 +768,16 @@ extension AttachmentApprovalViewController: InputViewDelegate {
             presenting: { [weak self] modal in
                 self?.present(modal, animated: true)
             }
-        ) else {
-            return
-        }
+        )
+        
+        guard didShowCTAModal else { return }
         
         let confirmationModal: ConfirmationModal = ConfirmationModal(
             info: ConfirmationModal.Info(
                 title: "modalMessageCharacterTooLongTitle".localized(),
                 body: .text(
                     "modalMessageTooLongDescription"
-                        .put(key: "limit", value: (isSessionPro ? LibSession.ProCharacterLimit : LibSession.CharacterLimit))
+                        .put(key: "limit", value: dependencies[singleton: .sessionProManager].characterLimit)
                         .localized(),
                     scrollMode: .never
                 ),
@@ -795,12 +790,11 @@ extension AttachmentApprovalViewController: InputViewDelegate {
 
     public func handleSendButtonTapped() {
         guard
-            LibSession.numberOfCharactersLeft(
-                for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines),
-                isSessionPro: isSessionPro
+            dependencies[singleton: .sessionProManager].numberOfCharactersLeft(
+                for: snInputView.text.trimmingCharacters(in: .whitespacesAndNewlines)
             ) >= 0
         else {
-            showModalForMessagesExceedingCharacterLimit(isSessionPro: isSessionPro)
+            showModalForMessagesExceedingCharacterLimit()
             return
         }
         
@@ -835,7 +829,7 @@ extension AttachmentApprovalViewController: AttachmentPrepViewControllerDelegate
 // MARK: GalleryRail
 
 extension PendingAttachmentRailItem: GalleryRailItem {
-    func buildRailItemView(using dependencies: Dependencies) -> UIView {
+    @MainActor func buildRailItemView(using dependencies: Dependencies) -> UIView {
         let imageView: SessionImageView = SessionImageView(dataManager: dependencies[singleton: .imageDataManager])
         imageView.contentMode = .scaleAspectFill
         imageView.themeBackgroundColor = .backgroundSecondary

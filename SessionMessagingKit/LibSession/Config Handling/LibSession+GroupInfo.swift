@@ -51,15 +51,14 @@ internal extension LibSessionCacheType {
     func handleGroupInfoUpdate(
         _ db: ObservingDatabase,
         in config: LibSession.Config?,
-        groupSessionId: SessionId,
-        serverTimestampMs: Int64
+        groupSessionId: SessionId
     ) throws {
         guard configNeedsDump(config) else { return }
         guard case .groupInfo(let conf) = config else {
             throw LibSessionError.invalidConfigObject(wanted: .groupInfo, got: config)
         }
         
-        // If the group is destroyed then mark the group as kicked in the USER_GROUPS config and remove
+        // If the group is destroyed then mark the group as destroyed in the USER_GROUPS config and remove
         // the group data (want to keep the group itself around because the UX of conversations randomly
         // disappearing isn't great) - no other changes matter and this can't be reversed
         guard !groups_info_is_destroyed(conf) else {
@@ -73,6 +72,13 @@ internal extension LibSessionCacheType {
                     .authDetails, .libSessionState
                 ],
                 using: dependencies
+            )
+            
+            /// Notify of being marked as destroyed
+            db.addConversationEvent(
+                id: groupSessionId.hexString,
+                variant: .group,
+                type: .updated(.markedAsDestroyed)
             )
             return
         }
@@ -133,12 +139,17 @@ internal extension LibSessionCacheType {
         
         // Emit events
         if existingGroup?.name != groupName {
-            db.addConversationEvent(id: groupSessionId.hexString, type: .updated(.displayName(groupName)))
-        }
-        
-        if existingGroup?.groupDescription == groupDesc {
             db.addConversationEvent(
                 id: groupSessionId.hexString,
+                variant: .group,
+                type: .updated(.displayName(groupName))
+            )
+        }
+        
+        if existingGroup?.groupDescription != groupDesc {
+            db.addConversationEvent(
+                id: groupSessionId.hexString,
+                variant: .group,
                 type: .updated(.description(groupDesc))
             )
         }
@@ -152,7 +163,7 @@ internal extension LibSessionCacheType {
                     shouldBeUnique: true,
                     details: DisplayPictureDownloadJob.Details(
                         target: .group(id: groupSessionId.hexString, url: url, encryptionKey: key),
-                        timestamp: TimeInterval(Double(serverTimestampMs) / 1000)
+                        timestamp: (dependencies[cache: .snodeAPI].currentOffsetTimestampMs() / 1000)
                     )
                 ),
                 canStartJob: true
@@ -184,11 +195,7 @@ internal extension LibSessionCacheType {
         
         // Check if the user is an admin in the group
         var messageHashesToDelete: Set<String> = []
-        let isAdmin: Bool = ((try? ClosedGroup
-            .filter(id: groupSessionId.hexString)
-            .select(.groupIdentityPrivateKey)
-            .asRequest(of: Data.self)
-            .fetchOne(db)) != nil)
+        let isAdmin: Bool = isAdmin(groupSessionId: groupSessionId)
 
         // If there is a `delete_before` setting then delete all messages before the provided timestamp
         let deleteBeforeTimestamp: Int64 = groups_info_get_delete_before(conf)
@@ -233,17 +240,12 @@ internal extension LibSessionCacheType {
         let attachDeleteBeforeTimestamp: Int64 = groups_info_get_attach_delete_before(conf)
         
         if attachDeleteBeforeTimestamp > 0 {
-            let interactionInfo: [InteractionInfo] = (try? Interaction
-                .filter(Interaction.Columns.threadId == groupSessionId.hexString)
-                .filter(Interaction.Columns.timestampMs < (TimeInterval(attachDeleteBeforeTimestamp) * 1000))
-                .joining(
-                    required: Interaction.interactionAttachments.joining(
-                        required: InteractionAttachment.attachment
-                            .filter(Attachment.Columns.variant != Attachment.Variant.voiceMessage)
-                    )
+            let interactionInfo: [Interaction.VariantInfo] = (try? SessionThread
+                .interactionInfoWithAttachments(
+                    threadId: groupSessionId.hexString,
+                    beforeTimestampMs: Int64(floor(TimeInterval(attachDeleteBeforeTimestamp) * 1000)),
+                    attachmentVariants: [.standard]
                 )
-                .select(.id, .serverHash)
-                .asRequest(of: InteractionInfo.self)
                 .fetchAll(db))
                 .defaulting(to: [])
             let interactionIdsToRemove: Set<Int64> = Set(interactionInfo.map { $0.id })
@@ -289,7 +291,6 @@ internal extension LibSessionCacheType {
         // send a fire-and-forget API call to delete the messages from the swarm
         if isAdmin && !messageHashesToDelete.isEmpty {
             (try? Authentication.with(
-                db,
                 swarmPublicKey: groupSessionId.hexString,
                 using: dependencies
             )).map { authMethod in
@@ -361,12 +362,17 @@ internal extension LibSession {
                     groups_info_set_description(conf, &cGroupDesc)
                     
                     if currentGroupName != group.name {
-                        db.addConversationEvent(id: group.threadId, type: .updated(.displayName(group.name)))
+                        db.addConversationEvent(
+                            id: group.threadId,
+                            variant: .group,
+                            type: .updated(.displayName(group.name))
+                        )
                     }
                     
                     if currentGroupDesc != group.groupDescription {
                         db.addConversationEvent(
                             id: group.threadId,
+                            variant: .group,
                             type: .updated(.description(group.groupDescription))
                         )
                     }
@@ -450,10 +456,6 @@ public extension LibSession {
                 
                 if let config: DisappearingMessagesConfiguration = disappearingConfig {
                     groups_info_set_expiry_timer(conf, Int32(config.durationSeconds))
-                    db.addEvent(
-                        config,
-                        forKey: .disappearingMessagesConfigUpdated(groupSessionId.hexString)
-                    )
                 }
             }
         }

@@ -8,7 +8,7 @@ import Lucide
 
 public struct ProFeaturesInfo {
     public enum ProState {
-        case none
+        case neverBeenPro
         case expired
         case active
     }
@@ -33,35 +33,52 @@ public struct ProFeaturesInfo {
         self.inlineImageInfo = inlineImageInfo
     }
     
-    public static func allCases(proState: ProState) -> [ProFeaturesInfo] {
+    @MainActor public static func allCases(proState: ProState) -> [ProFeaturesInfo] {
         return [
             ProFeaturesInfo(
                 icon: Lucide.image(icon: .messageSquare, size: IconSize.medium.size),
-                backgroundColors: (proState == .expired) ? [ThemeValue.disabled] : [.explicitPrimary(.blue), .explicitPrimary(.purple)],
+                backgroundColors: (proState == .expired ?
+                    [ThemeValue.disabled] :
+                    [.explicitPrimary(.blue), .explicitPrimary(.purple)]
+                ),
                 title: "proLongerMessages".localized(),
-                description: (
-                    proState == .none ?
-                        "nonProLongerMessagesDescription".localizedFormatted(baseFont: Fonts.Body.smallRegular) :
-                        "proLongerMessagesDescription".localizedFormatted(baseFont: Fonts.Body.smallRegular)
+                description: (proState == .neverBeenPro ?
+                    "nonProLongerMessagesDescription"
+                        .localizedFormatted(baseFont: Fonts.Body.smallRegular) :
+                    "proLongerMessagesDescription"
+                        .localizedFormatted(baseFont: Fonts.Body.smallRegular)
                 )
             ),
             ProFeaturesInfo(
                 icon: Lucide.image(icon: .pin, size: IconSize.medium.size),
-                backgroundColors: (proState == .expired) ? [ThemeValue.disabled] : [.explicitPrimary(.purple), .explicitPrimary(.pink)],
+                backgroundColors: (proState == .expired ?
+                    [ThemeValue.disabled] :
+                    [.explicitPrimary(.purple), .explicitPrimary(.pink)]
+                ),
                 title: "proUnlimitedPins".localized(),
-                description: "proUnlimitedPinsDescription".localizedFormatted(baseFont: Fonts.Body.smallRegular)
+                description: "proUnlimitedPinsDescription"
+                    .localizedFormatted(baseFont: Fonts.Body.smallRegular)
             ),
             ProFeaturesInfo(
                 icon: Lucide.image(icon: .squarePlay, size: IconSize.medium.size),
-                backgroundColors: (proState == .expired) ? [ThemeValue.disabled] : [.explicitPrimary(.pink), .explicitPrimary(.red)],
+                backgroundColors: (proState == .expired ?
+                    [ThemeValue.disabled] :
+                    [.explicitPrimary(.pink), .explicitPrimary(.red)]
+                ),
                 title: "proAnimatedDisplayPictures".localized(),
-                description: "proAnimatedDisplayPicturesDescription".localizedFormatted(baseFont: Fonts.Body.smallRegular)
+                description: "proAnimatedDisplayPicturesDescription"
+                    .localizedFormatted(baseFont: Fonts.Body.smallRegular)
             ),
             ProFeaturesInfo(
                 icon: Lucide.image(icon: .rectangleEllipsis, size: IconSize.medium.size),
-                backgroundColors: (proState == .expired) ? [ThemeValue.disabled] : [.explicitPrimary(.red), .explicitPrimary(.orange)],
+                backgroundColors: (proState == .expired ?
+                    [ThemeValue.disabled] :
+                    [.explicitPrimary(.red), .explicitPrimary(.orange)]
+                ),
                 title: "proBadges".localized(),
-                description: "proBadgesDescription".put(key: "app_name", value: Constants.app_name).localizedFormatted(Fonts.Body.smallRegular),
+                description: "proBadgesDescription"
+                    .put(key: "app_name", value: Constants.app_name)
+                    .localizedFormatted(Fonts.Body.smallRegular),
                 inlineImageInfo: {
                     let themeBackgroundColor: ThemeValue = {
                         return switch proState {
@@ -90,10 +107,13 @@ public struct ProFeaturesInfo {
         ]
     }
     
-    public static func plusMoreFeatureInfo(proState: ProState) -> ProFeaturesInfo {
+    @MainActor public static func plusMoreFeatureInfo(proState: ProState) -> ProFeaturesInfo {
         ProFeaturesInfo(
             icon: Lucide.image(icon: .circlePlus, size: IconSize.medium.size),
-            backgroundColors: (proState == .expired) ? [ThemeValue.disabled] : [.explicitPrimary(.orange), .explicitPrimary(.yellow)],
+            backgroundColors: (proState == .expired ?
+                [ThemeValue.disabled] :
+                [.explicitPrimary(.orange), .explicitPrimary(.yellow)]
+            ),
             title: "plusLoadsMore".localized(),
             description: "plusLoadsMoreDescription"
                 .put(key: "pro", value: Constants.pro)

@@ -5,11 +5,11 @@
 import UIKit
 
 public var isIPhone5OrSmaller: Bool {
-    return (UIScreen.main.bounds.height - 568) < 1
+    return (((SNUIKit.initialMainScreenMaxDimension ?? 874) - 568) < 1)     /// Avoid requiring main thread
 }
 
 public var isIPhone6OrSmaller: Bool {
-    return (UIScreen.main.bounds.height - 667) < 1
+    return (((SNUIKit.initialMainScreenMaxDimension ?? 874) - 667) < 1)     /// Avoid requiring main thread
 }
 
 public extension UIDevice {

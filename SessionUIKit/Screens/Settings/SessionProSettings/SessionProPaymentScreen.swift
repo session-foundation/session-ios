@@ -84,7 +84,7 @@ public struct SessionProPaymentScreen: View {
     private var content: some View {
         VStack(spacing: Values.mediumSmallSpacing) {
             ListItemLogoWithPro(
-                info: .init(
+                info: ListItemLogoWithPro.Info(
                     themeStyle: {
                         switch viewModel.dataModel.flow {
                             case .refund, .cancel: return .disabled
@@ -98,213 +98,229 @@ public struct SessionProPaymentScreen: View {
             )
             
             switch viewModel.dataModel.flow {
-                case .purchase(let billingAccess):
-                    if billingAccess {
-                        SessionProPlanPurchaseContent(
-                            currentSelection: $currentSelection,
-                            isShowingTooltip: $isShowingTooltip,
-                            suppressUntil: $suppressUntil,
-                            isPendingPurchase: $isPendingPurchase,
-                            currentPlan: nil,
-                            sessionProPlans: viewModel.dataModel.plans,
-                            actionButtonTitle: "upgrade".localized(),
-                            actionType: "proUpgradingAction".localized(),
-                            activationType: "proActivatingActivation".localized(),
-                            purchaseAction: { updatePlan() },
-                            openTosPrivacyAction: { openTosPrivacy() }
-                        )
-                    } else {
-                        NoBillingAccessContent(
-                            isRenewingPro: false,
-                            originatingPlatform: .iOS,
-                            openProRoadmapAction: { openUrl(Constants.session_pro_roadmap) }
-                        )
-                    }
+                case .purchase(billingAccess: true):
+                    SessionProPlanPurchaseContent(
+                        currentSelection: $currentSelection,
+                        isShowingTooltip: $isShowingTooltip,
+                        suppressUntil: $suppressUntil,
+                        isPendingPurchase: $isPendingPurchase,
+                        currentPlan: nil,
+                        sessionProPlans: viewModel.dataModel.plans,
+                        actionButtonTitle: "upgrade".localized(),
+                        actionType: "proUpgradingAction".localized(),
+                        activationType: "proActivatingActivation".localized(),
+                        purchaseAction: {
+                            Task { @MainActor in
+                                await updatePlan()
+                            }
+                        },
+                        openTosPrivacyAction: { openTosPrivacy() }
+                    )
                     
-                case .renew(let originatingPlatform, let billingAccess):
-                    if billingAccess {
-                        SessionProPlanPurchaseContent(
-                            currentSelection: $currentSelection,
-                            isShowingTooltip: $isShowingTooltip,
-                            suppressUntil: $suppressUntil,
-                            isPendingPurchase: $isPendingPurchase,
-                            currentPlan: nil,
-                            sessionProPlans: viewModel.dataModel.plans,
-                            actionButtonTitle: "renew".localized(),
-                            actionType: "proRenewingAction".localized(),
-                            activationType: "proReactivatingActivation".localized(),
-                            purchaseAction: { updatePlan() },
-                            openTosPrivacyAction: { openTosPrivacy() }
-                        )
-                    } else {
-                        NoBillingAccessContent(
-                            isRenewingPro: true,
-                            originatingPlatform: originatingPlatform,
-                            openProRoadmapAction: { openUrl(Constants.session_pro_roadmap) },
-                            openPlatformStoreWebsiteAction: { openUrl(Constants.apple_store_subscriptions_url) }
-                        )
-                    }
+                case .purchase(billingAccess: false):
+                    NoBillingAccessContent(
+                        isRenewingPro: false,
+                        originatingPlatform: .iOS,
+                        openProRoadmapAction: { openUrl(SNUIKit.urlStringProvider().proRoadmap) }
+                    )
+                
+                case .renew(_, billingAccess: true):
+                    SessionProPlanPurchaseContent(
+                        currentSelection: $currentSelection,
+                        isShowingTooltip: $isShowingTooltip,
+                        suppressUntil: $suppressUntil,
+                        isPendingPurchase: $isPendingPurchase,
+                        currentPlan: nil,
+                        sessionProPlans: viewModel.dataModel.plans,
+                        actionButtonTitle: "renew".localized(),
+                        actionType: "proRenewingAction".localized(),
+                        activationType: "proReactivatingActivation".localized(),
+                        purchaseAction: {
+                            Task { @MainActor in
+                                await updatePlan()
+                            }
+                        },
+                        openTosPrivacyAction: { openTosPrivacy() }
+                    )
                     
-                case .update(let currentPlan, let expiredOn, let isAutoRenewing, let originatingPlatform, let isNonOriginatingAccount, let billingAccess):
-                    if originatingPlatform != .iOS || isNonOriginatingAccount == true {
-                        UpdatePlanNonOriginatingPlatformContent(
-                            currentPlan: currentPlan,
-                            currentPlanExpiredOn: expiredOn,
-                            isAutoRenewing: isAutoRenewing,
-                            originatingPlatform: originatingPlatform,
-                            openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
-                        )
-                    } else {
-                        if billingAccess {
-                            SessionProPlanPurchaseContent(
-                                currentSelection: $currentSelection,
-                                isShowingTooltip: $isShowingTooltip,
-                                suppressUntil: $suppressUntil,
-                                isPendingPurchase: $isPendingPurchase,
-                                currentPlan: currentPlan,
-                                sessionProPlans: viewModel.dataModel.plans,
-                                actionButtonTitle: "updateAccess".put(key: "pro", value: Constants.pro).localized(),
-                                actionType: "proUpdatingAction".localized(),
-                                activationType: "",
-                                purchaseAction: { updatePlan() },
-                                openTosPrivacyAction: { openTosPrivacy() }
-                            )
-                        } else {
-                            NoBillingAccessContent(
-                                isRenewingPro: false,
-                                originatingPlatform: originatingPlatform,
-                                openProRoadmapAction: { openUrl(Constants.session_pro_roadmap) }
-                            )
+                case .renew(let originatingPlatform, billingAccess: false):
+                    NoBillingAccessContent(
+                        isRenewingPro: true,
+                        originatingPlatform: originatingPlatform,
+                        openProRoadmapAction: { openUrl(SNUIKit.urlStringProvider().proRoadmap) },
+                        openPlatformStoreWebsiteAction: {
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).updateSubscriptionUrl)
                         }
-                    }
+                    )
                     
-                case .refund(let originatingPlatform, let isNonOriginatingAccount, let requestedAt):
-                    if originatingPlatform == .iOS && isNonOriginatingAccount != true {
-                        RequestRefundOriginatingPlatformContent(
-                            requestRefundAction: {
-                                Task {
-                                    await viewModel.requestRefund(
-                                        success: {
-                                            DispatchQueue.main.async {
-                                                host.controller?.navigationController?.popViewController(animated: true)
-                                            }
-                                        },
-                                        failure: {
-                                            // TODO: [PRO] Request refund failure behaviour
-                                        }
-                                     )
+                case .update(let currentPlan, let expiredOn, originatingPlatform: .iOS, let isAutoRenewing, isNonOriginatingAccount: true, _):
+                    UpdatePlanNonOriginatingPlatformContent(
+                        currentPlan: currentPlan,
+                        currentPlanExpiredOn: expiredOn,
+                        isAutoRenewing: isAutoRenewing,
+                        originatingPlatform: .iOS,
+                        openPlatformStoreWebsiteAction: {
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).updateSubscriptionUrl)
+                        }
+                    )
+                    
+                case .update(let currentPlan, let expiredOn, originatingPlatform: .android, let isAutoRenewing, _, _):
+                    UpdatePlanNonOriginatingPlatformContent(
+                        currentPlan: currentPlan,
+                        currentPlanExpiredOn: expiredOn,
+                        isAutoRenewing: isAutoRenewing,
+                        originatingPlatform: .android,
+                        openPlatformStoreWebsiteAction: {
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).updateSubscriptionUrl)
+                        }
+                    )
+                    
+                case .update(let currentPlan, _, _, _, _, billingAccess: true):
+                    SessionProPlanPurchaseContent(
+                        currentSelection: $currentSelection,
+                        isShowingTooltip: $isShowingTooltip,
+                        suppressUntil: $suppressUntil,
+                        isPendingPurchase: $isPendingPurchase,
+                        currentPlan: currentPlan,
+                        sessionProPlans: viewModel.dataModel.plans,
+                        actionButtonTitle: "updateAccess"
+                            .put(key: "pro", value: Constants.pro)
+                            .localized(),
+                        actionType: "proUpdatingAction".localized(),
+                        activationType: "",
+                        purchaseAction: {
+                            Task { @MainActor in
+                                await updatePlan()
+                            }
+                        },
+                        openTosPrivacyAction: { openTosPrivacy() }
+                    )
+                    
+                case .update(_, _, let originatingPlatform, _, _, billingAccess: false):
+                    NoBillingAccessContent(
+                        isRenewingPro: false,
+                        originatingPlatform: originatingPlatform,
+                        openProRoadmapAction: { openUrl(SNUIKit.urlStringProvider().proRoadmap) }
+                    )
+                    
+                case .refund(originatingPlatform: .iOS, isNonOriginatingAccount: true, let requestedAt):
+                    RequestRefundNonOriginatorContent(
+                        originatingPlatform: .iOS,
+                        isNonOriginatingAccount: true,
+                        requestedAt: requestedAt,
+                        openPlatformStoreWebsiteAction: {
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .iOS).updateSubscriptionUrl)
+                        }
+                    )
+                
+                case .refund(originatingPlatform: .iOS, _, _):
+                    RequestRefundOriginatingPlatformContent(
+                        requestRefundAction: {
+                            Task { @MainActor [weak viewModel] in
+                                do {
+                                    try await viewModel?.requestRefund(scene: host.controller?.view.window?.windowScene)
+                                    host.controller?.navigationController?.popViewController(animated: true)
+                                }
+                                catch {
+                                    // TODO: [PRO] Request refund failure behaviour
                                 }
                             }
-                        )
-                    } else {
-                        RequestRefundNonOriginatorContent(
-                            originatingPlatform: originatingPlatform,
-                            isNonOriginatingAccount: isNonOriginatingAccount,
-                            requestedAt: requestedAt,
-                            openPlatformStoreWebsiteAction: {
-                                openUrl(
-                                    isNonOriginatingAccount == true ?
-                                        Constants.app_store_refund_support :
-                                        Constants.google_play_store_subscriptions_url
-                                )
+                        }
+                    )
+                    
+                case .refund(originatingPlatform: .android, let isNonOriginatingAccount, let requestedAt):
+                    RequestRefundNonOriginatorContent(
+                        originatingPlatform: .android,
+                        isNonOriginatingAccount: isNonOriginatingAccount,
+                        requestedAt: requestedAt,
+                        openPlatformStoreWebsiteAction: {
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).updateSubscriptionUrl)
+                        }
+                    )
+                
+                case .cancel(originatingPlatform: .iOS):
+                    CancelPlanOriginatingPlatformContent(
+                        cancelPlanAction: {
+                            Task { @MainActor [weak viewModel] in
+                                do {
+                                    try await viewModel?.cancelPro(scene: host.controller?.view.window?.windowScene)
+                                    host.controller?.navigationController?.popViewController(animated: true)
+                                }
+                                catch {
+                                    // TODO: [PRO] Failed to cancel plan
+                                }
                             }
-                        )
-                    }
+                        }
+                    )
                     
                 case .cancel(let originatingPlatform):
-                    if originatingPlatform == .iOS {
-                        CancelPlanOriginatingPlatformContent(
-                            cancelPlanAction: {
-                                Task {
-                                    await viewModel.cancelPro(
-                                        success: {
-                                            DispatchQueue.main.async {
-                                                host.controller?.navigationController?.popViewController(animated: true)
-                                            }
-                                        },
-                                        failure: {
-                                            // TODO: [PRO] Failed to cancel plan
-                                        }
-                                    )
-                                }
-                            }
-                        )
-                    } else {
-                        CancelPlanNonOriginatingPlatformContent(
-                            originatingPlatform: originatingPlatform,
-                            openPlatformStoreWebsiteAction: { openUrl(Constants.google_play_store_subscriptions_url) }
-                        )
-                    }
+                    CancelPlanNonOriginatingPlatformContent(
+                        originatingPlatform: originatingPlatform,
+                        openPlatformStoreWebsiteAction: {
+                            openUrl(SNUIKit.proClientPlatformStringProvider(for: .android).updateSubscriptionUrl)
+                        }
+                    )
             }
         }
     }
     
-    private func updatePlan() {
+    private func updatePlan() async {
+        let updatedPlan: SessionProPaymentScreenContent.SessionProPlanInfo = viewModel.dataModel.plans[currentSelection]
         isPendingPurchase = true
-        let updatedPlan = viewModel.dataModel.plans[currentSelection]
+        
         switch viewModel.dataModel.flow {
-            case .update(let currentPlan, let expiredOn, let isAutoRenewing, _, _, _):
-                if let updatedPlanExpiredOn = Calendar.current.date(byAdding: .month, value: updatedPlan.duration, to: expiredOn) {
-                    let confirmationModal = ConfirmationModal(
-                        info: .init(
-                            title: "updateAccess"
-                                .put(key: "pro", value: Constants.pro)
-                                .localized(),
-                            body: .attributedText(
-                                isAutoRenewing ?
-                                    "proUpdateAccessDescription"
-                                        .put(key: "current_plan_length", value: currentPlan.durationString)
-                                        .put(key: "selected_plan_length", value: updatedPlan.durationString)
-                                        .put(key: "selected_plan_length_singular", value: updatedPlan.durationStringSingular)
-                                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                                        .put(key: "pro", value: Constants.pro)
-                                        .localizedFormatted(Fonts.Body.largeRegular) :
-                                    "proUpdateAccessExpireDescription"
-                                        .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
-                                        .put(key: "selected_plan_length", value: updatedPlan.durationString)
-                                        .put(key: "pro", value: Constants.pro)
-                                        .localizedFormatted(Fonts.Body.largeRegular),
-                                scrollMode: .never
-                            ),
-                            confirmTitle: "update".localized(),
-                            onConfirm: { _ in
-                                Task {
-                                    await viewModel.purchase(
-                                        planInfo: updatedPlan,
-                                        success: {
-                                            Task { @MainActor in
-                                                onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
-                                            }
-                                        },
-                                        failure: {
-                                            Task { @MainActor in
-                                                onPaymentFailed()
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        )
-                    )
-                    self.host.controller?.present(confirmationModal, animated: true)
-                }
+            case .refund, .cancel: break
             case .purchase, .renew:
-                Task {
-                    await viewModel.purchase(
-                        planInfo: updatedPlan,
-                        success: {
-                            Task { @MainActor in
-                                onPaymentSuccess(expiredOn: nil)
-                            }
-                        },
-                        failure: {
-                            Task { @MainActor in
-                                onPaymentFailed()
+                do {
+                    try await viewModel.purchase(planInfo: updatedPlan)
+                    onPaymentSuccess(expiredOn: nil)
+                }
+                catch {
+                    onPaymentFailed()
+                }
+            
+            case .update(let currentPlan, let expiredOn, _, let isAutoRenewing, _, _):
+                let updatedPlanExpiredOn: Date = (Calendar.current
+                    .date(byAdding: .month, value: updatedPlan.duration, to: expiredOn) ??
+                    expiredOn)
+                
+                let confirmationModal = ConfirmationModal(
+                    info: ConfirmationModal.Info(
+                        title: "updateAccess"
+                            .put(key: "pro", value: Constants.pro)
+                            .localized(),
+                        body: .attributedText(
+                            isAutoRenewing ?
+                                "proUpdateAccessDescription"
+                                    .put(key: "current_plan_length", value: currentPlan.durationString)
+                                    .put(key: "selected_plan_length", value: updatedPlan.durationString)
+                                    .put(key: "selected_plan_length_singular", value: updatedPlan.durationStringSingular)
+                                    .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localizedFormatted(Fonts.Body.largeRegular) :
+                                "proUpdateAccessExpireDescription"
+                                    .put(key: "date", value: expiredOn.formatted("MMM dd, yyyy"))
+                                    .put(key: "selected_plan_length", value: updatedPlan.durationString)
+                                    .put(key: "pro", value: Constants.pro)
+                                    .localizedFormatted(Fonts.Body.largeRegular),
+                            scrollMode: .never
+                        ),
+                        confirmTitle: "update".localized(),
+                        onConfirm: { _ in
+                            Task { @MainActor [weak viewModel] in
+                                do {
+                                    try await viewModel?.purchase(planInfo: updatedPlan)
+                                    onPaymentSuccess(expiredOn: updatedPlanExpiredOn)
+                                }
+                                catch {
+                                    onPaymentFailed()
+                                }
                             }
                         }
                     )
-                }
-            default: break
+                )
+                
+                self.host.controller?.present(confirmationModal, animated: true)
         }
     }
     
@@ -364,7 +380,7 @@ public struct SessionProPaymentScreen: View {
                     // TODO: [PRO] Retry connecting to Pro backend
                 },
                 onCancel: { _ in
-                    self.openUrl(Constants.session_pro_support_url)
+                    self.openUrl(SNUIKit.urlStringProvider().proSupport)
                 }
             )
         )
@@ -376,8 +392,8 @@ public struct SessionProPaymentScreen: View {
         let modal: ModalHostingViewController = ModalHostingViewController(
             modal: MutipleLinksModal(
                 links: [
-                    Constants.session_pro_terms_url,
-                    Constants.session_pro_privacy_url
+                    SNUIKit.urlStringProvider().proTermsOfService,
+                    SNUIKit.urlStringProvider().proPrivacyPolicy
                 ],
                 openURL: { url in
                     if let extensionContext = self.host.controller?.extensionContext {

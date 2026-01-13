@@ -34,7 +34,9 @@ public enum Values {
     
     public static let gradientPaletteWidth = CGFloat(12)
 
-    public static var separatorThickness: CGFloat { return 1 / UIScreen.main.scale }
+    public static var separatorThickness: CGFloat {
+        return (1 / (SNUIKit.initialMainScreenScale ?? 1))    /// Avoid requiring main thread
+    }
     
     public static func footerGradientHeight(window: UIWindow?) -> CGFloat {
         return (

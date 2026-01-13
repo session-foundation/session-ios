@@ -18,16 +18,14 @@ extension MessageSender {
         using dependencies: Dependencies
     ) throws {
         // Only 'VisibleMessage' types can be sent via this method
-        guard interaction.variant == .standardOutgoing else { throw MessageSenderError.invalidMessage }
+        guard interaction.variant == .standardOutgoing else {
+            throw MessageError.invalidMessage("Message was not an outgoing message")
+        }
         guard let interactionId: Int64 = interaction.id else { throw StorageError.objectNotSaved }
         
         send(
             db,
-            message: VisibleMessage.from(
-                db,
-                interaction: interaction,
-                proProof: dependencies.mutate(cache: .libSession, { $0.getCurrentUserProProof() })
-            ),
+            message: VisibleMessage.from(db, interaction: interaction),
             threadId: threadId,
             interactionId: interactionId,
             to: try Message.Destination.from(db, threadId: threadId, threadVariant: threadVariant),
@@ -208,7 +206,7 @@ extension MessageSender {
                     case (false, .syncMessage):
                         try interaction.with(state: .sent).update(db)
                     
-                    case (true, .syncMessage), (_, .contact), (_, .closedGroup), (_, .openGroup), (_, .openGroupInbox):
+                    case (true, .syncMessage), (_, .contact), (_, .group), (_, .community), (_, .communityInbox):
                         // The timestamp to use for scheduling message deletion. This is generated
                         // when the message is successfully sent to ensure the deletion timer starts
                         // from the correct time.
@@ -319,13 +317,13 @@ extension MessageSender {
         threadId: String,
         message: Message,
         destination: Message.Destination?,
-        error: MessageSenderError,
+        error: MessageError,
         interactionId: Int64?,
         using dependencies: Dependencies
     ) -> Error {
-        // Log a message for any 'other' errors
+        // Log a message for any 'sendFailure' errors
         switch error {
-            case .other(let cat, let description, let error):
+            case .sendFailure(let cat, let description, let error):
                 Log.error([.messageSender, cat].compactMap { $0 }, "\(description) due to error: \(error).")
             default: break
         }
@@ -425,17 +423,20 @@ extension MessageSender {
 // MARK: - Database Type Conversion
 
 public extension VisibleMessage {
-    static func from(_ db: ObservingDatabase, interaction: Interaction, proProof: String? = nil) -> VisibleMessage {
-        let linkPreview: LinkPreview? = try? interaction.linkPreview.fetchOne(db)
-        let shouldAttachProProof: Bool = ((interaction.body ?? "").utf16.count > LibSession.CharacterLimit)
+    static func from(_ db: ObservingDatabase, interaction: Interaction) -> VisibleMessage {
+        let linkPreview: LinkPreview? = try? Interaction
+            .linkPreview(url: interaction.linkPreviewUrl, timestampMs: interaction.timestampMs)?
+            .fetchOne(db)
+        let attachments: [Attachment]? = try? Interaction
+            .attachments(interactionId: interaction.id)?
+            .fetchAll(db)
         
         let visibleMessage: VisibleMessage = VisibleMessage(
             sender: interaction.authorId,
             sentTimestampMs: UInt64(interaction.timestampMs),
             syncTarget: nil,
             text: interaction.body,
-            attachmentIds: ((try? interaction.attachments.fetchAll(db)) ?? [])
-                .map { $0.id },
+            attachmentIds: (attachments ?? []).map { $0.id },
             quote: (try? Quote
                 .filter(Quote.Columns.interactionId == interaction.id)
                 .fetchOne(db))
@@ -458,7 +459,6 @@ public extension VisibleMessage {
             expiresInSeconds: interaction.expiresInSeconds,
             expiresStartedAtMs: interaction.expiresStartedAtMs
         )
-        .with(proProof: (shouldAttachProProof ? proProof : nil))
         
         return visibleMessage
     }

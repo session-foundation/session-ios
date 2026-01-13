@@ -27,7 +27,7 @@ public struct AttributedText: View {
     }
     
     private mutating func extractDescriptions() {
-        if let text = attributedText?.value {
+        if let text = attributedText?.attributedString {
             text.enumerateAttributes(in: NSMakeRange(0, text.length), options: [], using: { (attribute, range, stop) in
                 let substring = (text.string as NSString).substring(with: range)
                 let font = (attribute[.font] as? UIFont).map { Font($0) }

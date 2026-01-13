@@ -139,6 +139,7 @@ internal extension LibSession {
                                 db.addEvent(
                                     ConversationEvent(
                                         id: thread.id,
+                                        variant: thread.variant,
                                         change: .pinnedPriority(
                                             thread.pinnedPriority
                                                 .map { Int32($0 == 0 ? LibSession.visiblePriority : max($0, 1)) }
@@ -509,10 +510,10 @@ public extension LibSession.Cache {
         return SessionThread.displayName(
             threadId: threadId,
             variant: threadVariant,
-            closedGroupName: finalClosedGroupName,
-            openGroupName: finalOpenGroupName,
+            groupName: finalClosedGroupName,
+            communityName: finalOpenGroupName,
             isNoteToSelf: (threadId == userSessionId.hexString),
-            ignoringNickname: false,
+            ignoreNickname: false,
             profile: finalProfile
         )
     }
@@ -757,12 +758,12 @@ public extension LibSession.Cache {
         visibleMessage: VisibleMessage?
     ) -> Profile? {
         // FIXME: Once `libSession` manages unsynced "Profile" data we should source this from there
-        /// Extract the `displayName` directly from the `VisibleMessage` if available and it was sent by the desired contact
+        /// Extract the `displayName` directly from the `VisibleMessage` if available as it was sent by the desired contact
         let displayNameInMessage: String? = (visibleMessage?.sender != contactId ? nil :
             visibleMessage?.profile?.displayName?.nullIfEmpty
         )
         let profileLastUpdatedInMessage: TimeInterval? = visibleMessage?.profile?.updateTimestampSeconds
-        let fallbackProfile: Profile? = displayNameInMessage.map { Profile(id: contactId, name: $0) }
+        let fallbackProfile: Profile? = displayNameInMessage.map { Profile.with(id: contactId, name: $0) }
         
         guard var cContactId: [CChar] = contactId.cString(using: .utf8) else {
             return fallbackProfile
@@ -780,6 +781,8 @@ public extension LibSession.Cache {
             let displayPic: user_profile_pic = user_profile_get_pic(conf)
             let displayPictureUrl: String? = displayPic.get(\.url, nullIfEmpty: true)
             let lastUpdated: TimeInterval = max((profileLastUpdatedInMessage ?? 0), TimeInterval(user_profile_get_profile_updated(conf)))
+            let proConfig: SessionPro.ProConfig? = self.proConfig
+            let proProfileFeatures: SessionPro.ProfileFeatures = SessionPro.ProfileFeatures(user_profile_get_pro_features(conf))
             
             return Profile(
                 id: contactId,
@@ -787,7 +790,11 @@ public extension LibSession.Cache {
                 nickname: nil,
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : displayPic.get(\.key)),
-                profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil)
+                profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil),
+                blocksCommunityMessageRequests: !self.get(.checkForCommunityMessageRequests),
+                proFeatures: proProfileFeatures,
+                proExpiryUnixTimestampMs: (proConfig?.proProof.expiryUnixTimestampMs ?? 0),
+                proGenIndexHashHex: proConfig.map { $0.proProof.genIndexHash.toHexString() }
             )
         }
         
@@ -817,7 +824,12 @@ public extension LibSession.Cache {
                 nickname: nil,
                 displayPictureUrl: displayPictureUrl,
                 displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : member.get(\.profile_pic.key)),
-                profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil)
+                profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil),
+                blocksCommunityMessageRequests: visibleMessage?.profile?.blocksCommunityMessageRequests,
+                /// Group members don't sync pro status so try to extract from the provided message
+                proFeatures: (visibleMessage?.proProfileFeatures ?? .none),
+                proExpiryUnixTimestampMs: (visibleMessage?.proProof?.expiryUnixTimestampMs ?? 0),
+                proGenIndexHashHex: visibleMessage?.proProof.map { $0.genIndexHash.toHexString() }
             )
         }
         
@@ -835,15 +847,29 @@ public extension LibSession.Cache {
         
         let displayPictureUrl: String? = contact.get(\.profile_pic.url, nullIfEmpty: true)
         let lastUpdated: TimeInterval = max((profileLastUpdatedInMessage ?? 0), TimeInterval(contact.get( \.profile_updated)))
+        let proProfileFeatures: SessionPro.ProfileFeatures = SessionPro.ProfileFeatures(contact.profile_bitset)
+        let proProofMetadata: LibSession.ProProofMetadata? = proProofMetadata(threadId: contactId)
         
-        /// The `displayNameInMessage` value is likely newer than the `name` value in the config so use that if available
+        /// The `displayNameInMessage` and other values contained within the message are likely newer than the values stored
+        /// in the config so use those if available
         return Profile(
             id: contactId,
             name: (displayNameInMessage ?? contact.get(\.name)),
             nickname: contact.get(\.nickname, nullIfEmpty: true),
             displayPictureUrl: displayPictureUrl,
             displayPictureEncryptionKey: (displayPictureUrl == nil ? nil : contact.get(\.profile_pic.key)),
-            profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil)
+            profileLastUpdated: (lastUpdated > 0 ? lastUpdated : nil),
+            blocksCommunityMessageRequests: visibleMessage?.profile?.blocksCommunityMessageRequests,
+            proFeatures: (visibleMessage?.proProfileFeatures ?? proProfileFeatures),
+            proExpiryUnixTimestampMs: (
+                visibleMessage?.proProof?.expiryUnixTimestampMs ??
+                proProofMetadata?.expiryUnixTimestampMs ??
+                0
+            ),
+            proGenIndexHashHex: (
+                (visibleMessage?.proProof?.genIndexHash).map { $0.toHexString() } ??
+                proProofMetadata?.genIndexHashHex
+            )
         )
     }
     
@@ -925,7 +951,7 @@ public extension Dependencies {
         }
     }
     
-    private func set(_ key: Setting.BoolKey, _ value: Bool?) async {
+    func set(_ key: Setting.BoolKey, _ value: Bool?) async {
         let targetVariant: ConfigDump.Variant
         
         switch key {
@@ -944,7 +970,7 @@ public extension Dependencies {
         }
     }
     
-    private func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {
+    func set<T: LibSessionConvertibleEnum>(_ key: Setting.EnumKey, _ value: T?) async {
         let mutation: LibSession.Mutation? = try? await self.mutateAsyncAware(cache: .libSession) { cache in
             try cache.perform(for: .local) {
                 cache.set(key, value)
@@ -989,12 +1015,12 @@ public protocol LibSessionRespondingViewController {
     var isConversationList: Bool { get }
     
     func isConversation(in threadIds: [String]) -> Bool
-    func forceRefreshIfNeeded()
+    @MainActor func forceRefreshIfNeeded()
 }
 
 public extension LibSessionRespondingViewController {
     var isConversationList: Bool { false }
     
     func isConversation(in threadIds: [String]) -> Bool { return false }
-    func forceRefreshIfNeeded() {}
+    @MainActor func forceRefreshIfNeeded() {}
 }

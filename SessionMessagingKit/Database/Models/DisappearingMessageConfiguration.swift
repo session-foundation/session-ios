@@ -7,10 +7,8 @@ import SessionUtil
 import SessionUtilitiesKit
 import SessionNetworkingKit
 
-public struct DisappearingMessagesConfiguration: Codable, Identifiable, Sendable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
+public struct DisappearingMessagesConfiguration: Sendable, Codable, Identifiable, Equatable, Hashable, FetchableRecord, PersistableRecord, TableRecord, ColumnExpressible {
     public static var databaseTableName: String { "disappearingMessagesConfiguration" }
-    internal static let threadForeignKey = ForeignKey([Columns.threadId], to: [SessionThread.Columns.id])
-    private static let thread = belongsTo(SessionThread.self, using: threadForeignKey)
     
     public typealias Columns = CodingKeys
     public enum CodingKeys: String, CodingKey, ColumnExpression {
@@ -37,7 +35,7 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Sendable
         }
     }
     
-    public enum DisappearingMessageType: Int, Codable, Hashable, Sendable, DatabaseValueConvertible {
+    public enum DisappearingMessageType: Int, Sendable, Codable, Hashable, DatabaseValueConvertible {
         case unknown
         case disappearAfterRead
         case disappearAfterSend
@@ -107,12 +105,6 @@ public struct DisappearingMessagesConfiguration: Codable, Identifiable, Sendable
     public let isEnabled: Bool
     public let durationSeconds: TimeInterval
     public var type: DisappearingMessageType?
-    
-    // MARK: - Relationships
-    
-    public var thread: QueryInterfaceRequest<SessionThread> {
-        request(for: DisappearingMessagesConfiguration.thread)
-    }
 }
 
 // MARK: - Mutation
@@ -305,7 +297,7 @@ public extension DisappearingMessagesConfiguration {
         _ db: ObservingDatabase,
         threadVariant: SessionThread.Variant,
         authorId: String,
-        timestampMs: Int64,
+        timestampMs: UInt64,
         serverHash: String?,
         serverExpirationTimestamp: TimeInterval?,
         using dependencies: Dependencies
@@ -368,7 +360,7 @@ public extension DisappearingMessagesConfiguration {
                 ),
                 using: dependencies
             ),
-            timestampMs: timestampMs,
+            timestampMs: Int64(timestampMs),
             wasRead: wasRead,
             expiresInSeconds: interactionExpirationInfo?.expiresInSeconds,
             expiresStartedAtMs: interactionExpirationInfo?.expiresStartedAtMs,

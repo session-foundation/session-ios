@@ -3,12 +3,21 @@
 // stringlint:disable
 
 import Foundation
+import SessionUtilitiesKit
 
 public extension Network {
     enum SOGS {
         public static let legacyDefaultServerIP = "116.203.70.33"
         public static let defaultServer = "https://open.getsession.org"
         public static let defaultServerPublicKey = "a03c383cf63c3c4efe67acc52112a6dd734b3a946b9545f488aaa93da7991238"
+        public static let defaultAuthMethod: AuthenticationMethod = Authentication.community(
+            roomToken: "",
+            server: defaultServer,
+            publicKey: defaultServerPublicKey,
+            hasCapabilities: false,
+            supportsBlinding: true,
+            forceBlinded: false
+        )
         public static let validTimestampVarianceThreshold: TimeInterval = (6 * 60 * 60)
         internal static let maxInactivityPeriodForPolling: TimeInterval = (14 * 24 * 60 * 60)
 

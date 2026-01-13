@@ -1,5 +1,5 @@
 {
-  "originHash" : "a1ca5566a970837dc37df32bb05cc42266c207dd8046fec57b332e42f0968b67",
+  "originHash" : "20bbabe3221f3f18c1c8d360d19925e97d3601e248dbe34d1b91c44a2a672778",
   "pins" : [
     {
       "identity" : "cocoalumberjack",
@@ -29,6 +29,15 @@
       }
     },
     {
+      "identity" : "devicekit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/devicekit/DeviceKit.git",
+      "state" : {
+        "revision" : "581df61650bc457ec00373a592a84be3e7468eb1",
+        "version" : "5.7.0"
+      }
+    },
+    {
       "identity" : "differencekit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ra1028/DifferenceKit.git",
@@ -51,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/session-foundation/libsession-util-spm",
       "state" : {
-        "revision" : "38baf3f75ba50e6ba3950caa5709a40971c13e89",
-        "version" : "1.5.7"
+        "revision" : "fa667ed2cc1e0633cff131c41746c59088dd9370",
+        "version" : "1.5.9"
       }
     },
     {

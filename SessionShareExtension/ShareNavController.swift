@@ -43,7 +43,7 @@ final class ShareNavController: UINavigationController {
 
         guard !SNUtilitiesKit.isRunningTests else { return }
         
-        dependencies.warmCache(cache: .appVersion)
+        dependencies.warm(cache: .appVersion)
 
         AppSetup.setupEnvironment(
             appSpecificBlock: { [dependencies] in
@@ -60,7 +60,8 @@ final class ShareNavController: UINavigationController {
                 // stringlint:ignore_stop
                 
                 // Setup LibSession
-                dependencies.warmCache(cache: .libSessionNetwork)
+                dependencies.warm(cache: .libSessionNetwork)
+                dependencies.warm(singleton: .sessionProManager)
                 
                 // Configure the different targets
                 SNUtilitiesKit.configure(
@@ -218,7 +219,7 @@ final class ShareNavController: UINavigationController {
         present(indicator, animated: false)
         
         processPendingAttachmentsTask?.cancel()
-        processPendingAttachmentsTask = Task.detached(priority: .userInitiated) { [weak self, indicator] in
+        processPendingAttachmentsTask = Task.detached(priority: .userInitiated) { [weak self, indicator, dependencies] in
             guard let self = self else { return }
             
             do {
@@ -229,7 +230,7 @@ final class ShareNavController: UINavigationController {
                     try attachment.ensureExpectedEncryptedSize(
                         domain: .attachment,
                         maxFileSize: Network.maxFileSize,
-                        using: self.dependencies
+                        using: dependencies
                     )
                 }
                 
@@ -414,7 +415,7 @@ final class ShareNavController: UINavigationController {
                     case .none:
                         return continuation.resume(
                             throwing: ShareViewControllerError.assertionError(
-                                description: "missing item provider"
+                                description: "missing item provider"    // stringlint:ignore
                             )
                         )
                         
@@ -422,7 +423,7 @@ final class ShareNavController: UINavigationController {
                         guard let tempFilePath = try? dependencies[singleton: .fileManager].write(dataToTemporaryFile: data) else {
                             return continuation.resume(
                                 throwing: ShareViewControllerError.assertionError(
-                                    description: "Error writing item data"
+                                    description: "Error writing item data"    // stringlint:ignore
                                 )
                             )
                         }
@@ -477,7 +478,7 @@ final class ShareNavController: UINavigationController {
                         catch {
                             return continuation.resume(
                                 throwing: ShareViewControllerError.assertionError(
-                                    description: "Failed to copy temporary file: \(error)"
+                                    description: "Failed to copy temporary file: \(error)" // stringlint:ignore
                                 )
                             )
                         }
@@ -496,7 +497,7 @@ final class ShareNavController: UINavigationController {
                         // don't know how to handle.
                         return continuation.resume(
                             throwing: ShareViewControllerError.assertionError(
-                                description: "Unexpected value: \(String(describing: value))"
+                                description: "Unexpected value: \(String(describing: value))" // stringlint:ignore
                             )
                         )
                 }
@@ -682,11 +683,15 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     var maxFileSize: UInt { Network.maxFileSize }
     var isStorageValid: Bool { dependencies[singleton: .storage].isValid }
     var isRTL: Bool { Dependencies.isRTL }
+    let initialMainScreenScale: CGFloat
+    let initialMainScreenMaxDimension: CGFloat
     
     // MARK: - Initialization
     
-    init(using dependencies: Dependencies) {
+    @MainActor init(using dependencies: Dependencies) {
         self.dependencies = dependencies
+        self.initialMainScreenScale = UIScreen.main.scale
+        self.initialMainScreenMaxDimension = max(UIScreen.main.bounds.width, UIScreen.main.bounds.height)
     }
     
     // MARK: - Functions
@@ -755,9 +760,21 @@ private struct SAESNUIKitConfig: SNUIKit.ConfigType {
     }
     
     @MainActor func numberOfCharactersLeft(for text: String) -> Int {
-        return LibSession.numberOfCharactersLeft(
-            for: text,
-            isSessionPro: dependencies[cache: .libSession].isSessionPro
-        )
+        return dependencies[singleton: .sessionProManager].numberOfCharactersLeft(for: text)
+    }
+    
+    func urlStringProvider() -> StringProvider.Url {
+        return Constants.urls
+    }
+    
+    func buildVariantStringProvider() -> StringProvider.BuildVariant {
+        return Constants.buildVariants
+    }
+    
+    func proClientPlatformStringProvider(for platform: SessionProUI.ClientPlatform) -> StringProvider.ClientPlatform {
+        switch platform {
+            case .iOS: return Constants.PaymentProvider.appStore
+            case .android: return Constants.PaymentProvider.playStore
+        }
     }
 }

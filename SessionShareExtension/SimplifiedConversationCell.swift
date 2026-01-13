@@ -92,22 +92,22 @@ final class SimplifiedConversationCell: UITableViewCell {
     
     // MARK: - Updating
     
-    public func update(with cellViewModel: SessionThreadViewModel, using dependencies: Dependencies) {
-        accentLineView.alpha = (cellViewModel.threadIsBlocked == true ? 1 : 0)
+    public func update(with cellViewModel: ConversationInfoViewModel, using dependencies: Dependencies) {
+        accentLineView.alpha = (cellViewModel.isBlocked ? 1 : 0)
         profilePictureView.setDataManager(dependencies[singleton: .imageDataManager])
         profilePictureView.update(
-            publicKey: cellViewModel.threadId,
-            threadVariant: cellViewModel.threadVariant,
-            displayPictureUrl: cellViewModel.threadDisplayPictureUrl,
+            publicKey: cellViewModel.id,
+            threadVariant: cellViewModel.variant,
+            displayPictureUrl: cellViewModel.displayPictureUrl,
             profile: cellViewModel.profile,
             additionalProfile: cellViewModel.additionalProfile,
             using: dependencies
         )
-        displayNameLabel.text = cellViewModel.displayName
-        displayNameLabel.isProBadgeHidden = !cellViewModel.isSessionPro(using: dependencies)
+        displayNameLabel.themeAttributedText = cellViewModel.displayName.formatted(baseFont: displayNameLabel.font)
+        displayNameLabel.isProBadgeHidden = !cellViewModel.shouldShowProBadge
         
         self.isAccessibilityElement = true
         self.accessibilityIdentifier = "Contact"
-        self.accessibilityLabel = cellViewModel.displayName
+        self.accessibilityLabel = cellViewModel.displayName.deformatted()
     }
 }

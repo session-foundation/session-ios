@@ -92,12 +92,14 @@ public enum MessageSendJob: JobExecutor {
                         using: dependencies
                     )
                 }
-                .defaulting(to: AttachmentState(error: MessageSenderError.invalidMessage))
+                .defaulting(to: AttachmentState(error: StorageError.invalidQueryResult))
 
             /// If we got an error when trying to retrieve the attachment state then this job is actually invalid so it
             /// should permanently fail
             guard attachmentState.error == nil else {
-                switch (attachmentState.error ?? NetworkError.unknown) {
+                let finalError: Error = (attachmentState.error ?? NetworkError.unknown)
+                
+                switch finalError {
                     case StorageError.objectNotFound:
                         Log.warn(.cat, "Failing \(messageType) (\(job.id ?? -1)) due to missing interaction")
                         
@@ -108,7 +110,7 @@ public enum MessageSendJob: JobExecutor {
                         Log.error(.cat, "Failed \(messageType) (\(job.id ?? -1)) due to invalid attachment state")
                 }
                 
-                return failure(job, (attachmentState.error ?? MessageSenderError.invalidMessage), true)
+                return failure(job, finalError, true)
             }
 
             /// If we have any pending (or failed) attachment uploads then we should create jobs for them and insert them into the
@@ -171,9 +173,9 @@ public enum MessageSendJob: JobExecutor {
         var previousDeferralsMessage: String = ""
         
         switch details.destination {
-            case .closedGroup(let groupPublicKey) where groupPublicKey.starts(with: SessionId.Prefix.group.rawValue):
+            case .group(let publicKey) where publicKey.starts(with: SessionId.Prefix.group.rawValue):
                 let deferalDuration: TimeInterval = 1
-                let groupSessionId: SessionId = SessionId(.group, hex: groupPublicKey)
+                let groupSessionId: SessionId = SessionId(.group, hex: publicKey)
                 let numGroupKeys: Int = (try? LibSession.numKeys(groupSessionId: groupSessionId, using: dependencies))
                     .defaulting(to: 0)
                 let deferCount: Int = dependencies[singleton: .jobRunner].deferCount(for: job.id, of: job.variant)
@@ -249,11 +251,8 @@ public enum MessageSendJob: JobExecutor {
                             
                             // Actual error handling
                             switch (error, details.message) {
-                                case (let senderError as MessageSenderError, _) where !senderError.isRetryable:
-                                    failure(job, error, true)
-                                    
-                                case (SnodeAPIError.rateLimited, _):
-                                    failure(job, error, true)
+                                case (is MessageError, _): failure(job, error, true)
+                                case (SnodeAPIError.rateLimited, _): failure(job, error, true)
                                     
                                 case (SnodeAPIError.clockOutOfSync, _):
                                     Log.error(.cat, "\(originalSentTimestampMs != nil ? "Permanently Failing" : "Failing") to send \(messageType) (\(job.id ?? -1)) due to clock out of sync issue.")

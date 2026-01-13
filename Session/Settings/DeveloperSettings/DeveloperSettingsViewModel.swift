@@ -323,6 +323,14 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                 )
             ]
         )
+        
+        let sessionProStatus: String = (dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")
+        let mockedProStatus: String = {
+            switch (dependencies[feature: .sessionProEnabled], dependencies[feature: .mockCurrentUserSessionProBackendStatus]) {
+                case (true, .simulate(let status)): return "<span>\(status)</span>"
+                case (false, _), (_, .useActual): return "<disabled>None</disabled>"
+            }
+        }()
         let sessionPro: SectionModel = SectionModel(
             model: .sessionPro,
             elements: [
@@ -332,7 +340,8 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                     subtitle: """
                     Configure settings related to Session Pro.
                     
-                    <b>Session Pro:</b> <span>\(dependencies[feature: .sessionProEnabled] ? "Enabled" : "Disabled")</span>
+                    <b>Session Pro:</b> <span>\(sessionProStatus)</span>
+                    <b>Mock Pro Status:</b> \(mockedProStatus)
                     """,
                     trailingAccessory: .icon(.chevronRight),
                     onTap: { [weak self, dependencies] in
@@ -1146,7 +1155,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         }
         
         /// Start the new network cache and clear out the old one
-        dependencies.warmCache(cache: .libSessionNetwork)
+        dependencies.warm(cache: .libSessionNetwork)
         
         /// Free the `oldNetworkCache` so it can be destroyed(the 'if' is only there to prevent the "variable never read" warning)
         if oldNetworkCache != nil { oldNetworkCache = nil }
@@ -1276,7 +1285,7 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
                                                 isApproved: true,
                                                 currentUserSessionId: currentUserSessionId
                                             ).upserted(db)
-                                            _ = try Profile(
+                                            _ = try Profile.with(
                                                 id: sessionId.hexString,
                                                 name: String(format: "\(self?.contactPrefix ?? "")%04d", index + 1)
                                             ).upserted(db)
@@ -1643,148 +1652,152 @@ class DeveloperSettingsViewModel: SessionTableViewModel, NavigatableStateHolder,
         let documentPickerResult: DocumentPickerResult = DocumentPickerResult { url in
             guard let url: URL = url else { return }
 
-            let viewController: UIViewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, password = self.databaseKeyEncryptionPassword, dependencies = self.dependencies] modalActivityIndicator in
-                do {
-                    let tmpUnencryptPath: String = "\(dependencies[singleton: .fileManager].temporaryDirectory)/new_session.bak"
-                    let (paths, additionalFilePaths): ([String], [String]) = try DirectoryArchiver.unarchiveDirectory(
-                        archivePath: url.path,
-                        destinationPath: tmpUnencryptPath,
-                        password: password,
-                        progressChanged: { filesSaved, totalFiles, fileProgress, fileSize in
-                            let percentage: Int = {
-                                guard fileSize > 0 else { return 0 }
+            DispatchQueue.main.async {
+                let viewController: UIViewController = ModalActivityIndicatorViewController(canCancel: false) { [weak self, password = self.databaseKeyEncryptionPassword, dependencies = self.dependencies] modalActivityIndicator in
+                    do {
+                        let tmpUnencryptPath: String = "\(dependencies[singleton: .fileManager].temporaryDirectory)/new_session.bak"
+                        let (paths, additionalFilePaths): ([String], [String]) = try DirectoryArchiver.unarchiveDirectory(
+                            archivePath: url.path,
+                            destinationPath: tmpUnencryptPath,
+                            password: password,
+                            progressChanged: { filesSaved, totalFiles, fileProgress, fileSize in
+                                let percentage: Int = {
+                                    guard fileSize > 0 else { return 0 }
+                                    
+                                    return Int((Double(fileProgress) / Double(fileSize)) * 100)
+                                }()
                                 
-                                return Int((Double(fileProgress) / Double(fileSize)) * 100)
-                            }()
+                                DispatchQueue.main.async {
+                                    modalActivityIndicator.setMessage([
+                                        "Decryption progress: \(percentage)%",
+                                        "Files imported: \(filesSaved)/\(totalFiles)"
+                                    ].compactMap { $0 }.joined(separator: "\n"))
+                                }
+                            }
+                        )
+                        
+                        /// Test that we actually have valid access to the database
+                        guard
+                            let encKeyPath: String = additionalFilePaths
+                                .first(where: { $0.hasSuffix(Storage.encKeyFilename) }),
+                            let databasePath: String = paths
+                                .first(where: { $0.hasSuffix(Storage.dbFileName) })
+                        else { throw ArchiveError.unableToFindDatabaseKey }
+                        
+                        DispatchQueue.main.async {
+                            modalActivityIndicator.setMessage(
+                                "Checking for valid database..."
+                            )
+                        }
+                        
+                        let testStorage: Storage = try Storage(
+                            testAccessTo: databasePath,
+                            encryptedKeyPath: encKeyPath,
+                            encryptedKeyPassword: password,
+                            using: dependencies
+                        )
+                        
+                        guard testStorage.isValid else {
+                            throw ArchiveError.decryptionFailed(ArchiveError.unarchiveFailed)
+                        }
+                        
+                        /// Now that we have confirmed access to the replacement database we need to
+                        /// stop the current account from doing anything
+                        DispatchQueue.main.async {
+                            modalActivityIndicator.setMessage(
+                                "Clearing current account data..."
+                            )
                             
-                            DispatchQueue.main.async {
-                                modalActivityIndicator.setMessage([
-                                    "Decryption progress: \(percentage)%",
-                                    "Files imported: \(filesSaved)/\(totalFiles)"
-                                ].compactMap { $0 }.joined(separator: "\n"))
+                            (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
+                        }
+                        
+                        /// Need to shut everything down before the swap out the data to prevent crashes
+                        dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
+                        dependencies.remove(cache: .libSession)
+                        dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
+                        dependencies[singleton: .storage].suspendDatabaseAccess()
+                        try dependencies[singleton: .storage].closeDatabase()
+                        LibSession.clearLoggers()
+                        
+                        let deleteEnumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
+                            at: URL(
+                                fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath
+                            ),
+                            includingPropertiesForKeys: [.isRegularFileKey, .isHiddenKey]
+                        )
+                        let fileUrls: [URL] = (deleteEnumerator?.allObjects
+                            .compactMap { $0 as? URL }
+                            .filter { url -> Bool in
+                                guard let resourceValues = try? url.resourceValues(forKeys: [.isHiddenKey]) else {
+                                    return true
+                                }
+                                
+                                return (resourceValues.isHidden != true)
+                            })
+                            .defaulting(to: [])
+                        try fileUrls.forEach { url in
+                            /// The database `wal` and `shm` files might not exist anymore at this point
+                            /// so we should only remove files which exist to prevent errors
+                            guard FileManager.default.fileExists(atPath: url.path) else { return }
+                            
+                            try FileManager.default.removeItem(atPath: url.path)
+                        }
+                        
+                        /// Current account data has been removed, we now need to copy over the
+                        /// newly imported data
+                        DispatchQueue.main.async {
+                            modalActivityIndicator.setMessage(
+                                "Moving imported data..."
+                            )
+                        }
+                        
+                        try paths.forEach { path in
+                            /// Need to ensure the destination directry
+                            let targetPath: String = [
+                                dependencies[singleton: .fileManager].appSharedDataDirectoryPath,
+                                path.replacingOccurrences(of: tmpUnencryptPath, with: "")
+                            ].joined()  // Already has '/' after 'appSharedDataDirectoryPath'
+                            
+                            try FileManager.default.createDirectory(
+                                atPath: URL(fileURLWithPath: targetPath)
+                                    .deletingLastPathComponent()
+                                    .path,
+                                withIntermediateDirectories: true
+                            )
+                            try FileManager.default.moveItem(atPath: path, toPath: targetPath)
+                        }
+                        
+                        /// All of the main files have been moved across, we now need to replace the current database key with
+                        /// the one included in the backup
+                        try dependencies[singleton: .storage].replaceDatabaseKey(path: encKeyPath, password: password)
+                        
+                        /// The import process has completed so we need to restart the app
+                        DispatchQueue.main.async {
+                            self?.transitionToScreen(
+                                ConfirmationModal(
+                                    info: ConfirmationModal.Info(
+                                        title: "Import Complete",
+                                        body: .text("The import completed successfully, Session must be reopened in order to complete the process."),
+                                        cancelTitle: "Exit",
+                                        cancelStyle: .alert_text,
+                                        onCancel: { _ in exit(0) }
+                                    )
+                                ),
+                                transitionType: .present
+                            )
+                        }
+                    }
+                    catch {
+                        DispatchQueue.main.async {
+                            modalActivityIndicator.dismiss {
+                                showError(error)
                             }
                         }
-                    )
-                    
-                    /// Test that we actually have valid access to the database
-                    guard
-                        let encKeyPath: String = additionalFilePaths
-                            .first(where: { $0.hasSuffix(Storage.encKeyFilename) }),
-                        let databasePath: String = paths
-                            .first(where: { $0.hasSuffix(Storage.dbFileName) })
-                    else { throw ArchiveError.unableToFindDatabaseKey }
-                    
-                    DispatchQueue.main.async {
-                        modalActivityIndicator.setMessage(
-                            "Checking for valid database..."
-                        )
-                    }
-                    
-                    let testStorage: Storage = try Storage(
-                        testAccessTo: databasePath,
-                        encryptedKeyPath: encKeyPath,
-                        encryptedKeyPassword: password,
-                        using: dependencies
-                    )
-                    
-                    guard testStorage.isValid else {
-                        throw ArchiveError.decryptionFailed(ArchiveError.unarchiveFailed)
-                    }
-                    
-                    /// Now that we have confirmed access to the replacement database we need to
-                    /// stop the current account from doing anything
-                    DispatchQueue.main.async {
-                        modalActivityIndicator.setMessage(
-                            "Clearing current account data..."
-                        )
-                        
-                        (UIApplication.shared.delegate as? AppDelegate)?.stopPollers()
-                    }
-                    
-                    /// Need to shut everything down before the swap out the data to prevent crashes
-                    dependencies[singleton: .jobRunner].stopAndClearPendingJobs()
-                    dependencies.remove(cache: .libSession)
-                    dependencies.mutate(cache: .libSessionNetwork) { $0.suspendNetworkAccess() }
-                    dependencies[singleton: .storage].suspendDatabaseAccess()
-                    try dependencies[singleton: .storage].closeDatabase()
-                    LibSession.clearLoggers()
-                    
-                    let deleteEnumerator: FileManager.DirectoryEnumerator? = FileManager.default.enumerator(
-                        at: URL(
-                            fileURLWithPath: dependencies[singleton: .fileManager].appSharedDataDirectoryPath
-                        ),
-                        includingPropertiesForKeys: [.isRegularFileKey, .isHiddenKey]
-                    )
-                    let fileUrls: [URL] = (deleteEnumerator?.allObjects
-                        .compactMap { $0 as? URL }
-                        .filter { url -> Bool in
-                            guard let resourceValues = try? url.resourceValues(forKeys: [.isHiddenKey]) else {
-                                return true
-                            }
-                            
-                            return (resourceValues.isHidden != true)
-                        })
-                        .defaulting(to: [])
-                    try fileUrls.forEach { url in
-                        /// The database `wal` and `shm` files might not exist anymore at this point
-                        /// so we should only remove files which exist to prevent errors
-                        guard FileManager.default.fileExists(atPath: url.path) else { return }
-                        
-                        try FileManager.default.removeItem(atPath: url.path)
-                    }
-                    
-                    /// Current account data has been removed, we now need to copy over the
-                    /// newly imported data
-                    DispatchQueue.main.async {
-                        modalActivityIndicator.setMessage(
-                            "Moving imported data..."
-                        )
-                    }
-                    
-                    try paths.forEach { path in
-                        /// Need to ensure the destination directry
-                        let targetPath: String = [
-                            dependencies[singleton: .fileManager].appSharedDataDirectoryPath,
-                            path.replacingOccurrences(of: tmpUnencryptPath, with: "")
-                        ].joined()  // Already has '/' after 'appSharedDataDirectoryPath'
-                        
-                        try FileManager.default.createDirectory(
-                            atPath: URL(fileURLWithPath: targetPath)
-                                .deletingLastPathComponent()
-                                .path,
-                            withIntermediateDirectories: true
-                        )
-                        try FileManager.default.moveItem(atPath: path, toPath: targetPath)
-                    }
-                    
-                    /// All of the main files have been moved across, we now need to replace the current database key with
-                    /// the one included in the backup
-                    try dependencies[singleton: .storage].replaceDatabaseKey(path: encKeyPath, password: password)
-                    
-                    /// The import process has completed so we need to restart the app
-                    DispatchQueue.main.async {
-                        self?.transitionToScreen(
-                            ConfirmationModal(
-                                info: ConfirmationModal.Info(
-                                    title: "Import Complete",
-                                    body: .text("The import completed successfully, Session must be reopened in order to complete the process."),
-                                    cancelTitle: "Exit",
-                                    cancelStyle: .alert_text,
-                                    onCancel: { _ in exit(0) }
-                                )
-                            ),
-                            transitionType: .present
-                        )
                     }
                 }
-                catch {
-                    modalActivityIndicator.dismiss {
-                        showError(error)
-                    }
-                }
+                
+                self.transitionToScreen(viewController, transitionType: .present)
             }
-            
-            self.transitionToScreen(viewController, transitionType: .present)
         }
         self.documentPickerResult = documentPickerResult
         
@@ -2089,8 +2102,78 @@ extension DeveloperSettingsViewModel {
             transitionType: .present
         )
     }
+    
+    static func showModalForMockableState<M>(
+        title: String,
+        explanation: String,
+        feature: FeatureConfig<MockableFeature<M>>,
+        currentValue: MockableFeature<M>,
+        navigatableStateHolder: NavigatableStateHolder?,
+        onMockingRemoved: (() -> Void)? = nil,
+        using dependencies: Dependencies?
+    ) {
+        let allCases: [MockableFeature<M>] = MockableFeature<M>.allCases
+    
+        navigatableStateHolder?.transitionToScreen(
+            ConfirmationModal(
+                info: ConfirmationModal.Info(
+                    title: title,
+                    body: .radio(
+                        explanation: ThemedAttributedString(string: explanation),
+                        warning: nil,
+                        options: {
+                            return allCases.enumerated().map { index, feature in
+                                ConfirmationModal.Info.Body.RadioOptionInfo(
+                                    title: feature.title,
+                                    descriptionText: feature.subtitle.map {
+                                        ThemedAttributedString(
+                                            stringWithHTMLTags: $0,
+                                            font: RadioButton.descriptionFont
+                                        )
+                                    },
+                                    enabled: true,
+                                    selected: currentValue == feature
+                                )
+                            }
+                        }()
+                    ),
+                    confirmTitle: "select".localized(),
+                    cancelStyle: .alert_text,
+                    onConfirm: { [dependencies] modal in
+                        let selectedValue: MockableFeature<M>? = {
+                            switch modal.info.body {
+                                case .radio(_, _, let options):
+                                    return options
+                                        .enumerated()
+                                        .first(where: { _, value in value.selected })
+                                        .map { index, _ in
+                                            guard index >= 0 && index < allCases.count else {
+                                                return nil
+                                            }
+                                            
+                                            return allCases[index]
+                                        }
+                                
+                                default: return nil
+                            }
+                        }()
+                        
+                        let finalValue: MockableFeature<M> = (selectedValue ?? .useActual)
+                        
+                        switch finalValue {
+                            case .useActual:
+                                dependencies?.reset(feature: feature)
+                                onMockingRemoved?()
+                                
+                            case .simulate: dependencies?.set(feature: feature, to: finalValue)
+                        }
+                    }
+                )
+            ),
+            transitionType: .present
+        )
+    }
 }
-
 
 // MARK: - DocumentPickerResult
 
@@ -2133,6 +2216,17 @@ internal extension String.StringInterpolation {
     }
 }
 
+// MARK: - Format Convenience
+
+internal extension String.StringInterpolation {
+    mutating func appendInterpolation<T: CustomStringConvertible>(devValue: MockableFeature<T>) {
+        switch devValue {
+            case .useActual: appendLiteral("<disabled>None</disabled>")
+            case .simulate(let value): appendLiteral("<span>\(value)</span>")
+        }
+    }
+}
+
 // MARK: - WarningVersion
 
 struct WarningVersion: Listable {
@@ -2153,12 +2247,3 @@ extension Network.PushNotification.Service: Listable {}
 extension Log.Level: @retroactive ContentIdentifiable {}
 extension Log.Level: @retroactive ContentEquatable {}
 extension Log.Level: Listable {}
-extension SessionProStateMock: @retroactive ContentIdentifiable {}
-extension SessionProStateMock: @retroactive ContentEquatable {}
-extension SessionProStateMock: Listable {}
-extension SessionProLoadingState: @retroactive ContentIdentifiable {}
-extension SessionProLoadingState: @retroactive ContentEquatable {}
-extension SessionProLoadingState: Listable {}
-extension SessionProStateExpiryMock: @retroactive ContentIdentifiable {}
-extension SessionProStateExpiryMock: @retroactive ContentEquatable {}
-extension SessionProStateExpiryMock: Listable {}
