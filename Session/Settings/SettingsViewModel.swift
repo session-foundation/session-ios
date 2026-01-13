@@ -364,7 +364,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                 SessionListScreenContent.ListItemInfo(
                     id: .profileName,
                     variant: .tappableText(
-                        info: ListItemTappableText.Info(
+                        info: .init(
                             text: state.profile.displayName(),
                             font: Fonts.Headings.H4,
                             themeForegroundColor: .textPrimary,
@@ -420,7 +420,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     id: .sessionId,
                     variant: .cell(
                         info: .init(
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 state.profile.id,
                                 font: .Display.extraLarge,
                                 alignment: .center,
@@ -485,7 +485,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                     size: .small,
                                     themeBackgroundColor: .primary
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     {
                                         switch state.proState.status {
                                             case .neverBeenPro:
@@ -522,7 +522,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: .icon(.userRoundPlus),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "sessionInviteAFriend".localized(),
                                     font: .Headings.H8
                                 )
@@ -557,7 +557,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                     .heart,
                                     customTint: .sessionButton_border
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "donate".localized(),
                                     font: .Headings.H8
                                 ),
@@ -569,10 +569,16 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         id: .path,
                         variant: .cell(
                             info: .init(
-//                                leadingAccessory: .init(accessoryView: {
-//                                    PathStatusViewAccessory
-//                                },
-                                title: .init(
+                                leadingAccessory: SessionListScreenContent.ListItemAccessory(
+                                    padding: Values.mediumSmallSpacing,
+                                    accessoryView: {
+                                        PathStatusView_SwiftUI(
+                                            size: .large,
+                                            using: viewModel.dependencies
+                                        )
+                                    }
+                                ),
+                                title: SessionListScreenContent.TextInfo(
                                     "onionRoutingPath".localized(),
                                     font: .Headings.H8
                                 )
@@ -590,7 +596,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                     UIImage(named: "icon_session_network")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     Constants.network_name,
                                     font: .Headings.H8
                                 )
@@ -621,7 +627,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                     .heart,
                                     customTint: .sessionButton_border
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "donate".localized(),
                                     font: .Headings.H8
                                 )
@@ -634,7 +640,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         variant: .cell(
                             info: .init(
                                 leadingAccessory: .icon(.userRoundPlus),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     "sessionInviteAFriend".localized(),
                                     font: .Headings.H8
                                 )
@@ -665,10 +671,16 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                         id: .path,
                         variant: .cell(
                             info: .init(
-//                                leadingAccessory: .init(accessoryView: {
-//                                    PathStatusViewAccessory
-//                                },
-                                title: .init(
+                                leadingAccessory: SessionListScreenContent.ListItemAccessory(
+                                    padding: Values.mediumSmallSpacing,
+                                    accessoryView: {
+                                        PathStatusView_SwiftUI(
+                                            size: .large,
+                                            using: viewModel.dependencies
+                                        )
+                                    }
+                                ),
+                                title: SessionListScreenContent.TextInfo(
                                     "onionRoutingPath".localized(),
                                     font: .Headings.H8
                                 )
@@ -686,7 +698,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                     UIImage(named: "icon_session_network")?
                                         .withRenderingMode(.alwaysTemplate)
                                 ),
-                                title: .init(
+                                title: SessionListScreenContent.TextInfo(
                                     Constants.network_name,
                                     font: .Headings.H8
                                 )
@@ -714,7 +726,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     variant: .cell(
                         info: .init(
                             leadingAccessory: .icon(.lockKeyhole),
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 "sessionPrivacy".localized(),
                                 font: .Headings.H8
                             )
@@ -731,7 +743,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     variant: .cell(
                         info: .init(
                             leadingAccessory: .icon(.volume2),
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 "sessionNotifications".localized(),
                                 font: .Headings.H8
                             )
@@ -748,7 +760,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     variant: .cell(
                         info: .init(
                             leadingAccessory: .icon(.usersRound),
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 "sessionConversations".localized(),
                                 font: .Headings.H8
                             )
@@ -765,7 +777,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     variant: .cell(
                         info: .init(
                             leadingAccessory: .icon(.paintbrushVertical),
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 "sessionAppearance".localized(),
                                 font: .Headings.H8
                             )
@@ -782,7 +794,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                     variant: .cell(
                         info: .init(
                             leadingAccessory: .icon(.messageSquareWarning),
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 "sessionMessageRequests".localized(),
                                 font: .Headings.H8
                             )
@@ -808,7 +820,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 UIImage(named: "SessionShield")?
                                     .withRenderingMode(.alwaysTemplate)
                             ),
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 "sessionRecoveryPassword".localized(),
                                 font: .Headings.H8
                             )
@@ -849,7 +861,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                             UIImage(named: "icon_help")?
                                 .withRenderingMode(.alwaysTemplate)
                         ),
-                        title: .init(
+                        title: SessionListScreenContent.TextInfo(
                             "sessionHelp".localized(),
                             font: .Headings.H8
                         )
@@ -873,7 +885,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 .squareCode,
                                 customTint: .warning
                             ),
-                            title: .init(
+                            title: SessionListScreenContent.TextInfo(
                                 "Developer Settings",    // stringlint:ignore
                                 font: .Headings.H8,
                                 color: .warning
@@ -898,7 +910,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                             .trash2,
                             customTint: .danger
                         ),
-                        title: .init(
+                        title: SessionListScreenContent.TextInfo(
                             "sessionClearData".localized(),
                             font: .Headings.H8,
                             color: .danger
