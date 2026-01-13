@@ -138,7 +138,10 @@ struct PathStatusView_SwiftUI: View {
             .fill(themeColor: networkStatus.themeColor)
             .frame(width: size.pointSize, height: size.pointSize)
             .shadow(
-                color: .black.opacity(colorScheme == .light ? 0.4 : 1.0),
+                themeColor: .value(
+                    networkStatus.themeColor,
+                    alpha: (colorScheme == .light ? 0.4 : 1.0)
+                ),
                 radius: size.offset(for: colorScheme),
                 x: 0,
                 y: 0.8
