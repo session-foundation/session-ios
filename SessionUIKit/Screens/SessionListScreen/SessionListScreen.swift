@@ -167,13 +167,32 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                         ForEach(section.elements.indices, id: \.self) { index in
                             let element = section.elements[index]
                             let isLastElement: Bool = (index == section.elements.count - 1)
+                            let onTapAction: (@MainActor () -> Void) = {
+                                guard var confirmationInfo = element.confirmationInfo else {
+                                    element.onTap?()
+                                    return
+                                }
+                                
+                                if let elementOnTap = element.onTap {
+                                    confirmationInfo = confirmationInfo.with(
+                                        onConfirm: { _ in
+                                            elementOnTap()
+                                        }
+                                    )
+                                }
+                                
+                                let modal: ConfirmationModal = ConfirmationModal(info: confirmationInfo)
+                                host.controller?.present(modal, animated: true)
+                            }
+                            
                             switch element.variant {
                                 case .cell(let info):
                                     VStack(spacing: 0) {
                                         ListItemCell(
                                             info: info,
-                                            onTap: element.onTap
+                                            onTap: onTapAction
                                         )
+                                        .accessibility(element.accessibility)
                                         .frame(
                                             maxWidth: .infinity,
                                             minHeight: section.model.style.cellMinHeight
@@ -194,8 +213,9 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     )
                                 case .logoWithPro(let info):
                                     ListItemLogoWithPro(info: info)
+                                        .accessibility(element.accessibility)
                                         .onTapGesture {
-                                            element.onTap?()
+                                            onTapAction()
                                         }
                                 case .dataMatrix(let info):
                                     ListItemDataMatrix(
@@ -207,8 +227,9 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         suppressUntil: $suppressUntil,
                                         info: info
                                     )
+                                    .accessibility(element.accessibility)
                                     .onTapGesture {
-                                        element.onTap?()
+                                        onTapAction()
                                     }
                                     .background(
                                         Rectangle()
@@ -216,8 +237,9 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     )
                                 case .button(let title, let enabled):
                                     ListItemButton(title: title, enabled: enabled)
+                                        .accessibility(element.accessibility)
                                         .onTapGesture {
-                                            element.onTap?()
+                                            onTapAction()
                                         }
                                 case .profilePicture(let info):
                                     ListItemProfilePicture(
@@ -227,6 +249,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         dataManager: viewModel.imageDataManager,
                                         host: host
                                     )
+                                    .accessibility(element.accessibility)
                                     .padding(.vertical, Values.smallSpacing)
                                     .frame(maxWidth: .infinity, alignment: .top)
                                 case .tappableText(let info):
@@ -234,6 +257,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         info: info,
                                         height: section.model.style.cellMinHeight
                                     )
+                                    .accessibility(element.accessibility)
                                     .padding(.vertical, Values.smallSpacing)
                                     .frame(maxWidth: .infinity)
                             }
