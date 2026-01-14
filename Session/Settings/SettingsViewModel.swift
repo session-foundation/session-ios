@@ -560,7 +560,7 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 title: SessionListScreenContent.TextInfo(
                                     "donate".localized(),
                                     font: .Headings.H8
-                                ),
+                                )
                             )
                         ),
                         onTap: { [weak viewModel] in viewModel?.openDonationsUrl() }
