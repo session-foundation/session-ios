@@ -398,18 +398,18 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                                     !state.threadInfo.isNoteToSelf
                                 else { return nil }
                                 
-                                return {
-                                    (
-                                        UIView.image(
-                                            for: .themedKey(
-                                                SessionProBadge.Size.medium.cacheKey,
-                                                themeBackgroundColor: .primary
-                                            ),
-                                            generator: { SessionProBadge(size: .medium) }
+                                let imageAttachmentGenerator = (
+                                    UIView.image(
+                                        for: .themedKey(
+                                            SessionProBadge.Size.medium.cacheKey,
+                                            themeBackgroundColor: .primary
                                         ),
-                                        SessionProBadge.accessibilityLabel
-                                    )
-                                }
+                                        generator: { SessionProBadge(size: .medium) }
+                                    ),
+                                    SessionProBadge.accessibilityLabel
+                                )
+                                
+                                return { imageAttachmentGenerator }
                             }(),
                             onTextTap: { [weak viewModel] in
                                 guard let info: ConfirmationModal.Info = viewModel?.updateDisplayNameModal(state: state) else {
