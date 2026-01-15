@@ -608,8 +608,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).copy_thread_id",
-                            label: "Copy Session ID"
+                            identifier: "Copy Session ID",
+                            label: "\(ThreadSettingsViewModel.self).copy_thread_id"
                         ),
                         onTap: { [weak viewModel] in
                             switch state.threadInfo.variant {
@@ -649,8 +649,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).search",
-                        label: "Search"
+                        identifier: "Search",
+                        label: "\(ThreadSettingsViewModel.self).search"
                     ),
                     onTap: { [weak viewModel] in viewModel?.didTriggerSearch() }
                 ),
@@ -730,8 +730,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).pin_conversation",
-                            label: "Pin Conversation"
+                            identifier: "Pin Conversation",
+                            label: "\(ThreadSettingsViewModel.self).pin_conversation"
                         ),
                         onTap: { [weak viewModel] in
                             Task {
@@ -783,8 +783,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).notifications",
-                            label: "Notifications"
+                            identifier: "Notifications",
+                            label: "\(ThreadSettingsViewModel.self).notifications"
                         ),
                         onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                             viewModel?.transitionToScreen(
@@ -815,7 +815,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).add_to_open_group"
+                            identifier: "Add to open group",
+                            label: "\(ThreadSettingsViewModel.self).add_to_open_group"
                         ),
                         onTap: { [weak viewModel] in viewModel?.inviteUsersToCommunity(threadInfo: state.threadInfo) }
                     )
@@ -835,7 +836,7 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         ),
                         accessibility: Accessibility(
                             identifier: "Group members",
-                            label: "Group members"
+                            label: "\(ThreadSettingsViewModel.self).group_members"
                         ),
                         onTap: { [weak viewModel] in viewModel?.viewMembers(state: state) }
                     )
@@ -853,8 +854,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).all_media",
-                        label: "All media"
+                        identifier: "All media",
+                        label: "\(ThreadSettingsViewModel.self).all_media"
                     ),
                     onTap: { [weak viewModel, dependencies = viewModel.dependencies] in
                         viewModel?.transitionToScreen(
@@ -1012,8 +1013,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).block",
-                            label: "Block"
+                            identifier: "Block",
+                            label: "\(ThreadSettingsViewModel.self).block"
                         ),
                         confirmationInfo: ConfirmationModal.Info(
                             title: (state.threadInfo.isBlocked ?
@@ -1067,8 +1068,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).hide_note_to_self",
-                            label: "Hide Note to Self"
+                            identifier: "Hide Note to Self",
+                            label: "\(ThreadSettingsViewModel.self).hide_note_to_self"
                         ),
                         confirmationInfo: ConfirmationModal.Info(
                             title: isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
@@ -1124,8 +1125,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                         )
                     ),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).clear_all_messages",
-                        label: "Clear All Messages"
+                        identifier: "Clear All Messages",
+                        label: "\(ThreadSettingsViewModel.self).clear_all_messages"
                     ),
                     confirmationInfo: ConfirmationModal.Info(
                         title: "clearMessages".localized(),
@@ -1278,8 +1279,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).leave_community",
-                            label: "Leave Community"
+                            identifier: "Leave Community",
+                            label: "\(ThreadSettingsViewModel.self).leave_community"
                         ),
                         confirmationInfo: ConfirmationModal.Info(
                             title: "communityLeave".localized(),
@@ -1379,8 +1380,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).delete_conversation",
-                            label: "Delete Conversation"
+                            identifier: "Delete Conversation",
+                            label: "\(ThreadSettingsViewModel.self).delete_conversation"
                         ),
                         confirmationInfo: ConfirmationModal.Info(
                             title: "conversationsDelete".localized(),
@@ -1426,8 +1427,8 @@ class ThreadSettingsViewModel: SessionListScreenContent.ViewModelType, Navigatio
                             )
                         ),
                         accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).delete_contact",
-                            label: "Delete Contact"
+                            identifier: "Delete Contact",
+                            label: "\(ThreadSettingsViewModel.self).delete_contact"
                         ),
                         confirmationInfo: ConfirmationModal.Info(
                             title: "contactDelete".localized(),
