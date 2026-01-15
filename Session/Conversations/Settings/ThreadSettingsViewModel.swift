@@ -109,6 +109,7 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         
         case editGroup
         case promoteAdmins
+        case debugSetCustomDisplayPicture
         
         case blockUser
         case hideNoteToSelf
@@ -716,520 +717,596 @@ class ThreadSettingsViewModel: SessionTableViewModel, NavigationItemSource, Navi
         
         // MARK: - Admin Actions
         
-        let adminActionsSection: SectionModel? = (
-            !currentUserIsClosedGroupAdmin ? nil :
-                SectionModel(
-                    model: .adminActions,
-                    elements: [
-                        SessionCell.Info(
-                            id: .editGroup,
-                            leadingAccessory: .icon(.userRoundPen),
-                            title: "manageMembers".localized(),
-                            accessibility: Accessibility(
-                                identifier: "Edit group",
-                                label: "Edit group"
-                            ),
-                            onTap: { [weak self, dependencies] in
-                                self?.transitionToScreen(
-                                    SessionTableViewController(
-                                        viewModel: EditGroupViewModel(
-                                            threadId: threadViewModel.threadId,
-                                            using: dependencies
-                                        )
+        var adminActionsSection: SectionModel?
+        
+        if currentUserIsClosedGroupAdmin {
+            adminActionsSection = SectionModel(
+                model: .adminActions,
+                elements: [
+                    SessionCell.Info(
+                        id: .editGroup,
+                        leadingAccessory: .icon(.userRoundPen),
+                        title: "manageMembers".localized(),
+                        accessibility: Accessibility(
+                            identifier: "Edit group",
+                            label: "Edit group"
+                        ),
+                        onTap: { [weak self, dependencies] in
+                            self?.transitionToScreen(
+                                SessionTableViewController(
+                                    viewModel: EditGroupViewModel(
+                                        threadId: threadViewModel.threadId,
+                                        using: dependencies
                                     )
                                 )
-                            }
-                        ),
-                        
-                        (!dependencies[feature: .updatedGroupsAllowPromotions] ? nil :
-                            SessionCell.Info(
-                                id: .promoteAdmins,
-                                leadingAccessory: .icon(
-                                    UIImage(named: "table_ic_group_edit")?
-                                        .withRenderingMode(.alwaysTemplate)
-                                ),
-                                title: "adminPromote".localized(),
-                                accessibility: Accessibility(
-                                    identifier: "Promote admins",
-                                    label: "Promote admins"
-                                ),
-                                onTap: { [weak self] in
-                                    self?.promoteAdmins(currentGroupName: threadViewModel.closedGroupName)
-                                }
                             )
-                        ),
-                        
-                        SessionCell.Info(
-                            id: .disappearingMessages,
-                            leadingAccessory: .icon(.timer),
-                            title: "disappearingMessages".localized(),
-                            subtitle: {
-                                guard current.disappearingMessagesConfig.isEnabled else {
-                                    return "off".localized()
-                                }
-                                
-                                return (current.disappearingMessagesConfig.type ?? .unknown)
-                                    .localizedState(
-                                        durationString: current.disappearingMessagesConfig.durationString
-                                    )
-                            }(),
-                            accessibility: Accessibility(
-                                identifier: "Disappearing messages",
-                                label: "\(ThreadSettingsViewModel.self).disappearing_messages"
-                            ),
-                            onTap: { [weak self, dependencies] in
-                                self?.transitionToScreen(
-                                    SessionTableViewController(
-                                        viewModel: ThreadDisappearingMessagesSettingsViewModel(
-                                            threadId: threadViewModel.threadId,
-                                            threadVariant: threadViewModel.threadVariant,
-                                            currentUserIsClosedGroupMember: threadViewModel.currentUserIsClosedGroupMember,
-                                            currentUserIsClosedGroupAdmin: threadViewModel.currentUserIsClosedGroupAdmin,
-                                            config: current.disappearingMessagesConfig,
-                                            using: dependencies
-                                        )
-                                    )
-                                )
-                            }
-                        )
-                    ].compactMap { $0 }
+                        }
+                    )
+                ]
+            )
+        }
+        
+        if currentUserIsClosedGroupAdmin && dependencies[feature: .updatedGroupsAllowPromotions] {
+            adminActionsSection?.elements.append(
+                SessionCell.Info(
+                    id: .promoteAdmins,
+                    leadingAccessory: .icon(
+                        UIImage(named: "table_ic_group_edit")?
+                            .withRenderingMode(.alwaysTemplate)
+                    ),
+                    title: "adminPromote".localized(),
+                    accessibility: Accessibility(
+                        identifier: "Promote admins",
+                        label: "Promote admins"
+                    ),
+                    onTap: { [weak self] in
+                        self?.promoteAdmins(currentGroupName: threadViewModel.closedGroupName)
+                    }
                 )
-        )
+            )
+        }
+        
+        if currentUserIsClosedGroupAdmin {
+            adminActionsSection?.elements.append(
+                SessionCell.Info(
+                    id: .disappearingMessages,
+                    leadingAccessory: .icon(.timer),
+                    title: "disappearingMessages".localized(),
+                    subtitle: {
+                        guard current.disappearingMessagesConfig.isEnabled else {
+                            return "off".localized()
+                        }
+                        
+                        return (current.disappearingMessagesConfig.type ?? .unknown)
+                            .localizedState(
+                                durationString: current.disappearingMessagesConfig.durationString
+                            )
+                    }(),
+                    accessibility: Accessibility(
+                        identifier: "Disappearing messages",
+                        label: "\(ThreadSettingsViewModel.self).disappearing_messages"
+                    ),
+                    onTap: { [weak self, dependencies] in
+                        self?.transitionToScreen(
+                            SessionTableViewController(
+                                viewModel: ThreadDisappearingMessagesSettingsViewModel(
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    currentUserIsClosedGroupMember: threadViewModel.currentUserIsClosedGroupMember,
+                                    currentUserIsClosedGroupAdmin: threadViewModel.currentUserIsClosedGroupAdmin,
+                                    config: current.disappearingMessagesConfig,
+                                    using: dependencies
+                                )
+                            )
+                        )
+                    }
+                )
+            )
+        }
+        
+        // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
+        if currentUserIsClosedGroupAdmin && dependencies[feature: .updatedGroupsAllowDisplayPicture] {
+            adminActionsSection?.elements.append(
+                SessionCell.Info(
+                    id: .debugSetCustomDisplayPicture,
+                    leadingAccessory: .icon(
+                        Lucide.image(icon: .image, size: 24)?
+                            .withRenderingMode(.alwaysTemplate),
+                        customTint: .textPrimary
+                    ),
+                    title: "[DEBUG] Set Custom Display Picture",    // stringlint:disable
+                    onTap: { [weak self] in
+                        self?.updateGroupDisplayPicture(currentUrl: threadViewModel.threadDisplayPictureUrl)
+                    }
+                )
+            )
+        }
         
         // MARK: - Destructive Actions
         
-        let destructiveActionsSection: SectionModel = SectionModel(
+        var destructiveActionsSection: SectionModel = SectionModel(
             model: .destructiveActions,
-            elements: [
-                (threadViewModel.threadIsNoteToSelf || threadViewModel.threadVariant != .contact ? nil :
-                    SessionCell.Info(
-                        id: .blockUser,
-                        leadingAccessory: (
-                            threadViewModel.threadIsBlocked == true ?
-                                .icon(.userRoundCheck) :
+            elements: []
+        )
+        
+        if !threadViewModel.threadIsNoteToSelf && threadViewModel.threadVariant == .contact {
+            destructiveActionsSection.elements.append(
+                SessionCell.Info(
+                    id: .blockUser,
+                    leadingAccessory: (
+                        threadViewModel.threadIsBlocked == true ?
+                            .icon(.userRoundCheck) :
                                 .icon(UIImage(named: "ic_user_round_ban")?.withRenderingMode(.alwaysTemplate))
-                        ),
-                        title: (
-                            threadViewModel.threadIsBlocked == true ?
+                    ),
+                    title: (
+                        threadViewModel.threadIsBlocked == true ?
+                        "blockUnblock".localized() :
+                            "block".localized()
+                    ),
+                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    accessibility: Accessibility(
+                        identifier: "\(ThreadSettingsViewModel.self).block",
+                        label: "Block"
+                    ),
+                    confirmationInfo: ConfirmationModal.Info(
+                        title: (threadViewModel.threadIsBlocked == true ?
                                 "blockUnblock".localized() :
-                                "block".localized()
-                        ),
-                        styling: SessionCell.StyleInfo(tintColor: .danger),
-                        accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).block",
-                            label: "Block"
-                        ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: (threadViewModel.threadIsBlocked == true ?
-                                "blockUnblock".localized() :
-                                "block".localized()
-                            ),
-                            body: (threadViewModel.threadIsBlocked == true ?
-                                .attributedText(
-                                    "blockUnblockName"
-                                        .put(key: "name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                                ) :
+                                    "block".localized()
+                               ),
+                        body: (threadViewModel.threadIsBlocked == true ?
+                            .attributedText(
+                                "blockUnblockName"
+                                    .put(key: "name", value: threadViewModel.displayName)
+                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                            ) :
                                 .attributedText(
                                     "blockDescription"
                                         .put(key: "name", value: threadViewModel.displayName)
                                         .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                 )
-                            ),
-                            confirmTitle: (threadViewModel.threadIsBlocked == true ?
-                                "blockUnblock".localized() :
-                                "block".localized()
-                            ),
-                            confirmStyle: .danger,
-                            cancelStyle: .alert_text
                         ),
-                        onTap: { [weak self] in
-                            let isBlocked: Bool = (threadViewModel.threadIsBlocked == true)
-                            
-                            self?.updateBlockedState(
-                                from: isBlocked,
-                                isBlocked: !isBlocked,
-                                threadId: threadViewModel.threadId,
-                                displayName: threadViewModel.displayName
-                            )
-                        }
-                    )
-                ),
-                
-                (threadViewModel.threadIsNoteToSelf != true ? nil :
-                    SessionCell.Info(
-                        id: .hideNoteToSelf,
-                        leadingAccessory: .icon(isThreadHidden ? .eye : .eyeOff),
-                        title: isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
-                        styling: SessionCell.StyleInfo(tintColor: isThreadHidden ? .textPrimary : .danger),
-                        accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).hide_note_to_self",
-                            label: "Hide Note to Self"
-                        ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
-                            body: .attributedText(
-                                isThreadHidden ?
-                                "showNoteToSelfDescription"
-                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont) :
-                                "hideNoteToSelfDescription"
-                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                            ),
-                            confirmTitle: isThreadHidden ? "show".localized() : "hide".localized(),
-                            confirmStyle: isThreadHidden ? .alert_text : .danger,
-                            cancelStyle: .alert_text
-                        ),
-                        onTap: { [dependencies] in
-                            dependencies[singleton: .storage].writeAsync { db in
-                                if isThreadHidden {
-                                    try SessionThread.updateVisibility(
-                                        db,
-                                        threadId: threadViewModel.threadId,
-                                        isVisible: true,
-                                        using: dependencies
-                                    )
-                                } else {
-                                    try SessionThread.deleteOrLeave(
-                                        db,
-                                        type: .hideContactConversation,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        using: dependencies
-                                    )
-                                }
-                            }
-                        }
-                    )
-                ),
-                
-                SessionCell.Info(
-                    id: .clearAllMessages,
-                    leadingAccessory: .icon(
-                        UIImage(named: "ic_message_trash")?.withRenderingMode(.alwaysTemplate)
+                        confirmTitle: (threadViewModel.threadIsBlocked == true ?
+                                       "blockUnblock".localized() :
+                                        "block".localized()
+                                      ),
+                        confirmStyle: .danger,
+                        cancelStyle: .alert_text
                     ),
-                    title: "clearMessages".localized(),
-                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    onTap: { [weak self] in
+                        let isBlocked: Bool = (threadViewModel.threadIsBlocked == true)
+                        
+                        self?.updateBlockedState(
+                            from: isBlocked,
+                            isBlocked: !isBlocked,
+                            threadId: threadViewModel.threadId,
+                            displayName: threadViewModel.displayName
+                        )
+                    }
+                )
+            )
+        }
+        
+        if threadViewModel.threadIsNoteToSelf {
+            destructiveActionsSection.elements.append(
+                SessionCell.Info(
+                    id: .hideNoteToSelf,
+                    leadingAccessory: .icon(isThreadHidden ? .eye : .eyeOff),
+                    title: isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
+                    styling: SessionCell.StyleInfo(tintColor: isThreadHidden ? .textPrimary : .danger),
                     accessibility: Accessibility(
-                        identifier: "\(ThreadSettingsViewModel.self).clear_all_messages",
-                        label: "Clear All Messages"
+                        identifier: "\(ThreadSettingsViewModel.self).hide_note_to_self",
+                        label: "Hide Note to Self"
                     ),
                     confirmationInfo: ConfirmationModal.Info(
-                        title: "clearMessages".localized(),
-                        body: {
-                            guard threadViewModel.threadIsNoteToSelf != true else {
-                                return .attributedText(
-                                    "clearMessagesNoteToSelfDescriptionUpdated"
-                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                        title: isThreadHidden ? "showNoteToSelf".localized() : "noteToSelfHide".localized(),
+                        body: .attributedText(
+                            isThreadHidden ?
+                            "showNoteToSelfDescription"
+                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont) :
+                                "hideNoteToSelfDescription"
+                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                        ),
+                        confirmTitle: isThreadHidden ? "show".localized() : "hide".localized(),
+                        confirmStyle: isThreadHidden ? .alert_text : .danger,
+                        cancelStyle: .alert_text
+                    ),
+                    onTap: { [dependencies] in
+                        dependencies[singleton: .storage].writeAsync { db in
+                            if isThreadHidden {
+                                try SessionThread.updateVisibility(
+                                    db,
+                                    threadId: threadViewModel.threadId,
+                                    isVisible: true,
+                                    using: dependencies
+                                )
+                            } else {
+                                try SessionThread.deleteOrLeave(
+                                    db,
+                                    type: .hideContactConversation,
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    using: dependencies
                                 )
                             }
-                            switch threadVariant {
-                                case .contact:
-                                    return .attributedText(
-                                        "clearMessagesChatDescriptionUpdated"
-                                            .put(key: "name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                        }
+                    }
+                )
+            )
+        }
+        
+        destructiveActionsSection.elements.append(
+            SessionCell.Info(
+                id: .clearAllMessages,
+                leadingAccessory: .icon(
+                    UIImage(named: "ic_message_trash")?.withRenderingMode(.alwaysTemplate)
+                ),
+                title: "clearMessages".localized(),
+                styling: SessionCell.StyleInfo(tintColor: .danger),
+                accessibility: Accessibility(
+                    identifier: "\(ThreadSettingsViewModel.self).clear_all_messages",
+                    label: "Clear All Messages"
+                ),
+                confirmationInfo: ConfirmationModal.Info(
+                    title: "clearMessages".localized(),
+                    body: {
+                        guard threadViewModel.threadIsNoteToSelf != true else {
+                            return .attributedText(
+                                "clearMessagesNoteToSelfDescriptionUpdated"
+                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                            )
+                        }
+                        switch threadVariant {
+                            case .contact:
+                                return .attributedText(
+                                    "clearMessagesChatDescriptionUpdated"
+                                        .put(key: "name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                )
+                            case .legacyGroup:
+                                return .attributedText(
+                                    "clearMessagesGroupDescriptionUpdated"
+                                        .put(key: "group_name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                )
+                            case .community:
+                                return .attributedText(
+                                    "clearMessagesCommunityUpdated"
+                                        .put(key: "community_name", value: threadViewModel.displayName)
+                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                                )
+                            case .group:
+                                if currentUserIsClosedGroupAdmin {
+                                    return .radio(
+                                        explanation: "clearMessagesGroupAdminDescriptionUpdated"
+                                            .put(key: "group_name", value: threadViewModel.displayName)
+                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
+                                        warning: nil,
+                                        options: [
+                                            ConfirmationModal.Info.Body.RadioOptionInfo(
+                                                title: "clearOnThisDevice".localized(),
+                                                enabled: true,
+                                                selected: true,
+                                                accessibility: Accessibility(
+                                                    identifier: "",
+                                                    label: ""
+                                                )
+                                            ),
+                                            ConfirmationModal.Info.Body.RadioOptionInfo(
+                                                title: "clearMessagesForEveryone".localized(),
+                                                enabled: true,
+                                                selected: false,
+                                                accessibility: Accessibility(
+                                                    identifier: "",
+                                                    label: ""
+                                                )
+                                            )
+                                        ]
                                     )
-                                case .legacyGroup:
+                                } else {
                                     return .attributedText(
                                         "clearMessagesGroupDescriptionUpdated"
                                             .put(key: "group_name", value: threadViewModel.displayName)
                                             .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
                                     )
-                                case .community:
-                                    return .attributedText(
-                                        "clearMessagesCommunityUpdated"
-                                            .put(key: "community_name", value: threadViewModel.displayName)
-                                            .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                                    )
-                                case .group:
-                                    if currentUserIsClosedGroupAdmin {
-                                        return .radio(
-                                            explanation: "clearMessagesGroupAdminDescriptionUpdated"
-                                                .put(key: "group_name", value: threadViewModel.displayName)
-                                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
-                                            warning: nil,
-                                            options: [
-                                                ConfirmationModal.Info.Body.RadioOptionInfo(
-                                                    title: "clearOnThisDevice".localized(),
-                                                    enabled: true,
-                                                    selected: true,
-                                                    accessibility: Accessibility(
-                                                        identifier: "",
-                                                        label: ""
-                                                    )
-                                                ),
-                                                ConfirmationModal.Info.Body.RadioOptionInfo(
-                                                    title: "clearMessagesForEveryone".localized(),
-                                                    enabled: true,
-                                                    selected: false,
-                                                    accessibility: Accessibility(
-                                                        identifier: "",
-                                                        label: ""
-                                                    )
-                                                )
-                                            ]
-                                        )
-                                    } else {
-                                        return .attributedText(
-                                            "clearMessagesGroupDescriptionUpdated"
-                                                .put(key: "group_name", value: threadViewModel.displayName)
-                                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                                        )
-                                    }
-                            }
-                        }(),
-                        confirmTitle: "clear".localized(),
-                        confirmStyle: .danger,
-                        cancelStyle: .alert_text,
-                        dismissOnConfirm: false,
-                        onConfirm: { [weak self, threadVariant, dependencies] modal in
-                            if threadVariant == .group && currentUserIsClosedGroupAdmin {
-                                /// Determine the selected action index
-                                let selectedIndex: Int = {
-                                    switch modal.info.body {
-                                        case .radio(_, _, let options):
-                                            return options
-                                                .enumerated()
-                                                .first(where: { _, value in value.selected })
-                                                .map { index, _ in index }
-                                                .defaulting(to: 0)
-                                        
-                                        default: return 0
-                                    }
-                                }()
-                                
-                                // Don't update the group if the selected option is `Clear on this device`
-                                if selectedIndex != 0 {
-                                    self?.deleteAllMessagesBeforeNow()
                                 }
-                            }
+                        }
+                    }(),
+                    confirmTitle: "clear".localized(),
+                    confirmStyle: .danger,
+                    cancelStyle: .alert_text,
+                    dismissOnConfirm: false,
+                    onConfirm: { [weak self, threadVariant, dependencies] modal in
+                        if threadVariant == .group && currentUserIsClosedGroupAdmin {
+                            /// Determine the selected action index
+                            let selectedIndex: Int = {
+                                switch modal.info.body {
+                                    case .radio(_, _, let options):
+                                        return options
+                                            .enumerated()
+                                            .first(where: { _, value in value.selected })
+                                            .map { index, _ in index }
+                                            .defaulting(to: 0)
+                                    
+                                    default: return 0
+                                }
+                            }()
                             
-                            dependencies[singleton: .storage].writeAsync(
-                                updates: { db in
-                                    try Interaction.markAllAsDeleted(
-                                        db,
-                                        threadId: threadViewModel.id,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        options: [.local, .noArtifacts],
-                                        using: dependencies
-                                    )
-                                }, completion: { [weak self] result in
-                                    switch result {
-                                        case .failure(let error):
-                                            Log.error("Failed to clear messages due to error: \(error)")
-                                            DispatchQueue.main.async {
-                                                modal.dismiss(animated: true) {
-                                                    self?.showToast(
-                                                        text: "deleteMessageFailed"
-                                                            .putNumber(0)
-                                                            .localized(),
-                                                        backgroundColor: .backgroundSecondary
-                                                    )
-                                                }
-                                            }
-                                            
-                                        case .success:
-                                            DispatchQueue.main.async {
-                                                modal.dismiss(animated: true) {
-                                                    self?.showToast(
-                                                        text: "deleteMessageDeleted"
-                                                            .putNumber(0)
-                                                            .localized(),
-                                                        backgroundColor: .backgroundSecondary
-                                                    )
-                                                }
-                                            }
-                                            
-                                    }
-                                }
-                            )
-                        }
-                    )
-                ),
-                
-                (threadViewModel.threadVariant != .community ? nil :
-                    SessionCell.Info(
-                        id: .leaveCommunity,
-                        leadingAccessory: .icon(.logOut),
-                        title: "communityLeave".localized(),
-                        styling: SessionCell.StyleInfo(tintColor: .danger),
-                        accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).leave_community",
-                            label: "Leave Community"
-                        ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: "communityLeave".localized(),
-                            body: .attributedText(
-                                "groupLeaveDescription"
-                                    .put(key: "group_name", value: threadViewModel.displayName)
-                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                            ),
-                            confirmTitle: "leave".localized(),
-                            confirmStyle: .danger,
-                            cancelStyle: .alert_text
-                        ),
-                        onTap: { [weak self, dependencies] in
-                            self?.dismissScreen(type: .popToRoot) {
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    try SessionThread.deleteOrLeave(
-                                        db,
-                                        type: .deleteCommunityAndContent,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        using: dependencies
-                                    )
-                                }
+                            // Don't update the group if the selected option is `Clear on this device`
+                            if selectedIndex != 0 {
+                                self?.deleteAllMessagesBeforeNow()
                             }
                         }
-                    )
-                ),
-                
-                (!currentUserIsClosedGroupMember ? nil :
-                    SessionCell.Info(
-                        id: .leaveGroup,
-                        leadingAccessory: .icon(currentUserIsClosedGroupAdmin ? .trash2 : .logOut),
-                        title: currentUserIsClosedGroupAdmin ? "groupDelete".localized() : "groupLeave".localized(),
-                        styling: SessionCell.StyleInfo(tintColor: .danger),
-                        accessibility: Accessibility(
-                            identifier: "Leave group",
-                            label: "Leave group"
-                        ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: currentUserIsClosedGroupAdmin ? "groupDelete".localized() : "groupLeave".localized(),
-                            body: (currentUserIsClosedGroupAdmin ?
-                                .attributedText(
-                                    "groupDeleteDescription"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                                ) :
-                                .attributedText(
-                                    "groupLeaveDescription"
-                                        .put(key: "group_name", value: threadViewModel.displayName)
-                                        .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                        
+                        dependencies[singleton: .storage].writeAsync(
+                            updates: { db in
+                                try Interaction.markAllAsDeleted(
+                                    db,
+                                    threadId: threadViewModel.id,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    options: [.local, .noArtifacts],
+                                    using: dependencies
                                 )
-                            ),
-                            confirmTitle: currentUserIsClosedGroupAdmin ? "delete".localized() : "leave".localized(),
-                            confirmStyle: .danger,
-                            cancelStyle: .alert_text
-                        ),
-                        onTap: { [weak self, dependencies] in
-                            self?.dismissScreen(type: .popToRoot) {
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    try SessionThread.deleteOrLeave(
-                                        db,
-                                        type: .leaveGroupAsync,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        using: dependencies
-                                    )
+                            }, completion: { [weak self] result in
+                                switch result {
+                                    case .failure(let error):
+                                        Log.error("Failed to clear messages due to error: \(error)")
+                                        DispatchQueue.main.async {
+                                            modal.dismiss(animated: true) {
+                                                self?.showToast(
+                                                    text: "deleteMessageFailed"
+                                                        .putNumber(0)
+                                                        .localized(),
+                                                    backgroundColor: .backgroundSecondary
+                                                )
+                                            }
+                                        }
+                                        
+                                    case .success:
+                                        DispatchQueue.main.async {
+                                            modal.dismiss(animated: true) {
+                                                self?.showToast(
+                                                    text: "deleteMessageDeleted"
+                                                        .putNumber(0)
+                                                        .localized(),
+                                                    backgroundColor: .backgroundSecondary
+                                                )
+                                            }
+                                        }
+                                        
                                 }
                             }
-                        }
-                    )
-                ),
-                
-                (threadVariant != .contact || threadViewModel.threadIsNoteToSelf == true ? nil :
-                    SessionCell.Info(
-                        id: .deleteConversation,
-                        leadingAccessory: .icon(.trash2),
-                        title: "conversationsDelete".localized(),
-                        styling: SessionCell.StyleInfo(tintColor: .danger),
-                        accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).delete_conversation",
-                            label: "Delete Conversation"
-                        ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: "conversationsDelete".localized(),
-                            body: .attributedText(
-                                "deleteConversationDescription"
-                                    .put(key: "name", value: threadViewModel.displayName)
-                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
-                            ),
-                            confirmTitle: "delete".localized(),
-                            confirmStyle: .danger,
-                            cancelStyle: .alert_text
-                        ),
-                        onTap: { [weak self, dependencies] in
-                            self?.dismissScreen(type: .popToRoot) {
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    try SessionThread.deleteOrLeave(
-                                        db,
-                                        type: .deleteContactConversationAndMarkHidden,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        using: dependencies
-                                    )
-                                }
-                            }
-                        }
-                    )
-                 ),
-                
-                (threadVariant != .contact || threadViewModel.threadIsNoteToSelf == true ? nil :
-                    SessionCell.Info(
-                        id: .deleteContact,
-                        leadingAccessory: .icon(
-                            UIImage(named: "ic_user_round_trash")?.withRenderingMode(.alwaysTemplate)
-                        ),
-                        title: "contactDelete".localized(),
-                        styling: SessionCell.StyleInfo(tintColor: .danger),
-                        accessibility: Accessibility(
-                            identifier: "\(ThreadSettingsViewModel.self).delete_contact",
-                            label: "Delete Contact"
-                        ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: "contactDelete".localized(),
-                            body: .attributedText(
-                                "deleteContactDescription"
-                                    .put(key: "name", value: threadViewModel.displayName)
-                                    .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
-                                scrollMode: .never
-                            ),
-                            confirmTitle: "delete".localized(),
-                            confirmStyle: .danger,
-                            cancelStyle: .alert_text
-                        ),
-                        onTap: { [weak self, dependencies] in
-                            self?.dismissScreen(type: .popToRoot) {
-                                dependencies[singleton: .storage].writeAsync { db in
-                                    try SessionThread.deleteOrLeave(
-                                        db,
-                                        type: .deleteContactConversationAndContact,
-                                        threadId: threadViewModel.threadId,
-                                        threadVariant: threadViewModel.threadVariant,
-                                        using: dependencies
-                                    )
-                                }
-                            }
-                        }
-                    )
-                ),
-                
-                // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
-                (!dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] || threadViewModel.threadVariant != .group ? nil :
-                    SessionCell.Info(
-                        id: .debugDeleteAttachmentsBeforeNow,
-                        leadingAccessory: .icon(
-                            Lucide.image(icon: .trash2, size: 24)?
-                                .withRenderingMode(.alwaysTemplate),
-                            customTint: .danger
-                        ),
-                        title: "[DEBUG] Delete all arrachments before now",    // stringlint:disable
-                        styling: SessionCell.StyleInfo(
-                            tintColor: .danger
-                        ),
-                        confirmationInfo: ConfirmationModal.Info(
-                            title: "delete".localized(),
-                            body: .text("Are you sure you want to delete all attachments (and their associated messages) sent before now for all group members?"),   // stringlint:disable
-                            confirmTitle: "delete".localized(),
-                            confirmStyle: .danger,
-                            cancelStyle: .alert_text
-                        ),
-                        onTap: { [weak self] in self?.deleteAllAttachmentsBeforeNow() }
-                    )
+                        )
+                    }
                 )
-            ].compactMap { $0 }
+            )
         )
+        
+        if threadViewModel.threadVariant == .community {
+            destructiveActionsSection.elements.append(
+                SessionCell.Info(
+                    id: .leaveCommunity,
+                    leadingAccessory: .icon(.logOut),
+                    title: "communityLeave".localized(),
+                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    accessibility: Accessibility(
+                        identifier: "\(ThreadSettingsViewModel.self).leave_community",
+                        label: "Leave Community"
+                    ),
+                    confirmationInfo: ConfirmationModal.Info(
+                        title: "communityLeave".localized(),
+                        body: .attributedText(
+                            "groupLeaveDescription"
+                                .put(key: "group_name", value: threadViewModel.displayName)
+                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                        ),
+                        confirmTitle: "leave".localized(),
+                        confirmStyle: .danger,
+                        cancelStyle: .alert_text
+                    ),
+                    onTap: { [weak self, dependencies] in
+                        self?.dismissScreen(type: .popToRoot) {
+                            dependencies[singleton: .storage].writeAsync { db in
+                                try SessionThread.deleteOrLeave(
+                                    db,
+                                    type: .deleteCommunityAndContent,
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    using: dependencies
+                                )
+                            }
+                        }
+                    }
+                )
+            )
+        }
+        
+        if
+            currentUserIsClosedGroupMember && (
+                !currentUserIsClosedGroupAdmin ||
+                (threadViewModel.closedGroupAdminCount ?? 0) > 1
+            )
+        {
+            destructiveActionsSection.elements.append(
+                SessionCell.Info(
+                    id: .leaveGroup,
+                    leadingAccessory: .icon(.logOut),
+                    title: "groupLeave".localized(),
+                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    accessibility: Accessibility(
+                        identifier: "Leave group",
+                        label: "Leave group"
+                    ),
+                    confirmationInfo: ConfirmationModal.Info(
+                        title: "groupLeave".localized(),
+                        body: .attributedText(
+                            "groupLeaveDescription"
+                                .put(key: "group_name", value: threadViewModel.displayName)
+                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                        ),
+                        confirmTitle: "leave".localized(),
+                        confirmStyle: .danger,
+                        cancelStyle: .alert_text
+                    ),
+                    onTap: { [weak self, dependencies] in
+                        self?.dismissScreen(type: .popToRoot) {
+                            dependencies[singleton: .storage].writeAsync { db in
+                                try SessionThread.deleteOrLeave(
+                                    db,
+                                    type: .leaveGroupAsync,
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    using: dependencies
+                                )
+                            }
+                        }
+                    }
+                )
+            )
+        }
+        
+        if currentUserIsClosedGroupAdmin {
+            destructiveActionsSection.elements.append(
+                SessionCell.Info(
+                    id: .leaveGroup,
+                    leadingAccessory: .icon(.trash2),
+                    title: "groupDelete".localized(),
+                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    accessibility: Accessibility(
+                        identifier: "Delete group",
+                        label: "Delete group"
+                    ),
+                    confirmationInfo: ConfirmationModal.Info(
+                        title: "groupDelete".localized(),
+                        body: .attributedText(
+                            "groupDeleteDescription"
+                                .put(key: "group_name", value: threadViewModel.displayName)
+                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                        ),
+                        confirmTitle: "delete".localized(),
+                        confirmStyle: .danger,
+                        cancelStyle: .alert_text
+                    ),
+                    onTap: { [weak self, dependencies] in
+                        self?.dismissScreen(type: .popToRoot) {
+                            dependencies[singleton: .storage].writeAsync { db in
+                                try SessionThread.deleteOrLeave(
+                                    db,
+                                    type: .deleteGroupAndContent,
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    using: dependencies
+                                )
+                            }
+                        }
+                    }
+                )
+            )
+        }
+        
+        if threadViewModel.threadIsNoteToSelf != true && threadVariant == .contact {
+            destructiveActionsSection.elements.append(
+                SessionCell.Info(
+                    id: .deleteConversation,
+                    leadingAccessory: .icon(.trash2),
+                    title: "conversationsDelete".localized(),
+                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    accessibility: Accessibility(
+                        identifier: "\(ThreadSettingsViewModel.self).delete_conversation",
+                        label: "Delete Conversation"
+                    ),
+                    confirmationInfo: ConfirmationModal.Info(
+                        title: "conversationsDelete".localized(),
+                        body: .attributedText(
+                            "deleteConversationDescription"
+                                .put(key: "name", value: threadViewModel.displayName)
+                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont)
+                        ),
+                        confirmTitle: "delete".localized(),
+                        confirmStyle: .danger,
+                        cancelStyle: .alert_text
+                    ),
+                    onTap: { [weak self, dependencies] in
+                        self?.dismissScreen(type: .popToRoot) {
+                            dependencies[singleton: .storage].writeAsync { db in
+                                try SessionThread.deleteOrLeave(
+                                    db,
+                                    type: .deleteContactConversationAndMarkHidden,
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    using: dependencies
+                                )
+                            }
+                        }
+                    }
+                )
+            )
+            
+            destructiveActionsSection.elements.append(
+                SessionCell.Info(
+                    id: .deleteContact,
+                    leadingAccessory: .icon(
+                        UIImage(named: "ic_user_round_trash")?.withRenderingMode(.alwaysTemplate)
+                    ),
+                    title: "contactDelete".localized(),
+                    styling: SessionCell.StyleInfo(tintColor: .danger),
+                    accessibility: Accessibility(
+                        identifier: "\(ThreadSettingsViewModel.self).delete_contact",
+                        label: "Delete Contact"
+                    ),
+                    confirmationInfo: ConfirmationModal.Info(
+                        title: "contactDelete".localized(),
+                        body: .attributedText(
+                            "deleteContactDescription"
+                                .put(key: "name", value: threadViewModel.displayName)
+                                .localizedFormatted(baseFont: ConfirmationModal.explanationFont),
+                            scrollMode: .never
+                        ),
+                        confirmTitle: "delete".localized(),
+                        confirmStyle: .danger,
+                        cancelStyle: .alert_text
+                    ),
+                    onTap: { [weak self, dependencies] in
+                        self?.dismissScreen(type: .popToRoot) {
+                            dependencies[singleton: .storage].writeAsync { db in
+                                try SessionThread.deleteOrLeave(
+                                    db,
+                                    type: .deleteContactConversationAndContact,
+                                    threadId: threadViewModel.threadId,
+                                    threadVariant: threadViewModel.threadVariant,
+                                    using: dependencies
+                                )
+                            }
+                        }
+                    }
+                )
+            )
+        }
+        
+        // FIXME: [GROUPS REBUILD] Need to build this properly in a future release
+        if threadViewModel.threadVariant == .group && dependencies[feature: .updatedGroupsDeleteAttachmentsBeforeNow] {
+            destructiveActionsSection.elements.append(
+                SessionCell.Info(
+                    id: .debugDeleteAttachmentsBeforeNow,
+                    leadingAccessory: .icon(
+                        Lucide.image(icon: .trash2, size: 24)?
+                            .withRenderingMode(.alwaysTemplate),
+                        customTint: .danger
+                    ),
+                    title: "[DEBUG] Delete all arrachments before now",    // stringlint:disable
+                    styling: SessionCell.StyleInfo(
+                        tintColor: .danger
+                    ),
+                    confirmationInfo: ConfirmationModal.Info(
+                        title: "delete".localized(),
+                        body: .text("Are you sure you want to delete all attachments (and their associated messages) sent before now for all group members?"),   // stringlint:disable
+                        confirmTitle: "delete".localized(),
+                        confirmStyle: .danger,
+                        cancelStyle: .alert_text
+                    ),
+                    onTap: { [weak self] in self?.deleteAllAttachmentsBeforeNow() }
+                )
+            )
+        }
         
         return [
             conversationInfoSection,

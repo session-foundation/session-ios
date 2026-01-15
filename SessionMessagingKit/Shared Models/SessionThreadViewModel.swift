@@ -61,6 +61,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         case closedGroupName
         case closedGroupDescription
         case closedGroupUserCount
+        case closedGroupAdminCount
         case closedGroupExpired
         case currentUserIsClosedGroupMember
         case currentUserIsClosedGroupAdmin
@@ -143,6 +144,7 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
     public let closedGroupName: String?
     private let closedGroupDescription: String?
     private let closedGroupUserCount: Int?
+    public let closedGroupAdminCount: Int?
     public let closedGroupExpired: Bool?
     public let currentUserIsClosedGroupMember: Bool?
     public let currentUserIsClosedGroupAdmin: Bool?
@@ -264,15 +266,28 @@ public struct SessionThreadViewModel: PagableRecord, FetchableRecordWithRowId, D
         }
         
         /// Attachments shouldn't be allowed for message requests or if uploads are disabled
-        let finalInputs: InputView.Input
+        var finalInputs: InputView.Input = []
+        var finalMessage: String?
         
-        switch (threadRequiresApproval, threadIsMessageRequest, threadCanUpload) {
-            case (false, false, true): finalInputs = .all
-            default: finalInputs = [.text, .attachmentsDisabled, .voiceMessagesDisabled]
+        if threadCanWrite == true {
+            finalInputs.insert(.text)
+        }
+        else if threadVariant == .group || threadVariant == .legacyGroup {
+            finalMessage = "groupPermissionReadOnly".localized()
+        }
+        
+        if threadCanUpload == true {
+            finalInputs.insert(.attachments)
+            finalInputs.insert(.voiceMessages)
+        }
+        else {
+            finalInputs.insert(.attachmentsDisabled)
+            finalInputs.insert(.voiceMessagesDisabled)
         }
         
         return InputView.InputState(
-            inputs: finalInputs
+            inputs: finalInputs,
+            message: finalMessage
         )
     }
     
@@ -581,6 +596,7 @@ public extension SessionThreadViewModel {
         self.closedGroupName = nil
         self.closedGroupDescription = nil
         self.closedGroupUserCount = nil
+        self.closedGroupAdminCount = nil
         self.closedGroupExpired = closedGroupExpired
         self.currentUserIsClosedGroupMember = currentUserIsClosedGroupMember
         self.currentUserIsClosedGroupAdmin = currentUserIsClosedGroupAdmin
@@ -664,6 +680,7 @@ public extension SessionThreadViewModel {
             closedGroupName: self.closedGroupName,
             closedGroupDescription: self.closedGroupDescription,
             closedGroupUserCount: self.closedGroupUserCount,
+            closedGroupAdminCount: self.closedGroupAdminCount,
             closedGroupExpired: self.closedGroupExpired,
             currentUserIsClosedGroupMember: self.currentUserIsClosedGroupMember,
             currentUserIsClosedGroupAdmin: self.currentUserIsClosedGroupAdmin,
@@ -729,6 +746,19 @@ private struct ClosedGroupUserCount: Decodable, ColumnExpressible {
     
     let groupId: String
     let closedGroupUserCount: Int
+}
+
+// MARK: - ClosedGroupAdminCount
+
+private struct ClosedGroupAdminCount: Decodable, ColumnExpressible {
+    public typealias Columns = CodingKeys
+    public enum CodingKeys: String, CodingKey, ColumnExpression, CaseIterable {
+        case groupId
+        case closedGroupAdminCount
+    }
+    
+    let groupId: String
+    let closedGroupAdminCount: Int
 }
 
 // MARK: - GroupMemberInfo
@@ -1087,6 +1117,7 @@ public extension SessionThreadViewModel {
         let aggregateInteraction: TypedTableAlias<AggregateInteraction> = TypedTableAlias(name: "aggregateInteraction")
         let interaction: TypedTableAlias<Interaction> = TypedTableAlias()
         let closedGroupUserCount: TypedTableAlias<ClosedGroupUserCount> = TypedTableAlias(name: "closedGroupUserCount")
+        let closedGroupAdminCount: TypedTableAlias<ClosedGroupAdminCount> = TypedTableAlias(name: "closedGroupAdminCount")
         let profile: TypedTableAlias<Profile> = TypedTableAlias()
         
         /// **Note:** The `numColumnsBeforeProfiles` value **MUST** match the number of fields before
@@ -1146,6 +1177,7 @@ public extension SessionThreadViewModel {
                 \(contact[.lastKnownClientVersion]) AS \(ViewModel.Columns.contactLastKnownClientVersion),
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(closedGroupUserCount[.closedGroupUserCount]),
+                \(closedGroupAdminCount[.closedGroupAdminCount]),
                 \(closedGroup[.expired]) AS \(ViewModel.Columns.closedGroupExpired),
                 
                 EXISTS (
@@ -1252,7 +1284,17 @@ public extension SessionThreadViewModel {
                     \(SQL("\(groupMember[.groupId]) = \(threadId)")) AND
                     \(SQL("\(groupMember[.role]) != \(GroupMember.Role.zombie)"))
                 )
-            ) AS \(closedGroupUserCount) ON \(SQL("\(closedGroupUserCount[.groupId]) = \(threadId)"))
+            ) AS \(closedGroupUserCount) ON \(SQL("\(closedGroupUserCount[.groupId]) = \(threadId)"))      
+            LEFT JOIN (
+                SELECT
+                    \(groupMember[.groupId]),
+                    COUNT(DISTINCT \(groupMember[.profileId])) AS \(ClosedGroupAdminCount.Columns.closedGroupAdminCount)
+                FROM \(GroupMember.self)
+                WHERE (
+                    \(SQL("\(groupMember[.groupId]) = \(threadId)")) AND
+                    \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)"))
+                )
+            ) AS \(closedGroupAdminCount) ON \(SQL("\(closedGroupAdminCount[.groupId]) = \(threadId)"))
             
             WHERE \(SQL("\(thread[.id]) = \(threadId)"))
         """
@@ -1286,6 +1328,7 @@ public extension SessionThreadViewModel {
         let closedGroupProfileBack: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBack)
         let closedGroupProfileBackFallback: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupProfileBackFallback)
         let closedGroupAdminProfile: TypedTableAlias<Profile> = TypedTableAlias(ViewModel.self, column: .closedGroupAdminProfile)
+        let closedGroupAdminCount: TypedTableAlias<ClosedGroupAdminCount> = TypedTableAlias(name: "closedGroupAdminCount")
         let groupMember: TypedTableAlias<GroupMember> = TypedTableAlias()
         let openGroup: TypedTableAlias<OpenGroup> = TypedTableAlias()
         let profile: TypedTableAlias<Profile> = TypedTableAlias()
@@ -1317,6 +1360,7 @@ public extension SessionThreadViewModel {
         
                 \(closedGroup[.name]) AS \(ViewModel.Columns.closedGroupName),
                 \(closedGroup[.groupDescription]) AS \(ViewModel.Columns.closedGroupDescription),
+                \(closedGroupAdminCount[.closedGroupAdminCount]),
                 \(closedGroup[.expired]) AS \(ViewModel.Columns.closedGroupExpired),
                 
                 EXISTS (
@@ -1394,8 +1438,18 @@ public extension SessionThreadViewModel {
                 \(closedGroup[.threadId]) IS NOT NULL AND
                 \(closedGroupProfileBack[.id]) IS NULL AND
                 \(closedGroupProfileBackFallback[.id]) = \(SQL("\(userSessionId.hexString)"))
-            )            
+            )
             LEFT JOIN \(closedGroupAdminProfile.never)
+            LEFT JOIN (
+                SELECT
+                    \(groupMember[.groupId]),
+                    COUNT(DISTINCT \(groupMember[.profileId])) AS \(ClosedGroupAdminCount.Columns.closedGroupAdminCount)
+                FROM \(GroupMember.self)
+                WHERE (
+                    \(SQL("\(groupMember[.groupId]) = \(threadId)")) AND
+                    \(SQL("\(groupMember[.role]) = \(GroupMember.Role.admin)"))
+                )
+            ) AS \(closedGroupAdminCount) ON \(SQL("\(closedGroupAdminCount[.groupId]) = \(threadId)"))
             
             WHERE \(SQL("\(thread[.id]) = \(threadId)"))
         """
