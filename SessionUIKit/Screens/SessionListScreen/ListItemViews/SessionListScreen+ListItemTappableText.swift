@@ -11,18 +11,18 @@ public struct ListItemTappableText: View {
         let font: UIFont
         let themeForegroundColor: ThemeValue
         let imageAttachmentPosition: SessionListScreenContent.TextInfo.InlineImagePosition?
-        let imageAttachmentGenerator: (() -> (UIImage, String?)?)?
-        let onTextTap: (@MainActor() -> Void)?
-        let onImageTap: (@MainActor() -> Void)?
+        let imageAttachmentGenerator: (@Sendable () -> (UIImage, String?)?)?
+        let onTextTap: (@MainActor @Sendable () -> Void)?
+        let onImageTap: (@MainActor @Sendable () -> Void)?
         
         public init(
             text: String,
             font: UIFont,
             themeForegroundColor: ThemeValue = .textPrimary,
             imageAttachmentPosition: SessionListScreenContent.TextInfo.InlineImagePosition? = nil,
-            imageAttachmentGenerator: (() -> (UIImage, String?)?)? = nil,
-            onTextTap: (@MainActor() -> Void)? = nil,
-            onImageTap: (@MainActor() -> Void)? = nil
+            imageAttachmentGenerator: (@Sendable () -> (UIImage, String?)?)? = nil,
+            onTextTap: (@MainActor @Sendable () -> Void)? = nil,
+            onImageTap: (@MainActor @Sendable () -> Void)? = nil
         ) {
             self.text = text
             self.font = font
@@ -113,3 +113,4 @@ public struct ListItemTappableText: View {
         .padding(.horizontal, Values.mediumSpacing)
     }
 }
+

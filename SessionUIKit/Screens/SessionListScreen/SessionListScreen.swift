@@ -168,15 +168,23 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                             let element = section.elements[index]
                             let isLastElement: Bool = (index == section.elements.count - 1)
                             let onTapAction: (@MainActor () -> Void) = {
-                                if let elementOnTap = element.onTap {
-                                    elementOnTap()
+                                guard var confirmationInfo = element.confirmationInfo else {
+                                    element.onTap?()
+                                    return
                                 }
                                 
-                                if let confirmationInfo = element.confirmationInfo {
-                                    let modal: ConfirmationModal = ConfirmationModal(info: confirmationInfo)
-                                    host.controller?.present(modal, animated: true)
+                                if let elementOnTap = element.onTap {
+                                    confirmationInfo = confirmationInfo.with(
+                                        onConfirm: { _ in
+                                            elementOnTap()
+                                        }
+                                    )
                                 }
+                                
+                                let modal: ConfirmationModal = ConfirmationModal(info: confirmationInfo)
+                                host.controller?.present(modal, animated: true)
                             }
+                            
                             switch element.variant {
                                 case .cell(let info):
                                     VStack(spacing: 0) {
@@ -184,6 +192,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                             info: info,
                                             onTap: onTapAction
                                         )
+                                        .accessibility(element.accessibility)
                                         .frame(
                                             maxWidth: .infinity,
                                             minHeight: section.model.style.cellMinHeight
@@ -205,6 +214,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     )
                                 case .logoWithPro(let info):
                                     ListItemLogoWithPro(info: info)
+                                        .accessibility(element.accessibility)
                                         .onTapGesture {
                                             onTapAction()
                                         }
@@ -218,6 +228,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         suppressUntil: $suppressUntil,
                                         info: info
                                     )
+                                    .accessibility(element.accessibility)
                                     .onTapGesture {
                                         onTapAction()
                                     }
@@ -227,6 +238,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                     )
                                 case .button(let title, let enabled):
                                     ListItemButton(title: title, enabled: enabled)
+                                        .accessibility(element.accessibility)
                                         .onTapGesture {
                                             onTapAction()
                                         }
@@ -239,6 +251,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         host: host,
                                         onProfilePictureTap: onTapAction
                                     )
+                                    .accessibility(element.accessibility)
                                     .padding(.vertical, Values.smallSpacing)
                                     .frame(maxWidth: .infinity, alignment: .top)
                                 case .tappableText(let info):
@@ -247,6 +260,7 @@ public struct SessionListScreen<ViewModel: SessionListScreenContent.ViewModelTyp
                                         height: section.model.style.cellMinHeight,
                                         onAnyTap: onTapAction
                                     )
+                                    .accessibility(element.accessibility)
                                     .padding(.vertical, Values.smallSpacing)
                                     .frame(maxWidth: .infinity)
                             }
