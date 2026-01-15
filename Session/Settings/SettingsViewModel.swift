@@ -373,32 +373,30 @@ class SettingsViewModel: SessionListScreenContent.ViewModelType, NavigationItemS
                                 switch state.proState.status {
                                     case .neverBeenPro: return nil
                                     case .active:
-                                        return {
-                                            (
-                                                UIView.image(
-                                                    for: .themedKey(
-                                                        SessionProBadge.Size.medium.cacheKey,
-                                                        themeBackgroundColor: .primary
-                                                    ),
-                                                    generator: { SessionProBadge(size: .medium) }
+                                        let imageAttachmentGenerator = (
+                                            UIView.image(
+                                                for: .themedKey(
+                                                    SessionProBadge.Size.medium.cacheKey,
+                                                    themeBackgroundColor: .primary
                                                 ),
-                                                SessionProBadge.accessibilityLabel
-                                            )
-                                        }
+                                                generator: { SessionProBadge(size: .medium) }
+                                            ),
+                                            SessionProBadge.accessibilityLabel
+                                        )
+                                        return { imageAttachmentGenerator }
                                     
                                     case .expired:
-                                        return {
-                                            (
-                                                UIView.image(
-                                                    for: .themedKey(
-                                                        SessionProBadge.Size.medium.cacheKey,
-                                                        themeBackgroundColor: .disabled
-                                                    ),
-                                                    generator: { SessionProBadge(size: .medium) }
+                                        let imageAttachmentGenerator = (
+                                            UIView.image(
+                                                for: .themedKey(
+                                                    SessionProBadge.Size.medium.cacheKey,
+                                                    themeBackgroundColor: .disabled
                                                 ),
-                                                SessionProBadge.accessibilityLabel
-                                            )
-                                        }
+                                                generator: { SessionProBadge(size: .medium) }
+                                            ),
+                                            SessionProBadge.accessibilityLabel
+                                        )
+                                        return { imageAttachmentGenerator }
                                 }
                             }()
                         )
