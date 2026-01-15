@@ -403,12 +403,12 @@ public extension Crypto.Generator {
             id: "sessionProMasterKeyPair",
             args: []
         ) { dependencies in
-            let cEd25519SecretKey: [UInt8] = dependencies[cache: .general].ed25519SecretKey
+            let cEd25519Seed: [UInt8] = dependencies[cache: .general].ed25519Seed
             var cMasterSecretKey: [UInt8] = [UInt8](repeating: 0, count: 64)
             
-            guard !cEd25519SecretKey.isEmpty else { throw CryptoError.missingUserSecretKey }
+            guard !cEd25519Seed.isEmpty else { throw CryptoError.missingUserSecretKey }
             
-            guard session_ed25519_pro_privkey_for_ed25519_seed(cEd25519SecretKey, &cMasterSecretKey) else {
+            guard session_ed25519_pro_privkey_for_ed25519_seed(cEd25519Seed, &cMasterSecretKey) else {
                 throw CryptoError.keyGenerationFailed
             }
             

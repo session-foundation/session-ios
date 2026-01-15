@@ -412,9 +412,9 @@ public class SessionProSettingsViewModel: SessionListScreenContent.ViewModelType
             ]
         )
         
-        switch (state.proState.status, state.isInBottomSheet) {
-            case (.active, _), (.expired, _), (.neverBeenPro, false): break
-            case (.neverBeenPro, true):
+        switch state.proState.status {
+            case .active, .expired: break
+            case .neverBeenPro:
                 logo.elements.append(
                     SessionListScreenContent.ListItemInfo(
                         id: .continueButton,
